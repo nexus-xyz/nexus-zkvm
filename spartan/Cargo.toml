@@ -1,0 +1,74 @@
+[package]
+name = "ark-spartan"
+# sync up with Arkwork's version
+version = "0.4.0"
+authors = [
+    # author of original Spartan paper and code base 
+    # for which this library is modified from
+    "Srinath Setty <srinath@microsoft.com>",
+    # authors who contributed to this modification
+    "Zhenfei Zhang <zhenfei.zhang@hotmail.com>"
+]
+edition = "2021"
+description = "Spartan ZKP system over arkworks"
+documentation = "https://docs.rs/spartan/"
+readme = "README.md"
+repository = "https://github.com/zhenfeizhang/ark-spartan"
+license-file = "LICENSE"
+keywords = ["zkSNARKs", "cryptography", "proofs"]
+
+[dependencies]
+merlin = "3.0.0"
+rand = "0.7.3"
+digest = "0.8.1"
+sha3 = "0.8.2"
+rayon = { version = "1.3.0", optional = true }
+subtle = { version = "2.4", default-features = false }
+rand_core = { version = "0.5", default-features = false }
+zeroize = { version = "1", default-features = false }
+itertools = "0.10.0"
+colored = "2.0.0"
+thiserror = "1.0"
+
+rand_chacha = { version = "0.3.0", default-features = false }
+
+ark-ec = { version = "^0.4.0", default-features = false }
+ark-ff = { version = "^0.4.0", default-features = false }
+ark-std = { version = "^0.4.0", default-features = false }
+ark-serialize =  { version = "^0.4.0", default-features = false, features = [ "derive" ] }
+
+ark-bls12-381 = { version = "^0.4.0", default-features = false, features = [ "curve" ] }
+
+[dev-dependencies]
+criterion = "0.3.1"
+
+
+[lib]
+name = "libspartan"
+path = "src/lib.rs"
+
+[[bin]]
+name = "snark"
+path = "profiler/snark.rs"
+
+[[bin]]
+name = "nizk"
+path = "profiler/nizk.rs"
+
+[[bench]]
+name = "snark"
+harness = false
+
+[[bench]]
+name = "nizk"
+harness = false
+
+[features]
+# default = ["curve25519-dalek/simd_backend"]
+default = [ 
+    "ark-ec/parallel",
+    "ark-ff/parallel",
+    "ark-std/parallel",    
+]
+multicore = ["rayon"]
+profile = []
