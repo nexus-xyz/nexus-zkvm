@@ -1,18 +1,18 @@
-lockfileVersion: 5.4
+lockfileVersion: 5.3
 
 specifiers:
   '@types/node': 18.11.10
   next: ^13.0.6
-  nextra: 2.0.0
-  nextra-theme-docs: 2.0.0
+  nextra: 2.0.1
+  nextra-theme-docs: 2.0.1
   react: ^18.2.0
   react-dom: ^18.2.0
   typescript: ^4.9.3
 
 dependencies:
-  next: 13.0.6_biqbaboplfbrettd7655fr4n2y
-  nextra: 2.0.0_6jx7hpii6hgsrmhxgqrmo3277u
-  nextra-theme-docs: 2.0.0_6jx7hpii6hgsrmhxgqrmo3277u
+  next: 13.0.6_react-dom@18.2.0+react@18.2.0
+  nextra: 2.0.1_f26ff3bd08f1cd28b0f73422c76f5ffd
+  nextra-theme-docs: 2.0.1_f26ff3bd08f1cd28b0f73422c76f5ffd
   react: 18.2.0
   react-dom: 18.2.0_react@18.2.0
 
@@ -29,7 +29,7 @@ packages:
       regenerator-runtime: 0.13.11
     dev: false
 
-  /@headlessui/react/1.7.4_biqbaboplfbrettd7655fr4n2y:
+  /@headlessui/react/1.7.4_react-dom@18.2.0+react@18.2.0:
     resolution: {integrity: sha512-D8n5yGCF3WIkPsjEYeM8knn9jQ70bigGGb5aUvN6y4BGxcT3OcOQOKcM3zRGllRCZCFxCZyQvYJF6ZE7bQUOyQ==}
     engines: {node: '>=10'}
     peerDependencies:
@@ -316,19 +316,19 @@ packages:
     resolution: {integrity: sha512-50/17A98tWUfQ176raKiOGXuYpLyyVMkxxG6oylzL3BPOlA6ADGdK7EYunSa4I064xerltq9TGXs8HmOk5E+vw==}
     dev: false
 
-  /@reach/skip-nav/0.17.0_biqbaboplfbrettd7655fr4n2y:
+  /@reach/skip-nav/0.17.0_react-dom@18.2.0+react@18.2.0:
     resolution: {integrity: sha512-wkkpQK3ffczzGHis6TaUvpOabuAL9n9Kh5vr4h56XPIJP3X77VcHUDk7MK3HbV1mTgamGxc9Hbd1sXKSWLu3yA==}
     peerDependencies:
       react: ^16.8.0 || 17.x
       react-dom: ^16.8.0 || 17.x
     dependencies:
-      '@reach/utils': 0.17.0_biqbaboplfbrettd7655fr4n2y
+      '@reach/utils': 0.17.0_react-dom@18.2.0+react@18.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       tslib: 2.4.1
     dev: false
 
-  /@reach/utils/0.17.0_biqbaboplfbrettd7655fr4n2y:
+  /@reach/utils/0.17.0_react-dom@18.2.0+react@18.2.0:
     resolution: {integrity: sha512-M5y8fCBbrWeIsxedgcSw6oDlAMQDkl5uv3VnMVJ7guwpf4E48Xlh1v66z/1BgN/WYe2y8mB/ilFD2nysEfdGeA==}
     peerDependencies:
       react: ^16.8.0 || 17.x
@@ -1376,31 +1376,31 @@ packages:
     hasBin: true
     dev: false
 
-  /next-seo/5.14.1_6jx7hpii6hgsrmhxgqrmo3277u:
+  /next-seo/5.14.1_f26ff3bd08f1cd28b0f73422c76f5ffd:
     resolution: {integrity: sha512-NiJeQbxYP3z+EMp52q8k3Q+OfX2+Yv2WehERDj98r2wjXxL+woKpRBdsSVYolTD0Hm8IWs42SzaISE93RoQdOw==}
     peerDependencies:
       next: ^8.1.1-canary.54 || >=9.0.0
       react: '>=16.0.0'
       react-dom: '>=16.0.0'
     dependencies:
-      next: 13.0.6_biqbaboplfbrettd7655fr4n2y
+      next: 13.0.6_react-dom@18.2.0+react@18.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
     dev: false
 
-  /next-themes/0.2.1_6jx7hpii6hgsrmhxgqrmo3277u:
+  /next-themes/0.2.1_f26ff3bd08f1cd28b0f73422c76f5ffd:
     resolution: {integrity: sha512-B+AKNfYNIzh0vqQQKqQItTS8evEouKD7H5Hj3kmuPERwddR2TxvDSFZuTj6T7Jfn1oyeUyJMydPl1Bkxkh0W7A==}
     peerDependencies:
       next: '*'
       react: '*'
       react-dom: '*'
     dependencies:
-      next: 13.0.6_biqbaboplfbrettd7655fr4n2y
+      next: 13.0.6_react-dom@18.2.0+react@18.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
     dev: false
 
-  /next/13.0.6_biqbaboplfbrettd7655fr4n2y:
+  /next/13.0.6_react-dom@18.2.0+react@18.2.0:
     resolution: {integrity: sha512-COvigvms2LRt1rrzfBQcMQ2GZd86Mvk1z+LOLY5pniFtL4VrTmhZ9salrbKfSiXbhsD01TrDdD68ec3ABDyscA==}
     engines: {node: '>=14.6.0'}
     hasBin: true
@@ -1444,17 +1444,17 @@ packages:
       - babel-plugin-macros
     dev: false
 
-  /nextra-theme-docs/2.0.0_6jx7hpii6hgsrmhxgqrmo3277u:
-    resolution: {integrity: sha512-Bkzbx4I/q4MlhGE9/wkI+xGKQFjwE/M3hcCZY1O6vOXkKWSOZ9L7BNq77iPBOzxqdrdN3fVPh0HYMKaR9O4xHA==}
+  /nextra-theme-docs/2.0.1_f26ff3bd08f1cd28b0f73422c76f5ffd:
+    resolution: {integrity: sha512-vrxSQjfG5hcWXd0foVUgRu1T9rD+dQdVnKzJhpEG+ncAIYTT/o7GajvYUEPPZMYvvZwehmNIUhSTDN9unnVsxw==}
     peerDependencies:
       next: '>=9.5.3'
       react: '>=16.13.1'
       react-dom: '>=16.13.1'
     dependencies:
-      '@headlessui/react': 1.7.4_biqbaboplfbrettd7655fr4n2y
+      '@headlessui/react': 1.7.4_react-dom@18.2.0+react@18.2.0
       '@mdx-js/react': 2.1.5_react@18.2.0
       '@popperjs/core': 2.11.6
-      '@reach/skip-nav': 0.17.0_biqbaboplfbrettd7655fr4n2y
+      '@reach/skip-nav': 0.17.0_react-dom@18.2.0+react@18.2.0
       clsx: 1.2.1
       flexsearch: 0.7.31
       focus-visible: 5.2.0
@@ -1462,16 +1462,16 @@ packages:
       github-slugger: 1.5.0
       intersection-observer: 0.12.2
       match-sorter: 6.3.1
-      next: 13.0.6_biqbaboplfbrettd7655fr4n2y
-      next-seo: 5.14.1_6jx7hpii6hgsrmhxgqrmo3277u
-      next-themes: 0.2.1_6jx7hpii6hgsrmhxgqrmo3277u
+      next: 13.0.6_react-dom@18.2.0+react@18.2.0
+      next-seo: 5.14.1_f26ff3bd08f1cd28b0f73422c76f5ffd
+      next-themes: 0.2.1_f26ff3bd08f1cd28b0f73422c76f5ffd
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       scroll-into-view-if-needed: 2.2.31
     dev: false
 
-  /nextra/2.0.0_6jx7hpii6hgsrmhxgqrmo3277u:
-    resolution: {integrity: sha512-3mf5aX+ZJVz7HRtxwtWIo1kw51xrF5MsqoUl0cQDTbFiktCn/Af5AX1gBuiX8/Z4mSEedalvTZUfR6+LxumLFg==}
+  /nextra/2.0.1_f26ff3bd08f1cd28b0f73422c76f5ffd:
+    resolution: {integrity: sha512-IOBwqMREnadxGryNHvwr3sZuD90uyaTxCWi9yxDB56UndsLBTulKwXNIOdW1FV+vKTbSGpz89wNe665Moli7Kw==}
     peerDependencies:
       next: '>=9.5.3'
       react: '>=16.13.1'
@@ -1482,7 +1482,7 @@ packages:
       github-slugger: 1.5.0
       graceful-fs: 4.2.10
       gray-matter: 4.0.3
-      next: 13.0.6_biqbaboplfbrettd7655fr4n2y
+      next: 13.0.6_react-dom@18.2.0+react@18.2.0
       react: 18.2.0
       react-dom: 18.2.0_react@18.2.0
       rehype-mdx-title: 1.0.0
@@ -1668,7 +1668,7 @@ packages:
     dev: false
 
   /remove-accents/0.4.2:
-    resolution: {integrity: sha512-7pXIJqJOq5tFgG1A2Zxti3Ht8jJF337m4sowbuHsW30ZnkQFnDzy9qBNhgzX8ZLW4+UBcXiiR7SwR6pokHsxiA==}
+    resolution: {integrity: sha1-CkPTqq4egNuRngeuJUsoXZ4ce7U=}
     dev: false
 
   /sade/1.8.1:
@@ -1807,7 +1807,7 @@ packages:
     dev: false
 
   /titleize/1.0.0:
-    resolution: {integrity: sha512-TARUb7z1pGvlLxgPk++7wJ6aycXF3GJ0sNSBTAsTuJrQG5QuZlkUQP+zl+nbjAh4gMX9yDw9ZYklMd7vAfJKEw==}
+    resolution: {integrity: sha1-fTUHIgYYMLpmF2MeDP0+oIOY2Vo=}
     engines: {node: '>=0.10.0'}
     dev: false
 
