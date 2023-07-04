@@ -1,0 +1,11 @@
+[package]
+name = "supernova"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ark-ec = { version = "0.4.0", default-features = false }
+ark-std = "0.4.0"
+ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
