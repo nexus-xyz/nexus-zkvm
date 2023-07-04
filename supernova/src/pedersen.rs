@@ -7,6 +7,7 @@ pub struct PedersenCommitment {}
 
 // TODO: This should be generic over any group
 impl CommitmentScheme<G> for PedersenCommitment {
+    // (g, h)
     type PP = (Vec<G>, G);
 
     fn setup(n: usize) -> Self::PP {
