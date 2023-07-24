@@ -6,6 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ark-ff = "0.4.0"
 ark-ec = { version = "0.4.0", default-features = false }
 ark-std = "0.4.0"
+
+[dev-dependencies]
+num-bigint = "0.4"
 ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
+assert_matches = "1.5.0"
