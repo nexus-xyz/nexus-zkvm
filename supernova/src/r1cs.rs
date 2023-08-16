@@ -188,9 +188,9 @@ pub struct R1CSWitness<G: Group> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct R1CSInstance<G: Group, C: CommitmentScheme<G>> {
     /// Commitment to witness.
-    commitment_W: C::Commitment,
+    pub(crate) commitment_W: C::Commitment,
     /// X is assumed to start with a `ScalarField::ONE`.
-    X: Vec<G::ScalarField>,
+    pub(crate) X: Vec<G::ScalarField>,
 }
 
 impl<G, C> Absorb for R1CSInstance<G, C>
@@ -264,10 +264,10 @@ pub struct RelaxedR1CSWitness<G: Group> {
 /// A type that holds a Relaxed R1CS instance.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RelaxedR1CSInstance<G: Group, C: CommitmentScheme<G>> {
-    commitment_W: C::Commitment,
-    commitment_E: C::Commitment,
+    pub(crate) commitment_W: C::Commitment,
+    pub(crate) commitment_E: C::Commitment,
     /// X is assumed to start with `u`.
-    X: Vec<G::ScalarField>,
+    pub(crate) X: Vec<G::ScalarField>,
 }
 
 impl<G, C> Absorb for RelaxedR1CSInstance<G, C>

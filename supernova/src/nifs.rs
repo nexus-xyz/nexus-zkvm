@@ -1,7 +1,6 @@
-use ark_crypto_primitives::sponge::{
-    poseidon::{PoseidonConfig, PoseidonSponge},
-    Absorb, CryptographicSponge,
-};
+use std::marker::PhantomData;
+
+use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
 use ark_ec::{CurveGroup, Group};
 use ark_ff::PrimeField;
 
@@ -11,21 +10,25 @@ use super::{
     utils,
 };
 
-const SQUEEZE_ELEMENTS_NUM: usize = 1;
+pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(250);
 
-pub struct NIFSProof<G: Group, C: CommitmentScheme<G>> {
-    commitment_T: C::Commitment,
+pub struct NIFSProof<G: Group, C: CommitmentScheme<G>, RO> {
+    pub(crate) commitment_T: C::Commitment,
+    _random_oracle: PhantomData<RO>,
 }
 
-impl<G: CurveGroup, C: CommitmentScheme<G, Commitment = G>> NIFSProof<G, C>
+impl<G, C, RO> NIFSProof<G, C, RO>
 where
+    G: CurveGroup,
+    C: CommitmentScheme<G, Commitment = G>,
     G::BaseField: PrimeField + Absorb,
     G::ScalarField: Absorb,
     G::Affine: Absorb,
+    RO: CryptographicSponge,
 {
     pub fn prove(
         pp: &C::PP,
-        config: &PoseidonConfig<G::BaseField>,
+        config: &RO::Config,
         pp_digest: &G::ScalarField,
         shape: &R1CSShape<G>,
         U1: &RelaxedR1CSInstance<G, C>,
@@ -33,7 +36,7 @@ where
         U2: &R1CSInstance<G, C>,
         W2: &R1CSWitness<G>,
     ) -> Result<(Self, (RelaxedR1CSInstance<G, C>, RelaxedR1CSWitness<G>)), r1cs::Error> {
-        let mut random_oracle = PoseidonSponge::new(config);
+        let mut random_oracle = RO::new(config);
 
         random_oracle.absorb(&utils::scalar_to_base::<G>(pp_digest));
         random_oracle.absorb(&U1);
@@ -43,22 +46,28 @@ where
 
         random_oracle.absorb(&commitment_T.into_affine());
 
-        let r = random_oracle.squeeze_field_elements::<G::ScalarField>(SQUEEZE_ELEMENTS_NUM)[0];
+        let r = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let U = U1.fold(U2, &commitment_T, &r)?;
         let W = W1.fold(W2, &T, &r)?;
 
-        Ok((Self { commitment_T }, (U, W)))
+        Ok((
+            Self {
+                commitment_T,
+                _random_oracle: PhantomData,
+            },
+            (U, W),
+        ))
     }
 
     pub fn verify(
         &self,
-        config: &PoseidonConfig<G::BaseField>,
+        config: &RO::Config,
         pp_digest: &G::ScalarField,
         U1: &RelaxedR1CSInstance<G, C>,
         U2: &R1CSInstance<G, C>,
     ) -> Result<RelaxedR1CSInstance<G, C>, r1cs::Error> {
-        let mut random_oracle = PoseidonSponge::new(config);
+        let mut random_oracle = RO::new(config);
 
         random_oracle.absorb(&utils::scalar_to_base::<G>(pp_digest));
         random_oracle.absorb(&U1);
@@ -66,7 +75,7 @@ where
 
         random_oracle.absorb(&self.commitment_T.into_affine());
 
-        let r = random_oracle.squeeze_field_elements::<G::ScalarField>(SQUEEZE_ELEMENTS_NUM)[0];
+        let r = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let U = U1.fold(U2, &self.commitment_T, &r)?;
 
@@ -75,9 +84,10 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::{pedersen::PedersenCommitment, r1cs::*};
+    use ark_crypto_primitives::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
 
     use ark_crypto_primitives::sponge::poseidon::find_poseidon_ark_and_mds;
     use ark_r1cs_std::{
@@ -124,7 +134,7 @@ mod tests {
         }
     }
 
-    fn synthesize_r1cs(
+    pub(crate) fn synthesize_r1cs(
         x: u64,
         pp: Option<&CommitmentKey>,
     ) -> (
@@ -179,7 +189,7 @@ mod tests {
     #[test]
     fn prove_verify() {
         let (ark, mds) =
-            find_poseidon_ark_and_mds(Fq::MODULUS.const_num_bits() as u64, 2, 8, 43, 0);
+            find_poseidon_ark_and_mds::<Fq>(Fq::MODULUS.const_num_bits() as u64, 2, 8, 43, 0);
         let config = PoseidonConfig {
             full_rounds: 8,
             partial_rounds: 43,
@@ -196,7 +206,7 @@ mod tests {
         let relaxed_U = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
         let relaxed_W = RelaxedR1CSWitness::zero(&shape);
 
-        let (nifs, (folded_U, folded_W)) = NIFSProof::prove(
+        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Fq>>::prove(
             &pp, &config, &PP_DIGEST, &shape, &relaxed_U, &relaxed_W, &U1, &W1,
         )
         .unwrap();
@@ -213,8 +223,10 @@ mod tests {
 
         let (_, U2, W2, _) = synthesize_r1cs(5, Some(&pp));
 
-        let (nifs, (folded_U, folded_W)) =
-            NIFSProof::prove(&pp, &config, &PP_DIGEST, &shape, &U1, &W1, &U2, &W2).unwrap();
+        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Fq>>::prove(
+            &pp, &config, &PP_DIGEST, &shape, &U1, &W1, &U2, &W2,
+        )
+        .unwrap();
 
         let v_folded_U = nifs.verify(&config, &PP_DIGEST, &U1, &U2).unwrap();
         assert_eq!(folded_U, v_folded_U);

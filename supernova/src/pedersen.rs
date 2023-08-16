@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use crate::commitment::CommitmentScheme;
 use ark_ec::{Group, ScalarMul, VariableBaseMSM};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PedersenCommitment<G>(PhantomData<G>);
 
 impl<G: VariableBaseMSM> CommitmentScheme<G> for PedersenCommitment<G> {

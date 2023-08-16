@@ -3,6 +3,7 @@
 #![allow(clippy::type_complexity)]
 
 mod commitment;
+pub mod gadgets;
 mod pedersen;
 
 pub mod nifs;
