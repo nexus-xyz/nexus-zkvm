@@ -9,7 +9,7 @@ edition = "2021"
 ark-ff = "0.4.0"
 ark-ec = { version = "0.4.0", default-features = false }
 ark-std = "0.4.0"
-ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
+ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge"] }
 ark-relations = { version = "0.4.0" }
 ark-r1cs-std = { version = "0.4.0" }
 
