@@ -1,2 +1,1 @@
-# zkvm
-The Nexus zkVM
+# The Nexus zkVM
