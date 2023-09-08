@@ -1,0 +1,7 @@
+[package]
+name = "nexus-rt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nexus-rt-macros = { path = "macros", version = "0.1.0" }
