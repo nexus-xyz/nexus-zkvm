@@ -1,0 +1,16 @@
+[package]
+name = "nexus-tools"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[[bin]]
+name = "cargo-nexus"
+path = "src/cargo-nexus.rs"
+
+[[bin]]
+name = "nexus-run"
+path = "src/nexus-run.rs"
+
+[dependencies]
+clap.workspace = true

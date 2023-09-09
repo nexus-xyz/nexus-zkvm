@@ -1,0 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "nexus-tools"
+]
+exclude = [
+    "nexus-rt"
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+publish = false
+
+[workspace.dependencies]
+clap = { version = "4.3", features = ["derive"] }
