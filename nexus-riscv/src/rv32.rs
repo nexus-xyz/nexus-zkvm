@@ -1,0 +1,169 @@
+//! Abstract syntax of RV32 (based on RISC-V ISA V20191213)
+
+mod display;
+pub mod parse;
+
+/// branch instruction type
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum BOP {
+    BEQ,
+    BNE,
+    BLT,
+    BGE,
+    BLTU,
+    BGEU,
+}
+pub use BOP::*;
+
+/// load instruction type
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LOP {
+    LB,
+    LH,
+    LW,
+    LBU,
+    LHU,
+}
+pub use LOP::*;
+
+/// store instruction type
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum SOP {
+    SB,
+    SH,
+    SW,
+}
+pub use SOP::*;
+
+/// ALU instruction type
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum AOP {
+    ADD,
+    SUB,
+    SLL,
+    SLT,
+    SLTU,
+    XOR,
+    SRL,
+    SRA,
+    OR,
+    AND,
+}
+pub use AOP::*;
+
+/// RV32 instructions
+#[rustfmt::skip]
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+pub enum RV32 {
+    LUI   { rd: u32, imm: u32, },
+    AUIPC { rd: u32, imm: u32, },
+
+    JAL  { rd: u32, imm: u32, },
+    JALR { rd: u32, rs1: u32, imm: u32, },
+
+    BR { bop: BOP, rs1: u32, rs2: u32, imm: u32, },
+
+    LOAD  { lop: LOP, rd: u32, rs1: u32, imm: u32, },
+    STORE { sop: SOP, rs1: u32, rs2: u32, imm: u32, },
+
+    ALUI { aop: AOP, rd: u32, rs1: u32, imm: u32, },
+    ALU  { aop: AOP, rd: u32, rs1: u32, rs2: u32, },
+
+    FENCE,
+    ECALL,
+    EBREAK,
+
+    #[default]
+    UNIMP,
+}
+pub use RV32::*;
+
+/// a parsed RV32 instruction
+#[derive(Copy, Clone, Default, Debug, PartialEq)]
+pub struct Inst {
+    /// program counter where instruction was found
+    pub pc: u32,
+
+    /// length of instruction in bytes
+    pub len: u32,
+
+    /// instruction as a 32-bit word
+    pub word: u32,
+
+    /// parsed instruction
+    pub inst: RV32,
+}
+
+impl RV32 {
+    /// maximum J value
+    pub const MAX_J: u32 = 42;
+
+    /// return the J index for instruction
+    pub const fn index_j(&self) -> u32 {
+        // It would be nice to use mem::variant_count here,
+        // (and have fewer cases), but that is nightly rust only
+        // Just list all cases so compiler will warn us if something
+        // is added
+        match self {
+            LUI { .. } => 1,
+            AUIPC { .. } => 2,
+            JAL { .. } => 3,
+            JALR { .. } => 4,
+
+            //BR { bop, .. } => 5 + (bop as u32),
+            BR { bop: BEQ, .. } => 5,
+            BR { bop: BNE, .. } => 6,
+            BR { bop: BLT, .. } => 7,
+            BR { bop: BGE, .. } => 8,
+            BR { bop: BLTU, .. } => 9,
+            BR { bop: BGEU, .. } => 10,
+
+            LOAD { lop: LB, .. } => 11,
+            LOAD { lop: LH, .. } => 12,
+            LOAD { lop: LW, .. } => 13,
+            LOAD { lop: LBU, .. } => 14,
+            LOAD { lop: LHU, .. } => 15,
+
+            STORE { sop: SB, .. } => 16,
+            STORE { sop: SH, .. } => 17,
+            STORE { sop: SW, .. } => 18,
+
+            ALUI { aop: ADD, .. } => 19,
+            ALUI { aop: SUB, .. } => 20, // note: does not exist
+            ALUI { aop: SLL, .. } => 21,
+            ALUI { aop: SLT, .. } => 22,
+            ALUI { aop: SLTU, .. } => 23,
+            ALUI { aop: XOR, .. } => 24,
+            ALUI { aop: SRL, .. } => 25,
+            ALUI { aop: SRA, .. } => 26,
+            ALUI { aop: OR, .. } => 27,
+            ALUI { aop: AND, .. } => 28,
+
+            ALU { aop: ADD, .. } => 29,
+            ALU { aop: SUB, .. } => 30,
+            ALU { aop: SLL, .. } => 31,
+            ALU { aop: SLT, .. } => 32,
+            ALU { aop: SLTU, .. } => 33,
+            ALU { aop: XOR, .. } => 34,
+            ALU { aop: SRL, .. } => 35,
+            ALU { aop: SRA, .. } => 36,
+            ALU { aop: OR, .. } => 37,
+            ALU { aop: AND, .. } => 38,
+
+            FENCE => 39,
+            ECALL => 40,
+            EBREAK => 41,
+            UNIMP => 42,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn check_j() {
+        assert!(RV32::UNIMP.index_j() == RV32::MAX_J);
+    }
+}

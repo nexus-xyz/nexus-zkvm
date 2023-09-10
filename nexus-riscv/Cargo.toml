@@ -1,0 +1,9 @@
+[package]
+name = "nexus-riscv"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+clap.workspace = true
+elf = { version = "0.7", default-features = false, features = ["std"] }

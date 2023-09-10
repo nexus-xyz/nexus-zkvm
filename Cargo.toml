@@ -1,10 +1,12 @@
 [workspace]
 resolver = "2"
 members = [
-    "nexus-tools"
+    "nexus-rt",
+    "nexus-tools",
+    "nexus-riscv"
 ]
-exclude = [
-    "nexus-rt"
+default-members = [
+    "nexus-tools"
 ]
 
 [workspace.package]
