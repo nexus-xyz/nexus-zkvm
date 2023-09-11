@@ -14,3 +14,4 @@ path = "src/nexus-run.rs"
 
 [dependencies]
 clap.workspace = true
+nexus-riscv = { path = "../nexus-riscv" }
