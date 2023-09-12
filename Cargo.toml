@@ -3,7 +3,8 @@ resolver = "2"
 members = [
     "nexus-rt",
     "nexus-tools",
-    "nexus-riscv"
+    "nexus-riscv",
+    "nexus-riscv-circuit",
 ]
 default-members = [
     "nexus-tools"
