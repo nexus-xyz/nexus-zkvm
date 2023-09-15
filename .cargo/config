@@ -1,0 +1,8 @@
+[target.'cfg(target_arch = "x86_64")']
+linker = "/usr/bin/clang"
+rustflags = [
+    "-C", "link-arg=-fuse-ld=lld",
+    "-C", "link-arg=-Wl,--no-rosegment",
+    "-C", "no-redzone",
+    "-C", "target-cpu=native",
+]

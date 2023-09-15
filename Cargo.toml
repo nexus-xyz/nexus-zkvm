@@ -5,6 +5,7 @@ members = [
     "nexus-tools",
     "nexus-riscv",
     "nexus-riscv-circuit",
+    "msnova",
 ]
 default-members = [
     "nexus-tools"
@@ -17,3 +18,16 @@ publish = false
 
 [workspace.dependencies]
 clap = { version = "4.3", features = ["derive"] }
+
+
+# additional settings in .cargo/config
+[profile.release]
+codegen-units = 1
+lto = true
+panic = "abort"
+strip = true
+
+[profile.perf]
+inherits = "release"
+debug = true
+strip = false

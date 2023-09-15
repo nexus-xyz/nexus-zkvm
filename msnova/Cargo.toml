@@ -1,0 +1,18 @@
+[package]
+name = "msnova"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+clap.workspace = true
+
+nexus-riscv = { path = "../nexus-riscv" }
+nexus-riscv-circuit = { path = "../nexus-riscv-circuit" }
+
+ff = { version = "0.13.0", features = ["derive"] }
+pasta_curves = { version = "0.5", features = ["repr-c"] }
+bellpepper-core = { version="0.2.0", default-features = false }
+bellpepper = { version="0.2.0", default-features = false }
+nova-snark = { git = "https://github.com/microsoft/Nova", rev = "200b47e" }
+
