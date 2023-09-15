@@ -1,0 +1,42 @@
+[package]
+name = "nexus-prover"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+clap.workspace = true
+
+nexus-riscv = { path = "../nexus-riscv" }
+nexus-riscv-circuit = { path = "../nexus-riscv-circuit" }
+
+supernova.workspace = true
+
+ark-serialize.workspace = true
+ark-crypto-primitives.workspace = true
+#ark-ec.workspace = true
+ark-ff.workspace = true
+ark-relations.workspace = true
+ark-r1cs-std.workspace = true
+
+ark-pallas.workspace = true
+ark-vesta.workspace = true
+
+[features]
+default = [ "parallel" ]
+parallel = [
+   "ark-ff/parallel",
+   #"ark-ec/parallel",
+   #"ark-std/parallel",
+   "ark-crypto-primitives/parallel",
+   "ark-r1cs-std/parallel",
+   "supernova/parallel",
+]
+
+[[bench]]
+name = "genpp"
+harness = false
+
+[[bench]]
+name = "cubic"
+harness = false
