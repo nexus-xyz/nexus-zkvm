@@ -41,3 +41,23 @@ to `nexus-rt` rather than the default git repo.
 
 If successful, you can run the new project binary with `cargo run`.
 
+Proving programs can be done with either `msnova` or `nexus-prover`.
+The first uses the Microsoft Nova implementation, and the second uses
+the Nexus Nova implementation. For example:
+
+```
+cd msnova
+cargo run -r riscv_elf_file
+```
+
+```
+cd nexus-prover
+# generate public parameters to file
+cargo run -r -- gen
+
+# prove using saves parameters
+cargo run -r -- prove riscv_elf_file
+
+# generate public parameter and prove
+cargo run -r -- prove -g riscv_elf_file
+```

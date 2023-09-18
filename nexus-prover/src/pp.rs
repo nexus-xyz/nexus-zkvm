@@ -1,5 +1,8 @@
 use std::fs::File;
-
+use zstd::stream::{
+    Encoder,
+    Decoder,
+};
 use nexus_riscv::vm::VM;
 use nexus_riscv_circuit::{
     Trace,
@@ -72,14 +75,17 @@ pub fn save_pp<T>(pp: PP<T>, file: &str) -> Result<(), ProofError> {
     };
 
     let f = File::create(file)?;
-    ppd.serialize_compressed(&f)?;
+    let mut enc = Encoder::new(&f, 0)?;
+    ppd.serialize_compressed(&mut enc)?;
+    enc.finish()?;
     f.sync_all()?;
     Ok(())
 }
 
 pub fn load_pp<T>(file: &str) -> Result<PP<T>, ProofError> {
     let f = File::open(file)?;
-    let ppd: PPDisk = PPDisk::deserialize_compressed(&f)?;
+    let mut dec = Decoder::new(&f)?;
+    let ppd: PPDisk = PPDisk::deserialize_compressed(&mut dec)?;
 
     Ok(PublicParams {
         ro_config: ppd.ro_config,
