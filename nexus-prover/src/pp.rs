@@ -13,6 +13,17 @@ use crate::types::*;
 use crate::error::*;
 use crate::circuit::Tr;
 
+/// On-disk format for public parameters
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
+pub struct PPDisk {
+    pub ro_config: ROConfig,
+    pub circuit1: R1CSShape<P1>,
+    pub circuit2: R1CSShape<P2>,
+    pub pp1: Vec<A1>,
+    pub pp2: Vec<A2>,
+    pub digest: F1,
+}
+
 pub fn gen_pp<T>(circuit: &T) -> Result<PP<T>, SynthesisError>
     where T: StepCircuit<F1>,
 {

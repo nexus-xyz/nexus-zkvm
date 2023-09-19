@@ -19,11 +19,13 @@ pub use ark_pallas::{
     Fr as F1,
     PallasConfig as G1,
     Projective as P1,
+    Affine as A1,
 };
 pub use ark_vesta::{
     Fr as F2,
     VestaConfig as G2,
     Projective as P2,
+    Affine as A2,
 };
 
 // concrete sponge used
@@ -82,14 +84,3 @@ pub type PP<SC> = PublicParams<G1,G2,C1,C2,RO,SC>;
 
 // concrete constraint system
 pub type CS = ConstraintSystemRef<F1>;
-
-/// On-disk format for public parameters
-#[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct PPDisk {
-    pub ro_config: ROConfig,
-    pub circuit1: R1CSShape<P1>,
-    pub circuit2: R1CSShape<P2>,
-    pub pp1: Vec<P1>,
-    pub pp2: Vec<P2>,
-    pub digest: F1,
-}
