@@ -208,7 +208,7 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
         }
         FENCE | EBREAK => {}
         ECALL => {
-            let num = vm.regs[8]; // s0 = x8  syscall number
+            let num = vm.regs[18]; // s2 = x8  syscall number
             let a0 = vm.regs[10]; // a0 = x10
             let a1 = vm.regs[11]; // a1 = x11
 

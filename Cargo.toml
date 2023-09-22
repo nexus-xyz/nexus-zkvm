@@ -5,8 +5,9 @@ members = [
     "nexus-tools",
     "nexus-riscv",
     "nexus-riscv-circuit",
-    "msnova",
     "nexus-prover",
+    "examples",
+    "msnova",
 ]
 default-members = [
     "nexus-tools",

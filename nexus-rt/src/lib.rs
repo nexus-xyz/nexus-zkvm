@@ -9,6 +9,9 @@ use core::alloc::{GlobalAlloc, Layout};
 
 pub use nexus_rt_macros::entry;
 
+mod ecalls;
+pub use ecalls::*;
+
 #[inline(never)]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -43,17 +46,6 @@ unsafe impl GlobalAlloc for Heap {
         alloc_(sz)
     }
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
-}
-
-/// Write a string to the output console (if any).
-
-pub fn write_log(s: &str) {
-    extern "C" {
-        fn sys_write_log(bytes: *const u8, len: usize);
-    }
-    unsafe {
-        sys_write_log(s.as_ptr(), s.len());
-    }
 }
 
 /// Rust entry point (_start_rust)

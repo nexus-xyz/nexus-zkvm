@@ -1,0 +1,8 @@
+[package]
+name = "example"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+nexus-rt = { path = "../nexus-rt" }

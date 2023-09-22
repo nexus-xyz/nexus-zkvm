@@ -34,12 +34,3 @@ alloc_:
     la s0, _heap
     sw a0, 0(s0)
     ret
-
-// To simplify calling out to the environment, we keep the
-// argument registers intact, and place the function number
-// in s0
-.globl sys_write_log
-sys_write_log:
-    li s0, 1
-    ecall
-    ret
