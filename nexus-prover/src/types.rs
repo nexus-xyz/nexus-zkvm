@@ -75,7 +75,7 @@ pub type RO = PoseidonSponge<F1>;
 pub type C1 = PedersenCommitment<P1>;
 pub type C2 = PedersenCommitment<P2>;
 
-// concrete public parameter
+// concrete public parameters
 pub type PP<SC> = PublicParams<G1,G2,C1,C2,RO,SC>;
 
 // concrete constraint system

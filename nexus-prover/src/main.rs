@@ -1,10 +1,10 @@
 use clap::{Parser, Subcommand};
 
 use std::time::Instant;
-use std::io::{self,Write};
+use std::io::{self, Write};
 
 use nexus_riscv::load_elf;
-use nexus_riscv_circuit::{Trace,eval};
+use nexus_riscv_circuit::{Trace, eval};
 
 use nexus_prover::types::*;
 use nexus_prover::error::*;
@@ -20,7 +20,11 @@ fn run(file: &str) -> Result<Trace, ProofError> {
 
     let trace = eval(&mut vm, false, false)?;
 
-    println!("Executed {} steps in {:?}", trace.trace.len(), start.elapsed());
+    println!(
+        "Executed {} steps in {:?}",
+        trace.trace.len(),
+        start.elapsed()
+    );
     Ok(trace)
 }
 
@@ -34,6 +38,7 @@ fn prove(pp: PP<Tr>, trace: Trace) -> Result<(), ProofError> {
     println!("step. {:7} {:8} {:32} time", "pc", "mem[pc]", "inst");
 
     let num_steps = tr.steps();
+    #[allow(clippy::needless_range_loop)]
     for i in 0..num_steps {
         print!("{:4}. {:51}", i, code[i]);
         io::stdout().flush().unwrap();
@@ -43,8 +48,10 @@ fn prove(pp: PP<Tr>, trace: Trace) -> Result<(), ProofError> {
         tr.advance();
 
         println!(
-            "{:?}  {:0.2}%", t.elapsed(),
-            ((i+1) as f32) * 100.0 / (num_steps as f32));
+            "{:?}  {:0.2}%",
+            t.elapsed(),
+            ((i + 1) as f32) * 100.0 / (num_steps as f32)
+        );
     }
 
     print!("\nVerifying Proof... ");
@@ -67,7 +74,11 @@ enum Command {
     /// Generate public parameters file
     Gen {
         /// private parameters file
-        #[arg(short='p',long="private-params",default_value="nexus-public.zst")]
+        #[arg(
+            short = 'p',
+            long = "private-params",
+            default_value = "nexus-public.zst"
+        )]
         pp_file: String,
     },
 
@@ -78,7 +89,11 @@ enum Command {
         gen: bool,
 
         /// private parameters file
-        #[arg(short='p',long="private-params",default_value="nexus-public.zst")]
+        #[arg(
+            short = 'p',
+            long = "private-params",
+            default_value = "nexus-public.zst"
+        )]
         pp_file: String,
 
         /// Input file
@@ -96,7 +111,7 @@ fn main() -> Result<(), ProofError> {
             println!("Generating public parameters to {pp_file}...");
             let pp = gen_vm_pp()?;
             save_pp(pp, &pp_file)
-        },
+        }
         Prove { gen, pp_file, file } => {
             let pp = if gen {
                 println!("Generating public parameters...");
@@ -107,6 +122,6 @@ fn main() -> Result<(), ProofError> {
             };
             let trace = run(&file)?;
             prove(pp, trace)
-        },
+        }
     }
 }

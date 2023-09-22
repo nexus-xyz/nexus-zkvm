@@ -1,13 +1,7 @@
 use std::fs::File;
-use zstd::stream::{
-    Encoder,
-    Decoder,
-};
+use zstd::stream::{Encoder, Decoder};
 use nexus_riscv::vm::VM;
-use nexus_riscv_circuit::{
-    Trace,
-    eval,
-};
+use nexus_riscv_circuit::{Trace, eval};
 
 use crate::types::*;
 use crate::error::*;
@@ -25,15 +19,10 @@ pub struct PPDisk {
 }
 
 pub fn gen_pp<T>(circuit: &T) -> Result<PP<T>, SynthesisError>
-    where T: StepCircuit<F1>,
+where
+    T: StepCircuit<F1>,
 {
-    let (ark, mds) = find_poseidon_ark_and_mds::<F1>(
-        F1::MODULUS_BIT_SIZE as u64,
-        2,
-        8,
-        43,
-        0,
-    );
+    let (ark, mds) = find_poseidon_ark_and_mds::<F1>(F1::MODULUS_BIT_SIZE as u64, 2, 8, 43, 0);
     let ro_config = PoseidonConfig {
         full_rounds: 8,
         partial_rounds: 43,
@@ -57,9 +46,16 @@ pub fn show_pp<T>(pp: &PP<T>) {
         ..
     } = pp;
 
-    println!("Poseidon ark: {} mds: {}", ro_config.ark.len(), ro_config.mds.len());
+    println!(
+        "Poseidon ark: {} mds: {}",
+        ro_config.ark.len(),
+        ro_config.mds.len()
+    );
     println!("shape  {} x {}", shape.num_constraints, shape.num_vars);
-    println!("shape_ec {} x {}", shape_ec.num_constraints, shape_ec.num_vars);
+    println!(
+        "shape_ec {} x {}",
+        shape_ec.num_constraints, shape_ec.num_vars
+    );
     println!("pp {}", pp.len());
     println!("pp_ec {}", pp_ec.len());
     println!("digest {:?}", digest);
@@ -76,6 +72,7 @@ pub fn save_pp<T>(pp: PP<T>, file: &str) -> Result<(), ProofError> {
         ..
     } = pp;
 
+    #[allow(clippy::redundant_field_names)]
     let ppd = PPDisk {
         ro_config: ro_config,
         circuit1: shape,
@@ -112,12 +109,17 @@ pub fn load_pp<T>(file: &str) -> Result<PP<T>, ProofError> {
 // -- VM specific versions
 
 fn nop_trace() -> Result<Trace, VMError> {
-    let mut vm = VM::default();
-    vm.pc = 0x1000;
-    vm.init_memory(0x1000, &[
-        0x13, 0x00, 0x00, 0x00, // nop
-        0x73, 0x10, 0x00, 0xC0, // unimp
-    ]);
+    let mut vm = VM {
+        pc: 0x1000,
+        ..VM::default()
+    };
+    vm.init_memory(
+        0x1000,
+        &[
+            0x13, 0x00, 0x00, 0x00, // nop
+            0x73, 0x10, 0x00, 0xC0, // unimp
+        ],
+    );
     eval(&mut vm, false, false)
 }
 

@@ -27,8 +27,11 @@ pub fn load_elf(path: &PathBuf) -> Result<VM> {
         .filter(|phdr| phdr.p_type == PT_LOAD)
         .collect();
 
-    let mut vm = VM::default();
-    vm.pc = 0x1000; // TODO
+    // TODO: read PC from elf file (and related changes)
+    let mut vm = VM {
+        pc: 0x1000,
+        ..VM::default()
+    };
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
