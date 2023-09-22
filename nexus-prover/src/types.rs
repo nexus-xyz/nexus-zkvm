@@ -32,7 +32,6 @@ pub use ark_vesta::{
 pub use ark_crypto_primitives::{
     sponge::{
         poseidon::{
-            find_poseidon_ark_and_mds,
             PoseidonConfig,
             PoseidonSponge,
         }

@@ -1,5 +1,6 @@
 use std::fs::File;
 use zstd::stream::{Encoder, Decoder};
+use supernova::poseidon_config;
 use nexus_riscv::vm::VM;
 use nexus_riscv_circuit::{Trace, eval};
 
@@ -22,52 +23,21 @@ pub fn gen_pp<T>(circuit: &T) -> Result<PP<T>, SynthesisError>
 where
     T: StepCircuit<F1>,
 {
-    let (ark, mds) = find_poseidon_ark_and_mds::<F1>(F1::MODULUS_BIT_SIZE as u64, 2, 8, 43, 0);
-    let ro_config = PoseidonConfig {
-        full_rounds: 8,
-        partial_rounds: 43,
-        alpha: 5,
-        ark,
-        mds,
-        rate: 2,
-        capacity: 1,
-    };
-    PP::setup(ro_config, circuit)
-}
-
-pub fn show_pp<T>(pp: &PP<T>) {
-    let PublicParams {
-        ro_config,
-        shape,
-        shape_ec,
-        pp,
-        pp_ec,
-        digest,
-        ..
-    } = pp;
-
-    println!(
-        "Poseidon ark: {} mds: {}",
-        ro_config.ark.len(),
-        ro_config.mds.len()
-    );
-    println!("shape  {} x {}", shape.num_constraints, shape.num_vars);
-    println!(
-        "shape_ec {} x {}",
-        shape_ec.num_constraints, shape_ec.num_vars
-    );
-    println!("pp {}", pp.len());
-    println!("pp_ec {}", pp_ec.len());
-    println!("digest {:?}", digest);
+    let ro_config = poseidon_config();
+    match PP::setup(ro_config, circuit) {
+        Ok(x) => Ok(x),
+        Err(supernova::Error::R1CS(e)) => panic!("R1CS Error {e:?}"),
+        Err(supernova::Error::Synthesis(e)) => Err(e),
+    }
 }
 
 pub fn save_pp<T>(pp: PP<T>, file: &str) -> Result<(), ProofError> {
     let PublicParams {
         ro_config,
         shape,
-        shape_ec,
+        shape_secondary,
         pp,
-        pp_ec,
+        pp_secondary,
         digest,
         ..
     } = pp;
@@ -76,9 +46,9 @@ pub fn save_pp<T>(pp: PP<T>, file: &str) -> Result<(), ProofError> {
     let ppd = PPDisk {
         ro_config: ro_config,
         circuit1: shape,
-        circuit2: shape_ec,
+        circuit2: shape_secondary,
         pp1: pp,
-        pp2: pp_ec,
+        pp2: pp_secondary,
         digest: digest,
     };
 
@@ -98,9 +68,9 @@ pub fn load_pp<T>(file: &str) -> Result<PP<T>, ProofError> {
     Ok(PublicParams {
         ro_config: ppd.ro_config,
         shape: ppd.circuit1,
-        shape_ec: ppd.circuit2,
+        shape_secondary: ppd.circuit2,
         pp: ppd.pp1,
-        pp_ec: ppd.pp2,
+        pp_secondary: ppd.pp2,
         digest: ppd.digest,
         _step_circuit: PhantomData,
     })

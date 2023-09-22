@@ -22,7 +22,7 @@ publish = false
 [workspace.dependencies]
 clap = { version = "4.3", features = ["derive"] }
 
-supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="ef27735" }
+supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="5917171" }
 #supernova = { path = "../supernova" }
 
 ark-serialize = { version = "0.4.0", features = ["derive"] }
@@ -38,16 +38,16 @@ ark-vesta = "0.4.0"
 
 # Note, this should be in sync with the supernova repo
 [patch.crates-io]
-ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "93dcba9" }
+ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
-ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "66ca8ed" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "66ca8ed" }
-ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "66ca8ed" }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "66ca8ed" }
+
+ark-ff        = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ec        = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-poly      = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 
 ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
-ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
-#ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "66ca8ed" }
+ark-vesta  = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
 
 # additional settings in .cargo/config
 [profile.release]
