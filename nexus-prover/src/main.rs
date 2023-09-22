@@ -28,7 +28,7 @@ fn prove(pp: PP<Tr>, trace: Trace) -> Result<(), ProofError> {
     let code = trace.code.clone();
     let mut tr = Tr::new(trace);
     let z_0 = tr.z0();
-    let mut recursive_snark = RecursiveSNARK::new(&pp, &tr, &z_0);
+    let mut recursive_snark = RecursiveSNARK::new(&pp, &z_0);
 
     println!("\nProving Execution Trace:");
     println!("step. {:7} {:8} {:32} time", "pc", "mem[pc]", "inst");

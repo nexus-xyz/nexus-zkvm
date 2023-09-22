@@ -62,13 +62,9 @@ pub use supernova::{
     r1cs::R1CSShape,
     commitment::CommitmentScheme,
     pedersen::PedersenCommitment,
-    circuits::{
-        StepCircuit,
-        multifold::{
-            PublicParams,
-            RecursiveSNARK,
-        },
-    },
+    StepCircuit,
+    PublicParams,
+    RecursiveSNARK,
 };
 
 // concrete random oracle
