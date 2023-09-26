@@ -54,9 +54,7 @@ ark-vesta  = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
 codegen-units = 1
 lto = true
 panic = "abort"
-strip = true
 
 [profile.bench]
 inherits = "release"
 debug = true
-strip = false

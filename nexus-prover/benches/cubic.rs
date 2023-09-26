@@ -1,8 +1,8 @@
 use std::time::Instant;
 
-use nexus_zkvm::types::*;
-use nexus_zkvm::error::*;
-use nexus_zkvm::pp::*;
+use nexus_prover::types::*;
+use nexus_prover::error::*;
+use nexus_prover::pp::*;
 
 struct CubicCircuit;
 
@@ -34,11 +34,11 @@ fn main() -> Result<(), ProofError> {
     println!("PP gen {:?}", t.elapsed());
 
     let z_0 = vec![F1::ONE];
-    let mut recursive_snark = RecursiveSNARK::new(&pp, circuit, &z_0);
+    let mut recursive_snark = RecursiveSNARK::new(&pp, &z_0);
 
     for _ in 0..num_steps {
         let t = Instant::now();
-        recursive_snark = RecursiveSNARK::prove_step(recursive_snark, circuit)?;
+        recursive_snark = RecursiveSNARK::prove_step(recursive_snark, circuit).unwrap();
         println!("step {:?}", t.elapsed());
     }
 
