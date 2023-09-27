@@ -1,12 +1,22 @@
 #![allow(non_snake_case)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
+#![allow(clippy::needless_range_loop)]
 
-mod commitment;
-pub mod gadgets;
-mod pedersen;
+mod absorb;
+mod multifold;
+mod provider;
+mod utils;
 
-pub mod nifs;
+mod circuits;
+mod gadgets;
+
+mod nifs;
+
+pub mod commitment;
+pub mod pedersen;
 pub mod r1cs;
 
-pub(crate) mod utils;
+pub use circuits::{PublicParams, RecursiveSNARK, StepCircuit};
+pub use multifold::Error;
+pub use provider::poseidon::poseidon_config;

@@ -1,29 +1,31 @@
+#![allow(unused)]
+
 use std::marker::PhantomData;
 
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
-use ark_ec::{CurveGroup, Group};
-use ark_ff::PrimeField;
+use ark_ec::{CurveGroup, PrimeGroup};
+use ark_ff::{PrimeField, ToConstraintField};
 
 use super::{
+    absorb::{AbsorbNonNative, CryptographicSponge as _},
     commitment::CommitmentScheme,
     r1cs::{self, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness},
-    utils,
 };
 
 pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(250);
 
-pub struct NIFSProof<G: Group, C: CommitmentScheme<G>, RO> {
+pub struct NIFSProof<G: PrimeGroup, C: CommitmentScheme<G>, RO> {
     pub(crate) commitment_T: C::Commitment,
     _random_oracle: PhantomData<RO>,
 }
 
 impl<G, C, RO> NIFSProof<G, C, RO>
 where
-    G: CurveGroup,
+    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     C: CommitmentScheme<G, Commitment = G>,
     G::BaseField: PrimeField + Absorb,
     G::ScalarField: Absorb,
-    G::Affine: Absorb,
+    G::Affine: Absorb + ToConstraintField<G::BaseField>,
     RO: CryptographicSponge,
 {
     pub fn prove(
@@ -38,13 +40,13 @@ where
     ) -> Result<(Self, (RelaxedR1CSInstance<G, C>, RelaxedR1CSWitness<G>)), r1cs::Error> {
         let mut random_oracle = RO::new(config);
 
-        random_oracle.absorb(&utils::scalar_to_base::<G>(pp_digest));
+        random_oracle.absorb(&pp_digest);
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
 
         let (T, commitment_T) = r1cs::commit_T(shape, pp, U1, W1, U2, W2)?;
 
-        random_oracle.absorb(&commitment_T.into_affine());
+        random_oracle.absorb_non_native(&commitment_T);
 
         let r = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
@@ -69,11 +71,11 @@ where
     ) -> Result<RelaxedR1CSInstance<G, C>, r1cs::Error> {
         let mut random_oracle = RO::new(config);
 
-        random_oracle.absorb(&utils::scalar_to_base::<G>(pp_digest));
+        random_oracle.absorb(&pp_digest);
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
 
-        random_oracle.absorb(&self.commitment_T.into_affine());
+        random_oracle.absorb_non_native(&self.commitment_T);
 
         let r = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
@@ -86,31 +88,18 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, r1cs::*};
-    use ark_crypto_primitives::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
-
-    use ark_crypto_primitives::sponge::poseidon::find_poseidon_ark_and_mds;
+    use crate::poseidon_config;
+    use crate::{pedersen::PedersenCommitment, r1cs::*, utils::to_sparse};
+    use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+    use ark_ff::AdditiveGroup;
     use ark_r1cs_std::{
         fields::{fp::FpVar, FieldVar},
         prelude::{AllocVar, EqGadget},
         R1CSVar,
     };
     use ark_relations::r1cs::*;
-    use ark_test_curves::bls12_381::{Fq, Fr as Scalar, G1Projective as G};
-
-    type CommitmentKey = <PedersenCommitment<G> as CommitmentScheme<G>>::PP;
-
-    fn to_sparse<G: Group>(matrix: &Matrix<G::ScalarField>) -> SparseMatrix<G::ScalarField> {
-        let mut sparse = SparseMatrix::new();
-
-        for i in 0..matrix.len() {
-            for &(value, j) in &matrix[i] {
-                sparse.push((i, j, value));
-            }
-        }
-
-        sparse
-    }
+    use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
 
     struct CubicEquation {
         x: u64,
@@ -134,18 +123,24 @@ pub(crate) mod tests {
         }
     }
 
-    pub(crate) fn synthesize_r1cs(
+    pub(crate) fn synthesize_r1cs<G, C>(
         x: u64,
-        pp: Option<&CommitmentKey>,
+        pp: Option<&C::PP>,
     ) -> (
-        R1CSShape<G>,
-        R1CSInstance<G, PedersenCommitment<G>>,
-        R1CSWitness<G>,
-        CommitmentKey,
-    ) {
+        R1CSShape<Projective<G>>,
+        R1CSInstance<Projective<G>, C>,
+        R1CSWitness<Projective<G>>,
+        C::PP,
+    )
+    where
+        G: SWCurveConfig,
+        G::BaseField: PrimeField,
+        C: CommitmentScheme<Projective<G>, Commitment = Projective<G>>,
+        C::PP: Clone,
+    {
         let circuit = CubicEquation { x };
 
-        let cs = ConstraintSystem::<Scalar>::new_ref();
+        let cs = ConstraintSystem::<G::ScalarField>::new_ref();
         circuit
             .generate_constraints(cs.clone())
             .expect("failed to generate constraints");
@@ -157,27 +152,26 @@ pub(crate) mod tests {
         let matrices = cs.to_matrices().expect("setup finished");
 
         let cs_borrow = cs.borrow().unwrap();
-        let shape = R1CSShape::<G>::new(
+        let shape = R1CSShape::<Projective<G>>::new(
             cs_borrow.num_constraints,
             cs_borrow.num_witness_variables,
             cs_borrow.num_instance_variables,
-            &to_sparse::<G>(&matrices.a),
-            &to_sparse::<G>(&matrices.b),
-            &to_sparse::<G>(&matrices.c),
+            &to_sparse::<G::ScalarField>(&matrices.a),
+            &to_sparse::<G::ScalarField>(&matrices.b),
+            &to_sparse::<G::ScalarField>(&matrices.c),
         )
         .expect("shape is valid");
 
         let W = cs_borrow.witness_assignment.clone();
         let X = cs_borrow.instance_assignment.clone();
 
-        let pp = pp
-            .cloned()
-            .unwrap_or_else(|| PedersenCommitment::<G>::setup(cs_borrow.num_instance_variables));
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let pp = pp.cloned().unwrap_or_else(|| {
+            C::setup(cs_borrow.num_witness_variables + cs_borrow.num_instance_variables)
+        });
+        let commitment_W = C::commit(&pp, &W);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)
-            .expect("shape is valid");
-        let witness = R1CSWitness::<G>::new(&shape, &W).expect("witness shape is valid");
+        let instance = R1CSInstance::new(&shape, &commitment_W, &X).expect("shape is valid");
+        let witness = R1CSWitness::new(&shape, &W).expect("witness shape is valid");
 
         shape
             .is_satisfied(&instance, &witness, &pp)
@@ -188,17 +182,7 @@ pub(crate) mod tests {
 
     #[test]
     fn prove_verify() {
-        let (ark, mds) =
-            find_poseidon_ark_and_mds::<Fq>(Fq::MODULUS.const_num_bits() as u64, 2, 8, 43, 0);
-        let config = PoseidonConfig {
-            full_rounds: 8,
-            partial_rounds: 43,
-            alpha: 5,
-            ark,
-            mds,
-            rate: 2,
-            capacity: 1,
-        };
+        let config = poseidon_config();
         const PP_DIGEST: Scalar = Scalar::ZERO;
 
         let (shape, U1, W1, pp) = synthesize_r1cs(3, None);
@@ -206,7 +190,7 @@ pub(crate) mod tests {
         let relaxed_U = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
         let relaxed_W = RelaxedR1CSWitness::zero(&shape);
 
-        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Fq>>::prove(
+        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Scalar>>::prove(
             &pp, &config, &PP_DIGEST, &shape, &relaxed_U, &relaxed_W, &U1, &W1,
         )
         .unwrap();
@@ -223,7 +207,7 @@ pub(crate) mod tests {
 
         let (_, U2, W2, _) = synthesize_r1cs(5, Some(&pp));
 
-        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Fq>>::prove(
+        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Scalar>>::prove(
             &pp, &config, &PP_DIGEST, &shape, &U1, &W1, &U2, &W2,
         )
         .unwrap();

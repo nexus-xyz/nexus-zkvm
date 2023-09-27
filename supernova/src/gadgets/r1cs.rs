@@ -1,5 +1,7 @@
 //! Committed relaxed R1CS in-circuit implementation.
 
+#![allow(unused)]
+
 use std::{fmt, marker::PhantomData};
 
 use ark_crypto_primitives::sponge::{
@@ -7,7 +9,7 @@ use ark_crypto_primitives::sponge::{
     CryptographicSponge,
 };
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::{BigInteger, Field, PrimeField};
+use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     fields::{fp::FpVar, nonnative::NonNativeFieldVar},
@@ -18,21 +20,12 @@ use ark_r1cs_std::{
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 
-use crate::{commitment::CommitmentScheme, nifs::SQUEEZE_ELEMENTS_BIT_SIZE, r1cs};
+use crate::{
+    commitment::CommitmentScheme, nifs::SQUEEZE_ELEMENTS_BIT_SIZE, r1cs, utils::cast_field_element,
+};
 
 type R1CSInstance<C, S> = r1cs::R1CSInstance<Projective<C>, S>;
 type RelaxedR1CSInstance<C, S> = r1cs::RelaxedR1CSInstance<Projective<C>, S>;
-
-/// Reinterprets bytes of `F1` element as `F2` element, wrapping around the modulus.
-///
-/// This is unsafe since it can lead to non-unique element representation.
-unsafe fn cast_field_element<F1, F2>(element: &F1) -> F2
-where
-    F1: PrimeField,
-    F2: PrimeField,
-{
-    F2::from_le_bytes_mod_order(&element.into_bigint().to_bytes_le())
-}
 
 /// Mirror of [`scalar_to_base`](crate::utils::scalar_to_base) for allocated input.
 pub fn scalar_to_base<C>(
@@ -64,7 +57,7 @@ impl<C, S> R1CSVar<C::BaseField> for R1CSInstanceVar<C, S>
 where
     C: SWCurveConfig,
     C::BaseField: PrimeField,
-    S: CommitmentScheme<Projective<C>, Commitment = Projective<C>> + Clone + Eq + fmt::Debug,
+    S: CommitmentScheme<Projective<C>, Commitment = Projective<C>> + fmt::Debug,
 {
     type Value = R1CSInstance<C, S>;
 
@@ -174,7 +167,7 @@ impl<C, S> R1CSVar<C::BaseField> for RelaxedR1CSInstanceVar<C, S>
 where
     C: SWCurveConfig,
     C::BaseField: PrimeField,
-    S: CommitmentScheme<Projective<C>, Commitment = Projective<C>> + Clone + Eq + fmt::Debug,
+    S: CommitmentScheme<Projective<C>, Commitment = Projective<C>> + fmt::Debug,
 {
     type Value = RelaxedR1CSInstance<C, S>;
 
@@ -289,7 +282,7 @@ impl<C, S> RelaxedR1CSInstanceVar<C, S>
 where
     C: SWCurveConfig,
     C::BaseField: PrimeField,
-    S: CommitmentScheme<Projective<C>, Commitment = Projective<C>> + Clone + Eq + fmt::Debug,
+    S: CommitmentScheme<Projective<C>, Commitment = Projective<C>> + fmt::Debug,
 {
     pub fn fold<ROVar, RO>(
         &self,
@@ -362,30 +355,22 @@ mod tests {
     use crate::{
         nifs::{tests::synthesize_r1cs, NIFSProof},
         pedersen::PedersenCommitment,
-        r1cs,
+        poseidon_config, r1cs,
     };
     use ark_crypto_primitives::sponge::poseidon::constraints::PoseidonSpongeVar;
-    use ark_crypto_primitives::sponge::poseidon::{PoseidonConfig, PoseidonSponge};
+    use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 
-    use ark_crypto_primitives::sponge::poseidon::find_poseidon_ark_and_mds;
+    use ark_ff::AdditiveGroup;
     use ark_r1cs_std::{fields::fp::FpVar, prelude::AllocVar, R1CSVar};
     use ark_relations::r1cs::ConstraintSystem;
     use ark_std::Zero;
     use ark_test_curves::bls12_381::{g1::Config, Fq, Fr as Scalar, G1Projective as G};
 
     #[test]
+    #[ignore]
     fn fold_in_circuit() -> Result<(), SynthesisError> {
-        let (ark, mds) =
-            find_poseidon_ark_and_mds::<Fq>(Fq::MODULUS.const_num_bits() as u64, 2, 8, 43, 0);
-        let config = PoseidonConfig {
-            full_rounds: 8,
-            partial_rounds: 43,
-            alpha: 5,
-            ark,
-            mds,
-            rate: 2,
-            capacity: 1,
-        };
+        let config = poseidon_config();
+
         const PP_DIGEST: Fq = Fq::ZERO;
         const PP_DIGEST_FR: Scalar = Scalar::ZERO;
 

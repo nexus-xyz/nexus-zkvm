@@ -1,30 +1,35 @@
 use std::marker::PhantomData;
 
 use crate::commitment::CommitmentScheme;
-use ark_ec::{Group, ScalarMul, VariableBaseMSM};
+use ark_ec::{ScalarMul, VariableBaseMSM};
+use ark_serialize::CanonicalSerialize;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct PedersenCommitment<G>(PhantomData<G>);
 
-impl<G: VariableBaseMSM> CommitmentScheme<G> for PedersenCommitment<G> {
-    type PP = Vec<G>;
+impl<G> CommitmentScheme<G> for PedersenCommitment<G>
+where
+    G: VariableBaseMSM,
+    G::MulBase: CanonicalSerialize,
+{
+    type PP = Vec<G::MulBase>;
 
     type Commitment = G;
 
     fn setup(n: usize) -> Self::PP {
         // TODO: replace test rng.
         let mut rng = ark_std::test_rng();
-        (0..n).map(|_| G::rand(&mut rng)).collect()
+        let ps: Vec<G> = (0..n).map(|_| G::rand(&mut rng)).collect();
+        ScalarMul::batch_convert_to_mul_base(&ps)
     }
 
     fn commit(pp: &Self::PP, x: &[G::ScalarField]) -> G {
-        let h = ScalarMul::batch_convert_to_mul_base(pp);
-        let bases = &h;
+        let bases = pp;
         let scalars = x;
         VariableBaseMSM::msm_unchecked(bases, scalars)
     }
 
-    fn open(pp: &Self::PP, c: G, x: &[<G as Group>::ScalarField]) -> bool {
+    fn open(pp: &Self::PP, c: G, x: &[G::ScalarField]) -> bool {
         Self::commit(pp, x) == c
     }
 }
