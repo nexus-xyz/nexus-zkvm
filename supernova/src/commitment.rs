@@ -1,5 +1,7 @@
-use ark_ec::Group;
 use std::ops::{Add, AddAssign, Mul, MulAssign};
+
+use ark_ec::PrimeGroup;
+use ark_serialize::CanonicalSerialize;
 
 /// Defines basic operations on commitments.
 pub trait CommitmentOps<Rhs = Self, Output = Self>:
@@ -18,18 +20,18 @@ pub trait ScalarMul<Rhs, Output = Self>: Mul<Rhs, Output = Output> + MulAssign<R
 impl<T, Rhs, Output> ScalarMul<Rhs, Output> for T where T: Mul<Rhs, Output = Output> + MulAssign<Rhs>
 {}
 
-pub trait Commitment<G: Group>:
-    Default + PartialEq + Copy + Clone + CommitmentOps + ScalarMul<G::ScalarField>
+pub trait Commitment<G: PrimeGroup>:
+    Default + PartialEq + Copy + Clone + Send + CommitmentOps + ScalarMul<G::ScalarField>
 {
 }
-impl<G: Group, T> Commitment<G> for T where
-    T: Default + PartialEq + Copy + Clone + CommitmentOps + ScalarMul<G::ScalarField>
+impl<G: PrimeGroup, T> Commitment<G> for T where
+    T: Default + PartialEq + Copy + Clone + Send + CommitmentOps + ScalarMul<G::ScalarField>
 {
 }
 
-pub trait CommitmentScheme<G: Group> {
+pub trait CommitmentScheme<G: PrimeGroup> {
     /// Commitment scheme public parameters.
-    type PP;
+    type PP: CanonicalSerialize + Sync;
 
     /// Commitment type.
     type Commitment: Commitment<G>;

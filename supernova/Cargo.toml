@@ -3,8 +3,6 @@ name = "supernova"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 ark-ff = "0.4.0"
 ark-ec = { version = "0.4.0", default-features = false }
@@ -12,7 +10,43 @@ ark-std = "0.4.0"
 ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge"] }
 ark-relations = { version = "0.4.0" }
 ark-r1cs-std = { version = "0.4.0" }
+ark-serialize = { version = "0.4.0", features = ["derive"] }
+
+sha3 = { version = "0.10", default-features = false }
+
+rayon = { version = "1.8.0", optional = true }
+
+[features]
+default = ["parallel"]
+parallel = [
+   "rayon",
+   "ark-ff/parallel",
+   "ark-ec/parallel",
+   "ark-std/parallel",
+   "ark-crypto-primitives/parallel",
+   "ark-r1cs-std/parallel",
+]
 
 [dev-dependencies]
 ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
-assert_matches = "1.5.0"
+
+ark-pallas = "0.4.0"
+ark-vesta = "0.4.0"
+
+criterion = "0.5"
+
+[[bench]]
+name = "recursive-snark"
+harness = false
+
+[patch.crates-io]
+ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+
+ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }

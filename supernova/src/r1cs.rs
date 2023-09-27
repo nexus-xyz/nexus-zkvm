@@ -1,9 +1,18 @@
+use std::fmt;
+
 use ark_crypto_primitives::sponge::Absorb;
-use ark_ec::{CurveGroup, Group};
-use ark_ff::{Field, PrimeField};
+use ark_ec::{AdditiveGroup, CurveGroup, PrimeGroup};
+use ark_ff::PrimeField;
+use ark_relations::r1cs::ConstraintSystemRef;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::Zero;
 
-use super::{commitment::CommitmentScheme, utils};
+#[cfg(feature = "parallel")]
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
+
+use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme, utils};
 
 /// (row_idx, column_idx, value).
 ///
@@ -12,11 +21,10 @@ use super::{commitment::CommitmentScheme, utils};
 pub type SparseMatrix<Scalar> = Vec<(usize, usize, Scalar)>;
 pub type SparseMatrixRef<'a, Scalar> = &'a [(usize, usize, Scalar)];
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
     ConstraintNumberMismatch,
     InputLengthMismatch,
-    OddInputLength,
     InvalidWitnessLength,
     InvalidInputLength,
 
@@ -24,27 +32,27 @@ pub enum Error {
 }
 
 /// A type that holds the shape of the R1CS matrices
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct R1CSShape<G: Group> {
+#[derive(Debug, Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct R1CSShape<G: PrimeGroup> {
     /// Number of constraints.
     ///
     /// `m` in the Nova paper.
-    num_constraints: usize,
+    pub num_constraints: usize,
     /// Witness length.
     ///
     /// `m - l - 1` in the Nova paper.
-    num_vars: usize,
+    pub num_vars: usize,
     /// Length of the public input `X`. It is expected to have a leading
     /// `ScalarField::ONE` element, thus this field must be non-zero.
     ///
     /// `l + 1`, w.r.t. the Nova paper.
-    num_io: usize,
-    A: SparseMatrix<G::ScalarField>,
-    B: SparseMatrix<G::ScalarField>,
-    C: SparseMatrix<G::ScalarField>,
+    pub num_io: usize,
+    pub A: SparseMatrix<G::ScalarField>,
+    pub B: SparseMatrix<G::ScalarField>,
+    pub C: SparseMatrix<G::ScalarField>,
 }
 
-impl<G: Group> R1CSShape<G> {
+impl<G: PrimeGroup> R1CSShape<G> {
     fn validate(
         num_constraints: usize,
         num_vars: usize,
@@ -75,11 +83,6 @@ impl<G: Group> R1CSShape<G> {
         if num_io == 0 {
             return Err(Error::InvalidInputLength);
         }
-        // We require the number of public inputs/outputs to be even
-        #[cfg(not(test))]
-        if num_io % 2 != 0 {
-            return Err(Error::OddInputLength);
-        }
 
         Self::validate(num_constraints, num_vars, num_io, A)?;
         Self::validate(num_constraints, num_vars, num_io, B)?;
@@ -104,6 +107,22 @@ impl<G: Group> R1CSShape<G> {
             return Err(Error::InvalidWitnessLength);
         }
 
+        #[cfg(feature = "parallel")]
+        let Mz = {
+            let init = || vec![<G::ScalarField as Zero>::zero(); self.num_constraints];
+            M.par_iter()
+                .map(|(row, column, value)| (row, *value * z[*column]))
+                .with_min_len(M.len() / rayon::current_num_threads())
+                .fold(init, |mut Mz, (row, product)| {
+                    Mz[*row] += product;
+                    Mz
+                })
+                .reduce(init, |mut acc, z| {
+                    acc.iter_mut().zip(&z).for_each(|(a, b)| *a += b);
+                    acc
+                })
+        };
+        #[cfg(not(feature = "parallel"))]
         let Mz = M
             .iter()
             .map(|(row, column, value)| (row, *value * z[*column]))
@@ -118,6 +137,19 @@ impl<G: Group> R1CSShape<G> {
         Ok(Mz)
     }
 
+    fn sparse_dot_all(&self, z: &[G::ScalarField]) -> Result<[Vec<G::ScalarField>; 3], Error> {
+        let matrices = ark_std::cfg_into_iter!([&self.A, &self.B, &self.C]);
+
+        #[cfg(feature = "parallel")]
+        let matrices = matrices.with_max_len(1);
+
+        let res = matrices
+            .map(|M| self.sparse_dot(M, z))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(<[_; 3]>::try_from(res).unwrap())
+    }
+
     /// Checks if the R1CS instance together with the witness `W` satisfies the R1CS constraints determined by `shape`.
     pub fn is_satisfied<C: CommitmentScheme<G>>(
         &self,
@@ -129,12 +161,10 @@ impl<G: Group> R1CSShape<G> {
         assert_eq!(U.X.len(), self.num_io);
 
         let z = [U.X.as_slice(), W.W.as_slice()].concat();
+        let [Az, Bz, Cz] = self.sparse_dot_all(&z)?;
 
-        let Az = self.sparse_dot(&self.A, &z)?;
-        let Bz = self.sparse_dot(&self.B, &z)?;
-        let Cz = self.sparse_dot(&self.C, &z)?;
-
-        if (0..self.num_constraints).any(|idx| Az[idx] * Bz[idx] != Cz[idx]) {
+        if ark_std::cfg_into_iter!(0..self.num_constraints).any(|idx| Az[idx] * Bz[idx] != Cz[idx])
+        {
             return Err(Error::NotSatisfied);
         }
 
@@ -157,18 +187,21 @@ impl<G: Group> R1CSShape<G> {
         assert_eq!(W.E.len(), self.num_constraints);
 
         let z = [U.X.as_slice(), W.W.as_slice()].concat();
+        let [Az, Bz, Cz] = self.sparse_dot_all(&z)?;
 
-        let Az = self.sparse_dot(&self.A, &z)?;
-        let Bz = self.sparse_dot(&self.B, &z)?;
-        let Cz = self.sparse_dot(&self.C, &z)?;
         let u = U.X[0];
 
-        if (0..self.num_constraints).any(|idx| Az[idx] * Bz[idx] != u * Cz[idx] + W.E[idx]) {
+        if ark_std::cfg_into_iter!(0..self.num_constraints)
+            .any(|idx| Az[idx] * Bz[idx] != u * Cz[idx] + W.E[idx])
+        {
             return Err(Error::NotSatisfied);
         }
 
-        let commitment_W = C::commit(pp, &W.W);
-        let commitment_E = C::commit(pp, &W.E);
+        #[cfg(feature = "parallel")]
+        let (commitment_W, commitment_E) =
+            rayon::join(|| C::commit(pp, &W.W), || C::commit(pp, &W.E));
+        #[cfg(not(feature = "parallel"))]
+        let (commitment_W, commitment_E) = (C::commit(pp, &W.W), C::commit(pp, &W.E));
 
         if U.commitment_W != commitment_W || U.commitment_E != commitment_E {
             return Err(Error::NotSatisfied);
@@ -178,27 +211,69 @@ impl<G: Group> R1CSShape<G> {
     }
 }
 
+impl<G: PrimeGroup> From<ConstraintSystemRef<G::ScalarField>> for R1CSShape<G> {
+    fn from(cs: ConstraintSystemRef<G::ScalarField>) -> Self {
+        assert!(cs.should_construct_matrices());
+        let matrices = cs.to_matrices().unwrap();
+
+        Self {
+            num_constraints: cs.num_constraints(),
+            num_vars: cs.num_witness_variables(),
+            num_io: cs.num_instance_variables(),
+            A: utils::to_sparse(&matrices.a),
+            B: utils::to_sparse(&matrices.b),
+            C: utils::to_sparse(&matrices.c),
+        }
+    }
+}
+
 /// A type that holds a witness for a given R1CS instance.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct R1CSWitness<G: Group> {
-    W: Vec<G::ScalarField>,
+pub struct R1CSWitness<G: PrimeGroup> {
+    pub(crate) W: Vec<G::ScalarField>,
 }
 
 /// A type that holds an R1CS instance.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct R1CSInstance<G: Group, C: CommitmentScheme<G>> {
+pub struct R1CSInstance<G: PrimeGroup, C: CommitmentScheme<G>> {
     /// Commitment to witness.
     pub(crate) commitment_W: C::Commitment,
     /// X is assumed to start with a `ScalarField::ONE`.
     pub(crate) X: Vec<G::ScalarField>,
 }
 
+impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for R1CSInstance<G, C> {
+    fn clone(&self) -> Self {
+        Self {
+            commitment_W: self.commitment_W,
+            X: self.X.clone(),
+        }
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>> fmt::Debug for R1CSInstance<G, C>
+where
+    C::Commitment: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("R1CSInstance")
+            .field("commitment_W", &self.commitment_W)
+            .field("X", &self.X)
+            .finish()
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>> PartialEq for R1CSInstance<G, C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.commitment_W == other.commitment_W && self.X == other.X
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>> Eq for R1CSInstance<G, C> where C::Commitment: Eq {}
+
 impl<G, C> Absorb for R1CSInstance<G, C>
 where
-    G: CurveGroup,
-    G::BaseField: PrimeField + Absorb,
+    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     G::ScalarField: Absorb,
-    G::Affine: Absorb,
     C: CommitmentScheme<G, Commitment = G>,
 {
     fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
@@ -206,18 +281,13 @@ where
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        self.commitment_W
-            .into_affine()
-            .to_sponge_field_elements(dest);
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(&self.commitment_W, dest);
 
-        for x in &self.X {
-            let x_base = utils::scalar_to_base::<G>(x);
-            x_base.to_sponge_field_elements(dest);
-        }
+        (&self.X[1..]).to_sponge_field_elements(dest);
     }
 }
 
-impl<G: Group> R1CSWitness<G> {
+impl<G: PrimeGroup> R1CSWitness<G> {
     /// A method to create a witness object using a vector of scalars.
     pub fn new(shape: &R1CSShape<G>, W: &[G::ScalarField]) -> Result<Self, Error> {
         if shape.num_vars != W.len() {
@@ -227,13 +297,19 @@ impl<G: Group> R1CSWitness<G> {
         }
     }
 
+    pub fn zero(shape: &R1CSShape<G>) -> Self {
+        Self {
+            W: vec![G::ScalarField::ZERO; shape.num_vars],
+        }
+    }
+
     /// Commits to the witness using the supplied generators
     pub fn commit<C: CommitmentScheme<G>>(&self, pp: &C::PP) -> C::Commitment {
         C::commit(pp, &self.W)
     }
 }
 
-impl<G: Group, C: CommitmentScheme<G>> R1CSInstance<G, C> {
+impl<G: PrimeGroup, C: CommitmentScheme<G>> R1CSInstance<G, C> {
     /// A method to create an instance object using constituent elements.
     pub fn new(
         shape: &R1CSShape<G>,
@@ -256,26 +332,56 @@ impl<G: Group, C: CommitmentScheme<G>> R1CSInstance<G, C> {
 
 /// A type that holds a witness for a given Relaxed R1CS instance.
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
-pub struct RelaxedR1CSWitness<G: Group> {
+pub struct RelaxedR1CSWitness<G: PrimeGroup> {
     W: Vec<G::ScalarField>,
     E: Vec<G::ScalarField>,
 }
 
 /// A type that holds a Relaxed R1CS instance.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RelaxedR1CSInstance<G: Group, C: CommitmentScheme<G>> {
+pub struct RelaxedR1CSInstance<G: PrimeGroup, C: CommitmentScheme<G>> {
     pub(crate) commitment_W: C::Commitment,
     pub(crate) commitment_E: C::Commitment,
     /// X is assumed to start with `u`.
     pub(crate) X: Vec<G::ScalarField>,
 }
 
+impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for RelaxedR1CSInstance<G, C> {
+    fn clone(&self) -> Self {
+        Self {
+            commitment_W: self.commitment_W,
+            commitment_E: self.commitment_E,
+            X: self.X.clone(),
+        }
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>> fmt::Debug for RelaxedR1CSInstance<G, C>
+where
+    C::Commitment: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RelaxedR1CSInstance")
+            .field("commitment_W", &self.commitment_W)
+            .field("commitment_E", &self.commitment_E)
+            .field("X", &self.X)
+            .finish()
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>> PartialEq for RelaxedR1CSInstance<G, C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.commitment_W == other.commitment_W
+            && self.commitment_E == other.commitment_E
+            && self.X == other.X
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>> Eq for RelaxedR1CSInstance<G, C> where C::Commitment: Eq {}
+
 impl<G, C> Absorb for RelaxedR1CSInstance<G, C>
 where
-    G: CurveGroup,
-    G::BaseField: PrimeField + Absorb,
+    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     G::ScalarField: Absorb,
-    G::Affine: Absorb,
     C: CommitmentScheme<G, Commitment = G>,
 {
     fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
@@ -283,21 +389,16 @@ where
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        self.commitment_W
-            .into_affine()
-            .to_sponge_field_elements(dest);
-        self.commitment_E
-            .into_affine()
-            .to_sponge_field_elements(dest);
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(&self.commitment_W, dest);
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(&self.commitment_E, dest);
 
-        for x in &self.X {
-            let x_base = utils::scalar_to_base::<G>(x);
-            x_base.to_sponge_field_elements(dest);
-        }
+        self.X.to_sponge_field_elements(dest);
     }
 }
 
-impl<G: Group, C: CommitmentScheme<G>> From<&R1CSInstance<G, C>> for RelaxedR1CSInstance<G, C> {
+impl<G: PrimeGroup, C: CommitmentScheme<G>> From<&R1CSInstance<G, C>>
+    for RelaxedR1CSInstance<G, C>
+{
     fn from(instance: &R1CSInstance<G, C>) -> Self {
         Self {
             commitment_W: instance.commitment_W,
@@ -307,7 +408,7 @@ impl<G: Group, C: CommitmentScheme<G>> From<&R1CSInstance<G, C>> for RelaxedR1CS
     }
 }
 
-impl<G: Group> RelaxedR1CSWitness<G> {
+impl<G: PrimeGroup> RelaxedR1CSWitness<G> {
     pub fn zero(shape: &R1CSShape<G>) -> Self {
         Self {
             W: vec![G::ScalarField::ZERO; shape.num_vars],
@@ -318,13 +419,8 @@ impl<G: Group> RelaxedR1CSWitness<G> {
     pub fn from_r1cs_witness(shape: &R1CSShape<G>, witness: &R1CSWitness<G>) -> Self {
         Self {
             W: witness.W.clone(),
-            E: vec![<G::ScalarField as Field>::ZERO; shape.num_constraints],
+            E: vec![G::ScalarField::ZERO; shape.num_constraints],
         }
-    }
-
-    /// Commits to the witness using the supplied generators
-    pub fn commit<C: CommitmentScheme<G>>(&self, ck: &C::PP) -> (C::Commitment, C::Commitment) {
-        (C::commit(ck, &self.W), C::commit(ck, &self.E))
     }
 
     /// Folds an incoming **non-relaxed** [`R1CSWitness`] into the current one.
@@ -341,14 +437,20 @@ impl<G: Group> RelaxedR1CSWitness<G> {
             return Err(Error::InvalidWitnessLength);
         }
 
-        let W: Vec<G::ScalarField> = W1.iter().zip(W2).map(|(a, b)| *a + *r * *b).collect();
+        let W: Vec<G::ScalarField> = ark_std::cfg_iter!(W1)
+            .zip(W2)
+            .map(|(a, b)| *a + *r * *b)
+            .collect();
         // Note that W2 is not relaxed, thus E2 = 0.
-        let E: Vec<G::ScalarField> = E1.iter().zip(T).map(|(a, b)| *a + *r * *b).collect();
+        let E: Vec<G::ScalarField> = ark_std::cfg_iter!(E1)
+            .zip(T)
+            .map(|(a, b)| *a + *r * *b)
+            .collect();
         Ok(Self { W, E })
     }
 }
 
-impl<G: Group, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
+impl<G: PrimeGroup, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
     pub fn new(shape: &R1CSShape<G>) -> Self {
         Self {
             commitment_W: C::Commitment::default(),
@@ -367,7 +469,10 @@ impl<G: Group, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
         let (X1, comm_W1, comm_E1) = (&self.X, self.commitment_W, self.commitment_E);
         let (X2, comm_W2) = (&U2.X, &U2.commitment_W);
 
-        let X: Vec<G::ScalarField> = X1.iter().zip(X2).map(|(a, b)| *a + *r * *b).collect();
+        let X: Vec<G::ScalarField> = ark_std::cfg_iter!(X1)
+            .zip(X2)
+            .map(|(a, b)| *a + *r * *b)
+            .collect();
         let commitment_W = comm_W1 + *comm_W2 * *r;
         // Note that U2 is not relaxed, thus E2 = 0 and u2 = 1.
         let commitment_E = comm_E1 + *comm_T * *r;
@@ -382,7 +487,7 @@ impl<G: Group, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
 
 /// A method to compute a commitment to the cross-term `T` given a
 /// Relaxed R1CS instance-witness pair and **not relaxed** R1CS instance-witness pair.
-pub fn commit_T<G: Group, C: CommitmentScheme<G>>(
+pub fn commit_T<G: PrimeGroup, C: CommitmentScheme<G>>(
     shape: &R1CSShape<G>,
     pp: &C::PP,
     U1: &RelaxedR1CSInstance<G, C>,
@@ -391,32 +496,30 @@ pub fn commit_T<G: Group, C: CommitmentScheme<G>>(
     W2: &R1CSWitness<G>,
 ) -> Result<(Vec<G::ScalarField>, C::Commitment), Error> {
     let z1 = [&U1.X, &W1.W[..]].concat();
-
-    let Az1 = shape.sparse_dot(&shape.A, &z1)?;
-    let Bz1 = shape.sparse_dot(&shape.B, &z1)?;
-    let Cz1 = shape.sparse_dot(&shape.C, &z1)?;
+    let [Az1, Bz1, Cz1] = shape.sparse_dot_all(&z1)?;
 
     let z2 = [&U2.X, &W2.W[..]].concat();
-
-    let Az2 = shape.sparse_dot(&shape.A, &z2)?;
-    let Bz2 = shape.sparse_dot(&shape.B, &z2)?;
-    let Cz2 = shape.sparse_dot(&shape.C, &z2)?;
+    let [Az2, Bz2, Cz2] = shape.sparse_dot_all(&z2)?;
 
     // Circle-product.
-    let Az1_Bz2: Vec<G::ScalarField> = Az1.iter().zip(&Bz2).map(|(&a, &b)| a * b).collect();
-    let Az2_Bz1: Vec<G::ScalarField> = Az2.iter().zip(&Bz1).map(|(&a, &b)| a * b).collect();
+    let Az1_Bz2: Vec<G::ScalarField> = ark_std::cfg_iter!(Az1)
+        .zip(&Bz2)
+        .map(|(&a, &b)| a * b)
+        .collect();
+    let Az2_Bz1: Vec<G::ScalarField> = ark_std::cfg_iter!(Az2)
+        .zip(&Bz1)
+        .map(|(&a, &b)| a * b)
+        .collect();
 
     // Scalar product.
     // u2 = 1 since U2 is non-relaxed instance, thus no multiplication required for Cz1.
     let u1 = U1.X[0];
-    let u1_Cz2: Vec<G::ScalarField> = Cz2.into_iter().map(|cz2| u1 * cz2).collect();
+    let u1_Cz2: Vec<G::ScalarField> = ark_std::cfg_into_iter!(Cz2).map(|cz2| u1 * cz2).collect();
 
     // Compute cross-term.
-    let mut T = Vec::with_capacity(Az1_Bz2.len());
-    for i in 0..Az1_Bz2.len() {
-        let t_i = Az1_Bz2[i] + Az2_Bz1[i] - u1_Cz2[i] - Cz1[i];
-        T.push(t_i);
-    }
+    let T: Vec<G::ScalarField> = ark_std::cfg_into_iter!(0..Az1_Bz2.len())
+        .map(|i| Az1_Bz2[i] + Az2_Bz1[i] - u1_Cz2[i] - Cz1[i])
+        .collect();
 
     let comm_T = C::commit(pp, &T);
 
@@ -430,10 +533,10 @@ mod tests {
     use super::*;
     use crate::pedersen::PedersenCommitment;
 
+    use ark_ff::Field;
     use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
-    use assert_matches::assert_matches;
 
-    fn to_field_sparse<G: Group>(matrix: &[&[u64]]) -> SparseMatrix<G::ScalarField> {
+    fn to_field_sparse<G: PrimeGroup>(matrix: &[&[u64]]) -> SparseMatrix<G::ScalarField> {
         let mut sparse = SparseMatrix::new();
 
         for i in 0..matrix.len() {
@@ -451,7 +554,7 @@ mod tests {
         sparse
     }
 
-    fn to_field_elements<G: Group>(x: &[u64]) -> Vec<G::ScalarField> {
+    fn to_field_elements<G: PrimeGroup>(x: &[u64]) -> Vec<G::ScalarField> {
         x.iter()
             .map(|x_i| {
                 let big_int = <G::ScalarField as PrimeField>::BigInt::from(*x_i);
@@ -463,27 +566,21 @@ mod tests {
     #[test]
     fn invalid_input() {
         #[rustfmt::skip]
-        let (A, B, C) = {
+        let A = {
             let A: &[&[u64]] = &[
                 &[1, 2, 3],
                 &[3, 4, 5],
                 &[6, 7, 8],
             ];
-            let B = A.clone();
-            let C = A.clone();
-            (
-                to_field_sparse::<G>(A),
-                to_field_sparse::<G>(B),
-                to_field_sparse::<G>(C),
-            )
+            to_field_sparse::<G>(A)
         };
 
-        assert_matches!(
-            R1CSShape::<G>::new(2, 2, 2, &A, &B, &C),
+        assert_eq!(
+            R1CSShape::<G>::new(2, 2, 2, &A, &A, &A),
             Err(Error::ConstraintNumberMismatch)
         );
-        assert_matches!(
-            R1CSShape::<G>::new(3, 0, 1, &A, &B, &C),
+        assert_eq!(
+            R1CSShape::<G>::new(3, 0, 1, &A, &A, &A),
             Err(Error::InputLengthMismatch)
         );
     }
@@ -491,19 +588,13 @@ mod tests {
     #[test]
     fn zero_instance_is_satisfied() {
         #[rustfmt::skip]
-        let (A, B, C) = {
+        let A = {
             let A: &[&[u64]] = &[
                 &[1, 2, 3],
                 &[3, 4, 5],
                 &[6, 7, 8],
             ];
-            let B = A.clone();
-            let C = A.clone();
-            (
-                to_field_sparse::<G>(A),
-                to_field_sparse::<G>(B),
-                to_field_sparse::<G>(C),
-            )
+            to_field_sparse::<G>(A)
         };
 
         const NUM_CONSTRAINTS: usize = 3;
@@ -512,7 +603,7 @@ mod tests {
 
         let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
 
-        let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &A, &B, &C)
+        let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &A, &A, &A)
             .expect("shape is valid");
         let instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
         let witness = RelaxedR1CSWitness::<G>::zero(&shape);
@@ -577,7 +668,7 @@ mod tests {
         let instance =
             R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &invalid_commitment, &X)
                 .expect("instance is valid");
-        assert_matches!(
+        assert_eq!(
             shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
         );
@@ -590,7 +681,7 @@ mod tests {
                 .expect("instance is valid");
         let invalid_witness =
             R1CSWitness::<G>::new(&shape, &invalid_W).expect("witness shape is valid");
-        assert_matches!(
+        assert_eq!(
             shape.is_satisfied(&instance, &invalid_witness, &pp),
             Err(Error::NotSatisfied)
         );
@@ -600,7 +691,7 @@ mod tests {
         let instance =
             R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &invalid_X)
                 .expect("instance is valid");
-        assert_matches!(
+        assert_eq!(
             shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
         );
@@ -692,7 +783,7 @@ mod tests {
         const NUM_CONSTRAINTS: usize = 4;
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
-        const r: Scalar = <Scalar as Field>::ONE;
+        const r: Scalar = Scalar::ONE;
 
         let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &A, &B, &C)
