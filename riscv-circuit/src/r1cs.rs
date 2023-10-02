@@ -8,13 +8,14 @@
 //! source for generating constraints over a target field.
 
 use std::collections::HashMap;
+use ark_test_curves::fp128::Fq as Fp128;
 
 use crate::q::*;
 
 pub type V = Vec<Q>;
 pub type M = Vec<Vec<Q>>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct R1CS {
     pub w: V,
     pub a: M,
@@ -213,10 +214,7 @@ impl R1CS {
         debug_assert!(self.a.len() == self.b.len());
         debug_assert!(self.a.len() == self.c.len());
 
-        // Note: for reasons I don't understand,
-        // removing this loop from the release build causes
-        // a 150% slowdown in performance...
-        //#[cfg(debug_assertions)]
+        #[cfg(debug_assertions)]
         for m in [&self.a, &self.b, &self.c] {
             for v in m {
                 debug_assert!(v.len() == self.w.len());
@@ -224,13 +222,13 @@ impl R1CS {
         }
 
         #[rustfmt::skip]
-        fn dot(m: &M, v: &V) -> Vec<Q> {
+        fn dot(m: &M, v: &V) -> Vec<Fp128> {
             m.iter()
              .map(|r| {
                  r.iter()
                   .zip(v)
-                  .map(|(x, y)| x * y)
-                  .fold(ZERO, |a, x| a + x)
+                  .map(|(x, y)| x.to_field::<Fp128>() * y.to_field::<Fp128>())
+                  .fold(Fp128::from(0), |a, x| a + x)
              })
              .collect()
         }

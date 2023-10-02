@@ -10,8 +10,13 @@ fn main() {
         process::exit(1);
     }
 
-    let path = &PathBuf::from(args[1].clone());
-    match run_elf(path, false) {
+    let opts = VMOpts {
+        k: 1,
+        nop: None,
+        loopk: None,
+        file: Some(PathBuf::from(args[1].clone())),
+    };
+    match run_vm(&opts, false) {
         Ok(()) => (),
         Err(e) => {
             println!("{e}");

@@ -1,17 +1,6 @@
 use crate::types::*;
 
-use nexus_riscv_circuit::{
-    q::{Q, ZERO},
-    r1cs::V,
-    Trace,
-};
-
-fn q_to_f(q: &Q) -> F1 {
-    match q {
-        Q::Z(x) => F1::from(*x),
-        Q::R(a, b) => F1::from(*a) / F1::from(*b),
-    }
-}
+use nexus_riscv_circuit::{q::ZERO, r1cs::V, Trace};
 
 pub struct Tr(usize, Trace);
 
@@ -21,11 +10,14 @@ impl Tr {
     }
 
     pub fn steps(&self) -> usize {
-        self.1.trace.len()
+        self.1.trace.len() / self.1.k
     }
 
     pub fn z0(&self) -> Vec<F1> {
-        self.1.trace[0][0..34].iter().map(q_to_f).collect()
+        self.1.trace[0][self.1.input.clone()]
+            .iter()
+            .map(|q| q.to_field())
+            .collect()
     }
 
     pub fn advance(&mut self) {
@@ -33,56 +25,101 @@ impl Tr {
     }
 }
 
-fn build_witness(
+// fast version
+fn build_witness_offset(
+    cs: CS,
+    _z: &[FpVar<F1>],
+    tr: &Tr,
+    offset: usize,
+) -> Result<Vec<FpVar<F1>>, SynthesisError> {
+    let mut output: Vec<FpVar<F1>> = Vec::new();
+
+    let index = tr.1.k * tr.0 + offset;
+    for (i, x) in tr.1.trace[index].iter().enumerate() {
+        if tr.1.input.contains(&i) {
+            // variables already allocated in z
+        } else if tr.1.output.contains(&i) {
+            let av = AllocatedFp::new_witness(cs.clone(), || Ok(x.to_field::<F1>()))?;
+            output.push(FpVar::Var(av))
+        } else {
+            cs.new_witness_variable(|| Ok(x.to_field()))?;
+        }
+    }
+    Ok(output)
+}
+
+fn build_witness(cs: CS, z: &[FpVar<F1>], tr: &Tr) -> Result<Vec<FpVar<F1>>, SynthesisError> {
+    let mut z = z;
+    let mut v = Vec::new();
+    for i in 0..tr.1.k {
+        v = build_witness_offset(cs.clone(), z, tr, i)?;
+        z = &v;
+    }
+    Ok(v)
+}
+
+// slow version
+fn build_constraints_offset(
     cs: CS,
     z: &[FpVar<F1>],
     tr: &Tr,
-) -> Result<(Vec<Variable>, Vec<FpVar<F1>>), SynthesisError> {
+    offset: usize,
+) -> Result<Vec<FpVar<F1>>, SynthesisError> {
     let mut vars: Vec<Variable> = Vec::new();
-    let mut output: Vec<FpVar<F1>> = vec![z[0].clone()];
+    let mut output: Vec<FpVar<F1>> = Vec::new();
 
-    for (i, x) in tr.1.trace[tr.0].iter().enumerate() {
-        if i < 34 {
-            if let FpVar::Var(AllocatedFp { variable, .. }) = z[i] {
+    let index = tr.1.k * tr.0 + offset;
+    let w = if index >= tr.1.trace.len() {
+        &tr.1.cs.w
+    } else {
+        &tr.1.trace[index]
+    };
+
+    for (i, x) in w.iter().enumerate() {
+        if tr.1.input.contains(&i) {
+            if let FpVar::Var(AllocatedFp { variable, .. }) = z[i - tr.1.input.start] {
                 vars.push(variable)
             } else {
                 panic!()
             }
-        } else if i < 67 {
-            let av = AllocatedFp::new_witness(cs.clone(), || Ok(q_to_f(x)))?;
+        } else if tr.1.output.contains(&i) {
+            let av = AllocatedFp::new_witness(cs.clone(), || Ok(x.to_field::<F1>()))?;
             vars.push(av.variable);
             output.push(FpVar::Var(av))
         } else {
-            vars.push(cs.new_witness_variable(|| Ok(q_to_f(x)))?)
+            vars.push(cs.new_witness_variable(|| Ok(x.to_field()))?)
         }
     }
-    Ok((vars, output))
-}
 
-#[rustfmt::skip]
-fn build_constraints(cs: CS, vars: &[Variable], tr: &Tr) -> Result<(), SynthesisError> {
     let row = |a: &V| {
         a.iter().enumerate().fold(lc!(), |lc, (i, x)| {
             if x == &ZERO {
                 lc
             } else {
-                lc + (q_to_f(x), vars[i])
+                lc + (x.to_field(), vars[i])
             }
         })
     };
 
     for i in 0..tr.1.cs.a.len() {
-        cs.enforce_constraint(
-            row(&tr.1.cs.a[i]),
-            row(&tr.1.cs.b[i]),
-            row(&tr.1.cs.c[i])
-        )?;
+        cs.enforce_constraint(row(&tr.1.cs.a[i]), row(&tr.1.cs.b[i]), row(&tr.1.cs.c[i]))?;
     }
-    Ok(())
+
+    Ok(output)
+}
+
+fn build_constraints(cs: CS, z: &[FpVar<F1>], tr: &Tr) -> Result<Vec<FpVar<F1>>, SynthesisError> {
+    let mut z = z;
+    let mut v = Vec::new();
+    for i in 0..tr.1.k {
+        v = build_constraints_offset(cs.clone(), z, tr, i)?;
+        z = &v;
+    }
+    Ok(v)
 }
 
 impl StepCircuit<F1> for Tr {
-    const ARITY: usize = 34;
+    const ARITY: usize = 33;
 
     fn generate_constraints(
         &self,
@@ -93,12 +130,10 @@ impl StepCircuit<F1> for Tr {
             SynthesisMode::Setup => true,
             SynthesisMode::Prove { construct_matrices } => construct_matrices,
         };
-
-        let (vars, output) = build_witness(cs.clone(), z, self)?;
-
-        if matrices {
-            build_constraints(cs, &vars, self)?;
+        if !matrices {
+            build_witness(cs, z, self)
+        } else {
+            build_constraints(cs, z, self)
         }
-        Ok(output)
     }
 }

@@ -7,5 +7,7 @@ publish = false
 [dependencies]
 clap.workspace = true
 
-nexus-riscv = { path = "../riscv" }
+ark-ff.workspace = true
+ark-test-curves.workspace = true
 
+nexus-riscv = { path = "../riscv" }

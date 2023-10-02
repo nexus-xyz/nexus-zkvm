@@ -1,5 +1,6 @@
 //! A simple implementation of raional numbers.
 
+use ark_ff::Field;
 use std::fmt::{Debug, Display, Formatter, Result};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
@@ -80,6 +81,15 @@ impl Q {
             Z(num)
         } else {
             R(num, den)
+        }
+    }
+
+    pub fn to_field<F: Field>(&self) -> F {
+        match self {
+            Z(0) => F::ZERO,
+            Z(1) => F::ONE,
+            Z(k) => F::from(*k),
+            R(a, b) => F::from(*a) / F::from(*b),
         }
     }
 }

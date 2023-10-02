@@ -1,4 +1,4 @@
-use nexus_riscv::{Result, load_elf};
+use nexus_riscv::{Result, VMOpts, load_vm};
 use nexus_riscv_circuit::*;
 
 use clap::Parser;
@@ -15,17 +15,24 @@ pub struct Opts {
     #[arg(short, long)]
     check: bool,
 
-    /// Input file
-    #[arg(name = "ELF File")]
-    file: std::path::PathBuf,
+    #[command(flatten)]
+    vm: VMOpts,
 }
 
-fn main() -> Result<()> {
-    let opts = Opts::parse();
-    let mut vm = load_elf(&opts.file)?;
+fn run(opts: &Opts) -> Result<Trace> {
+    let mut vm = load_vm(&opts.vm)?;
+    eval(&mut vm, opts.vm.k, opts.trace, opts.check)
+}
 
+fn main() {
+    let opts = Opts::parse();
     let start = Instant::now();
-    let trace = eval(&mut vm, opts.trace, opts.check)?;
-    println!("Executed {} steps in {:?}", trace.trace.len(), start.elapsed());
-    Ok(())
+    match run(&opts) {
+        Err(e) => {
+            println!("{}", e);
+        }
+        Ok(trace) => {
+            println!("Executed {} steps in {:?}", trace.trace.len(), start.elapsed());
+        }
+    }
 }

@@ -365,7 +365,7 @@ fn parse_shamt(cs: &mut R1CS, Y: u32) {
 
 fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_var("J", J);
-    for j in 1..RV32::MAX_J {
+    for j in 1..RV32::MAX_J + 1 {
         cs.set_var(&format!("J={j}"), (j == J).into());
     }
 
@@ -442,14 +442,19 @@ fn parse_J(cs: &mut R1CS, J: u32) {
 
     cs.set_eq("J=39", "opcode=15"); // fence
 
-    // ecall
+    let ecall = cs.new_local_var("ecall");
+    cs.w[ecall] = (&ONE - cs.get_var("inst_12")) * (&ONE - cs.get_var("inst_20"));
+
     cs.constraint(|cs, a, b, c| {
         a[0] = ONE;
-        a[cs.var("inst_20")] = MINUS;
-        b[cs.var("opcode=115")] = ONE;
-        c[cs.var("J=40")] = ONE;
+        a[cs.var("inst_12")] = MINUS;
+        b[0] = ONE;
+        b[cs.var("inst_20")] = MINUS;
+        c[ecall] = ONE;
     });
+    cs.mul("J=40", "opcode=115", "ecall"); // ecall
     cs.mul("J=41", "opcode=115", "inst_20"); // ebreak
+    cs.mul("J=42", "opcode=115", "inst_12"); // unimp
 
     cs.seal();
 }
@@ -500,8 +505,7 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
     misc(&mut cs);
 
     // constrain Z and PC according to instruction index J
-    // note: MAX_J is unimp which doesn't have any circuits
-    for j in 1..(RV32::MAX_J) {
+    for j in 1..RV32::MAX_J + 1 {
         #[rustfmt::skip]
         cs.set_var(
             &format!("JZ{j}"),
@@ -519,7 +523,7 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
 
     // Z = Z[J]
     cs.constraint(|cs, a, b, c| {
-        for j in 1..(RV32::MAX_J) {
+        for j in 1..RV32::MAX_J + 1 {
             a[cs.var(&format!("JZ{j}"))] = ONE;
         }
         b[0] = ONE;
@@ -528,7 +532,7 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
 
     // PC = PC[J]
     cs.constraint(|cs, a, b, c| {
-        for j in 1..(RV32::MAX_J) {
+        for j in 1..RV32::MAX_J + 1 {
             a[cs.var(&format!("JPC{j}"))] = ONE;
         }
         b[0] = ONE;
@@ -1072,6 +1076,11 @@ fn misc(cs: &mut R1CS) {
     nop(FENCE.index_j());
     nop(ECALL.index_j());
     nop(EBREAK.index_j());
+
+    // unimp is special
+    let J = UNIMP.index_j();
+    cs.set_var(&format!("Z{J}"), 0);
+    cs.set_eq(&format!("PC{J}"), "pc");
 }
 
 #[cfg(test)]

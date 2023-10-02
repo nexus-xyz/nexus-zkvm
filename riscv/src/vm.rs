@@ -12,8 +12,6 @@ use std::io::Write;
 /// virtual machine state
 #[derive(Default)]
 pub struct VM {
-    // Code memory as a vector
-    pub code: Vec<Inst>,
     /// ISA defined program counter register
     pub pc: u32,
     /// ISA defined registers x0-x31

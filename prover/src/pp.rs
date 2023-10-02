@@ -1,8 +1,7 @@
 use std::fs::File;
 use zstd::stream::{Encoder, Decoder};
 use supernova::poseidon_config;
-use nexus_riscv::vm::VM;
-use nexus_riscv_circuit::{Trace, eval};
+use nexus_riscv_circuit::k_step_circuit;
 
 use crate::types::*;
 use crate::error::*;
@@ -78,23 +77,8 @@ pub fn load_pp<T>(file: &str) -> Result<PP<T>, ProofError> {
 
 // -- VM specific versions
 
-fn nop_trace() -> Result<Trace, VMError> {
-    let mut vm = VM {
-        pc: 0x1000,
-        ..VM::default()
-    };
-    vm.init_memory(
-        0x1000,
-        &[
-            0x13, 0x00, 0x00, 0x00, // nop
-            0x73, 0x10, 0x00, 0xC0, // unimp
-        ],
-    );
-    eval(&mut vm, false, false)
-}
-
-pub fn gen_vm_pp() -> Result<PP<Tr>, ProofError> {
-    let tr = Tr::new(nop_trace()?);
+pub fn gen_vm_pp(k: usize) -> Result<PP<Tr>, ProofError> {
+    let tr = Tr::new(k_step_circuit(k)?);
     let pp = gen_pp(&tr)?;
     Ok(pp)
 }

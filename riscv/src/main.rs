@@ -10,20 +10,20 @@ pub struct Opts {
     #[arg(short, long)]
     trace: bool,
 
-    /// Input file
-    #[arg(name = "ELF File")]
-    file: std::path::PathBuf,
+    #[command(flatten)]
+    vm: VMOpts,
 }
 
 fn main() {
     let opts = Opts::parse();
+
     let t = Instant::now();
-    match run_elf(&opts.file, opts.trace) {
-        Ok(()) => (),
+    match run_vm(&opts.vm, opts.trace) {
+        Ok(()) => {
+            if opts.trace {
+                println!("Elapsed time: {:?}", t.elapsed());
+            }
+        }
         Err(e) => println!("{e}"),
-    }
-    if opts.trace {
-        let t = t.elapsed();
-        println!("Elapsed time: {:?}", t);
     }
 }
