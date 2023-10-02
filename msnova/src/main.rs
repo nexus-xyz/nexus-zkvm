@@ -12,11 +12,10 @@ use nova_snark::{
         circuit::{StepCircuit, TrivialTestCircuit},
         Group,
     },
-    PublicParams,
-    RecursiveSNARK,
+    PublicParams, RecursiveSNARK,
 };
 use std::time::Instant;
-use std::io::{self,Write};
+use std::io::{self, Write};
 
 type G1 = pasta_curves::pallas::Point;
 type G2 = pasta_curves::vesta::Point;
@@ -28,12 +27,12 @@ struct R1CSCircuit {
     a: M,
     b: M,
     c: M,
-    trace: Vec<V>
+    trace: Vec<V>,
 }
 
 fn i128_to_f(x: i128) -> F1 {
     let negative = x < 0;
-    let x = x.abs() as u128;
+    let x = x.unsigned_abs();
 
     let low = x as u64;
     let high = (x >> 64) as u64;
@@ -50,7 +49,7 @@ fn i128_to_f(x: i128) -> F1 {
 fn q_to_f(x: &Q) -> F1 {
     match x {
         Q::Z(x) => i128_to_f(*x),
-        Q::R(a,b) => i128_to_f(*a) * i128_to_f(*b).invert().unwrap()
+        Q::R(a, b) => i128_to_f(*a) * i128_to_f(*b).invert().unwrap(),
     }
 }
 
@@ -75,34 +74,39 @@ impl StepCircuit<F1> for R1CSCircuit {
         cs: &mut CS,
         z: &[AllocatedNum<F1>],
     ) -> Result<Vec<AllocatedNum<F1>>, SynthesisError> {
-
         // get j value
         let x_0 = z[0].clone();
-        let (first,j) = match x_0.get_value() {
+        let (first, j) = match x_0.get_value() {
             None => (true, 0),
-            Some(x) => (false, f_to_usize(x))
+            Some(x) => (false, f_to_usize(x)),
         };
 
         // witness j counter update
-        let x_plus_1 = AllocatedNum::alloc(cs.namespace(|| format!("x_plus_1")), || {
+        let x_plus_1 = AllocatedNum::alloc(cs.namespace(|| "x_plus_1".to_string()), || {
             Ok(x_0.get_value().unwrap() + F1::from(1))
         })?;
 
         // Setup ramaining witness vars
         // Note: ordering is guaranteed in r1cs::init_cs
         let tr = &self.trace[j];
-        let vars:Vec<AllocatedNum<F1>> = tr.iter().enumerate().map(|(i,x)| {
-            if i >= 1 && i <= 33 {
-                z[i].clone()
-            } else {
-                AllocatedNum::alloc(cs.namespace(||format!("c{i}")), || Ok(q_to_f(x))).expect("")
-            }
-        }).collect();
+        let vars: Vec<AllocatedNum<F1>> = tr
+            .iter()
+            .enumerate()
+            .map(|(i, x)| {
+                #[allow(clippy::manual_range_contains)]
+                if i >= 1 && i <= 33 {
+                    z[i].clone()
+                } else {
+                    AllocatedNum::alloc(cs.namespace(|| format!("c{i}")), || Ok(q_to_f(x)))
+                        .expect("could not allocate column variable")
+                }
+            })
+            .collect();
 
         if first {
             // enforce counter update
             cs.enforce(
-                || format!("x_i_plus_1 = x_i + 1"),
+                || "x_i_plus_1 = x_i + 1".to_string(),
                 |lc| lc + x_0.get_variable() + CS::one(),
                 |lc| lc + CS::one(),
                 |lc| lc + x_plus_1.get_variable(),
@@ -114,6 +118,7 @@ impl StepCircuit<F1> for R1CSCircuit {
                 let a = &self.a[row];
                 let b = &self.b[row];
                 let c = &self.c[row];
+                #[rustfmt::skip]
                 cs.enforce(
                     || format!("row {row}"),
                     |lc| (0..a.len()).fold(lc, |lc,col| lc + (q_to_f(&a[col]), vars[col].get_variable())),
@@ -125,6 +130,7 @@ impl StepCircuit<F1> for R1CSCircuit {
         // Set outputs
         // Note: ordering is determined by r1cs::init_cs
         let mut res = vec![x_plus_1.clone()];
+        #[allow(clippy::needless_range_loop)]
         for i in 34..67 {
             res.push(vars[i].clone());
         }
@@ -150,9 +156,9 @@ pub fn prove(trace: &Trace) {
     );
     let start = Instant::now();
     let pp = PublicParams::<G1, G2, R1CSCircuit, TrivialTestCircuit<F2>>::setup(
-                &circuit_primary,
-                &circuit_secondary,
-            );
+        &circuit_primary,
+        &circuit_secondary,
+    );
     println!("Public setup complete. {:?}", start.elapsed());
 
     println!(
@@ -200,6 +206,7 @@ pub fn prove(trace: &Trace) {
             z0_primary.clone(),
             z0_secondary.clone(),
         );
+        #[rustfmt::skip]
         println!(
             "{:?}  {:0.2}%", start.elapsed(),
             ((i+1) as f32) * 100.0 / (num_steps as f32));
@@ -213,13 +220,13 @@ pub fn prove(trace: &Trace) {
     let start = Instant::now();
     let res = recursive_snark.verify(&pp, num_steps, &z0_primary, &z0_secondary);
     assert!(res.is_ok());
+    #[rustfmt::skip]
     println!(
         "{} in {:?}",
         if res.is_ok() { "verified" } else { "NOT verified" },
         start.elapsed()
     );
 }
-
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -239,7 +246,11 @@ fn main() -> nexus_riscv::Result<()> {
 
     let trace = eval(&mut vm, false, false)?;
 
-    println!("Executed {} steps in {:?}", trace.trace.len(), start.elapsed());
+    println!(
+        "Executed {} steps in {:?}",
+        trace.trace.len(),
+        start.elapsed()
+    );
 
     prove(&trace);
     Ok(())

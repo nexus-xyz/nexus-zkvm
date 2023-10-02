@@ -1,11 +1,11 @@
 use crate::*;
-use std::path::PathBuf;
+use std::path::Path;
 
 const CONFIG: &[u8] = include_bytes!("config.toml");
 const SRC: &[u8] = include_bytes!("template.rs");
 
-fn write_to_file(root: &PathBuf, dir: &str, file: &str, contents: &[u8]) -> CmdResult {
-    let mut path = root.clone();
+fn write_to_file(root: &Path, dir: &str, file: &str, contents: &[u8]) -> CmdResult {
+    let mut path = root.to_path_buf();
     path.push(dir);
     path.push(file);
     write_file(path, contents)?;
@@ -13,7 +13,12 @@ fn write_to_file(root: &PathBuf, dir: &str, file: &str, contents: &[u8]) -> CmdR
 }
 
 pub fn new() -> CmdResult {
-    let Opts { command: New { path }, } = options() else { panic!("") };
+    let Opts {
+        command: New { path },
+    } = options()
+    else {
+        panic!("")
+    };
 
     // run cargo to setup project
     cargo(None, &["new", path.to_str().ok_or("invalid path")?])?;

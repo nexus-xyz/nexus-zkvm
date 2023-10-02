@@ -7,5 +7,5 @@ publish = false
 [dependencies]
 clap.workspace = true
 
-nexus-riscv = { path = "../nexus-riscv" }
+nexus-riscv = { path = "../riscv" }
 

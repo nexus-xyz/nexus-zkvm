@@ -20,7 +20,7 @@ pub struct R1CS {
     pub a: M,
     pub b: M,
     pub c: M,
-    pub vars: HashMap<String,usize>,
+    pub vars: HashMap<String, usize>,
     locals: Vec<String>,
     pub witness_only: bool,
 }
@@ -90,9 +90,9 @@ impl R1CS {
         &self.w[self.var(name)]
     }
 
-    pub fn constraint<F>(&mut self, f:F)
+    pub fn constraint<F>(&mut self, f: F)
     where
-        F: FnOnce(&Self, &mut V, &mut V, &mut V)
+        F: FnOnce(&Self, &mut V, &mut V, &mut V),
     {
         if self.witness_only {
             return;
@@ -112,7 +112,7 @@ impl R1CS {
         let vj = self.var(var);
         let j = self.new_var(name);
         self.w[j] = self.w[vj];
-        self.constraint(|_cs,a,b,c| {
+        self.constraint(|_cs, a, b, c| {
             a[vj] = ONE;
             b[0] = ONE;
             c[j] = ONE;
@@ -123,7 +123,7 @@ impl R1CS {
     pub fn set_bit(&mut self, name: &str, val: bool) -> usize {
         let j = self.new_var(name);
         self.w[j] = if val { ONE } else { ZERO };
-        self.constraint(|_cs,a,b,_c| {
+        self.constraint(|_cs, a, b, _c| {
             a[0] = MINUS;
             a[j] = ONE;
             b[j] = ONE;
@@ -137,7 +137,7 @@ impl R1CS {
             .map(|i| self.set_bit(&format!("{name}_{i}"), ((val >> i) & 1) == 1))
             .collect();
 
-        self.constraint(|_cs,a,b,c| {
+        self.constraint(|_cs, a, b, c| {
             for i in 0..32 {
                 a[js[i]] = Q::from(1u64 << i);
             }
@@ -147,7 +147,7 @@ impl R1CS {
     }
 
     pub fn eqi(&mut self, v0: &str, x: Q) {
-        self.constraint(|cs,a,b,c| {
+        self.constraint(|cs, a, b, c| {
             a[cs.var(v0)] = ONE;
             b[0] = ONE;
             c[0] = x;
@@ -155,7 +155,7 @@ impl R1CS {
     }
 
     pub fn add(&mut self, v0: &str, v1: &str, v2: &str) {
-        self.constraint(|cs,a,b,c| {
+        self.constraint(|cs, a, b, c| {
             a[cs.var(v1)] = ONE;
             a[cs.var(v2)] = ONE;
             b[0] = ONE;
@@ -164,7 +164,7 @@ impl R1CS {
     }
 
     pub fn addi(&mut self, v0: &str, v1: &str, x: Q) {
-        self.constraint(|cs,a,b,c| {
+        self.constraint(|cs, a, b, c| {
             a[0] = x;
             a[cs.var(v1)] = ONE;
             b[0] = ONE;
@@ -173,7 +173,7 @@ impl R1CS {
     }
 
     pub fn mul(&mut self, v0: &str, v1: &str, v2: &str) {
-        self.constraint(|cs,a,b,c| {
+        self.constraint(|cs, a, b, c| {
             a[cs.var(v1)] = ONE;
             b[cs.var(v2)] = ONE;
             c[cs.var(v0)] = ONE;
@@ -181,7 +181,7 @@ impl R1CS {
     }
 
     pub fn muli(&mut self, v0: &str, v1: &str, x: Q) {
-        self.constraint(|cs,a,b,c| {
+        self.constraint(|cs, a, b, c| {
             a[0] = x;
             b[cs.var(v1)] = ONE;
             c[cs.var(v0)] = ONE;
@@ -193,8 +193,7 @@ impl R1CS {
         let len = left_len + cs.w.len();
         self.w.extend_from_slice(&cs.w);
         let merge_M = |x: &mut M, y: &M| {
-            x.iter_mut()
-                .for_each(|r| r.resize(len, ZERO));
+            x.iter_mut().for_each(|r| r.resize(len, ZERO));
             for right in y {
                 let mut left = vec![ZERO; left_len];
                 left.extend_from_slice(right);
@@ -205,8 +204,8 @@ impl R1CS {
         merge_M(&mut self.b, &cs.b);
         merge_M(&mut self.c, &cs.c);
 
-        cs.vars.iter().for_each(|(n,i)| {
-            self.vars.insert(n.to_string(),left_len+i);
+        cs.vars.iter().for_each(|(n, i)| {
+            self.vars.insert(n.to_string(), left_len + i);
         })
     }
 
@@ -224,15 +223,16 @@ impl R1CS {
             }
         }
 
+        #[rustfmt::skip]
         fn dot(m: &M, v: &V) -> Vec<Q> {
             m.iter()
-                .map(|r| {
-                    r.iter()
-                        .zip(v)
-                        .map(|(x, y)| x * y)
-                        .fold(ZERO, |a, x| a + x)
-                })
-                .collect()
+             .map(|r| {
+                 r.iter()
+                  .zip(v)
+                  .map(|(x, y)| x * y)
+                  .fold(ZERO, |a, x| a + x)
+             })
+             .collect()
         }
 
         let x = dot(&self.a, &self.w);
@@ -241,29 +241,29 @@ impl R1CS {
 
         #[cfg(debug_assertions)]
         #[allow(clippy::needless_range_loop)]
-        for i in 0 .. x.len() {
+        for i in 0..x.len() {
             if x[i] * y[i] != z[i] {
                 println!("constraint {i} not satisfied");
                 println!("A");
                 let v = &self.a[i];
-                for i in 0 .. v.len() {
+                for i in 0..v.len() {
                     if v[i] != ZERO {
                         println!("{} * {}", v[i], self.w[i]);
                     }
                 }
                 println!("B");
                 let v = &self.b[i];
-                for i in 0 .. v.len() {
+                for i in 0..v.len() {
                     if v[i] != ZERO {
                         println!("{} * {}", v[i], self.w[i]);
                     }
                 }
                 println!("C");
                 let v = &self.c[i];
-                for i in 0 .. v.len() {
+                for i in 0..v.len() {
                     if v[i] != ZERO {
                         let mut rv = format!("{i}");
-                        for (n,j) in &self.vars {
+                        for (n, j) in &self.vars {
                             if *j == i {
                                 rv = n.clone();
                             }
@@ -336,7 +336,7 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
     // build constraints: l_n-1 = r_0 = 0
     // x(x-s1)...(x-s{n-1}) = 0
     cs.eqi("r0", ZERO);
-    cs.eqi(&format!("l{}", n-1), ZERO);
+    cs.eqi(&format!("l{}", n - 1), ZERO);
 
     #[allow(clippy::needless_range_loop)]
     for i in 0..n {
@@ -348,23 +348,23 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
         if i == 0 {
             cs.muli("l0", "x-0", ONE);
         } else {
-            cs.mul(&format!("l{i}"), &format!("l{}", i-1), &format!("x-{i}"));
+            cs.mul(&format!("l{i}"), &format!("l{}", i - 1), &format!("x-{i}"));
         }
 
         // set rp variables
         if i == n - 1 {
             cs.muli(&format!("r{}", i), &format!("x-{i}"), ONE);
         } else {
-            cs.mul(&format!("r{}", i), &format!("x-{i}"), &format!("r{}", i+1));
+            cs.mul(&format!("r{}", i), &format!("x-{i}"), &format!("r{}", i + 1));
         }
 
         // set cx_i variables
         if i == 0 {
             cs.muli("cx0", "r1", ONE);
-        } else if i == (n-1) {
-            cs.muli(&format!("cx{}", i), &format!("l{}", i-1), ONE);
+        } else if i == (n - 1) {
+            cs.muli(&format!("cx{}", i), &format!("l{}", i - 1), ONE);
         } else {
-            cs.mul(&format!("cx{}", i), &format!("l{}", i-1), &format!("r{}", i+1));
+            cs.mul(&format!("cx{}", i), &format!("l{}", i - 1), &format!("r{}", i + 1));
         }
 
         // set x=i variables
@@ -421,7 +421,7 @@ pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
     }
 
     // output = sum_i(rsx_i)
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         for i in 0..32 {
             let rj = cs.var(&format!("rsx{i}"));
             a[rj] = ONE;
@@ -477,7 +477,7 @@ pub fn store_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
         let j1 = cs.var(&format!("{input}={i}"));
         let j2 = cs.var(&format!("x'{i}"));
         let j3 = cs.var(&format!("rsx{i}"));
-        cs.constraint(|_cs,a,b,c| {
+        cs.constraint(|_cs, a, b, c| {
             a[0] = ONE;
             a[j1] = MINUS;
             b[j2] = ONE;
@@ -519,7 +519,7 @@ mod test {
         cs.w[j] = TWO;
         assert!(!cs.is_sat());
 
-        for x in [ 0u32, 1, 0xcccccccc, 0x55555555, 0xabcdef98 ] {
+        for x in [0u32, 1, 0xcccccccc, 0x55555555, 0xabcdef98] {
             test_bits(x);
         }
     }
@@ -542,9 +542,9 @@ mod test {
 
     #[test]
     fn test_member() {
-        test_mem(&[2,3]);
-        test_mem(&[4,7,11,19]);
-        test_mem(&[57,67,77,107,117,119]);
+        test_mem(&[2, 3]);
+        test_mem(&[4, 7, 11, 19]);
+        test_mem(&[57, 67, 77, 107, 117, 119]);
     }
 
     fn test_sel(n: u32) {

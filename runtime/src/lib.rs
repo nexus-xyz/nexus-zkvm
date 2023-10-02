@@ -19,7 +19,9 @@ fn panic(_info: &PanicInfo) -> ! {
         fn abort() -> !;
     }
     write_log("PANIC\n");
-    unsafe { abort(); }
+    unsafe {
+        abort();
+    }
 }
 
 #[export_name = "error: nexus-rt appears more than once"]
@@ -29,7 +31,7 @@ pub static __ONCE__: () = ();
 struct Heap;
 
 #[global_allocator]
-static HEAP : Heap = Heap;
+static HEAP: Heap = Heap;
 
 // This trivial allocate will always expand the heap, and never
 // deallocates. This should be fine for small programs.

@@ -1,5 +1,7 @@
 //! Circuits for the RISC-V VM (nexus-riscv)
 
+//#![rustfmt::skip]
+
 use super::q::*;
 use super::r1cs::*;
 
@@ -46,6 +48,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
     cs.set_bit("type=A", false);
 
     let opc = opcode(inst);
+    #[rustfmt::skip]
     match opc {
         OPC_LUI   => cs.set_var("type=U", 1),
         OPC_AUIPC => cs.set_var("type=U", 1),
@@ -61,6 +64,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         _ => panic!("invalid opcode {opc:x}")
     };
 
+    #[rustfmt::skip]
     member(cs, "opcode", opc, &[
         OPC_LUI, OPC_AUIPC,
         OPC_JAL, OPC_JALR, OPC_BR,
@@ -94,8 +98,8 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
     cs.add("type=U", &format!("opcode={OPC_LUI}"), &format!("opcode={OPC_AUIPC}"));
 
     // type=R
-    cs.constraint(|cs,a,b,c| {
-        for op in [ OPC_ALU, OPC_FENCE, OPC_ECALL ] {
+    cs.constraint(|cs, a, b, c| {
+        for op in [OPC_ALU, OPC_FENCE, OPC_ECALL] {
             a[cs.var(&format!("opcode={op}"))] = ONE;
         }
         b[0] = ONE;
@@ -103,7 +107,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
     });
 
     // parse inst
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 0..7 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -114,7 +118,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
     });
 
     // parse rd
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 7..12 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -122,14 +126,14 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         }
 
         b[0] = ONE;
-        for op in [ OPC_BR, OPC_STORE, OPC_ECALL ] {
+        for op in [OPC_BR, OPC_STORE, OPC_ECALL] {
             b[cs.var(&format!("opcode={op}"))] = MINUS;
         }
         c[cs.var("rd")] = ONE;
     });
 
     // parse rs1
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 15..20 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -137,21 +141,21 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         }
 
         b[0] = ONE;
-        for op in [ OPC_LUI, OPC_AUIPC, OPC_JAL, OPC_ECALL ] {
+        for op in [OPC_LUI, OPC_AUIPC, OPC_JAL, OPC_ECALL] {
             b[cs.var(&format!("opcode={op}"))] = MINUS;
         }
         c[cs.var("rs1")] = ONE;
     });
 
     // parse rs2
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 20..25 {
             a[cs.var(&format!("inst_{i}"))] = pow;
             pow = pow * TWO;
         }
 
-        for op in [ OPC_BR, OPC_STORE, OPC_ALU ] {
+        for op in [OPC_BR, OPC_STORE, OPC_ALU] {
             b[cs.var(&format!("opcode={op}"))] = ONE;
         }
         c[cs.var("rs2")] = ONE;
@@ -174,7 +178,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     selector(cs, "f3", 8, funct3(inst));
 
     // zero non-active immediates
-    for ty in [ "I", "S", "B", "U", "J", "A" ] {
+    for ty in ["I", "S", "B", "U", "J", "A"] {
         let x = cs.get_var(&format!("type={ty}")) * cs.get_var(&format!("imm{ty}"));
         let j = cs.new_local_var(&format!("ti{ty}"));
         cs.w[j] = x;
@@ -200,7 +204,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     // immA
     cs.add("is_shift", "f3=1", "f3=5");
     cs.mul("a1", "is_shift", "lowA");
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         a[0] = ONE;
         a[iss_j] = MINUS;
         b[cs.var("immI")] = ONE;
@@ -209,8 +213,8 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     cs.add("immA", "a1", "a2");
 
     // I is one of the immediates
-    cs.constraint(|cs,a,b,c| {
-        for ty in [ "I", "S", "B", "U", "J", "A" ] {
+    cs.constraint(|cs, a, b, c| {
+        for ty in ["I", "S", "B", "U", "J", "A"] {
             a[cs.var(&format!("ti{ty}"))] = ONE;
         }
         b[0] = ONE;
@@ -218,7 +222,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     });
 
     // parse lowA
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 20..25 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -229,7 +233,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     });
 
     // function3
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 12..15 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -243,7 +247,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     let sb = cs.var("inst_31");
 
     // parse immI
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 20..31 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -256,7 +260,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     });
 
     // parse immS
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 7..12 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -273,7 +277,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     });
 
     // parse immB
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = TWO;
         for i in 8..12 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -292,7 +296,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     });
 
     // parse immU
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = Q::from(1u32 << 12);
         for i in 12..32 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -304,7 +308,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     });
 
     // parse immJ
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = TWO;
         for i in 21..31 {
             a[cs.var(&format!("inst_{i}"))] = pow;
@@ -343,7 +347,7 @@ fn parse_shamt(cs: &mut R1CS, Y: u32) {
     }
 
     // constraints
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         let mut pow = ONE;
         for i in 0..5 {
             a[cs.var(&format!("Y_{i}"))] = pow;
@@ -361,7 +365,7 @@ fn parse_shamt(cs: &mut R1CS, Y: u32) {
 
 fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_var("J", J);
-    for j in 1 .. RV32::MAX_J {
+    for j in 1..RV32::MAX_J {
         cs.set_var(&format!("J={j}"), (j == J).into());
     }
 
@@ -377,14 +381,14 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.w[f35b] = cs.get_var("f3=5") * cs.get_var("inst_30");
 
     // constraints
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         a[0] = ONE;
         a[cs.var("inst_30")] = MINUS;
         b[cs.var("f3=0")] = ONE;
         c[f30a] = ONE;
     });
     cs.mul("f3=0b", "f3=0", "inst_30");
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         a[0] = ONE;
         a[cs.var("inst_30")] = MINUS;
         b[cs.var("f3=5")] = ONE;
@@ -392,8 +396,8 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     });
     cs.mul("f3=5b", "f3=5", "inst_30");
 
-    cs.set_eq("J=1", "opcode=55");  // lui
-    cs.set_eq("J=2", "opcode=23");  // auipc
+    cs.set_eq("J=1", "opcode=55"); // lui
+    cs.set_eq("J=2", "opcode=23"); // auipc
     cs.set_eq("J=3", "opcode=111"); // jal
     cs.set_eq("J=4", "opcode=103"); // jalr
 
@@ -402,7 +406,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=7", "opcode=99", "f3=4"); // blt
     cs.mul("J=8", "opcode=99", "f3=5"); // bge
     cs.mul("J=9", "opcode=99", "f3=6"); // bltu
-    cs.mul("J=10","opcode=99", "f3=7"); // bgeu
+    cs.mul("J=10", "opcode=99", "f3=7"); // bgeu
 
     cs.mul("J=11", "opcode=3", "f3=0"); // lb
     cs.mul("J=12", "opcode=3", "f3=1"); // lh
@@ -414,38 +418,38 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=17", "opcode=35", "f3=1"); // sh
     cs.mul("J=18", "opcode=35", "f3=2"); // sw
 
-    cs.mul("J=19", "opcode=19", "f3=0");  // addi
-    cs.set_var("J=20", 0);                // subi does not exist
-    cs.mul("J=21", "opcode=19", "f3=1");  // slli
-    cs.mul("J=22", "opcode=19", "f3=2");  // slti
-    cs.mul("J=23", "opcode=19", "f3=3");  // sltui
-    cs.mul("J=24", "opcode=19", "f3=4");  // xori
+    cs.mul("J=19", "opcode=19", "f3=0"); // addi
+    cs.set_var("J=20", 0); // subi does not exist
+    cs.mul("J=21", "opcode=19", "f3=1"); // slli
+    cs.mul("J=22", "opcode=19", "f3=2"); // slti
+    cs.mul("J=23", "opcode=19", "f3=3"); // sltui
+    cs.mul("J=24", "opcode=19", "f3=4"); // xori
     cs.mul("J=25", "opcode=19", "f3=5a"); // srli
     cs.mul("J=26", "opcode=19", "f3=5b"); // srai
-    cs.mul("J=27", "opcode=19", "f3=6");  // ori
-    cs.mul("J=28", "opcode=19", "f3=7");  // andi
+    cs.mul("J=27", "opcode=19", "f3=6"); // ori
+    cs.mul("J=28", "opcode=19", "f3=7"); // andi
 
     cs.mul("J=29", "opcode=51", "f3=0a"); // add
     cs.mul("J=30", "opcode=51", "f3=0b"); // sub
-    cs.mul("J=31", "opcode=51", "f3=1");  // sll
-    cs.mul("J=32", "opcode=51", "f3=2");  // slt
-    cs.mul("J=33", "opcode=51", "f3=3");  // sltu
-    cs.mul("J=34", "opcode=51", "f3=4");  // xor
+    cs.mul("J=31", "opcode=51", "f3=1"); // sll
+    cs.mul("J=32", "opcode=51", "f3=2"); // slt
+    cs.mul("J=33", "opcode=51", "f3=3"); // sltu
+    cs.mul("J=34", "opcode=51", "f3=4"); // xor
     cs.mul("J=35", "opcode=51", "f3=5a"); // srl
     cs.mul("J=36", "opcode=51", "f3=5b"); // sra
-    cs.mul("J=37", "opcode=51", "f3=6");  // or
-    cs.mul("J=38", "opcode=51", "f3=7");  // and
+    cs.mul("J=37", "opcode=51", "f3=6"); // or
+    cs.mul("J=38", "opcode=51", "f3=7"); // and
 
-    cs.set_eq("J=39", "opcode=15");  // fence
+    cs.set_eq("J=39", "opcode=15"); // fence
 
     // ecall
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         a[0] = ONE;
         a[cs.var("inst_20")] = MINUS;
         b[cs.var("opcode=115")] = ONE;
         c[cs.var("J=40")] = ONE;
     });
-    cs.mul("J=41", "opcode=115", "inst_20");  // ebreak
+    cs.mul("J=41", "opcode=115", "inst_20"); // ebreak
 
     cs.seal();
 }
@@ -498,12 +502,14 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
     // constrain Z and PC according to instruction index J
     // note: MAX_J is unimp which doesn't have any circuits
     for j in 1..(RV32::MAX_J) {
+        #[rustfmt::skip]
         cs.set_var(
             &format!("JZ{j}"),
             if j == inst_j { vm.Z } else { 0 }
         );
         cs.mul(&format!("JZ{j}"), &format!("J={j}"), &format!("Z{j}"));
 
+        #[rustfmt::skip]
         cs.set_var(
             &format!("JPC{j}"),
             if j == inst_j { vm.PC } else { 0 }
@@ -512,7 +518,7 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
     }
 
     // Z = Z[J]
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         for j in 1..(RV32::MAX_J) {
             a[cs.var(&format!("JZ{j}"))] = ONE;
         }
@@ -521,7 +527,7 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
     });
 
     // PC = PC[J]
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         for j in 1..(RV32::MAX_J) {
             a[cs.var(&format!("JPC{j}"))] = ONE;
         }
@@ -537,18 +543,11 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
 // We have several different addition circuits, all are built
 // with this function
 
-fn add_cir(
-    cs: &mut R1CS,
-    z_name: &str,
-    x_name: &str,
-    y_name: &str,
-    x: u32,
-    y: u32)
-{
+fn add_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u32) {
     let O = Q::from(0x100000000u64);
     let ON: Q = ZERO - O;
 
-    let (z,of) = x.overflowing_add(y);
+    let (z, of) = x.overflowing_add(y);
 
     let o = if of { ON } else { ZERO };
 
@@ -563,14 +562,14 @@ fn add_cir(
 
     // constraints
     // check o * (o + O) == 0
-    cs.constraint(|_cs,a,b,_c| {
+    cs.constraint(|_cs, a, b, _c| {
         a[0] = O;
         a[oj] = ONE;
         b[oj] = ONE;
     });
 
     // x + y + o = z
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[xj] = ONE;
         a[yj] = ONE;
         a[oj] = ONE;
@@ -582,28 +581,28 @@ fn add_cir(
 }
 
 fn lui(cs: &mut R1CS, vm: &VM) {
-    const J: u32 = (LUI { rd:0, imm:0 }).index_j();
+    const J: u32 = (LUI { rd: 0, imm: 0 }).index_j();
 
     cs.set_var(&format!("Z{J}"), vm.I);
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
 fn auipc(cs: &mut R1CS, _vm: &VM) {
-    const J: u32 = (AUIPC { rd:0, imm:0 }).index_j();
+    const J: u32 = (AUIPC { rd: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+I");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
 fn jal(cs: &mut R1CS, _vm: &VM) {
-    const J: u32 = (JAL { rd:0, imm:0 }).index_j();
+    const J: u32 = (JAL { rd: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "pc+I");
 }
 
 fn jalr(cs: &mut R1CS, _vm: &VM) {
-    const J: u32 = (JALR { rd:0, rs1:0, imm:0 }).index_j();
+    const J: u32 = (JALR { rd: 0, rs1: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "X+I");
@@ -622,22 +621,22 @@ fn alu(cs: &mut R1CS, vm: &VM) {
 
     bitops(cs, vm);
 
-    let start = (ALUI {aop:ADD, rd:0, rs1:0, imm:0}).index_j();
-    let end = (ALU {aop:AND, rd:0, rs1:0, rs2:0}).index_j();
-    for j in start..end+1 {
+    let start = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let end = (ALU { aop: AND, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    for j in start..end + 1 {
         cs.set_eq(&format!("PC{j}"), "pc+4");
     }
 }
 
 fn add(cs: &mut R1CS, vm: &VM) {
-    const J: u32 = (ALU { aop: ADD, rd:0, rs1:0, rs2:0 }).index_j();
+    const J: u32 = (ALU { aop: ADD, rd: 0, rs1: 0, rs2: 0 }).index_j();
 
     add_cir(cs, "X+Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X+Y");
 }
 
 fn addi(cs: &mut R1CS, vm: &VM) {
-    const J: u32 = (ALUI { aop: ADD, rd:0, rs1:0, imm:0 }).index_j();
+    const J: u32 = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
 
     add_cir(cs, "X+I", "X", "I", vm.X, vm.I);
     cs.set_eq(&format!("Z{J}"), "X+I");
@@ -645,17 +644,10 @@ fn addi(cs: &mut R1CS, vm: &VM) {
 
 // this is similar to add_cir, but we also compute the condition flags
 
-fn sub_cir(
-    cs: &mut R1CS,
-    z_name: &str,
-    x_name: &str,
-    y_name: &str,
-    x: u32,
-    y: u32)
-{
+fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u32) {
     let O = Q::from(0x100000000u64);
 
-    let (z,of) = x.overflowing_sub(y);
+    let (z, of) = x.overflowing_sub(y);
 
     // construct witness
     let xj = cs.var(x_name);
@@ -665,7 +657,7 @@ fn sub_cir(
 
     // constraints
     // x - y + O*o = z
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[xj] = ONE;
         a[yj] = MINUS;
         a[oj] = O;
@@ -679,10 +671,10 @@ fn sub_cir(
     let ltj = oj;
 
     // EQ flag (a.k.a ZERO flag)
-    let eqj = cs.set_bit(&format!("{x_name}={y_name}"), x==y);
+    let eqj = cs.set_bit(&format!("{x_name}={y_name}"), x == y);
 
     // X=Y * Z = 0
-    cs.constraint(|_cs,a,b,_c| {
+    cs.constraint(|_cs, a, b, _c| {
         a[zj] = ONE;
         b[eqj] = ONE;
     });
@@ -692,7 +684,7 @@ fn sub_cir(
     let gej = cs.set_bit(&format!("{x_name}>={y_name}"), ge);
 
     // X<Y + X>=Y = 1
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[ltj] = ONE;
         a[gej] = ONE;
         b[0] = ONE;
@@ -703,7 +695,7 @@ fn sub_cir(
     let nej = cs.set_bit(&format!("{x_name}!={y_name}"), x != y);
 
     // X=Y + X!=Y = 1
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[eqj] = ONE;
         a[nej] = ONE;
         b[0] = ONE;
@@ -715,7 +707,7 @@ fn sub_cir(
     let sgej = cs.set_bit(&format!("{x_name}>=s{y_name}"), (x as i32) >= (y as i32));
 
     // sgt = !slt
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[0] = ONE;
         a[sltj] = MINUS;
         b[0] = ONE;
@@ -732,11 +724,11 @@ fn sub_cir(
 
     // compute XOR of X and Y sign bits
     let j = cs.new_local_var("Xs*Ys");
-    cs.w[j] = Q::from(xs*ys);
+    cs.w[j] = Q::from(xs * ys);
     cs.mul("Xs*Ys", &format!("{x_name}_31"), &format!("{y_name}_31"));
 
     // X_31 + Y_31 - 2 X_31 Y_31 = ds  (XOR)
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         a[cs.var(&format!("{x_name}_31"))] = ONE;
         a[cs.var(&format!("{y_name}_31"))] = ONE;
         a[j] = Q::from(-2);
@@ -747,7 +739,7 @@ fn sub_cir(
     // slt = ds (1 - lt) + (1 - ds) lt
     let left = cs.new_local_var("sltl");
     cs.set_bit("sltl", ds & !lt);
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[dsj] = ONE;
         b[0] = ONE;
         b[ltj] = MINUS;
@@ -756,7 +748,7 @@ fn sub_cir(
 
     let right = cs.new_local_var("sltr");
     cs.set_bit("sltr", !ds & lt);
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[0] = ONE;
         a[dsj] = MINUS;
         b[ltj] = ONE;
@@ -764,7 +756,7 @@ fn sub_cir(
     });
 
     // slt = left + right
-    cs.constraint(|_cs,a,b,c| {
+    cs.constraint(|_cs, a, b, c| {
         a[left] = ONE;
         a[right] = ONE;
         b[0] = ONE;
@@ -775,30 +767,30 @@ fn sub_cir(
 }
 
 fn sub(cs: &mut R1CS, vm: &VM) {
-    const J: u32 = (ALU { aop: SUB, rd:0, rs1:0, rs2:0 }).index_j();
+    const J: u32 = (ALU { aop: SUB, rd: 0, rs1: 0, rs2: 0 }).index_j();
 
     sub_cir(cs, "X-Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X-Y");
 }
 
 fn subi(cs: &mut R1CS, vm: &VM) {
-    const J: u32 = (ALUI { aop: SUB, rd:0, rs1:0, imm:0 }).index_j();
+    const J: u32 = (ALUI { aop: SUB, rd: 0, rs1: 0, imm: 0 }).index_j();
 
     sub_cir(cs, "X-I", "X", "I", vm.X, vm.I);
     cs.set_eq(&format!("Z{J}"), "X-I");
 }
 
 fn slt(cs: &mut R1CS) {
-    let J = (ALUI { aop: SLT, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: SLT, rd: 0, rs1: 0, imm: 0 }).index_j();
     cs.set_eq(&format!("Z{J}"), "X<sI");
 
-    let J = (ALUI { aop: SLTU, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: SLTU, rd: 0, rs1: 0, imm: 0 }).index_j();
     cs.set_eq(&format!("Z{J}"), "X<I");
 
-    let J = (ALU { aop: SLT, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: SLT, rd: 0, rs1: 0, rs2: 0 }).index_j();
     cs.set_eq(&format!("Z{J}"), "X<sY");
 
-    let J = (ALU { aop: SLTU, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: SLTU, rd: 0, rs1: 0, rs2: 0 }).index_j();
     cs.set_eq(&format!("Z{J}"), "X<Y");
 }
 
@@ -832,7 +824,7 @@ fn branch(cs: &mut R1CS, J: u32, cond_name: &str, inverse_cond_name: &str) {
 
     // output
     let j = cs.set_var(&format!("Z{J}"), 0);
-    cs.constraint(|_cs,a,b,_c| {
+    cs.constraint(|_cs, a, b, _c| {
         a[j] = ONE;
         b[0] = ONE;
     });
@@ -840,36 +832,36 @@ fn branch(cs: &mut R1CS, J: u32, cond_name: &str, inverse_cond_name: &str) {
 }
 
 fn br(cs: &mut R1CS) {
-    let J = (BR { bop: BEQ, rs1:0, rs2:0, imm:0}).index_j();
+    let J = (BR { bop: BEQ, rs1: 0, rs2: 0, imm: 0 }).index_j();
     branch(cs, J, "X=Y", "X!=Y");
 
-    let J = (BR { bop: BNE, rs1:0, rs2:0, imm:0}).index_j();
+    let J = (BR { bop: BNE, rs1: 0, rs2: 0, imm: 0 }).index_j();
     branch(cs, J, "X!=Y", "X=Y");
 
-    let J = (BR { bop: BLT, rs1:0, rs2:0, imm:0}).index_j();
+    let J = (BR { bop: BLT, rs1: 0, rs2: 0, imm: 0 }).index_j();
     branch(cs, J, "X<sY", "X>=sY");
 
-    let J = (BR { bop: BGE, rs1:0, rs2:0, imm:0}).index_j();
+    let J = (BR { bop: BGE, rs1: 0, rs2: 0, imm: 0 }).index_j();
     branch(cs, J, "X>=sY", "X<sY");
 
-    let J = (BR { bop: BLTU, rs1:0, rs2:0, imm:0}).index_j();
+    let J = (BR { bop: BLTU, rs1: 0, rs2: 0, imm: 0 }).index_j();
     branch(cs, J, "X<Y", "X>=Y");
 
-    let J = (BR { bop: BGEU, rs1:0, rs2:0, imm:0}).index_j();
+    let J = (BR { bop: BGEU, rs1: 0, rs2: 0, imm: 0 }).index_j();
     branch(cs, J, "X>=Y", "X<Y");
 }
 
 fn load(cs: &mut R1CS, vm: &VM) {
-    for lop in [LB,LH,LW,LBU,LHU] {
-        let J = (LOAD { lop, rd:0, rs1:0, imm:0 }).index_j();
+    for lop in [LB, LH, LW, LBU, LHU] {
+        let J = (LOAD { lop, rd: 0, rs1: 0, imm: 0 }).index_j();
         cs.set_var(&format!("Z{J}"), vm.Z);
         cs.set_eq(&format!("PC{J}"), "pc+4");
     }
 }
 
 fn store(cs: &mut R1CS, _vm: &VM) {
-    for sop in [SB,SH,SW] {
-        let J = (STORE { sop, rs1:0, rs2:0, imm:0 }).index_j();
+    for sop in [SB, SH, SW] {
+        let J = (STORE { sop, rs1: 0, rs2: 0, imm: 0 }).index_j();
         cs.set_var(&format!("Z{J}"), 0);
         cs.set_eq(&format!("PC{J}"), "pc+4");
     }
@@ -895,13 +887,7 @@ fn store(cs: &mut R1CS, _vm: &VM) {
 // this produces fewer witness variables, but denser
 // constraints
 
-fn shift_right(
-    cs: &mut R1CS,
-    output: &str,
-    X: u32,
-    I: u32,
-    arith: bool
-) {
+fn shift_right(cs: &mut R1CS, output: &str, X: u32, I: u32, arith: bool) {
     if arith {
         cs.set_var(output, ((X as i32) >> I) as u32);
     } else {
@@ -922,10 +908,10 @@ fn shift_right(
         } else {
             let j = cs.new_local_var(&format!("out{amt}"));
             cs.w[j] = Q::from(out);
-            cs.constraint(|cs,a,b,c| {
+            cs.constraint(|cs, a, b, c| {
                 for bit in 0..32 {
-                    if bit+amt < 32 {
-                        a[cs.var(&format!("X_{}", bit+amt))] = Q::from(1u64 << bit);
+                    if bit + amt < 32 {
+                        a[cs.var(&format!("X_{}", bit + amt))] = Q::from(1u64 << bit);
                     } else if arith {
                         let k = cs.var("X_31");
                         a[k] = a[k] + Q::from(1u64 << bit);
@@ -943,7 +929,7 @@ fn shift_right(
     }
 
     // generate final output
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         for amt in 0..32 {
             let k = cs.var(&format!("SZ{amt}"));
             a[k] = ONE;
@@ -955,12 +941,7 @@ fn shift_right(
     cs.seal();
 }
 
-fn shift_left(
-    cs: &mut R1CS,
-    output: &str,
-    X: u32,
-    I: u32
-) {
+fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
     cs.set_var(output, X << I);
 
     for amt in 0..32 {
@@ -973,10 +954,10 @@ fn shift_left(
         } else {
             let j = cs.new_local_var(&format!("out{amt}"));
             cs.w[j] = Q::from(out);
-            cs.constraint(|cs,a,b,c| {
+            cs.constraint(|cs, a, b, c| {
                 for bit in 0..32 {
                     if bit >= amt {
-                        a[cs.var(&format!("X_{}", bit-amt))] = Q::from(1u64 << bit);
+                        a[cs.var(&format!("X_{}", bit - amt))] = Q::from(1u64 << bit);
                     }
                 }
                 b[0] = ONE;
@@ -991,7 +972,7 @@ fn shift_left(
     }
 
     // generate final output
-    cs.constraint(|cs,a,b,c| {
+    cs.constraint(|cs, a, b, c| {
         for amt in 0..32 {
             let k = cs.var(&format!("SZ{amt}"));
             a[k] = ONE;
@@ -1006,22 +987,22 @@ fn shift_left(
 fn shift(cs: &mut R1CS, vm: &VM) {
     selector(cs, "shamt", 32, vm.shamt);
 
-    let J = (ALUI { aop:SLL, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: SLL, rd: 0, rs1: 0, imm: 0 }).index_j();
     shift_left(cs, &format!("Z{J}"), vm.X, vm.shamt);
 
-    let J = (ALUI { aop:SRL, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: SRL, rd: 0, rs1: 0, imm: 0 }).index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, false);
 
-    let J = (ALUI { aop:SRA, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: SRA, rd: 0, rs1: 0, imm: 0 }).index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, true);
 
-    let J = (ALU { aop:SLL, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: SLL, rd: 0, rs1: 0, rs2: 0 }).index_j();
     shift_left(cs, &format!("Z{J}"), vm.X, vm.shamt);
 
-    let J = (ALU { aop:SRL, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: SRL, rd: 0, rs1: 0, rs2: 0 }).index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, false);
 
-    let J = (ALU { aop:SRA, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: SRA, rd: 0, rs1: 0, rs2: 0 }).index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, true);
 }
 
@@ -1029,17 +1010,11 @@ fn bit(x: u32, bit: u32) -> bool {
     ((x >> bit) & 1) != 0
 }
 
-fn bitop(
-    cs: &mut R1CS,
-    output: &str,
-    y_name: &str,
-    z: u32,
-    adj: Q
-) {
+fn bitop(cs: &mut R1CS, output: &str, y_name: &str, z: u32, adj: Q) {
     cs.to_bits(output, z);
     for i in 0..32 {
         let j = cs.set_bit(&format!("{output}_{i}"), bit(z, i));
-        cs.constraint(|cs,a,b,c| {
+        cs.constraint(|cs, a, b, c| {
             a[cs.var(&format!("X_{i}"))] = ONE;
             a[cs.var(&format!("{y_name}_{i}"))] = ONE;
             a[cs.var(&format!("X&{y_name}_{i}"))] = adj;
@@ -1067,24 +1042,24 @@ fn bitops(cs: &mut R1CS, vm: &VM) {
         cs.mul(&format!("X&I_{i}"), &format!("X_{i}"), &format!("I_{i}"));
     }
 
-    let J = (ALUI { aop:AND, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: AND, rd: 0, rs1: 0, imm: 0 }).index_j();
     cs.set_eq(&format!("Z{J}"), "X&I");
 
-    let J = (ALU { aop:AND, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: AND, rd: 0, rs1: 0, rs2: 0 }).index_j();
     cs.set_eq(&format!("Z{J}"), "X&Y");
 
     // or
-    let J = (ALUI { aop:OR, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: OR, rd: 0, rs1: 0, imm: 0 }).index_j();
     bitop(cs, &format!("Z{J}"), "I", vm.X | vm.I, MINUS);
 
-    let J = (ALU { aop:OR, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: OR, rd: 0, rs1: 0, rs2: 0 }).index_j();
     bitop(cs, &format!("Z{J}"), "Y", vm.X | vm.Y, MINUS);
 
     // xor
-    let J = (ALUI { aop:XOR, rd:0, rs1:0, imm:0 }).index_j();
+    let J = (ALUI { aop: XOR, rd: 0, rs1: 0, imm: 0 }).index_j();
     bitop(cs, &format!("Z{J}"), "I", vm.X ^ vm.I, Q::from(-2));
 
-    let J = (ALU { aop:XOR, rd:0, rs1:0, rs2:0 }).index_j();
+    let J = (ALU { aop: XOR, rd: 0, rs1: 0, rs2: 0 }).index_j();
     bitop(cs, &format!("Z{J}"), "Y", vm.X ^ vm.Y, Q::from(-2));
 }
 
@@ -1107,6 +1082,7 @@ mod test {
 
     #[test]
     fn test_parse_opc() {
+        #[rustfmt::skip]
         let opc = [
             (OPC_LUI,   1, 0, 0 ),
             (OPC_AUIPC, 1, 0, 0 ),
@@ -1125,11 +1101,7 @@ mod test {
                 for rs1 in [0, 1, 31] {
                     for rs2 in [0, 1, 31] {
                         // build instruction word
-                        let inst: u32 =
-                            (rs2 << 20) |
-                            (rs1 << 15) |
-                            (rd  <<  7) |
-                            op;
+                        let inst: u32 = (rs2 << 20) | (rs1 << 15) | (rd << 7) | op;
 
                         //println!("inst {inst:x}");
                         let mut cs = R1CS::default();
@@ -1139,18 +1111,24 @@ mod test {
                         parse_opc(&mut cs, inst);
                         assert!(cs.is_sat());
 
-                        if has_rs2 == 0 { break; }
+                        if has_rs2 == 0 {
+                            break;
+                        }
                     }
-                    if has_rs1 == 0 { break; }
+                    if has_rs1 == 0 {
+                        break;
+                    }
                 }
-                if has_rd == 0 { break; }
+                if has_rd == 0 {
+                    break;
+                }
             }
         }
     }
 
     #[test]
     fn test_parse_imm() {
-        let tests: &[(u32,u32)] = &[
+        let tests: &[(u32, u32)] = &[
             (0x00055037, 0x55000),    // lui x0, 0x55    type=U
             (0x0040006f, 4),          // jal x0, 4       type=J
             (0x00400067, 4),          // jalr x0, x0, 4  type=I
@@ -1161,7 +1139,7 @@ mod test {
             (0xfff00013, 0xffffffff), // addi x0, x0, -1 type=A (f7=0)
             (0x40105013, 1),          // srai x0, x0, 1  type=A (f7=1)
         ];
-        for &(inst,i) in tests {
+        for &(inst, i) in tests {
             let mut cs = R1CS::default();
             cs.set_var("rd", 0);
             cs.set_var("rs1", 0);
@@ -1253,20 +1231,20 @@ mod test {
                 assert!(cs.get_var("Z30") == &Q::from(x.overflowing_sub(y).0));
                 assert!(cs.get_var("Z20") == &Q::from(x.overflowing_sub(y).0));
 
-                assert!(cs.get_var("X<Y")  == &Q::from(x<y));
-                assert!(cs.get_var("X>=Y") == &Q::from(x>=y));
-                assert!(cs.get_var("X=Y")  == &Q::from(x==y));
-                assert!(cs.get_var("X!=Y") == &Q::from(x!=y));
+                assert!(cs.get_var("X<Y") == &Q::from(x < y));
+                assert!(cs.get_var("X>=Y") == &Q::from(x >= y));
+                assert!(cs.get_var("X=Y") == &Q::from(x == y));
+                assert!(cs.get_var("X!=Y") == &Q::from(x != y));
 
-                assert!(cs.get_var("X<sY")  == &Q::from((x as i32) < (y as i32)));
+                assert!(cs.get_var("X<sY") == &Q::from((x as i32) < (y as i32)));
                 assert!(cs.get_var("X>=sY") == &Q::from((x as i32) >= (y as i32)));
 
-                assert!(cs.get_var("X<I")  == &Q::from(x<y));
-                assert!(cs.get_var("X>=I") == &Q::from(x>=y));
-                assert!(cs.get_var("X=I")  == &Q::from(x==y));
-                assert!(cs.get_var("X!=I") == &Q::from(x!=y));
+                assert!(cs.get_var("X<I") == &Q::from(x < y));
+                assert!(cs.get_var("X>=I") == &Q::from(x >= y));
+                assert!(cs.get_var("X=I") == &Q::from(x == y));
+                assert!(cs.get_var("X!=I") == &Q::from(x != y));
 
-                assert!(cs.get_var("X<sI")  == &Q::from((x as i32) < (y as i32)));
+                assert!(cs.get_var("X<sI") == &Q::from((x as i32) < (y as i32)));
                 assert!(cs.get_var("X>=sI") == &Q::from((x as i32) >= (y as i32)));
             }
         }
@@ -1294,14 +1272,15 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::field_reassign_with_default)]
     fn test_shift() {
         let mut vm = VM::default();
         vm.inst = Inst {
-            inst: ALUI {aop:ADD, rd:0, rs1:0, imm:0},
-            .. Inst::default()
+            inst: ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 },
+            ..Inst::default()
         };
         for x in [0x7aaaaaaa, 0xf5555555] {
-            for a in [0,1,10,13,30,31] {
+            for a in [0, 1, 10, 13, 30, 31] {
                 vm.X = x;
                 vm.shamt = a;
                 let mut cs = R1CS::default();

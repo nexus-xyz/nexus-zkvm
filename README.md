@@ -13,7 +13,7 @@ Install the Nexus tools to get access to the `cargo nexus`,
 and the `nexus-run` commands.
 
 ```sh
-cargo install --path nexus-tools
+cargo install --path tools
 ```
 
 To start a new project use:
@@ -37,11 +37,11 @@ Alternatively, you can configure your SSH keys with cargo.
 
 Also note that if your new project will live in this repo, it
 is best to change the `Cargo.toml` file to list a local path
-to `nexus-rt` rather than the default git repo.
+to `runtime` rather than the default git repo.
 
 If successful, you can run the new project binary with `cargo run`.
 
-Proving programs can be done with either `msnova` or `nexus-prover`.
+Proving programs can be done with either `msnova` or `prover`.
 The first uses the Microsoft Nova implementation, and the second uses
 the Nexus Nova implementation. For example:
 
@@ -51,7 +51,7 @@ cargo run -r riscv_elf_file
 ```
 
 ```
-cd nexus-prover
+cd prover
 # generate public parameters to file
 cargo run -r -- gen
 

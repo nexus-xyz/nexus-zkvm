@@ -4,7 +4,7 @@
 // optional, for use of collections, etc.
 extern crate alloc;
 
-use nexus_rt::{write_log,entry};
+use nexus_rt::{write_log, entry};
 
 #[entry]
 fn main() {

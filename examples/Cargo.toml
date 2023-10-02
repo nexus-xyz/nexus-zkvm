@@ -5,4 +5,4 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-nexus-rt = { path = "../nexus-rt" }
+nexus-rt = { path = "../runtime" }

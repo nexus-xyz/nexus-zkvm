@@ -11,8 +11,8 @@ clap.workspace = true
 
 zstd = { version = "0.12", default-features = false }
 
-nexus-riscv = { path = "../nexus-riscv" }
-nexus-riscv-circuit = { path = "../nexus-riscv-circuit" }
+nexus-riscv = { path = "../riscv" }
+nexus-riscv-circuit = { path = "../riscv-circuit" }
 
 supernova.workspace = true
 

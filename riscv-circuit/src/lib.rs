@@ -15,13 +15,14 @@ use nexus_riscv::vm::*;
 
 pub struct Trace {
     pub cs: R1CS,
-    pub code: Vec<Inst>,  // this is just for nice output
+    pub code: Vec<Inst>, // this is just for nice output
     pub trace: Vec<V>,
 }
 
 pub fn eval(vm: &mut VM, show: bool, check: bool) -> Result<Trace> {
     if show {
         println!("\nExecution:");
+        #[rustfmt::skip]
         println!(
             "{:7} {:8} {:32} {:>8} {:>8} {:>8} {:>8} {:>8}",
             "pc", "mem[pc]", "inst", "X", "Y", "I", "Z", "PC"
@@ -31,12 +32,13 @@ pub fn eval(vm: &mut VM, show: bool, check: bool) -> Result<Trace> {
     let mut trace = Trace {
         cs: R1CS::default(),
         code: Vec::new(),
-        trace: Vec::new()
+        trace: Vec::new(),
     };
 
     loop {
         eval_inst(vm)?;
         if show {
+            #[rustfmt::skip]
             println!(
                 "{:50} {:8x} {:8x} {:8x} {:8x} {:8x}",
                 vm.inst, vm.X, vm.Y, vm.I, vm.Z, vm.PC
@@ -68,7 +70,7 @@ pub fn eval(vm: &mut VM, show: bool, check: bool) -> Result<Trace> {
     }
 
     fn table(name: &str, mem: &[u32]) {
-        for (i,x) in mem.iter().enumerate() {
+        for (i, x) in mem.iter().enumerate() {
             print!("  {}{:02}: {:8x}", name, i, x);
             if (i % 8) == 7 {
                 println!();

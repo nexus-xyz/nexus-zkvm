@@ -1,4 +1,4 @@
-use nexus_riscv::{Result,load_elf};
+use nexus_riscv::{Result, load_elf};
 use nexus_riscv_circuit::*;
 
 use clap::Parser;
@@ -8,11 +8,11 @@ use std::time::Instant;
 #[command(author, version, about, long_about = None)]
 pub struct Opts {
     /// Show execution trace
-    #[arg(short,long)]
+    #[arg(short, long)]
     trace: bool,
 
     /// Check each witness during execution (debugging)
-    #[arg(short,long)]
+    #[arg(short, long)]
     check: bool,
 
     /// Input file
@@ -26,9 +26,6 @@ fn main() -> Result<()> {
 
     let start = Instant::now();
     let trace = eval(&mut vm, opts.trace, opts.check)?;
-    println!(
-        "Executed {} steps in {:?}",
-        trace.trace.len(),
-        start.elapsed());
+    println!("Executed {} steps in {:?}", trace.trace.len(), start.elapsed());
     Ok(())
 }

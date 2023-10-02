@@ -1,17 +1,19 @@
 [workspace]
 resolver = "2"
 members = [
-    "nexus-rt",
-    "nexus-tools",
-    "nexus-riscv",
-    "nexus-riscv-circuit",
-    "nexus-prover",
+    "runtime",
     "examples",
+    "riscv",
+    "riscv-circuit",
+    "tools",
+    "prover",
     "msnova",
 ]
 default-members = [
-    "nexus-tools",
-    "nexus-prover"
+    "riscv",
+    "riscv-circuit",
+    "tools",
+    "prover"
 ]
 
 [workspace.package]

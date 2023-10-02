@@ -7,8 +7,8 @@ publish = false
 [dependencies]
 clap.workspace = true
 
-nexus-riscv = { path = "../nexus-riscv" }
-nexus-riscv-circuit = { path = "../nexus-riscv-circuit" }
+nexus-riscv = { path = "../riscv" }
+nexus-riscv-circuit = { path = "../riscv-circuit" }
 
 ff = { version = "0.13.0", features = ["derive"] }
 pasta_curves = { version = "0.5", features = ["repr-c"] }
