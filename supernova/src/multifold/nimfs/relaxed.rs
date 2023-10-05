@@ -1,71 +1,23 @@
-use std::marker::PhantomData;
-
-use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
+use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::{
     short_weierstrass::{Projective, SWCurveConfig},
     CurveGroup,
 };
 use ark_ff::PrimeField;
+use ark_std::Zero;
 
-use super::{secondary, Error};
 use crate::{
-    absorb::CryptographicSponge as _,
+    absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
+    multifold::secondary::relaxed as secondary,
     r1cs,
     utils::{cast_field_element, cast_field_element_unique},
 };
 
-pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(250);
-
-pub(crate) type R1CSShape<G> = r1cs::R1CSShape<Projective<G>>;
-pub(crate) type R1CSInstance<G, C> = r1cs::R1CSInstance<Projective<G>, C>;
-pub(crate) type R1CSWitness<G> = r1cs::R1CSWitness<Projective<G>>;
-pub(crate) type RelaxedR1CSInstance<G, C> = r1cs::RelaxedR1CSInstance<Projective<G>, C>;
-pub(crate) type RelaxedR1CSWitness<G> = r1cs::RelaxedR1CSWitness<Projective<G>>;
-
-impl From<r1cs::Error> for Error {
-    fn from(error: r1cs::Error) -> Self {
-        Self::R1CS(error)
-    }
-}
-
-impl From<ark_relations::r1cs::SynthesisError> for Error {
-    fn from(error: ark_relations::r1cs::SynthesisError) -> Self {
-        Self::Synthesis(error)
-    }
-}
-
-/// Non-interactive multi-folding scheme proof.
-pub struct NIMFSProof<
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    RO,
-> {
-    pub(crate) commitment_T: C1::Commitment,
-    pub(crate) commitment_E_proof: secondary::Proof<G2, C2>,
-    pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
-
-    _random_oracle: PhantomData<RO>,
-}
-
-impl<G1, G2, C1, C2, RO> Clone for NIMFSProof<G1, G2, C1, C2, RO>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-{
-    fn clone(&self) -> Self {
-        Self {
-            commitment_T: self.commitment_T,
-            commitment_E_proof: self.commitment_E_proof.clone(),
-            commitment_W_proof: self.commitment_W_proof.clone(),
-            _random_oracle: self._random_oracle,
-        }
-    }
-}
+use super::{
+    Error, NIFSProof, NIMFSProof, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness,
+    SecondaryCircuit, SQUEEZE_ELEMENTS_BIT_SIZE,
+};
 
 impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
 where
@@ -77,15 +29,17 @@ where
     G2::BaseField: PrimeField + Absorb,
     RO: CryptographicSponge,
 {
-    pub fn prove(
+    #[allow(unused)]
+    pub fn prove_with_relaxed(
         pp: &C1::PP,
         pp_secondary: &C2::PP,
         config: &RO::Config,
         vk: &G1::ScalarField,
         (shape, shape_secondary): (&R1CSShape<G1>, &R1CSShape<G2>),
-        (U, W): (&RelaxedR1CSInstance<G1, C1>, &RelaxedR1CSWitness<G1>),
-        (U_secondary, W_secondary): (&RelaxedR1CSInstance<G2, C2>, &RelaxedR1CSWitness<G2>),
-        (u, w): (&R1CSInstance<G1, C1>, &R1CSWitness<G1>),
+        (U1, W1): (&RelaxedR1CSInstance<G1, C1>, &RelaxedR1CSWitness<G1>),
+        (U1_secondary, W1_secondary): (&RelaxedR1CSInstance<G2, C2>, &RelaxedR1CSWitness<G2>),
+        (U2, W2): (&RelaxedR1CSInstance<G1, C1>, &RelaxedR1CSWitness<G1>),
+        (U2_secondary, W2_secondary): (&RelaxedR1CSInstance<G2, C2>, &RelaxedR1CSWitness<G2>),
     ) -> Result<
         (
             Self,
@@ -97,38 +51,41 @@ where
         let mut random_oracle = RO::new(config);
 
         random_oracle.absorb(&vk);
-        random_oracle.absorb(&U);
-        random_oracle.absorb(&u);
-        random_oracle.absorb_non_native(&U_secondary);
+        random_oracle.absorb(&U1);
+        random_oracle.absorb(&U2);
+        random_oracle.absorb_non_native(&U1_secondary);
 
-        let (T, _commitment_T) = r1cs::commit_T(shape, pp, U, W, u, w)?;
+        let (T, _commitment_T) = r1cs::commit_T_with_relaxed(shape, pp, U1, W1, U2, W2)?;
         random_oracle.absorb_non_native(&_commitment_T);
 
-        let r_0: G2::ScalarField =
+        let r_0: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let r_0_scalar: G1::ScalarField = unsafe { cast_field_element::<_, G1::ScalarField>(&r_0) };
+        let r_0_scalar: G1::ScalarField =
+            unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&r_0) };
 
-        let folded_U = U.fold(u, &_commitment_T, &r_0_scalar)?;
-        let folded_W = W.fold(w, &T, &r_0_scalar)?;
+        let folded_U = U1.fold_with_relaxed(U2, &_commitment_T, &r_0_scalar)?;
+        let folded_W = W1.fold_with_relaxed(W2, &T, &r_0_scalar)?;
 
         // each trace is (U, W)
-        let E_comm_trace = secondary::synthesize::<G1, G2, C2>(
-            pp_secondary,
-            secondary::PubIo {
-                g1: U.commitment_E,
+        let E_comm_trace = secondary::Circuit::<G1>::synthesize::<G2, C2>(
+            secondary::Circuit {
+                g1: U1.commitment_E,
                 g2: _commitment_T,
+                g3: U2.commitment_E,
                 g_out: folded_U.commitment_E,
                 r: r_0,
             },
-        )?;
-        let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             pp_secondary,
-            secondary::PubIo {
-                g1: U.commitment_W,
-                g2: u.commitment_W,
+        )?;
+        let W_comm_trace = secondary::Circuit::<G1>::synthesize::<G2, C2>(
+            secondary::Circuit {
+                g1: U1.commitment_W,
+                g2: U2.commitment_W,
+                g3: Projective::zero(),
                 g_out: folded_U.commitment_W,
                 r: r_0,
             },
+            pp_secondary,
         )?;
         debug_assert!(shape_secondary
             .is_satisfied(&E_comm_trace.0, &E_comm_trace.1, pp_secondary)
@@ -140,8 +97,8 @@ where
         let (T, commitment_T) = r1cs::commit_T(
             shape_secondary,
             pp_secondary,
-            U_secondary,
-            W_secondary,
+            U1_secondary,
+            W1_secondary,
             &E_comm_trace.0,
             &E_comm_trace.1,
         )?;
@@ -149,11 +106,11 @@ where
         random_oracle.absorb(&commitment_T.into_affine());
         random_oracle.absorb(&r_0_scalar);
 
-        let r_1: G2::ScalarField =
+        let r_1: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
-        let U_secondary_temp = U_secondary.fold(&E_comm_trace.0, &commitment_T, &r_1)?;
-        let W_secondary_temp = W_secondary.fold(&E_comm_trace.1, &T, &r_1)?;
+        let U_secondary_temp = U1_secondary.fold(&E_comm_trace.0, &commitment_T, &r_1)?;
+        let W_secondary_temp = W1_secondary.fold(&E_comm_trace.1, &T, &r_1)?;
 
         let commitment_E_proof = secondary::Proof {
             commitment_T,
@@ -170,9 +127,9 @@ where
         )?;
         random_oracle.absorb_non_native(&W_comm_trace.0);
         random_oracle.absorb(&commitment_T.into_affine());
-        random_oracle.absorb(&cast_field_element_unique::<_, G1::ScalarField>(&r_1));
+        random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&r_1));
 
-        let r_2: G2::ScalarField =
+        let r_2: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let U_secondary = U_secondary_temp.fold(&W_comm_trace.0, &commitment_T, &r_2)?;
@@ -183,47 +140,61 @@ where
             U: W_comm_trace.0,
         };
 
+        random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&r_2));
+        let (proof_secondary, (U_secondary, W_secondary)) = NIFSProof::prove_with_relaxed(
+            pp_secondary,
+            &mut random_oracle,
+            shape_secondary,
+            (&U_secondary, &W_secondary),
+            (U2_secondary, W2_secondary),
+        )?;
+
         let proof = Self {
             commitment_T: _commitment_T,
             commitment_E_proof,
             commitment_W_proof,
-            _random_oracle: PhantomData,
+            proof_secondary,
         };
 
         Ok((proof, (folded_U, folded_W), (U_secondary, W_secondary)))
     }
 
     #[cfg(test)]
-    pub fn verify(
+    pub fn verify_with_relaxed(
         &self,
         config: &RO::Config,
         vk: &G1::ScalarField,
-        U: &RelaxedR1CSInstance<G1, C1>,
+        U1: &RelaxedR1CSInstance<G1, C1>,
         U_secondary: &RelaxedR1CSInstance<G2, C2>,
-        u: &R1CSInstance<G1, C1>,
+        U2: &RelaxedR1CSInstance<G1, C1>,
+        U2_secondary: &RelaxedR1CSInstance<G2, C2>,
     ) -> Result<(RelaxedR1CSInstance<G1, C1>, RelaxedR1CSInstance<G2, C2>), Error> {
         let mut random_oracle = RO::new(config);
 
         random_oracle.absorb(&vk);
-        random_oracle.absorb(&U);
-        random_oracle.absorb(&u);
+        random_oracle.absorb(&U1);
+        random_oracle.absorb(&U2);
         random_oracle.absorb_non_native(&U_secondary);
         random_oracle.absorb_non_native(&self.commitment_T);
 
-        let r_0: G2::ScalarField =
+        let r_0: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
         let r_0_scalar: G1::ScalarField =
-            unsafe { cast_field_element::<G2::ScalarField, G1::ScalarField>(&r_0) };
+            unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&r_0) };
 
         let secondary::Proof {
             U: comm_E_proof,
             commitment_T,
         } = &self.commitment_E_proof;
         let pub_io = comm_E_proof
-            .parse_io::<G1>()
+            .parse_relaxed_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
-        if pub_io.r != r_0 || pub_io.g1 != U.commitment_E || pub_io.g2 != self.commitment_T {
+        if pub_io.r != r_0
+            || pub_io.g1 != U1.commitment_E
+            || pub_io.g2 != self.commitment_T
+            || pub_io.g3 != U2.commitment_E
+        {
             return Err(Error::InvalidPublicInput);
         }
 
@@ -232,7 +203,7 @@ where
         random_oracle.absorb(&commitment_T.into_affine());
         random_oracle.absorb(&r_0_scalar);
 
-        let r_1: G2::ScalarField =
+        let r_1: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let secondary::Proof {
@@ -240,32 +211,44 @@ where
             commitment_T: _commitment_T,
         } = &self.commitment_W_proof;
         let pub_io = comm_W_proof
-            .parse_io::<G1>()
+            .parse_relaxed_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
-        if pub_io.r != r_0 || pub_io.g1 != U.commitment_W || pub_io.g2 != u.commitment_W {
+        if pub_io.r != r_0
+            || pub_io.g1 != U1.commitment_W
+            || pub_io.g2 != U2.commitment_W
+            || !pub_io.g3.is_zero()
+        {
             return Err(Error::InvalidPublicInput);
         }
 
         let commitment_W = pub_io.g_out;
         random_oracle.absorb_non_native(&comm_W_proof);
         random_oracle.absorb(&_commitment_T.into_affine());
-        random_oracle.absorb(&cast_field_element_unique::<_, G1::ScalarField>(&r_1));
+        random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&r_1));
 
         let r_2 = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let folded_U = RelaxedR1CSInstance::<G1, C1> {
             commitment_W,
             commitment_E,
-            X: U.X
+            X: U1
+                .X
                 .iter()
-                .zip(&u.X)
-                .map(|(a, b)| *a + r_0_scalar * *b)
+                .zip(&U2.X)
+                .map(|(x1, x2)| *x1 + r_0_scalar * *x2)
                 .collect(),
         };
 
         let U_secondary_temp = U_secondary.fold(comm_E_proof, commitment_T, &r_1)?;
         let U_secondary = U_secondary_temp.fold(comm_W_proof, _commitment_T, &r_2)?;
+
+        random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&r_2));
+        let U_secondary = self.proof_secondary.verify_with_relaxed(
+            &mut random_oracle,
+            &U_secondary,
+            U2_secondary,
+        )?;
 
         Ok((folded_U, U_secondary))
     }
@@ -307,7 +290,7 @@ mod tests {
         let vk = G1::ScalarField::ONE;
 
         let (shape, u, w, pp) = synthesize_r1cs::<G1, C1>(3, None);
-        let shape_secondary = secondary::setup_shape::<G1, G2>()?;
+        let shape_secondary = secondary::Circuit::<G1>::setup_shape::<G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
 
@@ -316,9 +299,10 @@ mod tests {
 
         let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
-
-        let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
+        let (_, (U2, W2), (U2_secondary, W2_secondary)) =
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
+                secondary::Circuit<G1>,
+            >(
                 &pp,
                 &pp_secondary,
                 &config,
@@ -329,39 +313,37 @@ mod tests {
                 (&u, &w),
             )?;
 
-        shape_secondary
-            .is_relaxed_satisfied(&folded_U_secondary, &folded_W_secondary, &pp_secondary)
-            .unwrap();
-
-        let (_U, _U_secondary) = proof.verify(&config, &vk, &U, &U_secondary, &u)?;
-
-        assert_eq!(_U, folded_U);
-        assert_eq!(_U_secondary, folded_U_secondary);
-        shape.is_relaxed_satisfied(&_U, &folded_W, &pp).unwrap();
-
         let (_, u, w, _) = synthesize_r1cs::<G1, C1>(5, Some(&pp));
+        let U1 = RelaxedR1CSInstance::from(&u);
+        let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
 
-        let (proof, (_folded_U, folded_W), (_folded_U_secondary, _folded_W_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
+        let U1_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
+        let W1_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
+
+        let (proof, (U, W), (U_secondary, W_secondary)) =
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove_with_relaxed(
                 &pp,
                 &pp_secondary,
                 &config,
                 &vk,
                 (&shape, &shape_secondary),
-                (&folded_U, &folded_W),
-                (&folded_U_secondary, &folded_W_secondary),
-                (&u, &w),
+                (&U1, &W1),
+                (&U1_secondary, &W1_secondary),
+                (&U2, &W2),
+                (&U2_secondary, &W2_secondary),
             )?;
 
         shape_secondary
-            .is_relaxed_satisfied(&folded_U_secondary, &folded_W_secondary, &pp_secondary)
+            .is_relaxed_satisfied(&U_secondary, &W_secondary, &pp_secondary)
             .unwrap();
 
-        let (_U, _U_secondary) = proof.verify(&config, &vk, &folded_U, &folded_U_secondary, &u)?;
+        let (_U, _U_secondary) =
+            proof.verify_with_relaxed(&config, &vk, &U1, &U1_secondary, &U2, &U2_secondary)?;
 
-        assert_eq!(_U, _folded_U);
-        assert_eq!(_U_secondary, _folded_U_secondary);
-        shape.is_relaxed_satisfied(&_U, &folded_W, &pp).unwrap();
+        assert_eq!(_U, U);
+        assert_eq!(_U_secondary, U_secondary);
+        shape.is_relaxed_satisfied(&U, &W, &pp).unwrap();
+        shape_secondary.is_relaxed_satisfied(&U_secondary, &W_secondary, &pp_secondary)?;
 
         Ok(())
     }

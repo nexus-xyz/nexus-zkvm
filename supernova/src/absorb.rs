@@ -41,14 +41,14 @@ pub trait AbsorbNonNative<F1: PrimeField + Absorb> {
 }
 
 /// Extension of [`ark_sponge::CryptographicSponge`] for non-native objects.
-pub trait CryptographicSponge: ark_sponge::CryptographicSponge {
+pub trait CryptographicSpongeExt: ark_sponge::CryptographicSponge {
     /// Absorb an input using non-native implementation.
     fn absorb_non_native<F>(&mut self, input: &impl AbsorbNonNative<F>)
     where
         F: PrimeField + Absorb;
 }
 
-impl<S> CryptographicSponge for S
+impl<S> CryptographicSpongeExt for S
 where
     S: ark_sponge::CryptographicSponge,
 {

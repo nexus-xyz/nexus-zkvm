@@ -9,3 +9,15 @@ pub enum Error {
     #[cfg(test)]
     InvalidPublicInput,
 }
+
+impl From<super::r1cs::Error> for Error {
+    fn from(error: super::r1cs::Error) -> Self {
+        Self::R1CS(error)
+    }
+}
+
+impl From<ark_relations::r1cs::SynthesisError> for Error {
+    fn from(error: ark_relations::r1cs::SynthesisError) -> Self {
+        Self::Synthesis(error)
+    }
+}
