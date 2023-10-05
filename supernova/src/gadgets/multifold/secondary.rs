@@ -14,11 +14,10 @@ use ark_r1cs_std::{
         nonnative::{NonNativeFieldMulResultVar, NonNativeFieldVar},
         FieldVar,
     },
-    groups::curves::short_weierstrass::ProjectiveVar,
-    groups::CurveVar,
+    groups::{curves::short_weierstrass::ProjectiveVar, CurveVar},
     select::CondSelectGadget,
     uint8::UInt8,
-    R1CSVar,
+    R1CSVar, ToBitsGadget,
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 
@@ -30,18 +29,6 @@ use crate::{
         secondary::Proof,
     },
 };
-
-/// Public input of secondary circuit.
-pub struct PubIoVar<G1>
-where
-    G1: SWCurveConfig,
-    G1::BaseField: PrimeField,
-{
-    pub g1: NonNativeAffineVar<G1>,
-    pub g2: NonNativeAffineVar<G1>,
-    pub g_out: NonNativeAffineVar<G1>,
-    pub r: NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
-}
 
 #[must_use]
 #[derive(Debug)]
@@ -330,7 +317,7 @@ where
     pub(super) fn fold(
         &self,
         instances: &[(
-            &'_ R1CSInstanceVar<G2, C2>,
+            folding::R1CSInstanceVar<'_, G2, C2>,
             &'_ ProjectiveVar<G2, FpVar<G2::BaseField>>,
             &'_ NonNativeFieldVar<G2::ScalarField, G2::BaseField>,
             &'_ [Boolean<G2::BaseField>],
@@ -345,11 +332,20 @@ where
             .collect();
 
         for (U, commitment_T, r, r_bits) in instances {
-            commitment_W += U.commitment_W.scalar_mul_le(r_bits.iter())?;
+            commitment_W += U.commitment_W().scalar_mul_le(r_bits.iter())?;
             commitment_E += commitment_T.scalar_mul_le(r_bits.iter())?;
 
-            for (x1, x2) in X.iter_mut().zip(&U.X) {
+            X[0] += match U {
+                folding::R1CSInstanceVar::Strict(_) => NonNativeFieldMulResultVar::from(*r),
+                folding::R1CSInstanceVar::Relaxed(U) => U.X[0].mul_without_reduce(r)?,
+            };
+            for (x1, x2) in X.iter_mut().zip(U.X()).skip(1) {
                 *x1 += x2.mul_without_reduce(r)?;
+            }
+
+            if let folding::R1CSInstanceVar::Relaxed(U) = U {
+                let r_square_bits = r.square()?.to_bits_le()?;
+                commitment_E += U.commitment_E.scalar_mul_le(r_square_bits.iter())?;
             }
         }
 
@@ -404,37 +400,46 @@ where
     }
 }
 
+macro_rules! parse_projective {
+    ($X:ident) => {
+        match &$X[..3] {
+            [x, y, z, ..] => {
+                let zero = Affine::<G1>::zero();
+                let zero_x = NonNativeFieldVar::constant(zero.x);
+                let zero_y = NonNativeFieldVar::constant(zero.y);
+                let infinity = z.is_zero()?;
+
+                let x = infinity.select(&zero_x, x)?;
+                let y = infinity.select(&zero_y, y)?;
+
+                let point = NonNativeAffineVar { x, y, infinity };
+                $X = &$X[3..];
+                point
+            }
+            _ => return Err(SynthesisError::Unsatisfiable),
+        }
+    };
+}
+
 impl<G2, C2> R1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
-    pub fn parse_io<G1>(&self) -> Result<PubIoVar<G1>, SynthesisError>
+    /// Parses `[g1, g2, g_out], r` from the public input of the secondary circuit.
+    pub fn parse_secondary_io<G1>(
+        &self,
+    ) -> Result<
+        (
+            [NonNativeAffineVar<G1>; 3],
+            NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
+        ),
+        SynthesisError,
+    >
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     {
-        macro_rules! parse_projective {
-            ($X:ident) => {
-                match &$X[..3] {
-                    [x, y, z, ..] => {
-                        let zero = Affine::<G1>::zero();
-                        let zero_x = NonNativeFieldVar::constant(zero.x);
-                        let zero_y = NonNativeFieldVar::constant(zero.y);
-                        let infinity = z.is_zero()?;
-
-                        let x = infinity.select(&zero_x, x)?;
-                        let y = infinity.select(&zero_y, y)?;
-
-                        let point = NonNativeAffineVar { x, y, infinity };
-                        $X = &$X[3..];
-                        point
-                    }
-                    _ => return Err(SynthesisError::Unsatisfiable),
-                }
-            };
-        }
-
         let mut X = &self.X[1..];
 
         let g1 = parse_projective!(X);
@@ -443,6 +448,98 @@ where
 
         let r = X.get(0).ok_or(SynthesisError::Unsatisfiable)?.clone();
 
-        Ok(PubIoVar { g1, g2, g_out, r })
+        Ok(([g1, g2, g_out], r))
+    }
+
+    /// Parses `[g1, g2, g3, g_out], r` from the public input of the secondary circuit.
+    pub fn parse_relaxed_secondary_io<G1>(
+        &self,
+    ) -> Result<
+        (
+            [NonNativeAffineVar<G1>; 4],
+            NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
+        ),
+        SynthesisError,
+    >
+    where
+        G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
+    {
+        let mut X = &self.X[1..];
+
+        let g1 = parse_projective!(X);
+        let g2 = parse_projective!(X);
+        let g_out = parse_projective!(X);
+
+        let r = X.get(0).ok_or(SynthesisError::Unsatisfiable)?.clone();
+
+        let mut X = &X[1..];
+        let g3 = parse_projective!(X);
+        let _ = X;
+
+        Ok(([g1, g2, g3, g_out], r))
+    }
+}
+
+pub(super) mod folding {
+    use crate::commitment::CommitmentScheme;
+    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+    use ark_ff::PrimeField;
+    use ark_r1cs_std::{
+        fields::{fp::FpVar, nonnative::NonNativeFieldVar},
+        groups::curves::short_weierstrass::ProjectiveVar,
+    };
+
+    #[must_use]
+    pub enum R1CSInstanceVar<'a, G2, C2>
+    where
+        G2: SWCurveConfig,
+        G2::BaseField: PrimeField,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    {
+        Strict(&'a super::R1CSInstanceVar<G2, C2>),
+        Relaxed(&'a super::RelaxedR1CSInstanceVar<G2, C2>),
+    }
+
+    impl<'a, G2, C2> From<&'a super::R1CSInstanceVar<G2, C2>> for R1CSInstanceVar<'a, G2, C2>
+    where
+        G2: SWCurveConfig,
+        G2::BaseField: PrimeField,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    {
+        fn from(u: &'a super::R1CSInstanceVar<G2, C2>) -> Self {
+            Self::Strict(u)
+        }
+    }
+
+    impl<'a, G2, C2> From<&'a super::RelaxedR1CSInstanceVar<G2, C2>> for R1CSInstanceVar<'a, G2, C2>
+    where
+        G2: SWCurveConfig,
+        G2::BaseField: PrimeField,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    {
+        fn from(U: &'a super::RelaxedR1CSInstanceVar<G2, C2>) -> Self {
+            Self::Relaxed(U)
+        }
+    }
+
+    impl<G2, C2> R1CSInstanceVar<'_, G2, C2>
+    where
+        G2: SWCurveConfig,
+        G2::BaseField: PrimeField,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    {
+        pub fn X(&self) -> &[NonNativeFieldVar<G2::ScalarField, G2::BaseField>] {
+            match self {
+                R1CSInstanceVar::Strict(u) => &u.X,
+                R1CSInstanceVar::Relaxed(U) => &U.X,
+            }
+        }
+
+        pub fn commitment_W(&self) -> &ProjectiveVar<G2, FpVar<G2::BaseField>> {
+            match self {
+                R1CSInstanceVar::Strict(u) => &u.commitment_W,
+                R1CSInstanceVar::Relaxed(U) => &U.commitment_W,
+            }
+        }
     }
 }

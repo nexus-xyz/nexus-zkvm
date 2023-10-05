@@ -1,1 +1,2 @@
-pub(crate) mod poseidon;
+pub mod pedersen;
+pub mod poseidon;

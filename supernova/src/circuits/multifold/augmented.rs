@@ -27,7 +27,7 @@ use crate::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness,
+            RelaxedR1CSWitness, SecondaryCircuit,
         },
     },
 };
@@ -109,7 +109,7 @@ where
         let z_i = vec![G1::ScalarField::ZERO; z_0.len()];
 
         let shape = R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
-        let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
+        let shape_secondary = multifold::secondary::Circuit::<G1>::setup_shape::<G2>()?;
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
         let W = RelaxedR1CSWitness::<G1>::zero(&shape);
@@ -124,20 +124,21 @@ where
         )
         .unwrap();
         let w = R1CSWitness::<G1>::zero(&shape);
-        let (proof, ..) = match NIMFSProof::<G1, G2, C1, C2, RO>::prove(
-            &C1::setup(0),
-            &C2::setup(0),
-            ro_config,
-            vk,
-            (&shape, &shape_secondary),
-            (&U, &W),
-            (&U_secondary, &W_secondary),
-            (&u, &w),
-        ) {
-            Ok(proof) => proof,
-            Err(multifold::Error::Synthesis(err)) => return Err(err),
-            _ => unreachable!(),
-        };
+        let (proof, ..) =
+            match NIMFSProof::<G1, G2, C1, C2, RO>::prove::<multifold::secondary::Circuit<G1>>(
+                &C1::setup(0),
+                &C2::setup(0),
+                ro_config,
+                vk,
+                (&shape, &shape_secondary),
+                (&U, &W),
+                (&U_secondary, &W_secondary),
+                (&u, &w),
+            ) {
+                Ok(proof) => proof,
+                Err(multifold::Error::Synthesis(err)) => return Err(err),
+                _ => unreachable!(),
+            };
 
         Ok(Self {
             vk: *vk,
@@ -331,7 +332,7 @@ where
                 Ok(RelaxedR1CSInstance {
                     commitment_W: Projective::zero(),
                     commitment_E: Projective::zero(),
-                    X: vec![G2::ScalarField::ZERO; multifold::secondary::SECONDARY_NUM_IO],
+                    X: vec![G2::ScalarField::ZERO; multifold::secondary::Circuit::<G1>::NUM_IO],
                 })
             })?;
 

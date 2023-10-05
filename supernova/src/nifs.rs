@@ -7,7 +7,7 @@ use ark_ec::{CurveGroup, PrimeGroup};
 use ark_ff::{PrimeField, ToConstraintField};
 
 use super::{
-    absorb::{AbsorbNonNative, CryptographicSponge as _},
+    absorb::{AbsorbNonNative, CryptographicSpongeExt},
     commitment::CommitmentScheme,
     r1cs::{self, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness},
 };
@@ -19,6 +19,24 @@ pub struct NIFSProof<G: PrimeGroup, C: CommitmentScheme<G>, RO> {
     _random_oracle: PhantomData<RO>,
 }
 
+impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> NIFSProof<G, C, RO> {
+    pub(crate) fn new() -> Self {
+        Self {
+            commitment_T: C::Commitment::default(),
+            _random_oracle: PhantomData,
+        }
+    }
+}
+
+impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> Clone for NIFSProof<G, C, RO> {
+    fn clone(&self) -> Self {
+        Self {
+            commitment_T: self.commitment_T,
+            _random_oracle: self._random_oracle,
+        }
+    }
+}
+
 impl<G, C, RO> NIFSProof<G, C, RO>
 where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,
@@ -28,30 +46,24 @@ where
     G::Affine: Absorb + ToConstraintField<G::BaseField>,
     RO: CryptographicSponge,
 {
-    pub fn prove(
+    pub fn prove_with_relaxed(
         pp: &C::PP,
-        config: &RO::Config,
-        pp_digest: &G::ScalarField,
+        random_oracle: &mut RO,
         shape: &R1CSShape<G>,
-        U1: &RelaxedR1CSInstance<G, C>,
-        W1: &RelaxedR1CSWitness<G>,
-        U2: &R1CSInstance<G, C>,
-        W2: &R1CSWitness<G>,
+        (U1, W1): (&RelaxedR1CSInstance<G, C>, &RelaxedR1CSWitness<G>),
+        (U2, W2): (&RelaxedR1CSInstance<G, C>, &RelaxedR1CSWitness<G>),
     ) -> Result<(Self, (RelaxedR1CSInstance<G, C>, RelaxedR1CSWitness<G>)), r1cs::Error> {
-        let mut random_oracle = RO::new(config);
+        random_oracle.absorb_non_native(&U1);
+        random_oracle.absorb_non_native(&U2);
 
-        random_oracle.absorb(&pp_digest);
-        random_oracle.absorb(&U1);
-        random_oracle.absorb(&U2);
+        let (T, commitment_T) = r1cs::commit_T_with_relaxed(shape, pp, U1, W1, U2, W2)?;
 
-        let (T, commitment_T) = r1cs::commit_T(shape, pp, U1, W1, U2, W2)?;
-
-        random_oracle.absorb_non_native(&commitment_T);
+        random_oracle.absorb(&commitment_T.into_affine());
 
         let r = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
-        let U = U1.fold(U2, &commitment_T, &r)?;
-        let W = W1.fold(W2, &T, &r)?;
+        let U = U1.fold_with_relaxed(U2, &commitment_T, &r)?;
+        let W = W1.fold_with_relaxed(W2, &T, &r)?;
 
         Ok((
             Self {
@@ -62,24 +74,21 @@ where
         ))
     }
 
-    pub fn verify(
+    #[cfg(test)]
+    pub fn verify_with_relaxed(
         &self,
-        config: &RO::Config,
-        pp_digest: &G::ScalarField,
+        random_oracle: &mut RO,
         U1: &RelaxedR1CSInstance<G, C>,
-        U2: &R1CSInstance<G, C>,
+        U2: &RelaxedR1CSInstance<G, C>,
     ) -> Result<RelaxedR1CSInstance<G, C>, r1cs::Error> {
-        let mut random_oracle = RO::new(config);
+        random_oracle.absorb_non_native(&U1);
+        random_oracle.absorb_non_native(&U2);
 
-        random_oracle.absorb(&pp_digest);
-        random_oracle.absorb(&U1);
-        random_oracle.absorb(&U2);
-
-        random_oracle.absorb_non_native(&self.commitment_T);
+        random_oracle.absorb(&self.commitment_T.into_affine());
 
         let r = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
-        let U = U1.fold(U2, &self.commitment_T, &r)?;
+        let U = U1.fold_with_relaxed(U2, &self.commitment_T, &r)?;
 
         Ok(U)
     }
@@ -99,7 +108,7 @@ pub(crate) mod tests {
         R1CSVar,
     };
     use ark_relations::r1cs::*;
-    use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
+    use ark_test_curves::bls12_381::{Fq as Base, Fr as Scalar, G1Projective as G};
 
     struct CubicEquation {
         x: u64,
@@ -182,20 +191,26 @@ pub(crate) mod tests {
 
     #[test]
     fn prove_verify() {
-        let config = poseidon_config();
-        const PP_DIGEST: Scalar = Scalar::ZERO;
+        let config = poseidon_config::<Base>();
 
-        let (shape, U1, W1, pp) = synthesize_r1cs(3, None);
+        let (shape, U2, W2, pp) = synthesize_r1cs(3, None);
 
-        let relaxed_U = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
-        let relaxed_W = RelaxedR1CSWitness::zero(&shape);
+        let U1 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
+        let W1 = RelaxedR1CSWitness::zero(&shape);
 
-        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Scalar>>::prove(
-            &pp, &config, &PP_DIGEST, &shape, &relaxed_U, &relaxed_W, &U1, &W1,
-        )
-        .unwrap();
+        let U2 = RelaxedR1CSInstance::from(&U2);
+        let W2 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &W2);
 
-        let v_folded_U = nifs.verify(&config, &PP_DIGEST, &relaxed_U, &U1).unwrap();
+        let mut random_oracle = PoseidonSponge::new(&config);
+
+        let (proof, (folded_U, folded_W)) =
+            NIFSProof::prove_with_relaxed(&pp, &mut random_oracle, &shape, (&U1, &W1), (&U2, &W2))
+                .unwrap();
+
+        let mut random_oracle = PoseidonSponge::new(&config);
+        let v_folded_U = proof
+            .verify_with_relaxed(&mut random_oracle, &U1, &U2)
+            .unwrap();
         assert_eq!(folded_U, v_folded_U);
 
         assert!(shape
@@ -206,13 +221,18 @@ pub(crate) mod tests {
         let W1 = folded_W;
 
         let (_, U2, W2, _) = synthesize_r1cs(5, Some(&pp));
+        let U2 = RelaxedR1CSInstance::from(&U2);
+        let W2 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &W2);
 
-        let (nifs, (folded_U, folded_W)) = NIFSProof::<_, _, PoseidonSponge<Scalar>>::prove(
-            &pp, &config, &PP_DIGEST, &shape, &U1, &W1, &U2, &W2,
-        )
-        .unwrap();
+        let mut random_oracle = PoseidonSponge::new(&config);
+        let (proof, (folded_U, folded_W)) =
+            NIFSProof::prove_with_relaxed(&pp, &mut random_oracle, &shape, (&U1, &W1), (&U2, &W2))
+                .unwrap();
 
-        let v_folded_U = nifs.verify(&config, &PP_DIGEST, &U1, &U2).unwrap();
+        let mut random_oracle = PoseidonSponge::new(&config);
+        let v_folded_U = proof
+            .verify_with_relaxed(&mut random_oracle, &U1, &U2)
+            .unwrap();
         assert_eq!(folded_U, v_folded_U);
 
         assert!(shape

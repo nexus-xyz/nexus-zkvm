@@ -18,7 +18,7 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use ark_std::Zero;
 
-use super::cast_field_element_unique;
+use super::multifold::cast_field_element_unique;
 
 #[must_use]
 #[derive(Debug)]

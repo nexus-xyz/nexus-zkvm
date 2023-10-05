@@ -1,2 +1,2 @@
 pub(crate) mod multifold;
-mod r1cs;
+pub(crate) mod nonnative;
