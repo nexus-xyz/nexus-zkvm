@@ -33,20 +33,21 @@ pub fn nop_vm(k: usize) -> VM {
 
 /// Create a VM which loops k times
 pub fn loop_vm(k: usize) -> VM {
-    assert!(k > 0);
-    assert!(k < (1 << 10));
+    assert!(k < (1 << 31));
 
     let mut vm = VM {
         pc: 0x1000,
         ..VM::default()
     };
 
-    let addi = 0x00000113 | (k << 20) as u32;
-    vm.mem.sw(0x1004, addi); // li x2, 3
-    vm.mem.sw(0x1000, 0x00000093); // li x1, 0
-    vm.mem.sw(0x1008, 0x00108093); // addi x1, x1, 1
-    vm.mem.sw(0x100c, 0xfe209ee3); // bne x1, x2, 0x1008
-    vm.mem.sw(0x1010, 0xc0001073); // unimp
+    let hi = (k as u32) & 0xfffff000;
+    let lo = ((k & 0xfff) << 20) as u32;
+    vm.mem.sw(0x1000, hi | 0x137); // lui x2, hi
+    vm.mem.sw(0x1004, lo | 0x10113); // addi x2, x2, lo
+    vm.mem.sw(0x1008, 0x00000093); // li x1, 0
+    vm.mem.sw(0x100c, 0x00108093); // addi x1, x1, 1
+    vm.mem.sw(0x1010, 0xfe209ee3); // bne x1, x2, 0x100c
+    vm.mem.sw(0x1014, 0xc0001073); // unimp
     vm
 }
 

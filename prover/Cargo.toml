@@ -18,7 +18,7 @@ supernova.workspace = true
 
 ark-serialize.workspace = true
 ark-crypto-primitives.workspace = true
-#ark-ec.workspace = true
+ark-ec.workspace = true
 ark-ff.workspace = true
 ark-relations.workspace = true
 ark-r1cs-std.workspace = true
@@ -30,12 +30,13 @@ ark-vesta.workspace = true
 default = [ "parallel" ]
 parallel = [
    "ark-ff/parallel",
-   #"ark-ec/parallel",
+   "ark-ec/parallel",
    #"ark-std/parallel",
    "ark-crypto-primitives/parallel",
    "ark-r1cs-std/parallel",
    "supernova/parallel",
 ]
+ns = []
 
 [[bench]]
 name = "genpp"

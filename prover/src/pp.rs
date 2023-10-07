@@ -1,6 +1,5 @@
 use std::fs::File;
 use zstd::stream::{Encoder, Decoder};
-use supernova::poseidon_config;
 use nexus_riscv_circuit::k_step_circuit;
 
 use crate::types::*;
@@ -22,8 +21,7 @@ pub fn gen_pp<T>(circuit: &T) -> Result<PP<T>, SynthesisError>
 where
     T: StepCircuit<F1>,
 {
-    let ro_config = poseidon_config();
-    match PP::setup(ro_config, circuit) {
+    match PP::setup(ro_config(), circuit) {
         Ok(x) => Ok(x),
         Err(supernova::Error::R1CS(e)) => panic!("R1CS Error {e:?}"),
         Err(supernova::Error::Synthesis(e)) => Err(e),

@@ -62,20 +62,43 @@ pub use supernova::{
     commitment::CommitmentScheme,
     pedersen::PedersenCommitment,
     StepCircuit,
-    PublicParams,
-    RecursiveSNARK,
+    sequential::PublicParams,
+    sequential::RecursiveSNARK,
 };
-
-// concrete random oracle
-pub type ROConfig = PoseidonConfig<F1>;
-pub type RO = PoseidonSponge<F1>;
-
-// concrete commitment scheme
-pub type C1 = PedersenCommitment<P1>;
-pub type C2 = PedersenCommitment<P2>;
-
-// concrete public parameters
-pub type PP<SC> = PublicParams<G1,G2,C1,C2,RO,SC>;
 
 // concrete constraint system
 pub type CS = ConstraintSystemRef<F1>;
+
+#[cfg(feature = "ns")]
+mod t {
+    use super::*;
+    use crate::null_schemes::*;
+
+    // random oracle
+    pub type ROConfig = ();
+    pub type RO = NullRO;
+    pub fn ro_config() {}
+
+    // commitment scheme
+    pub type C1 = NullCommit<P1>;
+    pub type C2 = NullCommit<P2>;
+}
+
+#[cfg(not(feature = "ns"))]
+mod t {
+    use super::*;
+
+    // random oracle
+    pub type ROConfig = PoseidonConfig<F1>;
+    pub type RO = PoseidonSponge<F1>;
+    pub use supernova::poseidon_config as ro_config;
+
+    // commitment scheme
+    pub type C1 = PedersenCommitment<P1>;
+    pub type C2 = PedersenCommitment<P2>;
+}
+
+pub use t::*;
+
+// concrete public parameters
+pub type PP<SC> = PublicParams<G1,G2,C1,C2,RO,SC>;

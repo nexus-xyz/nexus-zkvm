@@ -24,7 +24,7 @@ publish = false
 [workspace.dependencies]
 clap = { version = "4.3", features = ["derive"] }
 
-supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="17b5898" }
+supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="74180be" }
 #supernova = { path = "../supernova" }
 
 ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge"] }
