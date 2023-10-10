@@ -18,10 +18,7 @@ use std::path::PathBuf;
 /// Create a VM with k no-op instructions
 pub fn nop_vm(k: usize) -> VM {
     let mut pc = 0x1000;
-    let mut vm = VM {
-        pc,
-        ..VM::default()
-    };
+    let mut vm = VM { pc, ..VM::default() };
     // TODO: we can do better for large k
     for _ in 0..k {
         vm.mem.sw(pc, 0x00000013); // nop
@@ -35,10 +32,7 @@ pub fn nop_vm(k: usize) -> VM {
 pub fn loop_vm(k: usize) -> VM {
     assert!(k < (1 << 31));
 
-    let mut vm = VM {
-        pc: 0x1000,
-        ..VM::default()
-    };
+    let mut vm = VM { pc: 0x1000, ..VM::default() };
 
     let hi = (k as u32) & 0xfffff000;
     let lo = ((k & 0xfff) << 20) as u32;
@@ -65,10 +59,7 @@ pub fn load_elf(path: &PathBuf) -> Result<VM> {
         .collect();
 
     // TODO: read PC from elf file (and related changes)
-    let mut vm = VM {
-        pc: 0x1000,
-        ..VM::default()
-    };
+    let mut vm = VM { pc: 0x1000, ..VM::default() };
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;

@@ -13,10 +13,7 @@ fn write_to_file(root: &Path, dir: &str, file: &str, contents: &[u8]) -> CmdResu
 }
 
 pub fn new() -> CmdResult {
-    let Opts {
-        command: New { path },
-    } = options()
-    else {
+    let Opts { command: New { path } } = options() else {
         panic!("")
     };
 

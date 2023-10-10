@@ -6,77 +6,70 @@ use crate::types::*;
 use crate::error::*;
 use crate::circuit::Tr;
 
-/// On-disk format for public parameters
-#[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct PPDisk {
-    pub ro_config: ROConfig,
-    pub circuit1: R1CSShape<P1>,
-    pub circuit2: R1CSShape<P2>,
-    pub pp1: Vec<A1>,
-    pub pp2: Vec<A2>,
-    pub digest: F1,
-}
+use supernova::nova::public_params::SetupParams;
 
-pub fn gen_pp<T>(circuit: &T) -> Result<PP<T>, SynthesisError>
+pub fn gen_pp<SP, SC>(circuit: &SC) -> Result<PP<SP, SC>, ProofError>
 where
-    T: StepCircuit<F1>,
+    SC: StepCircuit<F1>,
+    SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
-    match PP::setup(ro_config(), circuit) {
-        Ok(x) => Ok(x),
-        Err(supernova::Error::R1CS(e)) => panic!("R1CS Error {e:?}"),
-        Err(supernova::Error::Synthesis(e)) => Err(e),
-    }
+    Ok(SP::setup(ro_config(), circuit)?)
 }
 
-pub fn save_pp<T>(pp: PP<T>, file: &str) -> Result<(), ProofError> {
-    let PublicParams {
-        ro_config,
-        shape,
-        shape_secondary,
-        pp,
-        pp_secondary,
-        digest,
-        ..
-    } = pp;
-
-    #[allow(clippy::redundant_field_names)]
-    let ppd = PPDisk {
-        ro_config: ro_config,
-        circuit1: shape,
-        circuit2: shape_secondary,
-        pp1: pp,
-        pp2: pp_secondary,
-        digest: digest,
-    };
-
+pub fn save_pp<SC, SP>(pp: PP<SP, SC>, file: &str) -> Result<(), ProofError>
+where
+    SC: StepCircuit<F1>,
+    SP: SetupParams<G1, G2, C1, C2, RO, SC>,
+{
     let f = File::create(file)?;
     let mut enc = Encoder::new(&f, 0)?;
-    ppd.serialize_compressed(&mut enc)?;
+    pp.serialize_compressed(&mut enc)?;
     enc.finish()?;
     f.sync_all()?;
     Ok(())
 }
 
-pub fn load_pp<T>(file: &str) -> Result<PP<T>, ProofError> {
+pub fn load_pp<SP, SC>(file: &str) -> Result<PP<SP, SC>, ProofError>
+where
+    SC: StepCircuit<F1> + Sync,
+    SP: SetupParams<G1, G2, C1, C2, RO, SC> + Sync,
+{
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
-    let ppd: PPDisk = PPDisk::deserialize_compressed(&mut dec)?;
-
-    Ok(PublicParams {
-        ro_config: ppd.ro_config,
-        shape: ppd.circuit1,
-        shape_secondary: ppd.circuit2,
-        pp: ppd.pp1,
-        pp_secondary: ppd.pp2,
-        digest: ppd.digest,
-        _step_circuit: PhantomData,
-    })
+    let pp = PP::<SP, SC>::deserialize_compressed(&mut dec)?;
+    Ok(pp)
 }
 
 // -- VM specific versions
 
-pub fn gen_vm_pp(k: usize) -> Result<PP<Tr>, ProofError> {
+pub fn gen_vm_pp<SP>(k: usize) -> Result<PP<SP, Tr>, ProofError>
+where
+    SP: SetupParams<G1, G2, C1, C2, RO, Tr>,
+{
     let tr = Tr::new(k_step_circuit(k)?);
-    let pp = gen_pp(&tr)?;
+    gen_pp(&tr)
+}
+
+pub fn gen_or_load<SP>(gen: bool, k: usize, pp_file: &str) -> Result<PP<SP, Tr>, ProofError>
+where
+    SP: SetupParams<G1, G2, C1, C2, RO, Tr> + Sync,
+{
+    let t = std::time::Instant::now();
+    let pp: PP<SP, Tr> = if gen {
+        println!("Generating public parameters...");
+        gen_vm_pp(k)?
+    } else {
+        println!("Loading public parameters from {pp_file}...");
+        load_pp(pp_file)?
+    };
+    println!("Got public parameters in {:?}", t.elapsed());
+    println!(
+        "Primary Circuit {} x {}",
+        pp.shape.num_vars, pp.shape.num_constraints
+    );
+    println!(
+        "Secondary Circuit {} x {}",
+        pp.shape_secondary.num_vars, pp.shape_secondary.num_constraints
+    );
     Ok(pp)
 }

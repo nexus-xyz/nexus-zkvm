@@ -8,6 +8,7 @@ publish = false
 clap.workspace = true
 
 #rayon = "1.8"
+snmalloc-rs = { version = "0.3.4", optional = true }
 
 zstd = { version = "0.12", default-features = false }
 
@@ -27,7 +28,7 @@ ark-pallas.workspace = true
 ark-vesta.workspace = true
 
 [features]
-default = [ "parallel" ]
+default = [ "parallel", "snmalloc" ]
 parallel = [
    "ark-ff/parallel",
    "ark-ec/parallel",
@@ -37,6 +38,7 @@ parallel = [
    "supernova/parallel",
 ]
 ns = []
+snmalloc = [ "snmalloc-rs" ]
 
 [[bench]]
 name = "cubic"
