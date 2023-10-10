@@ -166,18 +166,9 @@ pub use opcodes::*;
 
 fn parse_u32(word: u32) -> Option<RV32> {
     let inst = match opcode(word) {
-        OPC_LUI => LUI {
-            rd: rd(word),
-            imm: immU(word),
-        },
-        OPC_AUIPC => AUIPC {
-            rd: rd(word),
-            imm: immU(word),
-        },
-        OPC_JAL => JAL {
-            rd: rd(word),
-            imm: immJ(word),
-        },
+        OPC_LUI => LUI { rd: rd(word), imm: immU(word) },
+        OPC_AUIPC => AUIPC { rd: rd(word), imm: immU(word) },
+        OPC_JAL => JAL { rd: rd(word), imm: immJ(word) },
         OPC_JALR => JALR {
             rd: rd(word),
             rs1: rs1(word),
@@ -272,12 +263,7 @@ pub fn parse_inst(pc: u32, mem: &[u8]) -> Result<Inst> {
 
     match parse_u32(word) {
         None => Err(InvalidInstruction(pc, word)),
-        Some(inst) => Ok(Inst {
-            pc,
-            len: sz,
-            word,
-            inst,
-        }),
+        Some(inst) => Ok(Inst { pc, len: sz, word, inst }),
     }
 }
 
@@ -387,12 +373,7 @@ mod test {
             for rs1 in 0..31 {
                 for rs2 in 0..32 {
                     let word = imm | (v << 12) | (rs1 << 15) | (rs2 << 20);
-                    let inst = BR {
-                        bop: e,
-                        rs1,
-                        rs2,
-                        imm: 0xffc,
-                    };
+                    let inst = BR { bop: e, rs1, rs2, imm: 0xffc };
                     assert_eq!(parse_u32(word), Some(inst));
                 }
             }
@@ -413,12 +394,7 @@ mod test {
                         let off = offs[i] << 20;
                         let imm = imms[i];
                         let word = off | (rs1 << 15) | (widths[j] << 12) | (rd << 7) | 3;
-                        let inst = LOAD {
-                            lop: lops[j],
-                            rd,
-                            rs1,
-                            imm,
-                        };
+                        let inst = LOAD { lop: lops[j], rd, rs1, imm };
                         assert_eq!(parse_u32(word), Some(inst));
                     }
                 }
@@ -442,12 +418,7 @@ mod test {
             for rs1 in 0..31 {
                 for rs2 in 0..31 {
                     let word = word | (rs1 << 15) | (widths[j] << 12) | (rs2 << 20);
-                    let inst = STORE {
-                        sop: sops[j],
-                        rs1,
-                        rs2,
-                        imm: 0x7ff,
-                    };
+                    let inst = STORE { sop: sops[j], rs1, rs2, imm: 0x7ff };
                     assert_eq!(parse_u32(word), Some(inst));
                 }
             }
@@ -466,49 +437,24 @@ mod test {
                 for f3 in 0..7u32 {
                     let op = ops[f3 as usize];
                     let word = word | (rs1 << 15) | (f3 << 12) | (rd << 7);
-                    let inst = ALUI {
-                        aop: op,
-                        rd,
-                        rs1,
-                        imm: 31,
-                    };
+                    let inst = ALUI { aop: op, rd, rs1, imm: 31 };
                     assert_eq!(parse_u32(word), Some(inst));
 
-                    let inst = ALU {
-                        aop: op,
-                        rd,
-                        rs1,
-                        rs2: 31,
-                    };
+                    let inst = ALU { aop: op, rd, rs1, rs2: 31 };
                     assert_eq!(parse_u32(word | 0x20), Some(inst));
 
                     if op == SRL {
                         let word = word | 0x40000000;
-                        let inst = ALUI {
-                            aop: SRA,
-                            rd,
-                            rs1,
-                            imm: 31,
-                        };
+                        let inst = ALUI { aop: SRA, rd, rs1, imm: 31 };
                         assert_eq!(parse_u32(word), Some(inst));
 
-                        let inst = ALU {
-                            aop: SRA,
-                            rd,
-                            rs1,
-                            rs2: 31,
-                        };
+                        let inst = ALU { aop: SRA, rd, rs1, rs2: 31 };
                         assert_eq!(parse_u32(word | 0x20), Some(inst));
                     }
 
                     if op == ADD {
                         let word = word | 0x40000000;
-                        let inst = ALU {
-                            aop: SUB,
-                            rd,
-                            rs1,
-                            rs2: 31,
-                        };
+                        let inst = ALU { aop: SUB, rd, rs1, rs2: 31 };
                         assert_eq!(parse_u32(word | 0x20), Some(inst));
                     }
                 }

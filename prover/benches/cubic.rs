@@ -12,15 +12,13 @@ impl StepCircuit<F1> for CubicCircuit {
     fn generate_constraints(
         &self,
         _cs: CS,
+        _k: &FpVar<F1>,
         z: &[FpVar<F1>],
     ) -> Result<Vec<FpVar<F1>>, SynthesisError> {
         let x = &z[0];
-
         let x_square = x.square()?;
         let x_cube = x_square * x;
-
-        let y: FpVar<F1> = x + x_cube + &FpVar::Constant(5u64.into());
-
+        let y = x + x_cube + &FpVar::Constant(5u64.into());
         Ok(vec![y])
     }
 }
@@ -30,20 +28,20 @@ fn main() -> Result<(), ProofError> {
     let circuit = &CubicCircuit;
 
     let t = Instant::now();
-    let pp = gen_pp(circuit).unwrap();
+    let pp = gen_pp(circuit)?;
     println!("PP gen {:?}", t.elapsed());
 
     let z_0 = vec![F1::ONE];
-    let mut recursive_snark = RecursiveSNARK::new(&pp, &z_0);
+    let mut proof = IVCProof::new(&pp, &z_0);
 
     for _ in 0..num_steps {
         let t = Instant::now();
-        recursive_snark = RecursiveSNARK::prove_step(recursive_snark, circuit).unwrap();
+        proof = IVCProof::prove_step(proof, circuit)?;
         println!("step {:?}", t.elapsed());
     }
 
     let t = Instant::now();
-    recursive_snark.verify(num_steps).unwrap();
+    proof.verify(num_steps)?;
     println!("verify {:?}", t.elapsed());
 
     Ok(())

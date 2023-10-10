@@ -62,8 +62,11 @@ pub use supernova::{
     commitment::CommitmentScheme,
     pedersen::PedersenCommitment,
     StepCircuit,
-    sequential::PublicParams,
-    sequential::RecursiveSNARK,
+    nova::public_params::{PublicParams, SetupParams},
+    nova::sequential::PublicParams as SeqPublicParams,
+    nova::sequential::IVCProof,
+    nova::pcd::PublicParams as ParPublicParams,
+    nova::pcd::PCDNode,
 };
 
 // concrete constraint system
@@ -101,4 +104,7 @@ mod t {
 pub use t::*;
 
 // concrete public parameters
-pub type PP<SC> = PublicParams<G1,G2,C1,C2,RO,SC>;
+pub type PP<SP,SC> = PublicParams<G1,G2,C1,C2,RO,SC,SP>;
+
+pub type SeqPP<SC> = SeqPublicParams<G1,G2,C1,C2,RO,SC>;
+pub type ParPP<SC> = ParPublicParams<G1,G2,C1,C2,RO,SC>;

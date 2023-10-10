@@ -65,10 +65,7 @@ impl CryptographicSpongeVar<F1, NullRO> for NullROVar {
 
     fn new(cs: ConstraintSystemRef<F1>, _params: &Self::Parameters) -> Self {
         let var = AllocatedFp::new_witness(cs.clone(), || Ok(F1::ZERO)).unwrap();
-        NullROVar {
-            var: FpVar::Var(var),
-            cs,
-        }
+        NullROVar { var: FpVar::Var(var), cs }
     }
 
     fn cs(&self) -> ConstraintSystemRef<F1> {
