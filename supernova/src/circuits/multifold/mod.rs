@@ -289,7 +289,7 @@ where
 
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Prove {
-            construct_matrices: cfg!(debug_assertions),
+            construct_matrices: false,
         });
 
         let circuit = NovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
@@ -297,7 +297,6 @@ where
         let z_i = NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         debug_assert!(cs.is_satisfied()?);
-        cs.finalize();
 
         let cs_borrow = cs.borrow().unwrap();
         let witness = cs_borrow.witness_assignment.clone();
@@ -402,6 +401,7 @@ mod tests {
         fn generate_constraints(
             &self,
             _: ConstraintSystemRef<F>,
+            _: &FpVar<F>,
             z: &[FpVar<F>],
         ) -> Result<Vec<FpVar<F>>, SynthesisError> {
             assert_eq!(z.len(), 1);

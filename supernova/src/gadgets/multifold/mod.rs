@@ -4,31 +4,16 @@ use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeW
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
-    boolean::Boolean,
-    eq::EqGadget,
-    fields::{fp::FpVar, nonnative::NonNativeFieldVar},
-    groups::curves::short_weierstrass::ProjectiveVar,
-    R1CSVar, ToBytesGadget, ToConstraintFieldGadget,
+    boolean::Boolean, eq::EqGadget, fields::fp::FpVar,
+    groups::curves::short_weierstrass::ProjectiveVar, R1CSVar,
 };
 use ark_relations::r1cs::SynthesisError;
-
-use crate::{commitment::CommitmentScheme, multifold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE};
 
 pub(crate) mod primary;
 pub(crate) mod secondary;
 
-pub use super::nonnative::NonNativeAffineVar;
-
-/// Mirror of [`cast_field_element_unique`](crate::utils::cast_field_element_unique) for allocated input.
-pub fn cast_field_element_unique<F1, F2>(
-    f1: &NonNativeFieldVar<F1, F2>,
-) -> Result<Vec<FpVar<F2>>, SynthesisError>
-where
-    F1: PrimeField,
-    F2: PrimeField,
-{
-    f1.to_bytes()?.to_constraint_field()
-}
+pub use super::nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar};
+use crate::{commitment::CommitmentScheme, multifold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE};
 
 pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
@@ -75,10 +60,10 @@ where
         U: comm_E_secondary_instance,
         commitment_T: _commitment_T,
     } = &proof_secondary.0;
-    let ([g1, g2, g_out], r_0_secondary) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
+    // The rest of the secondary public input is unconstrained. This is because it's provided by
+    // the prover as a witness, and in practice is expected to be the same lc.
+    let (r_0_secondary, g_out) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
     r_0_secondary.enforce_equal(r_0)?;
-    g1.enforce_equal(&U.commitment_E)?;
-    g2.enforce_equal(commitment_T)?;
 
     let commitment_E = g_out;
 
@@ -97,10 +82,9 @@ where
         U: comm_W_secondary_instance,
         commitment_T: __commitment_T,
     } = &proof_secondary.1;
-    let ([g1, g2, g_out], r_0_secondary) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
+    // See the above comment for `comm_E_secondary_instance`.
+    let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
     r_0_secondary.enforce_equal(r_0)?;
-    g1.enforce_equal(&U.commitment_W)?;
-    g2.enforce_equal(&u.commitment_W)?;
 
     let commitment_W = g_out;
     random_oracle.absorb(comm_W_secondary_instance)?;
@@ -282,9 +266,9 @@ mod tests {
             nimfs::{NIMFSProof, RelaxedR1CSInstance, RelaxedR1CSWitness, SecondaryCircuit},
             secondary as multifold_secondary,
         },
-        nifs::tests::synthesize_r1cs,
         pedersen::PedersenCommitment,
         poseidon_config,
+        test_utils::setup_test_r1cs,
     };
     use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, Absorb};
 
@@ -317,7 +301,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = synthesize_r1cs::<G1, C1>(3, None);
+        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
         let shape_secondary = multifold_secondary::Circuit::<G1>::setup_shape::<G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
@@ -387,7 +371,7 @@ mod tests {
         assert!(cs.is_satisfied().unwrap());
 
         // another round.
-        let (_, u, w, _) = synthesize_r1cs::<G1, C1>(5, Some(&pp));
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
 
         let (proof, (folded_U_2, folded_W_2), (folded_U_secondary_2, folded_W_secondary_2)) =
             NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
@@ -477,7 +461,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = synthesize_r1cs::<G1, C1>(3, None);
+        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
         let shape_secondary = secondary_relaxed::Circuit::<G1>::setup_shape::<G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
@@ -502,7 +486,7 @@ mod tests {
             )
             .unwrap();
 
-        let (_, u, w, _) = synthesize_r1cs::<G1, C1>(5, Some(&pp));
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
         let U1 = RelaxedR1CSInstance::from(&u);
         let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
 

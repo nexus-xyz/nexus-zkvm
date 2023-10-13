@@ -168,7 +168,7 @@ where
 }
 
 /// Folding scheme proof for a secondary circuit.
-pub(crate) struct Proof<
+pub struct Proof<
     G2: SWCurveConfig,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 > {

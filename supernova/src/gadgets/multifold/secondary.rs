@@ -24,9 +24,11 @@ use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use super::{cast_field_element_unique, NonNativeAffineVar};
 use crate::{
     commitment::CommitmentScheme,
+    gadgets::nonnative::AllocVarExt,
     multifold::{
+        self,
         nimfs::{R1CSInstance, RelaxedR1CSInstance},
-        secondary::Proof,
+        secondary::{Circuit as SecondaryCircuit, Proof, SecondaryCircuit as _},
     },
 };
 
@@ -107,7 +109,7 @@ where
         )?;
         let alloc_X = X[1..]
             .iter()
-            .map(|x| NonNativeFieldVar::new_variable(cs.clone(), || Ok(x), mode));
+            .map(|x| NonNativeFieldVar::new_variable_unconstrained(cs.clone(), || Ok(x), mode));
 
         let X = std::iter::once(Ok(NonNativeFieldVar::constant(G2::ScalarField::ONE)))
             .chain(alloc_X)
@@ -235,7 +237,7 @@ where
         let X = X
             .iter()
             .map(|x| {
-                NonNativeFieldVar::<G2::ScalarField, G2::BaseField>::new_variable(
+                NonNativeFieldVar::<G2::ScalarField, G2::BaseField>::new_variable_unconstrained(
                     cs.clone(),
                     || Ok(x),
                     mode,
@@ -335,11 +337,7 @@ where
             commitment_W += U.commitment_W().scalar_mul_le(r_bits.iter())?;
             commitment_E += commitment_T.scalar_mul_le(r_bits.iter())?;
 
-            X[0] += match U {
-                folding::R1CSInstanceVar::Strict(_) => NonNativeFieldMulResultVar::from(*r),
-                folding::R1CSInstanceVar::Relaxed(U) => U.X[0].mul_without_reduce(r)?,
-            };
-            for (x1, x2) in X.iter_mut().zip(U.X()).skip(1) {
+            for (x1, x2) in X.iter_mut().zip(U.X()) {
                 *x1 += x2.mul_without_reduce(r)?;
             }
 
@@ -368,8 +366,8 @@ where
     G2::BaseField: PrimeField,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
-    pub(super) U: R1CSInstanceVar<G2, C2>,
-    pub(super) commitment_T: ProjectiveVar<G2, FpVar<G2::BaseField>>,
+    pub(crate) U: R1CSInstanceVar<G2, C2>,
+    pub(crate) commitment_T: ProjectiveVar<G2, FpVar<G2::BaseField>>,
 }
 
 impl<G2, C2> AllocVar<Proof<G2, C2>, G2::BaseField> for ProofVar<G2, C2>
@@ -400,6 +398,62 @@ where
     }
 }
 
+impl<G2, C2> ProofVar<G2, C2>
+where
+    G2: SWCurveConfig,
+    G2::BaseField: PrimeField,
+    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+{
+    /// Allocate new variable, cloning part of the public input of `U` from provided
+    /// `g1` and `g2`.
+    ///
+    /// Used by the Nova augmented circuit to avoid enforcing equality on witnesses.
+    pub fn from_allocated_input<G1>(
+        g1: &NonNativeAffineVar<G1>,
+        g2: &NonNativeAffineVar<G1>,
+        proof: &multifold::secondary::Proof<G2, C2>,
+        mode: AllocationMode,
+    ) -> Result<Self, SynthesisError>
+    where
+        G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
+    {
+        let cs = g1.cs().or(g2.cs());
+
+        let mut X = vec![NonNativeFieldVar::one()];
+        X.append(&mut g1.into_projective()?);
+        X.append(&mut g2.into_projective()?);
+
+        // Allocate g_out and r.
+        let mut g_out: Vec<NonNativeFieldVar<_, _>> = proof.U.X[7..10]
+            .iter()
+            .map(|x| NonNativeFieldVar::new_variable_unconstrained(cs.clone(), || Ok(x), mode))
+            .collect::<Result<_, _>>()?;
+        let r = NonNativeFieldVar::new_variable_unconstrained(
+            cs.clone(),
+            || Ok(&proof.U.X[multifold::secondary::Circuit::<G1>::NUM_IO - 1]),
+            mode,
+        )?;
+        X.append(&mut g_out);
+        X.push(r);
+
+        let commitment_W = ProjectiveVar::<G2, FpVar<G2::BaseField>>::new_variable(
+            cs.clone(),
+            || Ok(proof.U.commitment_W),
+            mode,
+        )?;
+        let U = R1CSInstanceVar {
+            commitment_W,
+            X,
+            _commitment_scheme: PhantomData,
+        };
+        let commitment_T = <ProjectiveVar<G2, FpVar<G2::BaseField>> as AllocVar<
+            C2::Commitment,
+            G2::BaseField,
+        >>::new_variable(cs.clone(), || Ok(&proof.commitment_T), mode)?;
+        Ok(Self { U, commitment_T })
+    }
+}
+
 macro_rules! parse_projective {
     ($X:ident) => {
         match &$X[..3] {
@@ -427,28 +481,28 @@ where
     G2::BaseField: PrimeField,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
-    /// Parses `[g1, g2, g_out], r` from the public input of the secondary circuit.
+    /// Parses `r, g_out` from the public input of the secondary circuit.
     pub fn parse_secondary_io<G1>(
         &self,
     ) -> Result<
         (
-            [NonNativeAffineVar<G1>; 3],
             NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
+            NonNativeAffineVar<G1>,
         ),
         SynthesisError,
     >
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     {
-        let mut X = &self.X[1..];
+        let r = self.X[SecondaryCircuit::<G1>::NUM_IO - 1].clone();
 
-        let g1 = parse_projective!(X);
-        let g2 = parse_projective!(X);
+        // Skip `Variable::One`, g1 and g2.
+        let mut X = &self.X[7..];
         let g_out = parse_projective!(X);
 
-        let r = X.get(0).ok_or(SynthesisError::Unsatisfiable)?.clone();
+        let _ = X;
 
-        Ok(([g1, g2, g_out], r))
+        Ok((r, g_out))
     }
 
     /// Parses `[g1, g2, g3, g_out], r` from the public input of the secondary circuit.
