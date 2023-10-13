@@ -257,7 +257,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{nifs::tests::synthesize_r1cs, pedersen::PedersenCommitment, poseidon_config};
+    use crate::{pedersen::PedersenCommitment, poseidon_config, test_utils::setup_test_r1cs};
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
@@ -289,7 +289,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = synthesize_r1cs::<G1, C1>(3, None);
+        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
         let shape_secondary = secondary::Circuit::<G1>::setup_shape::<G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
@@ -313,7 +313,7 @@ mod tests {
                 (&u, &w),
             )?;
 
-        let (_, u, w, _) = synthesize_r1cs::<G1, C1>(5, Some(&pp));
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
         let U1 = RelaxedR1CSInstance::from(&u);
         let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
 

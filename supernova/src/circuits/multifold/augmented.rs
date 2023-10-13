@@ -225,15 +225,18 @@ where
         let commitment_T =
             NonNativeAffineVar::new_variable(cs.clone(), || Ok(&input.proof.commitment_T), mode)?;
 
+        // proof variables are cloned from the allocated input.
         let u_secondary = (
-            secondary::ProofVar::new_variable(
-                cs.clone(),
-                || Ok(&input.proof.commitment_E_proof),
+            secondary::ProofVar::from_allocated_input::<G1>(
+                &U.commitment_E,
+                &commitment_T,
+                &input.proof.commitment_E_proof,
                 mode,
             )?,
-            secondary::ProofVar::new_variable(
-                cs.clone(),
-                || Ok(&input.proof.commitment_W_proof),
+            secondary::ProofVar::from_allocated_input::<G1>(
+                &U.commitment_W,
+                &u.commitment_W,
+                &input.proof.commitment_W_proof,
                 mode,
             )?,
         );
@@ -320,21 +323,22 @@ where
             })?;
 
         let is_base_case = input.i.is_zero()?;
-        let U_base = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_witness(cs.clone(), || {
-            Ok(RelaxedR1CSInstance {
+        let U_base = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_constant(
+            cs.clone(),
+            RelaxedR1CSInstance {
                 commitment_W: Projective::zero(),
                 commitment_E: Projective::zero(),
                 X: vec![G1::ScalarField::ZERO; AUGMENTED_CIRCUIT_NUM_IO],
-            })
-        })?;
-        let U_secondary_base =
-            secondary::RelaxedR1CSInstanceVar::<G2, C2>::new_witness(cs.clone(), || {
-                Ok(RelaxedR1CSInstance {
-                    commitment_W: Projective::zero(),
-                    commitment_E: Projective::zero(),
-                    X: vec![G2::ScalarField::ZERO; multifold::secondary::Circuit::<G1>::NUM_IO],
-                })
-            })?;
+            },
+        )?;
+        let U_secondary_base = secondary::RelaxedR1CSInstanceVar::<G2, C2>::new_constant(
+            cs.clone(),
+            RelaxedR1CSInstance {
+                commitment_W: Projective::zero(),
+                commitment_E: Projective::zero(),
+                X: vec![G2::ScalarField::ZERO; multifold::secondary::Circuit::<G1>::NUM_IO],
+            },
+        )?;
 
         let mut random_oracle = RO::Var::new(cs.clone(), self.ro_config);
         random_oracle.absorb(&input.vk)?;
@@ -373,6 +377,7 @@ where
         let z_next = <SC as StepCircuit<G1::ScalarField>>::generate_constraints(
             self.step_circuit,
             cs.clone(),
+            &input.i,
             &z,
         )?;
         let i_next = &input.i + FpVar::one();
@@ -416,6 +421,7 @@ mod tests {
         fn generate_constraints(
             &self,
             _: ConstraintSystemRef<F>,
+            _: &FpVar<F>,
             z: &[FpVar<F>],
         ) -> Result<Vec<FpVar<F>>, SynthesisError> {
             Ok(z.to_owned())

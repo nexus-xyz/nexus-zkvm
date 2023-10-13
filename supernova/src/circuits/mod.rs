@@ -19,6 +19,7 @@ pub trait StepCircuit<F: PrimeField> {
     fn generate_constraints(
         &self,
         cs: ConstraintSystemRef<F>,
+        i: &FpVar<F>,
         z: &[FpVar<F>],
     ) -> Result<Vec<FpVar<F>>, SynthesisError>;
 }

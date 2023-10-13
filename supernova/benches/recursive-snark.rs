@@ -113,6 +113,7 @@ where
     fn generate_constraints(
         &self,
         _: ConstraintSystemRef<F>,
+        _: &FpVar<F>,
         z: &[FpVar<F>],
     ) -> Result<Vec<FpVar<F>>, SynthesisError> {
         // Consider an equation: `x^2 = y`, where `x` and `y` are respectively the input and output.
