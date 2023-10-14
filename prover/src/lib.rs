@@ -40,7 +40,7 @@ pub fn run(opts: &VMOpts) -> Result<Trace, ProofError> {
     println!("Executing program...");
     io::stdout().flush().unwrap();
 
-    let trace = eval(&mut vm, opts.k, false, false)?;
+    let trace = eval(&mut vm, opts.k, false)?;
 
     println!(
         "Executed {} instructions in {:?}. {} bytes used by trace.",
@@ -53,7 +53,7 @@ pub fn run(opts: &VMOpts) -> Result<Trace, ProofError> {
 
 pub fn prove_seq(pp: SeqPP<Tr>, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
-    let code = trace.code.clone();
+    let icount = k * trace.trace.len();
     let tr = Tr::new(trace);
     let z_0 = tr.input(0);
     let mut proof = IVCProof::new(&pp, &z_0);
@@ -64,19 +64,8 @@ pub fn prove_seq(pp: SeqPP<Tr>, trace: Trace) -> Result<(), ProofError> {
     let start = Instant::now();
 
     let num_steps = tr.steps();
-    let mut j = 0;
     for i in 0..num_steps {
-        if k < 5 {
-            for x in 0..k {
-                print!("{:4}. {:51}", j, code[j]);
-                j += 1;
-                if x < k - 1 {
-                    println!();
-                }
-            }
-        } else {
-            print!("{:4}. {:51}", i, format!("{} instructions...", k));
-        }
+        print!("{:4}. {:51}", i, format!("{} instructions...", k));
         io::stdout().flush().unwrap();
 
         let t = Instant::now();
@@ -90,7 +79,7 @@ pub fn prove_seq(pp: SeqPP<Tr>, trace: Trace) -> Result<(), ProofError> {
     }
     println!(
         "\nProof Complete: {:.2} instructions / second",
-        code.len() as f64 / start.elapsed().as_secs_f64()
+        icount as f64 / start.elapsed().as_secs_f64()
     );
 
     print!("\nVerifying Proof... ");

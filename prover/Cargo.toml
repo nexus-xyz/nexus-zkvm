@@ -24,8 +24,8 @@ ark-ff.workspace = true
 ark-relations.workspace = true
 ark-r1cs-std.workspace = true
 
-ark-pallas.workspace = true
-ark-vesta.workspace = true
+ark-bn254.workspace = true
+ark-grumpkin.workspace = true
 
 [features]
 default = [ "parallel", "snmalloc" ]

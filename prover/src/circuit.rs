@@ -1,6 +1,6 @@
 use crate::types::*;
 
-use nexus_riscv_circuit::{q::ZERO, r1cs::V, Trace};
+use nexus_riscv_circuit::{r1cs::ZERO, r1cs::V, Trace};
 
 use ark_ff::BigInt;
 use ark_r1cs_std::R1CSVar;
@@ -23,17 +23,14 @@ impl Tr {
     // So, we can repeat it as many times as needed
     pub fn witness(&self, n: usize) -> Vec<F1> {
         let i = min(n, self.0.trace.len() - 1);
-        self.0.trace[i].iter().map(|q| q.to_field()).collect()
+        self.0.trace[i].clone()
     }
 
     // note: -1 is fine here because we assume that the
     // k+1 step is just k instances of the last witness
     pub fn input(&self, n: usize) -> Vec<F1> {
         let i = min(self.0.k * n, self.0.trace.len() - 1);
-        self.0.trace[i][self.0.input.clone()]
-            .iter()
-            .map(|q| q.to_field())
-            .collect()
+        self.0.trace[i][self.0.cs.input_range()].to_vec()
     }
 }
 
@@ -49,9 +46,9 @@ fn build_witness_offset(
 
     let index = tr.0.k * index + offset;
     for (i, x) in tr.witness(index).iter().enumerate() {
-        if tr.0.input.contains(&i) {
+        if tr.0.cs.input_range().contains(&i) {
             // variables already allocated in z
-        } else if tr.0.output.contains(&i) {
+        } else if tr.0.cs.output_range().contains(&i) {
             let av = AllocatedFp::new_witness(cs.clone(), || Ok(*x))?;
             output.push(FpVar::Var(av))
         } else {
@@ -89,19 +86,19 @@ fn build_constraints_offset(
 
     let index = tr.0.k * index + offset;
     let w = if tr.0.trace.is_empty() {
-        tr.0.cs.w.iter().map(|q| q.to_field()).collect()
+        tr.0.cs.w.clone()
     } else {
         tr.witness(index)
     };
 
     for (i, x) in w.iter().enumerate() {
-        if tr.0.input.contains(&i) {
-            if let FpVar::Var(AllocatedFp { variable, .. }) = z[i - tr.0.input.start] {
+        if tr.0.cs.input_range().contains(&i) {
+            if let FpVar::Var(AllocatedFp { variable, .. }) = z[i - tr.0.cs.input_range().start] {
                 vars.push(variable)
             } else {
                 panic!()
             }
-        } else if tr.0.output.contains(&i) {
+        } else if tr.0.cs.output_range().contains(&i) {
             let av = AllocatedFp::new_witness(cs.clone(), || Ok(*x))?;
             vars.push(av.variable);
             output.push(FpVar::Var(av))
@@ -111,13 +108,16 @@ fn build_constraints_offset(
     }
 
     let row = |a: &V| {
-        a.iter().enumerate().fold(lc!(), |lc, (i, x)| {
-            if x == &ZERO {
-                lc
-            } else {
-                lc + (x.to_field(), vars[i])
-            }
-        })
+        a.iter().enumerate().fold(
+            lc!(),
+            |lc, (i, x)| {
+                if x == &ZERO {
+                    lc
+                } else {
+                    lc + (*x, vars[i])
+                }
+            },
+        )
     };
 
     for i in 0..tr.0.cs.a.len() {

@@ -2,7 +2,7 @@
 
 //#![rustfmt::skip]
 
-use super::q::*;
+//use super::q::*;
 use super::r1cs::*;
 
 use nexus_riscv::vm::VM;
@@ -12,9 +12,11 @@ use nexus_riscv::rv32::parse::*;
 // Note: circuit generation code depends on this ordering
 // (inputs: pc,x0..31 and then outputs: PC,x'0..31)
 
+#[allow(clippy::field_reassign_with_default)]
 #[allow(clippy::needless_range_loop)]
 fn init_cs(pc: u32, regs: &[u32; 32]) -> R1CS {
     let mut cs = R1CS::default();
+    cs.arity = 33;
     cs.set_var("pc", pc);
     for i in 0..32 {
         cs.set_var(&format!("x{i}"), regs[i]);
@@ -111,7 +113,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 0..7 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         b[0] = ONE;
         c[cs.var("opcode")] = ONE;
@@ -122,7 +124,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 7..12 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
 
         b[0] = ONE;
@@ -137,7 +139,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 15..20 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
 
         b[0] = ONE;
@@ -152,7 +154,7 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 20..25 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
 
         for op in [OPC_BR, OPC_STORE, OPC_ALU] {
@@ -190,10 +192,10 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     cs.w[iss_j] = cs.get_var("f3=1") + cs.get_var("f3=5");
 
     let a1 = cs.new_local_var("a1");
-    cs.w[a1] = &cs.w[iss_j] * cs.get_var("lowA");
+    cs.w[a1] = cs.w[iss_j] * cs.get_var("lowA");
 
     let a2 = cs.new_local_var("a2");
-    cs.w[a2] = &(ONE - cs.w[iss_j]) * cs.get_var("immI");
+    cs.w[a2] = (ONE - cs.w[iss_j]) * cs.get_var("immI");
 
     if cs.witness_only {
         cs.seal();
@@ -226,7 +228,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 20..25 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         b[0] = ONE;
         c[cs.var("lowA")] = ONE;
@@ -237,7 +239,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 12..15 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         b[0] = ONE;
         c[cs.var("f3")] = ONE;
@@ -251,9 +253,9 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 20..31 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
-        a[sb] = Q::from(0xfffff800u32);
+        a[sb] = F::from(0xfffff800u32);
 
         b[0] = ONE;
         c[cs.var("immI")] = ONE;
@@ -264,13 +266,13 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         let mut pow = ONE;
         for i in 7..12 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         for i in 25..31 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
-        a[sb] = Q::from(0xfffff800u32);
+        a[sb] = F::from(0xfffff800u32);
 
         b[0] = ONE;
         c[cs.var("immS")] = ONE;
@@ -281,15 +283,15 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         let mut pow = TWO;
         for i in 8..12 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         for i in 25..31 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         a[cs.var("inst_7")] = pow;
 
-        a[sb] = Q::from(0xfffff000u32);
+        a[sb] = F::from(0xfffff000u32);
 
         b[0] = ONE;
         c[cs.var("immB")] = ONE;
@@ -297,10 +299,10 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
 
     // parse immU
     cs.constraint(|cs, a, b, c| {
-        let mut pow = Q::from(1u32 << 12);
+        let mut pow = F::from(1u32 << 12);
         for i in 12..32 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
 
         b[0] = ONE;
@@ -312,16 +314,16 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         let mut pow = TWO;
         for i in 21..31 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         a[cs.var("inst_20")] = pow;
-        pow = pow * TWO;
+        pow *= TWO;
         for i in 12..20 {
             a[cs.var(&format!("inst_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
 
-        a[sb] = Q::from(0xfff00000u32);
+        a[sb] = F::from(0xfff00000u32);
 
         b[0] = ONE;
         c[cs.var("immJ")] = ONE;
@@ -351,7 +353,7 @@ fn parse_shamt(cs: &mut R1CS, Y: u32) {
         let mut pow = ONE;
         for i in 0..5 {
             a[cs.var(&format!("Y_{i}"))] = pow;
-            pow = pow * TWO;
+            pow *= TWO;
         }
         b[0] = ONE;
         c[cs.var("lowY")] = ONE;
@@ -375,9 +377,9 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     let f35a = cs.new_local_var("f3=5a");
     let f35b = cs.new_local_var("f3=5b");
 
-    cs.w[f30a] = cs.get_var("f3=0") * &(&ONE - cs.get_var("inst_30"));
+    cs.w[f30a] = cs.get_var("f3=0") * &(ONE - cs.get_var("inst_30"));
     cs.w[f30b] = cs.get_var("f3=0") * cs.get_var("inst_30");
-    cs.w[f35a] = cs.get_var("f3=5") * &(&ONE - cs.get_var("inst_30"));
+    cs.w[f35a] = cs.get_var("f3=5") * &(ONE - cs.get_var("inst_30"));
     cs.w[f35b] = cs.get_var("f3=5") * cs.get_var("inst_30");
 
     // constraints
@@ -443,7 +445,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_eq("J=39", "opcode=15"); // fence
 
     let ecall = cs.new_local_var("ecall");
-    cs.w[ecall] = (&ONE - cs.get_var("inst_12")) * (&ONE - cs.get_var("inst_20"));
+    cs.w[ecall] = (ONE - cs.get_var("inst_12")) * (ONE - cs.get_var("inst_20"));
 
     cs.constraint(|cs, a, b, c| {
         a[0] = ONE;
@@ -548,8 +550,8 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
 // with this function
 
 fn add_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u32) {
-    let O = Q::from(0x100000000u64);
-    let ON: Q = ZERO - O;
+    let O = F::from(0x100000000u64);
+    let ON: F = ZERO - O;
 
     let (z, of) = x.overflowing_add(y);
 
@@ -649,7 +651,7 @@ fn addi(cs: &mut R1CS, vm: &VM) {
 // this is similar to add_cir, but we also compute the condition flags
 
 fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u32) {
-    let O = Q::from(0x100000000u64);
+    let O = F::from(0x100000000u64);
 
     let (z, of) = x.overflowing_sub(y);
 
@@ -728,14 +730,14 @@ fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
 
     // compute XOR of X and Y sign bits
     let j = cs.new_local_var("Xs*Ys");
-    cs.w[j] = Q::from(xs * ys);
+    cs.w[j] = F::from(xs * ys);
     cs.mul("Xs*Ys", &format!("{x_name}_31"), &format!("{y_name}_31"));
 
     // X_31 + Y_31 - 2 X_31 Y_31 = ds  (XOR)
     cs.constraint(|cs, a, b, c| {
         a[cs.var(&format!("{x_name}_31"))] = ONE;
         a[cs.var(&format!("{y_name}_31"))] = ONE;
-        a[j] = Q::from(-2);
+        a[j] = F::from(-2);
         b[0] = ONE;
         c[dsj] = ONE;
     });
@@ -911,14 +913,14 @@ fn shift_right(cs: &mut R1CS, output: &str, X: u32, I: u32, arith: bool) {
             cs.set_eq("out0", "X");
         } else {
             let j = cs.new_local_var(&format!("out{amt}"));
-            cs.w[j] = Q::from(out);
+            cs.w[j] = F::from(out);
             cs.constraint(|cs, a, b, c| {
                 for bit in 0..32 {
                     if bit + amt < 32 {
-                        a[cs.var(&format!("X_{}", bit + amt))] = Q::from(1u64 << bit);
+                        a[cs.var(&format!("X_{}", bit + amt))] = F::from(1u64 << bit);
                     } else if arith {
                         let k = cs.var("X_31");
-                        a[k] = a[k] + Q::from(1u64 << bit);
+                        a[k] += F::from(1u64 << bit);
                     }
                 }
                 b[0] = ONE;
@@ -928,7 +930,7 @@ fn shift_right(cs: &mut R1CS, output: &str, X: u32, I: u32, arith: bool) {
 
         // generate final output products
         let j = cs.new_local_var(&format!("SZ{amt}"));
-        cs.w[j] = if amt == I { Q::from(out) } else { ZERO };
+        cs.w[j] = if amt == I { F::from(out) } else { ZERO };
         cs.mul(&format!("SZ{amt}"), &format!("shamt={amt}"), &format!("out{amt}"));
     }
 
@@ -957,11 +959,11 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
             cs.set_eq("out0", "X");
         } else {
             let j = cs.new_local_var(&format!("out{amt}"));
-            cs.w[j] = Q::from(out);
+            cs.w[j] = F::from(out);
             cs.constraint(|cs, a, b, c| {
                 for bit in 0..32 {
                     if bit >= amt {
-                        a[cs.var(&format!("X_{}", bit - amt))] = Q::from(1u64 << bit);
+                        a[cs.var(&format!("X_{}", bit - amt))] = F::from(1u64 << bit);
                     }
                 }
                 b[0] = ONE;
@@ -971,7 +973,7 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
 
         // generate final output products
         let j = cs.new_local_var(&format!("SZ{amt}"));
-        cs.w[j] = if amt == I { Q::from(out) } else { ZERO };
+        cs.w[j] = if amt == I { F::from(out) } else { ZERO };
         cs.mul(&format!("SZ{amt}"), &format!("shamt={amt}"), &format!("out{amt}"));
     }
 
@@ -1014,7 +1016,7 @@ fn bit(x: u32, bit: u32) -> bool {
     ((x >> bit) & 1) != 0
 }
 
-fn bitop(cs: &mut R1CS, output: &str, y_name: &str, z: u32, adj: Q) {
+fn bitop(cs: &mut R1CS, output: &str, y_name: &str, z: u32, adj: F) {
     cs.to_bits(output, z);
     for i in 0..32 {
         let j = cs.set_bit(&format!("{output}_{i}"), bit(z, i));
@@ -1061,10 +1063,10 @@ fn bitops(cs: &mut R1CS, vm: &VM) {
 
     // xor
     let J = (ALUI { aop: XOR, rd: 0, rs1: 0, imm: 0 }).index_j();
-    bitop(cs, &format!("Z{J}"), "I", vm.X ^ vm.I, Q::from(-2));
+    bitop(cs, &format!("Z{J}"), "I", vm.X ^ vm.I, F::from(-2));
 
     let J = (ALU { aop: XOR, rd: 0, rs1: 0, rs2: 0 }).index_j();
-    bitop(cs, &format!("Z{J}"), "Y", vm.X ^ vm.Y, Q::from(-2));
+    bitop(cs, &format!("Z{J}"), "Y", vm.X ^ vm.Y, F::from(-2));
 }
 
 fn misc(cs: &mut R1CS) {
@@ -1168,8 +1170,8 @@ mod test {
                 let mut cs = init_cs(0, &regs);
                 select_XY(&mut cs, x, y);
                 assert!(cs.is_sat());
-                assert!(cs.get_var("X") == &Q::from(x));
-                assert!(cs.get_var("Y") == &Q::from(y));
+                assert!(cs.get_var("X") == &F::from(x));
+                assert!(cs.get_var("Y") == &F::from(y));
             }
         }
     }
@@ -1180,7 +1182,7 @@ mod test {
         for i in 0..32 {
             let mut cs = init_cs(0, &regs);
             let j = cs.new_var("Z");
-            let z = Q::from(100);
+            let z = F::from(100);
             cs.w[j] = z;
 
             select_Z(&mut cs, i);
@@ -1192,7 +1194,7 @@ mod test {
                 } else if r == i {
                     assert!(cs.w[j] == z);
                 } else {
-                    assert!(cs.w[j] == Q::from(r));
+                    assert!(cs.w[j] == F::from(r));
                 }
             }
         }
@@ -1213,8 +1215,8 @@ mod test {
                 add(&mut cs, &vm);
                 addi(&mut cs, &vm);
                 assert!(cs.is_sat());
-                assert!(cs.get_var("Z29") == &Q::from(x.overflowing_add(y).0));
-                assert!(cs.get_var("Z19") == &Q::from(x.overflowing_add(y).0));
+                assert!(cs.get_var("Z29") == &F::from(x.overflowing_add(y).0));
+                assert!(cs.get_var("Z19") == &F::from(x.overflowing_add(y).0));
             }
         }
     }
@@ -1237,24 +1239,24 @@ mod test {
                 sub(&mut cs, &vm);
                 subi(&mut cs, &vm);
                 assert!(cs.is_sat());
-                assert!(cs.get_var("Z30") == &Q::from(x.overflowing_sub(y).0));
-                assert!(cs.get_var("Z20") == &Q::from(x.overflowing_sub(y).0));
+                assert!(cs.get_var("Z30") == &F::from(x.overflowing_sub(y).0));
+                assert!(cs.get_var("Z20") == &F::from(x.overflowing_sub(y).0));
 
-                assert!(cs.get_var("X<Y") == &Q::from(x < y));
-                assert!(cs.get_var("X>=Y") == &Q::from(x >= y));
-                assert!(cs.get_var("X=Y") == &Q::from(x == y));
-                assert!(cs.get_var("X!=Y") == &Q::from(x != y));
+                assert!(cs.get_var("X<Y") == &F::from(x < y));
+                assert!(cs.get_var("X>=Y") == &F::from(x >= y));
+                assert!(cs.get_var("X=Y") == &F::from(x == y));
+                assert!(cs.get_var("X!=Y") == &F::from(x != y));
 
-                assert!(cs.get_var("X<sY") == &Q::from((x as i32) < (y as i32)));
-                assert!(cs.get_var("X>=sY") == &Q::from((x as i32) >= (y as i32)));
+                assert!(cs.get_var("X<sY") == &F::from((x as i32) < (y as i32)));
+                assert!(cs.get_var("X>=sY") == &F::from((x as i32) >= (y as i32)));
 
-                assert!(cs.get_var("X<I") == &Q::from(x < y));
-                assert!(cs.get_var("X>=I") == &Q::from(x >= y));
-                assert!(cs.get_var("X=I") == &Q::from(x == y));
-                assert!(cs.get_var("X!=I") == &Q::from(x != y));
+                assert!(cs.get_var("X<I") == &F::from(x < y));
+                assert!(cs.get_var("X>=I") == &F::from(x >= y));
+                assert!(cs.get_var("X=I") == &F::from(x == y));
+                assert!(cs.get_var("X!=I") == &F::from(x != y));
 
-                assert!(cs.get_var("X<sI") == &Q::from((x as i32) < (y as i32)));
-                assert!(cs.get_var("X>=sI") == &Q::from((x as i32) >= (y as i32)));
+                assert!(cs.get_var("X<sI") == &F::from((x as i32) < (y as i32)));
+                assert!(cs.get_var("X>=sI") == &F::from((x as i32) >= (y as i32)));
             }
         }
     }
@@ -1299,13 +1301,13 @@ mod test {
 
                 assert!(cs.is_sat());
 
-                assert!(cs.get_var("Z21") == &Q::from(x << a));
-                assert!(cs.get_var("Z25") == &Q::from(x >> a));
-                assert!(cs.get_var("Z26") == &Q::from(((x as i32) >> a) as u32));
+                assert!(cs.get_var("Z21") == &F::from(x << a));
+                assert!(cs.get_var("Z25") == &F::from(x >> a));
+                assert!(cs.get_var("Z26") == &F::from(((x as i32) >> a) as u32));
 
-                assert!(cs.get_var("Z31") == &Q::from(x << a));
-                assert!(cs.get_var("Z35") == &Q::from(x >> a));
-                assert!(cs.get_var("Z36") == &Q::from(((x as i32) >> a) as u32));
+                assert!(cs.get_var("Z31") == &F::from(x << a));
+                assert!(cs.get_var("Z35") == &F::from(x >> a));
+                assert!(cs.get_var("Z36") == &F::from(((x as i32) >> a) as u32));
             }
         }
     }
@@ -1328,14 +1330,14 @@ mod test {
 
                 assert!(cs.is_sat());
 
-                assert!(cs.get_var("Z28") == &Q::from(x & i));
-                assert!(cs.get_var("Z38") == &Q::from(x & y));
+                assert!(cs.get_var("Z28") == &F::from(x & i));
+                assert!(cs.get_var("Z38") == &F::from(x & y));
 
-                assert!(cs.get_var("Z27") == &Q::from(x | i));
-                assert!(cs.get_var("Z37") == &Q::from(x | y));
+                assert!(cs.get_var("Z27") == &F::from(x | i));
+                assert!(cs.get_var("Z37") == &F::from(x | y));
 
-                assert!(cs.get_var("Z24") == &Q::from(x ^ i));
-                assert!(cs.get_var("Z34") == &Q::from(x ^ y));
+                assert!(cs.get_var("Z24") == &F::from(x ^ i));
+                assert!(cs.get_var("Z34") == &F::from(x ^ y));
             }
         }
     }

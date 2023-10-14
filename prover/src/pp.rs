@@ -1,6 +1,6 @@
 use std::fs::File;
 use zstd::stream::{Encoder, Decoder};
-use nexus_riscv_circuit::k_step_circuit;
+use nexus_riscv_circuit::step_circuit;
 
 use crate::types::*;
 use crate::error::*;
@@ -46,7 +46,7 @@ pub fn gen_vm_pp<SP>(k: usize) -> Result<PP<SP, Tr>, ProofError>
 where
     SP: SetupParams<G1, G2, C1, C2, RO, Tr>,
 {
-    let tr = Tr::new(k_step_circuit(k)?);
+    let tr = Tr::new(step_circuit(k)?);
     gen_pp(&tr)
 }
 

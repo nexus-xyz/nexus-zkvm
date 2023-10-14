@@ -1,19 +1,30 @@
-//! A direct representation of R1CS over the field Q.
+//! A direct representation of R1CS over the field F.
 //!
 //! This crate provides a representation of R1CS as a set of
 //! matrices without an intermediate representation of the
 //! constraints. The matrices are dense for simplicity, and
-//! are over the rationals to avoid losing information.
+//! are over a fixed field.
 //! These matrices are meant to be used at compile-time as a
 //! source for generating constraints over a target field.
 
 use std::collections::HashMap;
-use ark_test_curves::fp128::Fq as Fp128;
+use std::ops::Range;
 
-use crate::q::*;
+use ark_ff::{BigInt, Fp, MontConfig};
+use ark_bn254::FrConfig;
 
-pub type V = Vec<Q>;
-pub type M = Vec<Vec<Q>>;
+pub use ark_bn254::Fr as F;
+
+pub const ZERO: F = Fp::new(BigInt([0, 0, 0, 0]));
+pub const ONE: F = Fp::new(BigInt([1, 0, 0, 0]));
+pub const TWO: F = Fp::new(BigInt([2, 0, 0, 0]));
+pub const MINUS: F = {
+    let BigInt([a, b, c, d]) = FrConfig::MODULUS;
+    Fp::new(BigInt([a - 1, b, c, d]))
+};
+
+pub type V = Vec<F>;
+pub type M = Vec<Vec<F>>;
 
 #[derive(Clone, Debug)]
 pub struct R1CS {
@@ -21,9 +32,10 @@ pub struct R1CS {
     pub a: M,
     pub b: M,
     pub c: M,
-    pub vars: HashMap<String, usize>,
-    locals: Vec<String>,
+    pub arity: usize,
     pub witness_only: bool,
+    pub(crate) vars: HashMap<String, usize>,
+    pub(crate) locals: Vec<String>,
 }
 
 impl Default for R1CS {
@@ -33,14 +45,38 @@ impl Default for R1CS {
             a: Vec::new(),
             b: Vec::new(),
             c: Vec::new(),
+            arity: 0,
+            witness_only: false,
             vars: HashMap::new(),
             locals: Vec::new(),
-            witness_only: false,
         }
     }
 }
 
 impl R1CS {
+    #[inline]
+    pub fn input_range(&self) -> Range<usize> {
+        Range { start: 1, end: 1 + self.arity }
+    }
+
+    #[inline]
+    pub fn output_range(&self) -> Range<usize> {
+        Range {
+            start: 1 + self.arity,
+            end: 1 + 2 * self.arity,
+        }
+    }
+
+    #[inline]
+    pub fn input(&self) -> &[F] {
+        &self.w[self.input_range()]
+    }
+
+    #[inline]
+    pub fn output(&self) -> &[F] {
+        &self.w[self.output_range()]
+    }
+
     pub fn new_var(&mut self, name: &str) -> usize {
         if let Some(n) = self.vars.get(name) {
             return *n;
@@ -58,7 +94,7 @@ impl R1CS {
 
     pub fn set_var(&mut self, name: &str, val: u32) -> usize {
         let j = self.new_var(name);
-        self.w[j] = Q::from(val);
+        self.w[j] = F::from(val);
         j
     }
 
@@ -87,7 +123,7 @@ impl R1CS {
         *self.vars.get(name).unwrap()
     }
 
-    pub fn get_var(&self, name: &str) -> &Q {
+    pub fn get_var(&self, name: &str) -> &F {
         &self.w[self.var(name)]
     }
 
@@ -140,14 +176,14 @@ impl R1CS {
 
         self.constraint(|_cs, a, b, c| {
             for i in 0..32 {
-                a[js[i]] = Q::from(1u64 << i);
+                a[js[i]] = F::from(1u64 << i);
             }
             b[0] = ONE;
             c[vj] = ONE;
         });
     }
 
-    pub fn eqi(&mut self, v0: &str, x: Q) {
+    pub fn eqi(&mut self, v0: &str, x: F) {
         self.constraint(|cs, a, b, c| {
             a[cs.var(v0)] = ONE;
             b[0] = ONE;
@@ -164,7 +200,7 @@ impl R1CS {
         });
     }
 
-    pub fn addi(&mut self, v0: &str, v1: &str, x: Q) {
+    pub fn addi(&mut self, v0: &str, v1: &str, x: F) {
         self.constraint(|cs, a, b, c| {
             a[0] = x;
             a[cs.var(v1)] = ONE;
@@ -181,7 +217,7 @@ impl R1CS {
         });
     }
 
-    pub fn muli(&mut self, v0: &str, v1: &str, x: Q) {
+    pub fn muli(&mut self, v0: &str, v1: &str, x: F) {
         self.constraint(|cs, a, b, c| {
             a[0] = x;
             b[cs.var(v1)] = ONE;
@@ -222,20 +258,23 @@ impl R1CS {
         }
 
         #[rustfmt::skip]
-        fn dot(m: &M, v: &V) -> Vec<Fp128> {
+        fn dot(a: &V, b: &V) -> F {
+            a.iter()
+             .zip(b)
+             .map(|(a,b)| a * b)
+             .sum()
+        }
+
+        #[rustfmt::skip]
+        fn MxV(m: &M, v: &V) -> Vec<F> {
             m.iter()
-             .map(|r| {
-                 r.iter()
-                  .zip(v)
-                  .map(|(x, y)| x.to_field::<Fp128>() * y.to_field::<Fp128>())
-                  .fold(Fp128::from(0), |a, x| a + x)
-             })
+             .map(|r| dot(r,v))
              .collect()
         }
 
-        let x = dot(&self.a, &self.w);
-        let y = dot(&self.b, &self.w);
-        let z = dot(&self.c, &self.w);
+        let x = MxV(&self.a, &self.w);
+        let y = MxV(&self.b, &self.w);
+        let z = MxV(&self.c, &self.w);
 
         #[cfg(debug_assertions)]
         #[allow(clippy::needless_range_loop)]
@@ -283,18 +322,18 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
     // Compute constant that comes from evaulating
     // (x - s0)(x - s1)...(x - s{n - 1}) / (x - sk)
     // at the point sk
-    let C = |k: u32| -> Q {
+    let C = |k: u32| -> F {
         let mut c = ONE;
         for &x in set {
             if x != k {
-                c = c * (Q::from(k) - Q::from(x));
+                c *= F::from(k) - F::from(x);
             }
         }
         c
     };
 
     // compute witness, starting with input x
-    let x = Q::from(k);
+    let x = F::from(k);
     let jj = cs.new_var(name);
     cs.w[jj] = x;
 
@@ -304,17 +343,17 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
     for i in 0..n {
         // (x-si) terms
         let j = cs.new_local_var(&format!("x-{i}"));
-        cs.w[j] = x - Q::from(set[i]);
+        cs.w[j] = x - F::from(set[i]);
 
         // left products l_i = (x - s0)(x - s1)...(x - si)
         let j = cs.new_local_var(&format!("l{i}"));
-        lp = lp * (x - Q::from(set[i]));
+        lp *= x - F::from(set[i]);
         cs.w[j] = lp;
 
         // right products r_n-1-i = (x - s{n-1})(x - s{n-2})...(x - s{n-1-i})
         let i2 = n - 1 - i;
         let j = cs.new_local_var(&format!("r{i2}"));
-        rp = rp * (x - Q::from(set[i2]));
+        rp *= x - F::from(set[i2]);
         cs.w[j] = rp;
 
         // l_i * r_i = C(i) * (x-s0)...(x-s{i-1}) (x-s{i+1})...(x-s{n-1})
@@ -339,7 +378,7 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
     #[allow(clippy::needless_range_loop)]
     for i in 0..n {
         //set x-k variables
-        let si = ZERO - Q::from(set[i]);
+        let si = ZERO - F::from(set[i]);
         cs.addi(&format!("x-{i}"), name, si);
 
         // set lp variables
@@ -394,7 +433,7 @@ pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
     // construct witness
     // starting with selector
     let j = cs.new_var(input);
-    cs.w[j] = Q::from(rs);
+    cs.w[j] = F::from(rs);
 
     // register
     for i in 0..32 {
@@ -445,7 +484,7 @@ pub fn store_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
     // construct witness
     // starting with selector
     let j = cs.new_var(input);
-    cs.w[j] = Q::from(rs);
+    cs.w[j] = F::from(rs);
 
     cs.new_var("x'0");
     cs.new_local_var("rsx0");
@@ -502,7 +541,7 @@ mod test {
         cs.to_bits("x", x);
         assert!(cs.is_sat());
         for i in 0..32 {
-            let b = Q::from((x >> i) & 1);
+            let b = F::from((x >> i) & 1);
             assert!(cs.get_var(&format!("x_{i}")) == &b);
         }
     }
@@ -585,7 +624,7 @@ mod test {
             let mut cs = init_regs();
             load_reg(&mut cs, "rs1", "X", i);
             assert!(cs.is_sat());
-            assert!(cs.w[cs.var("X")] == Q::from(i));
+            assert!(cs.w[cs.var("X")] == F::from(i));
         }
     }
 
@@ -594,7 +633,7 @@ mod test {
         for i in 0..32 {
             let mut cs = init_regs();
             let j = cs.new_var("Z");
-            let z = Q::from(100);
+            let z = F::from(100);
             cs.w[j] = z;
 
             store_reg(&mut cs, "rd", "Z", i);
@@ -607,7 +646,7 @@ mod test {
                 } else if r == i {
                     assert!(cs.w[j] == z);
                 } else {
-                    assert!(cs.w[j] == Q::from(r));
+                    assert!(cs.w[j] == F::from(r));
                 }
             }
         }

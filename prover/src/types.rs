@@ -15,15 +15,15 @@ pub use ark_ff::{
 };
 
 // concrete fields used
-pub use ark_pallas::{
+pub use ark_bn254::{
     Fr as F1,
-    PallasConfig as G1,
-    Projective as P1,
-    Affine as A1,
+    g1::Config as G1,
+    G1Projective as P1,
+    G1Affine as A1,
 };
-pub use ark_vesta::{
+pub use ark_grumpkin::{
     Fr as F2,
-    VestaConfig as G2,
+    GrumpkinConfig as G2,
     Projective as P2,
     Affine as A2,
 };

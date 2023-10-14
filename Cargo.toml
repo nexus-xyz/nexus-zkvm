@@ -36,10 +36,9 @@ ark-r1cs-std = { version = "0.4.0" }
 ark-ff = "0.4.0"
 ark-ec = { version = "0.4.0", default-features = false }
 ark-serialize = { version = "0.4.0", features = ["derive"] }
-ark-test-curves = "0.4.0"
 
-ark-pallas = "0.4.0"
-ark-vesta = "0.4.0"
+ark-bn254 = "0.4.0"
+ark-grumpkin = "0.4.0"
 
 # Note, this should be in sync with the supernova repo
 [patch.crates-io]
@@ -49,10 +48,9 @@ ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd
 ark-ff          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 ark-ec          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 ark-serialize   = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 
-ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
-ark-vesta  = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+ark-bn254    = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 
 # additional settings in .cargo/config
 [profile.release]

@@ -7,12 +7,8 @@ use std::time::Instant;
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Opts {
-    /// Show execution trace
-    #[arg(short, long)]
-    trace: bool,
-
     /// Check each witness during execution (debugging)
-    #[arg(short, long)]
+    #[arg(short)]
     check: bool,
 
     #[command(flatten)]
@@ -21,7 +17,7 @@ pub struct Opts {
 
 fn run(opts: &Opts) -> Result<Trace> {
     let mut vm = load_vm(&opts.vm)?;
-    eval(&mut vm, opts.vm.k, opts.trace, opts.check)
+    eval(&mut vm, opts.vm.k, opts.check)
 }
 
 fn main() {

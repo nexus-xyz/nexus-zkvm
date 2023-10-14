@@ -8,6 +8,7 @@ publish = false
 clap.workspace = true
 
 ark-ff.workspace = true
-ark-test-curves.workspace = true
+ark-std.workspace = true
+ark-bn254.workspace = true
 
 nexus-riscv = { path = "../riscv" }
