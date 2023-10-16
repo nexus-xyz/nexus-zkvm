@@ -25,6 +25,7 @@ where
 }
 
 /// Extension of [`AllocVar`] for allocating variables assuming they're well-formed, primarily witnesses.
+// NOTE: this trait should not be used until https://github.com/nexus-xyz/supernova/issues/19 is resolved.
 pub trait AllocVarExt<V, F: Field>: AllocVar<V, F>
 where
     Self: Sized,

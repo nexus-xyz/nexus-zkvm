@@ -24,7 +24,6 @@ use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use super::{cast_field_element_unique, NonNativeAffineVar};
 use crate::{
     commitment::CommitmentScheme,
-    gadgets::nonnative::AllocVarExt,
     multifold::{
         self,
         nimfs::{R1CSInstance, RelaxedR1CSInstance},
@@ -109,7 +108,7 @@ where
         )?;
         let alloc_X = X[1..]
             .iter()
-            .map(|x| NonNativeFieldVar::new_variable_unconstrained(cs.clone(), || Ok(x), mode));
+            .map(|x| NonNativeFieldVar::new_variable(cs.clone(), || Ok(x), mode));
 
         let X = std::iter::once(Ok(NonNativeFieldVar::constant(G2::ScalarField::ONE)))
             .chain(alloc_X)
@@ -237,7 +236,7 @@ where
         let X = X
             .iter()
             .map(|x| {
-                NonNativeFieldVar::<G2::ScalarField, G2::BaseField>::new_variable_unconstrained(
+                NonNativeFieldVar::<G2::ScalarField, G2::BaseField>::new_variable(
                     cs.clone(),
                     || Ok(x),
                     mode,
@@ -426,9 +425,9 @@ where
         // Allocate g_out and r.
         let mut g_out: Vec<NonNativeFieldVar<_, _>> = proof.U.X[7..10]
             .iter()
-            .map(|x| NonNativeFieldVar::new_variable_unconstrained(cs.clone(), || Ok(x), mode))
+            .map(|x| NonNativeFieldVar::new_variable(cs.clone(), || Ok(x), mode))
             .collect::<Result<_, _>>()?;
-        let r = NonNativeFieldVar::new_variable_unconstrained(
+        let r = NonNativeFieldVar::new_variable(
             cs.clone(),
             || Ok(&proof.U.X[multifold::secondary::Circuit::<G1>::NUM_IO - 1]),
             mode,
