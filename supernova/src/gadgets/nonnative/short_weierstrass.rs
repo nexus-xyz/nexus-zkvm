@@ -18,7 +18,7 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use ark_std::Zero;
 
-use super::{cast_field_element_unique, AllocVarExt};
+use super::cast_field_element_unique;
 
 #[must_use]
 #[derive(Debug)]
@@ -109,8 +109,8 @@ where
 
         let affine = g.into_affine();
 
-        let x = NonNativeFieldVar::new_variable_unconstrained(cs.clone(), || Ok(affine.x), mode)?;
-        let y = NonNativeFieldVar::new_variable_unconstrained(cs.clone(), || Ok(affine.y), mode)?;
+        let x = NonNativeFieldVar::new_variable(cs.clone(), || Ok(affine.x), mode)?;
+        let y = NonNativeFieldVar::new_variable(cs.clone(), || Ok(affine.y), mode)?;
         let infinity = Boolean::new_variable(cs.clone(), || Ok(affine.infinity), mode)?;
 
         Ok(Self { x, y, infinity })
