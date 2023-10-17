@@ -6,15 +6,22 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::{
     alloc::AllocVar,
+    boolean::Boolean,
     eq::EqGadget,
-    fields::{fp::FpVar, FieldVar},
+    fields::{
+        fp::FpVar,
+        nonnative::{AllocatedNonNativeFieldVar, NonNativeFieldVar},
+        FieldVar,
+    },
     groups::{curves::short_weierstrass::ProjectiveVar, CurveVar},
     ToBitsGadget,
 };
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
 use ark_std::Zero;
 
-use crate::{commitment::CommitmentScheme, multifold::nimfs::R1CSInstance};
+use crate::{
+    commitment::CommitmentScheme, multifold::nimfs::R1CSInstance, utils::cast_field_element,
+};
 
 pub(crate) use super::Proof;
 use super::SecondaryCircuit;
@@ -66,7 +73,27 @@ where
 
         let r_bits = r.to_bits_le()?;
 
-        let r_square_bits = r.square()?.to_bits_le()?;
+        // squaring must be computed in the target field with a modulus different from constraint field,
+        // hence allocate non native witness.
+        let (r_scalar, r_scalar_bits) = AllocatedNonNativeFieldVar::new_witness_with_le_bits(
+            ark_relations::ns!(cs, "r_scalar"),
+            || {
+                let r_scalar =
+                    unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&self.r) };
+                Ok(r_scalar)
+            },
+        )?;
+
+        assert!(r_scalar_bits.len() >= r_bits.len());
+        for (r_bit, r_scalar_bit) in r_bits.iter().zip(&r_scalar_bits) {
+            r_bit.enforce_equal(r_scalar_bit)?;
+        }
+        for r_scalar_bit in r_scalar_bits.iter().skip(r_bits.len()) {
+            r_scalar_bit.enforce_equal(&Boolean::FALSE)?;
+        }
+
+        // TODO: computing bits is redundant as it's already done during limbs reduction, requires a patch.
+        let r_square_bits = NonNativeFieldVar::Var(r_scalar).square()?.to_bits_le()?;
 
         let out = g1 + g2.scalar_mul_le(r_bits.iter())? + g3.scalar_mul_le(r_square_bits.iter())?;
         out.enforce_equal(&g_out)?;

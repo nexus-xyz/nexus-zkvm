@@ -261,6 +261,7 @@ mod tests {
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
+    use ark_std::{rand::Rng, UniformRand};
 
     use std::fmt;
 
@@ -288,37 +289,16 @@ mod tests {
         let config = poseidon_config();
 
         let vk = G1::ScalarField::ONE;
-
-        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
+        let (shape, _, _, pp) = setup_test_r1cs::<G1, C1>(2, None);
         let shape_secondary = secondary::Circuit::<G1>::setup_shape::<G2>()?;
-
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
 
-        let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
-        let W = RelaxedR1CSWitness::<G1>::zero(&shape);
+        let mut rng = ark_std::test_rng();
 
-        let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
-        let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
-        let (_, (U2, W2), (U2_secondary, W2_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
-                secondary::Circuit<G1>,
-            >(
-                &pp,
-                &pp_secondary,
-                &config,
-                &vk,
-                (&shape, &shape_secondary),
-                (&U, &W),
-                (&U_secondary, &W_secondary),
-                (&u, &w),
-            )?;
-
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
-        let U1 = RelaxedR1CSInstance::from(&u);
-        let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
-
-        let U1_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
-        let W1_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
+        let ((U1, W1), (U1_secondary, W1_secondary)) =
+            setup_non_trivial::<G1, G2, C1, C2>(&mut rng, &pp, &pp_secondary)?;
+        let ((U2, W2), (U2_secondary, W2_secondary)) =
+            setup_non_trivial::<G1, G2, C1, C2>(&mut rng, &pp, &pp_secondary)?;
 
         let (proof, (U, W), (U_secondary, W_secondary)) =
             NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove_with_relaxed(
@@ -346,5 +326,76 @@ mod tests {
         shape_secondary.is_relaxed_satisfied(&U_secondary, &W_secondary, &pp_secondary)?;
 
         Ok(())
+    }
+
+    /// Returns relaxed instance-witness pair, ensuring that commitment to E is not zero.
+    fn setup_non_trivial<G1, G2, C1, C2>(
+        rng: &mut impl Rng,
+        pp: &C1::PP,
+        pp_secondary: &C2::PP,
+    ) -> Result<
+        (
+            (RelaxedR1CSInstance<G1, C1>, RelaxedR1CSWitness<G1>),
+            (RelaxedR1CSInstance<G2, C2>, RelaxedR1CSWitness<G2>),
+        ),
+        Error,
+    >
+    where
+        G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
+        G2: SWCurveConfig,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>> + fmt::Debug,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>> + fmt::Debug,
+        G1::BaseField: PrimeField + Absorb,
+        G2::BaseField: PrimeField + Absorb,
+        C1::PP: Clone,
+    {
+        let config = poseidon_config();
+
+        let vk = G1::ScalarField::ONE;
+
+        let (shape, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp));
+        let shape_secondary = secondary::Circuit::<G1>::setup_shape::<G2>()?;
+
+        let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
+        let W = RelaxedR1CSWitness::<G1>::zero(&shape);
+
+        let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
+        let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
+        let (_, (U2, W2), (U2_secondary, W2_secondary)) =
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
+                secondary::Circuit<G1>,
+            >(
+                pp,
+                pp_secondary,
+                &config,
+                &vk,
+                (&shape, &shape_secondary),
+                (&U, &W),
+                (&U_secondary, &W_secondary),
+                (&u, &w),
+            )?;
+
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp));
+        let U1 = RelaxedR1CSInstance::from(&u);
+        let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
+
+        let U1_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
+        let W1_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
+
+        let (_, (U, W), (U_secondary, W_secondary)) =
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove_with_relaxed(
+                pp,
+                pp_secondary,
+                &config,
+                &vk,
+                (&shape, &shape_secondary),
+                (&U1, &W1),
+                (&U1_secondary, &W1_secondary),
+                (&U2, &W2),
+                (&U2_secondary, &W2_secondary),
+            )?;
+
+        assert!(!U.commitment_E.is_zero());
+        Ok(((U, W), (U_secondary, W_secondary)))
     }
 }

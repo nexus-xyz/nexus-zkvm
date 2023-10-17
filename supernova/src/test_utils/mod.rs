@@ -71,9 +71,9 @@ where
     let W = cs_borrow.witness_assignment.clone();
     let X = cs_borrow.instance_assignment.clone();
 
-    let pp = pp.cloned().unwrap_or_else(|| {
-        C::setup(cs_borrow.num_witness_variables + cs_borrow.num_instance_variables)
-    });
+    let pp = pp
+        .cloned()
+        .unwrap_or_else(|| C::setup(cs_borrow.num_witness_variables + cs_borrow.num_constraints));
     let w = R1CSWitness::<Projective<G>> { W };
 
     let commitment_W = w.commit::<C>(&pp);
