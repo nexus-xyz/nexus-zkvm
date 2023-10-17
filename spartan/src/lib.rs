@@ -13,6 +13,8 @@ extern crate sha3;
 extern crate rayon;
 
 mod commitments;
+mod committed_relaxed_snark;
+mod crr1csproof;
 mod dense_mlpoly;
 mod errors;
 mod math;
