@@ -7,7 +7,9 @@ use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
 use criterion::*;
 use supernova::{
-    pedersen::PedersenCommitment, poseidon_config, PublicParams, RecursiveSNARK, StepCircuit,
+    nova::sequential::{IVCProof, PublicParams},
+    pedersen::PedersenCommitment,
+    poseidon_config, StepCircuit,
 };
 
 type G1 = ark_pallas::PallasConfig;
@@ -54,8 +56,8 @@ fn bench_recursive_snark(c: &mut Criterion) {
         // the first step is cheaper than other steps owing to the presence of
         // a lot of zeros in the satisfying assignment
         let num_warmup_steps = 10;
-        let mut recursive_snark: RecursiveSNARK<G1, G2, C1, C2, PoseidonSponge<CF>, _> =
-            RecursiveSNARK::new(&pp, &[CF::from(2u64)]);
+        let mut recursive_snark: IVCProof<G1, G2, C1, C2, PoseidonSponge<CF>, _> =
+            IVCProof::new(&pp, &[CF::from(2u64)]);
 
         for i in 0..num_warmup_steps {
             recursive_snark = recursive_snark.prove_step(&step_circuit).unwrap();
