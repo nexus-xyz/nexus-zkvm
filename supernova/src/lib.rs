@@ -18,6 +18,5 @@ mod test_utils;
 pub mod commitment;
 pub mod r1cs;
 
-pub use circuits::{PublicParams, RecursiveSNARK, StepCircuit};
-pub use multifold::Error;
+pub use circuits::{nova, StepCircuit};
 pub use provider::{pedersen, poseidon::poseidon_config};

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::commitment::CommitmentScheme;
 use ark_ec::{ScalarMul, VariableBaseMSM};
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[derive(Debug)]
 pub struct PedersenCommitment<G>(PhantomData<G>);
@@ -10,7 +10,7 @@ pub struct PedersenCommitment<G>(PhantomData<G>);
 impl<G> CommitmentScheme<G> for PedersenCommitment<G>
 where
     G: VariableBaseMSM,
-    G::MulBase: CanonicalSerialize,
+    G::MulBase: CanonicalSerialize + CanonicalDeserialize,
 {
     type PP = Vec<G::MulBase>;
 

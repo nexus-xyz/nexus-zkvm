@@ -1,7 +1,7 @@
 use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 use ark_ec::PrimeGroup;
-use ark_serialize::CanonicalSerialize;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 /// Defines basic operations on commitments.
 pub trait CommitmentOps<Rhs = Self, Output = Self>:
@@ -31,7 +31,7 @@ impl<G: PrimeGroup, T> Commitment<G> for T where
 
 pub trait CommitmentScheme<G: PrimeGroup> {
     /// Commitment scheme public parameters.
-    type PP: CanonicalSerialize + Sync;
+    type PP: CanonicalSerialize + CanonicalDeserialize + Sync;
 
     /// Commitment type.
     type Commitment: Commitment<G>;

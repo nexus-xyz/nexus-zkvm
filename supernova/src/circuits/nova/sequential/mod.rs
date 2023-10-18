@@ -2,13 +2,13 @@ use std::{marker::PhantomData, num::NonZeroU64};
 
 use ark_crypto_primitives::sponge::{
     constraints::{CryptographicSpongeVar, SpongeWithGadget},
-    Absorb, CryptographicSponge, FieldElementSize,
+    Absorb, CryptographicSponge,
 };
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
+use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::R1CSVar;
 use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
-use ark_serialize::{CanonicalSerialize, CanonicalSerializeHashExt};
+use ark_serialize::CanonicalSerialize;
 
 use crate::{
     absorb::CryptographicSpongeExt,
@@ -17,41 +17,23 @@ use crate::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness, SecondaryCircuit, SQUEEZE_ELEMENTS_BIT_SIZE,
+            RelaxedR1CSWitness, SecondaryCircuit,
         },
     },
-    utils,
 };
 
-use super::{NovaConstraintSynthesizer, StepCircuit};
+use super::{public_params, NovaConstraintSynthesizer, StepCircuit};
 
 mod augmented;
-
 use augmented::{
     NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput,
 };
 
-#[derive(CanonicalSerialize)]
-pub struct PublicParams<G1, G2, C1, C2, RO, SC>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
-    RO::Config: CanonicalSerialize,
-{
-    pub ro_config: RO::Config,
-    pub shape: R1CSShape<G1>,
-    pub shape_secondary: R1CSShape<G2>,
-    pub pp: C1::PP,
-    pub pp_secondary: C2::PP,
-    pub digest: G1::ScalarField,
+#[doc(hidden)]
+pub struct SetupParams<T>(PhantomData<T>);
 
-    pub _step_circuit: PhantomData<SC>,
-}
-
-impl<G1, G2, C1, C2, RO, SC> PublicParams<G1, G2, C1, C2, RO, SC>
+impl<G1, G2, C1, C2, RO, SC> public_params::SetupParams<G1, G2, C1, C2, RO, SC>
+    for SetupParams<(G1, G2, C1, C2, RO, SC)>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
@@ -64,7 +46,10 @@ where
     RO::Config: CanonicalSerialize,
     SC: StepCircuit<G1::ScalarField>,
 {
-    pub fn setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, multifold::Error> {
+    fn setup(
+        ro_config: <RO as CryptographicSponge>::Config,
+        step_circuit: &SC,
+    ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, multifold::Error> {
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
         let cs = ConstraintSystem::new_ref();
@@ -89,7 +74,7 @@ where
                 .max(shape_secondary.num_constraints),
         );
 
-        let mut params = Self {
+        let mut params = public_params::PublicParams {
             ro_config,
             shape,
             shape_secondary,
@@ -98,30 +83,19 @@ where
             digest: G1::ScalarField::ZERO,
 
             _step_circuit: PhantomData,
+            _setup_params: PhantomData,
         };
         let digest = params.hash();
         params.digest = digest;
 
         Ok(params)
     }
-
-    /// Returns first [`SQUEEZE_ELEMENTS_BIT_SIZE`] bits of public parameters sha3 hash reinterpreted
-    /// as scalar field element in little-endian order.
-    fn hash(&self) -> G1::ScalarField {
-        assert_eq!(self.digest, G1::ScalarField::ZERO);
-
-        let num_bits = FieldElementSize::sum::<G1::ScalarField>(&[SQUEEZE_ELEMENTS_BIT_SIZE]);
-        assert!(num_bits < G1::ScalarField::MODULUS_BIT_SIZE as usize);
-
-        let hash = <Self as CanonicalSerializeHashExt>::hash::<sha3::Sha3_256>(self);
-        let bits: Vec<bool> = utils::iter_bits_le(&hash).take(num_bits).collect();
-
-        let digest = <G1::ScalarField as PrimeField>::BigInt::from_bits_le(&bits);
-        G1::ScalarField::from(digest)
-    }
 }
 
-pub struct RecursiveSNARK<'a, G1, G2, C1, C2, RO, SC>
+pub type PublicParams<G1, G2, C1, C2, RO, SC> =
+    public_params::PublicParams<G1, G2, C1, C2, RO, SC, SetupParams<(G1, G2, C1, C2, RO, SC)>>;
+
+pub struct IVCProof<'a, G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -133,10 +107,10 @@ where
     params: &'a PublicParams<G1, G2, C1, C2, RO, SC>,
     z_0: Vec<G1::ScalarField>,
 
-    non_base: Option<RecursiveSNARKNonBase<G1, G2, C1, C2>>,
+    non_base: Option<IVCProofNonBase<G1, G2, C1, C2>>,
 }
 
-impl<G1, G2, C1, C2, RO, SC> Clone for RecursiveSNARK<'_, G1, G2, C1, C2, RO, SC>
+impl<G1, G2, C1, C2, RO, SC> Clone for IVCProof<'_, G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -154,7 +128,7 @@ where
     }
 }
 
-struct RecursiveSNARKNonBase<G1, G2, C1, C2>
+struct IVCProofNonBase<G1, G2, C1, C2>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -172,7 +146,7 @@ where
     z_i: Vec<G1::ScalarField>,
 }
 
-impl<G1, G2, C1, C2> Clone for RecursiveSNARKNonBase<G1, G2, C1, C2>
+impl<G1, G2, C1, C2> Clone for IVCProofNonBase<G1, G2, C1, C2>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -193,7 +167,7 @@ where
     }
 }
 
-impl<'a, G1, G2, C1, C2, RO, SC> RecursiveSNARK<'a, G1, G2, C1, C2, RO, SC>
+impl<'a, G1, G2, C1, C2, RO, SC> IVCProof<'a, G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
@@ -226,14 +200,14 @@ where
     }
 
     pub fn prove_step(self, step_circuit: &SC) -> Result<Self, multifold::Error> {
-        let RecursiveSNARK {
+        let IVCProof {
             params,
             z_0,
             non_base,
         } = self;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
-            let RecursiveSNARKNonBase {
+            let IVCProofNonBase {
                 U,
                 W,
                 U_secondary,
@@ -316,7 +290,7 @@ where
             params,
             z_0,
 
-            non_base: Some(RecursiveSNARKNonBase {
+            non_base: Some(IVCProofNonBase {
                 U,
                 W,
                 U_secondary,
@@ -337,7 +311,7 @@ where
             return Err(NOT_SATISFIED_ERROR);
         };
 
-        let RecursiveSNARKNonBase {
+        let IVCProofNonBase {
             U,
             W,
             U_secondary,
@@ -452,7 +426,7 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit)?;
 
-        let mut recursive_snark = RecursiveSNARK::new(&params, &z_0);
+        let mut recursive_snark = IVCProof::new(&params, &z_0);
         recursive_snark = recursive_snark.prove_step(&circuit)?;
         recursive_snark.verify(num_steps).unwrap();
 
@@ -496,10 +470,10 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit)?;
 
-        let mut recursive_snark = RecursiveSNARK::new(&params, &z_0);
+        let mut recursive_snark = IVCProof::new(&params, &z_0);
 
         for _ in 0..num_steps {
-            recursive_snark = RecursiveSNARK::prove_step(recursive_snark, &circuit)?;
+            recursive_snark = IVCProof::prove_step(recursive_snark, &circuit)?;
         }
         recursive_snark.verify(num_steps).unwrap();
 

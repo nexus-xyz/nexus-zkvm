@@ -2,9 +2,7 @@ use ark_ff::PrimeField;
 use ark_r1cs_std::fields::fp::FpVar;
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
-mod multifold;
-
-pub use multifold::{PublicParams, RecursiveSNARK};
+pub mod nova;
 
 pub trait NovaConstraintSynthesizer<F: PrimeField> {
     fn generate_constraints(
