@@ -17,10 +17,10 @@ pub struct NIFSProof<G: PrimeGroup, C: CommitmentScheme<G>, RO> {
     _random_oracle: PhantomData<RO>,
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> NIFSProof<G, C, RO> {
-    pub(crate) fn new() -> Self {
+impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> Default for NIFSProof<G, C, RO> {
+    fn default() -> Self {
         Self {
-            commitment_T: C::Commitment::default(),
+            commitment_T: Default::default(),
             _random_oracle: PhantomData,
         }
     }

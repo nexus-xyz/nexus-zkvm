@@ -23,6 +23,7 @@ pub fn multifold<G1, G2, C1, C2, RO>(
     u: &primary::R1CSInstanceVar<G1, C1>,
     commitment_T: &NonNativeAffineVar<G1>,
     proof_secondary: (&secondary::ProofVar<G2, C2>, &secondary::ProofVar<G2, C2>),
+    should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
     (
         primary::RelaxedR1CSInstanceVar<G1, C1>,
@@ -63,7 +64,7 @@ where
     // The rest of the secondary public input is unconstrained. This is because it's provided by
     // the prover as a witness, and in practice is expected to be the same lc.
     let (r_0_secondary, g_out) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
-    r_0_secondary.enforce_equal(r_0)?;
+    r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
     let commitment_E = g_out;
 
@@ -84,7 +85,7 @@ where
     } = &proof_secondary.1;
     // See the above comment for `comm_E_secondary_instance`.
     let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
-    r_0_secondary.enforce_equal(r_0)?;
+    r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
     let commitment_W = g_out;
     random_oracle.absorb(comm_W_secondary_instance)?;
@@ -355,6 +356,7 @@ mod tests {
             &u_cs,
             &commitment_T_cs,
             proof_cs,
+            &Boolean::TRUE,
         )?;
 
         let _U = _U_cs.value()?;
@@ -417,6 +419,7 @@ mod tests {
             &u_cs,
             &commitment_T_cs,
             proof_cs,
+            &Boolean::TRUE,
         )?;
 
         let _U = _U_cs.value()?;
