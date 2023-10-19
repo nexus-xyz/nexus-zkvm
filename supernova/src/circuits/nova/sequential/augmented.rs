@@ -25,10 +25,7 @@ use crate::{
     gadgets::multifold::{multifold, primary, secondary, NonNativeAffineVar},
     multifold::{
         self,
-        nimfs::{
-            NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness, SecondaryCircuit,
-        },
+        nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance, SecondaryCircuit},
     },
 };
 
@@ -89,70 +86,6 @@ where
     }
 }
 
-impl<G1, G2, C1, C2, RO> NovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
-    G1::BaseField: PrimeField + Absorb,
-    G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    RO: SpongeWithGadget<G1::ScalarField>,
-    RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
-{
-    fn new(
-        ro_config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
-        vk: &G1::ScalarField,
-        z_0: &[G1::ScalarField],
-    ) -> Result<Self, SynthesisError> {
-        let i = G1::ScalarField::ZERO;
-        let z_i = vec![G1::ScalarField::ZERO; z_0.len()];
-
-        let shape = R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
-        let shape_secondary = multifold::secondary::Circuit::<G1>::setup_shape::<G2>()?;
-
-        let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
-        let W = RelaxedR1CSWitness::<G1>::zero(&shape);
-
-        let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
-        let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
-
-        let u = R1CSInstance::<G1, C1>::new(
-            &shape,
-            &Projective::zero(),
-            &[G1::ScalarField::ONE; AUGMENTED_CIRCUIT_NUM_IO],
-        )
-        .unwrap();
-        let w = R1CSWitness::<G1>::zero(&shape);
-        let (proof, ..) =
-            match NIMFSProof::<G1, G2, C1, C2, RO>::prove::<multifold::secondary::Circuit<G1>>(
-                &C1::setup(0),
-                &C2::setup(0),
-                ro_config,
-                vk,
-                (&shape, &shape_secondary),
-                (&U, &W),
-                (&U_secondary, &W_secondary),
-                (&u, &w),
-            ) {
-                Ok(proof) => proof,
-                Err(multifold::Error::Synthesis(err)) => return Err(err),
-                _ => unreachable!(),
-            };
-
-        Ok(Self {
-            vk: *vk,
-            i,
-            z_0: z_0.to_owned(),
-            z_i,
-            U,
-            U_secondary,
-            u,
-            proof,
-        })
-    }
-}
-
 pub struct NovaAugmentedCircuitInputVar<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
@@ -178,8 +111,7 @@ where
     _random_oracle: PhantomData<RO>,
 }
 
-impl<G1, G2, C1, C2, RO>
-    AllocVar<NovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>, G1::ScalarField>
+impl<G1, G2, C1, C2, RO> AllocVar<NovaAugmentedCircuitInput<G1, G2, C1, C2, RO>, G1::ScalarField>
     for NovaAugmentedCircuitInputVar<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
@@ -191,7 +123,7 @@ where
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
 {
-    fn new_variable<T: Borrow<NovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>>>(
+    fn new_variable<T: Borrow<NovaAugmentedCircuitInput<G1, G2, C1, C2, RO>>>(
         cs: impl Into<Namespace<G1::ScalarField>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
         mode: AllocationMode,
@@ -201,6 +133,34 @@ where
 
         let input = f()?;
         let input = input.borrow();
+
+        let input = match input {
+            NovaAugmentedCircuitInput::Base { vk, z_0 } => {
+                let shape =
+                    R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
+                let shape_secondary = multifold::secondary::Circuit::<G1>::setup_shape::<G2>()?;
+
+                let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
+                let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
+                let u = R1CSInstance::<G1, C1>::new(
+                    &shape,
+                    &Projective::zero(),
+                    &[G1::ScalarField::ONE; AUGMENTED_CIRCUIT_NUM_IO],
+                )
+                .unwrap();
+                NovaAugmentedCircuitNonBaseInput {
+                    vk: *vk,
+                    i: G1::ScalarField::ZERO,
+                    z_0: z_0.clone(),
+                    z_i: z_0.clone(),
+                    U,
+                    U_secondary,
+                    u,
+                    proof: NIMFSProof::zero::<multifold::secondary::Circuit<G1>>(),
+                }
+            }
+            NovaAugmentedCircuitInput::NonBase(non_base) => non_base.clone(),
+        };
 
         let vk = FpVar::new_variable(cs.clone(), || Ok(input.vk), mode)?;
         let i = FpVar::new_variable(cs.clone(), || Ok(input.i), mode)?;
@@ -311,15 +271,7 @@ where
     ) -> Result<Vec<FpVar<G1::ScalarField>>, SynthesisError> {
         let input =
             NovaAugmentedCircuitInputVar::<G1, G2, C1, C2, RO>::new_witness(cs.clone(), || {
-                match &self.input {
-                    NovaAugmentedCircuitInput::Base { z_0, vk } => {
-                        NovaAugmentedCircuitNonBaseInput::new(self.ro_config, vk, z_0)
-                    }
-                    NovaAugmentedCircuitInput::NonBase(input) => {
-                        assert!(!input.i.is_zero());
-                        Ok(input.clone())
-                    }
-                }
+                Ok(&self.input)
             })?;
 
         let is_base_case = input.i.is_zero()?;
@@ -363,6 +315,7 @@ where
             &input.u,
             &input.commitment_T,
             (&input.proof_secondary.0, &input.proof_secondary.1),
+            &is_base_case.not(),
         )?;
 
         let U = is_base_case.select(&U_base, &U)?;

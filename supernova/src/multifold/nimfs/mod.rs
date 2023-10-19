@@ -59,6 +59,24 @@ where
 
 impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
 where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig,
+    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    G1::BaseField: PrimeField,
+{
+    pub fn zero<SC: SecondaryCircuit<G1>>() -> Self {
+        Self {
+            commitment_T: Projective::zero(),
+            commitment_E_proof: secondary::Proof::zero(SC::NUM_IO),
+            commitment_W_proof: secondary::Proof::zero(SC::NUM_IO),
+            proof_secondary: NIFSProof::default(),
+        }
+    }
+}
+
+impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
+where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
@@ -180,7 +198,7 @@ where
             commitment_T: _commitment_T,
             commitment_E_proof,
             commitment_W_proof,
-            proof_secondary: NIFSProof::new(),
+            proof_secondary: NIFSProof::default(),
         };
 
         Ok((proof, (folded_U, folded_W), (U_secondary, W_secondary)))

@@ -189,6 +189,23 @@ where
     }
 }
 
+impl<G2, C2> Proof<G2, C2>
+where
+    G2: SWCurveConfig,
+    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+{
+    pub(super) fn zero(num_io: usize) -> Self {
+        let U = R1CSInstance {
+            commitment_W: Projective::zero(),
+            X: vec![G2::ScalarField::ZERO; num_io],
+        };
+        Self {
+            U,
+            commitment_T: Projective::zero(),
+        }
+    }
+}
+
 impl<G2, C2> R1CSInstance<G2, C2>
 where
     G2: SWCurveConfig,
