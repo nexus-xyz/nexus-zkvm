@@ -39,9 +39,5 @@ parallel = [
 ns = []
 
 [[bench]]
-name = "genpp"
-harness = false
-
-[[bench]]
 name = "cubic"
 harness = false
