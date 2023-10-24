@@ -29,6 +29,8 @@ use augmented::{
     NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput,
 };
 
+const LOG_TARGET: &str = "supernova::sequential";
+
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
 
@@ -50,6 +52,8 @@ where
         ro_config: <RO as CryptographicSponge>::Config,
         step_circuit: &SC,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, multifold::Error> {
+        let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
+
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
         let cs = ConstraintSystem::new_ref();
@@ -88,6 +92,12 @@ where
         let digest = params.hash();
         params.digest = digest;
 
+        tracing::debug!(
+            target: LOG_TARGET,
+            "public params setup done; augmented circuit: {}, secondary circuit: {}",
+            params.shape,
+            params.shape_secondary,
+        );
         Ok(params)
     }
 }
@@ -196,10 +206,23 @@ where
         self.non_base
             .as_ref()
             .map(|r| &r.z_i[..])
-            .unwrap_or_default()
+            .unwrap_or(&self.z_0)
+    }
+
+    pub fn step_num(&self) -> u64 {
+        self.non_base
+            .as_ref()
+            .map(|non_base| non_base.i.get())
+            .unwrap_or(0)
     }
 
     pub fn prove_step(self, step_circuit: &SC) -> Result<Self, multifold::Error> {
+        let _span = tracing::debug_span!(
+            target: LOG_TARGET,
+            "prove_step",
+            step_num = %self.step_num(),
+        )
+        .entered();
         let IVCProof {
             params,
             z_0,
@@ -268,7 +291,8 @@ where
 
         let circuit = NovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
 
-        let z_i = NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+        let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
+            .in_scope(|| NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
 
         debug_assert!(cs.is_satisfied()?);
 
@@ -304,6 +328,8 @@ where
     }
 
     pub fn verify(&self, num_steps: usize) -> Result<(), multifold::Error> {
+        let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
+
         const NOT_SATISFIED_ERROR: multifold::Error =
             multifold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
 
@@ -366,6 +392,10 @@ mod tests {
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
     use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
+
+    use tracing_subscriber::{
+        filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    };
 
     struct CubicCircuit<F: Field>(PhantomData<F>);
 
@@ -455,6 +485,14 @@ mod tests {
         C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
         C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     {
+        let filter = filter::Targets::new().with_target(crate::LOG_TARGET, tracing::Level::DEBUG);
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::fmt::layer().with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE),
+            )
+            .with(filter)
+            .init();
+
         let ro_config = poseidon_config();
 
         let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);
