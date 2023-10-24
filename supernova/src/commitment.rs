@@ -41,7 +41,4 @@ pub trait CommitmentScheme<G: PrimeGroup> {
 
     /// Commits to the given vector using provided public parameters.
     fn commit(pp: &Self::PP, x: &[G::ScalarField]) -> Self::Commitment;
-
-    /// Verifies committed value.
-    fn open(pp: &Self::PP, c: Self::Commitment, x: &[G::ScalarField]) -> bool;
 }

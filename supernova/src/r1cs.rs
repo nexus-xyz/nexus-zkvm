@@ -52,6 +52,19 @@ pub struct R1CSShape<G: PrimeGroup> {
     pub C: SparseMatrix<G::ScalarField>,
 }
 
+impl<G: PrimeGroup> fmt::Display for R1CSShape<G> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "R1CSShape {{ num_constraints: {}, num_vars: {}, num_io: {}, A: [_, {}], B: [_, {}], C: [_, {}] }}",
+            self.num_constraints,
+            self.num_vars,
+            self.num_io,
+            self.A.len(),
+            self.B.len(),
+            self.C.len(),
+        )
+    }
+}
+
 impl<G: PrimeGroup> R1CSShape<G> {
     fn validate(
         num_constraints: usize,
@@ -197,10 +210,6 @@ impl<G: PrimeGroup> R1CSShape<G> {
             return Err(Error::NotSatisfied);
         }
 
-        #[cfg(feature = "parallel")]
-        let (commitment_W, commitment_E) =
-            rayon::join(|| C::commit(pp, &W.W), || C::commit(pp, &W.E));
-        #[cfg(not(feature = "parallel"))]
         let (commitment_W, commitment_E) = (C::commit(pp, &W.W), C::commit(pp, &W.E));
 
         if U.commitment_W != commitment_W || U.commitment_E != commitment_E {

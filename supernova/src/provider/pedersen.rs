@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::commitment::CommitmentScheme;
+use crate::{commitment::CommitmentScheme, LOG_TARGET};
 use ark_ec::{ScalarMul, VariableBaseMSM};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
@@ -23,38 +23,14 @@ where
         ScalarMul::batch_convert_to_mul_base(&ps)
     }
 
-    fn commit(pp: &Self::PP, x: &[G::ScalarField]) -> G {
-        let bases = pp;
-        let scalars = x;
+    fn commit(bases: &Self::PP, scalars: &[G::ScalarField]) -> G {
+        let _span = tracing::debug_span!(
+            target: LOG_TARGET,
+            "pedersen::commit",
+            msm_size = scalars.len(),
+        )
+        .entered();
+
         VariableBaseMSM::msm_unchecked(bases, scalars)
-    }
-
-    fn open(pp: &Self::PP, c: G, x: &[G::ScalarField]) -> bool {
-        Self::commit(pp, x) == c
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use ark_std::UniformRand;
-    use ark_test_curves::bls12_381::Fr as ScalarField;
-    use ark_test_curves::bls12_381::G1Projective as G;
-
-    use super::*;
-
-    #[test]
-    fn commitment_matches() {
-        let n = 3;
-        let mut rng = ark_std::test_rng();
-
-        let x = &(0..n)
-            .map(|_| ScalarField::rand(&mut rng))
-            .collect::<Vec<ScalarField>>()[..];
-
-        let pp = PedersenCommitment::<G>::setup(n);
-        let c = PedersenCommitment::<G>::commit(&pp, x);
-        let res = PedersenCommitment::<G>::open(&pp, c, x);
-
-        assert!(res)
     }
 }
