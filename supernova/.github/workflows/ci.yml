@@ -24,6 +24,7 @@ jobs:
         with:
           toolchain: stable
       - run: cargo build --release
+      - run: cd supernova-benches && cargo bench --no-run
 
   cargo-clippy:
     runs-on: ubuntu-latest
@@ -35,6 +36,7 @@ jobs:
       - run: cargo clippy --tests --no-default-features && cargo clippy --tests
 
   test:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2

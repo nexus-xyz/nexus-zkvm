@@ -6,6 +6,8 @@ use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
 use criterion::*;
+use pprof::criterion::{Output, PProfProfiler};
+
 use supernova::{
     nova::sequential::{IVCProof, PublicParams},
     pedersen::PedersenCommitment,
@@ -21,7 +23,9 @@ type CF = ark_pallas::Fr;
 
 criterion_group! {
   name = recursive_snark;
-  config = Criterion::default().warm_up_time(Duration::from_millis(3000));
+  config = Criterion::default()
+    .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None))) // `cargo bench --no-default-features -- --profile-time=5`
+    .warm_up_time(Duration::from_millis(3000));
   targets = bench_recursive_snark,
 }
 
