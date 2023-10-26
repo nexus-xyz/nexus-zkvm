@@ -1,3 +1,11 @@
+//! Mirror of Microsoft Nova benchmarks for sequential implementation.
+//!
+//! Disable default features to run benchmarks in single-threaded mode.
+//!
+//! Run with `-- --profile-time=*` to enable profiler and generate flamegraphs:
+//!     - on linux, you may want to configure `kernel.perf_event_paranoid`.
+//!     - currently doesn't work on mac, see https://github.com/tikv/pprof-rs/issues/210.
+
 use std::{marker::PhantomData, time::Duration};
 
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
@@ -22,11 +30,11 @@ type C2 = PedersenCommitment<ark_vesta::Projective>;
 type CF = ark_pallas::Fr;
 
 criterion_group! {
-  name = recursive_snark;
-  config = Criterion::default()
-    .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None))) // `cargo bench --no-default-features -- --profile-time=5`
-    .warm_up_time(Duration::from_millis(3000));
-  targets = bench_recursive_snark,
+    name = recursive_snark;
+    config = Criterion::default()
+        .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)))
+        .warm_up_time(Duration::from_millis(3000));
+    targets = bench_recursive_snark,
 }
 
 criterion_main!(recursive_snark);
@@ -34,18 +42,15 @@ criterion_main!(recursive_snark);
 fn bench_recursive_snark(c: &mut Criterion) {
     let ro_config = poseidon_config();
 
-    let num_cons_verifier_circuit_primary = 9819;
     // we vary the number of constraints in the step circuit
-    for &num_cons_in_augmented_circuit in
-        [9819, 16384, 32768, 65536, 131072, 262144, 524288, 1048576].iter()
+    for &num_cons_in_step_circuit in [0, 6565, 22949, 55717, 121253, 252325, 514469, 1038757].iter()
     {
-        // number of constraints in the step circuit
-        let num_cons = num_cons_in_augmented_circuit - num_cons_verifier_circuit_primary;
-
-        let mut group = c.benchmark_group(format!("RecursiveSNARK-StepCircuitSize-{num_cons}"));
+        let mut group = c.benchmark_group(format!(
+            "RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
+        ));
         group.sample_size(10);
 
-        let step_circuit = NonTrivialTestCircuit::new(num_cons);
+        let step_circuit = NonTrivialTestCircuit::new(num_cons_in_step_circuit);
 
         // Produce public parameters
         let pp =
