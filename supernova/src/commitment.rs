@@ -21,15 +21,33 @@ impl<T, Rhs, Output> ScalarMul<Rhs, Output> for T where T: Mul<Rhs, Output = Out
 {}
 
 pub trait Commitment<G: PrimeGroup>:
-    Default + PartialEq + Copy + Clone + Send + CommitmentOps + ScalarMul<G::ScalarField>
+    Default
+    + PartialEq
+    + Copy
+    + Clone
+    + Send
+    + Sync
+    + CommitmentOps
+    + ScalarMul<G::ScalarField>
+    + CanonicalSerialize
+    + CanonicalDeserialize
 {
 }
 impl<G: PrimeGroup, T> Commitment<G> for T where
-    T: Default + PartialEq + Copy + Clone + Send + CommitmentOps + ScalarMul<G::ScalarField>
+    T: Default
+        + PartialEq
+        + Copy
+        + Clone
+        + Send
+        + Sync
+        + CommitmentOps
+        + ScalarMul<G::ScalarField>
+        + CanonicalSerialize
+        + CanonicalDeserialize
 {
 }
 
-pub trait CommitmentScheme<G: PrimeGroup> {
+pub trait CommitmentScheme<G: PrimeGroup>: Send + Sync {
     /// Commitment scheme public parameters.
     type PP: CanonicalSerialize + CanonicalDeserialize + Sync;
 

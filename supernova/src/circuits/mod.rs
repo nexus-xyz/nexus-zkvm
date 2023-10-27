@@ -11,7 +11,7 @@ pub trait NovaConstraintSynthesizer<F: PrimeField> {
     ) -> Result<Vec<FpVar<F>>, SynthesisError>;
 }
 
-pub trait StepCircuit<F: PrimeField> {
+pub trait StepCircuit<F: PrimeField>: Send + Sync {
     const ARITY: usize;
 
     fn generate_constraints(

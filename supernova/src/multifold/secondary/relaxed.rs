@@ -27,7 +27,7 @@ pub(crate) use super::Proof;
 use super::SecondaryCircuit;
 
 /// Leading `Variable::One` + 4 curve points + 1 scalar.
-const SECONDARY_NUM_IO: usize = 14;
+pub(super) const SECONDARY_NUM_IO: usize = 14;
 
 /// Public input of secondary circuit.
 pub struct Circuit<G1: SWCurveConfig> {

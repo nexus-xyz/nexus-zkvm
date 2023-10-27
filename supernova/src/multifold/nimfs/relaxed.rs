@@ -29,7 +29,6 @@ where
     G2::BaseField: PrimeField + Absorb,
     RO: CryptographicSponge,
 {
-    #[allow(unused)]
     pub fn prove_with_relaxed(
         pp: &C1::PP,
         pp_secondary: &C2::PP,

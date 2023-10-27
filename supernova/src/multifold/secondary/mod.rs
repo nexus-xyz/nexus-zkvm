@@ -5,7 +5,7 @@
 //! `g_out = g1 + r * g2`, while having circuit satisfying witness as a trace of this computation.
 
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::{AdditiveGroup, PrimeField};
+use ark_ff::{AdditiveGroup, Field, PrimeField};
 use ark_r1cs_std::{
     alloc::AllocVar,
     eq::EqGadget,
@@ -195,9 +195,19 @@ where
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     pub(super) fn zero(num_io: usize) -> Self {
+        let mut X = vec![G2::ScalarField::ZERO; SECONDARY_NUM_IO];
+        // g3 is always allocated as a constant, hence extend X with zero point
+        // in jacobian coordinates.
+        X.extend_from_slice(&[
+            G2::ScalarField::ZERO,
+            G2::ScalarField::ONE,
+            G2::ScalarField::ZERO,
+        ]);
+        assert_eq!(X.len(), relaxed::SECONDARY_NUM_IO);
+
         let U = R1CSInstance {
             commitment_W: Projective::zero(),
-            X: vec![G2::ScalarField::ZERO; num_io],
+            X: X[..num_io].to_owned(),
         };
         Self {
             U,

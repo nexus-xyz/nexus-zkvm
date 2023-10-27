@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::marker::PhantomData;
 
 use ark_crypto_primitives::sponge::{
     constraints::{CryptographicSpongeVar, SpongeWithGadget},
@@ -10,6 +10,7 @@ use ark_r1cs_std::R1CSVar;
 use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
+use super::{public_params, NovaConstraintSynthesizer, StepCircuit};
 use crate::{
     absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
@@ -17,19 +18,18 @@ use crate::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness, SecondaryCircuit,
+            RelaxedR1CSWitness, SecondaryCircuit as _,
         },
+        secondary::relaxed::Circuit as SecondaryCircuit,
     },
 };
 
-use super::{public_params, NovaConstraintSynthesizer, StepCircuit};
-
 mod augmented;
 use augmented::{
-    NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput,
+    NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput, PCDNodeInput,
 };
 
-const LOG_TARGET: &str = "supernova::sequential";
+const LOG_TARGET: &str = "supernova::pcd";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
@@ -54,14 +54,16 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, multifold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
+        let i = G1::ScalarField::ZERO;
+        let z_i = vec![G1::ScalarField::ZERO; SC::ARITY];
 
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Setup);
 
         let input = NovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
+            i,
+            z_i,
             vk: G1::ScalarField::ZERO,
-            z_0,
         };
         let circuit = NovaAugmentedCircuit::new(&ro_config, step_circuit, input);
         let _ = NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
@@ -69,7 +71,7 @@ where
         cs.finalize();
 
         let shape = R1CSShape::from(cs);
-        let shape_secondary = multifold::secondary::Circuit::<G1>::setup_shape::<G2>()?;
+        let shape_secondary = SecondaryCircuit::<G1>::setup_shape::<G2>()?;
 
         let pp = C1::setup(shape.num_vars.max(shape.num_constraints));
         let pp_secondary = C2::setup(
@@ -105,48 +107,23 @@ where
 pub type PublicParams<G1, G2, C1, C2, RO, SC> =
     public_params::PublicParams<G1, G2, C1, C2, RO, SC, SetupParams<(G1, G2, C1, C2, RO, SC)>>;
 
-pub struct IVCProof<'a, G1, G2, C1, C2, RO, SC>
+/// Proof-carrying data tree node.
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
+pub struct PCDNode<G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge + Send + Sync,
-    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
+    RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
-    params: &'a PublicParams<G1, G2, C1, C2, RO, SC>,
-    z_0: Vec<G1::ScalarField>,
+    i: u64,
+    j: u64,
 
-    non_base: Option<IVCProofNonBase<G1, G2, C1, C2>>,
-}
+    z_i: Vec<G1::ScalarField>,
+    z_j: Vec<G1::ScalarField>,
 
-impl<G1, G2, C1, C2, RO, SC> Clone for IVCProof<'_, G1, G2, C1, C2, RO, SC>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge + Send + Sync,
-    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
-    SC: StepCircuit<G1::ScalarField>,
-{
-    fn clone(&self) -> Self {
-        Self {
-            params: self.params,
-            z_0: self.z_0.clone(),
-            non_base: self.non_base.clone(),
-        }
-    }
-}
-
-struct IVCProofNonBase<G1, G2, C1, C2>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-{
     U: RelaxedR1CSInstance<G1, C1>,
     W: RelaxedR1CSWitness<G1>,
     U_secondary: RelaxedR1CSInstance<G2, C2>,
@@ -154,32 +131,12 @@ where
 
     u: R1CSInstance<G1, C1>,
     w: R1CSWitness<G1>,
-    i: NonZeroU64,
-    z_i: Vec<G1::ScalarField>,
+
+    _random_oracle: PhantomData<RO>,
+    _step_circuit: PhantomData<SC>,
 }
 
-impl<G1, G2, C1, C2> Clone for IVCProofNonBase<G1, G2, C1, C2>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-{
-    fn clone(&self) -> Self {
-        Self {
-            U: self.U.clone(),
-            W: self.W.clone(),
-            U_secondary: self.U_secondary.clone(),
-            W_secondary: self.W_secondary.clone(),
-            u: self.u.clone(),
-            w: self.w.clone(),
-            i: self.i,
-            z_i: self.z_i.clone(),
-        }
-    }
-}
-
-impl<'a, G1, G2, C1, C2, RO, SC> IVCProof<'a, G1, G2, C1, C2, RO, SC>
+impl<G1, G2, C1, C2, RO, SC> PCDNode<G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
@@ -192,98 +149,39 @@ where
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
-    pub fn new(
-        public_params: &'a PublicParams<G1, G2, C1, C2, RO, SC>,
-        z_0: &[G1::ScalarField],
-    ) -> Self {
-        Self {
-            params: public_params,
-            z_0: z_0.to_owned(),
-
-            non_base: None,
-        }
+    pub fn min_step(&self) -> u64 {
+        self.i
     }
 
-    pub fn z_i(&self) -> &[G1::ScalarField] {
-        self.non_base
-            .as_ref()
-            .map(|r| &r.z_i[..])
-            .unwrap_or(&self.z_0)
+    pub fn max_step(&self) -> u64 {
+        self.j
     }
 
-    pub fn step_num(&self) -> u64 {
-        self.non_base
-            .as_ref()
-            .map(|non_base| non_base.i.get())
-            .unwrap_or(0)
-    }
-
-    pub fn prove_step(self, step_circuit: &SC) -> Result<Self, multifold::Error> {
+    pub fn prove_step(
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+        step_circuit: &SC,
+        i: usize,
+        z_i: &[G1::ScalarField],
+    ) -> Result<Self, multifold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "prove_step",
-            step_num = %self.step_num(),
+            ?i,
+            j = i + 1,
         )
         .entered();
-        let IVCProof {
-            params,
-            z_0,
-            non_base,
-        } = self;
 
-        let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
-            let IVCProofNonBase {
-                U,
-                W,
-                U_secondary,
-                W_secondary,
-                u,
-                w,
-                i,
-                z_i,
-            } = non_base;
+        let i = i as u64;
+        let U = RelaxedR1CSInstance::<G1, C1>::new(&params.shape);
+        let W = RelaxedR1CSWitness::zero(&params.shape);
 
-            let proof = NIMFSProof::<G1, G2, C1, C2, RO>::prove::<multifold::secondary::Circuit<G1>>(
-                &params.pp,
-                &params.pp_secondary,
-                &params.ro_config,
-                &params.digest,
-                (&params.shape, &params.shape_secondary),
-                (&U, &W),
-                (&U_secondary, &W_secondary),
-                (&u, &w),
-            )?;
+        let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&params.shape_secondary);
+        let W_secondary = RelaxedR1CSWitness::zero(&params.shape_secondary);
 
-            let input = NovaAugmentedCircuitInput::NonBase(NovaAugmentedCircuitNonBaseInput {
-                vk: params.digest,
-                i: G1::ScalarField::from(i.get()),
-                z_0: z_0.clone(),
-                z_i,
-                U: U.clone(),
-                U_secondary: U_secondary.clone(),
-                u,
-                proof: proof.0,
-            });
-
-            let (U, W) = proof.1;
-            let (U_secondary, W_secondary) = proof.2;
-            let i_next = i.saturating_add(1);
-
-            (i_next, input, U, W, U_secondary, W_secondary)
-        } else {
-            let U = RelaxedR1CSInstance::<G1, C1>::new(&params.shape);
-            let W = RelaxedR1CSWitness::zero(&params.shape);
-
-            let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&params.shape_secondary);
-            let W_secondary = RelaxedR1CSWitness::zero(&params.shape_secondary);
-
-            let input = NovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
-                vk: params.digest,
-                z_0: z_0.clone(),
-            };
-            let i_next = NonZeroU64::new(1).unwrap();
-
-            (i_next, input, U, W, U_secondary, W_secondary)
+        let input = NovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
+            i: G1::ScalarField::from(i),
+            z_i: z_i.to_owned(),
+            vk: params.digest,
         };
 
         let cs = ConstraintSystem::new_ref();
@@ -292,8 +190,132 @@ where
         });
 
         let circuit = NovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
+        let z_next = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
+            .in_scope(|| NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
 
-        let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
+        let cs_borrow = cs.borrow().unwrap();
+        let witness = cs_borrow.witness_assignment.clone();
+        let pub_io = cs_borrow.instance_assignment.clone();
+
+        let w = R1CSWitness::<G1> { W: witness };
+
+        let commitment_W = w.commit::<C1>(&params.pp);
+        let u = R1CSInstance::<G1, C1> {
+            commitment_W,
+            X: pub_io,
+        };
+        let z_j = z_next
+            .iter()
+            .map(R1CSVar::value)
+            .collect::<Result<_, _>>()?;
+
+        Ok(Self {
+            i,
+            j: i + 1,
+            z_i: z_i.to_owned(),
+            z_j,
+            U,
+            W,
+            U_secondary,
+            W_secondary,
+            u,
+            w,
+            _random_oracle: PhantomData,
+            _step_circuit: PhantomData,
+        })
+    }
+
+    pub fn prove_from(
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+        step_circuit: &SC,
+        left_node: &Self,
+        right_node: &Self,
+    ) -> Result<Self, multifold::Error> {
+        let _span = tracing::debug_span!(
+            target: LOG_TARGET,
+            "prove_from",
+            i = left_node.i,
+            j = right_node.j,
+        )
+        .entered();
+
+        // proof left node
+        let (proof_left, (U_l, W_l), (U_l_secondary, W_l_secondary)) =
+            NIMFSProof::prove::<SecondaryCircuit<G1>>(
+                &params.pp,
+                &params.pp_secondary,
+                &params.ro_config,
+                &params.digest,
+                (&params.shape, &params.shape_secondary),
+                (&left_node.U, &left_node.W),
+                (&left_node.U_secondary, &left_node.W_secondary),
+                (&left_node.u, &left_node.w),
+            )?;
+        // proof right node
+        let (proof_right, (U_r, W_r), (U_r_secondary, W_r_secondary)) =
+            NIMFSProof::prove::<SecondaryCircuit<G1>>(
+                &params.pp,
+                &params.pp_secondary,
+                &params.ro_config,
+                &params.digest,
+                (&params.shape, &params.shape_secondary),
+                (&right_node.U, &right_node.W),
+                (&right_node.U_secondary, &right_node.W_secondary),
+                (&right_node.u, &right_node.w),
+            )?;
+
+        // proof resulting node
+        let (proof, (U, W), (U_secondary, W_secondary)) = NIMFSProof::prove_with_relaxed(
+            &params.pp,
+            &params.pp_secondary,
+            &params.ro_config,
+            &params.digest,
+            (&params.shape, &params.shape_secondary),
+            (&U_l, &W_l),
+            (&U_l_secondary, &W_l_secondary),
+            (&U_r, &W_r),
+            (&U_r_secondary, &W_r_secondary),
+        )?;
+
+        let (i, j, k) = (left_node.i, left_node.j, right_node.j);
+        let (z_i, z_j, z_k) = (&left_node.z_i, &left_node.z_j, &right_node.z_j);
+        let left_node = PCDNodeInput::<G1, G2, C1, C2, RO> {
+            U: left_node.U.clone(),
+            U_secondary: left_node.U_secondary.clone(),
+            u: left_node.u.clone(),
+            proof: proof_left,
+        };
+        let right_node = PCDNodeInput::<G1, G2, C1, C2, RO> {
+            U: right_node.U.clone(),
+            U_secondary: right_node.U_secondary.clone(),
+            u: right_node.u.clone(),
+            proof: proof_right,
+        };
+
+        let input = NovaAugmentedCircuitNonBaseInput::<G1, G2, C1, C2, RO> {
+            i: i.into(),
+            j: j.into(),
+            k: k.into(),
+            z_i: z_i.to_owned(),
+            z_j: z_j.to_owned(),
+            z_k: z_k.to_owned(),
+
+            vk: params.digest,
+            nodes: [left_node, right_node],
+            proof,
+        };
+
+        let cs = ConstraintSystem::new_ref();
+        cs.set_mode(SynthesisMode::Prove {
+            construct_matrices: false,
+        });
+
+        let circuit = NovaAugmentedCircuit::new(
+            &params.ro_config,
+            step_circuit,
+            NovaAugmentedCircuitInput::NonBase(input),
+        );
+        let _ = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
             .in_scope(|| NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
 
         let cs_borrow = cs.borrow().unwrap();
@@ -308,119 +330,91 @@ where
             X: pub_io,
         };
 
-        let z_i = z_i.iter().map(R1CSVar::value).collect::<Result<_, _>>()?;
-
         Ok(Self {
-            params,
-            z_0,
-
-            non_base: Some(IVCProofNonBase {
-                U,
-                W,
-                U_secondary,
-                W_secondary,
-                u,
-                w,
-                i: i_next,
-                z_i,
-            }),
-        })
-    }
-
-    pub fn verify(&self, num_steps: usize) -> Result<(), multifold::Error> {
-        let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
-
-        const NOT_SATISFIED_ERROR: multifold::Error =
-            multifold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
-
-        let Some(non_base) = &self.non_base else {
-            return Err(NOT_SATISFIED_ERROR);
-        };
-
-        let IVCProofNonBase {
+            i,
+            j: k,
+            z_i: z_i.to_owned(),
+            z_j: z_k.to_owned(),
             U,
             W,
             U_secondary,
             W_secondary,
             u,
             w,
+            _random_oracle: PhantomData,
+            _step_circuit: PhantomData,
+        })
+    }
+
+    pub fn verify(
+        &self,
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+    ) -> Result<(), multifold::Error> {
+        let _span = tracing::debug_span!(
+            target: LOG_TARGET,
+            "verify",
+            i = self.i,
+            j = self.j,
+        )
+        .entered();
+
+        const NOT_SATISFIED_ERROR: multifold::Error =
+            multifold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
+        let PCDNode {
             i,
+            j,
             z_i,
-        } = non_base;
+            z_j,
+            U,
+            W,
+            U_secondary,
+            W_secondary,
+            u,
+            w,
+            ..
+        } = self;
 
-        let num_steps = num_steps as u64;
-        if num_steps != i.get() {
-            return Err(NOT_SATISFIED_ERROR);
-        }
-
-        let mut random_oracle = RO::new(&self.params.ro_config);
-
-        random_oracle.absorb(&self.params.digest);
-        random_oracle.absorb(&G1::ScalarField::from(i.get()));
-        random_oracle.absorb(&self.z_0);
-        random_oracle.absorb(&z_i);
-        random_oracle.absorb(U);
-        random_oracle.absorb_non_native(U_secondary);
+        let mut random_oracle = RO::new(&params.ro_config);
+        random_oracle.absorb(&params.digest);
+        random_oracle.absorb(&G1::ScalarField::from(*i));
+        random_oracle.absorb(&G1::ScalarField::from(*j));
+        random_oracle.absorb(z_i);
+        random_oracle.absorb(z_j);
+        random_oracle.absorb(&U);
+        random_oracle.absorb_non_native(&U_secondary);
 
         let hash: &G1::ScalarField =
             &random_oracle.squeeze_field_elements(augmented::SQUEEZE_NATIVE_ELEMENTS_NUM)[0];
-
         if hash != &u.X[1] {
             return Err(NOT_SATISFIED_ERROR);
         }
 
-        self.params
-            .shape
-            .is_relaxed_satisfied(U, W, &self.params.pp)?;
-        self.params.shape_secondary.is_relaxed_satisfied(
+        params.shape.is_relaxed_satisfied(U, W, &params.pp)?;
+        params.shape_secondary.is_relaxed_satisfied(
             U_secondary,
             W_secondary,
-            &self.params.pp_secondary,
+            &params.pp_secondary,
         )?;
-        self.params.shape.is_satisfied(u, w, &self.params.pp)?;
+        params.shape.is_satisfied(u, w, &params.pp)?;
 
         Ok(())
     }
 }
 
 #[cfg(test)]
-pub(crate) mod tests {
+mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, poseidon_config, LOG_TARGET as SUPERNOVA_TARGET};
+    use crate::{
+        circuits::nova::sequential::tests::CubicCircuit, pedersen::PedersenCommitment,
+        poseidon_config, LOG_TARGET as SUPERNOVA_TARGET,
+    };
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
-    use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
-    use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
     use tracing_subscriber::{
         filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
     };
-
-    #[derive(Debug, Default)]
-    pub struct CubicCircuit<F: Field>(PhantomData<F>);
-
-    impl<F: PrimeField> StepCircuit<F> for CubicCircuit<F> {
-        const ARITY: usize = 1;
-
-        fn generate_constraints(
-            &self,
-            _: ConstraintSystemRef<F>,
-            _: &FpVar<F>,
-            z: &[FpVar<F>],
-        ) -> Result<Vec<FpVar<F>>, SynthesisError> {
-            assert_eq!(z.len(), 1);
-
-            let x = &z[0];
-
-            let x_square = x.square()?;
-            let x_cube = x_square * x;
-
-            let y: FpVar<F> = x + x_cube + &FpVar::Constant(5u64.into());
-
-            Ok(vec![y])
-        }
-    }
 
     #[test]
     fn ivc_base_step() {
@@ -444,9 +438,9 @@ pub(crate) mod tests {
     {
         let ro_config = poseidon_config();
 
-        let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);
+        let circuit = CubicCircuit::<G1::ScalarField>::default();
         let z_0 = vec![G1::ScalarField::ONE];
-        let num_steps = 1;
+        let z_1 = vec![G1::ScalarField::from(7)];
 
         let params = PublicParams::<
             G1,
@@ -457,11 +451,10 @@ pub(crate) mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit)?;
 
-        let mut recursive_snark = IVCProof::new(&params, &z_0);
-        recursive_snark = recursive_snark.prove_step(&circuit)?;
-        recursive_snark.verify(num_steps).unwrap();
+        let recursive_snark = PCDNode::prove_step(&params, &circuit, 0, &z_0)?;
+        recursive_snark.verify(&params)?;
 
-        assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(7));
+        assert_eq!(&recursive_snark.z_j, &z_1);
 
         Ok(())
     }
@@ -496,9 +489,13 @@ pub(crate) mod tests {
 
         let ro_config = poseidon_config();
 
-        let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);
-        let z_0 = vec![G1::ScalarField::ONE];
-        let num_steps = 3;
+        let circuit = CubicCircuit::<G1::ScalarField>::default();
+        let z = [
+            &[G1::ScalarField::ONE],
+            &[G1::ScalarField::from(7)],
+            &[G1::ScalarField::from(355)],
+            &[G1::ScalarField::from(44739235)],
+        ];
 
         let params = PublicParams::<
             G1,
@@ -509,14 +506,16 @@ pub(crate) mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit)?;
 
-        let mut recursive_snark = IVCProof::new(&params, &z_0);
+        let node_0 = PCDNode::prove_step(&params, &circuit, 0, z[0])?;
+        let node_1 = PCDNode::prove_step(&params, &circuit, 2, z[2])?;
 
-        for _ in 0..num_steps {
-            recursive_snark = IVCProof::prove_step(recursive_snark, &circuit)?;
-        }
-        recursive_snark.verify(num_steps).unwrap();
+        let root = PCDNode::prove_from(&params, &circuit, &node_0, &node_1)?;
 
-        assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(44739235));
+        assert_eq!(&root.z_i, &z[0]);
+        assert_eq!(&root.z_j, &z[3]);
+
+        root.verify(&params)?;
+
         Ok(())
     }
 }
