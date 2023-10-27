@@ -61,14 +61,20 @@ where
         U: comm_E_secondary_instance,
         commitment_T: _commitment_T,
     } = &proof_secondary.0;
-    // The rest of the secondary public input is unconstrained. This is because it's provided by
-    // the prover as a witness, and in practice is expected to be the same lc.
+
+    // The rest of the secondary public input is reconstructed from primary instances.
+    let comm_E_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_E_secondary_instance,
+        &U.commitment_E,
+        commitment_T,
+        None,
+    )?;
     let (r_0_secondary, g_out) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
     r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
     let commitment_E = g_out;
 
-    random_oracle.absorb(comm_E_secondary_instance)?;
+    random_oracle.absorb(&comm_E_secondary_instance)?;
     random_oracle.absorb(&_commitment_T)?;
     random_oracle.absorb(&r_0_scalar)?;
 
@@ -83,12 +89,19 @@ where
         U: comm_W_secondary_instance,
         commitment_T: __commitment_T,
     } = &proof_secondary.1;
+
     // See the above comment for `comm_E_secondary_instance`.
+    let comm_W_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_W_secondary_instance,
+        &U.commitment_W,
+        &u.commitment_W,
+        None,
+    )?;
     let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
     r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
     let commitment_W = g_out;
-    random_oracle.absorb(comm_W_secondary_instance)?;
+    random_oracle.absorb(&comm_W_secondary_instance)?;
     random_oracle.absorb(&__commitment_T)?;
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
@@ -110,13 +123,13 @@ where
 
     let U_secondary = U_secondary.fold(&[
         (
-            comm_E_secondary_instance.into(),
+            (&comm_E_secondary_instance).into(),
             _commitment_T,
             r_1,
             r_1_bits,
         ),
         (
-            comm_W_secondary_instance.into(),
+            (&comm_W_secondary_instance).into(),
             __commitment_T,
             r_2,
             r_2_bits,
@@ -126,7 +139,6 @@ where
     Ok((folded_U, U_secondary))
 }
 
-#[allow(unused)]
 pub fn multifold_with_relaxed<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
@@ -137,6 +149,7 @@ pub fn multifold_with_relaxed<G1, G2, C1, C2, RO>(
     commitment_T: &NonNativeAffineVar<G1>,
     commitment_T_secondary: &ProjectiveVar<G2, FpVar<G2::BaseField>>,
     proof_secondary: (&secondary::ProofVar<G2, C2>, &secondary::ProofVar<G2, C2>),
+    should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
     (
         primary::RelaxedR1CSInstanceVar<G1, C1>,
@@ -174,16 +187,19 @@ where
         U: comm_E_secondary_instance,
         commitment_T: _commitment_T,
     } = &proof_secondary.0;
-    let ([g1, g2, g3, g_out], r_0_secondary) =
-        comm_E_secondary_instance.parse_relaxed_secondary_io::<G1>()?;
-    r_0_secondary.enforce_equal(r_0)?;
-    g1.enforce_equal(&U1.commitment_E)?;
-    g2.enforce_equal(commitment_T)?;
-    g3.enforce_equal(&U2.commitment_E)?;
+    // The rest of the secondary public input is reconstructed from primary instances.
+    let comm_E_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_E_secondary_instance,
+        &U1.commitment_E,
+        commitment_T,
+        Some(&U2.commitment_E),
+    )?;
+    let (r_0_secondary, g_out) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
+    r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
     let commitment_E = g_out;
 
-    random_oracle.absorb(comm_E_secondary_instance)?;
+    random_oracle.absorb(&comm_E_secondary_instance)?;
     random_oracle.absorb(&_commitment_T)?;
     random_oracle.absorb(&r_0_scalar)?;
 
@@ -198,15 +214,19 @@ where
         U: comm_W_secondary_instance,
         commitment_T: __commitment_T,
     } = &proof_secondary.1;
-    let ([g1, g2, g3, g_out], r_0_secondary) =
-        comm_W_secondary_instance.parse_relaxed_secondary_io::<G1>()?;
-    r_0_secondary.enforce_equal(r_0)?;
-    g1.enforce_equal(&U1.commitment_W)?;
-    g2.enforce_equal(&U2.commitment_W)?;
-    g3.infinity.enforce_equal(&Boolean::TRUE)?;
+    // See the above comment for `comm_E_secondary_instance`.
+    let comm_W_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_W_secondary_instance,
+        &U1.commitment_W,
+        &U2.commitment_W,
+        None, // g3 is already zero.
+    )?;
+    let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
+    r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
     let commitment_W = g_out;
-    random_oracle.absorb(comm_W_secondary_instance)?;
+
+    random_oracle.absorb(&comm_W_secondary_instance)?;
     random_oracle.absorb(&__commitment_T)?;
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
@@ -228,13 +248,13 @@ where
 
     let U1_secondary = U_secondary.fold(&[
         (
-            comm_E_secondary_instance.into(),
+            (&comm_E_secondary_instance).into(),
             _commitment_T,
             r_1,
             &r_1_bits[..],
         ),
         (
-            comm_W_secondary_instance.into(),
+            (&comm_W_secondary_instance).into(),
             __commitment_T,
             r_2,
             r_2_bits,
@@ -552,6 +572,7 @@ mod tests {
                 &commitment_T_cs,
                 &commitment_T_secondary_cs,
                 proof_cs,
+                &Boolean::TRUE,
             )?;
 
         let _U = _U_cs.value()?;

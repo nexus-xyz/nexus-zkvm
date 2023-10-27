@@ -3,24 +3,26 @@ use std::marker::PhantomData;
 use ark_crypto_primitives::sponge::{CryptographicSponge, FieldElementSize};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
-use ark_serialize::{
-    CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt, SerializationError,
-};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
 
-use super::Error;
+use super::{Error, StepCircuit};
 use crate::{
     commitment::CommitmentScheme,
     multifold::nimfs::{R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
     utils,
 };
 
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct PublicParams<G1, G2, C1, C2, RO, SC, SP>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
+    RO: CryptographicSponge + Sync,
+    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
+    SC: StepCircuit<G1::ScalarField>,
+    SP: Send + Sync,
 {
     pub ro_config: RO::Config,
     pub shape: R1CSShape<G1>,
@@ -33,109 +35,15 @@ where
     pub _setup_params: PhantomData<SP>,
 }
 
-impl<G1, G2, C1, C2, RO, SC, SP> CanonicalSerialize for PublicParams<G1, G2, C1, C2, RO, SC, SP>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
-    RO::Config: CanonicalSerialize,
-{
-    fn serialize_with_mode<W: ark_serialize::Write>(
-        &self,
-        mut writer: W,
-        compress: ark_serialize::Compress,
-    ) -> Result<(), ark_serialize::SerializationError> {
-        self.ro_config.serialize_with_mode(&mut writer, compress)?;
-        self.shape.serialize_with_mode(&mut writer, compress)?;
-        self.shape_secondary
-            .serialize_with_mode(&mut writer, compress)?;
-        self.pp.serialize_with_mode(&mut writer, compress)?;
-        self.pp_secondary
-            .serialize_with_mode(&mut writer, compress)?;
-        self.digest.serialize_with_mode(&mut writer, compress)?;
-
-        Ok(())
-    }
-
-    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
-        self.ro_config.serialized_size(compress)
-            + self.shape.serialized_size(compress)
-            + self.shape_secondary.serialized_size(compress)
-            + self.pp.serialized_size(compress)
-            + self.pp_secondary.serialized_size(compress)
-            + self.digest.serialized_size(compress)
-    }
-}
-
-impl<G1, G2, C1, C2, RO, SC, SP> CanonicalDeserialize for PublicParams<G1, G2, C1, C2, RO, SC, SP>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
-    RO::Config: CanonicalDeserialize,
-    SC: Sync,
-    SP: Sync,
-{
-    fn deserialize_with_mode<R: ark_serialize::Read>(
-        mut reader: R,
-        compress: ark_serialize::Compress,
-        validate: ark_serialize::Validate,
-    ) -> Result<Self, SerializationError> {
-        let ro_config = RO::Config::deserialize_with_mode(&mut reader, compress, validate)?;
-        let shape = R1CSShape::deserialize_with_mode(&mut reader, compress, validate)?;
-        let shape_secondary = R1CSShape::deserialize_with_mode(&mut reader, compress, validate)?;
-        let pp = C1::PP::deserialize_with_mode(&mut reader, compress, validate)?;
-        let pp_secondary = C2::PP::deserialize_with_mode(&mut reader, compress, validate)?;
-        let digest = G1::ScalarField::deserialize_with_mode(&mut reader, compress, validate)?;
-
-        Ok(Self {
-            ro_config,
-            shape,
-            shape_secondary,
-            pp,
-            pp_secondary,
-            digest,
-            _step_circuit: PhantomData,
-            _setup_params: PhantomData,
-        })
-    }
-}
-
-impl<G1, G2, C1, C2, RO, SC, SP> ark_serialize::Valid for PublicParams<G1, G2, C1, C2, RO, SC, SP>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
-    RO::Config: CanonicalDeserialize,
-    SC: Sync,
-    SP: Sync,
-{
-    fn check(&self) -> Result<(), SerializationError> {
-        self.ro_config.check()?;
-        self.shape.check()?;
-        self.shape_secondary.check()?;
-        self.pp.check()?;
-        self.pp_secondary.check()?;
-        self.digest.check()?;
-
-        Ok(())
-    }
-}
-
 impl<G1, G2, C1, C2, RO, SC, SP> PublicParams<G1, G2, C1, C2, RO, SC, SP>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
-    RO::Config: CanonicalSerialize,
+    RO: CryptographicSponge + Sync,
+    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
+    SC: StepCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
     pub fn setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
@@ -158,13 +66,15 @@ where
     }
 }
 
-pub trait SetupParams<G1, G2, C1, C2, RO, SC>: Sized
+pub trait SetupParams<G1, G2, C1, C2, RO, SC>: Send + Sync + Sized
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge,
+    RO: CryptographicSponge + Sync,
+    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
+    SC: StepCircuit<G1::ScalarField>,
 {
     fn setup(
         ro_config: RO::Config,

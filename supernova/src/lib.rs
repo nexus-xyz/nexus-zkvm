@@ -2,6 +2,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::wrong_self_convention)]
+#![allow(clippy::large_enum_variant)]
 
 mod absorb;
 mod multifold;

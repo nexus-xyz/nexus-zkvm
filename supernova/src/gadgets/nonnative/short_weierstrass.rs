@@ -9,7 +9,6 @@ use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     boolean::Boolean,
-    eq::EqGadget,
     fields::{fp::FpVar, nonnative::NonNativeFieldVar, FieldVar},
     select::CondSelectGadget,
     uint8::UInt8,
@@ -135,23 +134,6 @@ where
             &[infinity],
         ]
         .concat())
-    }
-}
-
-impl<G1> EqGadget<G1::ScalarField> for NonNativeAffineVar<G1>
-where
-    G1: SWCurveConfig,
-    G1::BaseField: PrimeField,
-{
-    fn is_eq(&self, other: &Self) -> Result<Boolean<G1::ScalarField>, SynthesisError> {
-        let x_equal = self.x.is_eq(&other.x)?;
-        let y_equal = self.y.is_eq(&other.y)?;
-        let inf_equal = self.infinity.is_eq(&other.infinity)?;
-
-        let coordinates_equal = x_equal.and(&y_equal)?.and(&inf_equal)?;
-        let both_are_zero = self.infinity.and(&other.infinity)?;
-
-        both_are_zero.or(&coordinates_equal)
     }
 }
 
