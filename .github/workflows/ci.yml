@@ -28,6 +28,7 @@ jobs:
           deploy_key: ${{ secrets.deploy_key }}
         run: |
           ./.github/checkout.sh
+        run: cargo build
 
   cargo-clippy:
     runs-on: ubuntu-latest
