@@ -5,7 +5,7 @@
 //! `g_out = g1 + r * g2`, while having circuit satisfying witness as a trace of this computation.
 
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::{AdditiveGroup, Field, PrimeField};
+use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::{
     alloc::AllocVar,
     eq::EqGadget,
@@ -25,82 +25,6 @@ use super::nimfs::{R1CSInstance, R1CSShape, R1CSWitness};
 /// Leading `Variable::One` + 3 curve points + 1 scalar.
 const SECONDARY_NUM_IO: usize = 11;
 
-#[cfg(test)]
-macro_rules! parse_projective {
-    ($X:expr) => {
-        match &$X[..3] {
-            &[x, y, z, ..] => {
-                let point = ark_ec::CurveGroup::into_affine(Projective::<G1> { x, y, z });
-                if !point.is_on_curve() || !point.is_in_correct_subgroup_assuming_on_curve() {
-                    return None;
-                }
-                $X = &$X[3..];
-                point.into()
-            }
-            _ => return None,
-        }
-    };
-}
-pub(crate) mod relaxed;
-
-pub trait SecondaryCircuit<G1>:
-    From<relaxed::Circuit<G1>> + ConstraintSynthesizer<G1::BaseField> + Default
-where
-    G1: SWCurveConfig,
-    G1::BaseField: PrimeField,
-{
-    const NUM_IO: usize;
-
-    /// Setup [`R1CSShape`] for a secondary circuit, defined over `G2::BaseField`.
-    fn setup_shape<G2>() -> Result<R1CSShape<G2>, SynthesisError>
-    where
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
-    {
-        let cs = ConstraintSystem::<G1::BaseField>::new_ref();
-        cs.set_mode(SynthesisMode::Setup);
-
-        Self::default().generate_constraints(cs.clone())?;
-
-        cs.finalize();
-        Ok(R1CSShape::from(cs.clone()))
-    }
-
-    /// Synthesize public input and a witness-trace.
-    fn synthesize<G2, C2>(
-        circuit: relaxed::Circuit<G1>,
-        pp_secondary: &C2::PP,
-    ) -> Result<(R1CSInstance<G2, C2>, R1CSWitness<G2>), SynthesisError>
-    where
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    {
-        let circuit = Self::from(circuit);
-
-        let cs = ConstraintSystem::<G1::BaseField>::new_ref();
-        cs.set_mode(SynthesisMode::Prove {
-            construct_matrices: false,
-        });
-
-        circuit.generate_constraints(cs.clone())?;
-
-        cs.finalize();
-        let cs_borrow = cs.borrow().unwrap();
-
-        let witness = cs_borrow.witness_assignment.clone();
-        let pub_io = cs_borrow.instance_assignment.clone();
-
-        let W = R1CSWitness::<G2> { W: witness };
-
-        let commitment_W = W.commit::<C2>(pp_secondary);
-        let U = R1CSInstance::<G2, C2> {
-            commitment_W,
-            X: pub_io,
-        };
-
-        Ok((U, W))
-    }
-}
-
 /// Public input of secondary circuit.
 pub struct Circuit<G1: SWCurveConfig> {
     pub(crate) g1: Projective<G1>,
@@ -114,6 +38,10 @@ pub struct Circuit<G1: SWCurveConfig> {
     pub(crate) r: G1::BaseField,
 }
 
+impl<G1: SWCurveConfig> Circuit<G1> {
+    pub const NUM_IO: usize = SECONDARY_NUM_IO;
+}
+
 impl<G: SWCurveConfig> Default for Circuit<G> {
     fn default() -> Self {
         Self {
@@ -125,31 +53,20 @@ impl<G: SWCurveConfig> Default for Circuit<G> {
     }
 }
 
-impl<G1: SWCurveConfig> From<relaxed::Circuit<G1>> for Circuit<G1> {
-    fn from(circuit: relaxed::Circuit<G1>) -> Self {
-        Self {
-            g1: circuit.g1,
-            g2: circuit.g2,
-            g_out: circuit.g_out,
-            r: circuit.r,
-        }
-    }
-}
-
-impl<G: SWCurveConfig> ConstraintSynthesizer<G::BaseField> for Circuit<G>
+impl<G1: SWCurveConfig> ConstraintSynthesizer<G1::BaseField> for Circuit<G1>
 where
-    G::BaseField: PrimeField,
+    G1::BaseField: PrimeField,
 {
     fn generate_constraints(
         self,
-        cs: ConstraintSystemRef<G::BaseField>,
+        cs: ConstraintSystemRef<G1::BaseField>,
     ) -> Result<(), SynthesisError> {
-        let g1 = ProjectiveVar::<G, FpVar<G::BaseField>>::new_input(cs.clone(), || Ok(self.g1))?;
-        let g2 = ProjectiveVar::<G, FpVar<G::BaseField>>::new_input(cs.clone(), || Ok(self.g2))?;
+        let g1 = ProjectiveVar::<G1, FpVar<G1::BaseField>>::new_input(cs.clone(), || Ok(self.g1))?;
+        let g2 = ProjectiveVar::<G1, FpVar<G1::BaseField>>::new_input(cs.clone(), || Ok(self.g2))?;
         let g_out =
-            ProjectiveVar::<G, FpVar<G::BaseField>>::new_input(cs.clone(), || Ok(self.g_out))?;
+            ProjectiveVar::<G1, FpVar<G1::BaseField>>::new_input(cs.clone(), || Ok(self.g_out))?;
 
-        let r = FpVar::<G::BaseField>::new_input(cs.clone(), || Ok(self.r))?;
+        let r = FpVar::<G1::BaseField>::new_input(cs.clone(), || Ok(self.r))?;
         let r_bits = r.to_bits_le()?;
 
         let out = g1 + g2.scalar_mul_le(r_bits.iter())?;
@@ -159,12 +76,55 @@ where
     }
 }
 
-impl<G1> SecondaryCircuit<G1> for Circuit<G1>
+/// Setup [`R1CSShape`] for a secondary circuit, defined over `G2::BaseField`.
+pub fn setup_shape<G1, G2>() -> Result<R1CSShape<G2>, SynthesisError>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
+    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
 {
-    const NUM_IO: usize = SECONDARY_NUM_IO;
+    let cs = ConstraintSystem::<G1::BaseField>::new_ref();
+    cs.set_mode(SynthesisMode::Setup);
+
+    Circuit::<G1>::default().generate_constraints(cs.clone())?;
+
+    cs.finalize();
+    Ok(R1CSShape::from(cs.clone()))
+}
+
+/// Synthesize public input and a witness-trace.
+pub fn synthesize<G1, G2, C2>(
+    circuit: Circuit<G1>,
+    pp_secondary: &C2::PP,
+) -> Result<(R1CSInstance<G2, C2>, R1CSWitness<G2>), SynthesisError>
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField,
+    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+{
+    let cs = ConstraintSystem::<G1::BaseField>::new_ref();
+    cs.set_mode(SynthesisMode::Prove {
+        construct_matrices: false,
+    });
+
+    circuit.generate_constraints(cs.clone())?;
+
+    cs.finalize();
+    let cs_borrow = cs.borrow().unwrap();
+
+    let witness = cs_borrow.witness_assignment.clone();
+    let pub_io = cs_borrow.instance_assignment.clone();
+
+    let W = R1CSWitness::<G2> { W: witness };
+
+    let commitment_W = W.commit::<C2>(pp_secondary);
+    let U = R1CSInstance::<G2, C2> {
+        commitment_W,
+        X: pub_io,
+    };
+
+    Ok((U, W))
 }
 
 /// Folding scheme proof for a secondary circuit.
@@ -189,31 +149,38 @@ where
     }
 }
 
-impl<G2, C2> Proof<G2, C2>
+impl<G2, C2> Default for Proof<G2, C2>
 where
     G2: SWCurveConfig,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
-    pub(super) fn zero(num_io: usize) -> Self {
-        let mut X = vec![G2::ScalarField::ZERO; SECONDARY_NUM_IO];
-        // g3 is always allocated as a constant, hence extend X with zero point
-        // in jacobian coordinates.
-        X.extend_from_slice(&[
-            G2::ScalarField::ZERO,
-            G2::ScalarField::ONE,
-            G2::ScalarField::ZERO,
-        ]);
-        assert_eq!(X.len(), relaxed::SECONDARY_NUM_IO);
-
+    fn default() -> Self {
         let U = R1CSInstance {
             commitment_W: Projective::zero(),
-            X: X[..num_io].to_owned(),
+            X: vec![G2::ScalarField::ZERO; SECONDARY_NUM_IO],
         };
         Self {
             U,
             commitment_T: Projective::zero(),
         }
     }
+}
+
+#[cfg(test)]
+macro_rules! parse_projective {
+    ($X:expr) => {
+        match &$X[..3] {
+            &[x, y, z, ..] => {
+                let point = ark_ec::CurveGroup::into_affine(Projective::<G1> { x, y, z });
+                if !point.is_on_curve() || !point.is_in_correct_subgroup_assuming_on_curve() {
+                    return None;
+                }
+                $X = &$X[3..];
+                point.into()
+            }
+            _ => return None,
+        }
+    };
 }
 
 impl<G2, C2> R1CSInstance<G2, C2>
@@ -307,7 +274,7 @@ mod tests {
 
     #[test]
     fn parse_synthesized() {
-        let shape = Circuit::<PallasConfig>::setup_shape::<VestaConfig>().unwrap();
+        let shape = setup_shape::<PallasConfig, VestaConfig>().unwrap();
         let mut rng = ark_std::test_rng();
         let g1 = Projective::rand(&mut rng);
         let g2 = Projective::rand(&mut rng);
@@ -318,19 +285,11 @@ mod tests {
         let g_out = g1 + g2 * r_scalar;
 
         let pp = PedersenCommitment::<ark_vesta::Projective>::setup(shape.num_vars);
-        let (U, _) = Circuit::<PallasConfig>::synthesize::<
+        let (U, _) = synthesize::<
+            PallasConfig,
             VestaConfig,
             PedersenCommitment<ark_vesta::Projective>,
-        >(
-            relaxed::Circuit {
-                g1,
-                g2,
-                g3: Projective::zero(),
-                g_out,
-                r,
-            },
-            &pp,
-        )
+        >(Circuit { g1, g2, g_out, r }, &pp)
         .unwrap();
 
         let pub_io = U.parse_secondary_io::<PallasConfig>().unwrap();

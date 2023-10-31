@@ -26,7 +26,7 @@ use crate::{
     commitment::CommitmentScheme,
     multifold::{
         nimfs::{R1CSInstance, RelaxedR1CSInstance},
-        secondary::{Circuit as SecondaryCircuit, Proof, SecondaryCircuit as _},
+        secondary::{Circuit as SecondaryCircuit, Proof},
     },
 };
 
@@ -65,12 +65,11 @@ where
     G2::BaseField: PrimeField,
 {
     /// Allocate new variable, cloning part of the public input of `U` from provided
-    /// `g1`, `g2`, and optionally `g3`.
+    /// `g1` and `g2`.
     pub fn from_allocated_input<G1>(
         &self,
         g1: &NonNativeAffineVar<G1>,
         g2: &NonNativeAffineVar<G1>,
-        g3: Option<&NonNativeAffineVar<G1>>,
     ) -> Result<Self, SynthesisError>
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
@@ -80,14 +79,9 @@ where
         X.append(&mut g2.into_projective()?);
 
         // extend with allocated input.
-        if let Some(g3) = g3 {
-            // g_out and r, skipping leading `Variable::One`.
-            X.extend_from_slice(&self.X[1..5]);
-            X.append(&mut g3.into_projective()?);
-        } else {
-            X.extend_from_slice(&self.X[1..]);
-        }
+        X.extend_from_slice(&self.X[1..]);
 
+        assert_eq!(X.len(), SecondaryCircuit::<G2>::NUM_IO);
         Ok(Self {
             X,
             commitment_W: self.commitment_W.clone(),
@@ -169,6 +163,7 @@ where
     }
 
     fn to_sponge_field_elements(&self) -> Result<Vec<FpVar<G2::BaseField>>, SynthesisError> {
+        assert_eq!(self.X.len(), SecondaryCircuit::<G2>::NUM_IO);
         let X = self
             .X
             .iter()
@@ -177,6 +172,20 @@ where
             .collect::<Result<Vec<_>, _>>()?
             .concat();
         Ok([self.commitment_W.to_sponge_field_elements()?, X].concat())
+    }
+}
+
+impl<G2, C2> From<&RelaxedR1CSInstanceVar<G2, C2>> for R1CSInstanceVar<G2, C2>
+where
+    G2: SWCurveConfig,
+    G2::BaseField: PrimeField,
+{
+    fn from(U: &RelaxedR1CSInstanceVar<G2, C2>) -> Self {
+        Self {
+            commitment_W: U.commitment_W.clone(),
+            X: U.X.clone(),
+            _commitment_scheme: PhantomData,
+        }
     }
 }
 
@@ -354,7 +363,10 @@ where
     pub(super) fn fold(
         &self,
         instances: &[(
-            folding::R1CSInstanceVar<'_, G2, C2>,
+            (
+                &R1CSInstanceVar<G2, C2>,
+                Option<&ProjectiveVar<G2, FpVar<G2::BaseField>>>,
+            ),
             &'_ ProjectiveVar<G2, FpVar<G2::BaseField>>,
             &'_ NonNativeFieldVar<G2::ScalarField, G2::BaseField>,
             &'_ [Boolean<G2::BaseField>],
@@ -368,17 +380,17 @@ where
             .map(NonNativeFieldMulResultVar::from)
             .collect();
 
-        for (U, commitment_T, r, r_bits) in instances {
-            commitment_W += U.commitment_W().scalar_mul_le(r_bits.iter())?;
+        for ((U, comm_E), commitment_T, r, r_bits) in instances {
+            commitment_W += U.commitment_W.scalar_mul_le(r_bits.iter())?;
             commitment_E += commitment_T.scalar_mul_le(r_bits.iter())?;
 
-            for (x1, x2) in X.iter_mut().zip(U.X()) {
+            for (x1, x2) in X.iter_mut().zip(&U.X) {
                 *x1 += x2.mul_without_reduce(r)?;
             }
 
-            if let folding::R1CSInstanceVar::Relaxed(U) = U {
+            if let Some(comm_E) = comm_E {
                 let r_square_bits = r.square()?.to_bits_le()?;
-                commitment_E += U.commitment_E.scalar_mul_le(r_square_bits.iter())?;
+                commitment_E += comm_E.scalar_mul_le(r_square_bits.iter())?;
             }
         }
 
@@ -424,19 +436,12 @@ where
         // skip `Variable::One`, g1 and g2.
         let mut U = proof.borrow().U.clone();
         let X: Vec<G2::ScalarField> = std::iter::once(G2::ScalarField::ONE)
-            .chain(U.X.drain(..SecondaryCircuit::<G2>::NUM_IO).skip(7))
+            .chain(U.X.drain(..).skip(7))
             .collect();
-        // if g3 is present, allocate it as a constant, because either it's zero
-        // point used to pad secondary input in pcd case, or it will be replaced with
-        // commitment to E.
-        let const_X = U.X.into_iter().map(NonNativeFieldVar::constant);
-
         U.X = X;
-        let mut alloc_U = R1CSInstanceVar::new_variable(cs.clone(), || Ok(&U), mode)?;
-        alloc_U.X.extend(const_X);
 
         Ok(Self {
-            U: alloc_U,
+            U: R1CSInstanceVar::new_variable(cs.clone(), || Ok(&U), mode)?,
             commitment_T: <ProjectiveVar<G2, FpVar<G2::BaseField>> as AllocVar<
                 C2::Commitment,
                 G2::BaseField,
@@ -496,69 +501,5 @@ where
         let _ = X;
 
         Ok((r, g_out))
-    }
-}
-
-pub(super) mod folding {
-    use crate::commitment::CommitmentScheme;
-    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-    use ark_ff::PrimeField;
-    use ark_r1cs_std::{
-        fields::{fp::FpVar, nonnative::NonNativeFieldVar},
-        groups::curves::short_weierstrass::ProjectiveVar,
-    };
-
-    #[must_use]
-    pub enum R1CSInstanceVar<'a, G2, C2>
-    where
-        G2: SWCurveConfig,
-        G2::BaseField: PrimeField,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    {
-        Strict(&'a super::R1CSInstanceVar<G2, C2>),
-        Relaxed(&'a super::RelaxedR1CSInstanceVar<G2, C2>),
-    }
-
-    impl<'a, G2, C2> From<&'a super::R1CSInstanceVar<G2, C2>> for R1CSInstanceVar<'a, G2, C2>
-    where
-        G2: SWCurveConfig,
-        G2::BaseField: PrimeField,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    {
-        fn from(u: &'a super::R1CSInstanceVar<G2, C2>) -> Self {
-            Self::Strict(u)
-        }
-    }
-
-    impl<'a, G2, C2> From<&'a super::RelaxedR1CSInstanceVar<G2, C2>> for R1CSInstanceVar<'a, G2, C2>
-    where
-        G2: SWCurveConfig,
-        G2::BaseField: PrimeField,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    {
-        fn from(U: &'a super::RelaxedR1CSInstanceVar<G2, C2>) -> Self {
-            Self::Relaxed(U)
-        }
-    }
-
-    impl<G2, C2> R1CSInstanceVar<'_, G2, C2>
-    where
-        G2: SWCurveConfig,
-        G2::BaseField: PrimeField,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-    {
-        pub fn X(&self) -> &[NonNativeFieldVar<G2::ScalarField, G2::BaseField>] {
-            match self {
-                R1CSInstanceVar::Strict(u) => &u.X,
-                R1CSInstanceVar::Relaxed(U) => &U.X,
-            }
-        }
-
-        pub fn commitment_W(&self) -> &ProjectiveVar<G2, FpVar<G2::BaseField>> {
-            match self {
-                R1CSInstanceVar::Strict(u) => &u.commitment_W,
-                R1CSInstanceVar::Relaxed(U) => &U.commitment_W,
-            }
-        }
     }
 }
