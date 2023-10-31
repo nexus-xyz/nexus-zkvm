@@ -19,6 +19,7 @@ mod dense_mlpoly;
 mod errors;
 mod math;
 mod nizk;
+mod polycommitments;
 mod product_tree;
 mod r1csinstance;
 mod r1csproof;

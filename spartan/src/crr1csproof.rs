@@ -1,5 +1,8 @@
 #![allow(clippy::too_many_arguments)]
+use crate::commitments::Commitments;
+use crate::polycommitments::PolyCommitmentScheme;
 use crate::r1csproof::R1CSSumcheckGens;
+use crate::sparse_mlpoly::{SparseMatEntry, SparseMatPolynomial};
 use crate::unipoly::{CompressedUniPoly, UniPoly};
 use crate::{InputsAssignment, Instance, VarsAssignment};
 
@@ -18,10 +21,10 @@ use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{One, Zero};
+use ark_std::{test_rng, One, UniformRand, Zero};
 use merlin::Transcript;
 
-pub struct CRR1CSGens<G> {
+pub struct CRR1CSGens<G: CurveGroup> {
   gens_sc: R1CSSumcheckGens<G>,
   gens_pc: PolyCommitmentGens<G>,
 }
@@ -34,8 +37,12 @@ impl<G: CurveGroup> CRR1CSGens<G> {
     CRR1CSGens { gens_sc, gens_pc }
   }
 }
+
+pub struct CRR1CSShape<F: PrimeField> {
+  pub inst: Instance<F>,
+}
+
 pub struct CRR1CSInstance<G: CurveGroup> {
-  pub inst: Instance<G::ScalarField>,
   pub input: InputsAssignment<G::ScalarField>,
   pub u: G::ScalarField,
   pub comm_W: G,
@@ -46,7 +53,6 @@ pub struct CRR1CSWitness<F: PrimeField> {
   pub W: VarsAssignment<F>,
   pub E: Vec<F>,
 }
-
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct CRR1CSProof<G: CurveGroup> {
   sc_proof_phase1: SumcheckInstanceProof<G::ScalarField>,
@@ -277,6 +283,7 @@ impl<G: CurveGroup> CRR1CSProof<G> {
   }
 
   pub fn prove(
+    shape: &CRR1CSShape<G::ScalarField>,
     instance: &CRR1CSInstance<G>,
     witness: &CRR1CSWitness<G::ScalarField>,
     gens: &CRR1CSGens<G>,
@@ -289,8 +296,8 @@ impl<G: CurveGroup> CRR1CSProof<G> {
       CRR1CSProof::<G>::protocol_name(),
     );
 
+    let _inst = &shape.inst.inst;
     let CRR1CSInstance {
-      inst: _inst,
       input: _input,
       u,
       comm_W,
@@ -300,7 +307,7 @@ impl<G: CurveGroup> CRR1CSProof<G> {
     let CRR1CSWitness { W: _vars, E } = witness;
 
     let (inst, input, vars) = (
-      &_inst.inst,
+      &_inst,
       _input.assignment.as_slice(),
       _vars.assignment.clone(),
     );
@@ -459,10 +466,7 @@ impl<G: CurveGroup> CRR1CSProof<G> {
     &self,
     num_vars: usize,
     num_cons: usize,
-    input: &[G::ScalarField],
-    u: &G::ScalarField,
-    comm_W: &G,
-    comm_E: &G,
+    instance: &CRR1CSInstance<G>,
     evals: &(G::ScalarField, G::ScalarField, G::ScalarField),
     transcript: &mut Transcript,
     gens: &CRR1CSGens<G>,
@@ -471,6 +475,15 @@ impl<G: CurveGroup> CRR1CSProof<G> {
       transcript,
       CRR1CSProof::<G>::protocol_name(),
     );
+
+    let CRR1CSInstance {
+      input: _input,
+      u,
+      comm_W,
+      comm_E,
+    } = instance;
+
+    let input = _input.assignment.as_slice();
 
     <Transcript as ProofTranscript<G>>::append_scalars(transcript, b"input", input);
     <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"u", u);
@@ -566,5 +579,229 @@ impl<G: CurveGroup> CRR1CSProof<G> {
     assert_eq!(expected_claim_post_phase2, claim_post_phase2);
 
     Ok((rx, ry))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::commitments::Commitments;
+  use crate::Assignment;
+
+  use super::*;
+  use ark_bls12_381::Fr;
+  use ark_bls12_381::G1Projective;
+  use ark_ff::PrimeField;
+  use ark_std::test_rng;
+
+  fn produce_tiny_r1cs<F: PrimeField>() -> (R1CSInstance<F>, Vec<F>, Vec<F>) {
+    // three constraints over five variables Z1, Z2, Z3, Z4, and Z5
+    // rounded to the nearest power of two
+    let num_cons = 128;
+    let num_vars = 256;
+    let num_inputs = 2;
+
+    // encode the above constraints into three matrices
+    let mut A: Vec<(usize, usize, F)> = Vec::new();
+    let mut B: Vec<(usize, usize, F)> = Vec::new();
+    let mut C: Vec<(usize, usize, F)> = Vec::new();
+
+    let one = F::one();
+    // constraint 0 entries
+    // (Z1 + Z2) * I0 - Z3 = 0;
+    A.push((0, 0, one));
+    A.push((0, 1, one));
+    B.push((0, num_vars + 1, one));
+    C.push((0, 2, one));
+
+    // constraint 1 entries
+    // (Z1 + I1) * (Z3) - Z4 = 0
+    A.push((1, 0, one));
+    A.push((1, num_vars + 2, one));
+    B.push((1, 2, one));
+    C.push((1, 3, one));
+    // constraint 3 entries
+    // Z5 * 1 - 0 = 0
+    A.push((2, 4, one));
+    B.push((2, num_vars, one));
+
+    let inst = R1CSInstance::new(num_cons, num_vars, num_inputs, &A, &B, &C);
+
+    // compute a satisfying assignment
+    let mut prng = test_rng();
+    let i0 = F::rand(&mut prng);
+    let i1 = F::rand(&mut prng);
+    let z1 = F::rand(&mut prng);
+    let z2 = F::rand(&mut prng);
+    let z3 = (z1 + z2) * i0; // constraint 1: (Z1 + Z2) * I0 - Z3 = 0;
+    let z4 = (z1 + i1) * z3; // constraint 2: (Z1 + I1) * (Z3) - Z4 = 0
+    let z5 = F::zero(); //constraint 3
+
+    let mut vars = vec![F::zero(); num_vars];
+    vars[0] = z1;
+    vars[1] = z2;
+    vars[2] = z3;
+    vars[3] = z4;
+    vars[4] = z5;
+
+    let mut input = vec![F::zero(); num_inputs];
+    input[0] = i0;
+    input[1] = i1;
+
+    (inst, vars, input)
+  }
+  // This produces a random satisfying structure, instance, witness, and public parameters for testing and benchmarking purposes.
+  pub fn produce_synthetic_crr1cs<G: CurveGroup>(
+    num_cons: usize,
+    num_vars: usize,
+    num_inputs: usize,
+  ) -> (
+    CRR1CSShape<G::ScalarField>,
+    CRR1CSInstance<G>,
+    CRR1CSWitness<G::ScalarField>,
+    CRR1CSGens<G>,
+  ) {
+    // compute random satisfying assignment for r1cs
+    let (inst, _vars, _inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
+    // the `Instance` initializer may have padded the variable lengths
+    let (num_cons, num_vars, num_inputs) = (
+      inst.inst.get_num_cons(),
+      inst.inst.get_num_vars(),
+      inst.inst.get_num_inputs(),
+    );
+    let shape = CRR1CSShape { inst };
+
+    // compute the error term needed to make the instance satisfiable again
+    // we had Az \circ Bz = Cz; thus, setting E = Az \circ Bz - u Cz = (1 - u) Cz
+
+    // Note that Z is organized as [vars, 1, inputs] here because that's how `produce_synthetic_r1cs` works.
+    let mut Z = _vars.assignment;
+    Z.extend(&vec![G::ScalarField::one()]);
+    Z.extend(_inputs.assignment);
+
+    // We want Z to be organized as [u, inputs, vars], so we relabel the inputs and vars without changing Z.
+    let u = Z[0];
+    let inputs = Assignment::new(&Z[1..num_inputs + 1]).unwrap();
+    let vars = Assignment::new(&Z[num_inputs + 1..]).unwrap();
+
+    let (poly_A, poly_B, poly_C) =
+      shape
+        .inst
+        .inst
+        .multiply_vec(num_vars + num_inputs + 1, num_cons, Z.as_slice());
+
+    let mut E = vec![G::ScalarField::zero(); num_cons];
+    for i in 0..num_cons {
+      let AB_val = poly_A[i] * poly_B[i];
+      let C_val = poly_C[i];
+      E[i] = AB_val - u * C_val;
+    }
+
+    // compute commitments to the vectors `vars` and `E`.
+    let gens = CRR1CSGens::<G>::new(b"test-m", num_cons, num_vars);
+    let comm_W = Commitments::batch_commit(
+      vars.assignment.as_slice(),
+      &G::ScalarField::zero(),
+      &gens.gens_pc.gens.gens_n,
+    );
+    let comm_E = Commitments::batch_commit(
+      E.as_slice(),
+      &G::ScalarField::zero(),
+      &gens.gens_pc.gens.gens_n,
+    );
+
+    (
+      shape,
+      CRR1CSInstance::<G> {
+        input: inputs.clone(),
+        u,
+        comm_W,
+        comm_E,
+      },
+      CRR1CSWitness::<G::ScalarField> {
+        W: vars.clone(),
+        E: E.clone(),
+      },
+      gens,
+    )
+  }
+
+  #[test]
+  fn test_tiny_r1cs() {
+    test_tiny_r1cs_helper::<Fr>()
+  }
+
+  fn test_tiny_r1cs_helper<F: PrimeField>() {
+    let (inst, vars, input) = tests::produce_tiny_r1cs::<F>();
+    let is_sat = inst.is_sat(&vars, &input);
+    assert!(is_sat);
+  }
+
+  #[test]
+  fn test_synthetic_r1cs() {
+    test_synthetic_r1cs_helper::<Fr>()
+  }
+
+  fn test_synthetic_r1cs_helper<F: PrimeField>() {
+    let (inst, vars, input) = R1CSInstance::<F>::produce_synthetic_r1cs(1024, 1024, 10);
+    let is_sat = inst.is_sat(&vars, &input);
+    assert!(is_sat);
+  }
+
+  #[test]
+  pub fn check_crr1cs_proof() {
+    check_crr1cs_proof_helper::<G1Projective>()
+  }
+  // For now, we just test this with a strict R1CS instance (so u = 1 and E = 0).
+  fn check_crr1cs_proof_helper<G: CurveGroup>() {
+    let num_vars = 1024;
+    let num_cons = num_vars;
+    let num_inputs = 10;
+    let (inst, vars, input) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
+    let gens = CRR1CSGens::<G>::new(b"test-m", num_cons, num_vars);
+
+    let mut random_tape = RandomTape::new(b"proof");
+    let mut prover_transcript = Transcript::new(b"example");
+
+    let comm_W_gens = &gens.gens_pc.gens.gens_n;
+    let comm_W = Commitments::batch_commit(
+      vars.assignment.as_slice(),
+      &G::ScalarField::zero(),
+      comm_W_gens,
+    );
+    let shape = CRR1CSShape { inst };
+    let instance = CRR1CSInstance {
+      input,
+      u: G::ScalarField::one(),
+      comm_W,
+      comm_E: G::zero(),
+    };
+
+    let witness = CRR1CSWitness {
+      W: vars,
+      E: vec![G::ScalarField::zero(); num_cons],
+    };
+
+    let (proof, rx, ry) = CRR1CSProof::prove(
+      &shape,
+      &instance,
+      &witness,
+      &gens,
+      &mut prover_transcript,
+      &mut random_tape,
+    );
+
+    let inst_evals = shape.inst.inst.evaluate(&rx, &ry);
+
+    let mut verifier_transcript = Transcript::new(b"example");
+    assert!(proof
+      .verify(
+        shape.inst.inst.get_num_vars(),
+        shape.inst.inst.get_num_cons(),
+        &instance,
+        &inst_evals,
+        &mut verifier_transcript,
+        &gens,
+      )
+      .is_ok());
   }
 }

@@ -6,7 +6,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use merlin::Transcript;
 
 use crate::{
-  crr1csproof::{CRR1CSGens, CRR1CSInstance, CRR1CSProof, CRR1CSWitness},
+  crr1csproof::{CRR1CSGens, CRR1CSInstance, CRR1CSProof, CRR1CSShape, CRR1CSWitness},
   errors::ProofVerifyError,
   r1csinstance::{R1CSCommitmentGens, R1CSEvalProof},
   random::RandomTape,
@@ -81,6 +81,7 @@ impl<G: CurveGroup> SNARK<G> {
 
   /// A method to produce a SNARK proof of the satisfiability of an R1CS instance
   pub fn prove(
+    shape: &CRR1CSShape<G::ScalarField>,
     instance: &CRR1CSInstance<G>,
     witness: CRR1CSWitness<G::ScalarField>,
     comm: &ComputationCommitment<G>,
@@ -90,7 +91,7 @@ impl<G: CurveGroup> SNARK<G> {
   ) -> Self {
     let timer_prove = Timer::new("SNARK::prove");
 
-    let CRR1CSInstance { inst, .. } = instance;
+    let inst = &shape.inst;
     let CRR1CSWitness { W: vars, E } = witness;
 
     // we create a Transcript object seeded with a random F
@@ -118,6 +119,7 @@ impl<G: CurveGroup> SNARK<G> {
         let witness = CRR1CSWitness::<G::ScalarField> { W: padded_vars, E };
 
         CRR1CSProof::prove(
+          shape,
           instance,
           &witness,
           &gens.gens_r1cs_sat,
@@ -187,7 +189,6 @@ impl<G: CurveGroup> SNARK<G> {
     );
 
     let CRR1CSInstance {
-      inst: _,
       input,
       u,
       comm_W,
@@ -202,10 +203,7 @@ impl<G: CurveGroup> SNARK<G> {
     let (rx, ry) = self.r1cs_sat_proof.verify(
       comm.comm.get_num_vars(),
       comm.comm.get_num_cons(),
-      &input.assignment,
-      u,
-      comm_W,
-      comm_E,
+      &instance,
       &self.inst_evals,
       transcript,
       &gens.gens_r1cs_sat,
