@@ -23,7 +23,8 @@ use crate::{
     commitment::CommitmentScheme,
     gadgets::multifold::{multifold, primary, secondary, NonNativeAffineVar},
     multifold::{
-        nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance, SecondaryCircuit as _},
+        self,
+        nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
     },
 };
@@ -137,7 +138,7 @@ where
             NovaAugmentedCircuitInput::Base { vk, z_0 } => {
                 let shape =
                     R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
-                let shape_secondary = SecondaryCircuit::<G1>::setup_shape::<G2>()?;
+                let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
 
                 let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
                 let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
@@ -155,7 +156,7 @@ where
                     U,
                     U_secondary,
                     u,
-                    proof: NIMFSProof::zero::<SecondaryCircuit<G1>>(),
+                    proof: NIMFSProof::default(),
                 }
             }
             NovaAugmentedCircuitInput::NonBase(non_base) => non_base.clone(),
@@ -187,7 +188,7 @@ where
         let u_secondary = (
             secondary::ProofVar::new_variable(
                 cs.clone(),
-                || Ok(&input.proof.commitment_E_proof),
+                || Ok(&input.proof.commitment_E_proof[0]),
                 mode,
             )?,
             secondary::ProofVar::new_variable(

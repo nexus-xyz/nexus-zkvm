@@ -10,7 +10,7 @@ use super::{
     r1cs::{self, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
 };
 
-pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(250);
+pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(127);
 
 pub struct NIFSProof<G: PrimeGroup, C: CommitmentScheme<G>, RO> {
     pub(crate) commitment_T: C::Commitment,

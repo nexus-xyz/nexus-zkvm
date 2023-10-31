@@ -24,7 +24,7 @@ jobs:
         with:
           toolchain: stable
       - run: cargo build --release
-      - run: cd supernova-benches && cargo bench --no-run
+      - run: cd supernova-benches && cargo bench --profile=release --no-run
 
   cargo-clippy:
     runs-on: ubuntu-latest

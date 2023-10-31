@@ -17,7 +17,7 @@ use crate::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness, SecondaryCircuit,
+            RelaxedR1CSWitness,
         },
     },
 };
@@ -69,7 +69,7 @@ where
         cs.finalize();
 
         let shape = R1CSShape::from(cs);
-        let shape_secondary = multifold::secondary::Circuit::<G1>::setup_shape::<G2>()?;
+        let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
 
         let pp = C1::setup(shape.num_vars.max(shape.num_constraints));
         let pp_secondary = C2::setup(
@@ -243,7 +243,7 @@ where
                 z_i,
             } = non_base;
 
-            let proof = NIMFSProof::<G1, G2, C1, C2, RO>::prove::<multifold::secondary::Circuit<G1>>(
+            let proof = NIMFSProof::<G1, G2, C1, C2, RO>::prove(
                 &params.pp,
                 &params.pp_secondary,
                 &params.ro_config,

@@ -26,8 +26,9 @@ use crate::{
         multifold, multifold_with_relaxed, primary, secondary, NonNativeAffineVar,
     },
     multifold::{
-        nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance, SecondaryCircuit as _},
-        secondary::relaxed::Circuit as SecondaryCircuit,
+        self,
+        nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
+        secondary::Circuit as SecondaryCircuit,
     },
 };
 
@@ -205,7 +206,10 @@ where
     // proof
     commitment_T: NonNativeAffineVar<G1>,
     commitment_T_secondary: ProjectiveVar<G2, FpVar<G2::BaseField>>,
-    proof_secondary: (secondary::ProofVar<G2, C2>, secondary::ProofVar<G2, C2>),
+    proof_secondary: (
+        [secondary::ProofVar<G2, C2>; 2],
+        secondary::ProofVar<G2, C2>,
+    ),
 }
 
 impl<G1, G2, C1, C2, RO> AllocVar<PCDNodeInput<G1, G2, C1, C2, RO>, G1::ScalarField>
@@ -245,7 +249,7 @@ where
         let u_secondary = (
             secondary::ProofVar::new_variable(
                 cs.clone(),
-                || Ok(&input.proof.commitment_E_proof),
+                || Ok(&input.proof.commitment_E_proof[0]),
                 mode,
             )?,
             secondary::ProofVar::new_variable(
@@ -293,7 +297,7 @@ where
             NovaAugmentedCircuitInput::Base { vk, i, z_i } => {
                 let shape =
                     R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
-                let shape_secondary = SecondaryCircuit::<G1>::setup_shape::<G2>()?;
+                let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
 
                 let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
                 let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
@@ -308,12 +312,12 @@ where
                     U,
                     U_secondary,
                     u,
-                    proof: NIMFSProof::zero::<SecondaryCircuit<G1>>(),
+                    proof: NIMFSProof::default(),
                 };
                 NovaAugmentedCircuitNonBaseInput {
                     vk: *vk,
                     nodes: [node.clone(), node],
-                    proof: NIMFSProof::zero::<SecondaryCircuit<G1>>(),
+                    proof: NIMFSProof::default(),
                     i: *i,
                     j: *i,
                     k: *i + G1::ScalarField::ONE,
@@ -361,11 +365,18 @@ where
             mode,
         )?;
         let u_secondary = (
-            secondary::ProofVar::new_variable(
-                cs.clone(),
-                || Ok(&input.proof.commitment_E_proof),
-                mode,
-            )?,
+            [
+                secondary::ProofVar::new_variable(
+                    cs.clone(),
+                    || Ok(&input.proof.commitment_E_proof[0]),
+                    mode,
+                )?,
+                secondary::ProofVar::new_variable(
+                    cs.clone(),
+                    || Ok(&input.proof.commitment_E_proof[1]),
+                    mode,
+                )?,
+            ],
             secondary::ProofVar::new_variable(
                 cs.clone(),
                 || Ok(&input.proof.commitment_W_proof),

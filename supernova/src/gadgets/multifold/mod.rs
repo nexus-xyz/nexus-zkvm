@@ -4,8 +4,11 @@ use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeW
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
-    boolean::Boolean, eq::EqGadget, fields::fp::FpVar,
-    groups::curves::short_weierstrass::ProjectiveVar, R1CSVar,
+    boolean::Boolean,
+    eq::EqGadget,
+    fields::{fp::FpVar, FieldVar},
+    groups::curves::short_weierstrass::ProjectiveVar,
+    R1CSVar, ToBitsGadget,
 };
 use ark_relations::r1cs::SynthesisError;
 
@@ -67,7 +70,6 @@ where
         comm_E_secondary_instance,
         &U.commitment_E,
         commitment_T,
-        None,
     )?;
     let (r_0_secondary, g_out) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
     r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
@@ -95,7 +97,6 @@ where
         comm_W_secondary_instance,
         &U.commitment_W,
         &u.commitment_W,
-        None,
     )?;
     let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
     r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
@@ -123,13 +124,13 @@ where
 
     let U_secondary = U_secondary.fold(&[
         (
-            (&comm_E_secondary_instance).into(),
+            (&comm_E_secondary_instance, None),
             _commitment_T,
             r_1,
             r_1_bits,
         ),
         (
-            (&comm_W_secondary_instance).into(),
+            (&comm_W_secondary_instance, None),
             __commitment_T,
             r_2,
             r_2_bits,
@@ -148,7 +149,10 @@ pub fn multifold_with_relaxed<G1, G2, C1, C2, RO>(
     U2_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     commitment_T: &NonNativeAffineVar<G1>,
     commitment_T_secondary: &ProjectiveVar<G2, FpVar<G2::BaseField>>,
-    proof_secondary: (&secondary::ProofVar<G2, C2>, &secondary::ProofVar<G2, C2>),
+    proof_secondary: (
+        &[secondary::ProofVar<G2, C2>; 2], // commitment to E requires 2 proofs.
+        &secondary::ProofVar<G2, C2>,
+    ),
     should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
     (
@@ -182,25 +186,23 @@ where
     let r_0 = &r_0[0];
     let r_0_bits = &r_0_bits[0];
     let r_0_scalar = Boolean::le_bits_to_fp_var(r_0_bits)?;
+    let r_0_scalar_square = r_0_scalar.square()?;
 
     let secondary::ProofVar {
-        U: comm_E_secondary_instance,
-        commitment_T: _commitment_T,
-    } = &proof_secondary.0;
+        U: comm_E_secondary_instance_0,
+        commitment_T: _commitment_T_0,
+    } = &proof_secondary.0[0];
     // The rest of the secondary public input is reconstructed from primary instances.
-    let comm_E_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
-        comm_E_secondary_instance,
+    let comm_E_secondary_instance_0 = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_E_secondary_instance_0,
         &U1.commitment_E,
         commitment_T,
-        Some(&U2.commitment_E),
     )?;
-    let (r_0_secondary, g_out) = comm_E_secondary_instance.parse_secondary_io::<G1>()?;
+    let (r_0_secondary, g_out) = comm_E_secondary_instance_0.parse_secondary_io::<G1>()?;
     r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
 
-    let commitment_E = g_out;
-
-    random_oracle.absorb(&comm_E_secondary_instance)?;
-    random_oracle.absorb(&_commitment_T)?;
+    random_oracle.absorb(&comm_E_secondary_instance_0)?;
+    random_oracle.absorb(&_commitment_T_0)?;
     random_oracle.absorb(&r_0_scalar)?;
 
     let (r_1, r_1_bits) = random_oracle
@@ -211,23 +213,28 @@ where
     let r_1_bits = &r_1_bits[0];
 
     let secondary::ProofVar {
-        U: comm_W_secondary_instance,
-        commitment_T: __commitment_T,
-    } = &proof_secondary.1;
-    // See the above comment for `comm_E_secondary_instance`.
-    let comm_W_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
-        comm_W_secondary_instance,
-        &U1.commitment_W,
-        &U2.commitment_W,
-        None, // g3 is already zero.
+        U: comm_E_secondary_instance_1,
+        commitment_T: _commitment_T_1,
+    } = &proof_secondary.0[1];
+    let comm_E_secondary_instance_1 = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_E_secondary_instance_1,
+        &g_out,
+        &U2.commitment_E,
     )?;
-    let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
-    r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
+    let (r_0_secondary, g_out) = comm_E_secondary_instance_1.parse_secondary_io::<G1>()?;
+    // TODO: `r` shouldn't be contained in secondary vars, reconstruct it from ro output.
+    for (r_square_bit, r_0_bit) in r_0_scalar_square
+        .to_bits_le()?
+        .iter()
+        .zip(&r_0_secondary.to_bits_le()?)
+    {
+        r_square_bit.conditional_enforce_equal(r_0_bit, should_enforce)?;
+    }
 
-    let commitment_W = g_out;
+    let commitment_E = g_out;
 
-    random_oracle.absorb(&comm_W_secondary_instance)?;
-    random_oracle.absorb(&__commitment_T)?;
+    random_oracle.absorb(&comm_E_secondary_instance_1)?;
+    random_oracle.absorb(&_commitment_T_1)?;
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
     let (r_2, r_2_bits) = random_oracle
@@ -236,6 +243,32 @@ where
         ])?;
     let r_2 = &r_2[0];
     let r_2_bits = &r_2_bits[0];
+
+    let secondary::ProofVar {
+        U: comm_W_secondary_instance,
+        commitment_T: __commitment_T,
+    } = &proof_secondary.1;
+    // See the above comment for `comm_E_secondary_instance`.
+    let comm_W_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
+        comm_W_secondary_instance,
+        &U1.commitment_W,
+        &U2.commitment_W,
+    )?;
+    let (r_0_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
+    r_0_secondary.conditional_enforce_equal(r_0, should_enforce)?;
+
+    let commitment_W = g_out;
+
+    random_oracle.absorb(&comm_W_secondary_instance)?;
+    random_oracle.absorb(&__commitment_T)?;
+    random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_2)?)?;
+
+    let (r_3, r_3_bits) = random_oracle
+        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+            SQUEEZE_ELEMENTS_BIT_SIZE,
+        ])?;
+    let r_3 = &r_3[0];
+    let r_3_bits = &r_3_bits[0];
 
     let folded_U = primary::RelaxedR1CSInstanceVar::<G1, C1>::new(
         commitment_W,
@@ -248,20 +281,26 @@ where
 
     let U1_secondary = U_secondary.fold(&[
         (
-            (&comm_E_secondary_instance).into(),
-            _commitment_T,
+            (&comm_E_secondary_instance_0, None),
+            _commitment_T_0,
             r_1,
             &r_1_bits[..],
         ),
         (
-            (&comm_W_secondary_instance).into(),
-            __commitment_T,
+            (&comm_E_secondary_instance_1, None),
+            _commitment_T_1,
             r_2,
             r_2_bits,
         ),
+        (
+            (&comm_W_secondary_instance, None),
+            __commitment_T,
+            r_3,
+            r_3_bits,
+        ),
     ])?;
 
-    random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_2)?)?;
+    random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_3)?)?;
     random_oracle.absorb(&U1_secondary)?;
     random_oracle.absorb(&U2_secondary)?;
     random_oracle.absorb(&commitment_T_secondary)?;
@@ -273,8 +312,12 @@ where
     let r = &r[0];
     let r_bits = &r_bits[0];
 
-    let U_secondary =
-        U1_secondary.fold(&[(U2_secondary.into(), commitment_T_secondary, r, &r_bits[..])])?;
+    let U_secondary = U1_secondary.fold(&[(
+        (&U2_secondary.into(), Some(&U2_secondary.commitment_E)),
+        commitment_T_secondary,
+        r,
+        &r_bits[..],
+    )])?;
 
     Ok((folded_U, U_secondary))
 }
@@ -284,7 +327,7 @@ mod tests {
     use super::*;
     use crate::{
         multifold::{
-            nimfs::{NIMFSProof, RelaxedR1CSInstance, RelaxedR1CSWitness, SecondaryCircuit},
+            nimfs::{NIMFSProof, RelaxedR1CSInstance, RelaxedR1CSWitness},
             secondary as multifold_secondary,
         },
         pedersen::PedersenCommitment,
@@ -323,7 +366,7 @@ mod tests {
         let vk = G1::ScalarField::ONE;
 
         let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
-        let shape_secondary = multifold_secondary::Circuit::<G1>::setup_shape::<G2>()?;
+        let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
 
@@ -334,9 +377,7 @@ mod tests {
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
 
         let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
-                multifold_secondary::Circuit<G1>,
-            >(
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp,
                 &pp_secondary,
                 &config,
@@ -363,7 +404,7 @@ mod tests {
 
         let vk_cs = FpVar::new_input(cs.clone(), || Ok(vk))?;
         let comm_E_proof =
-            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_E_proof))?;
+            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(&comm_E_proof[0]))?;
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
         let proof_cs = (&comm_E_proof, &comm_W_proof);
@@ -396,9 +437,7 @@ mod tests {
         let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
 
         let (proof, (folded_U_2, folded_W_2), (folded_U_secondary_2, folded_W_secondary_2)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
-                multifold_secondary::Circuit<G1>,
-            >(
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp,
                 &pp_secondary,
                 &config,
@@ -426,7 +465,7 @@ mod tests {
 
         let vk_cs = FpVar::new_input(cs.clone(), || Ok(vk))?;
         let comm_E_proof =
-            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_E_proof))?;
+            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(&comm_E_proof[0]))?;
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
         let proof_cs = (&comm_E_proof, &comm_W_proof);
@@ -479,13 +518,12 @@ mod tests {
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
     {
-        use multifold_secondary::relaxed as secondary_relaxed;
         let config = poseidon_config();
 
         let vk = G1::ScalarField::ONE;
 
         let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
-        let shape_secondary = secondary_relaxed::Circuit::<G1>::setup_shape::<G2>()?;
+        let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
 
@@ -495,9 +533,7 @@ mod tests {
         let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
         let (_, (U2, W2), (U2_secondary, W2_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
-                secondary_relaxed::Circuit<G1>,
-            >(
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp,
                 &pp_secondary,
                 &config,
@@ -555,8 +591,10 @@ mod tests {
         let comm_W_proof = &proof.commitment_W_proof;
 
         let vk_cs = FpVar::new_input(cs.clone(), || Ok(vk))?;
-        let comm_E_proof =
-            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_E_proof))?;
+        let comm_E_proof = [
+            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(&comm_E_proof[0]))?,
+            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(&comm_E_proof[1]))?,
+        ];
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
         let proof_cs = (&comm_E_proof, &comm_W_proof);

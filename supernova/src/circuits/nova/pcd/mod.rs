@@ -18,9 +18,8 @@ use crate::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness, SecondaryCircuit as _,
+            RelaxedR1CSWitness,
         },
-        secondary::relaxed::Circuit as SecondaryCircuit,
     },
 };
 
@@ -71,7 +70,7 @@ where
         cs.finalize();
 
         let shape = R1CSShape::from(cs);
-        let shape_secondary = SecondaryCircuit::<G1>::setup_shape::<G2>()?;
+        let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
 
         let pp = C1::setup(shape.num_vars.max(shape.num_constraints));
         let pp_secondary = C2::setup(
@@ -240,29 +239,27 @@ where
         .entered();
 
         // proof left node
-        let (proof_left, (U_l, W_l), (U_l_secondary, W_l_secondary)) =
-            NIMFSProof::prove::<SecondaryCircuit<G1>>(
-                &params.pp,
-                &params.pp_secondary,
-                &params.ro_config,
-                &params.digest,
-                (&params.shape, &params.shape_secondary),
-                (&left_node.U, &left_node.W),
-                (&left_node.U_secondary, &left_node.W_secondary),
-                (&left_node.u, &left_node.w),
-            )?;
+        let (proof_left, (U_l, W_l), (U_l_secondary, W_l_secondary)) = NIMFSProof::prove(
+            &params.pp,
+            &params.pp_secondary,
+            &params.ro_config,
+            &params.digest,
+            (&params.shape, &params.shape_secondary),
+            (&left_node.U, &left_node.W),
+            (&left_node.U_secondary, &left_node.W_secondary),
+            (&left_node.u, &left_node.w),
+        )?;
         // proof right node
-        let (proof_right, (U_r, W_r), (U_r_secondary, W_r_secondary)) =
-            NIMFSProof::prove::<SecondaryCircuit<G1>>(
-                &params.pp,
-                &params.pp_secondary,
-                &params.ro_config,
-                &params.digest,
-                (&params.shape, &params.shape_secondary),
-                (&right_node.U, &right_node.W),
-                (&right_node.U_secondary, &right_node.W_secondary),
-                (&right_node.u, &right_node.w),
-            )?;
+        let (proof_right, (U_r, W_r), (U_r_secondary, W_r_secondary)) = NIMFSProof::prove(
+            &params.pp,
+            &params.pp_secondary,
+            &params.ro_config,
+            &params.digest,
+            (&params.shape, &params.shape_secondary),
+            (&right_node.U, &right_node.W),
+            (&right_node.U_secondary, &right_node.W_secondary),
+            (&right_node.u, &right_node.w),
+        )?;
 
         // proof resulting node
         let (proof, (U, W), (U_secondary, W_secondary)) = NIMFSProof::prove_with_relaxed(

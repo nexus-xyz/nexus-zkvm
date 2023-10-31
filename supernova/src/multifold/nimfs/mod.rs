@@ -16,8 +16,6 @@ use crate::{
 
 pub(crate) mod relaxed;
 
-pub(crate) use secondary::SecondaryCircuit;
-
 pub use crate::nifs::{NIFSProof, SQUEEZE_ELEMENTS_BIT_SIZE};
 
 pub(crate) type R1CSShape<G> = r1cs::R1CSShape<Projective<G>>;
@@ -35,7 +33,7 @@ pub struct NIMFSProof<
     RO,
 > {
     pub(crate) commitment_T: C1::Commitment,
-    pub(crate) commitment_E_proof: secondary::Proof<G2, C2>,
+    pub(crate) commitment_E_proof: [secondary::Proof<G2, C2>; 2],
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
     pub(crate) proof_secondary: NIFSProof<Projective<G2>, C2, RO>,
 }
@@ -57,7 +55,7 @@ where
     }
 }
 
-impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
+impl<G1, G2, C1, C2, RO> Default for NIMFSProof<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -65,11 +63,11 @@ where
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     G1::BaseField: PrimeField,
 {
-    pub fn zero<SC: SecondaryCircuit<G1>>() -> Self {
+    fn default() -> Self {
         Self {
             commitment_T: Projective::zero(),
-            commitment_E_proof: secondary::Proof::zero(SC::NUM_IO),
-            commitment_W_proof: secondary::Proof::zero(SC::NUM_IO),
+            commitment_E_proof: [secondary::Proof::default(), secondary::Proof::default()],
+            commitment_W_proof: secondary::Proof::default(),
             proof_secondary: NIFSProof::default(),
         }
     }
@@ -85,7 +83,7 @@ where
     G2::BaseField: PrimeField + Absorb,
     RO: CryptographicSponge,
 {
-    pub fn prove<SC: SecondaryCircuit<G1>>(
+    pub fn prove(
         pp: &C1::PP,
         pp_secondary: &C2::PP,
         config: &RO::Config,
@@ -121,21 +119,19 @@ where
         let folded_W = W.fold(w, &T, &r_0_scalar)?;
 
         // each trace is (U, W)
-        let E_comm_trace = SC::synthesize::<G2, C2>(
-            secondary::relaxed::Circuit {
+        let E_comm_trace = secondary::synthesize::<G1, G2, C2>(
+            secondary::Circuit {
                 g1: U.commitment_E,
                 g2: _commitment_T,
-                g3: Projective::zero(),
                 g_out: folded_U.commitment_E,
                 r: r_0,
             },
             pp_secondary,
         )?;
-        let W_comm_trace = SC::synthesize::<G2, C2>(
-            secondary::relaxed::Circuit {
+        let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
+            secondary::Circuit {
                 g1: U.commitment_W,
                 g2: u.commitment_W,
-                g3: Projective::zero(),
                 g_out: folded_U.commitment_W,
                 r: r_0,
             },
@@ -196,7 +192,7 @@ where
 
         let proof = Self {
             commitment_T: _commitment_T,
-            commitment_E_proof,
+            commitment_E_proof: [commitment_E_proof, secondary::Proof::default()],
             commitment_W_proof,
             proof_secondary: NIFSProof::default(),
         };
@@ -229,7 +225,7 @@ where
         let secondary::Proof {
             U: comm_E_proof,
             commitment_T,
-        } = &self.commitment_E_proof;
+        } = &self.commitment_E_proof[0];
         let pub_io = comm_E_proof
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
@@ -318,7 +314,7 @@ mod tests {
         let vk = G1::ScalarField::ONE;
 
         let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
-        let shape_secondary = secondary::Circuit::<G1>::setup_shape::<G2>()?;
+        let shape_secondary = secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
 
@@ -329,9 +325,7 @@ mod tests {
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
 
         let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
-                secondary::Circuit<G1>,
-            >(
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp,
                 &pp_secondary,
                 &config,
@@ -355,9 +349,7 @@ mod tests {
         let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
 
         let (proof, (_folded_U, folded_W), (_folded_U_secondary, _folded_W_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove::<
-                secondary::Circuit<G1>,
-            >(
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp,
                 &pp_secondary,
                 &config,
