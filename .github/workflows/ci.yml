@@ -23,7 +23,13 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo build
+      - name: checkout
+        run: .github/checkout.sh
+        env:
+          deploy_key: ${{ secrets.deploy_key }}
+          DEPLOY: ${{ secrets.DEPLOY_KEY }}
+      - name: build
+        run: cargo build
 
   cargo-clippy:
     runs-on: ubuntu-latest
