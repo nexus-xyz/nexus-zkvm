@@ -1,8 +1,7 @@
 #!/bin/sh
 
 set -e
-echo $deploy_key
+eval `ssh-agent -s`
+echo $deploy_key | ssh-add -
 echo
-
-env
-
+cargo update
