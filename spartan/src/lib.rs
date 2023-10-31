@@ -17,6 +17,7 @@ mod committed_relaxed_snark;
 mod crr1csproof;
 mod dense_mlpoly;
 mod errors;
+mod hyrax;
 mod math;
 mod nizk;
 mod polycommitments;

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// This is mostly a copy of the SNARK implementation in lib.rs, with minor modifications to work with committed relaxed R1CS.
 use core::cmp::max;
 
@@ -8,20 +9,21 @@ use merlin::Transcript;
 use crate::{
   crr1csproof::{CRR1CSGens, CRR1CSInstance, CRR1CSProof, CRR1CSShape, CRR1CSWitness},
   errors::ProofVerifyError,
+  polycommitments::PolyCommitmentScheme,
   r1csinstance::{R1CSCommitmentGens, R1CSEvalProof},
   random::RandomTape,
   timer::Timer,
   transcript::{AppendToTranscript, ProofTranscript},
-  ComputationCommitment, ComputationDecommitment, InputsAssignment, Instance,
+  ComputationCommitment, ComputationDecommitment, Instance,
 };
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
-pub struct SNARKGens<G> {
-  gens_r1cs_sat: CRR1CSGens<G>,
+pub struct SNARKGens<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  gens_r1cs_sat: CRR1CSGens<G, PC>,
   gens_r1cs_eval: R1CSCommitmentGens<G>,
 }
 
-impl<G: CurveGroup> SNARKGens<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
   pub fn new(num_cons: usize, num_vars: usize, num_inputs: usize, num_nz_entries: usize) -> Self {
@@ -33,7 +35,7 @@ impl<G: CurveGroup> SNARKGens<G> {
       num_vars_padded
     };
 
-    let gens_r1cs_sat = CRR1CSGens::<G>::new(b"gens_r1cs_sat", num_cons, num_vars_padded);
+    let gens_r1cs_sat = CRR1CSGens::<G, PC>::new(b"gens_r1cs_sat", num_cons, num_vars_padded);
     let gens_r1cs_eval = R1CSCommitmentGens::new(
       b"gens_r1cs_eval",
       num_cons,
@@ -51,13 +53,13 @@ impl<G: CurveGroup> SNARKGens<G> {
 /// `SNARK` holds a proof produced by Spartan SNARK
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
 #[allow(clippy::upper_case_acronyms)]
-pub struct SNARK<G: CurveGroup> {
-  r1cs_sat_proof: CRR1CSProof<G>,
+pub struct SNARK<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  r1cs_sat_proof: CRR1CSProof<G, PC>,
   inst_evals: (G::ScalarField, G::ScalarField, G::ScalarField),
   r1cs_eval_proof: R1CSEvalProof<G>,
 }
 
-impl<G: CurveGroup> SNARK<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
   fn protocol_name() -> &'static [u8] {
     b"Spartan SNARK proof"
   }
@@ -65,7 +67,7 @@ impl<G: CurveGroup> SNARK<G> {
   /// A public computation to create a commitment to an R1CS instance
   pub fn encode(
     inst: &Instance<G::ScalarField>,
-    gens: &SNARKGens<G>,
+    gens: &SNARKGens<G, PC>,
   ) -> (
     ComputationCommitment<G>,
     ComputationDecommitment<G::ScalarField>,
@@ -82,11 +84,11 @@ impl<G: CurveGroup> SNARK<G> {
   /// A method to produce a SNARK proof of the satisfiability of an R1CS instance
   pub fn prove(
     shape: &CRR1CSShape<G::ScalarField>,
-    instance: &CRR1CSInstance<G>,
+    instance: &CRR1CSInstance<G, PC>,
     witness: CRR1CSWitness<G::ScalarField>,
     comm: &ComputationCommitment<G>,
     decomm: &ComputationDecommitment<G::ScalarField>,
-    gens: &SNARKGens<G>,
+    gens: &SNARKGens<G, PC>,
     transcript: &mut Transcript,
   ) -> Self {
     let timer_prove = Timer::new("SNARK::prove");
@@ -96,10 +98,10 @@ impl<G: CurveGroup> SNARK<G> {
 
     // we create a Transcript object seeded with a random F
     // to aid the prover produce its randomness
-    let mut random_tape = RandomTape::<G>::new(b"proof");
+    let mut random_tape = Some(RandomTape::<G>::new(b"proof"));
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      SNARK::<G>::protocol_name(),
+      SNARK::<G, PC>::protocol_name(),
     );
     comm.comm.append_to_transcript(b"comm", transcript);
 
@@ -156,7 +158,7 @@ impl<G: CurveGroup> SNARK<G> {
         &inst_evals,
         &gens.gens_r1cs_eval,
         transcript,
-        &mut random_tape,
+        &mut random_tape.unwrap(),
       );
 
       let mut proof_encoded = vec![];
@@ -178,22 +180,17 @@ impl<G: CurveGroup> SNARK<G> {
   pub fn verify(
     &self,
     comm: &ComputationCommitment<G>,
-    instance: &CRR1CSInstance<G>,
+    instance: &CRR1CSInstance<G, PC>,
     transcript: &mut Transcript,
-    gens: &SNARKGens<G>,
+    gens: &SNARKGens<G, PC>,
   ) -> Result<(), ProofVerifyError> {
     let timer_verify = Timer::new("SNARK::verify");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      SNARK::<G>::protocol_name(),
+      SNARK::<G, PC>::protocol_name(),
     );
 
-    let CRR1CSInstance {
-      input,
-      u,
-      comm_W,
-      comm_E,
-    } = instance;
+    let CRR1CSInstance { input, .. } = instance;
 
     // append a commitment to the computation to the transcript
     comm.comm.append_to_transcript(b"comm", transcript);
@@ -203,7 +200,7 @@ impl<G: CurveGroup> SNARK<G> {
     let (rx, ry) = self.r1cs_sat_proof.verify(
       comm.comm.get_num_vars(),
       comm.comm.get_num_cons(),
-      &instance,
+      instance,
       &self.inst_evals,
       transcript,
       &gens.gens_r1cs_sat,

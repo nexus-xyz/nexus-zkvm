@@ -6,7 +6,7 @@ use rand_chacha::ChaCha20Rng;
 use sha3::Shake256;
 use std::io::Read;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MultiCommitGens<G> {
   pub n: usize,
   pub G: Vec<G>,

@@ -22,7 +22,7 @@ pub struct DensePolynomial<F> {
   len: usize,
   Z: Vec<F>, // evaluations of the polynomial in all the 2^num_vars Boolean inputs
 }
-
+#[derive(Clone)]
 pub struct PolyCommitmentGens<G> {
   pub gens: DotProductProofGens<G>,
 }
@@ -37,7 +37,7 @@ impl<G: CurveGroup> PolyCommitmentGens<G> {
 }
 
 pub struct PolyCommitmentBlinds<F> {
-  blinds: Vec<F>,
+  pub blinds: Vec<F>,
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
