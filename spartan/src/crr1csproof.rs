@@ -210,7 +210,6 @@ impl<F: PrimeField> SumcheckInstanceProof<F> {
       e = poly.evaluate(&r_j);
       cubic_polys.push(poly.compress());
     }
-
     (
       SumcheckInstanceProof::new(cubic_polys),
       r,
@@ -237,14 +236,13 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     Vec<G::ScalarField>,
     Vec<G::ScalarField>,
   ) {
-    let relaxed_comb_func = |poly_A_comp: &G::ScalarField,
-                             poly_B_comp: &G::ScalarField,
-                             poly_C_comp: &G::ScalarField,
-                             poly_D_comp: &G::ScalarField,
-                             poly_E_comp: &G::ScalarField|
-     -> G::ScalarField {
-      *poly_A_comp * (*poly_B_comp * *poly_C_comp - *u * *poly_D_comp - *poly_E_comp)
-    };
+    let relaxed_comb_func =
+      |poly_tau: &G::ScalarField,
+       poly_A: &G::ScalarField,
+       poly_B: &G::ScalarField,
+       poly_C: &G::ScalarField,
+       poly_E: &G::ScalarField|
+       -> G::ScalarField { (*poly_A * *poly_B - *u * *poly_C - *poly_E) * *poly_tau };
 
     let (sc_proof_phase_one, r, claims) = SumcheckInstanceProof::prove_cubic_five_terms::<_, G>(
       &G::ScalarField::zero(), // claim is zero
@@ -385,7 +383,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       b"challenge_tau",
       num_rounds_x,
     );
-
     // compute the initial evaluation table for R(\tau, x)
     let mut poly_tau = DensePolynomial::new(EqPolynomial::new(tau).evals());
     let (mut poly_Az, mut poly_Bz, mut poly_Cz) =
@@ -583,26 +580,26 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     // verify the first sum-check instance
     let claim_phase1 = G::ScalarField::zero();
-
     let (claim_post_phase1, rx) =
       self
         .sc_proof_phase1
         .verify::<G>(claim_phase1, num_rounds_x, 3, transcript)?;
+
     // perform the intermediate sum-check test with claimed Az, Bz, Cz, and E
-    let (Az_claim, Bz_claim, Cz_claim) = &self.claims_phase2;
+    let (Az_claim, Bz_claim, Cz_claim) = self.claims_phase2;
     let E_claim = &self.eval_error_at_rx;
 
-    <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"Az_claim", Az_claim);
-    <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"Bz_claim", Bz_claim);
-    <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"Cz_claim", Cz_claim);
+    <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"Az_claim", &Az_claim);
+    <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"Bz_claim", &Bz_claim);
+    <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"Cz_claim", &Cz_claim);
     <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"E_claim", E_claim);
 
     let taus_bound_rx: G::ScalarField = (0..rx.len())
       .map(|i| rx[i] * tau[i] + (G::ScalarField::one() - rx[i]) * (G::ScalarField::one() - tau[i]))
       .product();
-    let expected_claim_post_phase1 =
-      (*Az_claim * *Bz_claim - *u * Cz_claim - E_claim) * taus_bound_rx;
 
+    let expected_claim_post_phase1 =
+      (Az_claim * Bz_claim - *u * Cz_claim - E_claim) * taus_bound_rx;
     assert_eq!(expected_claim_post_phase1, claim_post_phase1);
 
     // derive three public challenges and then derive a joint claim
@@ -667,7 +664,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 #[cfg(test)]
 mod tests {
   use crate::hyrax::HyraxCommitment;
-  use crate::Assignment;
 
   use crate::r1csinstance::R1CSInstance;
 
@@ -675,7 +671,7 @@ mod tests {
   use ark_bls12_381::Fr;
   use ark_bls12_381::G1Projective;
   use ark_ff::PrimeField;
-  use ark_std::test_rng;
+  use ark_std::{test_rng, UniformRand};
 
   fn produce_tiny_r1cs<F: PrimeField>() -> (R1CSInstance<F>, Vec<F>, Vec<F>) {
     // three constraints over five variables Z1, Z2, Z3, Z4, and Z5
@@ -746,34 +742,33 @@ mod tests {
     CRR1CSGens<G, PC>,
   ) {
     // compute random satisfying assignment for r1cs
-    let (inst, _vars, _inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
+    let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
     // the `Instance` initializer may have padded the variable lengths
     let (num_cons, num_vars, num_inputs) = (
       inst.inst.get_num_cons(),
       inst.inst.get_num_vars(),
       inst.inst.get_num_inputs(),
     );
+    assert_eq!(num_vars, vars.assignment.len());
+    assert_eq!(num_inputs, inputs.assignment.len());
     let shape = CRR1CSShape { inst };
 
-    // compute the error term needed to make the instance satisfiable again
-    // we had Az \circ Bz = Cz; thus, setting E = Az \circ Bz - u Cz = (1 - u) Cz
-
     // Note that `produce_synthetic_r1cs` produces a satisfying assignment for Z = [vars, 1, inputs].
-    let mut Z = _vars.assignment;
+    let mut Z = vars.assignment.clone();
     Z.extend(&vec![G::ScalarField::one()]);
-    Z.extend(_inputs.assignment);
+    Z.extend(inputs.assignment.clone());
 
-    // We want Z to be organized as [u, inputs, vars], so we relabel the inputs and vars without changing Z.
-    let u = Z[0];
-    let inputs = Assignment::new(&Z[1..num_inputs + 1]).unwrap();
-    let vars = Assignment::new(&Z[num_inputs + 1..]).unwrap();
+    // Choose a random u and set Z[num_vars] = u.
+    let u = G::ScalarField::rand(&mut test_rng());
+    Z[num_vars] = u;
 
     let (poly_A, poly_B, poly_C) =
       shape
         .inst
         .inst
-        .multiply_vec(num_vars + num_inputs + 1, num_cons, Z.as_slice());
+        .multiply_vec(num_cons, num_vars + num_inputs + 1, Z.as_slice());
 
+    // Compute the error vector E = (AZ * BZ) - (u * CZ)
     let mut E = vec![G::ScalarField::zero(); num_cons];
     for i in 0..num_cons {
       let AB_val = poly_A[i] * poly_B[i];
@@ -849,32 +844,10 @@ mod tests {
       shape.get_num_vars(),
       shape.get_num_inputs(),
     );
-    let (input, vars, _E) = (instance.input, witness.W, witness.E);
     let gens = CRR1CSGens::<G, PC>::new(b"test-m", num_cons, num_vars);
 
-    let n = max(num_cons, num_vars);
-
-    let mut random_tape = Some(RandomTape::new(b"proof"));
+    let mut random_tape = None;
     let mut prover_transcript = Transcript::new(b"example");
-
-    let comm_W = <PC::VectorCommitment as VectorCommitmentTrait<G>>::commit(
-      vars.assignment.as_slice(),
-      None,
-      &gens.gens_vc,
-      &mut random_tape,
-    );
-    let comm_E = <PC::VectorCommitment as VectorCommitmentTrait<G>>::zero(n);
-    let instance = CRR1CSInstance {
-      input,
-      u: G::ScalarField::one(),
-      comm_W,
-      comm_E,
-    };
-
-    let witness = CRR1CSWitness {
-      W: vars,
-      E: vec![G::ScalarField::zero(); num_cons],
-    };
 
     let (proof, rx, ry) = CRR1CSProof::prove(
       &shape,
@@ -890,8 +863,8 @@ mod tests {
     let mut verifier_transcript = Transcript::new(b"example");
     assert!(proof
       .verify(
-        shape.inst.inst.get_num_vars(),
-        shape.inst.inst.get_num_cons(),
+        num_vars,
+        num_cons,
         &instance,
         &inst_evals,
         &mut verifier_transcript,
