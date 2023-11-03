@@ -68,7 +68,7 @@ fn main() -> Result<(), ProofError> {
         Gen { k, par, pp_file } => gen_to_file(k, par, &pp_file),
 
         Prove { gen, par, pp_file, vm } => {
-            let trace = run(&vm)?;
+            let trace = run(&vm, par)?;
             if par {
                 prove_par(gen_or_load(gen, vm.k, &pp_file)?, trace)
             } else {

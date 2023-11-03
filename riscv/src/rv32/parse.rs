@@ -164,7 +164,7 @@ pub use opcodes::*;
 
 // parse a 32-bit word as an instruction
 
-fn parse_u32(word: u32) -> Option<RV32> {
+pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
     let inst = match opcode(word) {
         OPC_LUI => LUI { rd: rd(word), imm: immU(word) },
         OPC_AUIPC => AUIPC { rd: rd(word), imm: immU(word) },

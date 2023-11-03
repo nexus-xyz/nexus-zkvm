@@ -1,5 +1,3 @@
-#![deny(missing_docs)]
-
 // RISC-V leaves the meaning of misaligned loads and stores
 // up to the Execution Environment Interface (EEI).
 // Our expectation is that front-end compilers targeting

@@ -28,7 +28,7 @@ fn main() {
             println!("{}", e);
         }
         Ok(trace) => {
-            println!("Executed {} steps in {:?}", trace.trace.len(), start.elapsed());
+            println!("Executed {} steps in {:?}", trace.k * trace.blocks.len(), start.elapsed());
         }
     }
 }

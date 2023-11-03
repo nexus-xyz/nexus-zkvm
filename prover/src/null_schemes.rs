@@ -23,10 +23,6 @@ impl<G: CurveGroup> CommitmentScheme<G> for NullCommit<G> {
     fn commit(_pp: &Self::PP, _x: &[G::ScalarField]) -> G {
         G::ZERO
     }
-
-    fn open(_pp: &Self::PP, _c: G, _x: &[G::ScalarField]) -> bool {
-        true
-    }
 }
 
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
