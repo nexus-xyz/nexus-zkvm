@@ -6,9 +6,15 @@ mod error;
 pub mod rv32;
 pub mod vm;
 
+#[cfg(test)]
+mod tests;
+
 pub use error::*;
 use rv32::*;
-use vm::*;
+use vm::{
+    eval::*,
+    //trace::*,
+};
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
@@ -18,7 +24,8 @@ use std::path::PathBuf;
 /// Create a VM with k no-op instructions
 pub fn nop_vm(k: usize) -> VM {
     let mut pc = 0x1000;
-    let mut vm = VM { pc, ..VM::default() };
+    let mut vm = VM::new(pc);
+
     // TODO: we can do better for large k
     for _ in 0..k {
         vm.mem.sw(pc, 0x00000013); // nop
@@ -32,7 +39,7 @@ pub fn nop_vm(k: usize) -> VM {
 pub fn loop_vm(k: usize) -> VM {
     assert!(k < (1 << 31));
 
-    let mut vm = VM { pc: 0x1000, ..VM::default() };
+    let mut vm = VM::new(0x1000);
 
     let hi = (k as u32) & 0xfffff000;
     let lo = ((k & 0xfff) << 20) as u32;
@@ -59,7 +66,7 @@ pub fn load_elf(path: &PathBuf) -> Result<VM> {
         .collect();
 
     // TODO: read PC from elf file (and related changes)
-    let mut vm = VM { pc: 0x1000, ..VM::default() };
+    let mut vm = VM::new(0x1000);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
@@ -108,18 +115,15 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
     if show {
         println!("\nExecution:");
         println!(
-            "{:7} {:8} {:32} {:>8} {:>8} {:>8} {:>8} {:>8}",
-            "pc", "mem[pc]", "inst", "X", "Y", "I", "Z", "PC"
+            "{:7} {:8} {:32} {:>8} {:>8}",
+            "pc", "mem[pc]", "inst", "Z", "PC"
         );
     }
 
     loop {
         eval_inst(vm)?;
         if show {
-            println!(
-                "{:50} {:8x} {:8x} {:8x} {:8x} {:8x}",
-                vm.inst, vm.X, vm.Y, vm.I, vm.Z, vm.PC
-            );
+            println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.PC);
         }
         if vm.inst.inst == RV32::UNIMP {
             break;
@@ -138,14 +142,14 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
     }
 
     if show {
-        println!("\nFinal Machine State: pc: {:x}", vm.pc);
-        table("x", &vm.regs);
+        println!("\nFinal Machine State: pc: {:x}", vm.regs.pc);
+        table("x", &vm.regs.x);
     }
     Ok(())
 }
 
 /// Load and run an ELF file
-pub fn run_vm(vm: &VMOpts, trace: bool) -> Result<()> {
+pub fn run_vm(vm: &VMOpts, show: bool) -> Result<()> {
     let mut vm = load_vm(vm)?;
-    eval(&mut vm, trace)
+    eval(&mut vm, show)
 }

@@ -12,8 +12,10 @@ use crate::pp::*;
 
 use std::time::Instant;
 use std::io::{self, Write};
-use nexus_riscv::{VMOpts, load_vm};
-use nexus_riscv_circuit::{Trace, eval};
+use nexus_riscv::{
+    VMOpts, load_vm,
+    vm::trace::{Trace, trace},
+};
 
 pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError> {
     println!("Generating public parameters to {pp_file}...");
@@ -28,23 +30,23 @@ pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError>
 
 fn estimate_size(tr: &Trace) -> usize {
     use std::mem::size_of_val as sizeof;
-    sizeof(&tr.trace)
-        + sizeof(&tr.trace[0])
-        + sizeof(&tr.trace[0][0]) * tr.trace[0].len() * tr.trace.len()
+    sizeof(tr)
+        + tr.blocks.len()
+            * (sizeof(&tr.blocks[0]) + tr.blocks[0].steps.len() * sizeof(&tr.blocks[0].steps[0]))
 }
 
-pub fn run(opts: &VMOpts) -> Result<Trace, ProofError> {
+pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     let mut vm = load_vm(opts)?;
 
     let start = Instant::now();
     println!("Executing program...");
     io::stdout().flush().unwrap();
 
-    let trace = eval(&mut vm, opts.k, false)?;
+    let trace = trace(&mut vm, opts.k, pow)?;
 
     println!(
         "Executed {} instructions in {:?}. {} bytes used by trace.",
-        trace.trace.len(),
+        trace.k * trace.blocks.len(),
         start.elapsed(),
         estimate_size(&trace)
     );
@@ -53,8 +55,8 @@ pub fn run(opts: &VMOpts) -> Result<Trace, ProofError> {
 
 pub fn prove_seq(pp: SeqPP<Tr>, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
-    let icount = k * trace.trace.len();
     let tr = Tr::new(trace);
+    let icount = tr.instructions();
     let z_0 = tr.input(0);
     let mut proof = IVCProof::new(&pp, &z_0);
 
@@ -94,9 +96,8 @@ pub fn prove_par(pp: ParPP<Tr>, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
     let tr = Tr::new(trace);
 
-    let steps = tr.steps().next_power_of_two();
-    println!("\nproving {steps} of {} base steps", tr.steps());
-    println!("proving even steps...");
+    let steps = tr.steps();
+    println!("\nproving {steps} steps...");
 
     let start = Instant::now();
 

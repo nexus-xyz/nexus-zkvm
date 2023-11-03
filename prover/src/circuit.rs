@@ -1,11 +1,15 @@
+use crate::error::*;
 use crate::types::*;
 
-use nexus_riscv_circuit::{r1cs::ZERO, r1cs::V, Trace};
+use nexus_riscv::nop_vm;
+use nexus_riscv::vm::trace::{trace, Trace, Block};
+use nexus_riscv_circuit::{
+    r1cs::{ZERO, V, R1CS},
+    riscv::big_step,
+};
 
 use ark_ff::BigInt;
 use ark_r1cs_std::R1CSVar;
-
-use std::cmp::min;
 
 pub struct Tr(Trace);
 
@@ -15,40 +19,42 @@ impl Tr {
     }
 
     pub fn steps(&self) -> usize {
-        self.0.trace.len() / self.0.k
+        self.0.blocks.len()
     }
 
-    // note: we assume the last witness is from
-    // unimp, which does not change the state of the VM.
-    // So, we can repeat it as many times as needed
-    pub fn witness(&self, n: usize) -> Vec<F1> {
-        let i = min(n, self.0.trace.len() - 1);
-        self.0.trace[i].clone()
+    pub fn instructions(&self) -> usize {
+        self.0.k * self.0.blocks.len()
     }
 
-    // note: -1 is fine here because we assume that the
-    // k+1 step is just k instances of the last witness
-    pub fn input(&self, n: usize) -> Vec<F1> {
-        let i = min(self.0.k * n, self.0.trace.len() - 1);
-        self.0.trace[i][self.0.cs.input_range()].to_vec()
+    pub fn block(&self, index: usize) -> &Block {
+        &self.0.blocks[index - self.0.start]
+    }
+
+    pub fn input(&self, index: usize) -> Vec<F1> {
+        let b = self.block(index);
+        let mut v = Vec::new();
+        v.push(F1::from(b.regs.pc));
+        for x in b.regs.x {
+            v.push(F1::from(x));
+        }
+        v
     }
 }
 
+pub fn nop_circuit(k: usize) -> Result<Tr, ProofError> {
+    let mut vm = nop_vm(0);
+    let trace = trace(&mut vm, k, false)?;
+    Ok(Tr::new(trace))
+}
+
 // fast version
-fn build_witness_offset(
-    cs: CS,
-    index: usize,
-    _z: &[FpVar<F1>],
-    tr: &Tr,
-    offset: usize,
-) -> Result<Vec<FpVar<F1>>, SynthesisError> {
+fn build_witness_partial(cs: CS, rcs: R1CS) -> Result<Vec<FpVar<F1>>, SynthesisError> {
     let mut output: Vec<FpVar<F1>> = Vec::new();
 
-    let index = tr.0.k * index + offset;
-    for (i, x) in tr.witness(index).iter().enumerate() {
-        if tr.0.cs.input_range().contains(&i) {
+    for (i, x) in rcs.w.iter().enumerate() {
+        if rcs.input_range().contains(&i) {
             // variables already allocated in z
-        } else if tr.0.cs.output_range().contains(&i) {
+        } else if rcs.output_range().contains(&i) {
             let av = AllocatedFp::new_witness(cs.clone(), || Ok(*x))?;
             output.push(FpVar::Var(av))
         } else {
@@ -61,44 +67,35 @@ fn build_witness_offset(
 fn build_witness(
     cs: CS,
     index: usize,
-    z: &[FpVar<F1>],
+    _z: &[FpVar<F1>],
     tr: &Tr,
 ) -> Result<Vec<FpVar<F1>>, SynthesisError> {
-    let mut z = z;
+    let b = tr.block(index);
     let mut v = Vec::new();
-    for i in 0..tr.0.k {
-        v = build_witness_offset(cs.clone(), index, z, tr, i)?;
-        z = &v;
+    for w in b {
+        let rcs = big_step(&w, true);
+        v = build_witness_partial(cs.clone(), rcs)?;
     }
     Ok(v)
 }
 
 // slow version
-fn build_constraints_offset(
+fn build_constraints_partial(
     cs: CS,
-    index: usize,
     z: &[FpVar<F1>],
-    tr: &Tr,
-    offset: usize,
+    rcs: R1CS,
 ) -> Result<Vec<FpVar<F1>>, SynthesisError> {
     let mut vars: Vec<Variable> = Vec::new();
     let mut output: Vec<FpVar<F1>> = Vec::new();
 
-    let index = tr.0.k * index + offset;
-    let w = if tr.0.trace.is_empty() {
-        tr.0.cs.w.clone()
-    } else {
-        tr.witness(index)
-    };
-
-    for (i, x) in w.iter().enumerate() {
-        if tr.0.cs.input_range().contains(&i) {
-            if let FpVar::Var(AllocatedFp { variable, .. }) = z[i - tr.0.cs.input_range().start] {
+    for (i, x) in rcs.w.iter().enumerate() {
+        if rcs.input_range().contains(&i) {
+            if let FpVar::Var(AllocatedFp { variable, .. }) = z[i - rcs.input_range().start] {
                 vars.push(variable)
             } else {
                 panic!()
             }
-        } else if tr.0.cs.output_range().contains(&i) {
+        } else if rcs.output_range().contains(&i) {
             let av = AllocatedFp::new_witness(cs.clone(), || Ok(*x))?;
             vars.push(av.variable);
             output.push(FpVar::Var(av))
@@ -120,8 +117,8 @@ fn build_constraints_offset(
         )
     };
 
-    for i in 0..tr.0.cs.a.len() {
-        cs.enforce_constraint(row(&tr.0.cs.a[i]), row(&tr.0.cs.b[i]), row(&tr.0.cs.c[i]))?;
+    for i in 0..rcs.a.len() {
+        cs.enforce_constraint(row(&rcs.a[i]), row(&rcs.b[i]), row(&rcs.c[i]))?;
     }
 
     Ok(output)
@@ -133,12 +130,16 @@ fn build_constraints(
     z: &[FpVar<F1>],
     tr: &Tr,
 ) -> Result<Vec<FpVar<F1>>, SynthesisError> {
+    let b = tr.block(index);
     let mut z = z;
     let mut v = Vec::new();
-    for i in 0..tr.0.k {
-        v = build_constraints_offset(cs.clone(), index, z, tr, i)?;
+
+    for w in b {
+        let rcs = big_step(&w, false);
+        v = build_constraints_partial(cs.clone(), z, rcs)?;
         z = &v;
     }
+
     Ok(v)
 }
 

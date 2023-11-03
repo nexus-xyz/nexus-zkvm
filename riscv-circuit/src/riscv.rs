@@ -1,13 +1,9 @@
 //! Circuits for the RISC-V VM (nexus-riscv)
 
-//#![rustfmt::skip]
-
-//use super::q::*;
 use super::r1cs::*;
 
-use nexus_riscv::vm::VM;
-use nexus_riscv::rv32::*;
-use nexus_riscv::rv32::parse::*;
+use nexus_riscv::vm::trace::*;
+use nexus_riscv::rv32::{*, parse::*};
 
 // Note: circuit generation code depends on this ordering
 // (inputs: pc,x0..31 and then outputs: PC,x'0..31)
@@ -461,14 +457,14 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.seal();
 }
 
-pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
-    let mut cs = init_cs(vm.pc, &vm.regs);
+pub fn big_step(vm: &Witness, witness_only: bool) -> R1CS {
+    let mut cs = init_cs(vm.regs.pc, &vm.regs.x);
     cs.witness_only = witness_only;
 
     select_XY(&mut cs, vm.rs1, vm.rs2);
 
     // check that registers are 32-bit numbers
-    cs.to_bits("pc", vm.pc);
+    cs.to_bits("pc", vm.regs.pc);
     cs.to_bits("X", vm.X);
     cs.to_bits("Y", vm.Y);
     cs.to_bits("I", vm.I);
@@ -476,20 +472,20 @@ pub fn big_step(vm: &VM, witness_only: bool) -> R1CS {
     cs.to_bits("PC", vm.PC);
 
     // control function
-    let inst_j = vm.inst.inst.index_j();
+    let inst_j = vm.J;
     cs.set_var("rd", vm.rd);
     cs.set_var("rs1", vm.rs1);
     cs.set_var("rs2", vm.rs2);
     cs.set_var("shamt", vm.shamt);
-    parse_opc(&mut cs, vm.inst.word);
-    parse_imm(&mut cs, vm.inst.word);
+    parse_opc(&mut cs, vm.inst);
+    parse_imm(&mut cs, vm.inst);
     parse_shamt(&mut cs, vm.Y);
     parse_J(&mut cs, inst_j);
 
     // possible values for PC
     cs.set_var("four", 4);
-    add_cir(&mut cs, "pc+4", "pc", "four", vm.pc, 4);
-    add_cir(&mut cs, "pc+I", "pc", "I", vm.pc, vm.I);
+    add_cir(&mut cs, "pc+4", "pc", "four", vm.regs.pc, 4);
+    add_cir(&mut cs, "pc+I", "pc", "I", vm.regs.pc, vm.I);
 
     // process alu first so we get definitions for common values
     alu(&mut cs, vm);
@@ -586,35 +582,35 @@ fn add_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
     cs.seal();
 }
 
-fn lui(cs: &mut R1CS, vm: &VM) {
+fn lui(cs: &mut R1CS, vm: &Witness) {
     const J: u32 = (LUI { rd: 0, imm: 0 }).index_j();
 
     cs.set_var(&format!("Z{J}"), vm.I);
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
-fn auipc(cs: &mut R1CS, _vm: &VM) {
+fn auipc(cs: &mut R1CS, _vm: &Witness) {
     const J: u32 = (AUIPC { rd: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+I");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
-fn jal(cs: &mut R1CS, _vm: &VM) {
+fn jal(cs: &mut R1CS, _vm: &Witness) {
     const J: u32 = (JAL { rd: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "pc+I");
 }
 
-fn jalr(cs: &mut R1CS, _vm: &VM) {
+fn jalr(cs: &mut R1CS, _vm: &Witness) {
     const J: u32 = (JALR { rd: 0, rs1: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "X+I");
 }
 
-fn alu(cs: &mut R1CS, vm: &VM) {
+fn alu(cs: &mut R1CS, vm: &Witness) {
     add(cs, vm);
     addi(cs, vm);
 
@@ -634,14 +630,14 @@ fn alu(cs: &mut R1CS, vm: &VM) {
     }
 }
 
-fn add(cs: &mut R1CS, vm: &VM) {
+fn add(cs: &mut R1CS, vm: &Witness) {
     const J: u32 = (ALU { aop: ADD, rd: 0, rs1: 0, rs2: 0 }).index_j();
 
     add_cir(cs, "X+Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X+Y");
 }
 
-fn addi(cs: &mut R1CS, vm: &VM) {
+fn addi(cs: &mut R1CS, vm: &Witness) {
     const J: u32 = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
 
     add_cir(cs, "X+I", "X", "I", vm.X, vm.I);
@@ -772,14 +768,14 @@ fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
     cs.seal();
 }
 
-fn sub(cs: &mut R1CS, vm: &VM) {
+fn sub(cs: &mut R1CS, vm: &Witness) {
     const J: u32 = (ALU { aop: SUB, rd: 0, rs1: 0, rs2: 0 }).index_j();
 
     sub_cir(cs, "X-Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X-Y");
 }
 
-fn subi(cs: &mut R1CS, vm: &VM) {
+fn subi(cs: &mut R1CS, vm: &Witness) {
     const J: u32 = (ALUI { aop: SUB, rd: 0, rs1: 0, imm: 0 }).index_j();
 
     sub_cir(cs, "X-I", "X", "I", vm.X, vm.I);
@@ -857,7 +853,7 @@ fn br(cs: &mut R1CS) {
     branch(cs, J, "X>=Y", "X<Y");
 }
 
-fn load(cs: &mut R1CS, vm: &VM) {
+fn load(cs: &mut R1CS, vm: &Witness) {
     for lop in [LB, LH, LW, LBU, LHU] {
         let J = (LOAD { lop, rd: 0, rs1: 0, imm: 0 }).index_j();
         cs.set_var(&format!("Z{J}"), vm.Z);
@@ -865,7 +861,7 @@ fn load(cs: &mut R1CS, vm: &VM) {
     }
 }
 
-fn store(cs: &mut R1CS, _vm: &VM) {
+fn store(cs: &mut R1CS, _vm: &Witness) {
     for sop in [SB, SH, SW] {
         let J = (STORE { sop, rs1: 0, rs2: 0, imm: 0 }).index_j();
         cs.set_var(&format!("Z{J}"), 0);
@@ -990,7 +986,7 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
     cs.seal();
 }
 
-fn shift(cs: &mut R1CS, vm: &VM) {
+fn shift(cs: &mut R1CS, vm: &Witness) {
     selector(cs, "shamt", 32, vm.shamt);
 
     let J = (ALUI { aop: SLL, rd: 0, rs1: 0, imm: 0 }).index_j();
@@ -1030,7 +1026,7 @@ fn bitop(cs: &mut R1CS, output: &str, y_name: &str, z: u32, adj: F) {
     }
 }
 
-fn bitops(cs: &mut R1CS, vm: &VM) {
+fn bitops(cs: &mut R1CS, vm: &Witness) {
     fn bit(x: u32, bit: u32) -> bool {
         ((x >> bit) & 1) != 0
     }
@@ -1088,7 +1084,6 @@ fn misc(cs: &mut R1CS) {
 #[cfg(test)]
 mod test {
     use nexus_riscv::rv32::parse::*;
-    use nexus_riscv::rv32::Inst;
     use super::*;
 
     #[test]
@@ -1202,7 +1197,7 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut vm = VM::default();
+        let mut vm = Witness::default();
         for x in [0, 1, 0xffffffff] {
             for y in [0, 1, 100] {
                 vm.X = x;
@@ -1223,7 +1218,7 @@ mod test {
 
     #[test]
     fn test_sub() {
-        let mut vm = VM::default();
+        let mut vm = Witness::default();
         for x in [0, 1, 0xfffffff0, 0xffffffff] {
             for y in [0, 1, 0xfffffff0, 0xffffffff] {
                 vm.X = x;
@@ -1285,11 +1280,8 @@ mod test {
     #[test]
     #[allow(clippy::field_reassign_with_default)]
     fn test_shift() {
-        let mut vm = VM::default();
-        vm.inst = Inst {
-            inst: ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 },
-            ..Inst::default()
-        };
+        let mut vm = Witness::default();
+        vm.inst = 0x00000013; // nop
         for x in [0x7aaaaaaa, 0xf5555555] {
             for a in [0, 1, 10, 13, 30, 31] {
                 vm.X = x;
@@ -1314,7 +1306,7 @@ mod test {
 
     #[test]
     fn test_bitops() {
-        let mut vm = VM::default();
+        let mut vm = Witness::default();
         for x in [0u32, 0xaaaaaaaa, 0x55555555, 0xffffffff] {
             for y in [0u32, 0xaaaaaaaa, 0x55555555, 0xffffffff] {
                 let i = y.overflowing_add(7).0;
