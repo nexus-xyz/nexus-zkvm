@@ -60,7 +60,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
   type EvalVerifierKey;
   type Commitment: PolyCommitmentTrait<G>;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
-  type Blinds: PCRandomness;
   type PolyCommitmentProof: Sync + CanonicalSerialize + CanonicalDeserialize + Debug;
 
   // Optionally takes `vector_comm` as a "hint" to speed up the commitment process if a
@@ -80,18 +79,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::PolyCommitmentProof;
 
-  #[allow(clippy::too_many_arguments)]
-  fn prove_blinded(
-    poly: &DensePolynomial<G::ScalarField>,
-    r: &[G::ScalarField],
-    eval: &G::ScalarField,
-    ck: &Self::PolyCommitmentKey,
-    transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<G>>,
-    blinds: &Self::Blinds,
-    blind_eval: &G::ScalarField,
-  ) -> (Self::PolyCommitmentProof, G);
-
   fn verify(
     commitment: &Self::Commitment,
     proof: &Self::PolyCommitmentProof,
@@ -99,15 +86,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     transcript: &mut Transcript,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
-  ) -> Result<(), ProofVerifyError>;
-
-  fn verify_blinded(
-    commitment: &Self::Commitment,
-    proof: &Self::PolyCommitmentProof,
-    ck: &Self::EvalVerifierKey,
-    transcript: &mut Transcript,
-    r: &[G::ScalarField],
-    eval_commit: &G,
   ) -> Result<(), ProofVerifyError>;
 
   // Generate a SRS using the provided RNG; this is just for testing purposes, since in reality

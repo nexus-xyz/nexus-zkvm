@@ -76,8 +76,6 @@ where
 
   type EvalVerifierKey = U::VerifierKey;
 
-  type Blinds = U::Randomness;
-
   type Commitment = U::Commitment;
 
   type SRS = U::UniversalParams;
@@ -109,19 +107,6 @@ where
     todo!()
   }
 
-  fn prove_blinded(
-    poly: &DensePolynomial<<G>::ScalarField>,
-    r: &[<G>::ScalarField],
-    eval: &<G>::ScalarField,
-    ck: &Self::PolyCommitmentKey,
-    transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<G>>,
-    blinds: &Self::Blinds,
-    blind_eval: &<G>::ScalarField,
-  ) -> (Self::PolyCommitmentProof, G) {
-    todo!()
-  }
-
   fn verify(
     commitment: &Self::Commitment,
     proof: &Self::PolyCommitmentProof,
@@ -129,17 +114,6 @@ where
     transcript: &mut Transcript,
     r: &[<G>::ScalarField],
     eval: &<G>::ScalarField,
-  ) -> Result<(), crate::errors::ProofVerifyError> {
-    todo!()
-  }
-
-  fn verify_blinded(
-    commitment: &Self::Commitment,
-    proof: &Self::PolyCommitmentProof,
-    ck: &Self::EvalVerifierKey,
-    transcript: &mut Transcript,
-    r: &[<G>::ScalarField],
-    eval_commit: &G,
   ) -> Result<(), crate::errors::ProofVerifyError> {
     todo!()
   }

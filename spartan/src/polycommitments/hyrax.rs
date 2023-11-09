@@ -114,8 +114,6 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   type PolyCommitmentKey = HyraxKey<G>;
   type EvalVerifierKey = HyraxKey<G>;
 
-  type Blinds = HyraxBlinds<G::ScalarField>;
-
   type PolyCommitmentProof = HyraxProof<G>;
 
   fn trim(
@@ -134,8 +132,8 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (HyraxCommitment<G>) {
-    let (C, blinds) = poly.commit(&ck.gens, random_tape.into());
+  ) -> HyraxCommitment<G> {
+    let (C, _blinds) = poly.commit(&ck.gens, random_tape.into());
     HyraxCommitment { C }
   }
 
@@ -151,34 +149,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     let random_tape = random_tape.as_mut().unwrap_or(&mut new_tape);
     let (_proof, _) =
       PolyEvalProof::prove(poly, None, r, eval, None, &ck.gens, transcript, random_tape);
-    let proof = HyraxProof { proof: _proof };
-    proof
-  }
-
-  fn prove_blinded(
-    poly: &DensePolynomial<G::ScalarField>,
-    r: &[<G>::ScalarField],
-    eval: &<G>::ScalarField,
-    ck: &Self::PolyCommitmentKey,
-    transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<G>>,
-    blinds: &Self::Blinds,
-    blind_eval: &<G>::ScalarField,
-  ) -> (Self::PolyCommitmentProof, G) {
-    let mut new_tape = RandomTape::new(b"HyraxPolyCommitmentProof");
-    let random_tape = random_tape.as_mut().unwrap_or(&mut new_tape);
-    let (_proof, g) = PolyEvalProof::prove(
-      poly,
-      Some(&blinds.blinds),
-      r,
-      eval,
-      Some(blind_eval),
-      &ck.gens,
-      transcript,
-      random_tape,
-    );
-    let proof = HyraxProof { proof: _proof };
-    (proof, g)
+    HyraxProof { proof: _proof }
   }
 
   fn verify(
@@ -194,20 +165,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
       .verify_plain(&ck.gens, transcript, r, eval, &commitment.C)
   }
 
-  fn verify_blinded(
-    commitment: &Self::Commitment,
-    proof: &Self::PolyCommitmentProof,
-    ck: &Self::EvalVerifierKey,
-    transcript: &mut Transcript,
-    r: &[<G>::ScalarField],
-    eval_commit: &G,
-  ) -> Result<(), ProofVerifyError> {
-    proof
-      .proof
-      .verify(&ck.gens, transcript, r, eval_commit, &commitment.C)
-  }
-
-  fn setup(num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self::SRS {
+  fn setup(num_poly_vars: usize, label: &'static [u8], _rng: &mut impl RngCore) -> Self::SRS {
     HyraxKey {
       gens: PolyCommitmentGens::new(num_poly_vars, label),
     }
