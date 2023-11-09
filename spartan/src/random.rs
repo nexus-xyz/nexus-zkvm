@@ -7,7 +7,7 @@ use ark_std::test_rng;
 use merlin::Transcript;
 
 pub struct RandomTape<G> {
-  tape: Transcript,
+  pub(crate) tape: Transcript,
   phantom: PhantomData<G>,
 }
 

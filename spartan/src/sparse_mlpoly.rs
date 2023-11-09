@@ -313,7 +313,10 @@ pub struct MultiSparseMatPolynomialAsDense<F> {
   comb_mem: DensePolynomial<F>,
 }
 
-pub struct SparseMatPolyCommitmentGens<G> {
+pub struct SparseMatPolyCommitmentGens<G>
+where
+  G: CurveGroup,
+{
   gens_ops: PolyCommitmentGens<G>,
   gens_mem: PolyCommitmentGens<G>,
   gens_derefs: PolyCommitmentGens<G>,

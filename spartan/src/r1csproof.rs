@@ -31,7 +31,10 @@ pub struct R1CSProof<G: CurveGroup> {
   proof_eq_sc_phase2: EqualityProof<G>,
 }
 
-pub struct R1CSSumcheckGens<G> {
+pub struct R1CSSumcheckGens<G>
+where
+  G: CurveGroup,
+{
   gens_1: MultiCommitGens<G>,
   gens_3: MultiCommitGens<G>,
   gens_4: MultiCommitGens<G>,
@@ -52,7 +55,10 @@ impl<G: CurveGroup> R1CSSumcheckGens<G> {
   }
 }
 
-pub struct R1CSGens<G> {
+pub struct R1CSGens<G>
+where
+  G: CurveGroup,
+{
   gens_sc: R1CSSumcheckGens<G>,
   gens_pc: PolyCommitmentGens<G>,
 }

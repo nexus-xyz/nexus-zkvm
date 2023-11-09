@@ -4,10 +4,11 @@ use core::cmp::max;
 
 use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::rand::RngCore;
 use merlin::Transcript;
 
 use crate::{
-  crr1csproof::{CRR1CSGens, CRR1CSInstance, CRR1CSProof, CRR1CSShape, CRR1CSWitness},
+  crr1csproof::{CRR1CSInstance, CRR1CSKey, CRR1CSProof, CRR1CSShape, CRR1CSWitness},
   errors::ProofVerifyError,
   polycommitments::PolyCommitmentScheme,
   r1csinstance::{R1CSCommitmentGens, R1CSEvalProof},
@@ -19,14 +20,21 @@ use crate::{
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
 pub struct SNARKGens<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  gens_r1cs_sat: CRR1CSGens<G, PC>,
+  gens_r1cs_sat: CRR1CSKey<G, PC>,
   gens_r1cs_eval: R1CSCommitmentGens<G>,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
-  pub fn new(num_cons: usize, num_vars: usize, num_inputs: usize, num_nz_entries: usize) -> Self {
+  pub fn new(
+    SRS: PC::SRS,
+    num_cons: usize,
+    num_vars: usize,
+    num_inputs: usize,
+    num_nz_entries: usize,
+    rng: &impl RngCore,
+  ) -> Self {
     let num_vars_padded = {
       let mut num_vars_padded = max(num_vars, num_inputs + 1);
       if num_vars_padded != num_vars_padded.next_power_of_two() {
@@ -35,7 +43,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
       num_vars_padded
     };
 
-    let gens_r1cs_sat = CRR1CSGens::<G, PC>::new(b"gens_r1cs_sat", num_cons, num_vars_padded);
+    let gens_r1cs_sat = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars_padded);
     let gens_r1cs_eval = R1CSCommitmentGens::new(
       b"gens_r1cs_eval",
       num_cons,

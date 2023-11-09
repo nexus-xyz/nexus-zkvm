@@ -426,8 +426,11 @@ impl<G: CurveGroup> DotProductProof<G> {
     }
   }
 }
-#[derive(Clone)]
-pub struct DotProductProofGens<G> {
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct DotProductProofGens<G>
+where
+  G: CurveGroup,
+{
   n: usize,
   pub gens_n: MultiCommitGens<G>,
   pub gens_1: MultiCommitGens<G>,

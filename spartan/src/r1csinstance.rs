@@ -33,7 +33,10 @@ impl<G: CurveGroup> AppendToTranscript<G> for R1CSInstance<G::ScalarField> {
   }
 }
 
-pub struct R1CSCommitmentGens<G> {
+pub struct R1CSCommitmentGens<G>
+where
+  G: CurveGroup,
+{
   gens: SparseMatPolyCommitmentGens<G>,
 }
 

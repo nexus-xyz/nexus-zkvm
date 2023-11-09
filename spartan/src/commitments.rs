@@ -1,3 +1,4 @@
+use crate::{CanonicalDeserialize, CanonicalSerialize};
 use ark_ec::CurveGroup;
 use ark_ec::VariableBaseMSM;
 use ark_std::rand::SeedableRng;
@@ -6,8 +7,11 @@ use rand_chacha::ChaCha20Rng;
 use sha3::Shake256;
 use std::io::Read;
 
-#[derive(Debug, Clone)]
-pub struct MultiCommitGens<G> {
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct MultiCommitGens<G>
+where
+  G: CurveGroup,
+{
   pub n: usize,
   pub G: Vec<G>,
   pub h: G,

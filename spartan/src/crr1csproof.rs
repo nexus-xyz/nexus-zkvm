@@ -16,22 +16,27 @@ use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+//use ark_std::rand::RngCore;
 use ark_std::{cmp::max, One, Zero};
 use merlin::Transcript;
 
-pub struct CRR1CSGens<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  gens_pc: PC::PolyCommitmentKey,
-  gens_vc: <PC::VectorCommitment as VectorCommitmentTrait<G>>::CommitmentKey,
+pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  pc_commit_key: PC::PolyCommitmentKey,
+  pc_verify_key: PC::EvalVerifierKey,
+  vc_key: <PC::VectorCommitment as VectorCommitmentTrait<G>>::CommitmentKey,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSGens<G, PC> {
-  pub fn new(label: &'static [u8], num_cons: usize, num_vars: usize) -> Self {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
+  pub fn new(SRS: &PC::SRS, num_cons: usize, num_vars: usize) -> Self {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
-    let num_poly_vars = n.log_2() as usize;
-    let (gens_pc, gens_vc) = PC::setup(num_poly_vars, label);
-    CRR1CSGens { gens_pc, gens_vc }
+    let (pc_commit_key, pc_verify_key, vc_key) = PC::trim(SRS, n, 1, None);
+    CRR1CSKey {
+      pc_commit_key,
+      pc_verify_key,
+      vc_key,
+    }
   }
 }
 
@@ -64,8 +69,8 @@ pub struct CRR1CSWitness<F: PrimeField> {
 }
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct CRR1CSProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  comm_poly_vars: PC,
-  comm_poly_error: PC,
+  comm_poly_vars: PC::Commitment,
+  comm_poly_error: PC::Commitment,
   sc_proof_phase1: SumcheckInstanceProof<G::ScalarField>,
   claims_phase2: (G::ScalarField, G::ScalarField, G::ScalarField),
   sc_proof_phase2: SumcheckInstanceProof<G::ScalarField>,
@@ -290,7 +295,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     shape: &CRR1CSShape<G::ScalarField>,
     instance: &CRR1CSInstance<G, PC>,
     witness: &CRR1CSWitness<G::ScalarField>,
-    gens: &CRR1CSGens<G, PC>,
+    key: &CRR1CSKey<G, PC>,
     transcript: &mut Transcript,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> (CRR1CSProof<G, PC>, Vec<G::ScalarField>, Vec<G::ScalarField>) {
@@ -328,10 +333,18 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       let poly_vars = DensePolynomial::<G::ScalarField>::new(vars.clone());
 
       // produce a commitment to the satisfying assignment
-      let (comm_poly_vars, blinds_vars) =
-        PC::commit(&poly_vars, &gens.gens_pc, Some(comm_W), None, random_tape);
+      let (comm_poly_vars, blinds_vars) = PC::commit(
+        &poly_vars,
+        &key.pc_commit_key,
+        Some(comm_W),
+        None,
+        random_tape,
+      );
       // check that this agrees with the vector commitment comm_W provided
-      assert!(comm_poly_vars.compatible_with_vector_commitment(comm_W));
+      assert!(PC::compatible_with_vector_commitment(
+        &comm_poly_vars,
+        comm_W
+      ));
 
       // add the commitment to the prover's transcript
       comm_poly_vars.append_to_transcript(b"poly_vars_commitment", transcript);
@@ -340,11 +353,19 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       let poly_error = DensePolynomial::<G::ScalarField>::new(E.clone());
 
       // produce a commitment to the error vector
-      let (comm_poly_error, blinds_error) =
-        PC::commit(&poly_error, &gens.gens_pc, Some(comm_E), None, random_tape);
+      let (comm_poly_error, blinds_error) = PC::commit(
+        &poly_error,
+        &key.pc_commit_key,
+        Some(comm_E),
+        None,
+        random_tape,
+      );
 
       // check that this agrees with the vector commitment comm_W provided
-      assert!(comm_poly_error.compatible_with_vector_commitment(comm_E));
+      assert!(PC::compatible_with_vector_commitment(
+        &comm_poly_error,
+        comm_E
+      ));
 
       // add the commitment to the prover's transcript
       comm_poly_error.append_to_transcript(b"poly_error_commitment", transcript);
@@ -458,7 +479,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
           &poly_vars,
           &ry[1..],
           &eval_vars_at_ry,
-          &gens.gens_pc,
+          &key.pc_commit_key,
           transcript,
           random_tape,
           &blinds,
@@ -470,7 +491,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
           &poly_vars,
           &ry[1..],
           &eval_vars_at_ry,
-          &gens.gens_pc,
+          &key.pc_commit_key,
           transcript,
           random_tape,
         )
@@ -483,7 +504,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
           &poly_error,
           &rx,
           E_claim,
-          &gens.gens_pc,
+          &key.pc_commit_key,
           transcript,
           random_tape,
           &blinds,
@@ -495,7 +516,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
           &poly_error,
           &rx,
           E_claim,
-          &gens.gens_pc,
+          &key.pc_commit_key,
           transcript,
           random_tape,
         )
@@ -531,7 +552,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     instance: &CRR1CSInstance<G, PC>,
     evals: &(G::ScalarField, G::ScalarField, G::ScalarField),
     transcript: &mut Transcript,
-    gens: &CRR1CSGens<G, PC>,
+    key: &CRR1CSKey<G, PC>,
   ) -> Result<(Vec<G::ScalarField>, Vec<G::ScalarField>), ProofVerifyError> {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
@@ -553,12 +574,14 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     comm_E.append_to_transcript(b"comm_E", transcript);
     // Check compatibility of the polynomial commitments contained in the proof
     // with the vector commitments included in the instance
-    assert!(self
-      .comm_poly_vars
-      .compatible_with_vector_commitment(comm_W));
-    assert!(self
-      .comm_poly_error
-      .compatible_with_vector_commitment(comm_E));
+    assert!(PC::compatible_with_vector_commitment(
+      &self.comm_poly_vars,
+      comm_W
+    ));
+    assert!(PC::compatible_with_vector_commitment(
+      &self.comm_poly_error,
+      comm_E
+    ));
 
     self
       .comm_poly_vars
@@ -617,18 +640,20 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
         .verify::<G>(claim_phase2, num_rounds_y, 2, transcript)?;
 
     // verify Z(ry) proof against the initial commitment `comm_W`
-    self.comm_poly_vars.verify(
+    PC::verify(
+      &self.comm_poly_vars,
       &self.proof_eval_vars_at_ry,
-      &gens.gens_pc,
+      &key.pc_verify_key,
       transcript,
       &ry[1..],
       &self.eval_vars_at_ry,
     )?;
 
     // verify E(rx) proof against the initial commitment `comm_E`
-    self.comm_poly_error.verify(
+    PC::verify(
+      &self.comm_poly_error,
       &self.proof_eval_error_at_rx,
-      &gens.gens_pc,
+      &key.pc_verify_key,
       transcript,
       &rx,
       &self.eval_error_at_rx,
@@ -663,7 +688,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
 #[cfg(test)]
 mod tests {
-  use crate::hyrax::HyraxCommitment;
+  use crate::polycommitments::hyrax::Hyrax;
 
   use crate::r1csinstance::R1CSInstance;
 
@@ -739,7 +764,7 @@ mod tests {
     CRR1CSShape<G::ScalarField>,
     CRR1CSInstance<G, PC>,
     CRR1CSWitness<G::ScalarField>,
-    CRR1CSGens<G, PC>,
+    CRR1CSKey<G, PC>,
   ) {
     // compute random satisfying assignment for r1cs
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
@@ -777,18 +802,21 @@ mod tests {
     }
 
     // compute commitments to the vectors `vars` and `E`.
-    let gens = CRR1CSGens::<G, PC>::new(b"test-m", num_cons, num_vars);
+    let n = max(num_cons, num_vars);
+    let mut rng = test_rng();
+    let SRS = PC::setup(n.log_2() as usize, b"test-SRS", &mut rng);
+    let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
     let mut random_tape = None;
     let comm_W = <PC::VectorCommitment as VectorCommitmentTrait<G>>::commit(
       vars.assignment.as_slice(),
       None,
-      &gens.gens_vc,
+      &key.vc_key,
       &mut random_tape,
     );
     let comm_E = <PC::VectorCommitment as VectorCommitmentTrait<G>>::commit(
       E.as_slice(),
       None,
-      &gens.gens_vc,
+      &key.vc_key,
       &mut random_tape,
     );
     (
@@ -803,7 +831,7 @@ mod tests {
         W: vars.clone(),
         E: E.clone(),
       },
-      gens,
+      key,
     )
   }
 
@@ -831,20 +859,19 @@ mod tests {
 
   #[test]
   pub fn check_crr1cs_proof() {
-    check_crr1cs_proof_helper::<G1Projective, HyraxCommitment<G1Projective>>()
+    check_crr1cs_proof_helper::<G1Projective, Hyrax<G1Projective>>()
   }
   fn check_crr1cs_proof_helper<G: CurveGroup, PC: PolyCommitmentScheme<G>>() {
     let num_vars = 1024;
     let num_cons = num_vars;
     let num_inputs = 10;
-    let (shape, instance, witness, _prover_key) =
+    let (shape, instance, witness, key) =
       produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
     let (num_cons, num_vars, _num_inputs) = (
       shape.get_num_cons(),
       shape.get_num_vars(),
       shape.get_num_inputs(),
     );
-    let gens = CRR1CSGens::<G, PC>::new(b"test-m", num_cons, num_vars);
 
     let mut random_tape = None;
     let mut prover_transcript = Transcript::new(b"example");
@@ -853,7 +880,7 @@ mod tests {
       &shape,
       &instance,
       &witness,
-      &gens,
+      &key,
       &mut prover_transcript,
       &mut random_tape,
     );
@@ -868,7 +895,7 @@ mod tests {
         &instance,
         &inst_evals,
         &mut verifier_transcript,
-        &gens,
+        &key,
       )
       .is_ok());
   }

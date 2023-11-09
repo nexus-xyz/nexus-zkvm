@@ -1,5 +1,9 @@
 use ark_ec::CurveGroup;
+use ark_poly_commit::{
+  PCCommitment, PCCommitterKey, PCRandomness, PCUniversalParams, PCVerifierKey,
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::rand::RngCore;
 use core::fmt::Debug;
 use merlin::Transcript;
 
@@ -8,19 +12,22 @@ use crate::{
   transcript::AppendToTranscript,
 };
 
+pub mod hyrax;
+mod transcript_utils;
+pub mod zeromorph;
+
 pub trait CommitmentKeyTrait<G: CurveGroup> {
   fn setup(num_poly_vars: usize, label: &'static [u8]) -> Self;
   // fn size(&self) -> usize;
   // fn main_gens(&self) -> Vec<G>;
   // fn blind_gen(&self) -> G;
 }
-pub trait BlindsTrait<G: CurveGroup> {}
 
 pub trait VectorCommitmentTrait<G: CurveGroup>:
   AppendToTranscript<G> + Sized + Sync + CanonicalSerialize + CanonicalDeserialize
 {
-  type CommitmentKey: CommitmentKeyTrait<G>;
-  type VCBlinds;
+  type CommitmentKey;
+  type VCBlinds: PCRandomness;
   fn commit(
     vec: &[G::ScalarField],
     blinds: Option<&Self::VCBlinds>,
@@ -32,13 +39,29 @@ pub trait VectorCommitmentTrait<G: CurveGroup>:
   fn zero(n: usize) -> Self;
 }
 
-pub trait PolyCommitmentScheme<G: CurveGroup>:
-  Sized + AppendToTranscript<G> + Sync + CanonicalSerialize + CanonicalDeserialize + Debug
-{
-  type PolyCommitmentKey: CommitmentKeyTrait<G>;
+// trait SRSTrait {}
+// trait PolyCommitmentKeyTrait {}
+
+// trait EvalVerifierKeyTrait {}
+
+// trait PCProofTrait {}
+
+// trait PolyCommitmentTrait {}
+
+pub trait PolyCommitmentScheme<G: CurveGroup> {
+  type SRS;
+  type PolyCommitmentKey;
+  type EvalVerifierKey;
+  type Commitment: Sized
+    + AppendToTranscript<G>
+    + Sync
+    + Debug
+    + CanonicalSerialize
+    + CanonicalDeserialize
+    + PartialEq;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
   type VectorCommitment: VectorCommitmentTrait<G>;
-  type Blinds;
+  type Blinds: PCRandomness;
   type PolyCommitmentProof: Sync + CanonicalSerialize + CanonicalDeserialize + Debug;
 
   // Optionally takes `vector_comm` as a "hint" to speed up the commitment process if a
@@ -49,7 +72,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup>:
     vector_comm: Option<&Self::VectorCommitment>,
     vc_blinds: Option<&<Self::VectorCommitment as VectorCommitmentTrait<G>>::VCBlinds>,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (Self, Option<Self::Blinds>);
+  ) -> (Self::Commitment, Option<Self::Blinds>);
 
   fn prove(
     poly: &DensePolynomial<G::ScalarField>,
@@ -73,32 +96,41 @@ pub trait PolyCommitmentScheme<G: CurveGroup>:
   ) -> (Self::PolyCommitmentProof, G);
 
   fn verify(
-    &self,
+    commitment: &Self::Commitment,
     proof: &Self::PolyCommitmentProof,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::EvalVerifierKey,
     transcript: &mut Transcript,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
   ) -> Result<(), ProofVerifyError>;
 
   fn verify_blinded(
-    &self,
+    commitment: &Self::Commitment,
     proof: &Self::PolyCommitmentProof,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::EvalVerifierKey,
     transcript: &mut Transcript,
     r: &[G::ScalarField],
     eval_commit: &G,
   ) -> Result<(), ProofVerifyError>;
 
-  fn compatible_with_vector_commitment(&self, C: &Self::VectorCommitment) -> bool;
+  fn compatible_with_vector_commitment(
+    commitment: &Self::Commitment,
+    C: &Self::VectorCommitment,
+  ) -> bool;
 
-  // These functions are combined because the SRS of the vector commitment scheme and
-  // polynomial commitment scheme need to be compatible
-  fn setup(
-    num_poly_vars: usize,
-    label: &'static [u8],
+  // Generate a SRS using the provided RNG; this is just for testing purposes, since in reality
+  // we need to perform a trusted setup ceremony and then read the SRS from a file.
+  fn setup(max_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self::SRS;
+
+  //
+  fn trim(
+    srs: &Self::SRS,
+    supported_degree: usize,
+    supported_hiding_bound: usize,
+    enforced_degree_bounds: Option<&[usize]>,
   ) -> (
     Self::PolyCommitmentKey,
+    Self::EvalVerifierKey,
     <Self::VectorCommitment as VectorCommitmentTrait<G>>::CommitmentKey,
   );
 }
