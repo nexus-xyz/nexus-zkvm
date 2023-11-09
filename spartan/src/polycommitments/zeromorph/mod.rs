@@ -6,7 +6,7 @@ use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField};
 use ark_poly::{DenseUVPolynomial, Polynomial};
-use ark_poly_commit::PolynomialCommitment as UnivarPCS;
+use ark_poly_commit::{LabeledPolynomial, PolynomialCommitment as UnivarPCS};
 use merlin::Transcript;
 use transcript_utils::PolyCommitmentTranscript;
 // use ark_poly_commit::{
@@ -88,8 +88,14 @@ where
     poly: &DensePolynomial<<G>::ScalarField>,
     ck: &Self::PolyCommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (Self::Commitment, Option<Self::Blinds>) {
-    todo!()
+  ) -> Self::Commitment {
+    let uni_poly = Zeromorph::<G, P, U>::multilinear_to_univar(poly.clone());
+    let labeled_poly = LabeledPolynomial::new("poly".to_string(), uni_poly, None, None);
+    let rt = random_tape
+      .as_mut()
+      .map_or(None, |rt| Some(rt as &mut dyn RngCore));
+    let (labeled_commitment_vec, blinds) = U::commit(&ck, vec![&labeled_poly], rt).unwrap();
+    labeled_commitment_vec[0].commitment().clone()
   }
 
   fn prove(

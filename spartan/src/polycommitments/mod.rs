@@ -30,13 +30,11 @@ pub trait VectorCommitmentTrait<G: CurveGroup> {
     + CanonicalSerialize
     + CanonicalDeserialize;
   type CommitmentKey;
-  type VCBlinds: PCRandomness;
   fn commit(
     vec: &[G::ScalarField],
-    blinds: Option<&Self::VCBlinds>,
     ck: &Self::CommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (Self::VectorCommitment, Self::VCBlinds);
+  ) -> Self::VectorCommitment;
 
   // Commitment to the zero vector of length n
   fn zero(n: usize) -> Self::VectorCommitment;
@@ -71,7 +69,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (Self::Commitment, Option<Self::Blinds>);
+  ) -> Self::Commitment;
 
   fn prove(
     poly: &DensePolynomial<G::ScalarField>,
@@ -128,17 +126,13 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
   type VectorCommitment = PC::Commitment;
   type CommitmentKey = PC::PolyCommitmentKey;
-  type VCBlinds = PC::Blinds;
   fn commit(
     vec: &[<G>::ScalarField],
-    blinds: Option<&Self::VCBlinds>,
     ck: &Self::CommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (Self::VectorCommitment, Self::VCBlinds) {
+  ) -> Self::VectorCommitment {
     let poly = DensePolynomial::new(vec.to_vec());
-    let (commitment, maybe_blinds) = PC::commit(&poly, ck, random_tape);
-    let blinds = maybe_blinds.unwrap_or(Self::VCBlinds::empty());
-    (commitment, blinds)
+    PC::commit(&poly, ck, random_tape)
   }
   fn zero(n: usize) -> Self::VectorCommitment {
     PC::Commitment::zero(n)

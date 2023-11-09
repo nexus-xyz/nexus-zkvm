@@ -326,12 +326,12 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     comm_W.append_to_transcript(b"comm_W", transcript);
     comm_E.append_to_transcript(b"comm_E", transcript);
     let timer_commit = Timer::new("polycommit");
-    let (poly_vars, comm_poly_vars, blinds_vars, poly_error, comm_poly_error, blinds_error) = {
+    let (poly_vars, comm_poly_vars, poly_error, comm_poly_error) = {
       // create a multilinear polynomial using the supplied assignment for variables
       let poly_vars = DensePolynomial::<G::ScalarField>::new(vars.clone());
 
       // produce a commitment to the satisfying assignment
-      let (comm_poly_vars, blinds_vars) = PC::commit(&poly_vars, &key.pc_commit_key, random_tape);
+      let comm_poly_vars = PC::commit(&poly_vars, &key.pc_commit_key, random_tape);
       // check that this agrees with the vector commitment comm_W provided
       assert_eq!(comm_poly_vars, *comm_W);
 
@@ -342,22 +342,14 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       let poly_error = DensePolynomial::<G::ScalarField>::new(E.clone());
 
       // produce a commitment to the error vector
-      let (comm_poly_error, blinds_error) =
-        PC::commit(&poly_error, &key.pc_commit_key, random_tape);
+      let comm_poly_error = PC::commit(&poly_error, &key.pc_commit_key, random_tape);
 
       // check that this agrees with the vector commitment comm_E provided
       assert_eq!(comm_poly_error, *comm_E);
 
       // add the commitment to the prover's transcript
       comm_poly_error.append_to_transcript(b"poly_error_commitment", transcript);
-      (
-        poly_vars,
-        comm_poly_vars,
-        blinds_vars,
-        poly_error,
-        comm_poly_error,
-        blinds_error,
-      )
+      (poly_vars, comm_poly_vars, poly_error, comm_poly_error)
     };
 
     timer_commit.stop();
@@ -455,53 +447,25 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     let timer_polyeval = Timer::new("polyeval");
     let eval_vars_at_ry = poly_vars.evaluate::<G>(&ry[1..]);
     let proof_eval_vars_at_ry = {
-      if let Some(blinds) = blinds_vars {
-        let (proof, _) = PC::prove_blinded(
-          &poly_vars,
-          &ry[1..],
-          &eval_vars_at_ry,
-          &key.pc_commit_key,
-          transcript,
-          random_tape,
-          &blinds,
-          &G::ScalarField::zero(),
-        );
-        proof
-      } else {
-        PC::prove(
-          &poly_vars,
-          &ry[1..],
-          &eval_vars_at_ry,
-          &key.pc_commit_key,
-          transcript,
-          random_tape,
-        )
-      }
+      PC::prove(
+        &poly_vars,
+        &ry[1..],
+        &eval_vars_at_ry,
+        &key.pc_commit_key,
+        transcript,
+        random_tape,
+      )
     };
 
     let proof_eval_error_at_rx = {
-      if let Some(blinds) = blinds_error {
-        let (proof, _) = PC::prove_blinded(
-          &poly_error,
-          &rx,
-          E_claim,
-          &key.pc_commit_key,
-          transcript,
-          random_tape,
-          &blinds,
-          &G::ScalarField::zero(),
-        );
-        proof
-      } else {
-        PC::prove(
-          &poly_error,
-          &rx,
-          E_claim,
-          &key.pc_commit_key,
-          transcript,
-          random_tape,
-        )
-      }
+      PC::prove(
+        &poly_error,
+        &rx,
+        E_claim,
+        &key.pc_commit_key,
+        transcript,
+        random_tape,
+      )
     };
 
     timer_polyeval.stop();
@@ -782,18 +746,13 @@ mod tests {
     let SRS = PC::setup(n.log_2() as usize, b"test-SRS", &mut rng);
     let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
     let mut random_tape = None;
-    let (comm_W, _comm_W_blinds) = <PC as VectorCommitmentTrait<G>>::commit(
+    let comm_W = <PC as VectorCommitmentTrait<G>>::commit(
       vars.assignment.as_slice(),
-      None,
       &key.pc_commit_key,
       &mut random_tape,
     );
-    let (comm_E, _comm_E_blinds) = <PC as VectorCommitmentTrait<G>>::commit(
-      E.as_slice(),
-      None,
-      &key.pc_commit_key,
-      &mut random_tape,
-    );
+    let comm_E =
+      <PC as VectorCommitmentTrait<G>>::commit(E.as_slice(), &key.pc_commit_key, &mut random_tape);
     (
       shape,
       CRR1CSInstance::<G, PC> {

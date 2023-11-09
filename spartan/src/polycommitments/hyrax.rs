@@ -134,14 +134,9 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> (
-    HyraxCommitment<G>,
-    Option<HyraxBlinds<<G as ark_ec::Group>::ScalarField>>,
-  ) {
+  ) -> (HyraxCommitment<G>) {
     let (C, blinds) = poly.commit(&ck.gens, random_tape.into());
-    let comm = HyraxCommitment { C };
-    let blinds = HyraxBlinds { blinds };
-    (comm, Some(blinds))
+    HyraxCommitment { C }
   }
 
   fn prove(

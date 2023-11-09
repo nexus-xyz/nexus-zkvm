@@ -1,8 +1,8 @@
 use crate::random::RandomTape;
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::CurveGroup;
+use ark_std::rand::{Error, RngCore};
 use merlin::Transcript;
-use rand_core::RngCore;
 
 #[derive(Clone)]
 pub(crate) struct PolyCommitmentTranscript {
@@ -26,7 +26,7 @@ impl<G: CurveGroup> RngCore for RandomTape<G> {
     u64::from_le_bytes(bytes)
   }
 
-  fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+  fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
     self.tape.challenge_bytes(b"try_fill_bytes", dest);
     Ok(())
   }
