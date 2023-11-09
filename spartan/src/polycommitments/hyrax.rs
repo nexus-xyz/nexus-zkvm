@@ -24,11 +24,21 @@ pub struct HyraxKey<G: CurveGroup> {
   pub gens: PolyCommitmentGens<G>,
 }
 
-#[derive(CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq)]
 pub struct HyraxCommitment<G: CurveGroup> {
   pub C: PolyCommitment<G>,
 }
 
+impl<G: CurveGroup> PCCommitment for HyraxCommitment<G> {
+  fn empty() -> Self {
+    Self {
+      C: PolyCommitment::<G> { C: vec![] },
+    }
+  }
+  fn has_degree_bound(&self) -> bool {
+    true
+  }
+}
 impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_message(label, b"hyrax_commitment_begin");
@@ -86,32 +96,6 @@ impl<F: PrimeField> PCRandomness for HyraxBlinds<F> {
     }
   }
 }
-impl<G: CurveGroup> VectorCommitmentTrait<G> for HyraxVectorCommitment<G> {
-  type CommitmentKey = HyraxKey<G>;
-  type VCBlinds = HyraxBlinds<G::ScalarField>;
-  // We implement the HyraxVectorCommitment directly as the HyraxCommitment of the MLE of the vector.
-  fn commit(
-    vec: &[G::ScalarField],
-    _blinds: Option<&Self::VCBlinds>,
-    ck: &Self::CommitmentKey,
-    random_tape: &mut Option<RandomTape<G>>,
-  ) -> Self {
-    let poly_vec = DensePolynomial::new(vec.to_vec());
-    let (poly_comm, _) =
-      <Hyrax<G> as PolyCommitmentScheme<G>>::commit(&poly_vec, ck, None, None, random_tape);
-    Self { C: poly_comm.C }
-  }
-
-  fn zero(n: usize) -> Self {
-    todo!()
-  }
-}
-
-//impl<G: CurveGroup> CommitmentKeyTrait<G> for HyraxKey<G> {
-//  fn setup(num_poly_vars: usize, label: &'static [u8]) -> Self {
-//    HyraxKey::new(num_poly_vars, label)
-//  }
-//}
 
 impl<F: PrimeField> HyraxBlinds<F> {
   fn from_vec(vec: Vec<F>) -> Self {
@@ -129,7 +113,6 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   type Commitment = HyraxCommitment<G>;
   type PolyCommitmentKey = HyraxKey<G>;
   type EvalVerifierKey = HyraxKey<G>;
-  type VectorCommitment = HyraxVectorCommitment<G>;
 
   type Blinds = HyraxBlinds<G::ScalarField>;
 
@@ -140,37 +123,25 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     supported_degree: usize,
     supported_hiding_bound: usize,
     enforced_degree_bounds: Option<&[usize]>,
-  ) -> (
-    Self::PolyCommitmentKey,
-    Self::EvalVerifierKey,
-    <HyraxVectorCommitment<G> as VectorCommitmentTrait<G>>::CommitmentKey,
-  ) {
+  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
     let commit_key = srs.clone();
     let verifier_key = srs.clone();
     let vector_commit_key = srs.clone();
-    (commit_key, verifier_key, vector_commit_key)
+    (commit_key, verifier_key)
   }
 
   fn commit(
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
-    vector_comm: Option<&Self::VectorCommitment>,
-    vc_blinds: Option<&<Self::VectorCommitment as VectorCommitmentTrait<G>>::VCBlinds>,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> (
     HyraxCommitment<G>,
     Option<HyraxBlinds<<G as ark_ec::Group>::ScalarField>>,
   ) {
-    if let Some(vc) = vector_comm {
-      let comm = HyraxCommitment { C: (vc.C.clone()) };
-      debug_assert!(Hyrax::<G>::compatible_with_vector_commitment(&comm, vc));
-      (comm, vc_blinds.cloned())
-    } else {
-      let (C, blinds) = poly.commit(&ck.gens, random_tape.into());
-      let comm = HyraxCommitment { C };
-      let blinds = HyraxBlinds { blinds };
-      (comm, Some(blinds))
-    }
+    let (C, blinds) = poly.commit(&ck.gens, random_tape.into());
+    let comm = HyraxCommitment { C };
+    let blinds = HyraxBlinds { blinds };
+    (comm, Some(blinds))
   }
 
   fn prove(
@@ -239,13 +210,6 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     proof
       .proof
       .verify(&ck.gens, transcript, r, eval_commit, &commitment.C)
-  }
-
-  fn compatible_with_vector_commitment(
-    commitment: &Self::Commitment,
-    C: &Self::VectorCommitment,
-  ) -> bool {
-    C.C == commitment.C
   }
 
   fn setup(num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self::SRS {

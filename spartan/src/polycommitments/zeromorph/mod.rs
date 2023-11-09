@@ -18,6 +18,8 @@ use ark_std::{marker::PhantomData, vec::Vec};
 use std::fmt::Debug;
 
 use super::transcript_utils;
+mod algebra;
+mod data_structures;
 
 // impl<U: UnivarCommitment, G: CurveGroup> AppendToTranscript<G> for U {
 //   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
@@ -49,30 +51,6 @@ where
     &self.comm.append_to_transcript(label, transcript);
   }
 }
-impl<G, P, U> VectorCommitmentTrait<G> for ZeromorphVC<G, P, U>
-where
-  G: CurveGroup,
-  P: DenseUVPolynomial<G::ScalarField>,
-  U: UnivarPCS<G::ScalarField, P, PolyCommitmentTranscript>,
-  U::Commitment: AppendToTranscript<G>,
-{
-  type CommitmentKey = U::CommitterKey;
-
-  type VCBlinds = U::Randomness;
-
-  fn commit(
-    vec: &[<G>::ScalarField],
-    blinds: Option<&Self::VCBlinds>,
-    ck: &Self::CommitmentKey,
-    random_tape: &mut Option<RandomTape<G>>,
-  ) -> Self {
-    todo!()
-  }
-
-  fn zero(n: usize) -> Self {
-    todo!()
-  }
-}
 
 struct Zeromorph<G, P, U>
 where
@@ -90,14 +68,13 @@ where
   G: CurveGroup,
   P: DenseUVPolynomial<G::ScalarField>,
   U: UnivarPCS<G::ScalarField, P, PolyCommitmentTranscript>,
-  U::Commitment: PartialEq + AppendToTranscript<G> + Debug + CanonicalSerialize + CanonicalDeserialize,
+  U::Commitment:
+    PartialEq + AppendToTranscript<G> + Debug + CanonicalSerialize + CanonicalDeserialize,
   U::Proof: Debug + CanonicalSerialize + CanonicalDeserialize,
 {
   type PolyCommitmentKey = U::CommitterKey;
 
   type EvalVerifierKey = U::VerifierKey;
-
-  type VectorCommitment = ZeromorphVC<G, P, U>;
 
   type Blinds = U::Randomness;
 
@@ -110,8 +87,6 @@ where
   fn commit(
     poly: &DensePolynomial<<G>::ScalarField>,
     ck: &Self::PolyCommitmentKey,
-    _vector_comm: Option<&Self::VectorCommitment>,
-    _vc_blinds: Option<&<Self::VectorCommitment as VectorCommitmentTrait<G>>::VCBlinds>,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> (Self::Commitment, Option<Self::Blinds>) {
     todo!()
@@ -163,13 +138,6 @@ where
     todo!()
   }
 
-  fn compatible_with_vector_commitment(
-    commitment: &Self::Commitment,
-    C: &Self::VectorCommitment,
-  ) -> bool {
-    todo!()
-  }
-
   fn setup(num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> (Self::SRS) {
     todo!()
   }
@@ -178,11 +146,7 @@ where
     supported_degree: usize,
     supported_hiding_bound: usize,
     enforced_degree_bounds: Option<&[usize]>,
-  ) -> (
-    Self::PolyCommitmentKey,
-    Self::EvalVerifierKey,
-    <Self::VectorCommitment as VectorCommitmentTrait<G>>::CommitmentKey,
-  ) {
+  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
     todo!()
   }
 }

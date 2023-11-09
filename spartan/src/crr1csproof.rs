@@ -23,7 +23,6 @@ use merlin::Transcript;
 pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   pc_commit_key: PC::PolyCommitmentKey,
   pc_verify_key: PC::EvalVerifierKey,
-  vc_key: <PC::VectorCommitment as VectorCommitmentTrait<G>>::CommitmentKey,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
@@ -31,11 +30,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
-    let (pc_commit_key, pc_verify_key, vc_key) = PC::trim(SRS, n, 1, None);
+    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n, 1, None);
     CRR1CSKey {
       pc_commit_key,
       pc_verify_key,
-      vc_key,
     }
   }
 }
@@ -59,8 +57,8 @@ impl<F: PrimeField> CRR1CSShape<F> {
 pub struct CRR1CSInstance<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   pub input: InputsAssignment<G::ScalarField>,
   pub u: G::ScalarField,
-  pub comm_W: PC::VectorCommitment,
-  pub comm_E: PC::VectorCommitment,
+  pub comm_W: PC::Commitment,
+  pub comm_E: PC::Commitment,
 }
 
 pub struct CRR1CSWitness<F: PrimeField> {
@@ -333,18 +331,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       let poly_vars = DensePolynomial::<G::ScalarField>::new(vars.clone());
 
       // produce a commitment to the satisfying assignment
-      let (comm_poly_vars, blinds_vars) = PC::commit(
-        &poly_vars,
-        &key.pc_commit_key,
-        Some(comm_W),
-        None,
-        random_tape,
-      );
+      let (comm_poly_vars, blinds_vars) = PC::commit(&poly_vars, &key.pc_commit_key, random_tape);
       // check that this agrees with the vector commitment comm_W provided
-      assert!(PC::compatible_with_vector_commitment(
-        &comm_poly_vars,
-        comm_W
-      ));
+      assert_eq!(comm_poly_vars, *comm_W);
 
       // add the commitment to the prover's transcript
       comm_poly_vars.append_to_transcript(b"poly_vars_commitment", transcript);
@@ -353,19 +342,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       let poly_error = DensePolynomial::<G::ScalarField>::new(E.clone());
 
       // produce a commitment to the error vector
-      let (comm_poly_error, blinds_error) = PC::commit(
-        &poly_error,
-        &key.pc_commit_key,
-        Some(comm_E),
-        None,
-        random_tape,
-      );
+      let (comm_poly_error, blinds_error) =
+        PC::commit(&poly_error, &key.pc_commit_key, random_tape);
 
-      // check that this agrees with the vector commitment comm_W provided
-      assert!(PC::compatible_with_vector_commitment(
-        &comm_poly_error,
-        comm_E
-      ));
+      // check that this agrees with the vector commitment comm_E provided
+      assert_eq!(comm_poly_error, *comm_E);
 
       // add the commitment to the prover's transcript
       comm_poly_error.append_to_transcript(b"poly_error_commitment", transcript);
@@ -574,14 +555,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     comm_E.append_to_transcript(b"comm_E", transcript);
     // Check compatibility of the polynomial commitments contained in the proof
     // with the vector commitments included in the instance
-    assert!(PC::compatible_with_vector_commitment(
-      &self.comm_poly_vars,
-      comm_W
-    ));
-    assert!(PC::compatible_with_vector_commitment(
-      &self.comm_poly_error,
-      comm_E
-    ));
+    assert_eq!(self.comm_poly_vars, *comm_W);
+    assert_eq!(&self.comm_poly_error, comm_E);
 
     self
       .comm_poly_vars
@@ -807,16 +782,16 @@ mod tests {
     let SRS = PC::setup(n.log_2() as usize, b"test-SRS", &mut rng);
     let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
     let mut random_tape = None;
-    let comm_W = <PC::VectorCommitment as VectorCommitmentTrait<G>>::commit(
+    let (comm_W, _comm_W_blinds) = <PC as VectorCommitmentTrait<G>>::commit(
       vars.assignment.as_slice(),
       None,
-      &key.vc_key,
+      &key.pc_commit_key,
       &mut random_tape,
     );
-    let comm_E = <PC::VectorCommitment as VectorCommitmentTrait<G>>::commit(
+    let (comm_E, _comm_E_blinds) = <PC as VectorCommitmentTrait<G>>::commit(
       E.as_slice(),
       None,
-      &key.vc_key,
+      &key.pc_commit_key,
       &mut random_tape,
     );
     (

@@ -23,9 +23,12 @@ pub trait CommitmentKeyTrait<G: CurveGroup> {
   // fn blind_gen(&self) -> G;
 }
 
-pub trait VectorCommitmentTrait<G: CurveGroup>:
-  AppendToTranscript<G> + Sized + Sync + CanonicalSerialize + CanonicalDeserialize
-{
+pub trait VectorCommitmentTrait<G: CurveGroup> {
+  type VectorCommitment: AppendToTranscript<G>
+    + Sized
+    + Sync
+    + CanonicalSerialize
+    + CanonicalDeserialize;
   type CommitmentKey;
   type VCBlinds: PCRandomness;
   fn commit(
@@ -33,10 +36,10 @@ pub trait VectorCommitmentTrait<G: CurveGroup>:
     blinds: Option<&Self::VCBlinds>,
     ck: &Self::CommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
-  ) -> Self;
+  ) -> (Self::VectorCommitment, Self::VCBlinds);
 
   // Commitment to the zero vector of length n
-  fn zero(n: usize) -> Self;
+  fn zero(n: usize) -> Self::VectorCommitment;
 }
 
 // trait SRSTrait {}
@@ -46,21 +49,19 @@ pub trait VectorCommitmentTrait<G: CurveGroup>:
 
 // trait PCProofTrait {}
 
-// trait PolyCommitmentTrait {}
+pub trait PolyCommitmentTrait<G: CurveGroup>:
+  Sized + AppendToTranscript<G> + Sync + Debug + CanonicalSerialize + CanonicalDeserialize + PartialEq
+{
+  // this should be the commitment to the zero vector of length n
+  fn zero(n: usize) -> Self;
+}
 
 pub trait PolyCommitmentScheme<G: CurveGroup> {
   type SRS;
   type PolyCommitmentKey;
   type EvalVerifierKey;
-  type Commitment: Sized
-    + AppendToTranscript<G>
-    + Sync
-    + Debug
-    + CanonicalSerialize
-    + CanonicalDeserialize
-    + PartialEq;
+  type Commitment: PolyCommitmentTrait<G>;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
-  type VectorCommitment: VectorCommitmentTrait<G>;
   type Blinds: PCRandomness;
   type PolyCommitmentProof: Sync + CanonicalSerialize + CanonicalDeserialize + Debug;
 
@@ -69,8 +70,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
   fn commit(
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
-    vector_comm: Option<&Self::VectorCommitment>,
-    vc_blinds: Option<&<Self::VectorCommitment as VectorCommitmentTrait<G>>::VCBlinds>,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> (Self::Commitment, Option<Self::Blinds>);
 
@@ -113,11 +112,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     eval_commit: &G,
   ) -> Result<(), ProofVerifyError>;
 
-  fn compatible_with_vector_commitment(
-    commitment: &Self::Commitment,
-    C: &Self::VectorCommitment,
-  ) -> bool;
-
   // Generate a SRS using the provided RNG; this is just for testing purposes, since in reality
   // we need to perform a trusted setup ceremony and then read the SRS from a file.
   fn setup(max_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self::SRS;
@@ -128,9 +122,25 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     supported_degree: usize,
     supported_hiding_bound: usize,
     enforced_degree_bounds: Option<&[usize]>,
-  ) -> (
-    Self::PolyCommitmentKey,
-    Self::EvalVerifierKey,
-    <Self::VectorCommitment as VectorCommitmentTrait<G>>::CommitmentKey,
-  );
+  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey);
+}
+
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
+  type VectorCommitment = PC::Commitment;
+  type CommitmentKey = PC::PolyCommitmentKey;
+  type VCBlinds = PC::Blinds;
+  fn commit(
+    vec: &[<G>::ScalarField],
+    blinds: Option<&Self::VCBlinds>,
+    ck: &Self::CommitmentKey,
+    random_tape: &mut Option<RandomTape<G>>,
+  ) -> (Self::VectorCommitment, Self::VCBlinds) {
+    let poly = DensePolynomial::new(vec.to_vec());
+    let (commitment, maybe_blinds) = PC::commit(&poly, ck, random_tape);
+    let blinds = maybe_blinds.unwrap_or(Self::VCBlinds::empty());
+    (commitment, blinds)
+  }
+  fn zero(n: usize) -> Self::VectorCommitment {
+    PC::Commitment::zero(n)
+  }
 }

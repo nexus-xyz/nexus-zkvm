@@ -8,6 +8,7 @@ use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ec::VariableBaseMSM;
 use ark_ff::PrimeField;
+use ark_poly_commit::DenseUVPolynomial;
 use ark_serialize::*;
 use ark_std::Zero;
 use core::ops::Index;
@@ -259,7 +260,7 @@ impl<F: PrimeField> DensePolynomial<F> {
     DotProductProofLog::<G>::compute_dotproduct(&self.Z, &chis)
   }
 
-  fn vec(&self) -> &Vec<F> {
+  pub fn vec(&self) -> &Vec<F> {
     &self.Z
   }
 
