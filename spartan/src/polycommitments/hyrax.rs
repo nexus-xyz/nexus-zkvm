@@ -24,6 +24,11 @@ pub struct HyraxKey<G: CurveGroup> {
   pub gens: PolyCommitmentGens<G>,
 }
 
+impl<G: CurveGroup> PCUniversalParams for HyraxKey<G> {
+  fn max_degree(&self) -> usize {
+    self.gens.gens.gens_n.n
+  }
+}
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq)]
 pub struct HyraxCommitment<G: CurveGroup> {
   pub C: PolyCommitment<G>,
@@ -124,7 +129,6 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
     let commit_key = srs.clone();
     let verifier_key = srs.clone();
-    let vector_commit_key = srs.clone();
     (commit_key, verifier_key)
   }
 

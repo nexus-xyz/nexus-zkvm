@@ -1,12 +1,13 @@
 use super::{CommitmentKeyTrait, PolyCommitmentScheme, VectorCommitmentTrait};
 use crate::dense_mlpoly::DensePolynomial;
+use crate::math::Math;
 use crate::random::RandomTape;
 use crate::transcript::{AppendToTranscript, ProofTranscript};
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField};
 use ark_poly::{DenseUVPolynomial, Polynomial};
-use ark_poly_commit::{LabeledPolynomial, PolynomialCommitment as UnivarPCS};
+use ark_poly_commit::{LabeledPolynomial, PCUniversalParams, PolynomialCommitment as UnivarPCS};
 use merlin::Transcript;
 use transcript_utils::PolyCommitmentTranscript;
 // use ark_poly_commit::{
@@ -48,7 +49,7 @@ where
   U::Commitment: AppendToTranscript<G>,
 {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
-    &self.comm.append_to_transcript(label, transcript);
+    self.comm.append_to_transcript(label, transcript);
   }
 }
 
@@ -89,9 +90,7 @@ where
   ) -> Self::Commitment {
     let uni_poly = Zeromorph::<G, P, U>::multilinear_to_univar(poly.clone());
     let labeled_poly = LabeledPolynomial::new("poly".to_string(), uni_poly, None, None);
-    let rt = random_tape
-      .as_mut()
-      .map_or(None, |rt| Some(rt as &mut dyn RngCore));
+    let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
     let (labeled_commitment_vec, blinds) = U::commit(&ck, vec![&labeled_poly], rt).unwrap();
     labeled_commitment_vec[0].commitment().clone()
   }
@@ -118,8 +117,8 @@ where
     todo!()
   }
 
-  fn setup(num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> (Self::SRS) {
-    todo!()
+  fn setup(max_num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self::SRS {
+    U::setup(max_num_poly_vars.pow2() as usize, None, rng).unwrap()
   }
   fn trim(
     srs: &Self::SRS,
@@ -127,6 +126,12 @@ where
     supported_hiding_bound: usize,
     enforced_degree_bounds: Option<&[usize]>,
   ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
-    todo!()
+    U::trim(
+      srs,
+      supported_degree,
+      supported_hiding_bound,
+      enforced_degree_bounds,
+    )
+    .unwrap()
   }
 }

@@ -54,8 +54,12 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   fn zero(n: usize) -> Self;
 }
 
+pub trait SRSTrait {
+  fn setup(num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self;
+}
+
 pub trait PolyCommitmentScheme<G: CurveGroup> {
-  type SRS;
+  type SRS: SRSTrait;
   type PolyCommitmentKey;
   type EvalVerifierKey;
   type Commitment: PolyCommitmentTrait<G>;
