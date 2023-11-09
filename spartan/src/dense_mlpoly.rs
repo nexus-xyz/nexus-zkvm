@@ -13,7 +13,7 @@ use ark_std::Zero;
 use core::ops::Index;
 use merlin::Transcript;
 
-#[cfg(feature = "multicore")]
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -22,8 +22,11 @@ pub struct DensePolynomial<F> {
   len: usize,
   Z: Vec<F>, // evaluations of the polynomial in all the 2^num_vars Boolean inputs
 }
-#[derive(Clone)]
-pub struct PolyCommitmentGens<G> {
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct PolyCommitmentGens<G>
+where
+  G: CurveGroup,
+{
   pub gens: DotProductProofGens<G>,
 }
 
@@ -35,12 +38,15 @@ impl<G: CurveGroup> PolyCommitmentGens<G> {
     PolyCommitmentGens { gens }
   }
 }
-
-pub struct PolyCommitmentBlinds<F> {
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct PolyCommitmentBlinds<F>
+where
+  F: PrimeField,
+{
   pub blinds: Vec<F>,
 }
 
-#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, Debug, Default, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PolyCommitment<G: CurveGroup> {
   pub(crate) C: Vec<G>,
 }
@@ -120,7 +126,7 @@ impl IdentityPolynomial {
 impl<F: PrimeField> DensePolynomial<F> {
   pub fn new(Z: Vec<F>) -> Self {
     DensePolynomial {
-      num_vars: Z.len().log_2() as usize,
+      num_vars: Z.len().log_2(),
       len: Z.len(),
       Z,
     }
@@ -134,8 +140,8 @@ impl<F: PrimeField> DensePolynomial<F> {
     self.len
   }
 
-  pub fn clone(&self) -> Self {
-    Self::new(self.Z[0..self.len].to_vec())
+  pub fn is_empty(&self) -> bool {
+    self.len == 0
   }
 
   pub fn split(&self, idx: usize) -> (Self, Self) {
@@ -146,23 +152,6 @@ impl<F: PrimeField> DensePolynomial<F> {
     )
   }
 
-  #[cfg(feature = "multicore")]
-  fn commit_inner(&self, blinds: &[F], gens: &MultiCommitGens) -> PolyCommitment {
-    let L_size = blinds.len();
-    let R_size = self.Z.len() / L_size;
-    assert_eq!(L_size * R_size, self.Z.len());
-    let C = (0..L_size)
-      .into_par_iter()
-      .map(|i| {
-        self.Z[R_size * i..R_size * (i + 1)]
-          .commit(&blinds[i], gens)
-          .compress()
-      })
-      .collect();
-    PolyCommitment { C }
-  }
-
-  #[cfg(not(feature = "multicore"))]
   fn commit_inner<G: CurveGroup<ScalarField = F>>(
     &self,
     blinds: &[F],
@@ -171,7 +160,7 @@ impl<F: PrimeField> DensePolynomial<F> {
     let L_size = blinds.len();
     let R_size = self.Z.len() / L_size;
     assert_eq!(L_size * R_size, self.Z.len());
-    let C = (0..L_size)
+    let C = ark_std::cfg_into_iter!(0..L_size)
       .map(|i| {
         Commitments::batch_commit(
           self.Z[R_size * i..R_size * (i + 1)].as_ref(),
@@ -253,7 +242,7 @@ impl<F: PrimeField> DensePolynomial<F> {
     DotProductProofLog::<G>::compute_dotproduct(&self.Z, &chis)
   }
 
-  fn vec(&self) -> &Vec<F> {
+  pub fn vec(&self) -> &Vec<F> {
     &self.Z
   }
 

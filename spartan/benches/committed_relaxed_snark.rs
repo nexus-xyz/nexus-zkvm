@@ -2,12 +2,12 @@
 extern crate libspartan;
 extern crate merlin;
 
-use ark_bls12_381::G1Projective;
+use ark_bls12_381::{Bls12_381, G1Projective};
 use ark_ec::CurveGroup;
-use ark_std::test_rng;
 use libspartan::{
-  polycommitments::{hyrax::Hyrax, PolyCommitmentScheme},
-  Instance, SNARKGens, SNARK,
+  committed_relaxed_snark::SNARK,
+  crr1csproof::produce_synthetic_crr1cs,
+  polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme},
 };
 use merlin::Transcript;
 
@@ -22,20 +22,14 @@ fn snark_encode_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cr
     let num_vars = (2_usize).pow(s as u32);
     let num_cons = num_vars;
     let num_inputs = 10;
-    let (inst, _vars, _inputs) =
-      Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
-
-    // produce public parameters
-    let min_num_vars =
-      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
-    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
-    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
+    let (shape, _instance, _witness, gens) =
+      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
 
     // produce a commitment to R1CS instance
     let name = format!("SNARK_encode_{}", num_cons);
     group.bench_function(&name, move |b| {
       b.iter(|| {
-        SNARK::encode(black_box(&inst), black_box(&gens));
+        SNARK::encode(black_box(&shape.inst), black_box(&gens));
       });
     });
     group.finish();
@@ -52,17 +46,11 @@ fn snark_prove_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cri
     let num_cons = num_vars;
     let num_inputs = 10;
 
-    let (inst, vars, inputs) =
-      Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
-
-    // produce public parameters
-    let min_num_vars =
-      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
-    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
-    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
+    let (shape, instance, witness, gens) =
+      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
 
     // produce a commitment to R1CS instance
-    let (comm, decomm) = SNARK::encode(&inst, &gens);
+    let (comm, decomm) = SNARK::encode(&shape.inst, &gens);
 
     // produce a proof
     let name = format!("SNARK_prove_{}", num_cons);
@@ -70,11 +58,11 @@ fn snark_prove_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cri
       b.iter(|| {
         let mut prover_transcript = Transcript::new(b"example");
         SNARK::prove(
-          black_box(&inst),
+          black_box(&shape),
+          black_box(&instance),
+          black_box(witness.clone()),
           black_box(&comm),
           black_box(&decomm),
-          black_box(vars.clone()),
-          black_box(&inputs),
           black_box(&gens),
           black_box(&mut prover_transcript),
         );
@@ -93,26 +81,21 @@ fn snark_verify_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cr
     let num_vars = (2_usize).pow(s as u32);
     let num_cons = num_vars;
     let num_inputs = 10;
-    let (inst, vars, inputs) =
-      Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
-    // produce public parameters
-    let min_num_vars =
-      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
-    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
-    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
+    let (shape, instance, witness, gens) =
+      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
 
     // produce a commitment to R1CS instance
-    let (comm, decomm) = SNARK::encode(&inst, &gens);
+    let (comm, decomm) = SNARK::encode(&shape.inst, &gens);
 
     // produce a proof of satisfiability
     let mut prover_transcript = Transcript::new(b"example");
     let proof = SNARK::prove(
-      &inst,
+      &shape,
+      &instance,
+      witness,
       &comm,
       &decomm,
-      vars,
-      &inputs,
       &gens,
       &mut prover_transcript,
     );
@@ -125,7 +108,7 @@ fn snark_verify_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cr
         assert!(proof
           .verify(
             black_box(&comm),
-            black_box(&inputs),
+            black_box(&instance),
             black_box(&mut verifier_transcript),
             black_box(&gens)
           )
@@ -143,8 +126,8 @@ fn set_duration() -> Criterion {
 criterion_group! {
 name = benches_snark;
 config = set_duration();
-targets = snark_encode_benchmark::<G1Projective, Hyrax<G1Projective>>,
-snark_prove_benchmark::<G1Projective, Hyrax<G1Projective>>, snark_verify_benchmark::<G1Projective, Hyrax<G1Projective>>
+targets = snark_encode_benchmark::<G1Projective, Zeromorph<Bls12_381> >,
+snark_prove_benchmark::<G1Projective, Zeromorph<Bls12_381>>, snark_verify_benchmark::<G1Projective, Zeromorph<Bls12_381>>
 }
 
 criterion_main!(benches_snark);

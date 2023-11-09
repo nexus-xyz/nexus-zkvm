@@ -4,12 +4,12 @@
 extern crate libspartan;
 extern crate merlin;
 
-use ark_bls12_381::{Fr, G1Projective};
+use ark_bls12_381::{Bls12_381, G1Projective};
 use ark_serialize::CanonicalSerialize;
-use ark_std::test_rng;
+
 use libspartan::{
-  polycommitments::{hyrax::Hyrax, PolyCommitmentScheme},
-  Instance, SNARKGens, SNARK,
+  committed_relaxed_snark::SNARK, crr1csproof::produce_synthetic_crr1cs,
+  polycommitments::zeromorph::Zeromorph,
 };
 use merlin::Transcript;
 
@@ -29,28 +29,22 @@ pub fn main() {
     let num_inputs = 10;
 
     // produce a synthetic R1CSInstance
-    let (inst, vars, inputs) =
-      Instance::<Fr>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
-
-    let SRS =
-      Hyrax::<G1Projective>::setup(num_cons, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
-
-    // produce public generators
-    let gens = SNARKGens::<G1Projective, Hyrax<G1Projective>>::new(
-      &SRS, num_cons, num_vars, num_inputs, num_cons,
-    );
+    let (shape, instance, witness, gens) = produce_synthetic_crr1cs::<
+      G1Projective,
+      Zeromorph<Bls12_381>,
+    >(num_cons, num_vars, num_inputs);
 
     // create a commitment to R1CSInstance
-    let (comm, decomm) = SNARK::encode(&inst, &gens);
+    let (comm, decomm) = SNARK::encode(&shape.inst, &gens);
 
     // produce a proof of satisfiability
     let mut prover_transcript = Transcript::new(b"snark_example");
     let proof = SNARK::prove(
-      &inst,
+      &shape,
+      &instance,
+      witness,
       &comm,
       &decomm,
-      vars,
-      &inputs,
       &gens,
       &mut prover_transcript,
     );
@@ -64,7 +58,7 @@ pub fn main() {
     // verify the proof of satisfiability
     let mut verifier_transcript = Transcript::new(b"snark_example");
     assert!(proof
-      .verify(&comm, &inputs, &mut verifier_transcript, &gens)
+      .verify(&comm, &instance, &mut verifier_transcript, &gens)
       .is_ok());
 
     println!();

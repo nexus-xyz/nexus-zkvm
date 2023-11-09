@@ -1,6 +1,5 @@
 #![allow(non_snake_case)]
 #![doc = include_str!("../README.md")]
-#![deny(missing_docs)]
 #![allow(clippy::assertions_on_result_states)]
 
 extern crate core;
@@ -9,20 +8,17 @@ extern crate merlin;
 extern crate rand;
 extern crate sha3;
 
-#[cfg(feature = "multicore")]
-extern crate rayon;
-
 mod commitments;
-mod committed_relaxed_snark;
-mod crr1csproof;
-mod dense_mlpoly;
-mod errors;
-mod hyrax;
-mod math;
+pub mod committed_relaxed_snark;
+mod crr1cs;
+pub mod crr1csproof;
+pub mod dense_mlpoly;
+pub mod errors;
+pub mod math;
 mod nizk;
-mod polycommitments;
+pub mod polycommitments;
 mod product_tree;
-mod r1csinstance;
+pub mod r1csinstance;
 mod r1csproof;
 mod random;
 mod sparse_mlpoly;
@@ -37,6 +33,7 @@ use ark_serialize::*;
 use core::cmp::max;
 use errors::{ProofVerifyError, R1CSError};
 use merlin::Transcript;
+use polycommitments::PolyCommitmentScheme;
 use r1csinstance::{
   R1CSCommitment, R1CSCommitmentGens, R1CSDecommitment, R1CSEvalProof, R1CSInstance,
 };
@@ -46,8 +43,8 @@ use timer::Timer;
 use transcript::{AppendToTranscript, ProofTranscript};
 
 /// `ComputationCommitment` holds a public preprocessed NP statement (e.g., R1CS)
-pub struct ComputationCommitment<G: CurveGroup> {
-  comm: R1CSCommitment<G>,
+pub struct ComputationCommitment<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  comm: R1CSCommitment<G, PC>,
 }
 
 /// `ComputationDecommitment` holds information to decommit `ComputationCommitment`
@@ -58,7 +55,7 @@ pub struct ComputationDecommitment<F> {
 /// `Assignment` holds an assignment of values to either the inputs or variables in an `Instance`
 #[derive(Clone)]
 pub struct Assignment<F> {
-  assignment: Vec<F>,
+  pub assignment: Vec<F>,
 }
 
 impl<F: PrimeField> Assignment<F> {
@@ -104,7 +101,7 @@ pub type InputsAssignment<F> = Assignment<F>;
 
 /// `Instance` holds the description of R1CS matrices
 pub struct Instance<F: PrimeField> {
-  inst: R1CSInstance<F>,
+  pub inst: R1CSInstance<F>,
 }
 
 impl<F: PrimeField> Instance<F> {
@@ -256,47 +253,65 @@ impl<F: PrimeField> Instance<F> {
 }
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
-pub struct SNARKGens<G> {
+pub struct SNARKGens<G, PC>
+where
+  G: CurveGroup,
+  PC: PolyCommitmentScheme<G>,
+{
   gens_r1cs_sat: R1CSGens<G>,
-  gens_r1cs_eval: R1CSCommitmentGens<G>,
+  gens_r1cs_eval: R1CSCommitmentGens<G, PC>,
 }
 
-impl<G: CurveGroup> SNARKGens<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
-  pub fn new(num_cons: usize, num_vars: usize, num_inputs: usize, num_nz_entries: usize) -> Self {
-    let num_vars_padded = {
-      let mut num_vars_padded = max(num_vars, num_inputs + 1);
-      if num_vars_padded != num_vars_padded.next_power_of_two() {
-        num_vars_padded = num_vars_padded.next_power_of_two();
-      }
-      num_vars_padded
-    };
+  pub fn new(
+    SRS: &PC::SRS,
+    num_cons: usize,
+    num_vars: usize,
+    num_inputs: usize,
+    num_nz_entries: usize,
+  ) -> Self {
+    let num_vars_padded = Self::get_num_vars_padded(num_vars, num_inputs);
 
     let gens_r1cs_sat = R1CSGens::<G>::new(b"gens_r1cs_sat", num_cons, num_vars_padded);
-    let gens_r1cs_eval = R1CSCommitmentGens::new(
-      b"gens_r1cs_eval",
-      num_cons,
-      num_vars_padded,
-      num_inputs,
-      num_nz_entries,
-    );
+    let gens_r1cs_eval =
+      R1CSCommitmentGens::new(SRS, num_cons, num_vars_padded, num_inputs, num_nz_entries);
     SNARKGens {
       gens_r1cs_sat,
       gens_r1cs_eval,
     }
   }
+  fn get_num_vars_padded(num_vars: usize, num_inputs: usize) -> usize {
+    let mut num_vars_padded = max(num_vars, num_inputs + 1);
+    if num_vars_padded != num_vars_padded.next_power_of_two() {
+      num_vars_padded = num_vars_padded.next_power_of_two();
+    }
+    num_vars_padded
+  }
+  pub fn get_min_num_vars(
+    num_cons: usize,
+    num_vars: usize,
+    num_inputs: usize,
+    num_nz_entries: usize,
+  ) -> usize {
+    let num_vars_padded = Self::get_num_vars_padded(num_vars, num_inputs);
+    let min_num_vars_sat = R1CSGens::<G>::get_min_num_vars(num_cons, num_vars_padded);
+    let min_num_vars_eval =
+      R1CSCommitmentGens::<G, PC>::get_min_num_vars(num_cons, num_vars_padded, num_nz_entries);
+    max(min_num_vars_sat, min_num_vars_eval)
+  }
 }
 
 /// `SNARK` holds a proof produced by Spartan SNARK
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
-pub struct SNARK<G: CurveGroup> {
+pub struct SNARK<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   r1cs_sat_proof: R1CSProof<G>,
   inst_evals: (G::ScalarField, G::ScalarField, G::ScalarField),
-  r1cs_eval_proof: R1CSEvalProof<G>,
+  r1cs_eval_proof: R1CSEvalProof<G, PC>,
 }
 
-impl<G: CurveGroup> SNARK<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
   fn protocol_name() -> &'static [u8] {
     b"Spartan SNARK proof"
   }
@@ -304,9 +319,9 @@ impl<G: CurveGroup> SNARK<G> {
   /// A public computation to create a commitment to an R1CS instance
   pub fn encode(
     inst: &Instance<G::ScalarField>,
-    gens: &SNARKGens<G>,
+    gens: &SNARKGens<G, PC>,
   ) -> (
-    ComputationCommitment<G>,
+    ComputationCommitment<G, PC>,
     ComputationDecommitment<G::ScalarField>,
   ) {
     let timer_encode = Timer::new("SNARK::encode");
@@ -321,11 +336,11 @@ impl<G: CurveGroup> SNARK<G> {
   /// A method to produce a SNARK proof of the satisfiability of an R1CS instance
   pub fn prove(
     inst: &Instance<G::ScalarField>,
-    comm: &ComputationCommitment<G>,
+    comm: &ComputationCommitment<G, PC>,
     decomm: &ComputationDecommitment<G::ScalarField>,
     vars: VarsAssignment<G::ScalarField>,
     inputs: &InputsAssignment<G::ScalarField>,
-    gens: &SNARKGens<G>,
+    gens: &SNARKGens<G, PC>,
     transcript: &mut Transcript,
   ) -> Self {
     let timer_prove = Timer::new("SNARK::prove");
@@ -335,7 +350,7 @@ impl<G: CurveGroup> SNARK<G> {
     let mut random_tape = RandomTape::<G>::new(b"proof");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      SNARK::<G>::protocol_name(),
+      SNARK::<G, PC>::protocol_name(),
     );
     comm.comm.append_to_transcript(b"comm", transcript);
 
@@ -390,7 +405,6 @@ impl<G: CurveGroup> SNARK<G> {
         &inst_evals,
         &gens.gens_r1cs_eval,
         transcript,
-        &mut random_tape,
       );
 
       let mut proof_encoded = vec![];
@@ -411,15 +425,15 @@ impl<G: CurveGroup> SNARK<G> {
   /// A method to verify the SNARK proof of the satisfiability of an R1CS instance
   pub fn verify(
     &self,
-    comm: &ComputationCommitment<G>,
+    comm: &ComputationCommitment<G, PC>,
     input: &InputsAssignment<G::ScalarField>,
     transcript: &mut Transcript,
-    gens: &SNARKGens<G>,
+    gens: &SNARKGens<G, PC>,
   ) -> Result<(), ProofVerifyError> {
     let timer_verify = Timer::new("SNARK::verify");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      SNARK::<G>::protocol_name(),
+      SNARK::<G, PC>::protocol_name(),
     );
 
     // append a commitment to the computation to the transcript
@@ -457,7 +471,10 @@ impl<G: CurveGroup> SNARK<G> {
 }
 
 /// `NIZKGens` holds public parameters for producing and verifying proofs with the Spartan NIZK
-pub struct NIZKGens<G> {
+pub struct NIZKGens<G>
+where
+  G: CurveGroup,
+{
   gens_r1cs_sat: R1CSGens<G>,
 }
 
@@ -593,32 +610,35 @@ impl<G: CurveGroup> NIZK<G> {
 
 #[cfg(test)]
 mod tests {
+  use super::polycommitments::hyrax::Hyrax;
   use super::*;
   use ark_bls12_381::{Fr, G1Projective};
-  use ark_std::One;
-  use ark_std::Zero;
+  use ark_std::{test_rng, One, Zero};
 
   #[test]
   pub fn check_snark() {
-    check_snark_helper::<G1Projective>()
+    check_snark_helper::<G1Projective, Hyrax<G1Projective>>()
   }
-  pub fn check_snark_helper<G: CurveGroup>() {
+  pub fn check_snark_helper<G: CurveGroup, PC: PolyCommitmentScheme<G>>() {
     let num_vars = 256;
     let num_cons = num_vars;
     let num_inputs = 10;
 
     // produce public generators
-    let gens = SNARKGens::<G>::new(num_cons, num_vars, num_inputs, num_cons);
+    let min_num_vars =
+      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+    let SRS = PC::setup(min_num_vars, b"SNARK_test_SRS", &mut test_rng()).unwrap();
+    let gens = SNARKGens::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
 
     // produce a synthetic R1CSInstance
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
     // create a commitment to R1CSInstance
-    let (comm, decomm) = SNARK::encode(&inst, &gens);
+    let (comm, decomm) = SNARK::<_, PC>::encode(&inst, &gens);
 
     // produce a proof
     let mut prover_transcript = Transcript::new(b"example");
-    let proof = SNARK::prove(
+    let proof = SNARK::<_, PC>::prove(
       &inst,
       &comm,
       &decomm,
@@ -680,10 +700,10 @@ mod tests {
 
   #[test]
   fn test_padded_constraints() {
-    test_padded_constraints_helper::<G1Projective>()
+    test_padded_constraints_helper::<G1Projective, Hyrax<G1Projective>>()
   }
 
-  fn test_padded_constraints_helper<G: CurveGroup>() {
+  fn test_padded_constraints_helper<G: CurveGroup, PC: PolyCommitmentScheme<G>>() {
     // parameters of the R1CS instance
     let num_cons = 1;
     let num_vars = 0;
@@ -724,14 +744,17 @@ mod tests {
     assert!(res.unwrap(), "should be satisfied");
 
     // SNARK public params
-    let gens = SNARKGens::<G>::new(num_cons, num_vars, num_inputs, num_non_zero_entries);
+    let min_num_vars =
+      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_non_zero_entries);
+    let SRS = PC::setup(min_num_vars, b"SNARK_test_SRS", &mut test_rng()).unwrap();
+    let gens = SNARKGens::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_non_zero_entries);
 
     // create a commitment to the R1CS instance
-    let (comm, decomm) = SNARK::encode(&inst, &gens);
+    let (comm, decomm) = SNARK::<_, PC>::encode(&inst, &gens);
 
     // produce a SNARK
     let mut prover_transcript = Transcript::new(b"snark_example");
-    let proof = SNARK::prove(
+    let proof = SNARK::<_, PC>::prove(
       &inst,
       &comm,
       &decomm,

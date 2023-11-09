@@ -1,19 +1,17 @@
+use super::polycommitments::error::PCSError;
 use ark_serialize::SerializationError;
 use core::fmt::Debug;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Default)]
 pub enum ProofVerifyError {
   #[error("Proof verification failed")]
+  #[default]
   InternalError,
   #[error("Compressed group element failed to decompress: {0:?}")]
   DecompressionError([u8; 32]),
-}
-
-impl Default for ProofVerifyError {
-  fn default() -> Self {
-    ProofVerifyError::InternalError
-  }
+  #[error("PolyCommitment error: {0:?}")]
+  PolyCommitmentError(PCSError),
 }
 
 #[derive(Debug)]
@@ -37,5 +35,11 @@ pub enum R1CSError {
 impl From<SerializationError> for R1CSError {
   fn from(e: SerializationError) -> Self {
     Self::ArkSerializationError(e)
+  }
+}
+
+impl From<PCSError> for ProofVerifyError {
+  fn from(e: PCSError) -> Self {
+    Self::PolyCommitmentError(e)
   }
 }
