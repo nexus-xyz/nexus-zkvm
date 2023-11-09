@@ -117,19 +117,19 @@ where
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
-    i: u64,
-    j: u64,
+    pub i: u64,
+    pub j: u64,
 
-    z_i: Vec<G1::ScalarField>,
-    z_j: Vec<G1::ScalarField>,
+    pub z_i: Vec<G1::ScalarField>,
+    pub z_j: Vec<G1::ScalarField>,
 
-    U: RelaxedR1CSInstance<G1, C1>,
-    W: RelaxedR1CSWitness<G1>,
-    U_secondary: RelaxedR1CSInstance<G2, C2>,
-    W_secondary: RelaxedR1CSWitness<G2>,
+    pub U: RelaxedR1CSInstance<G1, C1>,
+    pub W: RelaxedR1CSWitness<G1>,
+    pub U_secondary: RelaxedR1CSInstance<G2, C2>,
+    pub W_secondary: RelaxedR1CSWitness<G2>,
 
-    u: R1CSInstance<G1, C1>,
-    w: R1CSWitness<G1>,
+    pub u: R1CSInstance<G1, C1>,
+    pub w: R1CSWitness<G1>,
 
     _random_oracle: PhantomData<RO>,
     _step_circuit: PhantomData<SC>,
@@ -161,6 +161,18 @@ where
         step_circuit: &SC,
         i: usize,
         z_i: &[G1::ScalarField],
+    ) -> Result<Self, multifold::Error> {
+        Self::prove_step_with_commit_fn(params, step_circuit, i, z_i, |pp, w| w.commit::<C1>(pp))
+    }
+
+    /// Proves step of step circuit execution and calls `commit_fn(pp, w)` to
+    /// compute commitment to the witness of the augmented circuit.
+    pub fn prove_step_with_commit_fn(
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+        step_circuit: &SC,
+        i: usize,
+        z_i: &[G1::ScalarField],
+        mut commit_fn: impl FnMut(&C1::PP, &R1CSWitness<G1>) -> C1::Commitment,
     ) -> Result<Self, multifold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
@@ -198,7 +210,7 @@ where
 
         let w = R1CSWitness::<G1> { W: witness };
 
-        let commitment_W = w.commit::<C1>(&params.pp);
+        let commitment_W = commit_fn(&params.pp, &w);
         let u = R1CSInstance::<G1, C1> {
             commitment_W,
             X: pub_io,
@@ -229,6 +241,18 @@ where
         step_circuit: &SC,
         left_node: &Self,
         right_node: &Self,
+    ) -> Result<Self, multifold::Error> {
+        Self::prove_from_with_commit_fn(params, step_circuit, left_node, right_node, |pp, w| {
+            w.commit::<C1>(pp)
+        })
+    }
+
+    pub fn prove_from_with_commit_fn(
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+        step_circuit: &SC,
+        left_node: &Self,
+        right_node: &Self,
+        mut commit_fn: impl FnMut(&C1::PP, &R1CSWitness<G1>) -> C1::Commitment,
     ) -> Result<Self, multifold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
@@ -321,7 +345,7 @@ where
 
         let w = R1CSWitness::<G1> { W: witness };
 
-        let commitment_W = w.commit::<C1>(&params.pp);
+        let commitment_W = commit_fn(&params.pp, &w);
         let u = R1CSInstance::<G1, C1> {
             commitment_W,
             X: pub_io,

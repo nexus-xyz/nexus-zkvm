@@ -239,16 +239,16 @@ impl<G: PrimeGroup> From<ConstraintSystemRef<G::ScalarField>> for R1CSShape<G> {
 /// A type that holds a witness for a given R1CS instance.
 #[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct R1CSWitness<G: PrimeGroup> {
-    pub(crate) W: Vec<G::ScalarField>,
+    pub W: Vec<G::ScalarField>,
 }
 
 /// A type that holds an R1CS instance.
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct R1CSInstance<G: PrimeGroup, C: CommitmentScheme<G>> {
     /// Commitment to witness.
-    pub(crate) commitment_W: C::Commitment,
+    pub commitment_W: C::Commitment,
     /// X is assumed to start with a `ScalarField::ONE`.
-    pub(crate) X: Vec<G::ScalarField>,
+    pub X: Vec<G::ScalarField>,
 }
 
 impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for R1CSInstance<G, C> {
@@ -343,17 +343,17 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> R1CSInstance<G, C> {
 /// A type that holds a witness for a given Relaxed R1CS instance.
 #[derive(Default, Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct RelaxedR1CSWitness<G: PrimeGroup> {
-    W: Vec<G::ScalarField>,
-    E: Vec<G::ScalarField>,
+    pub W: Vec<G::ScalarField>,
+    pub E: Vec<G::ScalarField>,
 }
 
 /// A type that holds a Relaxed R1CS instance.
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct RelaxedR1CSInstance<G: PrimeGroup, C: CommitmentScheme<G>> {
-    pub(crate) commitment_W: C::Commitment,
-    pub(crate) commitment_E: C::Commitment,
+    pub commitment_W: C::Commitment,
+    pub commitment_E: C::Commitment,
     /// X is assumed to start with `u`.
-    pub(crate) X: Vec<G::ScalarField>,
+    pub X: Vec<G::ScalarField>,
 }
 
 impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for RelaxedR1CSInstance<G, C> {
