@@ -40,14 +40,14 @@ pub use SOP::*;
 pub enum AOP {
     ADD,
     SUB,
-    SLL,
     SLT,
     SLTU,
-    XOR,
+    SLL,
     SRL,
     SRA,
     OR,
     AND,
+    XOR,
 }
 pub use AOP::*;
 

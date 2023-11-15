@@ -1,0 +1,24 @@
+[package]
+name = "nvm"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+thiserror = "1.0"
+
+# temporary dependency needed for riscv module
+elf = { version = "0.7", default-features = false, features = ["std"] }
+
+nexus-riscv = { path = "../riscv" }
+
+num-traits = "0.2"
+num-derive = "0.4"
+
+ark-ff.workspace = true
+ark-crypto-primitives.workspace = true
+ark-std.workspace = true
+ark-relations.workspace = true
+ark-serialize.workspace = true
+ark-r1cs-std.workspace = true
+ark-bn254.workspace = true
