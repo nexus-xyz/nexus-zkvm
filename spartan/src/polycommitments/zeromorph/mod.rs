@@ -108,7 +108,7 @@ where
     let uni_poly = multilinear_to_univar(poly.clone());
     let labeled_poly = LabeledPolynomial::new("poly".to_string(), uni_poly, None, None);
     let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
-    let (labeled_commitment_vec, blinds) = U::commit(&ck, vec![&labeled_poly], rt).unwrap();
+    let (labeled_commitment_vec, _blinds) = U::commit(ck, vec![&labeled_poly], rt).unwrap();
     labeled_commitment_vec[0].commitment().clone()
   }
 
@@ -127,7 +127,7 @@ where
     let uni_poly_labeled =
       LabeledPolynomial::new("uni_poly".to_string(), uni_poly.clone(), None, None);
     let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
-    let (_C, _) = U::commit(&ck, vec![&uni_poly_labeled], rt).unwrap();
+    let (_C, _) = U::commit(ck, vec![&uni_poly_labeled], rt).unwrap();
     let C = _C[0].commitment().clone();
     // First, we calculate the quotients 'q_k' in the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
     // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}.
@@ -142,9 +142,7 @@ where
       .into_iter()
       .map(|q| multilinear_to_univar::<_, P>(q))
       .zip((0..num_vars).map(Math::pow2))
-      .map(|(q, m)| {
-        LabeledPolynomial::new(format!("quotient {:}", m).to_string(), q, Some(m), None)
-      })
+      .map(|(q, m)| LabeledPolynomial::new(format!("quotient {:}", m), q, Some(m), None))
       .collect();
     let labeled_quotients_refs = (0..labeled_quotients.len()).map(|k| &labeled_quotients[k]);
     let (commitments, _blinds) = U::commit(
@@ -155,7 +153,7 @@ where
     .unwrap();
 
     // Next, we send each of these commitments to the verifier and extract a challenge
-    commitments.clone().into_iter().map(|c| {
+    commitments.clone().into_iter().for_each(|c| {
       <LabeledCommitment<U::Commitment> as AppendToTranscript<G>>::append_to_transcript(
         &c,
         b"quotients",
@@ -166,7 +164,7 @@ where
     let x = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"x");
     let cyclo_poly = univar_of_constant(x, num_vars);
     let labeled_cyclo_poly = LabeledPolynomial::new(
-      format!("{}th cyclo_poly", num_vars).to_string(),
+      format!("{}th cyclo_poly", num_vars),
       cyclo_poly,
       Some(num_vars.pow2() as usize),
       None,
@@ -178,23 +176,23 @@ where
       .collect();
     let Z_x_0 = uni_poly
       .coeffs()
-      .to_vec()
-      .into_iter()
+      .iter()
       .zip(
         (0..num_vars)
           .map(|k| scale(&truncated_quotients[k], get_Zx_coefficients(x, u)[k]))
           .sum::<P>()
           .coeffs()
-          .to_vec(),
+          .iter(),
       )
-      .map(|(a, b)| a - b)
+      .map(|(a, b)| *a - *b)
       .collect::<Vec<_>>();
     let Z_x = P::from_coefficients_vec(Z_x_0);
     let Z_x_labeled = LabeledPolynomial::new("Z_x".to_string(), Z_x, None, None);
 
-    let (labeled_C_vx, _blinds) = U::commit(&ck, [&labeled_cyclo_poly], None).unwrap();
-    let C_vx = labeled_C_vx[0].commitment();
+    let (labeled_C_vx, _blinds) = U::commit(ck, [&labeled_cyclo_poly], None).unwrap();
+    let C_vx = labeled_C_vx[0].commitment().clone();
     let C_Z_x_0: U::Commitment = C
+      - C_vx
       - (commitments
         .into_iter()
         .zip(get_Zx_coefficients(x, u))
