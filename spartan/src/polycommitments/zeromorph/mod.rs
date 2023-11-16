@@ -73,12 +73,24 @@ where
   _phantom2: PhantomData<G>,
   _phantom3: PhantomData<P>,
 }
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+struct ZeromorphProof<
+  G: CurveGroup,
+  P: DenseUVPolynomial<G::ScalarField>,
+  U: UnivarPCS<G::ScalarField, P, PolyCommitmentTranscript>,
+> where
+  U::Commitment: Debug + CanonicalSerialize + CanonicalDeserialize,
+  U::Proof: Debug + CanonicalSerialize + CanonicalDeserialize,
+{
+  proof: U::Proof,
+  commitments: Vec<U::Commitment>,
+}
 
 impl<G, P, U> PolyCommitmentScheme<G> for Zeromorph<G, P, U>
 where
   G: CurveGroup,
   P: DenseUVPolynomial<G::ScalarField> + Sum + Sub<P>,
-  U: UnivarPCS<G::ScalarField, P, PolyCommitmentTranscript>,
+  U: UnivarPCS<G::ScalarField, P, PolyCommitmentTranscript> + Debug,
   U::Commitment: PartialEq
     + AppendToTranscript<G>
     + Debug
@@ -98,7 +110,7 @@ where
 
   type SRS = U::UniversalParams;
 
-  type PolyCommitmentProof = U::Proof;
+  type PolyCommitmentProof = ZeromorphProof<G, P, U>;
 
   fn commit(
     poly: &DensePolynomial<<G>::ScalarField>,
@@ -131,7 +143,7 @@ where
     let C = _C[0].commitment().clone();
     // First, we calculate the quotients 'q_k' in the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
     // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}.
-    let quotients = get_quotients(poly, u, eval);
+    let quotients = get_quotients(poly, u);
     let num_vars = poly.get_num_vars();
     assert_eq!(quotients.len(), poly.get_num_vars());
 
@@ -162,13 +174,17 @@ where
     });
 
     let x = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"x");
-    let cyclo_poly = univar_of_constant(x, num_vars);
+
+    let cyclo_poly: P = univar_of_constant(x, num_vars);
     let labeled_cyclo_poly = LabeledPolynomial::new(
       format!("{}th cyclo_poly", num_vars),
-      cyclo_poly,
+      cyclo_poly.clone(),
       Some(num_vars.pow2() as usize),
       None,
     );
+    let (labeled_C_vx, _blinds) = U::commit(ck, [&labeled_cyclo_poly], None).unwrap();
+    let C_vx = labeled_C_vx[0].commitment().clone();
+
     let truncated_quotients: Vec<P> = quotients
       .into_iter()
       .zip(0..num_vars)
@@ -177,6 +193,7 @@ where
     let Z_x_0 = uni_poly
       .coeffs()
       .iter()
+      .zip(cyclo_poly.coeffs().iter())
       .zip(
         (0..num_vars)
           .map(|k| scale(&truncated_quotients[k], get_Zx_coefficients(x, u)[k]))
@@ -184,16 +201,14 @@ where
           .coeffs()
           .iter(),
       )
-      .map(|(a, b)| *a - *b)
+      .map(|((a, b), c)| *a - *b - *c)
       .collect::<Vec<_>>();
     let Z_x = P::from_coefficients_vec(Z_x_0);
     let Z_x_labeled = LabeledPolynomial::new("Z_x".to_string(), Z_x, None, None);
-
-    let (labeled_C_vx, _blinds) = U::commit(ck, [&labeled_cyclo_poly], None).unwrap();
-    let C_vx = labeled_C_vx[0].commitment().clone();
     let C_Z_x_0: U::Commitment = C
       - C_vx
       - (commitments
+        .clone()
         .into_iter()
         .zip(get_Zx_coefficients(x, u))
         .map(|(C, s)| C.commitment().clone() * s)
@@ -202,16 +217,22 @@ where
     let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
     let mut pc_transcript = PolyCommitmentTranscript::from(transcript.clone());
     let mut challenge_generator = ChallengeGenerator::new_univariate(&mut pc_transcript);
-    U::open(
-      ck,
-      vec![&Z_x_labeled],
-      vec![&C_Z_x],
-      &x,
-      &mut challenge_generator,
-      vec![&U::Randomness::empty()],
-      rt,
-    )
-    .unwrap()
+    Self::PolyCommitmentProof {
+      proof: U::open(
+        ck,
+        vec![&Z_x_labeled],
+        vec![&C_Z_x],
+        &x,
+        &mut challenge_generator,
+        vec![&U::Randomness::empty()],
+        rt,
+      )
+      .unwrap(),
+      commitments: commitments
+        .into_iter()
+        .map(|c| c.commitment().clone())
+        .collect(),
+    }
   }
 
   fn verify(

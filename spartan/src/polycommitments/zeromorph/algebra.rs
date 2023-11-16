@@ -18,12 +18,56 @@ pub fn multilinear_to_univar<F: PrimeField, P: DenseUVPolynomial<F>>(p: DensePol
   assert!(unipoly.degree() < 2usize.pow(p.get_num_vars() as u32));
   unipoly
 }
-pub fn get_quotients<F: PrimeField>(
+fn times_X_ell_minus_u_ell<F: PrimeField>(
+  evals: &DensePolynomial<F>,
+  ell: usize,
+  u: F,
+) -> DensePolynomial<F> {
+  let mut new_vec = evals.vec().clone();
+  for (e, i) in new_vec.iter_mut().zip(0..evals.len()) {
+    if i >> ell & 1 == 1 {
+      *e *= F::one() - u;
+    } else {
+      *e *= -u;
+    }
+  }
+  DensePolynomial::new(new_vec)
+}
+pub fn poly_sub<F: PrimeField>(
   p: &DensePolynomial<F>,
-  r: &[F],
-  eval: &F,
-) -> Vec<DensePolynomial<F>> {
-  todo!()
+  q: &DensePolynomial<F>,
+) -> DensePolynomial<F> {
+  let mut p_vec = p.vec().clone();
+  let q_vec = q.vec().clone();
+  for (p, q) in p_vec.iter_mut().zip(q_vec.iter()) {
+    *p -= q;
+  }
+  DensePolynomial::new(p_vec)
+}
+
+pub fn get_quotients<F: PrimeField>(p: &DensePolynomial<F>, r: &[F]) -> Vec<DensePolynomial<F>> {
+  let n = r.len();
+  let mut quotients = vec![];
+  let mut f_n_minus_1_minus_k = p.clone();
+  for k in (0..n).rev() {
+    let mut f0 = f_n_minus_1_minus_k.clone();
+    let mut f1 = f_n_minus_1_minus_k.clone();
+    if k == n - 1 {
+      f1.bound_poly_var_top(&F::one());
+      f0.bound_poly_var_top(&F::zero());
+    } else {
+      for _ in 0..(n - 1 - k) {
+        f0.bound_poly_var_top(&F::zero());
+        f1.bound_poly_var_top(&F::zero());
+      }
+      f1.bound_poly_var_top(&F::one());
+      f0.bound_poly_var_top(&F::zero());
+    }
+    let q = poly_sub(&f1, &f0);
+    f_n_minus_1_minus_k = poly_sub(&f_n_minus_1_minus_k, &times_X_ell_minus_u_ell(&q, k, r[k]));
+    quotients[k] = q;
+  }
+  quotients
 }
 // This is the polynomial F(x) = Phi_(n-k)(x^(2^k)) from the paper; as Phi_(n-k) = sum_{i=0}^{2^(n-k)-1} x^i = (x^(2^(n-k)) - 1)/(x - 1),
 // the roots of F are exactly the 2^nth roots of unity which are not 2^k-th roots of unity, i.e. 2-power roots of unity whose order
