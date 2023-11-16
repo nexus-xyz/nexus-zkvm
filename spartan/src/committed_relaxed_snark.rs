@@ -19,12 +19,12 @@ use crate::{
 };
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
-pub struct SNARKGens<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  gens_r1cs_sat: CRR1CSKey<G, PC>,
+pub struct SNARKGens<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  gens_r1cs_sat: CRR1CSKey<'a, G, PC>,
   gens_r1cs_eval: R1CSCommitmentGens<G>,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
+impl<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<'a, G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
   pub fn new(

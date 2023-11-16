@@ -3,12 +3,13 @@ use crate::math::Math;
 use crate::polycommitments::{
   PolyCommitmentScheme, PolyCommitmentTrait, SRSTrait, VectorCommitmentTrait,
 };
-use crate::transcript::AppendToTranscript;
-use ark_ec::CurveGroup;
+use crate::transcript::{AppendToTranscript, ProofTranscript};
+use ark_ec::pairing::Pairing;
+use ark_ec::{AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_poly_commit::{
-  LabeledCommitment, LabeledPolynomial, PCCommitment, PCRandomness, PCUniversalParams,
-  PolynomialCommitment as UnivarPolyCommitment,
+  kzg10::Commitment as KZGCommitment, LabeledCommitment, LabeledPolynomial, PCCommitment,
+  PCRandomness, PCUniversalParams, PolynomialCommitment as UnivarPolyCommitment,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::fmt::Debug;
@@ -34,5 +35,28 @@ impl<U: PCUniversalParams> SRSTrait for U {
 impl<G: CurveGroup, C: PCCommitment> AppendToTranscript<G> for LabeledCommitment<C> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     todo!()
+  }
+}
+
+impl<E: Pairing> AppendToTranscript<E::G1> for KZGCommitment<E> {
+  fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
+    transcript.append_point(label, &self.0.into_group());
+  }
+}
+
+#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+struct ZeromorphVC<E>
+where
+  E: Pairing,
+{
+  comm: KZGCommitment<E>,
+}
+
+impl<E> AppendToTranscript<E::G1> for ZeromorphVC<E>
+where
+  E: Pairing,
+{
+  fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
+    self.comm.append_to_transcript(label, transcript);
   }
 }

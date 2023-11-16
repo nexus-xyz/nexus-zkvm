@@ -1,6 +1,6 @@
 use ark_ec::CurveGroup;
 use ark_poly_commit::{
-  PCCommitment, PCCommitterKey, PCRandomness, PCUniversalParams, PCVerifierKey,
+  Error, PCCommitment, PCCommitterKey, PCRandomness, PCUniversalParams, PCVerifierKey,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
@@ -29,10 +29,10 @@ pub trait VectorCommitmentTrait<G: CurveGroup> {
     + Sync
     + CanonicalSerialize
     + CanonicalDeserialize;
-  type CommitmentKey;
-  fn commit(
+  type CommitmentKey<'a>;
+  fn commit<'a>(
     vec: &[G::ScalarField],
-    ck: &Self::CommitmentKey,
+    ck: &Self::CommitmentKey<'a>,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::VectorCommitment;
 
@@ -60,7 +60,7 @@ pub trait SRSTrait {
 
 pub trait PolyCommitmentScheme<G: CurveGroup> {
   type SRS: SRSTrait;
-  type PolyCommitmentKey;
+  type PolyCommitmentKey<'a>;
   type EvalVerifierKey;
   type Commitment: PolyCommitmentTrait<G>;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
@@ -68,17 +68,17 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
 
   // Optionally takes `vector_comm` as a "hint" to speed up the commitment process if a
   // commitment to the vector of evaluations has already been computed
-  fn commit(
+  fn commit<'a>(
     poly: &DensePolynomial<G::ScalarField>,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::Commitment;
 
-  fn prove(
+  fn prove<'a>(
     poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
     transcript: &mut Transcript,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::PolyCommitmentProof;
@@ -94,23 +94,27 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
 
   // Generate a SRS using the provided RNG; this is just for testing purposes, since in reality
   // we need to perform a trusted setup ceremony and then read the SRS from a file.
-  fn setup(max_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self::SRS;
+  fn setup(
+    max_poly_vars: usize,
+    label: &'static [u8],
+    rng: &mut impl RngCore,
+  ) -> Result<Self::SRS, Error>;
 
   //
-  fn trim(
+  fn trim<'a>(
     srs: &Self::SRS,
     supported_degree: usize,
     supported_hiding_bound: usize,
     enforced_degree_bounds: Option<&[usize]>,
-  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey);
+  ) -> (Self::PolyCommitmentKey<'a>, Self::EvalVerifierKey);
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
   type VectorCommitment = PC::Commitment;
-  type CommitmentKey = PC::PolyCommitmentKey;
-  fn commit(
+  type CommitmentKey<'a> = PC::PolyCommitmentKey<'a>;
+  fn commit<'a>(
     vec: &[<G>::ScalarField],
-    ck: &Self::CommitmentKey,
+    ck: &Self::CommitmentKey<'a>,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::VectorCommitment {
     let poly = DensePolynomial::new(vec.to_vec());
