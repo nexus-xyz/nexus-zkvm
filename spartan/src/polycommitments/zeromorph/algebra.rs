@@ -37,37 +37,51 @@ pub fn poly_sub<F: PrimeField>(
   p: &DensePolynomial<F>,
   q: &DensePolynomial<F>,
 ) -> DensePolynomial<F> {
+  assert_eq!(p.get_num_vars(), q.get_num_vars());
   let mut p_vec = p.vec().clone();
-  let q_vec = q.vec().clone();
+  let q_vec = q.vec();
   for (p, q) in p_vec.iter_mut().zip(q_vec.iter()) {
     *p -= q;
   }
   DensePolynomial::new(p_vec)
 }
 
-pub fn get_quotients<F: PrimeField>(p: &DensePolynomial<F>, r: &[F]) -> Vec<DensePolynomial<F>> {
+pub fn poly_add<F: PrimeField>(
+  p: &DensePolynomial<F>,
+  q: &DensePolynomial<F>,
+) -> DensePolynomial<F> {
+  assert_eq!(p.get_num_vars(), q.get_num_vars());
+  let mut p_vec = p.vec().clone();
+  let q_vec = q.vec();
+  for (p, q) in p_vec.iter_mut().zip(q_vec.iter()) {
+    *p += q;
+  }
+  DensePolynomial::new(p_vec)
+}
+
+pub fn get_truncated_quotients<F: PrimeField, P: DenseUVPolynomial<F>>(
+  p: &DensePolynomial<F>,
+  r: &[F],
+) -> Vec<P> {
   let n = r.len();
   let mut quotients = vec![];
   let mut f_n_minus_1_minus_k = p.clone();
   for k in (0..n).rev() {
     let mut f0 = f_n_minus_1_minus_k.clone();
     let mut f1 = f_n_minus_1_minus_k.clone();
-    if k == n - 1 {
-      f1.bound_poly_var_top(&F::one());
-      f0.bound_poly_var_top(&F::zero());
-    } else {
-      for _ in 0..(n - 1 - k) {
-        f0.bound_poly_var_top(&F::zero());
-        f1.bound_poly_var_top(&F::zero());
-      }
-      f1.bound_poly_var_top(&F::one());
-      f0.bound_poly_var_top(&F::zero());
-    }
+    f0.bound_poly_var_top(&F::zero());
+    f1.bound_poly_var_top(&F::one());
     let q = poly_sub(&f1, &f0);
-    f_n_minus_1_minus_k = poly_sub(&f_n_minus_1_minus_k, &times_X_ell_minus_u_ell(&q, k, r[k]));
+    if k > 0 {
+      f_n_minus_1_minus_k.bound_poly_var_top(&F::zero());
+      f_n_minus_1_minus_k = poly_add(&f_n_minus_1_minus_k, &scale_ML(&quotients[k], r[k]));
+    }
     quotients[k] = q;
   }
   quotients
+    .into_iter()
+    .map(|q| multilinear_to_univar(q))
+    .collect()
 }
 // This is the polynomial F(x) = Phi_(n-k)(x^(2^k)) from the paper; as Phi_(n-k) = sum_{i=0}^{2^(n-k)-1} x^i = (x^(2^(n-k)) - 1)/(x - 1),
 // the roots of F are exactly the 2^nth roots of unity which are not 2^k-th roots of unity, i.e. 2-power roots of unity whose order
@@ -114,8 +128,14 @@ pub fn truncate<F: PrimeField, P: DenseUVPolynomial<F>>(p: P, degree: usize) -> 
   P::from_coefficients_vec(coeffs)
 }
 
-pub fn scale<F: PrimeField, P: DenseUVPolynomial<F>>(p: &P, scalar: F) -> P {
+pub fn scale_UV<F: PrimeField, P: DenseUVPolynomial<F>>(p: &P, scalar: F) -> P {
   let mut coeffs = p.coeffs().to_vec();
   coeffs.iter_mut().for_each(|c| *c *= scalar);
   P::from_coefficients_vec(coeffs)
+}
+
+pub fn scale_ML<F: PrimeField>(p: &DensePolynomial<F>, scalar: F) -> DensePolynomial<F> {
+  let mut coeffs = p.vec().clone();
+  coeffs.iter_mut().for_each(|c| *c *= scalar);
+  DensePolynomial::new(coeffs)
 }
