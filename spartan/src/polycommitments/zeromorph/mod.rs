@@ -28,6 +28,7 @@ use ark_std::{
   ops::{Add, Div, Mul, Sub},
   rand::RngCore,
   start_timer,
+  string::*,
   vec::Vec,
   One, UniformRand, Zero,
 };
@@ -89,7 +90,7 @@ where
     ck: &Self::PolyCommitmentKey<'a>,
     random_tape: &mut Option<RandomTape<E::G1>>,
   ) -> Self::Commitment {
-    let uni_poly: P = multilinear_to_univar(poly.clone());
+    let uni_poly: P = multilinear_to_univar(&poly);
     let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
     let (commitment, _blinds) = KZG10::commit(ck, &uni_poly, None, rt).unwrap();
     commitment
@@ -109,44 +110,68 @@ where
     );
     <Transcript as ProofTranscript<E::G1>>::append_scalar(transcript, b"eval_claim", eval);
     <Transcript as ProofTranscript<E::G1>>::append_scalars(transcript, b"eval_point", u);
-    //    let uni_poly: P = multilinear_to_univar(poly.clone());
-    //    let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
-    //    let (C, _blinds) = KZG10::commit(ck, &uni_poly, None, rt).unwrap();
-    // First, we calculate the quotients 'q_k' in the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
-    // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}.
+
+    // First, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
+    // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}. In the notation of the paper, `truncated_quotients[k]` is U_n(q_k)^{<2^k}.
     let truncated_quotients: Vec<P> = get_truncated_quotients(poly, u);
     let num_vars = poly.get_num_vars();
     assert_eq!(truncated_quotients.len(), num_vars);
+
+    // Now, we commit to these truncated quotients, send the commitments to the verifier, and extract a challenge.
+    let commitments = truncated_quotients
+      .as_slice()
+      .iter()
+      .map(|q| KZG10::commit(ck, q, None, None).unwrap().0);
+    // Next, we send each of these commitments to the verifier and extract a challenge
+    commitments.into_iter().for_each(|c| {
+      <KZGCommitment<E> as AppendToTranscript<E::G1>>::append_to_transcript(
+        &c,
+        b"quotients",
+        transcript,
+      )
+    });
+    let y = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"y");
+
+    // Next, using the challenge y, we calculate the batched shifted polynomial \sum_(k=0)^(n-1) y^k X^(2^n - 2^k) U_n(q_k)^{<2^k} and its commitment.
+    let q_hat = shift_and_combine_with_powers(&truncated_quotients, y, num_vars);
+    let (C_q_hat, _blinds) = KZG10::commit(ck, &q_hat, None, None).unwrap();
+
+    // We send this commitment to the verifier and extract another two challenges.
+    C_q_hat.append_to_transcript(b"C_q_hat", transcript);
+    let x = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"x");
+    let z = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"z");
+
+    // x will be zero with with vanishingly low probability, but as we need x to be nonzero for correctness, we include this check for completeness.
+    let mut j = 0;
+    let mut x0 = x;
+    while x == E::ScalarField::zero() {
+      let label: &'static [u8] = Box::leak(format!("x.{}", j).into_boxed_str()).as_bytes();
+
+      x0 = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, label);
+      j += 1;
+    }
+    let x = x0;
+
+    let uni_poly: P = multilinear_to_univar(&poly);
+    let cyclo_poly: P = univar_of_constant(x, num_vars);
+    // let Z_x_0 = uni_poly
+    //   .coeffs()
+    //   .iter()
+    //   .zip(cyclo_poly.coeffs().iter())
+    //   .zip(
+    //     (0..num_vars)
+    //       .map(|k| scale(&truncated_quotients[k], get_Zx_coefficients(x, u)[k]))
+    //       .sum::<P>()
+    //       .coeffs()
+    //       .iter(),
+    //   )
+    //   .map(|((a, b), c)| *a - *b - *c)
+    //   .collect::<Vec<_>>();
+    // let Z_x = P::from_coefficients_vec(Z_x_0);
+
+    // Compute the quotient polynomials q_zeta = zeta_x/(X-x) and q_Z = Z_x/(X-x)
+
     //
-    //    // Now, we use the commitment interface for 'LabeledPolynomial's provided by U to commit to each of the quotients,
-    //    // while also proving the corresponding degree bound.
-    //    let labeled_quotients: Vec<_> = quotients
-    //      .clone()
-    //      .into_iter()
-    //      .map(|q| multilinear_to_univar::<_, P>(q))
-    //      .zip((0..num_vars).map(Math::pow2))
-    //      .map(|(q, m)| LabeledPolynomial::new(format!("quotient {:}", m), q, Some(m), None))
-    //      .collect();
-    //    let labeled_quotients_refs = (0..labeled_quotients.len()).map(|k| &labeled_quotients[k]);
-    //    let (commitments, _blinds) = KZG10::batch_commit(
-    //      ck,
-    //      labeled_quotients_refs,
-    //      random_tape.as_mut().map(|rt| rt as &mut dyn RngCore),
-    //    )
-    //    .unwrap();
-    //
-    //    // Next, we send each of these commitments to the verifier and extract a challenge
-    //    commitments.clone().into_iter().for_each(|c| {
-    //      <LabeledCommitment<U::Commitment> as AppendToTranscript<E::G1>>::append_to_transcript(
-    //        &c,
-    //        b"quotients",
-    //        transcript,
-    //      )
-    //    });
-    //
-    //    let x = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"x");
-    //
-    //    let cyclo_poly: P = univar_of_constant(x, num_vars);
     //    let labeled_cyclo_poly = LabeledPolynomial::new(
     //      format!("{}th cyclo_poly", num_vars),
     //      cyclo_poly.clone(),
@@ -161,20 +186,7 @@ where
     //      .zip(0..num_vars)
     //      .map(|(q, k)| truncate(multilinear_to_univar::<_, P>(q), Math::pow2(k)))
     //      .collect();
-    //    let Z_x_0 = uni_poly
-    //      .coeffs()
-    //      .iter()
-    //      .zip(cyclo_poly.coeffs().iter())
-    //      .zip(
-    //        (0..num_vars)
-    //          .map(|k| scale(&truncated_quotients[k], get_Zx_coefficients(x, u)[k]))
-    //          .sum::<P>()
-    //          .coeffs()
-    //          .iter(),
-    //      )
-    //      .map(|((a, b), c)| *a - *b - *c)
-    //      .collect::<Vec<_>>();
-    //    let Z_x = P::from_coefficients_vec(Z_x_0);
+
     //    let Z_x_labeled = LabeledPolynomial::new("Z_x".to_string(), Z_x, None, None);
     //    let C_Z_x_0: U::Commitment = C
     //      - C_vx
