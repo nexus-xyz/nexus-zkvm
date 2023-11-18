@@ -12,10 +12,10 @@ use crate::{
   transcript::AppendToTranscript,
 };
 
+pub mod error;
 pub mod hyrax;
 mod transcript_utils;
 pub mod zeromorph;
-
 pub trait CommitmentKeyTrait<G: CurveGroup> {
   fn setup(num_poly_vars: usize, label: &'static [u8]) -> Self;
   // fn size(&self) -> usize;
@@ -90,7 +90,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     transcript: &mut Transcript,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
-  ) -> Result<(), ProofVerifyError>;
+  ) -> Result<(), error::PCSError>;
 
   // Generate a SRS using the provided RNG; this is just for testing purposes, since in reality
   // we need to perform a trusted setup ceremony and then read the SRS from a file.

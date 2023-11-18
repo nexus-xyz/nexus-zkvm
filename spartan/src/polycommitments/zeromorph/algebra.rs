@@ -5,16 +5,18 @@ use crate::dense_mlpoly::DensePolynomial;
 use crate::math::Math;
 use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField};
-use ark_poly::DenseUVPolynomial;
+use ark_poly::{
+  univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial, Polynomial,
+};
 use ark_poly_commit::PolynomialCommitment as UnivarPCS;
 use ark_std::{One, Zero};
 
 /// This implements the linear isomorphism from the space of multilinear polynomials
 /// in n variables to the space of univariate polynomials of degree less than 2^n.
 
-pub fn multilinear_to_univar<F: PrimeField, P: DenseUVPolynomial<F>>(p: &DensePolynomial<F>) -> P {
+pub fn multilinear_to_univar<F: PrimeField>(p: &DensePolynomial<F>) -> DenseUnivarPolynomial<F> {
   let coeff_vec: Vec<F> = p.vec().clone();
-  let unipoly = P::from_coefficients_vec(coeff_vec);
+  let unipoly = DenseUnivarPolynomial::from_coefficients_vec(coeff_vec);
   assert!(unipoly.degree() < 2usize.pow(p.get_num_vars() as u32));
   unipoly
 }
@@ -59,10 +61,10 @@ pub fn poly_add<F: PrimeField>(
   DensePolynomial::new(p_vec)
 }
 
-pub fn get_truncated_quotients<F: PrimeField, P: DenseUVPolynomial<F>>(
+pub fn get_truncated_quotients<F: PrimeField>(
   p: &DensePolynomial<F>,
   r: &[F],
-) -> Vec<P> {
+) -> Vec<DenseUnivarPolynomial<F>> {
   let n = r.len();
   let mut quotients = vec![];
   let mut f_n_minus_1_minus_k = p.clone();
@@ -117,9 +119,26 @@ pub fn get_Zx_coefficients<F: PrimeField>(x: F, eval_point: &[F]) -> Vec<F> {
   result
 }
 
-pub fn univar_of_constant<F: PrimeField, P: DenseUVPolynomial<F>>(c: F, num_vars: usize) -> P {
+pub fn get_zeta_x_coefficients<F: PrimeField>(x: F, y: F, num_vars: usize) -> Vec<F> {
+  let mut y_pow = F::one();
+  let mut x_pow = x;
+  let mut x_max_pow = x;
+  for _ in (0..num_vars) {
+    x_max_pow = x_pow.square();
+  }
+  let mut result = vec![F::zero(); num_vars];
+  for c in result.iter_mut() {
+    *c = y_pow * (x_max_pow / x_pow);
+    y_pow *= y;
+    x_pow = x_pow.square();
+  }
+
+  result
+}
+
+pub fn univar_of_constant<F: PrimeField>(c: F, num_vars: usize) -> DenseUnivarPolynomial<F> {
   let coeff_vec = vec![c; num_vars];
-  P::from_coefficients_vec(coeff_vec)
+  DenseUnivarPolynomial::from_coefficients_vec(coeff_vec)
 }
 
 //pub fn truncate<F: PrimeField, P: DenseUVPolynomial<F>>(p: P, degree: usize) -> P {
@@ -128,11 +147,14 @@ pub fn univar_of_constant<F: PrimeField, P: DenseUVPolynomial<F>>(c: F, num_vars
 //  P::from_coefficients_vec(coeffs)
 //}
 
-pub(crate) fn scale_UV<F: PrimeField, P: DenseUVPolynomial<F>>(p: &P, scalar: F) -> P {
-  let mut coeffs = p.coeffs().to_vec();
-  coeffs.iter_mut().for_each(|c| *c *= scalar);
-  P::from_coefficients_vec(coeffs)
-}
+//pub(crate) fn scale_UV<F: PrimeField>(
+//  p: &DenseUnivarPolynomial<F>,
+//  scalar: F,
+//) -> DenseUnivarPolynomial<F> {
+//  let mut coeffs = p.coeffs().to_vec();
+//  coeffs.iter_mut().for_each(|c| *c *= scalar);
+//  DenseUnivarPolynomial::from_coefficients_vec(coeffs)
+//}
 
 pub(crate) fn scale_ML<F: PrimeField>(p: &DensePolynomial<F>, scalar: F) -> DensePolynomial<F> {
   let mut coeffs = p.vec().clone();
@@ -140,19 +162,22 @@ pub(crate) fn scale_ML<F: PrimeField>(p: &DensePolynomial<F>, scalar: F) -> Dens
   DensePolynomial::new(coeffs)
 }
 
-fn shift<F: PrimeField, P: DenseUVPolynomial<F>>(p: &P, shift_degree: usize) -> P {
+fn shift<F: PrimeField>(
+  p: &DenseUnivarPolynomial<F>,
+  shift_degree: usize,
+) -> DenseUnivarPolynomial<F> {
   let mut coeffs = p.coeffs().to_vec();
   for _ in 0..shift_degree {
     coeffs.insert(0, F::zero());
   }
-  P::from_coefficients_vec(coeffs)
+  DenseUnivarPolynomial::from_coefficients_vec(coeffs)
 }
 
-pub fn shift_and_combine_with_powers<F: PrimeField, P: DenseUVPolynomial<F>>(
-  polys: &Vec<P>,
+pub fn shift_and_combine_with_powers<F: PrimeField>(
+  polys: &Vec<DenseUnivarPolynomial<F>>,
   y: F,
   num_vars: usize,
-) -> P {
+) -> DenseUnivarPolynomial<F> {
   let mut coeffs = polys
     .iter()
     .enumerate()
@@ -164,5 +189,5 @@ pub fn shift_and_combine_with_powers<F: PrimeField, P: DenseUVPolynomial<F>>(
       (result, y_pow * y)
     })
     .0;
-  P::from_coefficients_vec(coeffs)
+  DenseUnivarPolynomial::from_coefficients_vec(coeffs)
 }

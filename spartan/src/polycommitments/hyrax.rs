@@ -19,6 +19,8 @@ use crate::{
   transcript::{AppendToTranscript, ProofTranscript},
 };
 
+use super::error::PCSError;
+
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct HyraxKey<G: CurveGroup> {
   pub gens: PolyCommitmentGens<G>,
@@ -163,10 +165,11 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     transcript: &mut Transcript,
     r: &[<G>::ScalarField],
     eval: &<G>::ScalarField,
-  ) -> Result<(), ProofVerifyError> {
+  ) -> Result<(), PCSError> {
     proof
       .proof
       .verify_plain(&ck.gens, transcript, r, eval, &commitment.C)
+      .map_err(|_| PCSError::EvalVerifierFailure)
   }
 
   fn setup(

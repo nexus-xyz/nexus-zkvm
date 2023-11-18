@@ -8,13 +8,16 @@ use ark_ec::{
   pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup, VariableBaseMSM,
 };
 use ark_ff::{Field, PrimeField};
-use ark_poly::{DenseUVPolynomial, Polynomial};
+use ark_poly::{
+  univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial, Polynomial,
+};
+use ark_poly_commit::PCCommitment;
 use ark_poly_commit::{
   challenge::ChallengeGenerator,
   error::Error,
   kzg10::{
-    Commitment as KZGCommitment, Powers, Proof as KZGProof, UniversalParams,
-    VerifierKey as KZGVerifierKey, KZG10,
+    Commitment as KZGCommitment, Powers, Proof as KZGProof, Randomness as KZG10Randomness,
+    UniversalParams, VerifierKey as KZGVerifierKey, KZG10,
   },
   LabeledCommitment, LabeledPolynomial, PCRandomness, PCUniversalParams,
   PolynomialCommitment as UnivarPCS,
@@ -39,7 +42,7 @@ use transcript_utils::PolyCommitmentTranscript;
 use super::transcript_utils;
 mod algebra;
 mod data_structures;
-
+use super::error::PCSError;
 use algebra::*;
 
 // impl<U: UnivarCommitment, G: CurveGroup> AppendToTranscript<E::G1> for U {
@@ -51,13 +54,11 @@ use algebra::*;
 //   }
 // }
 
-struct Zeromorph<E, P>
+struct Zeromorph<E>
 where
   E: Pairing,
-  P: DenseUVPolynomial<E::ScalarField>,
 {
   _phantom: PhantomData<E>,
-  _phantom2: PhantomData<P>,
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
@@ -65,15 +66,14 @@ struct ZeromorphProof<E>
 where
   E: Pairing,
 {
-  proof: KZGProof<E>,
-  commitments: Vec<KZGCommitment<E>>,
+  proof: KZGCommitment<E>,
+  quotient_commitments: Vec<KZGCommitment<E>>,
+  combined_shifted_commitment: KZGCommitment<E>,
 }
 
-impl<E, P> PolyCommitmentScheme<E::G1> for Zeromorph<E, P>
+impl<E> PolyCommitmentScheme<E::G1> for Zeromorph<E>
 where
   E: Pairing,
-  P: DenseUVPolynomial<E::ScalarField>,
-  for<'a, 'b> &'a P: Div<&'b P, Output = P>,
 {
   type PolyCommitmentKey<'a> = Powers<'a, E>;
 
@@ -90,7 +90,7 @@ where
     ck: &Self::PolyCommitmentKey<'a>,
     random_tape: &mut Option<RandomTape<E::G1>>,
   ) -> Self::Commitment {
-    let uni_poly: P = multilinear_to_univar(&poly);
+    let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(&poly);
     let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
     let (commitment, _blinds) = KZG10::commit(ck, &uni_poly, None, rt).unwrap();
     commitment
@@ -111,19 +111,24 @@ where
     <Transcript as ProofTranscript<E::G1>>::append_scalar(transcript, b"eval_claim", eval);
     <Transcript as ProofTranscript<E::G1>>::append_scalars(transcript, b"eval_point", u);
 
+    // First, we calculate the commitment to `poly` and send it to the verifier.
+    let C = <Self as PolyCommitmentScheme<E::G1>>::commit(poly, ck, random_tape);
+    C.append_to_transcript(b"commitment", transcript);
+
     // First, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
     // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}. In the notation of the paper, `truncated_quotients[k]` is U_n(q_k)^{<2^k}.
-    let truncated_quotients: Vec<P> = get_truncated_quotients(poly, u);
+    let truncated_quotients = get_truncated_quotients(poly, u);
     let num_vars = poly.get_num_vars();
     assert_eq!(truncated_quotients.len(), num_vars);
 
     // Now, we commit to these truncated quotients, send the commitments to the verifier, and extract a challenge.
-    let commitments = truncated_quotients
+    let commitments: Vec<KZGCommitment<E>> = truncated_quotients
       .as_slice()
       .iter()
-      .map(|q| KZG10::commit(ck, q, None, None).unwrap().0);
+      .map(|q| KZG10::commit(ck, q, None, None).unwrap().0)
+      .collect();
     // Next, we send each of these commitments to the verifier and extract a challenge
-    commitments.into_iter().for_each(|c| {
+    commitments.iter().for_each(|c| {
       <KZGCommitment<E> as AppendToTranscript<E::G1>>::append_to_transcript(
         &c,
         b"quotients",
@@ -139,7 +144,8 @@ where
     // We send this commitment to the verifier and extract another two challenges.
     C_q_hat.append_to_transcript(b"C_q_hat", transcript);
     let x = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"x");
-    let z = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"z");
+    let z: E::ScalarField =
+      <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"z");
 
     // x will be zero with with vanishingly low probability, but as we need x to be nonzero for correctness, we include this check for completeness.
     let mut j = 0;
@@ -152,87 +158,126 @@ where
     }
     let x = x0;
 
-    let uni_poly: P = multilinear_to_univar(&poly);
-    let cyclo_poly: P = univar_of_constant(x, num_vars);
-    // let Z_x_0 = uni_poly
-    //   .coeffs()
-    //   .iter()
-    //   .zip(cyclo_poly.coeffs().iter())
-    //   .zip(
-    //     (0..num_vars)
-    //       .map(|k| scale(&truncated_quotients[k], get_Zx_coefficients(x, u)[k]))
-    //       .sum::<P>()
-    //       .coeffs()
-    //       .iter(),
-    //   )
-    //   .map(|((a, b), c)| *a - *b - *c)
-    //   .collect::<Vec<_>>();
-    // let Z_x = P::from_coefficients_vec(Z_x_0);
+    // Compute the polynomial Z_x = f(X) - v Phi_n(x) - \sum_{k=0}^{n-1} (x^{2^k}Phi_(n-k-1)(x^{2^{k+1}}) - u_k Phi_(n-k)(x^{2^k})) U_n(q_k)^{<2^k}(X)
+    let uni_poly = multilinear_to_univar(&poly);
+    let constant_term = *eval * eval_generalized_cyclotomic_polynomial(num_vars, 0, x);
+    let Z_x = &(&uni_poly - &DenseUnivarPolynomial::from_coefficients_slice(&[constant_term]))
+      - &truncated_quotients.iter().enumerate().fold(
+        DenseUnivarPolynomial::from_coefficients_vec(vec![]),
+        |sum, (k, q)| sum + q * get_Zx_coefficients(x, u)[k],
+      );
+    // Compute the polynomial zeta_x(X) = \sum_{k=0}^{n-1} y^k X^{2^n - 2^k} U_n(q_k)^{<2^k}(X) - \sum_{k=0}^{n-1} y^k x^{2^n - 2^k} U_n(q_k)^{<2^k}(X)
+    let zeta_x = &shift_and_combine_with_powers(&truncated_quotients, y, num_vars)
+      - &truncated_quotients.iter().enumerate().fold(
+        DenseUnivarPolynomial::from_coefficients_vec(vec![]),
+        |sum, (k, q)| sum + q * get_zeta_x_coefficients(x, y, num_vars)[k],
+      );
 
     // Compute the quotient polynomials q_zeta = zeta_x/(X-x) and q_Z = Z_x/(X-x)
-
-    //
-    //    let labeled_cyclo_poly = LabeledPolynomial::new(
-    //      format!("{}th cyclo_poly", num_vars),
-    //      cyclo_poly.clone(),
-    //      Some(num_vars.pow2() as usize),
-    //      None,
-    //    );
-    //    let (labeled_C_vx, _blinds) = U::commit(ck, [&labeled_cyclo_poly], None).unwrap();
-    //    let C_vx = labeled_C_vx[0].commitment().clone();
-    //
-    //    let truncated_quotients: Vec<P> = quotients
-    //      .into_iter()
-    //      .zip(0..num_vars)
-    //      .map(|(q, k)| truncate(multilinear_to_univar::<_, P>(q), Math::pow2(k)))
-    //      .collect();
-
-    //    let Z_x_labeled = LabeledPolynomial::new("Z_x".to_string(), Z_x, None, None);
-    //    let C_Z_x_0: U::Commitment = C
-    //      - C_vx
-    //      - (commitments
-    //        .clone()
-    //        .into_iter()
-    //        .zip(get_Zx_coefficients(x, u))
-    //        .map(|(C, s)| C.commitment().clone() * s)
-    //        .sum::<U::Commitment>());
-    //    let C_Z_x = LabeledCommitment::new("C_Z_x".to_string(), C_Z_x_0, None);
-    //    let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
-    //    let mut pc_transcript = PolyCommitmentTranscript::from(transcript.clone());
-    //    let mut challenge_generator = ChallengeGenerator::new_univariate(&mut pc_transcript);
-    //    Self::PolyCommitmentProof {
-    //      proof: U::open(
-    //        ck,
-    //        vec![&Z_x_labeled],
-    //        vec![&C_Z_x],
-    //        &x,
-    //        &mut challenge_generator,
-    //        vec![&U::Randomness::empty()],
-    //        rt,
-    //      )
-    //      .unwrap(),
-    //      commitments: commitments
-    //        .into_iter()
-    //        .map(|c| c.commitment().clone())
-    //        .collect(),
-    //    }
-    Self::PolyCommitmentProof {
-      proof: KZGProof {
-        w: E::G1Affine::zero(),
-        random_v: None,
-      },
-      commitments: vec![],
+    let q_Z = KZG10::<E, DenseUnivarPolynomial<E::ScalarField>>::compute_witness_polynomial(
+      &Z_x,
+      x,
+      &KZG10Randomness::empty(),
+    )
+    .unwrap()
+    .0;
+    let q_zeta = KZG10::<E, DenseUnivarPolynomial<E::ScalarField>>::compute_witness_polynomial(
+      &zeta_x,
+      x,
+      &KZG10Randomness::empty(),
+    )
+    .unwrap()
+    .0;
+    let q_zeta_Z = &q_zeta + &(&q_Z * z);
+    // Unlike the paper, we do not shift q_zeta_Z here: we assume that the number of polynomial variables in the polynomial `poly` is the max supported by the SRS.
+    let (pi, _blinds) = KZG10::commit(ck, &q_zeta_Z, None, None).unwrap();
+    ZeromorphProof {
+      quotient_commitments: commitments,
+      combined_shifted_commitment: C_q_hat,
+      proof: pi,
     }
   }
   fn verify(
     commitment: &Self::Commitment,
     proof: &Self::PolyCommitmentProof,
-    ck: &Self::EvalVerifierKey,
+    vk: &Self::EvalVerifierKey,
     transcript: &mut Transcript,
-    r: &[E::ScalarField],
+    u: &[E::ScalarField],
     eval: &E::ScalarField,
-  ) -> Result<(), crate::errors::ProofVerifyError> {
-    todo!()
+  ) -> Result<(), PCSError> {
+    let ZeromorphProof {
+      quotient_commitments,
+      combined_shifted_commitment,
+      proof,
+    } = proof;
+    let num_vars = u.len();
+    // We absorb the public inputs into the transcript
+    <Transcript as ProofTranscript<E::G1>>::append_protocol_name(
+      transcript,
+      b"Zeromorph_eval_proof",
+    );
+    <Transcript as ProofTranscript<E::G1>>::append_scalar(transcript, b"eval_claim", eval);
+    <Transcript as ProofTranscript<E::G1>>::append_scalars(transcript, b"eval_point", u);
+    commitment.append_to_transcript(b"commitment", transcript);
+
+    // Next, we absorb the quotient commitments and extract a challenge
+    quotient_commitments.iter().for_each(|c| {
+      <KZGCommitment<E> as AppendToTranscript<E::G1>>::append_to_transcript(
+        &c,
+        b"quotients",
+        transcript,
+      )
+    });
+    let y = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"y");
+
+    // Next, we absorb the combined shifted commitment and extract two challenges
+    combined_shifted_commitment.append_to_transcript(b"C_q_hat", transcript);
+
+    let x = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"x");
+    let z: E::ScalarField =
+      <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"z");
+    // x will be zero with with vanishingly low probability, but as we need x to be nonzero for correctness, we include this check for completeness.
+    let mut j = 0;
+    let mut x0 = x;
+    while x == E::ScalarField::zero() {
+      let label: &'static [u8] = Box::leak(format!("x.{}", j).into_boxed_str()).as_bytes();
+
+      x0 = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, label);
+      j += 1;
+    }
+    let x = x0;
+
+    // Compute the commitment to the constant term U_n(`eval`) = `eval` * Phi_n(x); `eval` is called `v` in the paper.
+    let v_phi_x = *eval * eval_generalized_cyclotomic_polynomial(num_vars, 0, x);
+    let C_vx = &vk.g.mul(v_phi_x);
+
+    // Compute the commitment to the combined polynomial Z_x.
+    let C_Z_x = commitment.0.into_group()
+      - (C_vx)
+      - quotient_commitments
+        .iter()
+        .enumerate()
+        .fold(E::G1Affine::zero(), |sum, (k, q)| {
+          (sum + q.0.into_group() * get_Zx_coefficients(x, u)[k]).into()
+        });
+
+    // Comptue the commimtment to the batched shifted polynomial zeta_x.
+    let C_zeta_x = combined_shifted_commitment.0.into_group()
+      - quotient_commitments
+        .iter()
+        .enumerate()
+        .fold(E::G1Affine::zero(), |sum, (k, q)| {
+          (sum + q.0.into_group() * get_zeta_x_coefficients(x, y, num_vars)[k]).into()
+        });
+
+    let C_zeta_Z = C_zeta_x + C_Z_x * z;
+    let lhs = E::pairing(C_zeta_Z, vk.h);
+    let rhs = E::pairing(proof.0, vk.beta_h.into_group() - vk.h.mul(x));
+    if lhs != rhs {
+      return Err(PCSError::EvalVerifierFailure);
+    } else {
+      Ok(())
+    }
   }
 
   fn setup(
@@ -324,17 +369,32 @@ where
   }
   fn trim<'a>(
     srs: &Self::SRS,
-    supported_degree: usize,
-    supported_hiding_bound: usize,
-    enforced_degree_bounds: Option<&[usize]>,
+    supported_num_vars: usize,
+    _supported_hiding_bound: usize,
+    _enforced_degree_bounds: Option<&[usize]>,
   ) -> (Self::PolyCommitmentKey<'a>, Self::EvalVerifierKey) {
-    todo!()
-    //KZG10::trim(
-    //  srs,
-    //  supported_degree,
-    //  supported_hiding_bound,
-    //  enforced_degree_bounds,
-    //)
-    //.unwrap()
+    let mut supported_degree = Math::pow2(supported_num_vars) - 1;
+    if supported_degree > srs.max_degree() {
+      panic!("Unsupported degree");
+    } else if supported_degree == 1 {
+      supported_degree += 1;
+    }
+    let powers_of_g = srs.powers_of_g[..=supported_degree].to_vec();
+    let powers_of_gamma_g = (0..=supported_degree)
+      .map(|i| srs.powers_of_gamma_g[&i])
+      .collect();
+    let powers = Powers {
+      powers_of_g: ark_std::borrow::Cow::Owned(powers_of_g),
+      powers_of_gamma_g: ark_std::borrow::Cow::Owned(powers_of_gamma_g),
+    };
+    let vk = KZGVerifierKey {
+      g: srs.powers_of_g[0],
+      gamma_g: srs.powers_of_gamma_g[&0],
+      h: srs.h,
+      beta_h: srs.beta_h,
+      prepared_h: srs.prepared_h.clone(),
+      prepared_beta_h: srs.prepared_beta_h.clone(),
+    };
+    (powers, vk)
   }
 }
