@@ -1,58 +1,31 @@
-use super::{CommitmentKeyTrait, PolyCommitmentScheme, VectorCommitmentTrait};
+use super::PolyCommitmentScheme;
 use crate::dense_mlpoly::DensePolynomial;
 use crate::math::Math;
 use crate::random::RandomTape;
 use crate::transcript::{AppendToTranscript, ProofTranscript};
-use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
-use ark_ec::{
-  pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup, VariableBaseMSM,
-};
-use ark_ff::{Field, PrimeField};
-use ark_poly::{
-  univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial, Polynomial,
-};
-use ark_poly_commit::PCCommitment;
+use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup};
+use ark_ff::PrimeField;
+use ark_poly::{univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial};
 use ark_poly_commit::{
-  challenge::ChallengeGenerator,
   error::Error,
   kzg10::{
-    Commitment as KZGCommitment, Powers, Proof as KZGProof, Randomness as KZG10Randomness,
-    UniversalParams, VerifierKey as KZGVerifierKey, KZG10,
+    Commitment as KZGCommitment, Powers, Randomness as KZG10Randomness, UniversalParams,
+    VerifierKey as KZGVerifierKey, KZG10,
   },
-  LabeledCommitment, LabeledPolynomial, PCRandomness, PCUniversalParams,
-  PolynomialCommitment as UnivarPCS,
+  PCRandomness, PCUniversalParams,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
-  collections::BTreeMap,
-  end_timer,
-  iter::Sum,
-  marker::PhantomData,
-  ops::{Add, Div, Mul, Sub},
-  rand::RngCore,
-  start_timer,
-  string::*,
-  vec::Vec,
-  One, UniformRand, Zero,
+  collections::BTreeMap, end_timer, marker::PhantomData, ops::Mul, rand::RngCore, start_timer,
+  vec::Vec, One, UniformRand, Zero,
 };
 use merlin::Transcript;
 use std::fmt::Debug;
-use transcript_utils::PolyCommitmentTranscript;
 
-use super::transcript_utils;
 mod algebra;
 mod data_structures;
 use super::error::PCSError;
 use algebra::*;
-
-// impl<U: UnivarCommitment, G: CurveGroup> AppendToTranscript<E::G1> for U {
-//   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
-//     transcript.append_message(label, b"univar_commitment_begin");
-//     transcript.append_message(b"univar_commitment_params", &self.params);
-//     transcript.append_point(b"univar_commitment_commitment", &self.comm);
-//     transcript.append_message(b"univar_commitment_end", b"univar_commitment_end");
-//   }
-// }
 
 struct Zeromorph<E>
 where

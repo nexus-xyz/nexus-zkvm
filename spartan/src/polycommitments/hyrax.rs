@@ -1,8 +1,6 @@
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use ark_poly_commit::{
-  Error, PCCommitment, PCCommitterKey, PCRandomness, PCUniversalParams, PCVerifierKey,
-};
+use ark_poly_commit::{Error, PCCommitment, PCRandomness, PCUniversalParams};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{fmt::Debug, rand::RngCore};
 use merlin::Transcript;
@@ -13,8 +11,7 @@ pub use crate::dense_mlpoly::{
 
 use crate::{
   dense_mlpoly::DensePolynomial,
-  errors::ProofVerifyError,
-  polycommitments::{CommitmentKeyTrait, PolyCommitmentScheme, VectorCommitmentTrait},
+  polycommitments::PolyCommitmentScheme,
   random::RandomTape,
   transcript::{AppendToTranscript, ProofTranscript},
 };

@@ -1,15 +1,10 @@
 //use super::unipoly::*;
-use super::transcript_utils::PolyCommitmentTranscript;
-use super::Zeromorph;
 use crate::dense_mlpoly::DensePolynomial;
 use crate::math::Math;
-use ark_ec::CurveGroup;
-use ark_ff::{Field, PrimeField};
+use ark_ff::PrimeField;
 use ark_poly::{
   univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial, Polynomial,
 };
-use ark_poly_commit::PolynomialCommitment as UnivarPCS;
-use ark_std::{One, Zero};
 
 /// This implements the linear isomorphism from the space of multilinear polynomials
 /// in n variables to the space of univariate polynomials of degree less than 2^n.
@@ -123,7 +118,7 @@ pub fn get_zeta_x_coefficients<F: PrimeField>(x: F, y: F, num_vars: usize) -> Ve
   let mut y_pow = F::one();
   let mut x_pow = x;
   let mut x_max_pow = x;
-  for _ in (0..num_vars) {
+  for _ in 0..num_vars {
     x_max_pow = x_pow.square();
   }
   let mut result = vec![F::zero(); num_vars];

@@ -1,20 +1,12 @@
-use crate::dense_mlpoly::DensePolynomial;
 use crate::math::Math;
-use crate::polycommitments::{
-  PolyCommitmentScheme, PolyCommitmentTrait, SRSTrait, VectorCommitmentTrait,
-};
+use crate::polycommitments::{PolyCommitmentTrait, SRSTrait};
 use crate::transcript::{AppendToTranscript, ProofTranscript};
-use ark_ec::pairing::Pairing;
-use ark_ec::{AffineRepr, CurveGroup};
-use ark_ff::PrimeField;
+use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
 use ark_poly_commit::{
-  kzg10::Commitment as KZGCommitment, LabeledCommitment, LabeledPolynomial, PCCommitment,
-  PCRandomness, PCUniversalParams, PolynomialCommitment as UnivarPolyCommitment,
+  kzg10::Commitment as KZGCommitment, LabeledCommitment, PCCommitment, PCUniversalParams,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::fmt::Debug;
-use ark_std::rand::RngCore;
-use ark_std::{marker::PhantomData, vec::Vec};
+use ark_std::{fmt::Debug, rand::RngCore, vec::Vec};
 use merlin::Transcript;
 
 impl<G: CurveGroup, C: PCCommitment> PolyCommitmentTrait<G> for C

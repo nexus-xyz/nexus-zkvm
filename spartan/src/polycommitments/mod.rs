@@ -1,16 +1,11 @@
 use ark_ec::CurveGroup;
-use ark_poly_commit::{
-  Error, PCCommitment, PCCommitterKey, PCRandomness, PCUniversalParams, PCVerifierKey,
-};
+use ark_poly_commit::Error;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::rand::RngCore;
 use core::fmt::Debug;
 use merlin::Transcript;
 
-use crate::{
-  dense_mlpoly::DensePolynomial, errors::ProofVerifyError, random::RandomTape,
-  transcript::AppendToTranscript,
-};
+use crate::{dense_mlpoly::DensePolynomial, random::RandomTape, transcript::AppendToTranscript};
 
 pub mod error;
 pub mod hyrax;
