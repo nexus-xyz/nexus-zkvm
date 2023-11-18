@@ -63,11 +63,10 @@ where
   fn commit<'a>(
     poly: &DensePolynomial<E::ScalarField>,
     ck: &Self::PolyCommitmentKey<'a>,
-    random_tape: &mut Option<RandomTape<E::G1>>,
+    _random_tape: &mut Option<RandomTape<E::G1>>,
   ) -> Self::Commitment {
     let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(poly);
-    let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
-    let (commitment, _blinds) = KZG10::commit(ck, &uni_poly, None, rt).unwrap();
+    let (commitment, _blinds) = KZG10::commit(ck, &uni_poly, None, None).unwrap();
     commitment
   }
 
@@ -111,7 +110,6 @@ where
       )
     });
     let y = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"y");
-
     // Next, using the challenge y, we calculate the batched shifted polynomial \sum_(k=0)^(n-1) y^k X^(2^n - 2^k) U_n(q_k)^{<2^k} and its commitment.
     let q_hat = shift_and_combine_with_powers(&truncated_quotients, y, num_vars);
     let (C_q_hat, _blinds) = KZG10::commit(ck, &q_hat, None, None).unwrap();
@@ -121,7 +119,6 @@ where
     let x = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"x");
     let z: E::ScalarField =
       <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"z");
-
     // x will be zero with with vanishingly low probability, but as we need x to be nonzero for correctness, we include this check for completeness.
     let mut j = 0;
     let mut x0 = x;
@@ -204,7 +201,6 @@ where
       )
     });
     let y = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"y");
-
     // Next, we absorb the combined shifted commitment and extract two challenges
     combined_shifted_commitment.append_to_transcript(b"C_q_hat", transcript);
 
@@ -371,5 +367,67 @@ where
       prepared_beta_h: srs.prepared_beta_h.clone(),
     };
     (powers, vk)
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{math::Math, random::RandomTape};
+  use ark_bn254::Bn254;
+  use ark_ec::pairing::Pairing;
+  use ark_std::test_rng;
+  fn end_to_end_test_helper<E: Pairing>() {
+    for n in 1..10 {
+      let mut rng = test_rng();
+      let SRS = Zeromorph::<E>::setup(n, b"test", &mut rng).unwrap();
+      let (ck, vk) = Zeromorph::<E>::trim(&SRS, n, 0, None);
+      let mut rt = RandomTape::<E::G1>::new(b"test");
+      let evals = rt.random_vector(b"evals", Math::pow2(n));
+      let poly = DensePolynomial::<E::ScalarField>::new(evals);
+      let commitment = Zeromorph::<E>::commit(&poly, &ck, &mut None);
+      let u = rt.random_vector(b"eval_point", n);
+      let eval = poly.evaluate::<E::G1>(u.as_slice());
+      let mut transcript_prover = Transcript::new(b"test");
+      let mut transcript_verifier = Transcript::new(b"test");
+      let proof_correct =
+        Zeromorph::<E>::prove(&poly, &u, &eval, &ck, &mut transcript_prover, &mut None);
+      Zeromorph::<E>::verify(
+        &commitment,
+        &proof_correct,
+        &vk,
+        &mut transcript_verifier,
+        &u,
+        &eval,
+      )
+      .unwrap_or_else(|e| {
+        panic!(
+          "Error verifying proof of correct statement with n = {}: {:?}",
+          n, e
+        )
+      });
+      let wrong_eval = E::ScalarField::rand(&mut rng);
+      let proof_wrong = Zeromorph::<E>::prove(
+        &poly,
+        &u,
+        &wrong_eval,
+        &ck,
+        &mut transcript_prover,
+        &mut None,
+      );
+      Zeromorph::<E>::verify(
+        &commitment,
+        &proof_wrong,
+        &vk,
+        &mut transcript_verifier,
+        &u,
+        &eval,
+      )
+      .expect_err(format!("Verifier accepts proof of wrong statement with n = {}", n).as_str());
+    }
+  }
+  #[test]
+  fn end_to_end_test() {
+    end_to_end_test_helper::<Bn254>();
   }
 }

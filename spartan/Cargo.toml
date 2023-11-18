@@ -47,6 +47,7 @@ ark-bls12-381 = { version = "^0.4.0", default-features = false, features = [
 ark-crypto-primitives = { version = "^0.4.0", features = ["r1cs", "sponge"] }
 
 [dev-dependencies]
+ark-bn254 = "0.4.0"
 criterion = "0.3.1"
 
 
