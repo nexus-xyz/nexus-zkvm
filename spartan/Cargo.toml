@@ -7,7 +7,7 @@ authors = [
     # for which this library is modified from
     "Srinath Setty <srinath@microsoft.com>",
     # authors who contributed to this modification
-    "Zhenfei Zhang <zhenfei.zhang@hotmail.com>"
+    "Zhenfei Zhang <zhenfei.zhang@hotmail.com>",
 ]
 edition = "2021"
 description = "Spartan ZKP system over arkworks"
@@ -37,9 +37,13 @@ ark-ff = { version = "^0.4.0", default-features = false }
 ark-poly = { version = "^0.4.2", default-features = false }
 ark-poly-commit = { version = "^0.4.0", default-features = false }
 ark-std = { version = "^0.4.0", default-features = false }
-ark-serialize =  { version = "^0.4.0", default-features = false, features = [ "derive" ] }
+ark-serialize = { version = "^0.4.0", default-features = false, features = [
+    "derive",
+] }
 
-ark-bls12-381 = { version = "^0.4.0", default-features = false, features = [ "curve" ] }
+ark-bls12-381 = { version = "^0.4.0", default-features = false, features = [
+    "curve",
+] }
 ark-crypto-primitives = { version = "^0.4.0", features = ["r1cs", "sponge"] }
 
 [dev-dependencies]
@@ -68,10 +72,6 @@ harness = false
 
 [features]
 # default = ["curve25519-dalek/simd_backend"]
-default = [ 
-    "ark-ec/parallel",
-    "ark-ff/parallel",
-    "ark-std/parallel",    
-]
+default = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel"]
 multicore = ["rayon"]
 profile = []
