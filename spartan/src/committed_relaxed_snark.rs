@@ -4,7 +4,6 @@ use core::cmp::max;
 
 use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::rand::RngCore;
 use merlin::Transcript;
 
 use crate::{
@@ -33,7 +32,6 @@ impl<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<'a, G, PC> {
     num_vars: usize,
     num_inputs: usize,
     num_nz_entries: usize,
-    rng: &impl RngCore,
   ) -> Self {
     let num_vars_padded = {
       let mut num_vars_padded = max(num_vars, num_inputs + 1);

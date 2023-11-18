@@ -8,7 +8,6 @@ use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ec::VariableBaseMSM;
 use ark_ff::PrimeField;
-use ark_poly_commit::DenseUVPolynomial;
 use ark_serialize::*;
 use ark_std::Zero;
 use core::ops::Index;
@@ -47,7 +46,7 @@ where
   pub blinds: Vec<F>,
 }
 
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, PartialEq)]
+#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PolyCommitment<G: CurveGroup> {
   pub(crate) C: Vec<G>,
 }

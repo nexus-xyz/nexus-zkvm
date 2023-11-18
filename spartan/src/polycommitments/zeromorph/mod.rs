@@ -1,8 +1,10 @@
 use super::PolyCommitmentScheme;
-use crate::dense_mlpoly::DensePolynomial;
-use crate::math::Math;
-use crate::random::RandomTape;
-use crate::transcript::{AppendToTranscript, ProofTranscript};
+use crate::{
+  dense_mlpoly::DensePolynomial,
+  math::Math,
+  random::RandomTape,
+  transcript::{AppendToTranscript, ProofTranscript},
+};
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_poly::{univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial};
@@ -63,7 +65,7 @@ where
     ck: &Self::PolyCommitmentKey<'a>,
     random_tape: &mut Option<RandomTape<E::G1>>,
   ) -> Self::Commitment {
-    let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(&poly);
+    let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(poly);
     let rt = random_tape.as_mut().map(|rt| rt as &mut dyn RngCore);
     let (commitment, _blinds) = KZG10::commit(ck, &uni_poly, None, rt).unwrap();
     commitment
@@ -103,7 +105,7 @@ where
     // Next, we send each of these commitments to the verifier and extract a challenge
     commitments.iter().for_each(|c| {
       <KZGCommitment<E> as AppendToTranscript<E::G1>>::append_to_transcript(
-        &c,
+        c,
         b"quotients",
         transcript,
       )
@@ -132,7 +134,7 @@ where
     let x = x0;
 
     // Compute the polynomial Z_x = f(X) - v Phi_n(x) - \sum_{k=0}^{n-1} (x^{2^k}Phi_(n-k-1)(x^{2^{k+1}}) - u_k Phi_(n-k)(x^{2^k})) U_n(q_k)^{<2^k}(X)
-    let uni_poly = multilinear_to_univar(&poly);
+    let uni_poly = multilinear_to_univar(poly);
     let constant_term = *eval * eval_generalized_cyclotomic_polynomial(num_vars, 0, x);
     let Z_x = &(&uni_poly - &DenseUnivarPolynomial::from_coefficients_slice(&[constant_term]))
       - &truncated_quotients.iter().enumerate().fold(
@@ -196,7 +198,7 @@ where
     // Next, we absorb the quotient commitments and extract a challenge
     quotient_commitments.iter().for_each(|c| {
       <KZGCommitment<E> as AppendToTranscript<E::G1>>::append_to_transcript(
-        &c,
+        c,
         b"quotients",
         transcript,
       )
@@ -247,7 +249,7 @@ where
     let lhs = E::pairing(C_zeta_Z, vk.h);
     let rhs = E::pairing(proof.0, vk.beta_h.into_group() - vk.h.mul(x));
     if lhs != rhs {
-      return Err(PCSError::EvalVerifierFailure);
+      Err(PCSError::EvalVerifierFailure)
     } else {
       Ok(())
     }
@@ -255,7 +257,7 @@ where
 
   fn setup(
     max_num_poly_vars: usize,
-    label: &'static [u8],
+    _label: &'static [u8],
     rng: &mut impl RngCore,
   ) -> Result<Self::SRS, Error> {
     {
@@ -302,7 +304,7 @@ where
       let powers_of_h_time = start_timer!(|| "Generating powers of h in G2");
       let powers_of_h = {
         let mut powers_of_beta = vec![E::ScalarField::one()];
-        let mut cur = E::ScalarField::one() / &beta;
+        let mut cur = E::ScalarField::one() / beta;
         for _ in 0..max_degree {
           powers_of_beta.push(cur);
           cur *= &beta;

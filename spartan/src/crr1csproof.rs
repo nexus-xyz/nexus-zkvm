@@ -1,6 +1,6 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(dead_code)]
-use crate::polycommitments::{PolyCommitmentScheme, VectorCommitmentTrait};
+use crate::polycommitments::PolyCommitmentScheme;
 use crate::unipoly::{CompressedUniPoly, UniPoly};
 use crate::{InputsAssignment, Instance, VarsAssignment};
 
@@ -15,7 +15,6 @@ use super::timer::Timer;
 use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use ark_poly_commit::Error;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 //use ark_std::rand::RngCore;
 use ark_std::{cmp::max, One, Zero};
@@ -587,7 +586,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       transcript,
       &ry[1..],
       &self.eval_vars_at_ry,
-    )?;
+    )
+    .map_err(|_| ProofVerifyError::InternalError)?;
 
     // verify E(rx) proof against the initial commitment `comm_E`
     PC::verify(
@@ -597,7 +597,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       transcript,
       &rx,
       &self.eval_error_at_rx,
-    )?;
+    )
+    .map_err(|_| ProofVerifyError::InternalError)?;
 
     let poly_input_eval = {
       // constant term
@@ -628,7 +629,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
 #[cfg(test)]
 mod tests {
-  use crate::polycommitments::hyrax::Hyrax;
+  use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentTrait};
 
   use crate::r1csinstance::R1CSInstance;
 
@@ -700,15 +701,12 @@ mod tests {
     num_cons: usize,
     num_vars: usize,
     num_inputs: usize,
-  ) -> Result<
-    (
-      CRR1CSShape<G::ScalarField>,
-      CRR1CSInstance<G, PC>,
-      CRR1CSWitness<G::ScalarField>,
-      CRR1CSKey<'a, G, PC>,
-    ),
-    Error,
-  > {
+  ) -> (
+    CRR1CSShape<G::ScalarField>,
+    CRR1CSInstance<G, PC>,
+    CRR1CSWitness<G::ScalarField>,
+    CRR1CSKey<'a, G, PC>,
+  ) {
     // compute random satisfying assignment for r1cs
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
     // the `Instance` initializer may have padded the variable lengths
@@ -747,7 +745,7 @@ mod tests {
     // compute commitments to the vectors `vars` and `E`.
     let n = max(num_cons, num_vars);
     let mut rng = test_rng();
-    let SRS = PC::setup(n.log_2() as usize, b"test-SRS", &mut rng)?;
+    let SRS = PC::setup(n.log_2() as usize, b"test-SRS", &mut rng).unwrap();
     let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
     let mut random_tape = None;
     let comm_W = <PC as VectorCommitmentTrait<G>>::commit(
@@ -757,7 +755,7 @@ mod tests {
     );
     let comm_E =
       <PC as VectorCommitmentTrait<G>>::commit(E.as_slice(), &key.pc_commit_key, &mut random_tape);
-    Ok((
+    (
       shape,
       CRR1CSInstance::<G, PC> {
         input: inputs,
@@ -770,7 +768,7 @@ mod tests {
         E: E.clone(),
       },
       key,
-    ))
+    )
   }
 
   #[test]
@@ -804,7 +802,7 @@ mod tests {
     let num_cons = num_vars;
     let num_inputs = 10;
     let (shape, instance, witness, key) =
-      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs).unwrap();
+      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
     let (num_cons, num_vars, _num_inputs) = (
       shape.get_num_cons(),
       shape.get_num_vars(),

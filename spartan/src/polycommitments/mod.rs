@@ -11,12 +11,6 @@ pub mod error;
 pub mod hyrax;
 mod transcript_utils;
 pub mod zeromorph;
-pub trait CommitmentKeyTrait<G: CurveGroup> {
-  fn setup(num_poly_vars: usize, label: &'static [u8]) -> Self;
-  // fn size(&self) -> usize;
-  // fn main_gens(&self) -> Vec<G>;
-  // fn blind_gen(&self) -> G;
-}
 
 pub trait VectorCommitmentTrait<G: CurveGroup> {
   type VectorCommitment: AppendToTranscript<G>
@@ -35,13 +29,6 @@ pub trait VectorCommitmentTrait<G: CurveGroup> {
   fn zero(n: usize) -> Self::VectorCommitment;
 }
 
-// trait SRSTrait {}
-// trait PolyCommitmentKeyTrait {}
-
-// trait EvalVerifierKeyTrait {}
-
-// trait PCProofTrait {}
-
 pub trait PolyCommitmentTrait<G: CurveGroup>:
   Sized + AppendToTranscript<G> + Sync + Debug + CanonicalSerialize + CanonicalDeserialize + PartialEq
 {
@@ -49,12 +36,8 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   fn zero(n: usize) -> Self;
 }
 
-pub trait SRSTrait {
-  fn setup(num_poly_vars: usize, label: &'static [u8], rng: &mut impl RngCore) -> Self;
-}
-
 pub trait PolyCommitmentScheme<G: CurveGroup> {
-  type SRS: SRSTrait;
+  type SRS;
   type PolyCommitmentKey<'a>;
   type EvalVerifierKey;
   type Commitment: PolyCommitmentTrait<G>;

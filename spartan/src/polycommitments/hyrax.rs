@@ -1,8 +1,8 @@
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use ark_poly_commit::{Error, PCCommitment, PCRandomness, PCUniversalParams};
+use ark_poly_commit::{Error, PCCommitment};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{fmt::Debug, rand::RngCore};
+use ark_std::{fmt::Debug, marker::PhantomData, rand::RngCore};
 use merlin::Transcript;
 
 pub use crate::dense_mlpoly::{
@@ -23,12 +23,7 @@ pub struct HyraxKey<G: CurveGroup> {
   pub gens: PolyCommitmentGens<G>,
 }
 
-impl<G: CurveGroup> PCUniversalParams for HyraxKey<G> {
-  fn max_degree(&self) -> usize {
-    self.gens.gens.gens_n.n
-  }
-}
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq, Eq)]
 pub struct HyraxCommitment<G: CurveGroup> {
   pub C: PolyCommitment<G>,
 }
@@ -80,36 +75,8 @@ impl<G: CurveGroup> AppendToTranscript<G> for HyraxVectorCommitment<G> {
   }
 }
 
-// impl<G: CurveGroup> CommitmentKeyTrait<G> for MultiCommitGens<G> {
-//   fn setup(num_poly_vars: usize, label: &'static [u8]) -> Self {
-//     MultiCommitGens::setup(num_poly_vars, label)
-//   }
-//}
-impl<F: PrimeField> PCRandomness for HyraxBlinds<F> {
-  fn rand<R: RngCore>(
-    num_queries: usize,
-    has_degree_bound: bool,
-    degree: Option<usize>,
-    rng: &mut R,
-  ) -> Self {
-    todo!()
-  }
-  fn empty() -> Self {
-    Self {
-      blinds: PolyCommitmentBlinds { blinds: vec![] },
-    }
-  }
-}
-
-impl<F: PrimeField> HyraxBlinds<F> {
-  fn from_vec(vec: Vec<F>) -> Self {
-    Self {
-      blinds: PolyCommitmentBlinds { blinds: vec },
-    }
-  }
-}
 pub struct Hyrax<G> {
-  phantom: G,
+  _phantom: PhantomData<G>,
 }
 
 impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
@@ -122,9 +89,9 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
 
   fn trim<'a>(
     srs: &Self::SRS,
-    supported_degree: usize,
-    supported_hiding_bound: usize,
-    enforced_degree_bounds: Option<&[usize]>,
+    _supported_degree: usize,
+    _supported_hiding_bound: usize,
+    _enforced_degree_bounds: Option<&[usize]>,
   ) -> (Self::PolyCommitmentKey<'a>, Self::EvalVerifierKey) {
     let commit_key = srs.clone();
     let verifier_key = srs.clone();

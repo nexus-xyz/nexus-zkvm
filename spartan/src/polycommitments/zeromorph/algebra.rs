@@ -15,21 +15,6 @@ pub fn multilinear_to_univar<F: PrimeField>(p: &DensePolynomial<F>) -> DenseUniv
   assert!(unipoly.degree() < 2usize.pow(p.get_num_vars() as u32));
   unipoly
 }
-fn times_X_ell_minus_u_ell<F: PrimeField>(
-  evals: &DensePolynomial<F>,
-  ell: usize,
-  u: F,
-) -> DensePolynomial<F> {
-  let mut new_vec = evals.vec().clone();
-  for (e, i) in new_vec.iter_mut().zip(0..evals.len()) {
-    if i >> ell & 1 == 1 {
-      *e *= F::one() - u;
-    } else {
-      *e *= -u;
-    }
-  }
-  DensePolynomial::new(new_vec)
-}
 pub fn poly_sub<F: PrimeField>(
   p: &DensePolynomial<F>,
   q: &DensePolynomial<F>,
@@ -131,26 +116,6 @@ pub fn get_zeta_x_coefficients<F: PrimeField>(x: F, y: F, num_vars: usize) -> Ve
   result
 }
 
-pub fn univar_of_constant<F: PrimeField>(c: F, num_vars: usize) -> DenseUnivarPolynomial<F> {
-  let coeff_vec = vec![c; num_vars];
-  DenseUnivarPolynomial::from_coefficients_vec(coeff_vec)
-}
-
-//pub fn truncate<F: PrimeField, P: DenseUVPolynomial<F>>(p: P, degree: usize) -> P {
-//  let mut coeffs = p.coeffs().to_vec();
-//  coeffs.truncate(degree);
-//  P::from_coefficients_vec(coeffs)
-//}
-
-//pub(crate) fn scale_UV<F: PrimeField>(
-//  p: &DenseUnivarPolynomial<F>,
-//  scalar: F,
-//) -> DenseUnivarPolynomial<F> {
-//  let mut coeffs = p.coeffs().to_vec();
-//  coeffs.iter_mut().for_each(|c| *c *= scalar);
-//  DenseUnivarPolynomial::from_coefficients_vec(coeffs)
-//}
-
 pub(crate) fn scale_ML<F: PrimeField>(p: &DensePolynomial<F>, scalar: F) -> DensePolynomial<F> {
   let mut coeffs = p.vec().clone();
   coeffs.iter_mut().for_each(|c| *c *= scalar);
@@ -169,11 +134,11 @@ fn shift<F: PrimeField>(
 }
 
 pub fn shift_and_combine_with_powers<F: PrimeField>(
-  polys: &Vec<DenseUnivarPolynomial<F>>,
+  polys: &[DenseUnivarPolynomial<F>],
   y: F,
   num_vars: usize,
 ) -> DenseUnivarPolynomial<F> {
-  let mut coeffs = polys
+  let coeffs = polys
     .iter()
     .enumerate()
     .map(|(k, p)| shift(p, Math::pow2(num_vars) - Math::pow2(k)))
