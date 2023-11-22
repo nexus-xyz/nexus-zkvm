@@ -82,17 +82,15 @@ pub struct Hyrax<G> {
 impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   type SRS = HyraxKey<G>;
   type Commitment = HyraxCommitment<G>;
-  type PolyCommitmentKey<'a> = HyraxKey<G>;
+  type PolyCommitmentKey = HyraxKey<G>;
   type EvalVerifierKey = HyraxKey<G>;
 
   type PolyCommitmentProof = HyraxProof<G>;
 
   fn trim<'a>(
     srs: &Self::SRS,
-    _supported_degree: usize,
-    _supported_hiding_bound: usize,
-    _enforced_degree_bounds: Option<&[usize]>,
-  ) -> (Self::PolyCommitmentKey<'a>, Self::EvalVerifierKey) {
+    _supported_num_vars: usize,
+  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
     let commit_key = srs.clone();
     let verifier_key = srs.clone();
     (commit_key, verifier_key)
@@ -100,7 +98,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
 
   fn commit<'a>(
     poly: &DensePolynomial<G::ScalarField>,
-    ck: &Self::PolyCommitmentKey<'a>,
+    ck: &Self::PolyCommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> HyraxCommitment<G> {
     let (C, _blinds) = poly.commit(&ck.gens, random_tape.into());
@@ -111,7 +109,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     poly: &DensePolynomial<G::ScalarField>,
     r: &[<G>::ScalarField],
     eval: &<G>::ScalarField,
-    ck: &Self::PolyCommitmentKey<'a>,
+    ck: &Self::PolyCommitmentKey,
     transcript: &mut Transcript,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::PolyCommitmentProof {

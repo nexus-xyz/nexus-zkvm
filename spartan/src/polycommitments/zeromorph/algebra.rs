@@ -84,18 +84,20 @@ pub fn get_truncated_quotients<F: PrimeField>(
     .map(|q| multilinear_to_univar(&q))
     .collect()
 }
-/// This is the polynomial F(x) = Phi_(n-k)(x^(2^k)) from the paper; as Phi_(n-k) = sum_{i=0}^{2^(n-k)-1} x^i = (x^(2^(n-k)) - 1)/(x - 1),
-/// the roots of F are exactly the 2^nth roots of unity which are not 2^k-th roots of unity, i.e. 2-power roots of unity whose order
-/// is between 2^(k+1) and 2^n.
+/// This is the polynomial F(x) = Phi_(n-k)(x^(2^k)) = (x^(2^n) - 1)/(x^(2^k) - 1) from the paper.
 pub fn eval_generalized_cyclotomic_polynomial<F: PrimeField>(n: usize, k: usize, x: F) -> F {
-  let num_nonzero_terms = (n - k).pow2();
   // x^(2^k)
-  let x_2_k = (0..k).fold(x, |x, _| x.square());
-  (0..num_nonzero_terms)
-    .fold((F::zero(), F::one()), |(sum, x_pow), _| {
-      (sum + x_pow, x_pow * x_2_k)
-    })
-    .0
+  let mut x_2_k = x;
+  let mut x_pow = x;
+  for i in 0..n {
+    x_pow = x_pow.square();
+    if i + 1 == k {
+      x_2_k = x_pow;
+    }
+  }
+  // x^(2^n)
+  let x_2_n = x_pow;
+  (x_2_n - F::one()) / (x_2_k - F::one())
 }
 
 /// This computes the coefficients needed to compute the partially evaluated identity polynomial
@@ -107,6 +109,7 @@ pub fn get_Zx_coefficients<F: PrimeField>(x: F, eval_point: &[F]) -> Vec<F> {
   let mut result = vec![F::zero(); n];
   let mut x_2_k = x;
   for k in 0..eval_point.len() {
+    // TODO: this implementation could be made more efficient by reusing the computation of x^(2^k)
     let poly0 = eval_generalized_cyclotomic_polynomial(n, k, x);
     let poly1 = eval_generalized_cyclotomic_polynomial(n, k + 1, x);
     result[k] = x_2_k * poly1 - eval_point[k] * poly0;
@@ -135,13 +138,13 @@ pub fn get_zeta_x_coefficients<F: PrimeField>(x: F, y: F, num_vars: usize) -> Ve
   result
 }
 
-pub(crate) fn scale_ML<F: PrimeField>(p: &DensePolynomial<F>, scalar: F) -> DensePolynomial<F> {
+pub fn scale_ML<F: PrimeField>(p: &DensePolynomial<F>, scalar: F) -> DensePolynomial<F> {
   let mut coeffs = p.vec().clone();
   coeffs.iter_mut().for_each(|c| *c *= scalar);
   DensePolynomial::new(coeffs)
 }
 
-fn shift<F: PrimeField>(
+pub fn shift<F: PrimeField>(
   p: &DenseUnivarPolynomial<F>,
   shift_degree: usize,
 ) -> DenseUnivarPolynomial<F> {
@@ -169,6 +172,22 @@ pub fn shift_and_combine_with_powers<F: PrimeField>(
   }
   coeffs
 }
+
+// /// This computes the quotient q(x) in p(x) = q(x) * (x - r) + p(r) using "Ruffini's rule".
+// pub fn quotient_univar_by_linear_factor<F: PrimeField>(
+//   p: &DenseUnivarPolynomial<F>,
+//   r: F,
+// ) -> DenseUnivarPolynomial<F> {
+//   let mut coeffs: Vec<F> = p.coeffs().clone().iter_mut().rev().collect();
+//   let mut prev = F::zero();
+//   for i in 0..coeffs.len() {
+//     let tmp = coeffs[i];
+//     coeffs[i] += prev;
+//     prev = tmp * r;
+//   }
+//   coeffs.pop();
+//   DenseUnivarPolynomial::from_coefficients_slice(coeffs)
+// }
 
 #[cfg(test)]
 mod tests {
@@ -299,12 +318,14 @@ mod tests {
       -G::ScalarField::from(3u8),
     ])
     .evaluate(&G::ScalarField::from(2u8));
+    assert_eq!(expected0, -G::ScalarField::from(50u8));
     let expected1 = DenseUnivarPolynomial::from_coefficients_slice(&[
       -G::ScalarField::from(3u8),
       G::ScalarField::zero(),
       -G::ScalarField::from(2u8),
     ])
     .evaluate(&G::ScalarField::from(2u8));
+    assert_eq!(expected1, -G::ScalarField::from(11u8));
     let actual = get_Zx_coefficients(x, &r);
     assert_eq!(actual.len(), 2);
     assert_eq!(actual[0], expected0);
@@ -329,6 +350,25 @@ mod tests {
   #[test]
   fn get_zeta_x_coefficients_test() {
     get_zeta_x_coefficients_test_helper::<G1Projective>();
+  }
+  fn shift_test_helper<G: CurveGroup>() {
+    // This is p(x) = 1 + 2x + 3x^2 + 4x^3; p(2) = 1 + 2 * 2 + 3 * 4 + 4 * 8 = 49
+    let unshifted =
+      DenseUnivarPolynomial::from_coefficients_vec((1..5u8).map(G::ScalarField::from).collect());
+    assert_eq!(
+      unshifted.evaluate(&G::ScalarField::from(2u8)),
+      G::ScalarField::from(49u8)
+    );
+    let shifted = shift(&unshifted, 2);
+    // This should be p(x) * x^2 = x^2 + 2x^3 + 3x^4 + 4x^5; p(2) = 196
+    assert_eq!(
+      shifted.evaluate(&G::ScalarField::from(2u8)),
+      G::ScalarField::from(196u16)
+    );
+  }
+  #[test]
+  fn shift_test() {
+    shift_test_helper::<G1Projective>();
   }
 
   fn shift_and_combine_with_powers_test_helper<G: CurveGroup>() {

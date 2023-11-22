@@ -1,10 +1,116 @@
 use crate::polycommitments::PolyCommitmentTrait;
 use crate::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
-use ark_poly_commit::{kzg10::Commitment as KZGCommitment, PCCommitment};
+use ark_poly_commit::kzg10::Powers;
+use ark_poly_commit::{kzg10::Commitment as KZGCommitment, PCCommitment, PCUniversalParams};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{fmt::Debug, vec::Vec};
+use ark_std::{borrow::Cow, collections::BTreeMap, fmt::Debug, vec::Vec};
+use derivative::Derivative;
 use merlin::Transcript;
+
+#[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ZeromorphProof<E>
+where
+  E: Pairing,
+{
+  pub proof: KZGCommitment<E>,
+  pub quotient_commitments: Vec<KZGCommitment<E>>,
+  pub combined_shifted_commitment: KZGCommitment<E>,
+}
+
+/// Since we do not support ZK/hiding commitments, we can use a smaller SRS than the KZG implementation.
+#[derive(CanonicalSerialize, CanonicalDeserialize, Derivative)]
+#[derivative(
+  Clone(bound = ""),
+  Debug(bound = ""),
+  PartialEq(bound = ""),
+  Eq(bound = "")
+)]
+pub struct ZeromorphSRS<E>
+where
+  E: Pairing,
+{
+  /// Group elements of the form { \tau^i g } for i from 0 to N_max
+  pub powers_of_tau_g: Vec<E::G1Affine>,
+  /// The generator of G2
+  pub h: E::G2Affine,
+  /// {\tau^(N_max - 2^n + 1) h}_(n=0)^(lg_2(N_max)) times the above generator of G2
+  pub shift_powers_of_tau_h: BTreeMap<usize, E::G2Affine>,
+}
+
+impl<E> PCUniversalParams for ZeromorphSRS<E>
+where
+  E: Pairing,
+{
+  /// This is N_max - 1, the maximum degree of univariate polynomials that can be committed to with the
+  /// underlying KZG key. It's equal to 2^n where n is the maximum number of variables supported by the SRS.
+  fn max_degree(&self) -> usize {
+    self.powers_of_tau_g.len() - 1
+  }
+}
+
+/// The 'ZeromorphCommitterKey' is a truncated version of the SRS containing the G1 elements
+/// needed to commit to polynomials and to compute evaluation proofs.
+#[derive(Derivative, CanonicalDeserialize, CanonicalSerialize)]
+#[derivative(Hash(bound = ""), Clone(bound = ""), Debug(bound = ""))]
+pub struct ZeromorphCommitterKey<E>
+where
+  E: Pairing,
+{
+  /// Underlying KZG committer key: {\tau^n g}_{n=0}^{2^(num_vars) - 1}
+  pub powers_of_tau_g: Vec<E::G1Affine>,
+  /// Powers shifted for degree check commitment to be used in evaluation proofs.
+  pub shifted_powers_of_tau_g: Vec<E::G1Affine>,
+  /// Size of the SRS from which this key was derived
+  pub N_max: usize,
+  /// Number of variables for which this key was trimmed
+  pub num_vars: usize,
+}
+
+impl<E: Pairing> ZeromorphCommitterKey<E> {
+  /// Gets the number of variables for which this key was initialized
+  pub fn supported_num_vars(&self) -> usize {
+    self.num_vars
+  }
+  /// Extracts the vector of powers {\tau^i * g}_{i=0}^{2^{num_vars} - 1}
+  pub fn powers(&self) -> Powers<E> {
+    Powers {
+      powers_of_g: self.powers_of_tau_g.as_slice().into(),
+      powers_of_gamma_g: Cow::Borrowed(&[]),
+    }
+  }
+  /// Extracts the vector of shifted powers {\tau^(N_max - 2^num_vars + i) * g}_{i=0}^{2^{num_vars} - 1}
+  pub fn shifted_powers(&self) -> Powers<E> {
+    Powers {
+      powers_of_g: self.shifted_powers_of_tau_g.as_slice().into(),
+      powers_of_gamma_g: Cow::Borrowed(&[]),
+    }
+  }
+}
+
+#[derive(CanonicalSerialize, CanonicalDeserialize, Derivative)]
+#[derivative(
+  Default(bound = ""),
+  Clone(bound = ""),
+  Debug(bound = ""),
+  PartialEq(bound = ""),
+  Eq(bound = "")
+)]
+pub struct ZeromorphVerifierKey<E>
+where
+  E: Pairing,
+{
+  /// The number of variables for which this key was prepared
+  pub supported_num_vars: usize,
+  /// The generator of G1.
+  pub g: E::G1Affine,
+  /// The generator of G2.
+  pub h: E::G2Affine,
+  /// \tau times the above generator of G2.
+  pub tau_h: E::G2Affine,
+  /// \tau^(N_max - 2^supported_num_vars + 1) times the above generator of G2.
+  pub shifted_tau_h: E::G2Affine,
+}
 
 impl<G: CurveGroup, C: PCCommitment> PolyCommitmentTrait<G> for C
 where

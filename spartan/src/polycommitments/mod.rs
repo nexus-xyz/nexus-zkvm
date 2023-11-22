@@ -38,7 +38,7 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
 
 pub trait PolyCommitmentScheme<G: CurveGroup> {
   type SRS;
-  type PolyCommitmentKey<'a>;
+  type PolyCommitmentKey;
   type EvalVerifierKey;
   type Commitment: PolyCommitmentTrait<G>;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
@@ -46,17 +46,17 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
 
   // Optionally takes `vector_comm` as a "hint" to speed up the commitment process if a
   // commitment to the vector of evaluations has already been computed
-  fn commit<'a>(
+  fn commit(
     poly: &DensePolynomial<G::ScalarField>,
-    ck: &Self::PolyCommitmentKey<'a>,
+    ck: &Self::PolyCommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::Commitment;
 
-  fn prove<'a>(
+  fn prove(
     poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
-    ck: &Self::PolyCommitmentKey<'a>,
+    ck: &Self::PolyCommitmentKey,
     transcript: &mut Transcript,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::PolyCommitmentProof;
@@ -79,17 +79,15 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
   ) -> Result<Self::SRS, Error>;
 
   //
-  fn trim<'a>(
+  fn trim(
     srs: &Self::SRS,
-    supported_degree: usize,
-    supported_hiding_bound: usize,
-    enforced_degree_bounds: Option<&[usize]>,
-  ) -> (Self::PolyCommitmentKey<'a>, Self::EvalVerifierKey);
+    supported_num_vars: usize,
+  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey);
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
   type VectorCommitment = PC::Commitment;
-  type CommitmentKey<'a> = PC::PolyCommitmentKey<'a>;
+  type CommitmentKey<'a> = PC::PolyCommitmentKey;
   fn commit<'a>(
     vec: &[<G>::ScalarField],
     ck: &Self::CommitmentKey<'a>,

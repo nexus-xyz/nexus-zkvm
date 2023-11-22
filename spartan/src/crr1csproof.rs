@@ -20,17 +20,17 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{cmp::max, One, Zero};
 use merlin::Transcript;
 
-pub struct CRR1CSKey<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pc_commit_key: PC::PolyCommitmentKey<'a>,
+pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  pc_commit_key: PC::PolyCommitmentKey,
   pc_verify_key: PC::EvalVerifierKey,
 }
 
-impl<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<'a, G, PC> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
   pub fn new(SRS: &PC::SRS, num_cons: usize, num_vars: usize) -> Self {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
-    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n, 1, None);
+    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n);
     CRR1CSKey {
       pc_commit_key,
       pc_verify_key,
@@ -697,7 +697,7 @@ mod tests {
   }
   #[allow(clippy::type_complexity)]
   // This produces a random satisfying structure, instance, witness, and public parameters for testing and benchmarking purposes.
-  pub fn produce_synthetic_crr1cs<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>>(
+  pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
     num_cons: usize,
     num_vars: usize,
     num_inputs: usize,
@@ -705,7 +705,7 @@ mod tests {
     CRR1CSShape<G::ScalarField>,
     CRR1CSInstance<G, PC>,
     CRR1CSWitness<G::ScalarField>,
-    CRR1CSKey<'a, G, PC>,
+    CRR1CSKey<G, PC>,
   ) {
     // compute random satisfying assignment for r1cs
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
