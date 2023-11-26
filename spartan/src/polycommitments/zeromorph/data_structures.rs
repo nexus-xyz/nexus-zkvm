@@ -126,20 +126,3 @@ impl<E: Pairing> AppendToTranscript<E::G1> for KZGCommitment<E> {
     transcript.append_point(label, &self.0.into_group());
   }
 }
-
-#[derive(Clone, Debug, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
-struct ZeromorphVC<E>
-where
-  E: Pairing,
-{
-  comm: KZGCommitment<E>,
-}
-
-impl<E> AppendToTranscript<E::G1> for ZeromorphVC<E>
-where
-  E: Pairing,
-{
-  fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
-    self.comm.append_to_transcript(label, transcript);
-  }
-}
