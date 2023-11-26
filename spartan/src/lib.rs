@@ -13,13 +13,13 @@ extern crate sha3;
 extern crate rayon;
 
 mod commitments;
-mod committed_relaxed_snark;
+pub mod committed_relaxed_snark;
 mod crr1csproof;
-mod dense_mlpoly;
+pub mod dense_mlpoly;
 mod errors;
-mod math;
+pub mod math;
 mod nizk;
-mod polycommitments;
+pub mod polycommitments;
 mod product_tree;
 mod r1csinstance;
 mod r1csproof;
