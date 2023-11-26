@@ -35,7 +35,7 @@ rand_chacha = { version = "0.3.0", default-features = false }
 ark-ec = { version = "^0.4.0", default-features = false }
 ark-ff = { version = "^0.4.0", default-features = false }
 ark-poly = { version = "^0.4.2", default-features = false }
-ark-poly-commit = { version = "^0.4.0", default-features = false }
+ark-poly-commit = { git = "https://github.com/nexus-xyz/ark-poly-commit-patch", version = "0.4.0", branch = "master" }
 ark-std = { version = "^0.4.0", default-features = false }
 ark-serialize = { version = "^0.4.0", default-features = false, features = [
     "derive",
@@ -77,3 +77,16 @@ harness = false
 default = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel"]
 multicore = ["rayon"]
 profile = []
+
+[patch.crates-io]
+ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+
+# ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+# ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+# ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
