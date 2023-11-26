@@ -24,12 +24,14 @@ mod data_structures;
 use super::error::PCSError;
 use algebra::*;
 use data_structures::*;
-struct Zeromorph<E>
+
+pub struct Zeromorph<E>
 where
   E: Pairing,
 {
   _phantom: PhantomData<E>,
 }
+
 impl<E> PolyCommitmentScheme<E::G1> for Zeromorph<E>
 where
   E: Pairing,
