@@ -1,0 +1,13 @@
+html {
+    overflow-y: scroll;
+    height: 100%;
+    font: 100%/1.5 sans-serif;
+    word-wrap: break-word;
+    margin: 0 auto;
+    padding: 1.5em;
+}
+
+body {
+    margin: auto;
+    width: 40em;
+}

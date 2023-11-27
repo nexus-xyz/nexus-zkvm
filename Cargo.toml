@@ -7,6 +7,7 @@ members = [
     "riscv-circuit",
     "tools",
     "prover",
+    "network",
     "msnova",
 ]
 default-members = [
@@ -14,6 +15,7 @@ default-members = [
     "riscv-circuit",
     "tools",
     "prover",
+    "network",
 ]
 
 [workspace.package]
