@@ -13,7 +13,7 @@ default-members = [
     "riscv",
     "riscv-circuit",
     "tools",
-    "prover"
+    "prover",
 ]
 
 [workspace.package]
@@ -23,8 +23,9 @@ publish = false
 
 [workspace.dependencies]
 clap = { version = "4.3", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
 
-supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="b00f451" }
+supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="fe89f3e" }
 #supernova = { path = "../supernova" }
 
 ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge"] }
@@ -43,7 +44,8 @@ ark-grumpkin = "0.4.0"
 # Note, this should be in sync with the supernova repo
 [patch.crates-io]
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
-ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
+#ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
+ark-r1cs-std = { git = "https://github.com/slumber/r1cs-std/", branch = "slumber-hardcode-nonnative-params" }
 
 ark-ff          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 ark-ec          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
@@ -56,7 +58,6 @@ ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a"
 [profile.release]
 codegen-units = 1
 lto = true
-panic = "abort"
 
 [profile.bench]
 inherits = "release"

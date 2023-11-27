@@ -6,4 +6,7 @@ publish = false
 
 [dependencies]
 clap.workspace = true
+serde.workspace = true
 elf = { version = "0.7", default-features = false, features = ["std"] }
+
+ark-serialize.workspace = true

@@ -56,7 +56,11 @@ pub fn loop_vm(k: usize) -> VM {
 pub fn load_elf(path: &PathBuf) -> Result<VM> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
-    let file = ElfBytes::<LittleEndian>::minimal_parse(slice)?;
+    parse_elf(slice)
+}
+
+pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
+    let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
         .segments()
@@ -71,7 +75,7 @@ pub fn load_elf(path: &PathBuf) -> Result<VM> {
     for p in &load_phdrs {
         let s = p.p_offset as usize;
         let e = (p.p_offset + p.p_filesz) as usize;
-        let bytes = &slice[s..e];
+        let bytes = &bytes[s..e];
         vm.init_memory(p.p_vaddr as u32, bytes);
     }
 

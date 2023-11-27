@@ -4,24 +4,52 @@ use crate::error::*;
 use crate::rv32::{RV32, parse::*};
 use super::eval::*;
 
-#[derive(Clone)]
-pub struct Trace {
-    pub k: usize,
-    pub start: usize,
-    pub blocks: Vec<Block>,
-}
+// ArkWorks macros are not hygenic
+mod ark_confusion {
+    use serde::{Serialize, Deserialize};
+    use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 
-#[derive(Clone)]
-pub struct Block {
-    pub regs: Regs,
-    pub steps: Vec<Step>,
-}
+    use crate::vm::eval::Regs;
 
-#[derive(Clone)]
-pub struct Step {
-    pub inst: u32,
-    pub Z: u32,
-    pub PC: u32,
+    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    pub struct Trace {
+        pub k: usize,
+        pub start: usize,
+        pub blocks: Vec<Block>,
+    }
+
+    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    pub struct Block {
+        pub regs: Regs,
+        pub steps: Vec<Step>,
+    }
+
+    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    pub struct Step {
+        pub inst: u32,
+        pub Z: u32,
+        pub PC: u32,
+    }
+}
+pub use ark_confusion::*;
+
+impl Trace {
+    pub fn split_by(&self, n: usize) -> impl Iterator<Item = Self> + '_ {
+        let mut index = 0;
+        self.blocks.chunks(n).map(move |bs| {
+            let start = index;
+            index += n;
+            Trace { k: self.k, start, blocks: bs.to_vec() }
+        })
+    }
+
+    pub fn get(&self, n: usize) -> Self {
+        Trace {
+            k: self.k,
+            start: n,
+            blocks: vec![self.blocks[n].clone()],
+        }
+    }
 }
 
 fn step(vm: &mut VM) -> Result<Step> {
