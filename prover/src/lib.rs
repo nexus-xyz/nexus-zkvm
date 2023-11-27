@@ -1,14 +1,11 @@
-#[cfg(feature = "ns")]
-pub mod null_schemes;
-pub mod types;
 pub mod error;
+pub mod types;
 pub mod circuit;
 pub mod pp;
 
-use crate::types::*;
 use crate::error::*;
+use crate::types::*;
 use crate::circuit::*;
-use crate::pp::*;
 
 use std::time::Instant;
 use std::io::{self, Write};
@@ -16,17 +13,6 @@ use nexus_riscv::{
     VMOpts, load_vm,
     vm::trace::{Trace, trace},
 };
-
-pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError> {
-    println!("Generating public parameters to {pp_file}...");
-    if par {
-        let pp: ParPP<Tr> = gen_vm_pp(k)?;
-        save_pp(pp, pp_file)
-    } else {
-        let pp: SeqPP<Tr> = gen_vm_pp(k)?;
-        save_pp(pp, pp_file)
-    }
-}
 
 fn estimate_size(tr: &Trace) -> usize {
     use std::mem::size_of_val as sizeof;
@@ -53,7 +39,7 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(trace)
 }
 
-pub fn prove_seq(pp: SeqPP<Tr>, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
     let tr = Tr::new(trace);
     let icount = tr.instructions();
@@ -92,7 +78,7 @@ pub fn prove_seq(pp: SeqPP<Tr>, trace: Trace) -> Result<(), ProofError> {
     Ok(())
 }
 
-pub fn prove_par(pp: ParPP<Tr>, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
     let tr = Tr::new(trace);
 

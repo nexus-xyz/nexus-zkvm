@@ -3,8 +3,8 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 pub use nexus_riscv::VMError;
 pub use ark_serialize::SerializationError;
+pub use ark_relations::r1cs::SynthesisError;
 pub use supernova::nova::Error as NovaError;
-use crate::types::SynthesisError;
 
 /// Errors related to proof generation
 #[derive(Debug)]

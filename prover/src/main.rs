@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use nexus_riscv::VMOpts;
 use nexus_prover::*;
 use nexus_prover::error::*;
-use nexus_prover::pp::gen_or_load;
+use nexus_prover::pp::{gen_to_file, gen_or_load};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -28,10 +28,10 @@ enum Command {
         #[arg(short = 'P', default_value = "false")]
         par: bool,
 
-        /// private parameters file
+        /// public parameters file
         #[arg(
             short = 'p',
-            long = "private-params",
+            long = "public-params",
             default_value = "nexus-public.zst"
         )]
         pp_file: String,

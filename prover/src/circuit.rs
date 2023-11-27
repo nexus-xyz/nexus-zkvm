@@ -1,15 +1,28 @@
-use crate::error::*;
-use crate::types::*;
+use ark_ff::BigInt;
+pub use ark_relations::{
+    lc,
+    r1cs::{Variable, SynthesisMode, SynthesisError},
+};
+pub use ark_r1cs_std::{
+    R1CSVar,
+    alloc::AllocVar,
+    fields::{
+        fp::{FpVar, AllocatedFp},
+        FieldVar,
+    },
+};
 
-use nexus_riscv::nop_vm;
-use nexus_riscv::vm::trace::{trace, Trace, Block};
+use nexus_riscv::{
+    nop_vm,
+    vm::trace::{trace, Trace, Block},
+};
 use nexus_riscv_circuit::{
     r1cs::{ZERO, V, R1CS},
     riscv::big_step,
 };
 
-use ark_ff::BigInt;
-use ark_r1cs_std::R1CSVar;
+use crate::error::*;
+use crate::types::*;
 
 pub struct Tr(Trace);
 
