@@ -41,23 +41,44 @@ to `runtime` rather than the default git repo.
 
 If successful, you can run the new project binary with `cargo run`.
 
-Proving programs can be done with either `msnova` or `prover`.
-The first uses the Microsoft Nova implementation, and the second uses
-the Nexus Nova implementation. For example:
+Proving programs can be done with either locally or using the Nexus network.
+To prove using the nexus network, use the `prove` command.
 
 ```
-cd msnova
-cargo run -r riscv_elf_file
+cargo nexus prove       # prove debug build
+cargo nexus prove -r    # prove release build
 ```
 
+If your project contains multiple binaries, you may need to
+specify the binary to use:
+
 ```
-cd prover
-# generate public parameters to file
-cargo run -r -- gen
+cargo nexus prove --bin name
+```
+You can check on the status of your proof, and download the result
+using the `query` command:
 
-# prove using saves parameters
-cargo run -r -- prove riscv_elf_file
+```
+cargo nexus query --hash e087116c0b13fb1a66af46d572b78e98b76c0bf814bd4f5df781469a3755fd33
+```
 
-# generate public parameter and prove
-cargo run -r -- prove -g riscv_elf_file
+If the proof is complete it will be saved to `nexus-proof.json`; this filename
+can be changed on the command line (see -h for help).
+
+You can check a proof using the `verify` command:
+
+```
+cargo nexus verify
+```
+
+You may need to specify the input files on the command line:
+
+```
+cargo nexus verify --public-params nexus-public.zst -f nexus-proof.json
+```
+
+Local proofs can be done using the `local-prove` command:
+
+```
+cargo nexus local-prove --bin example
 ```

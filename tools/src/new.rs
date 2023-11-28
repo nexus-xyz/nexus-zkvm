@@ -4,7 +4,7 @@ use std::path::Path;
 const CONFIG: &[u8] = include_bytes!("config.toml");
 const SRC: &[u8] = include_bytes!("template.rs");
 
-fn write_to_file(root: &Path, dir: &str, file: &str, contents: &[u8]) -> CmdResult {
+fn write_to_file(root: &Path, dir: &str, file: &str, contents: &[u8]) -> CmdResult<()> {
     let mut path = root.to_path_buf();
     path.push(dir);
     path.push(file);
@@ -12,9 +12,9 @@ fn write_to_file(root: &Path, dir: &str, file: &str, contents: &[u8]) -> CmdResu
     Ok(())
 }
 
-pub fn new() -> CmdResult {
+pub fn new() -> CmdResult<()> {
     let Opts { command: New { path } } = options() else {
-        panic!("")
+        panic!()
     };
 
     // run cargo to setup project

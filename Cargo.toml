@@ -26,6 +26,7 @@ publish = false
 [workspace.dependencies]
 clap = { version = "4.3", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="fe89f3e" }
 #supernova = { path = "../supernova" }
