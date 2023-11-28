@@ -13,7 +13,7 @@ extern crate rayon;
 
 mod commitments;
 pub mod committed_relaxed_snark;
-mod crr1csproof;
+pub mod crr1csproof;
 pub mod dense_mlpoly;
 mod errors;
 pub mod math;
