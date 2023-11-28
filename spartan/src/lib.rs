@@ -15,7 +15,7 @@ mod commitments;
 pub mod committed_relaxed_snark;
 pub mod crr1csproof;
 pub mod dense_mlpoly;
-mod errors;
+pub mod errors;
 pub mod math;
 mod nizk;
 pub mod polycommitments;
