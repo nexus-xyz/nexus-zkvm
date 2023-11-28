@@ -99,9 +99,8 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   fn commit<'a>(
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
-    random_tape: &mut Option<RandomTape<G>>,
   ) -> HyraxCommitment<G> {
-    let (C, _blinds) = poly.commit(&ck.gens, random_tape.into());
+    let (C, _blinds) = poly.commit(&ck.gens, None);
     HyraxCommitment { C }
   }
 
@@ -111,12 +110,18 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     eval: &<G>::ScalarField,
     ck: &Self::PolyCommitmentKey,
     transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::PolyCommitmentProof {
     let mut new_tape = RandomTape::new(b"HyraxPolyCommitmentProof");
-    let random_tape = random_tape.as_mut().unwrap_or(&mut new_tape);
-    let (_proof, _) =
-      PolyEvalProof::prove(poly, None, r, eval, None, &ck.gens, transcript, random_tape);
+    let (_proof, _) = PolyEvalProof::prove(
+      poly,
+      None,
+      r,
+      eval,
+      None,
+      &ck.gens,
+      transcript,
+      &mut new_tape,
+    );
     HyraxProof { proof: _proof }
   }
 

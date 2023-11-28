@@ -2,7 +2,6 @@ use super::PolyCommitmentScheme;
 use crate::{
   dense_mlpoly::DensePolynomial,
   math::Math,
-  random::RandomTape,
   transcript::{AppendToTranscript, ProofTranscript},
 };
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup};
@@ -49,7 +48,6 @@ where
   fn commit(
     poly: &DensePolynomial<E::ScalarField>,
     ck: &Self::PolyCommitmentKey,
-    _random_tape: &mut Option<RandomTape<E::G1>>,
   ) -> Self::Commitment {
     let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(poly);
     let (commitment, _blinds) = KZG10::commit(&ck.powers(), &uni_poly, None, None).unwrap();
@@ -62,7 +60,6 @@ where
     eval: &E::ScalarField,
     ck: &Self::PolyCommitmentKey,
     transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<E::G1>>,
   ) -> Self::PolyCommitmentProof {
     <Transcript as ProofTranscript<E::G1>>::append_protocol_name(
       transcript,
@@ -72,7 +69,7 @@ where
     <Transcript as ProofTranscript<E::G1>>::append_scalars(transcript, b"eval_point", u);
 
     // First, we calculate the commitment to `poly` and send it to the verifier.
-    let C = <Self as PolyCommitmentScheme<E::G1>>::commit(poly, ck, random_tape);
+    let C = <Self as PolyCommitmentScheme<E::G1>>::commit(poly, ck);
     C.append_to_transcript(b"commitment", transcript);
 
     // First, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
@@ -364,13 +361,12 @@ mod tests {
       let mut rt = RandomTape::<E::G1>::new(b"test");
       let evals = rt.random_vector(b"evals", Math::pow2(n));
       let poly = DensePolynomial::<E::ScalarField>::new(evals);
-      let commitment = Zeromorph::<E>::commit(&poly, &ck, &mut None);
+      let commitment = Zeromorph::<E>::commit(&poly, &ck);
       let u: Vec<E::ScalarField> = rt.random_vector(b"eval_point", n);
       let eval = poly.evaluate::<E::G1>(u.as_slice());
       let mut transcript_prover = Transcript::new(b"test");
       let mut transcript_verifier = Transcript::new(b"test");
-      let proof_correct =
-        Zeromorph::<E>::prove(&poly, &u, &eval, &ck, &mut transcript_prover, &mut None);
+      let proof_correct = Zeromorph::<E>::prove(&poly, &u, &eval, &ck, &mut transcript_prover);
       Zeromorph::<E>::verify(
         &commitment,
         &proof_correct,
@@ -386,14 +382,7 @@ mod tests {
         )
       });
       let wrong_eval = E::ScalarField::rand(&mut rng);
-      let proof_wrong = Zeromorph::<E>::prove(
-        &poly,
-        &u,
-        &wrong_eval,
-        &ck,
-        &mut transcript_prover,
-        &mut None,
-      );
+      let proof_wrong = Zeromorph::<E>::prove(&poly, &u, &wrong_eval, &ck, &mut transcript_prover);
       Zeromorph::<E>::verify(
         &commitment,
         &proof_wrong,

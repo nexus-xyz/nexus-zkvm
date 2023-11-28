@@ -7,7 +7,6 @@ use crate::{InputsAssignment, Instance, VarsAssignment};
 use super::dense_mlpoly::{DensePolynomial, EqPolynomial};
 use super::errors::ProofVerifyError;
 use super::math::Math;
-use super::random::RandomTape;
 use super::sparse_mlpoly::{SparsePolyEntry, SparsePolynomial};
 use super::sumcheck::SumcheckInstanceProof;
 use super::timer::Timer;
@@ -300,7 +299,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     witness: &CRR1CSWitness<G::ScalarField>,
     key: &CRR1CSKey<G, PC>,
     transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<G>>,
   ) -> (CRR1CSProof<G, PC>, Vec<G::ScalarField>, Vec<G::ScalarField>) {
     let timer_prove = Timer::new("CRR1CSProof::prove");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
@@ -431,20 +429,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
         &eval_vars_at_ry,
         &key.pc_commit_key,
         transcript,
-        random_tape,
       )
     };
 
-    let proof_eval_error_at_rx = {
-      PC::prove(
-        &poly_error,
-        &rx,
-        E_claim,
-        &key.pc_commit_key,
-        transcript,
-        random_tape,
-      )
-    };
+    let proof_eval_error_at_rx =
+      { PC::prove(&poly_error, &rx, E_claim, &key.pc_commit_key, transcript) };
 
     timer_polyeval.stop();
 
@@ -712,14 +701,9 @@ mod tests {
     let mut rng = test_rng();
     let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
     let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
-    let mut random_tape = None;
-    let comm_W = <PC as VectorCommitmentTrait<G>>::commit(
-      vars.assignment.as_slice(),
-      &key.pc_commit_key,
-      &mut random_tape,
-    );
-    let comm_E =
-      <PC as VectorCommitmentTrait<G>>::commit(E.as_slice(), &key.pc_commit_key, &mut random_tape);
+    let comm_W =
+      <PC as VectorCommitmentTrait<G>>::commit(vars.assignment.as_slice(), &key.pc_commit_key);
+    let comm_E = <PC as VectorCommitmentTrait<G>>::commit(E.as_slice(), &key.pc_commit_key);
     (
       shape,
       CRR1CSInstance::<G, PC> {
@@ -774,17 +758,10 @@ mod tests {
       shape.get_num_inputs(),
     );
 
-    let mut random_tape = None;
     let mut prover_transcript = Transcript::new(b"example");
 
-    let (proof, rx, ry) = CRR1CSProof::prove(
-      &shape,
-      &instance,
-      &witness,
-      &key,
-      &mut prover_transcript,
-      &mut random_tape,
-    );
+    let (proof, rx, ry) =
+      CRR1CSProof::prove(&shape, &instance, &witness, &key, &mut prover_transcript);
 
     let inst_evals = shape.inst.inst.evaluate(&rx, &ry);
 

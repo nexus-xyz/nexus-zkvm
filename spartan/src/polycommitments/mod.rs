@@ -5,7 +5,7 @@ use ark_std::rand::RngCore;
 use core::fmt::Debug;
 use merlin::Transcript;
 
-use crate::{dense_mlpoly::DensePolynomial, random::RandomTape, transcript::AppendToTranscript};
+use crate::{dense_mlpoly::DensePolynomial, transcript::AppendToTranscript};
 
 pub mod error;
 pub mod hyrax;
@@ -19,11 +19,7 @@ pub trait VectorCommitmentTrait<G: CurveGroup> {
     + CanonicalSerialize
     + CanonicalDeserialize;
   type CommitmentKey;
-  fn commit(
-    vec: &[G::ScalarField],
-    ck: &Self::CommitmentKey,
-    random_tape: &mut Option<RandomTape<G>>,
-  ) -> Self::VectorCommitment;
+  fn commit(vec: &[G::ScalarField], ck: &Self::CommitmentKey) -> Self::VectorCommitment;
 
   // Commitment to the zero vector of length n
   fn zero(n: usize) -> Self::VectorCommitment;
@@ -49,7 +45,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
   fn commit(
     poly: &DensePolynomial<G::ScalarField>,
     ck: &Self::PolyCommitmentKey,
-    random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::Commitment;
 
   fn prove(
@@ -58,7 +53,6 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
     eval: &G::ScalarField,
     ck: &Self::PolyCommitmentKey,
     transcript: &mut Transcript,
-    random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::PolyCommitmentProof;
 
   fn verify(
@@ -88,13 +82,9 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
   type VectorCommitment = PC::Commitment;
   type CommitmentKey = PC::PolyCommitmentKey;
-  fn commit(
-    vec: &[<G>::ScalarField],
-    ck: &Self::CommitmentKey,
-    random_tape: &mut Option<RandomTape<G>>,
-  ) -> Self::VectorCommitment {
+  fn commit(vec: &[<G>::ScalarField], ck: &Self::CommitmentKey) -> Self::VectorCommitment {
     let poly = DensePolynomial::new(vec.to_vec());
-    PC::commit(&poly, ck, random_tape)
+    PC::commit(&poly, ck)
   }
   fn zero(n: usize) -> Self::VectorCommitment {
     PC::Commitment::zero(n)

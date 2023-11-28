@@ -102,9 +102,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     let inst = &shape.inst;
     let CRR1CSWitness { W: vars, E } = witness;
 
-    // we create a Transcript object seeded with a random F
-    // to aid the prover produce its randomness
-    let mut random_tape = Some(RandomTape::<G>::new(b"proof"));
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
       SNARK::<G, PC>::protocol_name(),
@@ -126,14 +123,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
 
         let witness = CRR1CSWitness::<G::ScalarField> { W: padded_vars, E };
 
-        CRR1CSProof::prove(
-          shape,
-          instance,
-          &witness,
-          &gens.gens_r1cs_sat,
-          transcript,
-          &mut random_tape,
-        )
+        CRR1CSProof::prove(shape, instance, &witness, &gens.gens_r1cs_sat, transcript)
       };
 
       let mut proof_encoded = vec![];
@@ -156,6 +146,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     };
     timer_eval.stop();
 
+    // we create a Transcript object seeded with a random F
+    // to aid the prover produce its randomness
+    let mut random_tape = RandomTape::<G>::new(b"proof");
     let r1cs_eval_proof = {
       let proof = R1CSEvalProof::prove(
         &decomm.decomm,
@@ -164,7 +157,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
         &inst_evals,
         &gens.gens_r1cs_eval,
         transcript,
-        &mut random_tape.unwrap(),
+        &mut random_tape,
       );
 
       let mut proof_encoded = vec![];
