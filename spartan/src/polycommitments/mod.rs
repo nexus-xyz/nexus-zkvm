@@ -48,7 +48,7 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   fn zero(n: usize) -> Self;
 }
 
-pub trait PolyCommitmentScheme<G: CurveGroup> {
+pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
   type SRS: CanonicalSerialize + CanonicalDeserialize;
   type PolyCommitmentKey: CanonicalSerialize + CanonicalDeserialize;
   type EvalVerifierKey: CanonicalSerialize + CanonicalDeserialize;
