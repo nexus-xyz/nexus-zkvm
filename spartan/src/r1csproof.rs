@@ -65,7 +65,7 @@ where
 
 impl<G: CurveGroup> R1CSGens<G> {
   pub fn new(label: &'static [u8], _num_cons: usize, num_vars: usize) -> Self {
-    let num_poly_vars = num_vars.log_2() as usize;
+    let num_poly_vars = num_vars.log_2();
     let gens_pc = PolyCommitmentGens::new(num_poly_vars, label);
     let gens_sc = R1CSSumcheckGens::new(label, &gens_pc.gens.gens_1);
     R1CSGens { gens_sc, gens_pc }
@@ -199,10 +199,7 @@ impl<G: CurveGroup> R1CSProof<G> {
     };
 
     // derive the verifier's challenge tau
-    let (num_rounds_x, num_rounds_y) = (
-      inst.get_num_cons().log_2() as usize,
-      z.len().log_2() as usize,
-    );
+    let (num_rounds_x, num_rounds_y) = (inst.get_num_cons().log_2(), z.len().log_2());
     let tau = <Transcript as ProofTranscript<G>>::challenge_vector(
       transcript,
       b"challenge_tau",
@@ -397,7 +394,7 @@ impl<G: CurveGroup> R1CSProof<G> {
       .comm_vars
       .append_to_transcript(b"poly_commitment", transcript);
 
-    let (num_rounds_x, num_rounds_y) = (num_cons.log_2() as usize, (2 * num_vars).log_2() as usize);
+    let (num_rounds_x, num_rounds_y) = (num_cons.log_2(), (2 * num_vars).log_2());
 
     // derive the verifier's challenge tau
     let tau = <Transcript as ProofTranscript<G>>::challenge_vector(
@@ -493,7 +490,7 @@ impl<G: CurveGroup> R1CSProof<G> {
           .map(|i| SparsePolyEntry::new(i + 1, input[i]))
           .collect::<Vec<SparsePolyEntry<G::ScalarField>>>(),
       );
-      SparsePolynomial::new(n.log_2() as usize, input_as_sparse_poly_entries).evaluate(&ry[1..])
+      SparsePolynomial::new(n.log_2(), input_as_sparse_poly_entries).evaluate(&ry[1..])
     };
 
     // compute commitment to eval_Z_at_ry = (F::one() - ry[0]) * self.eval_vars_at_ry + ry[0] * poly_input_eval

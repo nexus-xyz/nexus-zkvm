@@ -8,7 +8,6 @@ use super::dense_mlpoly::{DensePolynomial, EqPolynomial};
 use super::errors::ProofVerifyError;
 use super::math::Math;
 use super::random::RandomTape;
-//use super::snark_traits::CommittedRelaxedR1CSSNARKTrait;
 use super::sparse_mlpoly::{SparsePolyEntry, SparsePolynomial};
 use super::sumcheck::SumcheckInstanceProof;
 use super::timer::Timer;
@@ -16,7 +15,6 @@ use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-//use ark_std::rand::RngCore;
 use ark_std::{cmp::max, One, Zero};
 use merlin::Transcript;
 
@@ -65,16 +63,23 @@ pub struct CRR1CSWitness<F: PrimeField> {
   pub W: VarsAssignment<F>,
   pub E: Vec<F>,
 }
+
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct CRR1CSProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  comm_poly_vars: PC::Commitment,
-  comm_poly_error: PC::Commitment,
+  /// Sumcheck proof for the polynomial g(x) = \sum eq(tau,x) * (~Az~(x) * ~Bz~(x) - u * ~Cz~(x) - ~E~(x))
   sc_proof_phase1: SumcheckInstanceProof<G::ScalarField>,
+  /// Evaluation claims for ~Az~(rx), ~Bz~(rx), and ~Cz~(rx).
   claims_phase2: (G::ScalarField, G::ScalarField, G::ScalarField),
+  /// Sumcheck proof for the polynomial F(x) = ~Z(x)~ * ~ABC~(x), where ABC(x) = \sum_t ~M~(t,x) eq(r,t)
+  /// for M a random linear combination of A, B, and C.
   sc_proof_phase2: SumcheckInstanceProof<G::ScalarField>,
+  /// The claimed evaluation ~Z~(ry)
   eval_vars_at_ry: G::ScalarField,
+  /// A polynomial evaluation proof of the claimed evaluation ~Z~(ry) with respect to the commitment comm_W.
   proof_eval_vars_at_ry: PC::PolyCommitmentProof,
+  /// The claimed evaluation ~E~(rx)
   eval_error_at_rx: G::ScalarField,
+  /// A polynomial evaluation proof of the claimed evaluation ~E~(rx) with respect to the commitment comm_E.
   proof_eval_error_at_rx: PC::PolyCommitmentProof,
 }
 
@@ -286,7 +291,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
   }
 
   fn protocol_name() -> &'static [u8] {
-    b"R1CS proof"
+    b"CRR1CS proof"
   }
   #[allow(clippy::type_complexity)]
   pub fn prove(
@@ -325,34 +330,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"u", u);
     comm_W.append_to_transcript(b"comm_W", transcript);
     comm_E.append_to_transcript(b"comm_E", transcript);
-    let timer_commit = Timer::new("polycommit");
-    let (poly_vars, comm_poly_vars, poly_error, comm_poly_error) = {
-      // create a multilinear polynomial using the supplied assignment for variables
-      let poly_vars = DensePolynomial::<G::ScalarField>::new(vars.clone());
-
-      // produce a commitment to the satisfying assignment
-      let comm_poly_vars = PC::commit(&poly_vars, &key.pc_commit_key, random_tape);
-      // check that this agrees with the vector commitment comm_W provided
-      assert_eq!(comm_poly_vars, *comm_W);
-
-      // add the commitment to the prover's transcript
-      comm_poly_vars.append_to_transcript(b"poly_vars_commitment", transcript);
-
-      // create a multilinear polynomial from the error vector
-      let poly_error = DensePolynomial::<G::ScalarField>::new(E.clone());
-
-      // produce a commitment to the error vector
-      let comm_poly_error = PC::commit(&poly_error, &key.pc_commit_key, random_tape);
-
-      // check that this agrees with the vector commitment comm_E provided
-      assert_eq!(comm_poly_error, *comm_E);
-
-      // add the commitment to the prover's transcript
-      comm_poly_error.append_to_transcript(b"poly_error_commitment", transcript);
-      (poly_vars, comm_poly_vars, poly_error, comm_poly_error)
-    };
-
-    timer_commit.stop();
+    // create a multilinear polynomial using the supplied assignment for variables
+    let poly_vars = DensePolynomial::<G::ScalarField>::new(vars.clone());
+    // create a multilinear polynomial from the error vector
+    let poly_error = DensePolynomial::<G::ScalarField>::new(E.clone());
 
     let timer_sc_proof_phase1 = Timer::new("prove_sc_phase_one");
 
@@ -368,10 +349,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     };
 
     // derive the verifier's challenge tau
-    let (num_rounds_x, num_rounds_y) = (
-      inst.get_num_cons().log_2() as usize,
-      z.len().log_2() as usize,
-    );
+    let (num_rounds_x, num_rounds_y) = (inst.get_num_cons().log_2(), z.len().log_2());
     let tau = <Transcript as ProofTranscript<G>>::challenge_vector(
       transcript,
       b"challenge_tau",
@@ -474,8 +452,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     (
       CRR1CSProof {
-        comm_poly_vars,
-        comm_poly_error,
         sc_proof_phase1,
         claims_phase2: (*Az_claim, *Bz_claim, *Cz_claim),
         sc_proof_phase2,
@@ -517,21 +493,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"u", u);
     comm_W.append_to_transcript(b"comm_W", transcript);
     comm_E.append_to_transcript(b"comm_E", transcript);
-    // Check compatibility of the polynomial commitments contained in the proof
-    // with the vector commitments included in the instance
-    assert_eq!(self.comm_poly_vars, *comm_W);
-    assert_eq!(&self.comm_poly_error, comm_E);
-
-    self
-      .comm_poly_vars
-      .append_to_transcript(b"poly_vars_commitment", transcript);
-    self
-      .comm_poly_error
-      .append_to_transcript(b"poly_error_commitment", transcript);
 
     let n = num_vars;
 
-    let (num_rounds_x, num_rounds_y) = (num_cons.log_2() as usize, (2 * num_vars).log_2() as usize);
+    let (num_rounds_x, num_rounds_y) = (num_cons.log_2(), (2 * num_vars).log_2());
 
     // derive the verifier's challenge tau
     let tau = <Transcript as ProofTranscript<G>>::challenge_vector(
@@ -580,7 +545,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     // verify Z(ry) proof against the initial commitment `comm_W`
     PC::verify(
-      &self.comm_poly_vars,
+      comm_W,
       &self.proof_eval_vars_at_ry,
       &key.pc_verify_key,
       transcript,
@@ -591,7 +556,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     // verify E(rx) proof against the initial commitment `comm_E`
     PC::verify(
-      &self.comm_poly_error,
+      comm_E,
       &self.proof_eval_error_at_rx,
       &key.pc_verify_key,
       transcript,
@@ -609,7 +574,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
           .map(|i| SparsePolyEntry::new(i + 1, input[i]))
           .collect::<Vec<SparsePolyEntry<G::ScalarField>>>(),
       );
-      SparsePolynomial::new(n.log_2() as usize, input_as_sparse_poly_entries).evaluate(&ry[1..])
+      SparsePolynomial::new(n.log_2(), input_as_sparse_poly_entries).evaluate(&ry[1..])
     };
 
     // compute eval_Z_at_ry = (F::one() - ry[0]) * self.eval_vars_at_ry + ry[0] * poly_input_eval
@@ -745,7 +710,7 @@ mod tests {
     // compute commitments to the vectors `vars` and `E`.
     let n = max(num_cons, num_vars);
     let mut rng = test_rng();
-    let SRS = PC::setup(n.log_2() as usize, b"test-SRS", &mut rng).unwrap();
+    let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
     let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
     let mut random_tape = None;
     let comm_W = <PC as VectorCommitmentTrait<G>>::commit(

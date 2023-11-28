@@ -353,7 +353,7 @@ where
 mod tests {
   use super::*;
   use crate::{math::Math, random::RandomTape};
-  use ark_bn254::Bn254;
+  use ark_bls12_381::Bls12_381;
   use ark_ec::pairing::Pairing;
   use ark_std::test_rng;
   fn end_to_end_test_helper<E: Pairing>() {
@@ -407,6 +407,6 @@ mod tests {
   }
   #[test]
   fn end_to_end_test() {
-    end_to_end_test_helper::<Bn254>();
+    end_to_end_test_helper::<Bls12_381>();
   }
 }

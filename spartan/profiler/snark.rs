@@ -16,7 +16,7 @@ fn print(msg: &str) {
 
 pub fn main() {
   // the list of number of variables (and constraints) in an R1CS instance
-  let inst_sizes = vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  let inst_sizes = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
   println!("Profiler:: SNARK");
   for &s in inst_sizes.iter() {

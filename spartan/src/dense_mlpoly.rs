@@ -126,7 +126,7 @@ impl IdentityPolynomial {
 impl<F: PrimeField> DensePolynomial<F> {
   pub fn new(Z: Vec<F>) -> Self {
     DensePolynomial {
-      num_vars: Z.len().log_2() as usize,
+      num_vars: Z.len().log_2(),
       len: Z.len(),
       Z,
     }
@@ -140,8 +140,8 @@ impl<F: PrimeField> DensePolynomial<F> {
     self.len
   }
 
-  pub fn clone(&self) -> Self {
-    Self::new(self.Z[0..self.len].to_vec())
+  pub fn is_empty(&self) -> bool {
+    self.len == 0
   }
 
   pub fn split(&self, idx: usize) -> (Self, Self) {

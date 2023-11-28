@@ -2,18 +2,13 @@ use ark_serialize::SerializationError;
 use core::fmt::Debug;
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Default)]
 pub enum ProofVerifyError {
   #[error("Proof verification failed")]
+  #[default]
   InternalError,
   #[error("Compressed group element failed to decompress: {0:?}")]
   DecompressionError([u8; 32]),
-}
-
-impl Default for ProofVerifyError {
-  fn default() -> Self {
-    ProofVerifyError::InternalError
-  }
 }
 
 #[derive(Debug)]

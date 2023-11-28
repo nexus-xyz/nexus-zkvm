@@ -48,7 +48,6 @@ ark-crypto-primitives = { version = "^0.4.0", features = ["r1cs", "sponge"] }
 derivative = "2.2.0"
 
 [dev-dependencies]
-ark-bn254 = "0.4.0"
 criterion = "0.3.1"
 
 

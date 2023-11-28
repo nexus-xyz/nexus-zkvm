@@ -18,10 +18,10 @@ pub trait VectorCommitmentTrait<G: CurveGroup> {
     + Sync
     + CanonicalSerialize
     + CanonicalDeserialize;
-  type CommitmentKey<'a>;
-  fn commit<'a>(
+  type CommitmentKey;
+  fn commit(
     vec: &[G::ScalarField],
-    ck: &Self::CommitmentKey<'a>,
+    ck: &Self::CommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::VectorCommitment;
 
@@ -87,10 +87,10 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
   type VectorCommitment = PC::Commitment;
-  type CommitmentKey<'a> = PC::PolyCommitmentKey;
-  fn commit<'a>(
+  type CommitmentKey = PC::PolyCommitmentKey;
+  fn commit(
     vec: &[<G>::ScalarField],
-    ck: &Self::CommitmentKey<'a>,
+    ck: &Self::CommitmentKey,
     random_tape: &mut Option<RandomTape<G>>,
   ) -> Self::VectorCommitment {
     let poly = DensePolynomial::new(vec.to_vec());
