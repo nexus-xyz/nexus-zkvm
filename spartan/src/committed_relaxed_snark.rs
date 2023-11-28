@@ -27,7 +27,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
   pub fn new(
-    SRS: PC::SRS,
+    SRS: &PC::SRS,
     num_cons: usize,
     num_vars: usize,
     num_inputs: usize,
@@ -41,7 +41,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
       num_vars_padded
     };
 
-    let gens_r1cs_sat = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars_padded);
+    let gens_r1cs_sat = CRR1CSKey::<G, PC>::new(SRS, num_cons, num_vars_padded);
     let gens_r1cs_eval = R1CSCommitmentGens::new(
       b"gens_r1cs_eval",
       num_cons,

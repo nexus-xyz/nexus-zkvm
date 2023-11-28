@@ -18,8 +18,8 @@ use ark_std::{cmp::max, One, Zero};
 use merlin::Transcript;
 
 pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pc_commit_key: PC::PolyCommitmentKey,
-  pc_verify_key: PC::EvalVerifierKey,
+  pub pc_commit_key: PC::PolyCommitmentKey,
+  pub pc_verify_key: PC::EvalVerifierKey,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
