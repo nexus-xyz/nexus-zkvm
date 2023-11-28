@@ -25,30 +25,74 @@ pub enum Command {
 
     /// Run a Nexus binary
     Run {
-        /// Name of the binary to run
+        /// Print instruction trace
+        #[arg(short)]
+        verbose: bool,
+
+        /// Use release mode artifacts
+        #[arg(short, long)]
+        release: bool,
+
+        /// Name of the bin target to run
         #[arg(long)]
         bin: Option<String>,
     },
 
-    /// Create a Nexus package
-    Package {},
+    /// Send program to Nexus prover network
+    Prove {
+        /// Use release mode artifacts
+        #[arg(short, long)]
+        release: bool,
 
-    /// Display information about a Nexus package file
-    Info {
-        /// Display more information (max:3)
-        #[arg(short, long, action = clap::ArgAction::Count)]
-        verbose: u8,
+        /// Name of the bin target to run
+        #[arg(long)]
+        bin: Option<String>,
+    },
 
-        /// Input file
-        #[arg(name = "Package File")]
+    /// Query status of a proof
+    Query {
+        /// Proof identifier
+        #[arg(long)]
+        hash: String,
+
+        /// File to save completed proof
+        #[arg(short, long, default_value = "nexus-proof.json")]
         file: std::path::PathBuf,
     },
 
-    /// Send Nexus package to prover network
-    Prove {},
-
     /// Verify a Nexus proof
-    Verify {},
+    Verify {
+        /// public parameters file
+        #[arg(
+            short = 'p',
+            long = "public-params",
+            default_value = "nexus-public.zst"
+        )]
+        pp_file: String,
+
+        /// File containing completed proof
+        #[arg(short, long, default_value = "nexus-proof.json")]
+        file: std::path::PathBuf,
+    },
+
+    /// Run a Nexus proof locally
+    LocalProve {
+        /// public parameters file
+        #[arg(
+            short = 'p',
+            long = "public-params",
+            default_value = "nexus-public.zst"
+        )]
+        pp_file: String,
+
+        /// Use release mode artifacts
+        #[arg(short, long)]
+        release: bool,
+
+        /// Name of the bin target to run
+        #[arg(long)]
+        bin: Option<String>,
+    },
 
     /// Export proof artifacts
     Export {

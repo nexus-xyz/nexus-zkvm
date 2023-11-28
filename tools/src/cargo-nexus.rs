@@ -1,16 +1,25 @@
-mod new;
 mod options;
 mod util;
+mod new;
+mod run;
+mod prove;
 
 pub use options::*;
 pub use util::*;
 
-fn main() -> CmdResult {
-    match &options().command {
+fn main() {
+    let res = match &options().command {
         New { .. } => new::new(),
-        cmd => {
-            println!("Not Yet Implemented: {:?}", cmd);
-            Err("TODO".into())
-        }
+        Run { .. } => run::run(),
+        Prove { .. } => prove::prove(),
+        Query { .. } => prove::query(),
+        Verify { .. } => prove::verify(),
+        LocalProve { .. } => prove::local(),
+        cmd => Err(format!("Not Yet Implemented: {:?}", cmd).into()),
+    };
+
+    match res {
+        Ok(_) => (),
+        Err(CmdErr(s)) => eprintln!("{}", s),
     }
 }

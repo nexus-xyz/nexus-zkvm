@@ -13,5 +13,9 @@ name = "nexus-run"
 path = "src/nexus-run.rs"
 
 [dependencies]
+cargo_metadata = "0.18.1"
 clap.workspace = true
+serde_json.workspace = true
 nexus-riscv = { path = "../riscv" }
+nexus-prover = { path = "../prover" }
+nexus-network = { path = "../network" }
