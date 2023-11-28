@@ -12,7 +12,7 @@ pub mod hyrax;
 mod transcript_utils;
 pub mod zeromorph;
 
-pub trait VectorCommitmentTrait<G: CurveGroup> {
+pub trait VectorCommitmentScheme<G: CurveGroup> {
   type VectorCommitment: AppendToTranscript<G>
     + Sized
     + Sync
@@ -79,7 +79,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup> {
   ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey);
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentTrait<G> for PC {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentScheme<G> for PC {
   type VectorCommitment = PC::Commitment;
   type CommitmentKey = PC::PolyCommitmentKey;
   fn commit(vec: &[<G>::ScalarField], ck: &Self::CommitmentKey) -> Self::VectorCommitment {

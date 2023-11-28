@@ -583,7 +583,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
 #[cfg(test)]
 mod tests {
-  use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentTrait};
+  use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentScheme};
 
   use crate::r1csinstance::R1CSInstance;
 
@@ -702,8 +702,8 @@ mod tests {
     let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
     let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
     let comm_W =
-      <PC as VectorCommitmentTrait<G>>::commit(vars.assignment.as_slice(), &key.pc_commit_key);
-    let comm_E = <PC as VectorCommitmentTrait<G>>::commit(E.as_slice(), &key.pc_commit_key);
+      <PC as VectorCommitmentScheme<G>>::commit(vars.assignment.as_slice(), &key.pc_commit_key);
+    let comm_E = <PC as VectorCommitmentScheme<G>>::commit(E.as_slice(), &key.pc_commit_key);
     (
       shape,
       CRR1CSInstance::<G, PC> {
