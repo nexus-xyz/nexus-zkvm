@@ -46,7 +46,7 @@ where
   pub blinds: Vec<F>,
 }
 
-#[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, CanonicalSerialize, CanonicalDeserialize, PartialEq, Eq)]
 pub struct PolyCommitment<G: CurveGroup> {
   pub(crate) C: Vec<G>,
 }

@@ -1,10 +1,16 @@
 use crate::polycommitments::PolyCommitmentTrait;
 use crate::transcript::{AppendToTranscript, ProofTranscript};
-use ark_ec::{pairing::Pairing, AffineRepr, CurveGroup};
+use ark_ec::{pairing::Pairing, AffineRepr};
 use ark_poly_commit::kzg10::Powers;
 use ark_poly_commit::{kzg10::Commitment as KZGCommitment, PCCommitment, PCUniversalParams};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{borrow::Cow, collections::BTreeMap, fmt::Debug, vec::Vec};
+use ark_std::{
+  borrow::Cow,
+  collections::BTreeMap,
+  fmt::Debug,
+  ops::{Add, AddAssign, Mul, MulAssign},
+  vec::Vec,
+};
 use derivative::Derivative;
 use merlin::Transcript;
 
@@ -111,18 +117,72 @@ where
   /// \tau^(N_max - 2^supported_num_vars + 1) times the above generator of G2.
   pub shifted_tau_h: E::G2Affine,
 }
-
-impl<G: CurveGroup, C: PCCommitment> PolyCommitmentTrait<G> for C
+#[derive(
+  Clone, Copy, Derivative, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize, Debug,
+)]
+#[derivative(Default(bound = ""))]
+pub struct ZeromorphCommitment<E>
 where
-  C: PartialEq + Debug + AppendToTranscript<G>,
+  E: Pairing,
 {
-  fn zero(_n: usize) -> Self {
-    C::empty()
-  }
+  pub commitment: KZGCommitment<E>,
 }
+
+// impl<G: CurveGroup, C: PCCommitment> PolyCommitmentTrait<G> for C
+// where
+//   C: PartialEq + Debug + AppendToTranscript<G>,
+// {
+//   fn zero(_n: usize) -> Self {
+//     C::empty()
+//   }
+// }
 
 impl<E: Pairing> AppendToTranscript<E::G1> for KZGCommitment<E> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_point(label, &self.0.into_group());
+  }
+}
+
+impl<E: Pairing> AppendToTranscript<E::G1> for ZeromorphCommitment<E> {
+  fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
+    self.commitment.append_to_transcript(label, transcript);
+  }
+}
+
+impl<E: Pairing> Mul<E::ScalarField> for ZeromorphCommitment<E> {
+  type Output = Self;
+  fn mul(self, scalar: E::ScalarField) -> Self::Output {
+    Self {
+      commitment: KZGCommitment((self.commitment.0 * scalar).into()),
+    }
+  }
+}
+
+impl<E: Pairing> MulAssign<E::ScalarField> for ZeromorphCommitment<E> {
+  fn mul_assign(&mut self, scalar: E::ScalarField) {
+    *self = *self * scalar;
+  }
+}
+
+impl<E: Pairing> Add<Self> for ZeromorphCommitment<E> {
+  type Output = Self;
+  fn add(self, other: Self) -> Self::Output {
+    Self {
+      commitment: KZGCommitment((self.commitment.0 + other.commitment.0).into()),
+    }
+  }
+}
+
+impl<E: Pairing> AddAssign<Self> for ZeromorphCommitment<E> {
+  fn add_assign(&mut self, other: Self) {
+    *self = *self + other;
+  }
+}
+
+impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
+  fn zero(_n: usize) -> Self {
+    Self {
+      commitment: KZGCommitment::empty(),
+    }
   }
 }

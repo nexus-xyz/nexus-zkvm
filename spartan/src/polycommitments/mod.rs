@@ -1,7 +1,10 @@
 use ark_ec::CurveGroup;
 use ark_poly_commit::Error;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::rand::RngCore;
+use ark_std::{
+  ops::{Add, AddAssign, Mul, MulAssign},
+  rand::RngCore,
+};
 use core::fmt::Debug;
 use merlin::Transcript;
 
@@ -26,7 +29,20 @@ pub trait VectorCommitmentScheme<G: CurveGroup> {
 }
 
 pub trait PolyCommitmentTrait<G: CurveGroup>:
-  Sized + AppendToTranscript<G> + Sync + Debug + CanonicalSerialize + CanonicalDeserialize + PartialEq
+  Sized
+  + AppendToTranscript<G>
+  + Debug
+  + CanonicalSerialize
+  + CanonicalDeserialize
+  + PartialEq
+  + Add<Self, Output = Self>
+  + AddAssign<Self>
+  + MulAssign<G::ScalarField>
+  + Mul<G::ScalarField, Output = Self>
+  + Default
+  + Clone
+  + Send
+  + Sync
 {
   // this should be the commitment to the zero vector of length n
   fn zero(n: usize) -> Self;

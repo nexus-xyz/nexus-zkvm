@@ -1,8 +1,13 @@
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use ark_poly_commit::{Error, PCCommitment};
+use ark_poly_commit::Error;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{fmt::Debug, marker::PhantomData, rand::RngCore};
+use ark_std::{
+  fmt::Debug,
+  marker::PhantomData,
+  ops::{Add, AddAssign, Mul, MulAssign},
+  rand::RngCore,
+};
 use merlin::Transcript;
 
 pub use crate::dense_mlpoly::{
@@ -10,8 +15,9 @@ pub use crate::dense_mlpoly::{
 };
 
 use crate::{
-  dense_mlpoly::DensePolynomial,
-  polycommitments::PolyCommitmentScheme,
+  dense_mlpoly::{DensePolynomial, EqPolynomial},
+  math::Math,
+  polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait},
   random::RandomTape,
   transcript::{AppendToTranscript, ProofTranscript},
 };
@@ -23,19 +29,76 @@ pub struct HyraxKey<G: CurveGroup> {
   pub gens: PolyCommitmentGens<G>,
 }
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq, Eq)]
+#[derive(Clone, Default, CanonicalSerialize, CanonicalDeserialize, Debug, PartialEq, Eq)]
 pub struct HyraxCommitment<G: CurveGroup> {
   pub C: PolyCommitment<G>,
 }
 
-impl<G: CurveGroup> PCCommitment for HyraxCommitment<G> {
-  fn empty() -> Self {
+impl<G> Add<Self> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  type Output = Self;
+  fn add(self, other: Self) -> Self::Output {
+    let C = self
+      .C
+      .C
+      .iter()
+      .zip(other.C.C.iter())
+      .map(|(a, b)| *a + *b)
+      .collect();
     Self {
-      C: PolyCommitment::<G> { C: vec![] },
+      C: PolyCommitment { C },
     }
   }
-  fn has_degree_bound(&self) -> bool {
-    true
+}
+
+impl<G> AddAssign<Self> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  fn add_assign(&mut self, other: Self) {
+    for (a, b) in self.C.C.iter_mut().zip(other.C.C.iter()) {
+      *a += *b;
+    }
+  }
+}
+
+impl<G> MulAssign<G::ScalarField> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  fn mul_assign(&mut self, scalar: G::ScalarField) {
+    for a in self.C.C.iter_mut() {
+      *a *= scalar;
+    }
+  }
+}
+
+impl<G> Mul<G::ScalarField> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  type Output = Self;
+  fn mul(self, scalar: G::ScalarField) -> Self::Output {
+    let C = self.C.C.iter().map(|a| *a * scalar).collect::<Vec<_>>();
+    Self {
+      C: PolyCommitment { C },
+    }
+  }
+}
+
+impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
+  fn zero(n: usize) -> Self {
+    let ell = n.log_2();
+
+    let (left_num_vars, _) = EqPolynomial::<G::ScalarField>::compute_factored_lens(ell);
+    let commitment_size = left_num_vars.pow2();
+    Self {
+      C: PolyCommitment {
+        C: vec![G::zero(); commitment_size],
+      },
+    }
   }
 }
 impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {

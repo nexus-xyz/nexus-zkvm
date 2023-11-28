@@ -39,7 +39,7 @@ where
 
   type EvalVerifierKey = ZeromorphVerifierKey<E>;
 
-  type Commitment = KZGCommitment<E>;
+  type Commitment = ZeromorphCommitment<E>;
 
   type SRS = ZeromorphSRS<E>;
 
@@ -51,7 +51,7 @@ where
   ) -> Self::Commitment {
     let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(poly);
     let (commitment, _blinds) = KZG10::commit(&ck.powers(), &uni_poly, None, None).unwrap();
-    commitment
+    ZeromorphCommitment { commitment }
   }
 
   fn prove(
@@ -87,13 +87,9 @@ where
       .map(|q| KZG10::commit(&ck.powers(), q, None, None).unwrap().0)
       .collect();
     // Next, we send each of these commitments to the verifier and extract a challenge
-    commitments.iter().for_each(|c| {
-      <KZGCommitment<E> as AppendToTranscript<E::G1>>::append_to_transcript(
-        c,
-        b"quotients",
-        transcript,
-      )
-    });
+    commitments
+      .iter()
+      .for_each(|c| c.append_to_transcript(b"quotients", transcript));
     let y = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"y");
     // Next, using the challenge y, we calculate the batched shifted polynomial \sum_(k=0)^(n-1) y^k X^(2^n - 2^k) U_n(q_k)^{<2^k} and its commitment.
     let q_hat = shift_and_combine_with_powers(&truncated_quotients, y, num_vars);
@@ -209,7 +205,7 @@ where
     let C_vx = &vk.g.mul(v_phi_x);
 
     // Compute the commitment to the combined polynomial Z_x.
-    let C_Z_x = commitment.0.into_group()
+    let C_Z_x = commitment.commitment.0.into_group()
       - (C_vx)
       - quotient_commitments
         .iter()
