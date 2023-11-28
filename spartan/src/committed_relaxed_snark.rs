@@ -19,8 +19,8 @@ use crate::{
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
 pub struct SNARKGens<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  gens_r1cs_sat: CRR1CSKey<G, PC>,
-  gens_r1cs_eval: R1CSCommitmentGens<G>,
+  pub gens_r1cs_sat: CRR1CSKey<G, PC>,
+  pub gens_r1cs_eval: R1CSCommitmentGens<G>,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
