@@ -33,9 +33,9 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
 }
 
 pub trait PolyCommitmentScheme<G: CurveGroup> {
-  type SRS;
-  type PolyCommitmentKey;
-  type EvalVerifierKey;
+  type SRS: CanonicalSerialize + CanonicalDeserialize;
+  type PolyCommitmentKey: CanonicalSerialize + CanonicalDeserialize;
+  type EvalVerifierKey: CanonicalSerialize + CanonicalDeserialize;
   type Commitment: PolyCommitmentTrait<G>;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
   type PolyCommitmentProof: Sync + CanonicalSerialize + CanonicalDeserialize + Debug;
