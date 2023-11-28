@@ -20,7 +20,7 @@ pub mod math;
 mod nizk;
 pub mod polycommitments;
 mod product_tree;
-mod r1csinstance;
+pub mod r1csinstance;
 mod r1csproof;
 mod random;
 mod sparse_mlpoly;
