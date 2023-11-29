@@ -1,5 +1,4 @@
 use ark_ec::CurveGroup;
-use ark_ff::PrimeField;
 use ark_poly_commit::Error;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
@@ -10,12 +9,10 @@ use ark_std::{
 };
 use merlin::Transcript;
 
-pub use crate::dense_mlpoly::{
-  PolyCommitment, PolyCommitmentBlinds, PolyCommitmentGens, PolyEvalProof,
-};
-
 use crate::{
-  dense_mlpoly::{DensePolynomial, EqPolynomial},
+  dense_mlpoly::{
+    DensePolynomial, EqPolynomial, PolyCommitment, PolyCommitmentGens, PolyEvalProof,
+  },
   math::Math,
   polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait},
   random::RandomTape,
@@ -110,11 +107,6 @@ impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {
     }
     transcript.append_message(label, b"hyrax_commitment_end");
   }
-}
-
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
-pub struct HyraxBlinds<F: PrimeField> {
-  pub blinds: PolyCommitmentBlinds<F>,
 }
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
