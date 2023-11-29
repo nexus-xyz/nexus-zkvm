@@ -462,7 +462,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     instance: &CRR1CSInstance<G, PC>,
     evals: &(G::ScalarField, G::ScalarField, G::ScalarField),
     transcript: &mut Transcript,
-    key: &CRR1CSKey<G, PC>,
+    key: &PC::EvalVerifierKey,
   ) -> Result<(Vec<G::ScalarField>, Vec<G::ScalarField>), ProofVerifyError> {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
@@ -536,7 +536,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     PC::verify(
       comm_W,
       &self.proof_eval_vars_at_ry,
-      &key.pc_verify_key,
+      key,
       transcript,
       &ry[1..],
       &self.eval_vars_at_ry,
@@ -547,7 +547,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     PC::verify(
       comm_E,
       &self.proof_eval_error_at_rx,
-      &key.pc_verify_key,
+      key,
       transcript,
       &rx,
       &self.eval_error_at_rx,
@@ -773,7 +773,7 @@ mod tests {
         &instance,
         &inst_evals,
         &mut verifier_transcript,
-        &key,
+        &key.pc_verify_key,
       )
       .is_ok());
   }

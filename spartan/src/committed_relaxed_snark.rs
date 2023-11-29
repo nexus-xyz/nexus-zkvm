@@ -202,7 +202,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
       instance,
       &self.inst_evals,
       transcript,
-      &gens.gens_r1cs_sat,
+      &gens.gens_r1cs_sat.pc_verify_key,
     )?;
     timer_sat_proof.stop();
 
