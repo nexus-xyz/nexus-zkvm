@@ -1,6 +1,10 @@
 use crate::polycommitments::PolyCommitmentTrait;
 use crate::transcript::{AppendToTranscript, ProofTranscript};
-use ark_ec::{pairing::Pairing, AffineRepr};
+use ark_ec::{
+  pairing::Pairing,
+  short_weierstrass::{Projective, SWCurveConfig},
+  AffineRepr,
+};
 use ark_poly_commit::kzg10::Powers;
 use ark_poly_commit::{kzg10::Commitment as KZGCommitment, PCCommitment, PCUniversalParams};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -128,14 +132,27 @@ where
   pub commitment: KZGCommitment<E>,
 }
 
-// impl<G: CurveGroup, C: PCCommitment> PolyCommitmentTrait<G> for C
-// where
-//   C: PartialEq + Debug + AppendToTranscript<G>,
-// {
-//   fn zero(_n: usize) -> Self {
-//     C::empty()
-//   }
-// }
+impl<E, G> From<Projective<G>> for ZeromorphCommitment<E>
+where
+  G: SWCurveConfig,
+  E: Pairing<G1 = Projective<G>>,
+{
+  fn from(commitment: Projective<G>) -> Self {
+    Self {
+      commitment: KZGCommitment(commitment.into()),
+    }
+  }
+}
+
+impl<E, G> From<ZeromorphCommitment<E>> for Projective<G>
+where
+  G: SWCurveConfig,
+  E: Pairing<G1 = Projective<G>>,
+{
+  fn from(commitment: ZeromorphCommitment<E>) -> Self {
+    commitment.commitment.0.into()
+  }
+}
 
 impl<E: Pairing> AppendToTranscript<E::G1> for KZGCommitment<E> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
