@@ -4,7 +4,7 @@ use crate::{
 };
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
-use ark_std::cmp::max;
+use ark_std::{cmp::max, Zero};
 
 pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   pub pc_commit_key: PC::PolyCommitmentKey,
@@ -80,6 +80,19 @@ pub fn relaxed_r1cs_is_sat<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
     }
   };
 
+  // similarly we might need to pad the error vector
+  let padded_E = {
+    let num_padded_cons = inst.inst.get_num_cons();
+    let num_cons = E.len();
+    if num_padded_cons > num_cons {
+      let mut padded_E = E.clone();
+      padded_E.resize(num_padded_cons, G::ScalarField::zero());
+      padded_E
+    } else {
+      E.clone()
+    }
+  };
+
   let (num_cons, num_vars, num_inputs) = (
     inst.inst.get_num_cons(),
     inst.inst.get_num_vars(),
@@ -110,10 +123,10 @@ pub fn relaxed_r1cs_is_sat<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   assert_eq!(Az.len(), num_cons);
   assert_eq!(Bz.len(), num_cons);
   assert_eq!(Cz.len(), num_cons);
-  assert_eq!(E.len(), num_cons);
+  assert_eq!(padded_E.len(), num_cons);
   let res: usize = (0..num_cons)
     .map(|i| {
-      if Az[i] * Bz[i] == *u * Cz[i] + E[i] {
+      if Az[i] * Bz[i] == *u * Cz[i] + padded_E[i] {
         0
       } else {
         1
