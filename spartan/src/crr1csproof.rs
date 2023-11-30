@@ -2,7 +2,6 @@
 #![allow(dead_code)]
 use crate::polycommitments::PolyCommitmentScheme;
 use crate::unipoly::{CompressedUniPoly, UniPoly};
-use crate::{InputsAssignment, Instance, VarsAssignment};
 
 use super::dense_mlpoly::{DensePolynomial, EqPolynomial};
 use super::errors::ProofVerifyError;
@@ -14,54 +13,10 @@ use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{cmp::max, One, Zero};
+use ark_std::{One, Zero};
 use merlin::Transcript;
 
-pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pub pc_commit_key: PC::PolyCommitmentKey,
-  pub pc_verify_key: PC::EvalVerifierKey,
-}
-
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
-  pub fn new(SRS: &PC::SRS, num_cons: usize, num_vars: usize) -> Self {
-    // Since we have commitments both to the witness and the error vectors
-    // we need the commitment key to hold the larger of the two
-    let n = max(num_cons, num_vars);
-    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n);
-    CRR1CSKey {
-      pc_commit_key,
-      pc_verify_key,
-    }
-  }
-}
-
-pub struct CRR1CSShape<F: PrimeField> {
-  pub inst: Instance<F>,
-}
-
-impl<F: PrimeField> CRR1CSShape<F> {
-  pub fn get_num_cons(&self) -> usize {
-    self.inst.inst.get_num_cons()
-  }
-  pub fn get_num_vars(&self) -> usize {
-    self.inst.inst.get_num_vars()
-  }
-  pub fn get_num_inputs(&self) -> usize {
-    self.inst.inst.get_num_inputs()
-  }
-}
-
-pub struct CRR1CSInstance<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pub input: InputsAssignment<G::ScalarField>,
-  pub u: G::ScalarField,
-  pub comm_W: PC::Commitment,
-  pub comm_E: PC::Commitment,
-}
-
-pub struct CRR1CSWitness<F: PrimeField> {
-  pub W: VarsAssignment<F>,
-  pub E: Vec<F>,
-}
+pub use super::crr1cs::*;
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct CRR1CSProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
@@ -585,13 +540,13 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 mod tests {
   use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentScheme};
 
-  use crate::r1csinstance::R1CSInstance;
+  use crate::{r1csinstance::R1CSInstance, Instance};
 
   use super::*;
   use ark_bls12_381::Fr;
   use ark_bls12_381::G1Projective;
   use ark_ff::PrimeField;
-  use ark_std::{test_rng, UniformRand};
+  use ark_std::{cmp::max, test_rng, UniformRand};
 
   fn produce_tiny_r1cs<F: PrimeField>() -> (R1CSInstance<F>, Vec<F>, Vec<F>) {
     // three constraints over five variables Z1, Z2, Z3, Z4, and Z5
@@ -752,6 +707,7 @@ mod tests {
     let num_inputs = 10;
     let (shape, instance, witness, key) =
       produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
+    assert!(is_sat(&shape, &instance, &witness, &key).unwrap());
     let (num_cons, num_vars, _num_inputs) = (
       shape.get_num_cons(),
       shape.get_num_vars(),

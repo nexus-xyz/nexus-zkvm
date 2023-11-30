@@ -19,9 +19,9 @@ pub struct R1CSInstance<F: PrimeField> {
   num_cons: usize,
   num_vars: usize,
   num_inputs: usize,
-  A: SparseMatPolynomial<F>,
-  B: SparseMatPolynomial<F>,
-  C: SparseMatPolynomial<F>,
+  pub(crate) A: SparseMatPolynomial<F>,
+  pub(crate) B: SparseMatPolynomial<F>,
+  pub(crate) C: SparseMatPolynomial<F>,
 }
 
 impl<G: CurveGroup> AppendToTranscript<G> for R1CSInstance<G::ScalarField> {
