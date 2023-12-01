@@ -4,6 +4,7 @@ use core::cmp::max;
 
 use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::Zero;
 use merlin::Transcript;
 
 use crate::{
@@ -121,7 +122,23 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
           }
         };
 
-        let witness = CRR1CSWitness::<G::ScalarField> { W: padded_vars, E };
+        // we also might need to pad the error vector
+        let padded_error = {
+          let num_padded_cons = inst.inst.get_num_cons();
+          let num_cons = E.len();
+          if num_padded_cons > num_cons {
+            let mut padded_error = E.clone();
+            padded_error.resize(num_padded_cons, G::ScalarField::zero());
+            padded_error
+          } else {
+            E
+          }
+        };
+
+        let witness = CRR1CSWitness::<G::ScalarField> {
+          W: padded_vars,
+          E: padded_error,
+        };
 
         CRR1CSProof::prove(shape, instance, &witness, &gens.gens_r1cs_sat, transcript)
       };
