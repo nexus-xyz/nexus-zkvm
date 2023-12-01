@@ -25,6 +25,9 @@ pub fn multilinear_to_univar<F: PrimeField>(p: &DensePolynomial<F>) -> DenseUniv
   // with i = i0 + 2*i1 + ... + 2^n*in. However, the multilinear-to-univariate transformation
   // in the zeromorph paper is defined so that the coefficient of x^i is p([i0, i1, ..., in])
   for (i, c) in p.vec().iter().enumerate() {
+    // p.len() is not necessarily a power of 2, so we need to extend it with zeros before we can
+    // reverse the bits safely.
+    coeff_vec.resize(Math::pow2(p.get_num_vars()), F::zero());
     coeff_vec[reverse_n_bits(n, i)] = *c;
   }
   let unipoly = DenseUnivarPolynomial::from_coefficients_vec(coeff_vec);
