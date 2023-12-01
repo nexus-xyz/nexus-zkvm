@@ -538,6 +538,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
 #[cfg(test)]
 mod tests {
+  use crate::committed_relaxed_snark::SNARKGens;
   use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentScheme};
 
   use crate::{r1csinstance::R1CSInstance, Instance};
@@ -606,7 +607,7 @@ mod tests {
   }
   #[allow(clippy::type_complexity)]
   // This produces a random satisfying structure, instance, witness, and public parameters for testing and benchmarking purposes.
-  pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
+  fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
     num_cons: usize,
     num_vars: usize,
     num_inputs: usize,
@@ -614,7 +615,7 @@ mod tests {
     CRR1CSShape<G::ScalarField>,
     CRR1CSInstance<G, PC>,
     CRR1CSWitness<G::ScalarField>,
-    CRR1CSKey<G, PC>,
+    SNARKGens<G, PC>,
   ) {
     // compute random satisfying assignment for r1cs
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
@@ -655,10 +656,13 @@ mod tests {
     let n = max(num_cons, num_vars);
     let mut rng = test_rng();
     let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
-    let key = CRR1CSKey::<G, PC>::new(&SRS, num_cons, num_vars);
-    let comm_W =
-      <PC as VectorCommitmentScheme<G>>::commit(vars.assignment.as_slice(), &key.pc_commit_key);
-    let comm_E = <PC as VectorCommitmentScheme<G>>::commit(E.as_slice(), &key.pc_commit_key);
+    let gens = SNARKGens::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
+    let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
+      vars.assignment.as_slice(),
+      &gens.gens_r1cs_sat.pc_commit_key,
+    );
+    let comm_E =
+      <PC as VectorCommitmentScheme<G>>::commit(E.as_slice(), &gens.gens_r1cs_sat.pc_commit_key);
     (
       shape,
       CRR1CSInstance::<G, PC> {
@@ -671,7 +675,7 @@ mod tests {
         W: vars.clone(),
         E: E.clone(),
       },
-      key,
+      gens,
     )
   }
 
@@ -705,9 +709,9 @@ mod tests {
     let num_vars = 1024;
     let num_cons = num_vars;
     let num_inputs = 10;
-    let (shape, instance, witness, key) =
+    let (shape, instance, witness, gens) =
       produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
-    assert!(is_sat(&shape, &instance, &witness, &key).unwrap());
+    assert!(is_sat(&shape, &instance, &witness, &gens.gens_r1cs_sat).unwrap());
     let (num_cons, num_vars, _num_inputs) = (
       shape.get_num_cons(),
       shape.get_num_vars(),
@@ -716,8 +720,13 @@ mod tests {
 
     let mut prover_transcript = Transcript::new(b"example");
 
-    let (proof, rx, ry) =
-      CRR1CSProof::prove(&shape, &instance, &witness, &key, &mut prover_transcript);
+    let (proof, rx, ry) = CRR1CSProof::prove(
+      &shape,
+      &instance,
+      &witness,
+      &gens.gens_r1cs_sat,
+      &mut prover_transcript,
+    );
 
     let inst_evals = shape.inst.inst.evaluate(&rx, &ry);
 
@@ -729,7 +738,7 @@ mod tests {
         &instance,
         &inst_evals,
         &mut verifier_transcript,
-        &key.pc_verify_key,
+        &gens.gens_r1cs_sat.pc_verify_key,
       )
       .is_ok());
   }

@@ -57,7 +57,7 @@ pub struct ComputationDecommitment<F> {
 /// `Assignment` holds an assignment of values to either the inputs or variables in an `Instance`
 #[derive(Clone)]
 pub struct Assignment<F> {
-  assignment: Vec<F>,
+  pub assignment: Vec<F>,
 }
 
 impl<F: PrimeField> Assignment<F> {
@@ -103,7 +103,7 @@ pub type InputsAssignment<F> = Assignment<F>;
 
 /// `Instance` holds the description of R1CS matrices
 pub struct Instance<F: PrimeField> {
-  inst: R1CSInstance<F>,
+  pub inst: R1CSInstance<F>,
 }
 
 impl<F: PrimeField> Instance<F> {

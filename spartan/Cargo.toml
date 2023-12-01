@@ -60,6 +60,10 @@ name = "snark"
 path = "profiler/snark.rs"
 
 [[bin]]
+name = "committed_relaxed_snark"
+path = "profiler/committed_relaxed_snark.rs"
+
+[[bin]]
 name = "nizk"
 path = "profiler/nizk.rs"
 

@@ -1,6 +1,7 @@
 use super::polycommitments::PolyCommitmentScheme;
 use crate::{
-  dense_mlpoly::DensePolynomial, errors::R1CSError, InputsAssignment, Instance, VarsAssignment,
+  dense_mlpoly::DensePolynomial, errors::R1CSError, math::Math, InputsAssignment, Instance,
+  VarsAssignment,
 };
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
@@ -16,7 +17,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
-    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n);
+    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n.log_2());
     CRR1CSKey {
       pc_commit_key,
       pc_verify_key,
