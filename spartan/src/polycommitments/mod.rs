@@ -35,6 +35,7 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   + CanonicalSerialize
   + CanonicalDeserialize
   + PartialEq
+  + Eq
   + Add<Self, Output = Self>
   + AddAssign<Self>
   + MulAssign<G::ScalarField>
