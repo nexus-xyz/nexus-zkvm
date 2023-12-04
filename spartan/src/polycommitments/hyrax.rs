@@ -160,6 +160,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   }
 
   fn prove<'a>(
+    _C: &Self::Commitment,
     poly: &DensePolynomial<G::ScalarField>,
     r: &[<G>::ScalarField],
     eval: &<G>::ScalarField,

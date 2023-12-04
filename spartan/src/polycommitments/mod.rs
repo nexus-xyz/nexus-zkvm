@@ -65,6 +65,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
   ) -> Self::Commitment;
 
   fn prove(
+    C: &Self::Commitment,
     poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     eval: &G::ScalarField,

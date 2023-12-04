@@ -55,24 +55,23 @@ where
   }
 
   fn prove(
+    C: &Self::Commitment,
     poly: &DensePolynomial<E::ScalarField>,
     u: &[E::ScalarField],
     eval: &E::ScalarField,
     ck: &Self::PolyCommitmentKey,
     transcript: &mut Transcript,
   ) -> Self::PolyCommitmentProof {
+    // First, we send the claimed evaluation, opening point, and commitment to the verifier.
     <Transcript as ProofTranscript<E::G1>>::append_protocol_name(
       transcript,
       b"Zeromorph_eval_proof",
     );
     <Transcript as ProofTranscript<E::G1>>::append_scalar(transcript, b"eval_claim", eval);
     <Transcript as ProofTranscript<E::G1>>::append_scalars(transcript, b"eval_point", u);
-
-    // First, we calculate the commitment to `poly` and send it to the verifier.
-    let C = <Self as PolyCommitmentScheme<E::G1>>::commit(poly, ck);
     C.append_to_transcript(b"commitment", transcript);
 
-    // First, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
+    // Next, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
     // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}. In the notation of the paper, `truncated_quotients[k]` is U_n(q_k)^{<2^k}.
     let truncated_quotients = get_truncated_quotients(poly, u);
     let num_vars = poly.get_num_vars();
@@ -362,7 +361,8 @@ mod tests {
       let eval = poly.evaluate::<E::G1>(u.as_slice());
       let mut transcript_prover = Transcript::new(b"test");
       let mut transcript_verifier = Transcript::new(b"test");
-      let proof_correct = Zeromorph::<E>::prove(&poly, &u, &eval, &ck, &mut transcript_prover);
+      let proof_correct =
+        Zeromorph::<E>::prove(&commitment, &poly, &u, &eval, &ck, &mut transcript_prover);
       Zeromorph::<E>::verify(
         &commitment,
         &proof_correct,
@@ -378,7 +378,14 @@ mod tests {
         )
       });
       let wrong_eval = E::ScalarField::rand(&mut rng);
-      let proof_wrong = Zeromorph::<E>::prove(&poly, &u, &wrong_eval, &ck, &mut transcript_prover);
+      let proof_wrong = Zeromorph::<E>::prove(
+        &commitment,
+        &poly,
+        &u,
+        &wrong_eval,
+        &ck,
+        &mut transcript_prover,
+      );
       Zeromorph::<E>::verify(
         &commitment,
         &proof_wrong,

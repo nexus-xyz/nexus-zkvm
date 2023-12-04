@@ -251,7 +251,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
   pub fn prove(
     shape: &CRR1CSShape<G::ScalarField>,
     instance: &CRR1CSInstance<G, PC>,
-    witness: &CRR1CSWitness<G::ScalarField>,
+    witness: CRR1CSWitness<G::ScalarField>,
     key: &CRR1CSKey<G, PC>,
     transcript: &mut Transcript,
   ) -> (CRR1CSProof<G, PC>, Vec<G::ScalarField>, Vec<G::ScalarField>) {
@@ -271,11 +271,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     let CRR1CSWitness { W: _vars, E } = witness;
 
-    let (inst, input, vars) = (
-      &_inst,
-      _input.assignment.as_slice(),
-      _vars.assignment.clone(),
-    );
+    let (inst, input, vars) = (&_inst, _input.assignment.as_slice(), _vars.assignment);
 
     // we currently require the number of |inputs| + 1 to be at most number of vars
     assert!(input.len() < vars.len());
@@ -379,6 +375,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     let eval_vars_at_ry = poly_vars.evaluate::<G>(&ry[1..]);
     let proof_eval_vars_at_ry = {
       PC::prove(
+        comm_W,
         &poly_vars,
         &ry[1..],
         &eval_vars_at_ry,
@@ -387,8 +384,16 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       )
     };
 
-    let proof_eval_error_at_rx =
-      { PC::prove(&poly_error, &rx, E_claim, &key.pc_commit_key, transcript) };
+    let proof_eval_error_at_rx = {
+      PC::prove(
+        comm_E,
+        &poly_error,
+        &rx,
+        E_claim,
+        &key.pc_commit_key,
+        transcript,
+      )
+    };
 
     timer_polyeval.stop();
 
@@ -723,7 +728,7 @@ mod tests {
     let (proof, rx, ry) = CRR1CSProof::prove(
       &shape,
       &instance,
-      &witness,
+      witness,
       &gens.gens_r1cs_sat,
       &mut prover_transcript,
     );

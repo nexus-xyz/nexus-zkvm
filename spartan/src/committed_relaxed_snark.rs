@@ -140,7 +140,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
           E: padded_error,
         };
 
-        CRR1CSProof::prove(shape, instance, &witness, &gens.gens_r1cs_sat, transcript)
+        CRR1CSProof::prove(shape, instance, witness, &gens.gens_r1cs_sat, transcript)
       };
 
       let mut proof_encoded = vec![];
