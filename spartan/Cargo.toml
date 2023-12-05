@@ -79,6 +79,10 @@ harness = false
 name = "nizk"
 harness = false
 
+[[bench]]
+name = "committed_relaxed_snark"
+harness = false
+
 [features]
 # default = ["curve25519-dalek/simd_backend"]
 default = ["ark-ec/parallel", "ark-ff/parallel", "ark-std/parallel"]

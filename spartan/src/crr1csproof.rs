@@ -373,6 +373,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     let timer_polyeval = Timer::new("polyeval");
     let eval_vars_at_ry = poly_vars.evaluate::<G>(&ry[1..]);
+    timer_polyeval.stop();
+
+    let timer_polyevalproof = Timer::new("polyevalproof");
     let proof_eval_vars_at_ry = {
       PC::prove(
         comm_W,
@@ -395,7 +398,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
       )
     };
 
-    timer_polyeval.stop();
+    timer_polyevalproof.stop();
 
     timer_prove.stop();
 

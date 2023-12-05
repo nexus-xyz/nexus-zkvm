@@ -1,9 +1,3 @@
-use super::PolyCommitmentScheme;
-use crate::{
-  dense_mlpoly::DensePolynomial,
-  math::Math,
-  transcript::{AppendToTranscript, ProofTranscript},
-};
 use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup};
 use ark_ff::PrimeField;
 use ark_poly::{univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial};
@@ -17,6 +11,14 @@ use ark_std::{
   vec::Vec, One, UniformRand, Zero,
 };
 use merlin::Transcript;
+
+use super::super::timer::Timer;
+use super::PolyCommitmentScheme;
+use crate::{
+  dense_mlpoly::DensePolynomial,
+  math::Math,
+  transcript::{AppendToTranscript, ProofTranscript},
+};
 
 mod algebra;
 mod data_structures;
@@ -73,28 +75,41 @@ where
 
     // Next, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
     // where q_k is a multilinear polynomial in x_0, ..., x_{k-1}. In the notation of the paper, `truncated_quotients[k]` is U_n(q_k)^{<2^k}.
+    let timer_quotients = Timer::new("calculate_quotients");
     let truncated_quotients = get_truncated_quotients(poly, u);
+    timer_quotients.stop();
+
     let num_vars = poly.get_num_vars();
     // Make sure that the SRS has been trimmed to support the number of variables in `poly`.
     assert_eq!(num_vars, ck.supported_num_vars());
     assert_eq!(truncated_quotients.len(), num_vars);
 
     // Now, we commit to these truncated quotients, send the commitments to the verifier, and extract a challenge.
+    let timer_quotient_commitments = Timer::new("commit_to_quotients");
     let commitments: Vec<KZGCommitment<E>> = truncated_quotients
       .as_slice()
       .iter()
       .map(|q| KZG10::commit(&ck.powers(), q, None, None).unwrap().0)
       .collect();
+    timer_quotient_commitments.stop();
+
     // Next, we send each of these commitments to the verifier and extract a challenge
     commitments
       .iter()
       .for_each(|c| c.append_to_transcript(b"quotients", transcript));
     let y = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"y");
+
     // Next, using the challenge y, we calculate the batched shifted polynomial \sum_(k=0)^(n-1) y^k X^(2^n - 2^k) U_n(q_k)^{<2^k} and its commitment.
+    let timer_shift = Timer::new("shift_and_combine_with_powers");
     let q_hat = shift_and_combine_with_powers(&truncated_quotients, y, num_vars);
+    timer_shift.stop();
+
+    let timer_shift_commitment = Timer::new("commit_to_shifted_polynomial");
     let (C_q_hat, _blinds) = KZG10::commit(&ck.powers(), &q_hat, None, None).unwrap();
+    timer_shift_commitment.stop();
 
     // We send this commitment to the verifier and extract another two challenges.
+    let timer_challenges = Timer::new("compute challenges");
     C_q_hat.append_to_transcript(b"C_q_hat", transcript);
     let x = <Transcript as ProofTranscript<E::G1>>::challenge_scalar(transcript, b"x");
     let z: E::ScalarField =
@@ -109,8 +124,10 @@ where
       j += 1;
     }
     let x = x0;
+    timer_challenges.stop();
 
     // Compute the polynomial Z_x = f(X) - v Phi_n(x) - \sum_{k=0}^{n-1} (x^{2^k}Phi_(n-k-1)(x^{2^{k+1}}) - u_k Phi_(n-k)(x^{2^k})) U_n(q_k)^{<2^k}(X)
+    let timer_Zx = Timer::new("compute_Zx");
     let uni_poly = multilinear_to_univar(poly);
     let constant_term = *eval * eval_generalized_cyclotomic_polynomial(num_vars, 0, x);
     let Z_x = &(&uni_poly - &DenseUnivarPolynomial::from_coefficients_slice(&[constant_term]))
@@ -118,15 +135,20 @@ where
         DenseUnivarPolynomial::from_coefficients_vec(vec![]),
         |sum, (k, q)| sum + q * get_Zx_coefficients(x, u)[k],
       );
+    timer_Zx.stop();
+
     // Compute the polynomial zeta_x(X) = \sum_{k=0}^{n-1} y^k X^{2^n - 2^k} U_n(q_k)^{<2^k}(X) - \sum_{k=0}^{n-1} y^k x^{2^n - 2^k} U_n(q_k)^{<2^k}(X)
+    let timer_zeta_x = Timer::new("compute_zeta_x");
     let zeta_x = &shift_and_combine_with_powers(&truncated_quotients, y, num_vars)
       - &truncated_quotients.iter().enumerate().fold(
         DenseUnivarPolynomial::from_coefficients_vec(vec![]),
         |sum, (k, q)| sum + q * get_zeta_x_coefficients(x, y, num_vars)[k],
       );
+    timer_zeta_x.stop();
 
     // Compute the quotient polynomials q_zeta = zeta_x/(X-x) and q_Z = Z_x/(X-x)
     // TODO: This might not be as efficient as possible, since it uses general polynomial division instead of Ruffini's rule.
+    let timer_divide = Timer::new("poly_division");
     let q_Z = KZG10::<E, DenseUnivarPolynomial<E::ScalarField>>::compute_witness_polynomial(
       &Z_x,
       x,
@@ -142,7 +164,12 @@ where
     .unwrap()
     .0;
     let q_zeta_Z = &q_zeta + &(&q_Z * z);
+    timer_divide.stop();
+
+    let timer_commit_q_zeta_Z = Timer::new("commit_to_q_zeta_Z");
     let (pi, _blinds) = KZG10::commit(&ck.shifted_powers(), &q_zeta_Z, None, None).unwrap();
+    timer_commit_q_zeta_Z.stop();
+
     ZeromorphProof {
       quotient_commitments: commitments,
       combined_shifted_commitment: C_q_hat,

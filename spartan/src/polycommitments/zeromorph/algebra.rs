@@ -151,10 +151,8 @@ pub fn shift<F: PrimeField>(
   p: &DenseUnivarPolynomial<F>,
   shift_degree: usize,
 ) -> DenseUnivarPolynomial<F> {
-  let mut coeffs = p.coeffs().to_vec();
-  for _ in 0..shift_degree {
-    coeffs.insert(0, F::zero());
-  }
+  let mut coeffs = vec![F::zero(); shift_degree];
+  coeffs.extend(p.coeffs().iter());
   DenseUnivarPolynomial::from_coefficients_vec(coeffs)
 }
 
