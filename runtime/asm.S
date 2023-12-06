@@ -18,7 +18,7 @@ _start:
     la gp, __global_pointer$
     .option pop
 
-    li sp, 0xffffffff
+    li sp, 0xfffffff0
     mv fp, sp
 
     jal ra, _start_rust

@@ -5,6 +5,7 @@
 mod error;
 pub mod rv32;
 pub mod vm;
+mod ark_serde;
 
 #[cfg(test)]
 mod tests;
@@ -24,14 +25,14 @@ use std::path::PathBuf;
 /// Create a VM with k no-op instructions
 pub fn nop_vm(k: usize) -> VM {
     let mut pc = 0x1000;
-    let mut vm = VM::new(pc);
+    let mut vm = VM::new(pc, true);
 
     // TODO: we can do better for large k
     for _ in 0..k {
-        vm.mem.sw(pc, 0x00000013); // nop
+        vm.mem.store(SW, pc, 0x00000013).unwrap(); // nop
         pc += 4;
     }
-    vm.mem.sw(pc, 0xc0001073); // unimp
+    vm.mem.store(SW, pc, 0xc0001073).unwrap(); // unimp
     vm
 }
 
@@ -39,27 +40,27 @@ pub fn nop_vm(k: usize) -> VM {
 pub fn loop_vm(k: usize) -> VM {
     assert!(k < (1 << 31));
 
-    let mut vm = VM::new(0x1000);
+    let mut vm = VM::new(0x1000, true);
 
     let hi = (k as u32) & 0xfffff000;
     let lo = ((k & 0xfff) << 20) as u32;
-    vm.mem.sw(0x1000, hi | 0x137); // lui x2, hi
-    vm.mem.sw(0x1004, lo | 0x10113); // addi x2, x2, lo
-    vm.mem.sw(0x1008, 0x00000093); // li x1, 0
-    vm.mem.sw(0x100c, 0x00108093); // addi x1, x1, 1
-    vm.mem.sw(0x1010, 0xfe209ee3); // bne x1, x2, 0x100c
-    vm.mem.sw(0x1014, 0xc0001073); // unimp
+    vm.mem.store(SW, 0x1000, hi | 0x137).unwrap(); // lui x2, hi
+    vm.mem.store(SW, 0x1004, lo | 0x10113).unwrap(); // addi x2, x2, lo
+    vm.mem.store(SW, 0x1008, 0x00000093).unwrap(); // li x1, 0
+    vm.mem.store(SW, 0x100c, 0x00108093).unwrap(); // addi x1, x1, 1
+    vm.mem.store(SW, 0x1010, 0xfe209ee3).unwrap(); // bne x1, x2, 0x100c
+    vm.mem.store(SW, 0x1014, 0xc0001073).unwrap(); // unimp
     vm
 }
 
 /// Load a VM state from an ELF file
-pub fn load_elf(path: &PathBuf) -> Result<VM> {
+pub fn load_elf(path: &PathBuf, merkle: bool) -> Result<VM> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
-    parse_elf(slice)
+    parse_elf(slice, merkle)
 }
 
-pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
+pub fn parse_elf(bytes: &[u8], merkle: bool) -> Result<VM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
@@ -70,13 +71,13 @@ pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
         .collect();
 
     // TODO: read PC from elf file (and related changes)
-    let mut vm = VM::new(0x1000);
+    let mut vm = VM::new(0x1000, merkle);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
         let e = (p.p_offset + p.p_filesz) as usize;
         let bytes = &bytes[s..e];
-        vm.init_memory(p.p_vaddr as u32, bytes);
+        vm.init_memory(p.p_vaddr as u32, bytes)?;
     }
 
     Ok(vm)
@@ -89,6 +90,10 @@ pub struct VMOpts {
     /// Instructions per step
     #[arg(short, name = "k", default_value = "1")]
     pub k: usize,
+
+    /// Use merkle-tree memory
+    #[arg(short, default_value = "false")]
+    pub merkle: bool,
 
     /// Use a no-op machine of size n
     #[arg(group = "vm", short, name = "n")]
@@ -110,7 +115,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
     } else if let Some(k) = opts.loopk {
         Ok(loop_vm(k))
     } else {
-        load_elf(opts.file.as_ref().unwrap())
+        load_elf(opts.file.as_ref().unwrap(), opts.merkle)
     }
 }
 
@@ -125,14 +130,16 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
     }
 
     loop {
+        if show {
+            print!("{:50} ", vm.inst);
+        }
         eval_inst(vm)?;
         if show {
-            println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.PC);
+            println!("{:8x} {:8x}", vm.Z, vm.regs.pc);
         }
         if vm.inst.inst == RV32::UNIMP {
             break;
         }
-        eval_writeback(vm);
     }
 
     fn table(name: &str, mem: &[u32]) {

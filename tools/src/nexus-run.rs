@@ -12,6 +12,7 @@ fn main() {
 
     let opts = VMOpts {
         k: 1,
+        merkle: false,
         nop: None,
         loopk: None,
         file: Some(PathBuf::from(args[1].clone())),

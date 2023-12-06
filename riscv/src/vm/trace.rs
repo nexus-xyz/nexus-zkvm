@@ -2,33 +2,39 @@
 
 use crate::error::*;
 use crate::rv32::{RV32, parse::*};
+use super::memory::path::Path;
 use super::eval::*;
 
 // ArkWorks macros are not hygenic
 mod ark_confusion {
     use serde::{Serialize, Deserialize};
     use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+    use super::{Regs, Path};
 
-    use crate::vm::eval::Regs;
-
-    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
     pub struct Trace {
         pub k: usize,
         pub start: usize,
         pub blocks: Vec<Block>,
     }
 
-    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
     pub struct Block {
         pub regs: Regs,
         pub steps: Vec<Step>,
     }
 
-    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
     pub struct Step {
         pub inst: u32,
         pub Z: u32,
         pub PC: u32,
+        #[serde(with = "crate::ark_serde")]
+        pub pc_path: Path,
+        #[serde(with = "crate::ark_serde")]
+        pub read_path: Option<Path>,
+        #[serde(with = "crate::ark_serde")]
+        pub write_path: Option<Path>,
     }
 }
 pub use ark_confusion::*;
@@ -54,8 +60,14 @@ impl Trace {
 
 fn step(vm: &mut VM) -> Result<Step> {
     eval_inst(vm)?;
-    let step = Step { inst: vm.inst.word, Z: vm.Z, PC: vm.PC };
-    eval_writeback(vm);
+    let step = Step {
+        inst: vm.inst.word,
+        Z: vm.Z,
+        PC: vm.regs.pc,
+        pc_path: vm.pc_path.as_ref().unwrap().clone(),
+        read_path: vm.read_path.clone(),
+        write_path: vm.write_path.clone(),
+    };
     Ok(step)
 }
 
@@ -70,6 +82,10 @@ fn k_step(vm: &mut VM, k: usize) -> Result<Block> {
 }
 
 pub fn trace(vm: &mut VM, k: usize, pow: bool) -> Result<Trace> {
+    // check here so we can safely unwrap paths later
+    if vm.mem.root().is_none() {
+        panic!("trace requires merkle hashes");
+    }
     let mut trace = Trace { k, start: 0, blocks: Vec::new() };
 
     loop {
@@ -106,6 +122,10 @@ pub struct Witness {
     pub Y: u32,
     pub Z: u32,
     pub PC: u32,
+
+    pub pc_path: Path,
+    pub read_path: Path,
+    pub write_path: Path,
 }
 
 impl Block {
@@ -153,6 +173,10 @@ impl Iterator for BlockIter<'_> {
         w.Y = w.regs.x[w.rs2 as usize];
         w.Z = s.Z;
         w.PC = s.PC;
+
+        w.pc_path = s.pc_path.clone();
+        w.read_path = s.read_path.as_ref().unwrap_or(&w.pc_path).clone();
+        w.write_path = s.write_path.as_ref().unwrap_or(&w.read_path).clone();
 
         self.regs.pc = w.PC;
         self.regs.x[w.rd as usize] = w.Z;

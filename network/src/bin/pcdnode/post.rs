@@ -99,7 +99,7 @@ fn api(mut state: WorkerState, msg: NexusAPI) -> Result<NexusAPI> {
     match msg {
         Program { elf, .. } => {
             println!("GOT a program");
-            let vm = parse_elf(&elf)?;
+            let vm = parse_elf(&elf, true)?;
             let hash = hex::encode(Sha256::digest(&elf));
             manage_proof(state, hash.clone(), vm)?;
             Ok(Proof(Proof { hash, ..Proof::default() }))
