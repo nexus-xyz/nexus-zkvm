@@ -65,11 +65,12 @@ impl VM {
     }
 
     /// initialize memory from slice
-    pub fn init_memory(&mut self, addr: u32, bytes: &[u8]) {
+    pub fn init_memory(&mut self, addr: u32, bytes: &[u8]) -> Result<()> {
         // slow, but simple
         for (i, b) in bytes.iter().enumerate() {
-            self.mem.sb(addr + (i as u32), *b as u32);
+            self.mem.sb(addr + (i as u32), *b as u32)?;
         }
+        Ok(())
     }
 }
 
@@ -116,7 +117,7 @@ pub fn eval_writeback(vm: &mut VM) {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut VM) -> Result<()> {
-    vm.inst = parse_inst(vm.regs.pc, vm.mem.rd_page(vm.regs.pc))?;
+    vm.inst = parse_inst(vm.regs.pc, vm.mem.read_cell(vm.regs.pc)?.bytes())?;
 
     // initialize micro-architecture state
     vm.rd = 0;
@@ -157,11 +158,11 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
 
             let addr = add32(X, imm);
             match lop {
-                LB => vm.Z = vm.mem.lb(addr),
-                LH => vm.Z = vm.mem.lh(addr),
-                LW => vm.Z = vm.mem.lw(addr),
-                LBU => vm.Z = vm.mem.lbu(addr),
-                LHU => vm.Z = vm.mem.lhu(addr),
+                LB => vm.Z = vm.mem.lb(addr)?,
+                LH => vm.Z = vm.mem.lh(addr)?,
+                LW => vm.Z = vm.mem.lw(addr)?,
+                LBU => vm.Z = vm.mem.lbu(addr)?,
+                LHU => vm.Z = vm.mem.lhu(addr)?,
             }
         }
         STORE { sop, rs1, rs2, imm } => {
@@ -170,9 +171,9 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
 
             let addr = add32(X, imm);
             match sop {
-                SB => vm.mem.sb(addr, Y),
-                SH => vm.mem.sh(addr, Y),
-                SW => vm.mem.sw(addr, Y),
+                SB => vm.mem.sb(addr, Y)?,
+                SH => vm.mem.sh(addr, Y)?,
+                SW => vm.mem.sw(addr, Y)?,
             }
         }
         ALUI { aop, rd, rs1, imm } => {
@@ -196,7 +197,7 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
             if num == 1 {
                 let mut stdout = std::io::stdout();
                 for addr in a0..a0 + a1 {
-                    let b = vm.mem.lb(addr) as u8;
+                    let b = vm.mem.lb(addr)? as u8;
                     stdout.write_all(&[b])?;
                 }
                 let _ = stdout.flush();

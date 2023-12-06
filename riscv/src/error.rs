@@ -16,6 +16,12 @@ pub enum VMError {
     /// Unknown ECALL number
     UnknownECall(u32, u32),
 
+    /// Invalid memory address
+    SegFault(u32),
+
+    /// Invalid memory alignment
+    Misaligned(u32),
+
     /// An error occurred reading file system
     IOError(std::io::Error),
 
@@ -52,10 +58,12 @@ impl Error for VMError {
 impl Display for VMError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            PartialInstruction(pc) => write!(f, "partial instruction at pc:{pc}"),
-            InvalidSize(pc, sz) => write!(f, "invalid instruction size, {sz}, at pc:{pc}"),
-            InvalidInstruction(pc, i) => write!(f, "invalid instruction {i:x} at pc:{pc}"),
-            UnknownECall(pc, n) => write!(f, "unknown ecall {n} at pc:{pc}"),
+            PartialInstruction(pc) => write!(f, "partial instruction at pc:{pc:x}"),
+            InvalidSize(pc, sz) => write!(f, "invalid instruction size, {sz}, at pc:{pc:x}"),
+            InvalidInstruction(pc, i) => write!(f, "invalid instruction {i:x} at pc:{pc:x}"),
+            UnknownECall(pc, n) => write!(f, "unknown ecall {n} at pc:{pc:x}"),
+            SegFault(addr) => write!(f, "invalid memory address {addr:x}"),
+            Misaligned(addr) => write!(f, "mis-alligned memory address {addr:x}"),
             IOError(e) => write!(f, "{e}"),
             ELFError(e) => write!(f, "{e}"),
         }
