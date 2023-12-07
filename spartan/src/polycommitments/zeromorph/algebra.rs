@@ -174,21 +174,22 @@ pub fn shift_and_combine_with_powers<F: PrimeField>(
   coeffs
 }
 
-// /// This computes the quotient q(x) in p(x) = q(x) * (x - r) + p(r) using "Ruffini's rule".
-// pub fn quotient_univar_by_linear_factor<F: PrimeField>(
-//   p: &DenseUnivarPolynomial<F>,
-//   r: F,
-// ) -> DenseUnivarPolynomial<F> {
-//   let mut coeffs: Vec<F> = p.coeffs().clone().iter_mut().rev().collect();
-//   let mut prev = F::zero();
-//   for i in 0..coeffs.len() {
-//     let tmp = coeffs[i];
-//     coeffs[i] += prev;
-//     prev = tmp * r;
-//   }
-//   coeffs.pop();
-//   DenseUnivarPolynomial::from_coefficients_slice(coeffs)
-// }
+/// This computes the quotient q(x) in p(x) = q(x) * (x - r) + p(r) using "Ruffini's rule".
+pub fn quotient_univar_by_linear_factor<F: PrimeField>(
+  p: &DenseUnivarPolynomial<F>,
+  r: F,
+) -> DenseUnivarPolynomial<F> {
+  let mut res = vec![F::zero(); p.degree()];
+  let mut tmp = F::zero();
+  for (n, a) in p.coeffs().iter().enumerate().rev() {
+    if n > 0 {
+      tmp *= r;
+      tmp += a;
+      res[n - 1] = tmp;
+    }
+  }
+  DenseUnivarPolynomial::from_coefficients_vec(res)
+}
 
 #[cfg(test)]
 mod tests {

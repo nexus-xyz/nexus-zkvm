@@ -3,8 +3,8 @@ use ark_ff::PrimeField;
 use ark_poly::{univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial};
 use ark_poly_commit::{
   error::Error,
-  kzg10::{Commitment as KZGCommitment, Randomness as KZG10Randomness, KZG10},
-  PCRandomness, PCUniversalParams,
+  kzg10::{Commitment as KZGCommitment, KZG10},
+  PCUniversalParams,
 };
 use ark_std::{
   collections::BTreeMap, end_timer, marker::PhantomData, ops::Mul, rand::RngCore, start_timer,
@@ -147,22 +147,9 @@ where
     timer_zeta_x.stop();
 
     // Compute the quotient polynomials q_zeta = zeta_x/(X-x) and q_Z = Z_x/(X-x)
-    // TODO: This might not be as efficient as possible, since it uses general polynomial division instead of Ruffini's rule.
     let timer_divide = Timer::new("poly_division");
-    let q_Z = KZG10::<E, DenseUnivarPolynomial<E::ScalarField>>::compute_witness_polynomial(
-      &Z_x,
-      x,
-      &KZG10Randomness::empty(),
-    )
-    .unwrap()
-    .0;
-    let q_zeta = KZG10::<E, DenseUnivarPolynomial<E::ScalarField>>::compute_witness_polynomial(
-      &zeta_x,
-      x,
-      &KZG10Randomness::empty(),
-    )
-    .unwrap()
-    .0;
+    let q_Z = quotient_univar_by_linear_factor(&Z_x, x);
+    let q_zeta = quotient_univar_by_linear_factor(&zeta_x, x);
     let q_zeta_Z = &q_zeta + &(&q_Z * z);
     timer_divide.stop();
 
