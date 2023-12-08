@@ -382,7 +382,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
         &poly_vars,
         &ry[1..],
         &eval_vars_at_ry,
-        &key.pc_commit_key,
+        &key.keys.ck,
         transcript,
       )
     };
@@ -393,7 +393,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
         &poly_error,
         &rx,
         E_claim,
-        &key.pc_commit_key,
+        &key.keys.ck,
         transcript,
       )
     };
@@ -672,7 +672,7 @@ mod tests {
         &instance,
         &inst_evals,
         &mut verifier_transcript,
-        &gens.gens_r1cs_sat.pc_verify_key,
+        &gens.gens_r1cs_sat.keys.vk,
       )
       .is_ok());
   }

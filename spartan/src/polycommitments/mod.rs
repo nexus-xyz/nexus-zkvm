@@ -6,6 +6,7 @@ use ark_std::{
   rand::RngCore,
 };
 use core::fmt::Debug;
+use derivative::Derivative;
 use merlin::Transcript;
 
 use crate::{dense_mlpoly::DensePolynomial, transcript::AppendToTranscript};
@@ -53,7 +54,8 @@ pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
   fn max_num_vars(&self) -> usize;
 }
 
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Derivative, Debug)]
+#[derivative(Clone(bound = ""))]
 pub struct PCSKeys<G, PC>
 where
   G: CurveGroup,

@@ -9,8 +9,7 @@ use crate::{
 };
 
 pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pub pc_commit_key: PC::PolyCommitmentKey,
-  pub pc_verify_key: PC::EvalVerifierKey,
+  pub keys: PCSKeys<G, PC>,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
@@ -18,13 +17,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
-    let PCSKeys {
-      ck: pc_commit_key,
-      vk: pc_verify_key,
-    } = PC::trim(SRS, n.log_2());
     CRR1CSKey {
-      pc_commit_key,
-      pc_verify_key,
+      keys: PC::trim(SRS, n.log_2()),
     }
   }
   pub fn get_min_num_vars(num_cons: usize, num_vars: usize) -> usize {
@@ -161,8 +155,8 @@ pub fn check_commitments<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   let poly_W = DensePolynomial::new(W);
   let poly_E = DensePolynomial::new(E);
 
-  let expected_comm_W = PC::commit(&poly_W, &key.pc_commit_key);
-  let expected_comm_E = PC::commit(&poly_E, &key.pc_commit_key);
+  let expected_comm_W = PC::commit(&poly_W, &key.keys.ck);
+  let expected_comm_E = PC::commit(&poly_E, &key.keys.ck);
 
   expected_comm_W == *comm_W && expected_comm_E == *comm_E
 }
@@ -235,10 +229,9 @@ pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   // compute commitments to the vectors `vars` and `E`.
   let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
     vars.assignment.as_slice(),
-    &gens.gens_r1cs_sat.pc_commit_key,
+    &gens.gens_r1cs_sat.keys.ck,
   );
-  let comm_E =
-    <PC as VectorCommitmentScheme<G>>::commit(E.as_slice(), &gens.gens_r1cs_sat.pc_commit_key);
+  let comm_E = <PC as VectorCommitmentScheme<G>>::commit(E.as_slice(), &gens.gens_r1cs_sat.keys.ck);
   (
     shape,
     CRR1CSInstance::<G, PC> {
