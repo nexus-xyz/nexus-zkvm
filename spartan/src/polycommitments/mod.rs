@@ -53,6 +53,7 @@ pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
   fn max_num_vars(&self) -> usize;
 }
 
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct PCSKeys<G, PC>
 where
   G: CurveGroup,
