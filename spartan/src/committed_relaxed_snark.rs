@@ -12,19 +12,18 @@ use crate::{
   errors::ProofVerifyError,
   polycommitments::PolyCommitmentScheme,
   r1csinstance::{R1CSCommitmentGens, R1CSEvalProof},
-  random::RandomTape,
   timer::Timer,
   transcript::{AppendToTranscript, ProofTranscript},
   ComputationCommitment, ComputationDecommitment, Instance,
 };
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
-pub struct SNARKGens<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+pub struct CRSNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   pub gens_r1cs_sat: CRR1CSKey<G, PC>,
-  pub gens_r1cs_eval: R1CSCommitmentGens<G>,
+  pub gens_r1cs_eval: R1CSCommitmentGens<G, PC>,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRSNARKKey<G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
   pub fn new(
@@ -34,26 +33,33 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
     num_inputs: usize,
     num_nz_entries: usize,
   ) -> Self {
-    let num_vars_padded = {
-      let mut num_vars_padded = max(num_vars, num_inputs + 1);
-      if num_vars_padded != num_vars_padded.next_power_of_two() {
-        num_vars_padded = num_vars_padded.next_power_of_two();
-      }
-      num_vars_padded
-    };
-
+    let num_vars_padded = Self::get_num_vars_padded(num_vars, num_inputs);
     let gens_r1cs_sat = CRR1CSKey::<G, PC>::new(SRS, num_cons, num_vars_padded);
-    let gens_r1cs_eval = R1CSCommitmentGens::new(
-      b"gens_r1cs_eval",
-      num_cons,
-      num_vars_padded,
-      num_inputs,
-      num_nz_entries,
-    );
-    SNARKGens {
+    let gens_r1cs_eval =
+      R1CSCommitmentGens::new(SRS, num_cons, num_vars_padded, num_inputs, num_nz_entries);
+    CRSNARKKey {
       gens_r1cs_sat,
       gens_r1cs_eval,
     }
+  }
+  fn get_num_vars_padded(num_vars: usize, num_inputs: usize) -> usize {
+    let mut num_vars_padded = max(num_vars, num_inputs + 1);
+    if num_vars_padded != num_vars_padded.next_power_of_two() {
+      num_vars_padded = num_vars_padded.next_power_of_two();
+    }
+    num_vars_padded
+  }
+  pub fn get_min_num_vars(
+    num_cons: usize,
+    num_vars: usize,
+    num_inputs: usize,
+    num_nz_entries: usize,
+  ) -> usize {
+    let num_vars_padded = Self::get_num_vars_padded(num_vars, num_inputs);
+    let min_num_vars_sat = CRR1CSKey::<G, PC>::get_min_num_vars(num_cons, num_vars_padded);
+    let min_num_vars_eval =
+      R1CSCommitmentGens::<G, PC>::get_min_num_vars(num_cons, num_vars_padded, num_nz_entries);
+    max(min_num_vars_sat, min_num_vars_eval)
   }
 }
 
@@ -63,7 +69,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKGens<G, PC> {
 pub struct SNARK<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   r1cs_sat_proof: CRR1CSProof<G, PC>,
   inst_evals: (G::ScalarField, G::ScalarField, G::ScalarField),
-  r1cs_eval_proof: R1CSEvalProof<G>,
+  r1cs_eval_proof: R1CSEvalProof<G, PC>,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
@@ -74,9 +80,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
   /// A public computation to create a commitment to an R1CS instance
   pub fn encode(
     inst: &Instance<G::ScalarField>,
-    gens: &SNARKGens<G, PC>,
+    gens: &CRSNARKKey<G, PC>,
   ) -> (
-    ComputationCommitment<G>,
+    ComputationCommitment<G, PC>,
     ComputationDecommitment<G::ScalarField>,
   ) {
     let timer_encode = Timer::new("SNARK::encode");
@@ -93,9 +99,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     shape: &CRR1CSShape<G::ScalarField>,
     instance: &CRR1CSInstance<G, PC>,
     witness: CRR1CSWitness<G::ScalarField>,
-    comm: &ComputationCommitment<G>,
+    comm: &ComputationCommitment<G, PC>,
     decomm: &ComputationDecommitment<G::ScalarField>,
-    gens: &SNARKGens<G, PC>,
+    gens: &CRSNARKKey<G, PC>,
     transcript: &mut Transcript,
   ) -> Self {
     let timer_prove = Timer::new("SNARK::prove");
@@ -163,9 +169,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     };
     timer_eval.stop();
 
-    // we create a Transcript object seeded with a random F
-    // to aid the prover produce its randomness
-    let mut random_tape = RandomTape::<G>::new(b"proof");
     let r1cs_eval_proof = {
       let proof = R1CSEvalProof::prove(
         &decomm.decomm,
@@ -174,7 +177,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
         &inst_evals,
         &gens.gens_r1cs_eval,
         transcript,
-        &mut random_tape,
       );
 
       let mut proof_encoded = vec![];
@@ -195,10 +197,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
   /// A method to verify the SNARK proof of the satisfiability of an R1CS instance
   pub fn verify(
     &self,
-    comm: &ComputationCommitment<G>,
+    comm: &ComputationCommitment<G, PC>,
     instance: &CRR1CSInstance<G, PC>,
     transcript: &mut Transcript,
-    gens: &SNARKGens<G, PC>,
+    gens: &CRSNARKKey<G, PC>,
   ) -> Result<(), ProofVerifyError> {
     let timer_verify = Timer::new("SNARK::verify");
     <Transcript as ProofTranscript<G>>::append_protocol_name(

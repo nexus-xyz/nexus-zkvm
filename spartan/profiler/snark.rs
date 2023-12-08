@@ -6,7 +6,11 @@ extern crate merlin;
 
 use ark_bls12_381::{Fr, G1Projective};
 use ark_serialize::CanonicalSerialize;
-use libspartan::{Instance, SNARKGens, SNARK};
+use ark_std::test_rng;
+use libspartan::{
+  polycommitments::{hyrax::Hyrax, PolyCommitmentScheme},
+  Instance, SNARKGens, SNARK,
+};
 use merlin::Transcript;
 
 fn print(msg: &str) {
@@ -28,8 +32,13 @@ pub fn main() {
     let (inst, vars, inputs) =
       Instance::<Fr>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
+    let SRS =
+      Hyrax::<G1Projective>::setup(num_cons, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
+
     // produce public generators
-    let gens = SNARKGens::<G1Projective>::new(num_cons, num_vars, num_inputs, num_cons);
+    let gens = SNARKGens::<G1Projective, Hyrax<G1Projective>>::new(
+      &SRS, num_cons, num_vars, num_inputs, num_cons,
+    );
 
     // create a commitment to R1CSInstance
     let (comm, decomm) = SNARK::encode(&inst, &gens);

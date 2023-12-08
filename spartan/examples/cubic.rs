@@ -12,8 +12,12 @@
 use ark_bls12_381::Fr;
 use ark_bls12_381::G1Projective;
 use ark_ff::PrimeField;
-use ark_std::test_rng;
-use libspartan::{InputsAssignment, Instance, SNARKGens, VarsAssignment, SNARK};
+use ark_std::{cmp::max, test_rng};
+use libspartan::{
+  math::Math,
+  polycommitments::{hyrax::Hyrax, PolyCommitmentScheme},
+  InputsAssignment, Instance, SNARKGens, VarsAssignment, SNARK,
+};
 use merlin::Transcript;
 
 #[allow(non_snake_case)]
@@ -122,7 +126,22 @@ fn main() {
   ) = produce_r1cs::<Fr>();
 
   // produce public parameters
-  let gens = SNARKGens::<G1Projective>::new(num_cons, num_vars, num_inputs, num_non_zero_entries);
+  let srs = Hyrax::<G1Projective>::setup(
+    max(
+      num_cons.log_2(),
+      max(num_vars.log_2(), num_non_zero_entries.log_2()),
+    ),
+    b"SNARK_example_SRS",
+    &mut test_rng(),
+  )
+  .unwrap();
+  let gens = SNARKGens::<G1Projective, Hyrax<G1Projective>>::new(
+    &srs,
+    num_cons,
+    num_vars,
+    num_inputs,
+    num_non_zero_entries,
+  );
 
   // create a commitment to the R1CS instance
   let (comm, decomm) = SNARK::encode(&inst, &gens);

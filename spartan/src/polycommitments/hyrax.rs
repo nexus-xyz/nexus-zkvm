@@ -14,15 +14,28 @@ use crate::{
     DensePolynomial, EqPolynomial, PolyCommitment, PolyCommitmentGens, PolyEvalProof,
   },
   math::Math,
-  polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait},
+  polycommitments::{PCSKeys, PolyCommitmentScheme, PolyCommitmentTrait, SRSTrait},
   random::RandomTape,
   transcript::{AppendToTranscript, ProofTranscript},
 };
 
 use super::error::PCSError;
 
+// This "SRS" is just a placeholder to fit the trait: it just records the max number of variables.
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
+pub struct HyraxSRS {
+  pub max_num_vars: usize,
+}
+
+impl SRSTrait for HyraxSRS {
+  fn max_num_vars(&self) -> usize {
+    self.max_num_vars
+  }
+}
+
 #[derive(Clone, CanonicalSerialize, CanonicalDeserialize, Debug)]
 pub struct HyraxKey<G: CurveGroup> {
+  pub supported_num_vars: usize,
   pub gens: PolyCommitmentGens<G>,
 }
 
@@ -135,20 +148,23 @@ pub struct Hyrax<G> {
 }
 
 impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
-  type SRS = HyraxKey<G>;
+  type SRS = HyraxSRS;
   type Commitment = HyraxCommitment<G>;
   type PolyCommitmentKey = HyraxKey<G>;
   type EvalVerifierKey = HyraxKey<G>;
 
   type PolyCommitmentProof = HyraxProof<G>;
 
-  fn trim<'a>(
-    srs: &Self::SRS,
-    _supported_num_vars: usize,
-  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
-    let commit_key = srs.clone();
-    let verifier_key = srs.clone();
-    (commit_key, verifier_key)
+  // Note: this does not use the SRS and just samples new generators.
+  fn trim<'a>(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<G, Self> {
+    assert!(srs.max_num_vars >= supported_num_vars, "SRS is too small");
+    let gens = PolyCommitmentGens::new(supported_num_vars, b"Hyrax");
+    let ck = HyraxKey {
+      supported_num_vars,
+      gens,
+    };
+    let vk = ck.clone();
+    PCSKeys { ck, vk }
   }
 
   fn commit<'a>(
@@ -160,7 +176,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   }
 
   fn prove<'a>(
-    _C: &Self::Commitment,
+    _C: Option<&Self::Commitment>,
     poly: &DensePolynomial<G::ScalarField>,
     r: &[<G>::ScalarField],
     eval: &<G>::ScalarField,
@@ -197,11 +213,11 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
 
   fn setup(
     num_poly_vars: usize,
-    label: &'static [u8],
+    _label: &'static [u8],
     _rng: &mut impl RngCore,
   ) -> Result<Self::SRS, Error> {
-    Ok(HyraxKey {
-      gens: PolyCommitmentGens::new(num_poly_vars, label),
+    Ok(HyraxSRS {
+      max_num_vars: num_poly_vars,
     })
   }
 }

@@ -378,7 +378,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     let timer_polyevalproof = Timer::new("polyevalproof");
     let proof_eval_vars_at_ry = {
       PC::prove(
-        comm_W,
+        Some(comm_W),
         &poly_vars,
         &ry[1..],
         &eval_vars_at_ry,
@@ -389,7 +389,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     let proof_eval_error_at_rx = {
       PC::prove(
-        comm_E,
+        Some(comm_E),
         &poly_error,
         &rx,
         E_claim,
@@ -546,7 +546,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
 #[cfg(test)]
 mod tests {
-  use crate::committed_relaxed_snark::SNARKGens;
+  use crate::committed_relaxed_snark::CRSNARKKey;
   use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentScheme};
 
   use crate::{r1csinstance::R1CSInstance, Instance};
@@ -555,7 +555,7 @@ mod tests {
   use ark_bls12_381::Fr;
   use ark_bls12_381::G1Projective;
   use ark_ff::PrimeField;
-  use ark_std::{cmp::max, test_rng, UniformRand};
+  use ark_std::{test_rng, UniformRand};
 
   fn produce_tiny_r1cs<F: PrimeField>() -> (R1CSInstance<F>, Vec<F>, Vec<F>) {
     // three constraints over five variables Z1, Z2, Z3, Z4, and Z5
@@ -623,7 +623,7 @@ mod tests {
     CRR1CSShape<G::ScalarField>,
     CRR1CSInstance<G, PC>,
     CRR1CSWitness<G::ScalarField>,
-    SNARKGens<G, PC>,
+    CRSNARKKey<G, PC>,
   ) {
     // compute random satisfying assignment for r1cs
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
@@ -660,11 +660,14 @@ mod tests {
       E[i] = AB_val - u * C_val;
     }
 
-    // compute commitments to the vectors `vars` and `E`.
-    let n = max(num_cons, num_vars);
+    // generate public parameters for the PCS
     let mut rng = test_rng();
-    let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
-    let gens = SNARKGens::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
+    let min_num_vars =
+      CRSNARKKey::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+    let SRS = PC::setup(min_num_vars, b"test-SRS", &mut rng).unwrap();
+    let gens = CRSNARKKey::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
+
+    // compute commitments to the vectors `vars` and `E`.
     let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
       vars.assignment.as_slice(),
       &gens.gens_r1cs_sat.pc_commit_key,

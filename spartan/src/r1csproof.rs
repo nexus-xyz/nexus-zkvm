@@ -70,6 +70,9 @@ impl<G: CurveGroup> R1CSGens<G> {
     let gens_sc = R1CSSumcheckGens::new(label, &gens_pc.gens.gens_1);
     R1CSGens { gens_sc, gens_pc }
   }
+  pub fn get_min_num_vars(_num_cons: usize, num_vars: usize) -> usize {
+    num_vars.log_2()
+  }
 }
 
 impl<G: CurveGroup> R1CSProof<G> {

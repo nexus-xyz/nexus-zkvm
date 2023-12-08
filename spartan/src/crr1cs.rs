@@ -2,10 +2,10 @@ use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
 use ark_std::{cmp::max, test_rng, One, UniformRand, Zero};
 
-use super::polycommitments::{PolyCommitmentScheme, VectorCommitmentScheme};
+use super::polycommitments::{PCSKeys, PolyCommitmentScheme, VectorCommitmentScheme};
 use crate::{
-  committed_relaxed_snark::SNARKGens, dense_mlpoly::DensePolynomial, errors::R1CSError, math::Math,
-  InputsAssignment, Instance, VarsAssignment,
+  committed_relaxed_snark::CRSNARKKey, dense_mlpoly::DensePolynomial, errors::R1CSError,
+  math::Math, InputsAssignment, Instance, VarsAssignment,
 };
 
 pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
@@ -18,11 +18,18 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
-    let (pc_commit_key, pc_verify_key) = PC::trim(SRS, n.log_2());
+    let PCSKeys {
+      ck: pc_commit_key,
+      vk: pc_verify_key,
+    } = PC::trim(SRS, n.log_2());
     CRR1CSKey {
       pc_commit_key,
       pc_verify_key,
     }
+  }
+  pub fn get_min_num_vars(num_cons: usize, num_vars: usize) -> usize {
+    let n = max(num_cons, num_vars);
+    n.log_2()
   }
 }
 
@@ -182,7 +189,7 @@ pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   CRR1CSShape<G::ScalarField>,
   CRR1CSInstance<G, PC>,
   CRR1CSWitness<G::ScalarField>,
-  SNARKGens<G, PC>,
+  CRSNARKKey<G, PC>,
 ) {
   // compute random satisfying assignment for r1cs
   let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
@@ -223,7 +230,7 @@ pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   let n = max(num_cons, num_vars);
   let mut rng = test_rng();
   let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
-  let gens = SNARKGens::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
+  let gens = CRSNARKKey::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
   let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
     vars.assignment.as_slice(),
     &gens.gens_r1cs_sat.pc_commit_key,

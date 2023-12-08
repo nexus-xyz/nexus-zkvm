@@ -1,20 +1,17 @@
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::needless_range_loop)]
-use super::dense_mlpoly::DensePolynomial;
-use super::dense_mlpoly::{
-  EqPolynomial, IdentityPolynomial, PolyCommitment, PolyCommitmentGens, PolyEvalProof,
-};
+use super::dense_mlpoly::{DensePolynomial, EqPolynomial, IdentityPolynomial};
 use super::errors::ProofVerifyError;
 use super::math::Math;
+use super::polycommitments::{PCSKeys, PolyCommitmentScheme, SRSTrait};
 use super::product_tree::{DotProductCircuit, ProductCircuit, ProductCircuitEvalProofBatched};
-use super::random::RandomTape;
 use super::timer::Timer;
 use super::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField};
 use ark_serialize::*;
-use ark_std::{One, Zero};
+use ark_std::{cmp::max, One, Zero};
 use core::cmp::Ordering;
 use merlin::Transcript;
 
@@ -45,8 +42,8 @@ pub struct Derefs<F> {
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct DerefsCommitment<G: CurveGroup> {
-  comm_ops_val: PolyCommitment<G>,
+pub struct DerefsCommitment<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  comm_ops_val: PC::Commitment,
 }
 
 impl<F: PrimeField> Derefs<F> {
@@ -71,21 +68,21 @@ impl<F: PrimeField> Derefs<F> {
     derefs
   }
 
-  pub fn commit<G: CurveGroup<ScalarField = F>>(
+  pub fn commit<G: CurveGroup<ScalarField = F>, PC: PolyCommitmentScheme<G>>(
     &self,
-    gens: &PolyCommitmentGens<G>,
-  ) -> DerefsCommitment<G> {
-    let (comm_ops_val, _blinds) = self.comb.commit(gens, None);
+    gens: &PC::PolyCommitmentKey,
+  ) -> DerefsCommitment<G, PC> {
+    let comm_ops_val = PC::commit(&self.comb, gens);
     DerefsCommitment { comm_ops_val }
   }
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct DerefsEvalProof<G: CurveGroup> {
-  proof_derefs: PolyEvalProof<G>,
+pub struct DerefsEvalProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  proof_derefs: PC::PolyCommitmentProof,
 }
 
-impl<G: CurveGroup> DerefsEvalProof<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> DerefsEvalProof<G, PC> {
   fn protocol_name() -> &'static [u8] {
     b"Derefs evaluation proof"
   }
@@ -94,10 +91,9 @@ impl<G: CurveGroup> DerefsEvalProof<G> {
     joint_poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     evals: Vec<G::ScalarField>,
-    gens: &PolyCommitmentGens<G>,
+    ck: &PC::PolyCommitmentKey,
     transcript: &mut Transcript,
-    random_tape: &mut RandomTape<G>,
-  ) -> PolyEvalProof<G> {
+  ) -> PC::PolyCommitmentProof {
     assert_eq!(joint_poly.get_num_vars(), r.len() + evals.len().log_2());
 
     // append the claimed evaluations to transcript
@@ -126,18 +122,7 @@ impl<G: CurveGroup> DerefsEvalProof<G> {
     // decommit the joint polynomial at r_joint
     <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"joint_claim_eval", &eval_joint);
 
-    let (proof_derefs, _comm_derefs_eval) = PolyEvalProof::prove(
-      joint_poly,
-      None,
-      &r_joint,
-      &eval_joint,
-      None,
-      gens,
-      transcript,
-      random_tape,
-    );
-
-    proof_derefs
+    PC::prove(None, joint_poly, &r_joint, &eval_joint, ck, transcript)
   }
 
   // evalues both polynomials at r and produces a joint proof of opening
@@ -146,13 +131,12 @@ impl<G: CurveGroup> DerefsEvalProof<G> {
     eval_row_ops_val_vec: &[G::ScalarField],
     eval_col_ops_val_vec: &[G::ScalarField],
     r: &[G::ScalarField],
-    gens: &PolyCommitmentGens<G>,
+    ck: &PC::PolyCommitmentKey,
     transcript: &mut Transcript,
-    random_tape: &mut RandomTape<G>,
   ) -> Self {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      DerefsEvalProof::<G>::protocol_name(),
+      DerefsEvalProof::<G, PC>::protocol_name(),
     );
 
     let evals = {
@@ -162,17 +146,17 @@ impl<G: CurveGroup> DerefsEvalProof<G> {
       evals
     };
     let proof_derefs =
-      DerefsEvalProof::prove_single(&derefs.comb, r, evals, gens, transcript, random_tape);
+      DerefsEvalProof::<G, PC>::prove_single(&derefs.comb, r, evals, ck, transcript);
 
     DerefsEvalProof { proof_derefs }
   }
 
   fn verify_single(
-    proof: &PolyEvalProof<G>,
-    comm: &PolyCommitment<G>,
+    proof: &PC::PolyCommitmentProof,
+    comm: &PC::Commitment,
     r: &[G::ScalarField],
     evals: Vec<G::ScalarField>,
-    gens: &PolyCommitmentGens<G>,
+    vk: &PC::EvalVerifierKey,
     transcript: &mut Transcript,
   ) -> Result<(), ProofVerifyError> {
     // append the claimed evaluations to transcript
@@ -200,7 +184,7 @@ impl<G: CurveGroup> DerefsEvalProof<G> {
       &joint_claim_eval,
     );
 
-    proof.verify_plain(gens, transcript, &r_joint, &joint_claim_eval, comm)
+    PC::verify(comm, proof, vk, transcript, &r_joint, &joint_claim_eval).map_err(|e| e.into())
   }
 
   // verify evaluations of both polynomials at r
@@ -209,30 +193,30 @@ impl<G: CurveGroup> DerefsEvalProof<G> {
     r: &[G::ScalarField],
     eval_row_ops_val_vec: &[G::ScalarField],
     eval_col_ops_val_vec: &[G::ScalarField],
-    gens: &PolyCommitmentGens<G>,
-    comm: &DerefsCommitment<G>,
+    vk: &PC::EvalVerifierKey,
+    comm: &DerefsCommitment<G, PC>,
     transcript: &mut Transcript,
   ) -> Result<(), ProofVerifyError> {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      DerefsEvalProof::<G>::protocol_name(),
+      DerefsEvalProof::<G, PC>::protocol_name(),
     );
     let mut evals = eval_row_ops_val_vec.to_owned();
     evals.extend(eval_col_ops_val_vec);
     evals.resize(evals.len().next_power_of_two(), G::ScalarField::zero());
 
-    DerefsEvalProof::verify_single(
+    DerefsEvalProof::<G, PC>::verify_single(
       &self.proof_derefs,
       &comm.comm_ops_val,
       r,
       evals,
-      gens,
+      vk,
       transcript,
     )
   }
 }
 
-impl<G: CurveGroup> AppendToTranscript<G> for DerefsCommitment<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> AppendToTranscript<G> for DerefsCommitment<G, PC> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_message(b"derefs_commitment", b"begin_derefs_commitment");
     self.comm_ops_val.append_to_transcript(label, transcript);
@@ -310,23 +294,49 @@ pub struct MultiSparseMatPolynomialAsDense<F> {
   comb_mem: DensePolynomial<F>,
 }
 
-pub struct SparseMatPolyCommitmentGens<G>
+pub struct SparseMatPolyCommitmentKey<G, PC>
 where
   G: CurveGroup,
+  PC: PolyCommitmentScheme<G>,
 {
-  gens_ops: PolyCommitmentGens<G>,
-  gens_mem: PolyCommitmentGens<G>,
-  gens_derefs: PolyCommitmentGens<G>,
+  gens_ops: PCSKeys<G, PC>,
+  gens_mem: PCSKeys<G, PC>,
+  gens_derefs: PCSKeys<G, PC>,
 }
 
-impl<G: CurveGroup> SparseMatPolyCommitmentGens<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyCommitmentKey<G, PC> {
   pub fn new(
-    label: &'static [u8],
+    SRS: &PC::SRS,
     num_vars_x: usize,
     num_vars_y: usize,
     num_nz_entries: usize,
     batch_size: usize,
-  ) -> SparseMatPolyCommitmentGens<G> {
+  ) -> SparseMatPolyCommitmentKey<G, PC> {
+    assert!(
+      SRS.max_num_vars()
+        >= Self::get_min_num_vars(num_vars_x, num_vars_y, num_nz_entries, batch_size),
+      "SRS too small: max_num_vars = {}, required = {}",
+      SRS.max_num_vars(),
+      Self::get_min_num_vars(num_vars_x, num_vars_y, num_nz_entries, batch_size)
+    );
+    let (num_vars_ops, num_vars_mem, num_vars_derefs) =
+      Self::get_gens_sizes(num_vars_x, num_vars_y, num_nz_entries, batch_size);
+
+    let gens_ops = PC::trim(SRS, num_vars_ops);
+    let gens_mem = PC::trim(SRS, num_vars_mem);
+    let gens_derefs = PC::trim(SRS, num_vars_derefs);
+    SparseMatPolyCommitmentKey {
+      gens_ops,
+      gens_mem,
+      gens_derefs,
+    }
+  }
+  fn get_gens_sizes(
+    num_vars_x: usize,
+    num_vars_y: usize,
+    num_nz_entries: usize,
+    batch_size: usize,
+  ) -> (usize, usize, usize) {
     let num_vars_ops =
       num_nz_entries.next_power_of_two().log_2() + (batch_size * 5).next_power_of_two().log_2();
     let num_vars_mem = if num_vars_x > num_vars_y {
@@ -336,28 +346,32 @@ impl<G: CurveGroup> SparseMatPolyCommitmentGens<G> {
     } + 1;
     let num_vars_derefs =
       num_nz_entries.next_power_of_two().log_2() + (batch_size * 2).next_power_of_two().log_2();
-
-    let gens_ops = PolyCommitmentGens::new(num_vars_ops, label);
-    let gens_mem = PolyCommitmentGens::new(num_vars_mem, label);
-    let gens_derefs = PolyCommitmentGens::new(num_vars_derefs, label);
-    SparseMatPolyCommitmentGens {
-      gens_ops,
-      gens_mem,
-      gens_derefs,
-    }
+    (num_vars_ops, num_vars_mem, num_vars_derefs)
+  }
+  pub fn get_min_num_vars(
+    num_vars_x: usize,
+    num_vars_y: usize,
+    num_nz_entries: usize,
+    batch_size: usize,
+  ) -> usize {
+    let (num_vars_ops, num_vars_mem, num_vars_derefs) =
+      Self::get_gens_sizes(num_vars_x, num_vars_y, num_nz_entries, batch_size);
+    max(num_vars_ops, max(num_vars_mem, num_vars_derefs))
   }
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct SparseMatPolyCommitment<G: CurveGroup> {
+pub struct SparseMatPolyCommitment<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   batch_size: usize,
   num_ops: usize,
   num_mem_cells: usize,
-  comm_comb_ops: PolyCommitment<G>,
-  comm_comb_mem: PolyCommitment<G>,
+  comm_comb_ops: PC::Commitment,
+  comm_comb_mem: PC::Commitment,
 }
 
-impl<G: CurveGroup> AppendToTranscript<G> for SparseMatPolyCommitment<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> AppendToTranscript<G>
+  for SparseMatPolyCommitment<G, PC>
+{
   fn append_to_transcript(&self, _label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_u64(b"batch_size", self.batch_size as u64);
     transcript.append_u64(b"num_ops", self.num_ops as u64);
@@ -510,18 +524,18 @@ impl<F: PrimeField> SparseMatPolynomial<F> {
     M_evals
   }
 
-  pub fn multi_commit<G: CurveGroup<ScalarField = F>>(
+  pub fn multi_commit<G: CurveGroup<ScalarField = F>, PC: PolyCommitmentScheme<G>>(
     sparse_polys: &[&SparseMatPolynomial<F>],
-    gens: &SparseMatPolyCommitmentGens<G>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
   ) -> (
-    SparseMatPolyCommitment<G>,
+    SparseMatPolyCommitment<G, PC>,
     MultiSparseMatPolynomialAsDense<F>,
   ) {
     let batch_size = sparse_polys.len();
     let dense = SparseMatPolynomial::multi_sparse_to_dense_rep(sparse_polys);
 
-    let (comm_comb_ops, _blinds_comb_ops) = dense.comb_ops.commit(&gens.gens_ops, None);
-    let (comm_comb_mem, _blinds_comb_mem) = dense.comb_mem.commit(&gens.gens_mem, None);
+    let comm_comb_ops = PC::commit(&dense.comb_ops, &gens.gens_ops.ck);
+    let comm_comb_mem = PC::commit(&dense.comb_mem, &gens.gens_mem.ck);
 
     (
       SparseMatPolyCommitment {
@@ -709,17 +723,17 @@ impl<F: PrimeField> PolyEvalNetwork<F> {
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-struct HashLayerProof<G: CurveGroup> {
+struct HashLayerProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   eval_row: (Vec<G::ScalarField>, Vec<G::ScalarField>, G::ScalarField),
   eval_col: (Vec<G::ScalarField>, Vec<G::ScalarField>, G::ScalarField),
   eval_val: Vec<G::ScalarField>,
   eval_derefs: (Vec<G::ScalarField>, Vec<G::ScalarField>),
-  proof_ops: PolyEvalProof<G>,
-  proof_mem: PolyEvalProof<G>,
-  proof_derefs: DerefsEvalProof<G>,
+  proof_ops: PC::PolyCommitmentProof,
+  proof_mem: PC::PolyCommitmentProof,
+  proof_derefs: DerefsEvalProof<G, PC>,
 }
 
-impl<G: CurveGroup> HashLayerProof<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> HashLayerProof<G, PC> {
   fn protocol_name() -> &'static [u8] {
     b"Sparse polynomial hash layer proof"
   }
@@ -754,13 +768,12 @@ impl<G: CurveGroup> HashLayerProof<G> {
     rand: (&Vec<G::ScalarField>, &Vec<G::ScalarField>),
     dense: &MultiSparseMatPolynomialAsDense<G::ScalarField>,
     derefs: &Derefs<G::ScalarField>,
-    gens: &SparseMatPolyCommitmentGens<G>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
     transcript: &mut Transcript,
-    random_tape: &mut RandomTape<G>,
   ) -> Self {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      HashLayerProof::<G>::protocol_name(),
+      HashLayerProof::<G, PC>::protocol_name(),
     );
 
     let (rand_mem, rand_ops) = rand;
@@ -777,18 +790,17 @@ impl<G: CurveGroup> HashLayerProof<G> {
       &eval_row_ops_val,
       &eval_col_ops_val,
       rand_ops,
-      &gens.gens_derefs,
+      &gens.gens_derefs.ck,
       transcript,
-      random_tape,
     );
     let eval_derefs = (eval_row_ops_val, eval_col_ops_val);
 
     // evaluate row_addr, row_read-ts, col_addr, col_read-ts, val at rand_ops
     // evaluate row_audit_ts and col_audit_ts at rand_mem
     let (eval_row_addr_vec, eval_row_read_ts_vec, eval_row_audit_ts) =
-      HashLayerProof::<G>::prove_helper((rand_mem, rand_ops), &dense.row);
+      HashLayerProof::<G, PC>::prove_helper((rand_mem, rand_ops), &dense.row);
     let (eval_col_addr_vec, eval_col_read_ts_vec, eval_col_audit_ts) =
-      HashLayerProof::<G>::prove_helper((rand_mem, rand_ops), &dense.col);
+      HashLayerProof::<G, PC>::prove_helper((rand_mem, rand_ops), &dense.col);
     let eval_val_vec = (0..dense.val.len())
       .map(|i| dense.val[i].evaluate::<G>(rand_ops))
       .collect::<Vec<G::ScalarField>>();
@@ -828,15 +840,13 @@ impl<G: CurveGroup> HashLayerProof<G> {
       &joint_claim_eval_ops,
     );
 
-    let (proof_ops, _comm_ops_eval) = PolyEvalProof::prove(
-      &dense.comb_ops,
+    let proof_ops = PC::prove(
       None,
+      &dense.comb_ops,
       &r_joint_ops,
       &joint_claim_eval_ops,
-      None,
-      &gens.gens_ops,
+      &gens.gens_ops.ck,
       transcript,
-      random_tape,
     );
 
     // form a single decommitment using comb_comb_mem at rand_mem
@@ -867,15 +877,13 @@ impl<G: CurveGroup> HashLayerProof<G> {
       &joint_claim_eval_mem,
     );
 
-    let (proof_mem, _comm_mem_eval) = PolyEvalProof::prove(
-      &dense.comb_mem,
+    let proof_mem = PC::prove(
       None,
+      &dense.comb_mem,
       &r_joint_mem,
       &joint_claim_eval_mem,
-      None,
-      &gens.gens_mem,
+      &gens.gens_mem.ck,
       transcript,
-      random_tape,
     );
 
     HashLayerProof {
@@ -962,9 +970,9 @@ impl<G: CurveGroup> HashLayerProof<G> {
       G::ScalarField,
     ),
     claims_dotp: &[G::ScalarField],
-    comm: &SparseMatPolyCommitment<G>,
-    gens: &SparseMatPolyCommitmentGens<G>,
-    comm_derefs: &DerefsCommitment<G>,
+    comm: &SparseMatPolyCommitment<G, PC>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
+    comm_derefs: &DerefsCommitment<G, PC>,
     rx: &[G::ScalarField],
     ry: &[G::ScalarField],
     r_hash: &G::ScalarField,
@@ -974,7 +982,7 @@ impl<G: CurveGroup> HashLayerProof<G> {
     let timer = Timer::new("verify_hash_proof");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      HashLayerProof::<G>::protocol_name(),
+      HashLayerProof::<G, PC>::protocol_name(),
     );
 
     let (rand_mem, rand_ops) = rand;
@@ -986,7 +994,7 @@ impl<G: CurveGroup> HashLayerProof<G> {
       rand_ops,
       eval_row_ops_val,
       eval_col_ops_val,
-      &gens.gens_derefs,
+      &gens.gens_derefs.vk,
       comm_derefs,
       transcript,
     )?;
@@ -1037,12 +1045,13 @@ impl<G: CurveGroup> HashLayerProof<G> {
       b"joint_claim_eval_ops",
       &joint_claim_eval_ops,
     );
-    self.proof_ops.verify_plain(
-      &gens.gens_ops,
+    PC::verify(
+      &comm.comm_comb_ops,
+      &self.proof_ops,
+      &gens.gens_ops.vk,
       transcript,
       &r_joint_ops,
       &joint_claim_eval_ops,
-      &comm.comm_comb_ops,
     )?;
 
     // verify proof-mem using comm_comb_mem at rand_mem
@@ -1068,17 +1077,18 @@ impl<G: CurveGroup> HashLayerProof<G> {
       b"joint_claim_eval_mem",
       &joint_claim_eval_mem,
     );
-    self.proof_mem.verify_plain(
-      &gens.gens_mem,
+    PC::verify(
+      &comm.comm_comb_mem,
+      &self.proof_mem,
+      &gens.gens_mem.vk,
       transcript,
       &r_joint_mem,
       &joint_claim_eval_mem,
-      &comm.comm_comb_mem,
     )?;
 
     // verify the claims from the product layer
     let (eval_ops_addr, eval_read_ts, eval_audit_ts) = &self.eval_row;
-    HashLayerProof::<G>::verify_helper(
+    HashLayerProof::<G, PC>::verify_helper(
       &(rand_mem, rand_ops),
       claims_row,
       eval_row_ops_val,
@@ -1091,7 +1101,7 @@ impl<G: CurveGroup> HashLayerProof<G> {
     )?;
 
     let (eval_ops_addr, eval_read_ts, eval_audit_ts) = &self.eval_col;
-    HashLayerProof::<G>::verify_helper(
+    HashLayerProof::<G, PC>::verify_helper(
       &(rand_mem, rand_ops),
       claims_col,
       eval_col_ops_val,
@@ -1490,12 +1500,12 @@ impl<F: PrimeField> ProductLayerProof<F> {
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-struct PolyEvalNetworkProof<G: CurveGroup> {
+struct PolyEvalNetworkProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   proof_prod_layer: ProductLayerProof<G::ScalarField>,
-  proof_hash_layer: HashLayerProof<G>,
+  proof_hash_layer: HashLayerProof<G, PC>,
 }
 
-impl<G: CurveGroup> PolyEvalNetworkProof<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> PolyEvalNetworkProof<G, PC> {
   fn protocol_name() -> &'static [u8] {
     b"Sparse polynomial evaluation proof"
   }
@@ -1505,13 +1515,12 @@ impl<G: CurveGroup> PolyEvalNetworkProof<G> {
     dense: &MultiSparseMatPolynomialAsDense<G::ScalarField>,
     derefs: &Derefs<G::ScalarField>,
     evals: &[G::ScalarField],
-    gens: &SparseMatPolyCommitmentGens<G>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
     transcript: &mut Transcript,
-    random_tape: &mut RandomTape<G>,
   ) -> Self {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      PolyEvalNetworkProof::<G>::protocol_name(),
+      PolyEvalNetworkProof::<G, PC>::protocol_name(),
     );
 
     let (proof_prod_layer, rand_mem, rand_ops) = ProductLayerProof::<G::ScalarField>::prove::<G>(
@@ -1524,14 +1533,8 @@ impl<G: CurveGroup> PolyEvalNetworkProof<G> {
     );
 
     // proof of hash layer for row and col
-    let proof_hash_layer = HashLayerProof::prove(
-      (&rand_mem, &rand_ops),
-      dense,
-      derefs,
-      gens,
-      transcript,
-      random_tape,
-    );
+    let proof_hash_layer =
+      HashLayerProof::prove((&rand_mem, &rand_ops), dense, derefs, gens, transcript);
 
     PolyEvalNetworkProof {
       proof_prod_layer,
@@ -1541,10 +1544,10 @@ impl<G: CurveGroup> PolyEvalNetworkProof<G> {
 
   pub fn verify(
     &self,
-    comm: &SparseMatPolyCommitment<G>,
-    comm_derefs: &DerefsCommitment<G>,
+    comm: &SparseMatPolyCommitment<G, PC>,
+    comm_derefs: &DerefsCommitment<G, PC>,
     evals: &[G::ScalarField],
-    gens: &SparseMatPolyCommitmentGens<G>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
     rx: &[G::ScalarField],
     ry: &[G::ScalarField],
     r_mem_check: &(G::ScalarField, G::ScalarField),
@@ -1554,7 +1557,7 @@ impl<G: CurveGroup> PolyEvalNetworkProof<G> {
     let timer = Timer::new("verify_polyeval_proof");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      PolyEvalNetworkProof::<G>::protocol_name(),
+      PolyEvalNetworkProof::<G, PC>::protocol_name(),
     );
 
     let num_instances = evals.len();
@@ -1607,12 +1610,12 @@ impl<G: CurveGroup> PolyEvalNetworkProof<G> {
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct SparseMatPolyEvalProof<G: CurveGroup> {
-  comm_derefs: DerefsCommitment<G>,
-  poly_eval_network_proof: PolyEvalNetworkProof<G>,
+pub struct SparseMatPolyEvalProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  comm_derefs: DerefsCommitment<G, PC>,
+  poly_eval_network_proof: PolyEvalNetworkProof<G, PC>,
 }
 
-impl<G: CurveGroup> SparseMatPolyEvalProof<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyEvalProof<G, PC> {
   fn protocol_name() -> &'static [u8] {
     b"Sparse polynomial evaluation proof"
   }
@@ -1643,13 +1646,12 @@ impl<G: CurveGroup> SparseMatPolyEvalProof<G> {
     rx: &[G::ScalarField], // point at which the polynomial is evaluated
     ry: &[G::ScalarField],
     evals: &[G::ScalarField], // a vector evaluation of \widetilde{M}(r = (rx,ry)) for each M
-    gens: &SparseMatPolyCommitmentGens<G>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
     transcript: &mut Transcript,
-    random_tape: &mut RandomTape<G>,
-  ) -> SparseMatPolyEvalProof<G> {
+  ) -> SparseMatPolyEvalProof<G, PC> {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      SparseMatPolyEvalProof::<G>::protocol_name(),
+      SparseMatPolyEvalProof::<G, PC>::protocol_name(),
     );
 
     // ensure there is one eval for each polynomial in dense
@@ -1657,7 +1659,7 @@ impl<G: CurveGroup> SparseMatPolyEvalProof<G> {
 
     let (mem_rx, mem_ry) = {
       // equalize the lengths of rx and ry
-      let (rx_ext, ry_ext) = SparseMatPolyEvalProof::<G>::equalize(rx, ry);
+      let (rx_ext, ry_ext) = SparseMatPolyEvalProof::<G, PC>::equalize(rx, ry);
       let poly_rx = EqPolynomial::new(rx_ext).evals();
       let poly_ry = EqPolynomial::new(ry_ext).evals();
       (poly_rx, poly_ry)
@@ -1668,7 +1670,7 @@ impl<G: CurveGroup> SparseMatPolyEvalProof<G> {
     // commit to non-deterministic choices of the prover
     let timer_commit = Timer::new("commit_nondet_witness");
     let comm_derefs = {
-      let comm = derefs.commit(&gens.gens_derefs);
+      let comm = derefs.commit(&gens.gens_derefs.ck);
       comm.append_to_transcript(b"comm_poly_row_col_ops_val", transcript);
       comm
     };
@@ -1691,15 +1693,8 @@ impl<G: CurveGroup> SparseMatPolyEvalProof<G> {
       timer_build_network.stop();
 
       let timer_eval_network = Timer::new("evalproof_layered_network");
-      let poly_eval_network_proof = PolyEvalNetworkProof::prove(
-        &mut net,
-        dense,
-        &derefs,
-        evals,
-        gens,
-        transcript,
-        random_tape,
-      );
+      let poly_eval_network_proof =
+        PolyEvalNetworkProof::prove(&mut net, dense, &derefs, evals, gens, transcript);
       timer_eval_network.stop();
 
       poly_eval_network_proof
@@ -1713,20 +1708,20 @@ impl<G: CurveGroup> SparseMatPolyEvalProof<G> {
 
   pub fn verify(
     &self,
-    comm: &SparseMatPolyCommitment<G>,
+    comm: &SparseMatPolyCommitment<G, PC>,
     rx: &[G::ScalarField], // point at which the polynomial is evaluated
     ry: &[G::ScalarField],
     evals: &[G::ScalarField], // evaluation of \widetilde{M}(r = (rx,ry))
-    gens: &SparseMatPolyCommitmentGens<G>,
+    gens: &SparseMatPolyCommitmentKey<G, PC>,
     transcript: &mut Transcript,
   ) -> Result<(), ProofVerifyError> {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
-      SparseMatPolyEvalProof::<G>::protocol_name(),
+      SparseMatPolyEvalProof::<G, PC>::protocol_name(),
     );
 
     // equalize the lengths of rx and ry
-    let (rx_ext, ry_ext) = SparseMatPolyEvalProof::<G>::equalize(rx, ry);
+    let (rx_ext, ry_ext) = SparseMatPolyEvalProof::<G, PC>::equalize(rx, ry);
 
     let (nz, num_mem_cells) = (comm.num_ops, comm.num_mem_cells);
     assert_eq!(rx_ext.len().pow2(), num_mem_cells);
@@ -1804,16 +1799,15 @@ impl<F: PrimeField> SparsePolynomial<F> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::polycommitments::hyrax::Hyrax;
   use ark_bls12_381::G1Projective;
-  use ark_std::rand::RngCore;
-  use ark_std::test_rng;
-  use ark_std::UniformRand;
+  use ark_std::{rand::RngCore, test_rng, UniformRand};
 
   #[test]
   fn check_sparse_polyeval_proof() {
-    check_sparse_polyeval_proof_helper::<G1Projective>()
+    check_sparse_polyeval_proof_helper::<G1Projective, Hyrax<G1Projective>>()
   }
-  fn check_sparse_polyeval_proof_helper<G: CurveGroup>() {
+  fn check_sparse_polyeval_proof_helper<G: CurveGroup, PC: PolyCommitmentScheme<G>>() {
     let mut prng = test_rng();
 
     let num_nz_entries: usize = 256;
@@ -1833,12 +1827,18 @@ mod tests {
     }
 
     let poly_M = SparseMatPolynomial::new(num_vars_x, num_vars_y, M);
-    let gens = SparseMatPolyCommitmentGens::<G>::new(
-      b"gens_sparse_poly",
+    let min_num_vars = SparseMatPolyCommitmentKey::<G, PC>::get_min_num_vars(
       num_vars_x,
       num_vars_y,
       num_nz_entries,
       3,
+    );
+    let SRS = PC::setup(min_num_vars, b"test_SRS", &mut test_rng()).unwrap();
+    let gens =
+      SparseMatPolyCommitmentKey::<G, PC>::new(&SRS, num_vars_x, num_vars_y, num_nz_entries, 3);
+    println!(
+      "num_vars_x = {}, num_vars_y = {}, num_nz_entries = {}",
+      num_vars_x, num_vars_y, num_nz_entries
     );
 
     // commitment
@@ -1854,16 +1854,14 @@ mod tests {
     let eval = SparseMatPolynomial::multi_evaluate(&[&poly_M], &rx, &ry);
     let evals = vec![eval[0], eval[0], eval[0]];
 
-    let mut random_tape = RandomTape::new(b"proof");
     let mut prover_transcript = Transcript::new(b"example");
-    let proof = SparseMatPolyEvalProof::prove(
+    let proof = SparseMatPolyEvalProof::<G, PC>::prove(
       &dense,
       &rx,
       &ry,
       &evals,
       &gens,
       &mut prover_transcript,
-      &mut random_tape,
     );
 
     let mut verifier_transcript = Transcript::new(b"example");

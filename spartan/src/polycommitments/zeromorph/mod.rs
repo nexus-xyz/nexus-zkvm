@@ -13,7 +13,7 @@ use ark_std::{
 use merlin::Transcript;
 
 use super::super::timer::Timer;
-use super::PolyCommitmentScheme;
+use super::{PCSKeys, PolyCommitmentScheme};
 use crate::{
   dense_mlpoly::DensePolynomial,
   math::Math,
@@ -57,7 +57,7 @@ where
   }
 
   fn prove(
-    C: &Self::Commitment,
+    C: Option<&Self::Commitment>,
     poly: &DensePolynomial<E::ScalarField>,
     u: &[E::ScalarField],
     eval: &E::ScalarField,
@@ -71,6 +71,18 @@ where
     );
     <Transcript as ProofTranscript<E::G1>>::append_scalar(transcript, b"eval_claim", eval);
     <Transcript as ProofTranscript<E::G1>>::append_scalars(transcript, b"eval_point", u);
+
+    // Skip committing to `poly` if it has been provided already as an argument.
+    let C = match C {
+      Some(C_ref) => *C_ref,
+      None => {
+        let timer_commit = Timer::new("commit to poly");
+        let C = Zeromorph::<E>::commit(poly, ck);
+        timer_commit.stop();
+        C
+      }
+    };
+
     C.append_to_transcript(b"commitment", transcript);
 
     // Next, we calculate the quotients 'q_k' arising from the identity (poly - eval) = sum_{k=0}^{n-1} (x_k - r_k) q_k,
@@ -317,6 +329,7 @@ where
       let h = h.into_affine();
 
       let pp = ZeromorphSRS {
+        max_num_vars: max_num_poly_vars,
         powers_of_tau_g: powers_of_g,
         h,
         shift_powers_of_tau_h,
@@ -325,10 +338,7 @@ where
       Ok(pp)
     }
   }
-  fn trim(
-    srs: &Self::SRS,
-    supported_num_vars: usize,
-  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey) {
+  fn trim(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<E::G1, Self> {
     let max_degree = srs.max_degree();
     let supported_degree = Math::pow2(supported_num_vars) - 1;
     if supported_degree > max_degree {
@@ -351,7 +361,7 @@ where
       tau_h: srs.shift_powers_of_tau_h[&(srs.shift_powers_of_tau_h.len() - 1)],
       shifted_tau_h: srs.shift_powers_of_tau_h[&supported_num_vars],
     };
-    (ck, vk)
+    PCSKeys { ck, vk }
   }
 }
 
@@ -366,7 +376,7 @@ mod tests {
     let mut rng = test_rng();
     let SRS = Zeromorph::<E>::setup(9, b"test", &mut rng).unwrap();
     for n in 1..10 {
-      let (ck, vk) = Zeromorph::<E>::trim(&SRS, n);
+      let PCSKeys { ck, vk } = Zeromorph::<E>::trim(&SRS, n);
       let mut rt = RandomTape::<E::G1>::new(b"test");
       let evals = rt.random_vector(b"evals", Math::pow2(n));
       let poly = DensePolynomial::<E::ScalarField>::new(evals);
@@ -375,8 +385,14 @@ mod tests {
       let eval = poly.evaluate::<E::G1>(u.as_slice());
       let mut transcript_prover = Transcript::new(b"test");
       let mut transcript_verifier = Transcript::new(b"test");
-      let proof_correct =
-        Zeromorph::<E>::prove(&commitment, &poly, &u, &eval, &ck, &mut transcript_prover);
+      let proof_correct = Zeromorph::<E>::prove(
+        Some(&commitment),
+        &poly,
+        &u,
+        &eval,
+        &ck,
+        &mut transcript_prover,
+      );
       Zeromorph::<E>::verify(
         &commitment,
         &proof_correct,
@@ -393,7 +409,7 @@ mod tests {
       });
       let wrong_eval = E::ScalarField::rand(&mut rng);
       let proof_wrong = Zeromorph::<E>::prove(
-        &commitment,
+        Some(&commitment),
         &poly,
         &u,
         &wrong_eval,

@@ -1,12 +1,14 @@
-use crate::polycommitments::PolyCommitmentTrait;
+use crate::polycommitments::{PolyCommitmentTrait, SRSTrait};
 use crate::transcript::{AppendToTranscript, ProofTranscript};
 use ark_ec::{
   pairing::Pairing,
   short_weierstrass::{Projective, SWCurveConfig},
   AffineRepr,
 };
-use ark_poly_commit::kzg10::Powers;
-use ark_poly_commit::{kzg10::Commitment as KZGCommitment, PCCommitment, PCUniversalParams};
+use ark_poly_commit::{
+  kzg10::{Commitment as KZGCommitment, Powers},
+  PCCommitment, PCUniversalParams,
+};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{
   borrow::Cow,
@@ -40,12 +42,20 @@ pub struct ZeromorphSRS<E>
 where
   E: Pairing,
 {
+  /// The maximum number of variables supported by the SRS
+  pub max_num_vars: usize,
   /// Group elements of the form { \tau^i g } for i from 0 to N_max
   pub powers_of_tau_g: Vec<E::G1Affine>,
   /// The generator of G2
   pub h: E::G2Affine,
   /// {\tau^(N_max - 2^n + 1) h}_(n=0)^(lg_2(N_max)) times the above generator of G2
   pub shift_powers_of_tau_h: BTreeMap<usize, E::G2Affine>,
+}
+
+impl<E: Pairing> SRSTrait for ZeromorphSRS<E> {
+  fn max_num_vars(&self) -> usize {
+    self.powers_of_tau_g.len() - 1
+  }
 }
 
 impl<E> PCUniversalParams for ZeromorphSRS<E>

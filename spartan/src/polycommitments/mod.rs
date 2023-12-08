@@ -49,8 +49,21 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   fn zero(n: usize) -> Self;
 }
 
+pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
+  fn max_num_vars(&self) -> usize;
+}
+
+pub struct PCSKeys<G, PC>
+where
+  G: CurveGroup,
+  PC: PolyCommitmentScheme<G> + ?Sized,
+{
+  pub ck: PC::PolyCommitmentKey,
+  pub vk: PC::EvalVerifierKey,
+}
+
 pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
-  type SRS: CanonicalSerialize + CanonicalDeserialize;
+  type SRS: SRSTrait;
   type PolyCommitmentKey: CanonicalSerialize + CanonicalDeserialize + Clone;
   type EvalVerifierKey: CanonicalSerialize + CanonicalDeserialize + Clone;
   type Commitment: PolyCommitmentTrait<G>;
@@ -65,7 +78,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
   ) -> Self::Commitment;
 
   fn prove(
-    C: &Self::Commitment,
+    C: Option<&Self::Commitment>,
     poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
@@ -90,11 +103,7 @@ pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
     rng: &mut impl RngCore,
   ) -> Result<Self::SRS, Error>;
 
-  //
-  fn trim(
-    srs: &Self::SRS,
-    supported_num_vars: usize,
-  ) -> (Self::PolyCommitmentKey, Self::EvalVerifierKey);
+  fn trim(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<G, Self>;
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentScheme<G> for PC {

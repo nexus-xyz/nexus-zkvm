@@ -1,10 +1,10 @@
 use super::dense_mlpoly::DensePolynomial;
 use super::errors::ProofVerifyError;
 use super::math::Math;
-use super::random::RandomTape;
+use super::polycommitments::{PolyCommitmentScheme, SRSTrait};
 use super::sparse_mlpoly::{
   MultiSparseMatPolynomialAsDense, SparseMatEntry, SparseMatPolyCommitment,
-  SparseMatPolyCommitmentGens, SparseMatPolyEvalProof, SparseMatPolynomial,
+  SparseMatPolyCommitmentKey, SparseMatPolyEvalProof, SparseMatPolynomial,
 };
 use super::timer::Timer;
 use crate::transcript::AppendToTranscript;
@@ -33,39 +33,57 @@ impl<G: CurveGroup> AppendToTranscript<G> for R1CSInstance<G::ScalarField> {
   }
 }
 
-pub struct R1CSCommitmentGens<G>
+pub struct R1CSCommitmentGens<G, PC>
 where
   G: CurveGroup,
+  PC: PolyCommitmentScheme<G>,
 {
-  gens: SparseMatPolyCommitmentGens<G>,
+  gens: SparseMatPolyCommitmentKey<G, PC>,
 }
 
-impl<G: CurveGroup> R1CSCommitmentGens<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSCommitmentGens<G, PC> {
   pub fn new(
-    label: &'static [u8],
+    SRS: &PC::SRS,
     num_cons: usize,
     num_vars: usize,
     num_inputs: usize,
     num_nz_entries: usize,
-  ) -> R1CSCommitmentGens<G> {
+  ) -> R1CSCommitmentGens<G, PC> {
     assert!(num_inputs < num_vars);
     let num_poly_vars_x = num_cons.log_2();
     let num_poly_vars_y = (2 * num_vars).log_2();
+    let min_num_vars = Self::get_min_num_vars(num_cons, num_vars, num_nz_entries);
+    assert!(
+      SRS.max_num_vars() >= min_num_vars,
+      "SRS is too small for the given R1CS instance: max_num_vars = {}, required = {}",
+      SRS.max_num_vars(),
+      min_num_vars
+    );
     let gens =
-      SparseMatPolyCommitmentGens::new(label, num_poly_vars_x, num_poly_vars_y, num_nz_entries, 3);
+      SparseMatPolyCommitmentKey::new(SRS, num_poly_vars_x, num_poly_vars_y, num_nz_entries, 3);
     R1CSCommitmentGens { gens }
+  }
+  pub fn get_min_num_vars(num_cons: usize, num_vars: usize, num_nz_entries: usize) -> usize {
+    let num_poly_vars_x = num_cons.log_2();
+    let num_poly_vars_y = (2 * num_vars).log_2();
+    SparseMatPolyCommitmentKey::<G, PC>::get_min_num_vars(
+      num_poly_vars_x,
+      num_poly_vars_y,
+      num_nz_entries,
+      3,
+    )
   }
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct R1CSCommitment<G: CurveGroup> {
+pub struct R1CSCommitment<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   num_cons: usize,
   num_vars: usize,
   num_inputs: usize,
-  comm: SparseMatPolyCommitment<G>,
+  comm: SparseMatPolyCommitment<G, PC>,
 }
 
-impl<G: CurveGroup> AppendToTranscript<G> for R1CSCommitment<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> AppendToTranscript<G> for R1CSCommitment<G, PC> {
   fn append_to_transcript(&self, _label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_u64(b"num_cons", self.num_cons as u64);
     transcript.append_u64(b"num_vars", self.num_vars as u64);
@@ -78,7 +96,7 @@ pub struct R1CSDecommitment<F> {
   dense: MultiSparseMatPolynomialAsDense<F>,
 }
 
-impl<G: CurveGroup> R1CSCommitment<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSCommitment<G, PC> {
   pub fn get_num_cons(&self) -> usize {
     self.num_cons
   }
@@ -304,10 +322,10 @@ impl<F: PrimeField> R1CSInstance<F> {
     (evals[0], evals[1], evals[2])
   }
 
-  pub fn commit<G: CurveGroup<ScalarField = F>>(
+  pub fn commit<G: CurveGroup<ScalarField = F>, PC: PolyCommitmentScheme<G>>(
     &self,
-    gens: &R1CSCommitmentGens<G>,
-  ) -> (R1CSCommitment<G>, R1CSDecommitment<F>) {
+    gens: &R1CSCommitmentGens<G, PC>,
+  ) -> (R1CSCommitment<G, PC>, R1CSDecommitment<F>) {
     let (comm, dense) = SparseMatPolynomial::multi_commit(&[&self.A, &self.B, &self.C], &gens.gens);
     let r1cs_comm = R1CSCommitment {
       num_cons: self.num_cons,
@@ -323,20 +341,19 @@ impl<F: PrimeField> R1CSInstance<F> {
 }
 
 #[derive(Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct R1CSEvalProof<G: CurveGroup> {
-  proof: SparseMatPolyEvalProof<G>,
+pub struct R1CSEvalProof<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  proof: SparseMatPolyEvalProof<G, PC>,
 }
 
-impl<G: CurveGroup> R1CSEvalProof<G> {
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSEvalProof<G, PC> {
   pub fn prove(
     decomm: &R1CSDecommitment<G::ScalarField>,
     rx: &[G::ScalarField], // point at which the polynomial is evaluated
     ry: &[G::ScalarField],
     evals: &(G::ScalarField, G::ScalarField, G::ScalarField),
-    gens: &R1CSCommitmentGens<G>,
+    gens: &R1CSCommitmentGens<G, PC>,
     transcript: &mut Transcript,
-    random_tape: &mut RandomTape<G>,
-  ) -> R1CSEvalProof<G> {
+  ) -> R1CSEvalProof<G, PC> {
     let timer = Timer::new("R1CSEvalProof::prove");
     let proof = SparseMatPolyEvalProof::prove(
       &decomm.dense,
@@ -345,7 +362,6 @@ impl<G: CurveGroup> R1CSEvalProof<G> {
       &[evals.0, evals.1, evals.2],
       &gens.gens,
       transcript,
-      random_tape,
     );
     timer.stop();
 
@@ -354,11 +370,11 @@ impl<G: CurveGroup> R1CSEvalProof<G> {
 
   pub fn verify(
     &self,
-    comm: &R1CSCommitment<G>,
+    comm: &R1CSCommitment<G, PC>,
     rx: &[G::ScalarField], // point at which the R1CS matrix polynomials are evaluated
     ry: &[G::ScalarField],
     evals: &(G::ScalarField, G::ScalarField, G::ScalarField),
-    gens: &R1CSCommitmentGens<G>,
+    gens: &R1CSCommitmentGens<G, PC>,
     transcript: &mut Transcript,
   ) -> Result<(), ProofVerifyError> {
     self.proof.verify(
