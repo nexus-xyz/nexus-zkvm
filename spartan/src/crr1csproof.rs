@@ -546,16 +546,15 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
 #[cfg(test)]
 mod tests {
-  use crate::committed_relaxed_snark::CRSNARKKey;
-  use crate::polycommitments::{hyrax::Hyrax, VectorCommitmentScheme};
+  use crate::polycommitments::hyrax::Hyrax;
 
-  use crate::{r1csinstance::R1CSInstance, Instance};
+  use crate::{crr1cs::produce_synthetic_crr1cs, r1csinstance::R1CSInstance};
 
   use super::*;
   use ark_bls12_381::Fr;
   use ark_bls12_381::G1Projective;
   use ark_ff::PrimeField;
-  use ark_std::{test_rng, UniformRand};
+  use ark_std::test_rng;
 
   fn produce_tiny_r1cs<F: PrimeField>() -> (R1CSInstance<F>, Vec<F>, Vec<F>) {
     // three constraints over five variables Z1, Z2, Z3, Z4, and Z5
@@ -612,82 +611,6 @@ mod tests {
     input[1] = i1;
 
     (inst, vars, input)
-  }
-  #[allow(clippy::type_complexity)]
-  // This produces a random satisfying structure, instance, witness, and public parameters for testing and benchmarking purposes.
-  fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
-    num_cons: usize,
-    num_vars: usize,
-    num_inputs: usize,
-  ) -> (
-    CRR1CSShape<G::ScalarField>,
-    CRR1CSInstance<G, PC>,
-    CRR1CSWitness<G::ScalarField>,
-    CRSNARKKey<G, PC>,
-  ) {
-    // compute random satisfying assignment for r1cs
-    let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
-    // the `Instance` initializer may have padded the variable lengths
-    let (num_cons, num_vars, num_inputs) = (
-      inst.inst.get_num_cons(),
-      inst.inst.get_num_vars(),
-      inst.inst.get_num_inputs(),
-    );
-    assert_eq!(num_vars, vars.assignment.len());
-    assert_eq!(num_inputs, inputs.assignment.len());
-    let shape = CRR1CSShape { inst };
-
-    // Note that `produce_synthetic_r1cs` produces a satisfying assignment for Z = [vars, 1, inputs].
-    let mut Z = vars.assignment.clone();
-    Z.extend(&vec![G::ScalarField::one()]);
-    Z.extend(inputs.assignment.clone());
-
-    // Choose a random u and set Z[num_vars] = u.
-    let u = G::ScalarField::rand(&mut test_rng());
-    Z[num_vars] = u;
-
-    let (poly_A, poly_B, poly_C) =
-      shape
-        .inst
-        .inst
-        .multiply_vec(num_cons, num_vars + num_inputs + 1, Z.as_slice());
-
-    // Compute the error vector E = (AZ * BZ) - (u * CZ)
-    let mut E = vec![G::ScalarField::zero(); num_cons];
-    for i in 0..num_cons {
-      let AB_val = poly_A[i] * poly_B[i];
-      let C_val = poly_C[i];
-      E[i] = AB_val - u * C_val;
-    }
-
-    // generate public parameters for the PCS
-    let mut rng = test_rng();
-    let min_num_vars =
-      CRSNARKKey::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
-    let SRS = PC::setup(min_num_vars, b"test-SRS", &mut rng).unwrap();
-    let gens = CRSNARKKey::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
-
-    // compute commitments to the vectors `vars` and `E`.
-    let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
-      vars.assignment.as_slice(),
-      &gens.gens_r1cs_sat.pc_commit_key,
-    );
-    let comm_E =
-      <PC as VectorCommitmentScheme<G>>::commit(E.as_slice(), &gens.gens_r1cs_sat.pc_commit_key);
-    (
-      shape,
-      CRR1CSInstance::<G, PC> {
-        input: inputs,
-        u,
-        comm_W,
-        comm_E,
-      },
-      CRR1CSWitness::<G::ScalarField> {
-        W: vars.clone(),
-        E: E.clone(),
-      },
-      gens,
-    )
   }
 
   #[test]

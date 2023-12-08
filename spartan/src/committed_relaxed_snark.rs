@@ -101,7 +101,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     witness: CRR1CSWitness<G::ScalarField>,
     comm: &ComputationCommitment<G, PC>,
     decomm: &ComputationDecommitment<G::ScalarField>,
-    gens: &CRSNARKKey<G, PC>,
+    key: &CRSNARKKey<G, PC>,
     transcript: &mut Transcript,
   ) -> Self {
     let timer_prove = Timer::new("SNARK::prove");
@@ -146,7 +146,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
           E: padded_error,
         };
 
-        CRR1CSProof::prove(shape, instance, witness, &gens.gens_r1cs_sat, transcript)
+        CRR1CSProof::prove(shape, instance, witness, &key.gens_r1cs_sat, transcript)
       };
 
       let mut proof_encoded = vec![];
@@ -175,7 +175,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
         &rx,
         &ry,
         &inst_evals,
-        &gens.gens_r1cs_eval,
+        &key.gens_r1cs_eval,
         transcript,
       );
 
@@ -200,7 +200,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     comm: &ComputationCommitment<G, PC>,
     instance: &CRR1CSInstance<G, PC>,
     transcript: &mut Transcript,
-    gens: &CRSNARKKey<G, PC>,
+    key: &CRSNARKKey<G, PC>,
   ) -> Result<(), ProofVerifyError> {
     let timer_verify = Timer::new("SNARK::verify");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
@@ -221,7 +221,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
       instance,
       &self.inst_evals,
       transcript,
-      &gens.gens_r1cs_sat.pc_verify_key,
+      &key.gens_r1cs_sat.pc_verify_key,
     )?;
     timer_sat_proof.stop();
 
@@ -235,11 +235,56 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
       &rx,
       &ry,
       &self.inst_evals,
-      &gens.gens_r1cs_eval,
+      &key.gens_r1cs_eval,
       transcript,
     )?;
     timer_eval_proof.stop();
     timer_verify.stop();
     Ok(())
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::{
+    crr1cs::produce_synthetic_crr1cs,
+    polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme},
+  };
+
+  use ark_bls12_381::{Bls12_381, G1Projective};
+
+  #[test]
+  pub fn check_crsnark() {
+    check_crsnark_helper::<G1Projective, Zeromorph<Bls12_381>>()
+  }
+  pub fn check_crsnark_helper<G: CurveGroup, PC: PolyCommitmentScheme<G>>() {
+    let num_vars = 256;
+    let num_cons = num_vars;
+    let num_inputs = 10;
+
+    // produce a synthetic CRR1CSInstance
+    let (shape, instance, witness, key) = produce_synthetic_crr1cs(num_cons, num_vars, num_inputs);
+
+    // create a commitment to R1CSInstance
+    let (comm, decomm) = SNARK::<_, PC>::encode(&shape.inst, &key);
+
+    // produce a proof
+    let mut prover_transcript = Transcript::new(b"example");
+    let proof = SNARK::<_, PC>::prove(
+      &shape,
+      &instance,
+      witness,
+      &comm,
+      &decomm,
+      &key,
+      &mut prover_transcript,
+    );
+
+    // verify the proof
+    let mut verifier_transcript = Transcript::new(b"example");
+    assert!(proof
+      .verify(&comm, &instance, &mut verifier_transcript, &key)
+      .is_ok());
   }
 }

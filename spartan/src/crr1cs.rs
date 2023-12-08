@@ -226,11 +226,13 @@ pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
     E[i] = AB_val - u * C_val;
   }
 
-  // compute commitments to the vectors `vars` and `E`.
-  let n = max(num_cons, num_vars);
-  let mut rng = test_rng();
-  let SRS = PC::setup(n.log_2(), b"test-SRS", &mut rng).unwrap();
+  // produce public parameters
+  let min_num_vars =
+    CRSNARKKey::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+  let SRS = PC::setup(min_num_vars, b"CRSNARK_profiler_SRS", &mut test_rng()).unwrap();
   let gens = CRSNARKKey::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
+
+  // compute commitments to the vectors `vars` and `E`.
   let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
     vars.assignment.as_slice(),
     &gens.gens_r1cs_sat.pc_commit_key,

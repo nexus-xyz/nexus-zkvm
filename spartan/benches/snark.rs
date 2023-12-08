@@ -4,12 +4,16 @@ extern crate merlin;
 
 use ark_bls12_381::G1Projective;
 use ark_ec::CurveGroup;
-use libspartan::{Instance, SNARKGens, SNARK};
+use ark_std::test_rng;
+use libspartan::{
+  polycommitments::{hyrax::Hyrax, PolyCommitmentScheme},
+  Instance, SNARKGens, SNARK,
+};
 use merlin::Transcript;
 
 use criterion::*;
 
-fn snark_encode_benchmark<G: CurveGroup>(c: &mut Criterion) {
+fn snark_encode_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Criterion) {
   for s in 10..21 {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("SNARK_encode_benchmark");
@@ -22,7 +26,10 @@ fn snark_encode_benchmark<G: CurveGroup>(c: &mut Criterion) {
       Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
     // produce public parameters
-    let gens = SNARKGens::<G>::new(num_cons, num_vars, num_inputs, num_cons);
+    let min_num_vars =
+      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
+    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
 
     // produce a commitment to R1CS instance
     let name = format!("SNARK_encode_{}", num_cons);
@@ -35,7 +42,7 @@ fn snark_encode_benchmark<G: CurveGroup>(c: &mut Criterion) {
   }
 }
 
-fn snark_prove_benchmark<G: CurveGroup>(c: &mut Criterion) {
+fn snark_prove_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Criterion) {
   for s in 9..21 {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("SNARK_prove_benchmark");
@@ -49,7 +56,10 @@ fn snark_prove_benchmark<G: CurveGroup>(c: &mut Criterion) {
       Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
     // produce public parameters
-    let gens = SNARKGens::<G>::new(num_cons, num_vars, num_inputs, num_cons);
+    let min_num_vars =
+      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
+    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
 
     // produce a commitment to R1CS instance
     let (comm, decomm) = SNARK::encode(&inst, &gens);
@@ -74,7 +84,7 @@ fn snark_prove_benchmark<G: CurveGroup>(c: &mut Criterion) {
   }
 }
 
-fn snark_verify_benchmark<G: CurveGroup>(c: &mut Criterion) {
+fn snark_verify_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Criterion) {
   for s in 10..21 {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let mut group = c.benchmark_group("SNARK_verify_benchmark");
@@ -87,7 +97,10 @@ fn snark_verify_benchmark<G: CurveGroup>(c: &mut Criterion) {
       Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
     // produce public parameters
-    let gens = SNARKGens::<G>::new(num_cons, num_vars, num_inputs, num_cons);
+    let min_num_vars =
+      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS", &mut test_rng()).unwrap();
+    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
 
     // produce a commitment to R1CS instance
     let (comm, decomm) = SNARK::encode(&inst, &gens);
@@ -130,8 +143,8 @@ fn set_duration() -> Criterion {
 criterion_group! {
 name = benches_snark;
 config = set_duration();
-targets = snark_encode_benchmark::<G1Projective>,
-snark_prove_benchmark::<G1Projective>, snark_verify_benchmark::<G1Projective>
+targets = snark_encode_benchmark::<G1Projective, Hyrax<G1Projective>>,
+snark_prove_benchmark::<G1Projective, Hyrax<G1Projective>>, snark_verify_benchmark::<G1Projective, Hyrax<G1Projective>>
 }
 
 criterion_main!(benches_snark);
