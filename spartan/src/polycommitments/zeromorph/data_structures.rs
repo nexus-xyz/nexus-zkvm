@@ -1,5 +1,8 @@
-use crate::polycommitments::{PolyCommitmentTrait, SRSTrait};
-use crate::transcript::{AppendToTranscript, ProofTranscript};
+use crate::{
+  math::Math,
+  polycommitments::{PolyCommitmentTrait, SRSTrait},
+  transcript::{AppendToTranscript, ProofTranscript},
+};
 use ark_ec::{
   pairing::Pairing,
   short_weierstrass::{Projective, SWCurveConfig},
@@ -54,7 +57,7 @@ where
 
 impl<E: Pairing> SRSTrait for ZeromorphSRS<E> {
   fn max_num_vars(&self) -> usize {
-    self.powers_of_tau_g.len() - 1
+    self.powers_of_tau_g.len().log_2()
   }
 }
 
