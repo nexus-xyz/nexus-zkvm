@@ -76,6 +76,7 @@ pub fn local() -> CmdResult<()> {
     let t = get_target(*release, bin)?;
     let opts = VMOpts {
         k: 1,
+        merkle: true,
         nop: None,
         loopk: None,
         file: Some(t),

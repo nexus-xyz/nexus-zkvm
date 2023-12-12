@@ -14,7 +14,7 @@ pub struct VM {
     /// ISA registers
     pub regs: Regs,
     /// machine memory
-    pub mem: Mem,
+    pub mem: Memory,
     /// current instruction
     pub inst: Inst,
     /// destination register
@@ -42,8 +42,9 @@ mod ark_confusion {
 pub use ark_confusion::*;
 
 impl VM {
-    pub fn new(pc: u32) -> Self {
-        let mut vm = Self::default();
+    pub fn new(pc: u32, merkle: bool) -> Self {
+        let mem = Memory::new(merkle);
+        let mut vm = VM { mem, ..Self::default() };
         vm.regs.pc = pc;
         vm
     }

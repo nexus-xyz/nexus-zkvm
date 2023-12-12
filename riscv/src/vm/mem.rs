@@ -1,9 +1,19 @@
+#![allow(clippy::box_default)]
+
 // RISC-V leaves the meaning of misaligned loads and stores up to the Execution Environment
 // Interface (EEI).  Our expectation is that front-end compilers targeting the basic instruction
 // set(s) will not emit misaligned loads and stores.  The memory circuits depend on this
 // assumption, and we check it here to catch any violations early.
 
 use std::collections::BTreeMap;
+
+use ark_bn254::Fr as F;
+use ark_crypto_primitives::{
+    sponge::poseidon::{PoseidonConfig, find_poseidon_ark_and_mds},
+    crh::poseidon,
+    merkle_tree::{Config, IdentityDigestConverter, MerkleTree},
+};
+
 use crate::error::*;
 use VMError::{SegFault, Misaligned};
 
@@ -12,11 +22,17 @@ use VMError::{SegFault, Misaligned};
 #[rustfmt::skip]
 #[allow(non_upper_case_globals)]
 const memory_map: [(u32,u32,u32); 3] = [
-    //  virtual     size     phys
-    (0x00001000, 0x100000,        0),
-    (0x10000000, 0x2f0000, 0x100000),
-    (0xfffeffff, 0x010000, 0x3f0000),
+    //  virtual        size       phys
+    (0x0000_1000, 0x10_0000,         0),
+    (0x1000_0000, 0x2f_0000, 0x10_0000),
+    (0xfffe_ffff, 0x01_0000, 0x3f_0000),
 ];
+
+#[allow(non_upper_case_globals)]
+const num_cells: usize = 0x10_0000;
+
+#[allow(non_upper_case_globals)]
+const cells_exp: usize = num_cells.ilog2() as usize;
 
 /// Convert a virtual address to a physical address.
 ///
@@ -121,12 +137,26 @@ pub trait Cells {
     fn cell_mut(&mut self, addr: u32) -> &mut Cell;
 }
 
-/// The memory of the machine, implemented by a Cell container, T.
+/// The memory of the machine, implemented by a Cell container.
 
-#[derive(Default)]
-pub struct Memory<T: Cells>(T);
+pub struct Memory(Box<dyn Cells>);
 
-impl<T: Cells> Memory<T> {
+impl Default for Memory {
+    fn default() -> Self {
+        Memory::new(false)
+    }
+}
+
+impl Memory {
+    pub fn new(merkle: bool) -> Self {
+        let cells: Box<dyn Cells> = if merkle {
+            Box::new(MerkleMem::default())
+        } else {
+            Box::new(ArrayMem::default())
+        };
+        Memory(cells)
+    }
+
     /// return cell at address (must be 32-bit aligned)
     pub fn read_cell(&self, addr: u32) -> Result<&Cell> {
         let addr = virt2phys(addr)?;
@@ -191,10 +221,6 @@ impl<T: Cells> Memory<T> {
     }
 }
 
-/// Default memory type
-
-pub type Mem = Memory<ArrayMem>;
-
 /// A paged memory suitable for large address spaces
 ///
 /// A binary tree is used to represent a sparsely
@@ -203,6 +229,7 @@ pub type Mem = Memory<ArrayMem>;
 #[derive(Default)]
 pub struct PagedMem {
     tree: BTreeMap<u32, Page>,
+    zero: Cell,
 }
 type Page = [Cell; 1024];
 
@@ -210,8 +237,10 @@ impl Cells for PagedMem {
     fn cell(&self, addr: u32) -> &Cell {
         let page = addr >> 12;
         let offset = ((addr & 0xfff) >> 2) as usize;
-        let cells = self.tree.get(&page).unwrap();
-        &cells[offset]
+        match self.tree.get(&page) {
+            Some(cells) => &cells[offset],
+            None => &self.zero,
+        }
     }
 
     fn cell_mut(&mut self, addr: u32) -> &mut Cell {
@@ -233,7 +262,7 @@ pub struct ArrayMem {
 
 impl Default for ArrayMem {
     fn default() -> Self {
-        Self { array: vec![Cell::default(); 0x100000] }
+        Self { array: vec![Cell::default(); num_cells] }
     }
 }
 
@@ -246,6 +275,75 @@ impl Cells for ArrayMem {
     fn cell_mut(&mut self, addr: u32) -> &mut Cell {
         let offset = (addr >> 2) as usize;
         &mut self.array[offset]
+    }
+}
+
+/// A Merkle-Tree memory suitable for proof generation
+
+pub struct MerkleMem {
+    pub array: ArrayMem,
+    pub config: PoseidonConfig<F>,
+    pub tree: MerkleTree<MTConfig>,
+}
+
+pub struct MTConfig;
+
+impl Config for MTConfig {
+    type Leaf = [F];
+    type LeafDigest = F;
+    type LeafInnerDigestConverter = IdentityDigestConverter<F>;
+    type InnerDigest = F;
+    type LeafHash = poseidon::CRH<F>;
+    type TwoToOneHash = poseidon::TwoToOneCRH<F>;
+}
+
+const FULL_ROUNDS: usize = 8;
+const PARTIAL_ROUNDS: usize = 57;
+const ALPHA: u64 = 5;
+const RATE: usize = 2;
+const CAPACITY: usize = 1;
+const MODULUS_BITS: u64 = 254;
+
+pub fn poseidon_config() -> PoseidonConfig<F> {
+    let (ark, mds) = find_poseidon_ark_and_mds::<F>(
+        MODULUS_BITS,
+        RATE,
+        FULL_ROUNDS as u64,
+        PARTIAL_ROUNDS as u64,
+        0,
+    );
+    PoseidonConfig {
+        full_rounds: FULL_ROUNDS,
+        partial_rounds: PARTIAL_ROUNDS,
+        alpha: ALPHA,
+        ark,
+        mds,
+        rate: RATE,
+        capacity: CAPACITY,
+    }
+}
+
+impl Default for MerkleMem {
+    fn default() -> Self {
+        let config = poseidon_config();
+        let tree = MerkleTree::<MTConfig>::blank(&config, &config, cells_exp + 1).unwrap();
+        Self { array: ArrayMem::default(), config, tree }
+    }
+}
+
+impl Cells for MerkleMem {
+    fn cell(&self, addr: u32) -> &Cell {
+        self.array.cell(addr)
+    }
+
+    fn cell_mut(&mut self, addr: u32) -> &mut Cell {
+        let cell = self.array.cell_mut(addr);
+        // errors are handled by Memory struct impl
+        if let Ok(v) = cell.lw(addr) {
+            let addr = (addr >> 2) as usize;
+            let _ = self.tree.update(addr, &[F::from(v)]);
+        }
+        cell
     }
 }
 
@@ -275,7 +373,11 @@ mod test {
         assert_eq!(cell.lw(0).unwrap(), 0x0c0d0a0b);
     }
 
-    fn test_mem<T: Cells>(mut mem: Memory<T>) {
+    fn test_mem(mut mem: Memory) {
+        // read before write
+        mem.lw(0x1000).unwrap();
+        mem.sw(0x1000, 1).unwrap();
+
         mem.sb(0x1100, 1).unwrap();
         mem.sb(0x1101, 2).unwrap();
         mem.sb(0x1103, 3).unwrap();
@@ -311,11 +413,38 @@ mod test {
 
         mem.sh(0x1300, 0x8321).unwrap();
         assert_eq!(mem.lh(0x1300).unwrap(), 0xffff8321);
+
+        // check memory map
+        for (start, size, _) in memory_map {
+            mem.sw(start, 1).unwrap();
+            mem.sh(start, 1).unwrap();
+            mem.sb(start, 1).unwrap();
+            mem.sw(start + size - 4, 1).unwrap();
+            mem.sh(start + size - 2, 1).unwrap();
+            mem.sb(start + size - 1, 1).unwrap();
+
+            mem.lw(start).unwrap();
+            mem.lh(start).unwrap();
+            mem.lb(start).unwrap();
+            mem.lw(start + size - 4).unwrap();
+            mem.lh(start + size - 2).unwrap();
+            mem.lb(start + size - 1).unwrap();
+        }
     }
 
     #[test]
-    fn test_memory() {
-        test_mem(Memory::<PagedMem>::default());
-        test_mem(Memory::<ArrayMem>::default());
+    fn test_memory_paged() {
+        test_mem(Memory(Box::new(PagedMem::default())));
+    }
+
+    #[test]
+    fn test_memory_array() {
+        test_mem(Memory(Box::new(ArrayMem::default())));
+    }
+
+    #[test]
+    #[ignore]
+    fn test_memory_merkle() {
+        test_mem(Memory(Box::new(MerkleMem::default())));
     }
 }

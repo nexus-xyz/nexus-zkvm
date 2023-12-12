@@ -24,7 +24,7 @@ use std::path::PathBuf;
 /// Create a VM with k no-op instructions
 pub fn nop_vm(k: usize) -> VM {
     let mut pc = 0x1000;
-    let mut vm = VM::new(pc);
+    let mut vm = VM::new(pc, false);
 
     // TODO: we can do better for large k
     for _ in 0..k {
@@ -39,7 +39,7 @@ pub fn nop_vm(k: usize) -> VM {
 pub fn loop_vm(k: usize) -> VM {
     assert!(k < (1 << 31));
 
-    let mut vm = VM::new(0x1000);
+    let mut vm = VM::new(0x1000, false);
 
     let hi = (k as u32) & 0xfffff000;
     let lo = ((k & 0xfff) << 20) as u32;
@@ -53,13 +53,13 @@ pub fn loop_vm(k: usize) -> VM {
 }
 
 /// Load a VM state from an ELF file
-pub fn load_elf(path: &PathBuf) -> Result<VM> {
+pub fn load_elf(path: &PathBuf, merkle: bool) -> Result<VM> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
-    parse_elf(slice)
+    parse_elf(slice, merkle)
 }
 
-pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
+pub fn parse_elf(bytes: &[u8], merkle: bool) -> Result<VM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
@@ -70,7 +70,7 @@ pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
         .collect();
 
     // TODO: read PC from elf file (and related changes)
-    let mut vm = VM::new(0x1000);
+    let mut vm = VM::new(0x1000, merkle);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
@@ -89,6 +89,10 @@ pub struct VMOpts {
     /// Instructions per step
     #[arg(short, name = "k", default_value = "1")]
     pub k: usize,
+
+    /// Use merkle-tree memory
+    #[arg(short, default_value = "false")]
+    pub merkle: bool,
 
     /// Use a no-op machine of size n
     #[arg(group = "vm", short, name = "n")]
@@ -110,7 +114,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
     } else if let Some(k) = opts.loopk {
         Ok(loop_vm(k))
     } else {
-        load_elf(opts.file.as_ref().unwrap())
+        load_elf(opts.file.as_ref().unwrap(), opts.merkle)
     }
 }
 

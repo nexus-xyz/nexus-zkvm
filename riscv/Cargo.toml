@@ -10,3 +10,5 @@ serde.workspace = true
 elf = { version = "0.7", default-features = false, features = ["std"] }
 
 ark-serialize.workspace = true
+ark-bn254.workspace = true
+ark-crypto-primitives.workspace = true
