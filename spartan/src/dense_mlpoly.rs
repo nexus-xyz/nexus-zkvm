@@ -13,7 +13,7 @@ use ark_std::Zero;
 use core::ops::Index;
 use merlin::Transcript;
 
-#[cfg(feature = "multicore")]
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -152,23 +152,6 @@ impl<F: PrimeField> DensePolynomial<F> {
     )
   }
 
-  #[cfg(feature = "multicore")]
-  fn commit_inner(&self, blinds: &[F], gens: &MultiCommitGens) -> PolyCommitment {
-    let L_size = blinds.len();
-    let R_size = self.Z.len() / L_size;
-    assert_eq!(L_size * R_size, self.Z.len());
-    let C = (0..L_size)
-      .into_par_iter()
-      .map(|i| {
-        self.Z[R_size * i..R_size * (i + 1)]
-          .commit(&blinds[i], gens)
-          .compress()
-      })
-      .collect();
-    PolyCommitment { C }
-  }
-
-  #[cfg(not(feature = "multicore"))]
   fn commit_inner<G: CurveGroup<ScalarField = F>>(
     &self,
     blinds: &[F],
@@ -177,7 +160,7 @@ impl<F: PrimeField> DensePolynomial<F> {
     let L_size = blinds.len();
     let R_size = self.Z.len() / L_size;
     assert_eq!(L_size * R_size, self.Z.len());
-    let C = (0..L_size)
+    let C = ark_std::cfg_into_iter!(0..L_size)
       .map(|i| {
         Commitments::batch_commit(
           self.Z[R_size * i..R_size * (i + 1)].as_ref(),

@@ -8,9 +8,6 @@ extern crate merlin;
 extern crate rand;
 extern crate sha3;
 
-#[cfg(feature = "multicore")]
-extern crate rayon;
-
 mod commitments;
 pub mod committed_relaxed_snark;
 mod crr1cs;
