@@ -10,25 +10,34 @@ mod ark_confusion {
     use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 
     use crate::vm::eval::Regs;
+    pub use crate::vm::mem::{F, Path};
 
-    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
     pub struct Trace {
         pub k: usize,
         pub start: usize,
         pub blocks: Vec<Block>,
     }
 
-    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
     pub struct Block {
         pub regs: Regs,
         pub steps: Vec<Step>,
+        #[serde(with = "crate::ark_serde")]
+        pub root: Option<F>,
     }
 
-    #[derive(Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
     pub struct Step {
         pub inst: u32,
         pub Z: u32,
         pub PC: u32,
+        #[serde(with = "crate::ark_serde")]
+        pub pc_path: Option<Path>,
+        #[serde(with = "crate::ark_serde")]
+        pub read_path: Option<Path>,
+        #[serde(with = "crate::ark_serde")]
+        pub write_path: Option<(F, Path)>,
     }
 }
 pub use ark_confusion::*;
@@ -54,13 +63,23 @@ impl Trace {
 
 fn step(vm: &mut VM) -> Result<Step> {
     eval_inst(vm)?;
-    let step = Step { inst: vm.inst.word, Z: vm.Z, PC: vm.PC };
-    eval_writeback(vm);
+    let step = Step {
+        inst: vm.inst.word,
+        Z: vm.Z,
+        PC: vm.regs.pc,
+        pc_path: vm.pc_path.clone(),
+        read_path: vm.read_path.clone(),
+        write_path: vm.write_path.clone(),
+    };
     Ok(step)
 }
 
 fn k_step(vm: &mut VM, k: usize) -> Result<Block> {
-    let mut block = Block { regs: vm.regs.clone(), steps: Vec::new() };
+    let mut block = Block {
+        regs: vm.regs.clone(),
+        steps: Vec::new(),
+        root: vm.root,
+    };
 
     for _ in 0..k {
         block.steps.push(step(vm)?);
@@ -106,6 +125,11 @@ pub struct Witness {
     pub Y: u32,
     pub Z: u32,
     pub PC: u32,
+
+    pub root: Option<F>,
+    pub pc_path: Option<Path>,
+    pub read_path: Option<Path>,
+    pub write_path: Option<(F, Path)>,
 }
 
 impl Block {
@@ -125,13 +149,19 @@ impl<'a> IntoIterator for &'a Block {
 
 pub struct BlockIter<'a> {
     regs: Regs,
+    root: Option<F>,
     block: &'a Block,
     index: usize,
 }
 
 impl BlockIter<'_> {
     fn new(b: &Block) -> BlockIter<'_> {
-        BlockIter { regs: b.regs.clone(), block: b, index: 0 }
+        BlockIter {
+            regs: b.regs.clone(),
+            root: b.root,
+            block: b,
+            index: 0,
+        }
     }
 }
 
@@ -154,6 +184,14 @@ impl Iterator for BlockIter<'_> {
         w.Z = s.Z;
         w.PC = s.PC;
 
+        w.root = self.root;
+        w.pc_path = s.pc_path.clone();
+        w.read_path = s.read_path.clone();
+        w.write_path = s.write_path.clone();
+
+        if let Some((r, _)) = &s.write_path {
+            self.root = Some(*r);
+        }
         self.regs.pc = w.PC;
         self.regs.x[w.rd as usize] = w.Z;
         self.index += 1;

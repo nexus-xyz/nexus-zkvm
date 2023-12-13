@@ -7,11 +7,11 @@
 
 use std::collections::BTreeMap;
 
-use ark_bn254::Fr as F;
+pub use ark_bn254::Fr as F;
 use ark_crypto_primitives::{
     sponge::poseidon::{PoseidonConfig, find_poseidon_ark_and_mds},
     crh::poseidon,
-    merkle_tree::{Config, IdentityDigestConverter, MerkleTree},
+    merkle_tree::{Config, IdentityDigestConverter, MerkleTree, Path as MTPath},
 };
 
 use crate::error::*;
@@ -135,11 +135,30 @@ pub trait Cells {
 
     /// returns a mutable refernce to the cell at address `addr`.
     fn cell_mut(&mut self, addr: u32) -> &mut Cell;
+
+    /// returns the current merkle-tree root
+    fn root(&self) -> Option<F> {
+        None
+    }
+
+    /// returns the merkle-path for an address if available
+    fn path(&self, _addr: u32) -> Option<Path> {
+        None
+    }
+
+    /// returns both the root and a path
+    fn root_path(&self, addr: u32) -> Option<(F, Path)> {
+        if let (Some(r), Some(p)) = (self.root(), self.path(addr)) {
+            Some((r, p))
+        } else {
+            None
+        }
+    }
 }
 
 /// The memory of the machine, implemented by a Cell container.
 
-pub struct Memory(Box<dyn Cells>);
+pub struct Memory(pub(crate) Box<dyn Cells>);
 
 impl Default for Memory {
     fn default() -> Self {
@@ -297,6 +316,8 @@ impl Config for MTConfig {
     type TwoToOneHash = poseidon::TwoToOneCRH<F>;
 }
 
+pub type Path = MTPath<MTConfig>;
+
 const FULL_ROUNDS: usize = 8;
 const PARTIAL_ROUNDS: usize = 57;
 const ALPHA: u64 = 5;
@@ -344,6 +365,14 @@ impl Cells for MerkleMem {
             let _ = self.tree.update(addr, &[F::from(v)]);
         }
         cell
+    }
+
+    fn root(&self) -> Option<F> {
+        Some(self.tree.root())
+    }
+
+    fn path(&self, addr: u32) -> Option<Path> {
+        self.tree.generate_proof(addr as usize).ok()
     }
 }
 

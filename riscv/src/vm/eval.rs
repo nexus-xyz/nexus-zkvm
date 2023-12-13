@@ -17,12 +17,16 @@ pub struct VM {
     pub mem: Memory,
     /// current instruction
     pub inst: Inst,
-    /// destination register
-    pub rd: u32,
     /// internal result register
     pub Z: u32,
-    /// internal program counter
-    pub PC: u32,
+    /// merkle tree root (if available)
+    pub root: Option<F>,
+    /// merkle tree path to instruction (if available)
+    pub pc_path: Option<Path>,
+    /// merkle tree path read (if available)
+    pub read_path: Option<Path>,
+    /// merkle tree update for write (if available)
+    pub write_path: Option<(F, Path)>,
 }
 
 // ArkWorks macros are not hygenic
@@ -110,54 +114,54 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
     }
 }
 
-/// finalize previous instruction and update machine state.
-pub fn eval_writeback(vm: &mut VM) {
-    vm.set_reg(vm.rd, vm.Z);
-    vm.regs.pc = vm.PC;
-}
-
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut VM) -> Result<()> {
     vm.inst = parse_inst(vm.regs.pc, vm.mem.read_cell(vm.regs.pc)?.bytes())?;
 
     // initialize micro-architecture state
-    vm.rd = 0;
     vm.Z = 0;
-    vm.PC = 0;
+    vm.root = vm.mem.0.root();
+    vm.pc_path = vm.mem.0.path(vm.regs.pc);
+    vm.read_path = None;
+    vm.write_path = None;
+
+    let mut RD = 0u32;
+    let mut PC = 0;
 
     match vm.inst.inst {
         LUI { rd, imm } => {
-            vm.rd = rd;
+            RD = rd;
             vm.Z = imm;
         }
         AUIPC { rd, imm } => {
-            vm.rd = rd;
+            RD = rd;
             vm.Z = add32(vm.regs.pc, imm);
         }
         JAL { rd, imm } => {
-            vm.rd = rd;
+            RD = rd;
             vm.Z = add32(vm.regs.pc, 4);
-            vm.PC = add32(vm.regs.pc, imm);
+            PC = add32(vm.regs.pc, imm);
         }
         JALR { rd, rs1, imm } => {
             let X = vm.get_reg(rs1);
-            vm.rd = rd;
+            RD = rd;
             vm.Z = add32(vm.regs.pc, 4);
-            vm.PC = add32(X, imm);
+            PC = add32(X, imm);
         }
         BR { bop, rs1, rs2, imm } => {
             let X = vm.get_reg(rs1);
             let Y = vm.get_reg(rs2);
 
             if br_op(bop, X, Y) {
-                vm.PC = add32(vm.regs.pc, imm);
+                PC = add32(vm.regs.pc, imm);
             }
         }
         LOAD { lop, rd, rs1, imm } => {
             let X = vm.get_reg(rs1);
-            vm.rd = rd;
+            RD = rd;
 
             let addr = add32(X, imm);
+            vm.read_path = vm.mem.0.path(addr);
             match lop {
                 LB => vm.Z = vm.mem.lb(addr)?,
                 LH => vm.Z = vm.mem.lh(addr)?,
@@ -171,21 +175,23 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
             let Y = vm.get_reg(rs2);
 
             let addr = add32(X, imm);
+            vm.read_path = vm.mem.0.path(addr);
             match sop {
                 SB => vm.mem.sb(addr, Y)?,
                 SH => vm.mem.sh(addr, Y)?,
                 SW => vm.mem.sw(addr, Y)?,
             }
+            vm.write_path = vm.mem.0.root_path(addr);
         }
         ALUI { aop, rd, rs1, imm } => {
-            vm.rd = rd;
+            RD = rd;
             let X = vm.get_reg(rs1);
             vm.Z = alu_op(aop, X, imm);
         }
         ALU { aop, rd, rs1, rs2 } => {
             let X = vm.get_reg(rs1);
             let Y = vm.get_reg(rs2);
-            vm.rd = rd;
+            RD = rd;
             vm.Z = alu_op(aop, X, Y);
         }
         FENCE | EBREAK => {}
@@ -207,12 +213,14 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
             }
         }
         UNIMP => {
-            vm.PC = vm.inst.pc;
+            PC = vm.inst.pc;
         }
     }
 
-    if vm.PC == 0 {
-        vm.PC = add32(vm.inst.pc, vm.inst.len);
+    if PC == 0 {
+        PC = add32(vm.inst.pc, vm.inst.len);
     }
+    vm.set_reg(RD, vm.Z);
+    vm.regs.pc = PC;
     Ok(())
 }

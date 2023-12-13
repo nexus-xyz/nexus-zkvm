@@ -5,6 +5,7 @@
 mod error;
 pub mod rv32;
 pub mod vm;
+mod ark_serde;
 
 #[cfg(test)]
 mod tests;
@@ -129,14 +130,16 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
     }
 
     loop {
+        if show {
+            print!("{:50} ", vm.inst);
+        }
         eval_inst(vm)?;
         if show {
-            println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.PC);
+            println!("{:8x} {:8x}", vm.Z, vm.regs.pc);
         }
         if vm.inst.inst == RV32::UNIMP {
             break;
         }
-        eval_writeback(vm);
     }
 
     fn table(name: &str, mem: &[u32]) {
