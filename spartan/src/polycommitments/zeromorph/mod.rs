@@ -353,7 +353,7 @@ where
       num_vars: supported_num_vars,
       N_max: max_degree,
     };
-    println!("{}", srs.shift_powers_of_tau_h.len());
+
     let vk = ZeromorphVerifierKey {
       supported_num_vars,
       g: srs.powers_of_tau_g[0],
