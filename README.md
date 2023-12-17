@@ -1,3 +1,23 @@
+<p align="center">
+  <p align="center">
+   <img width="150" height="150" src="assets/logo.png" alt="Logo">
+  </p>
+	<h1 align="center"><b>The Nexus zkVM</b></h1>
+	<p align="center">
+		The ultimate zero-knowledge virtual machine.
+    <br />
+    <a href="https://nexus.xyz"><strong>nexus.xyz »</strong></a>
+  </p>
+</p>
+
+<p align="center">
+  <a href="https://x.com/NexusLabsHQ">
+    <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white" />
+  </a>
+  <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
+  <br />
+</p>
+
 # The Nexus zkVM
 
 ## Quick Start
