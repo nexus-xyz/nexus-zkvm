@@ -65,8 +65,8 @@ Proving programs can be done with either locally or using the Nexus network.
 To prove using the nexus network, use the `prove` command.
 
 ```
-cargo nexus prove       # prove debug build
 cargo nexus prove -r    # prove release build
+cargo nexus prove       # prove debug build
 ```
 
 If your project contains multiple binaries, you may need to
