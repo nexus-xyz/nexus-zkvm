@@ -77,6 +77,10 @@ pub enum Command {
 
     /// Run a Nexus proof locally
     LocalProve {
+        /// instructions per step
+        #[arg(short, name = "k", default_value = "1")]
+        k: usize,
+
         /// public parameters file
         #[arg(
             short = 'p',
