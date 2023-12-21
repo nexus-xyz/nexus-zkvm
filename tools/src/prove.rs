@@ -68,14 +68,14 @@ pub fn verify() -> CmdResult<()> {
 
 pub fn local() -> CmdResult<()> {
     let Opts {
-        command: LocalProve { pp_file, release, bin },
+        command: LocalProve { k, pp_file, release, bin },
     } = options()
     else {
         panic!()
     };
     let t = get_target(*release, bin)?;
     let opts = VMOpts {
-        k: 1,
+        k: *k,
         nop: None,
         loopk: None,
         file: Some(t),
