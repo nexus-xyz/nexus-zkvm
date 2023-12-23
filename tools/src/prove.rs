@@ -57,7 +57,7 @@ pub fn verify() -> CmdResult<()> {
         return Err("invalid proof object".into());
     };
 
-    let state = gen_or_load(false, 1, pp_file)?;
+    let state = gen_or_load(false, 1, pp_file, &())?;
 
     match node.verify(&state) {
         Ok(_) => println!("{} verified", proof.hash),
@@ -82,7 +82,7 @@ pub fn local() -> CmdResult<()> {
         file: Some(t),
     };
     let trace = run(&opts, true)?;
-    let state = gen_or_load(false, 1, pp_file)?;
+    let state = gen_or_load(false, 1, pp_file, &())?;
     prove_par(state, trace)?;
     Ok(())
 }

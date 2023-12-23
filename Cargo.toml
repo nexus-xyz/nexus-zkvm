@@ -31,7 +31,12 @@ clap = { version = "4.3", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge", "crh", "merkle_tree"] }
+ark-crypto-primitives = { version = "0.4.0", features = [
+    "r1cs",
+    "sponge",
+    "crh",
+    "merkle_tree",
+] }
 ark-std = "0.4.0"
 
 ark-relations = { version = "0.4.0" }
@@ -54,19 +59,19 @@ ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitive
 
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
 
-ark-ff          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-ec          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-serialize   = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-poly        = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 
 ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "c724fa6" }
 
 # note bls is using a different commit from the other curves
-ark-bn254     = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-grumpkin  = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-pallas    = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-vesta     = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
 
 [profile.release]

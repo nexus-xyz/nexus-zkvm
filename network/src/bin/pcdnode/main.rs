@@ -84,7 +84,7 @@ async fn main() -> Result<()> {
 
     let opts = Opts::parse();
 
-    let pp = gen_or_load(false, 0, &opts.pp_file)?;
+    let pp = gen_or_load(false, 0, &opts.pp_file, &())?;
     let state = WorkerState::new(pp);
 
     start_local_workers(state.clone())?;

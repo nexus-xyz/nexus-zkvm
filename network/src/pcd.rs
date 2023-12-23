@@ -222,7 +222,7 @@ mod test {
     fn round_trip_node() {
         let trace = nop();
         let circuit = Tr::new(trace.clone());
-        let pp: ParPP = gen_pp(&circuit).unwrap();
+        let pp: ParPP = gen_pp(&circuit, &()).unwrap();
         let n0 = PCDNode::prove_step(&pp, &circuit, 0, &circuit.input(0)).unwrap();
         let n2 = PCDNode::prove_step(&pp, &circuit, 2, &circuit.input(2)).unwrap();
         let n = PCDNode::prove_from(&pp, &circuit, &n0, &n2).unwrap();

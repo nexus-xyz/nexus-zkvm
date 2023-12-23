@@ -23,6 +23,13 @@ pub enum ProofError {
 
     /// Public Parameters do not match circuit
     InvalidPP,
+
+    /// SRS for polynomial commitment scheme is missing
+    MissingSRS,
+
+    /// An error occured while sampling the test SRS
+    #[cfg(test)]
+    SRSSamplingError,
 }
 use ProofError::*;
 
@@ -49,6 +56,7 @@ impl From<NovaError> for ProofError {
         match x {
             NovaError::R1CS(e) => panic!("R1CS Error {e:?}"),
             NovaError::Synthesis(e) => CircuitError(e),
+            NovaError::InvalidPublicInput => panic!("Nova Error: Invalid Public Input"),
         }
     }
 }
@@ -67,6 +75,9 @@ impl Error for ProofError {
             CircuitError(e) => Some(e),
             SerError(e) => Some(e),
             InvalidPP => None,
+            MissingSRS => None,
+            #[cfg(test)]
+            SRSSamplingError => None,
         }
     }
 }
@@ -79,6 +90,9 @@ impl Display for ProofError {
             CircuitError(e) => write!(f, "{e}"),
             SerError(e) => write!(f, "{e}"),
             InvalidPP => write!(f, "invalid public parameters"),
+            MissingSRS => write!(f, "missing SRS"),
+            #[cfg(test)]
+            SRSSamplingError => write!(f, "error sampling test SRS"),
         }
     }
 }

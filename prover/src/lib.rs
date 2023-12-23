@@ -2,6 +2,7 @@ pub mod error;
 pub mod types;
 pub mod circuit;
 pub mod pp;
+pub mod srs;
 
 use crate::error::*;
 use crate::types::*;

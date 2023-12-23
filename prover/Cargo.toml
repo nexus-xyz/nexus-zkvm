@@ -23,12 +23,13 @@ ark-crypto-primitives.workspace = true
 ark-relations.workspace = true
 ark-r1cs-std.workspace = true
 ark-serialize.workspace = true
+ark_spartan.workspace = true
 
 ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
 [features]
-default = [ "parallel", "snmalloc" ]
+default = ["parallel", "snmalloc"]
 parallel = [
    "ark-ff/parallel",
    "ark-ec/parallel",
@@ -37,4 +38,4 @@ parallel = [
    "ark-r1cs-std/parallel",
    "supernova/parallel",
 ]
-snmalloc = [ "snmalloc-rs" ]
+snmalloc = ["snmalloc-rs"]

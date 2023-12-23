@@ -35,6 +35,14 @@ enum Command {
             default_value = "nexus-public.zst"
         )]
         pp_file: String,
+
+        /// whether public parameters are compatible with proof compression
+        #[arg(short = 'c', long = "compressible", default_value = "false")]
+        com: bool,
+
+        /// SRS file: required with `--compressible`, otherwise ignored
+        #[arg(short = 's', long = "srs")]
+        srs_file: Option<String>,
     },
 
     /// Prove execution of program
@@ -47,10 +55,10 @@ enum Command {
         #[arg(short = 'P', default_value = "false")]
         par: bool,
 
-        /// private parameters file
+        /// public parameters file
         #[arg(
             short = 'p',
-            long = "private-params",
+            long = "public-params",
             default_value = "nexus-public.zst"
         )]
         pp_file: String,
@@ -65,14 +73,16 @@ fn main() -> Result<(), ProofError> {
     let opts = Opts::parse();
 
     match opts.command {
-        Gen { k, par, pp_file } => gen_to_file(k, par, &pp_file),
+        Gen { k, par, pp_file, com, srs_file } => {
+            gen_to_file(k, par, com, &pp_file, srs_file.as_deref())
+        }
 
         Prove { gen, par, pp_file, vm } => {
             let trace = run(&vm, par)?;
             if par {
-                prove_par(gen_or_load(gen, vm.k, &pp_file)?, trace)
+                prove_par(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
             } else {
-                prove_seq(gen_or_load(gen, vm.k, &pp_file)?, trace)
+                prove_seq(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
             }
         }
     }
