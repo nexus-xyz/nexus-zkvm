@@ -1,8 +1,6 @@
 use ark_crypto_primitives::sponge::poseidon::{find_poseidon_ark_and_mds, PoseidonConfig};
 use ark_ff::PrimeField;
 
-pub use ark_crypto_primitives::sponge::poseidon::{constraints::PoseidonSpongeVar, PoseidonSponge};
-
 /// Returns config for poseidon sponge with 128-bit security.
 pub fn poseidon_config<F: PrimeField>() -> PoseidonConfig<F> {
     const FULL_ROUNDS: usize = 8;

@@ -200,7 +200,7 @@ where
         let g2 = parse_projective!(X);
         let g_out = parse_projective!(X);
 
-        let r = *X.get(0)?;
+        let r = *X.first()?;
 
         Some(Circuit { g1, g2, g_out, r })
     }
