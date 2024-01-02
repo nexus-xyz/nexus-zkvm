@@ -1,25 +1,23 @@
-use std::fmt;
+use ark_std::fmt;
 
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ec::{AdditiveGroup, CurveGroup, PrimeGroup};
 use ark_ff::{Field, PrimeField};
 use ark_relations::r1cs::ConstraintSystemRef;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::Zero;
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
 
-use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme, utils};
+use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme};
 
-/// (row_idx, column_idx, value).
-///
-/// Nova paper assumes constraint matrices to be of a square size, however
-/// this limitation can safely be ignored.
-pub type SparseMatrix<Scalar> = Vec<(usize, usize, Scalar)>;
-pub type SparseMatrixRef<'a, Scalar> = &'a [(usize, usize, Scalar)];
+pub mod sparse;
+pub use sparse::SparseMatrix;
+
+pub use ark_relations::r1cs::Matrix;
+pub type MatrixRef<'a, F> = &'a [Vec<(F, usize)>];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
@@ -70,14 +68,16 @@ impl<G: PrimeGroup> R1CSShape<G> {
         num_constraints: usize,
         num_vars: usize,
         num_io: usize,
-        M: SparseMatrixRef<'_, G::ScalarField>,
+        M: MatrixRef<'_, G::ScalarField>,
     ) -> Result<(), Error> {
-        for (row, column, _value) in M {
-            if *row >= num_constraints {
-                return Err(Error::ConstraintNumberMismatch);
-            }
-            if *column > num_io + num_vars {
-                return Err(Error::InputLengthMismatch);
+        for (i, row) in M.iter().enumerate() {
+            for (_value, j) in row {
+                if i >= num_constraints {
+                    return Err(Error::ConstraintNumberMismatch);
+                }
+                if *j > num_io + num_vars {
+                    return Err(Error::InputLengthMismatch);
+                }
             }
         }
 
@@ -89,9 +89,9 @@ impl<G: PrimeGroup> R1CSShape<G> {
         num_constraints: usize,
         num_vars: usize,
         num_io: usize,
-        A: SparseMatrixRef<'_, G::ScalarField>,
-        B: SparseMatrixRef<'_, G::ScalarField>,
-        C: SparseMatrixRef<'_, G::ScalarField>,
+        A: MatrixRef<'_, G::ScalarField>,
+        B: MatrixRef<'_, G::ScalarField>,
+        C: MatrixRef<'_, G::ScalarField>,
     ) -> Result<R1CSShape<G>, Error> {
         if num_io == 0 {
             return Err(Error::InvalidInputLength);
@@ -101,66 +101,16 @@ impl<G: PrimeGroup> R1CSShape<G> {
         Self::validate(num_constraints, num_vars, num_io, B)?;
         Self::validate(num_constraints, num_vars, num_io, C)?;
 
+        let rows = num_constraints;
+        let columns = num_io + num_vars;
         Ok(Self {
             num_constraints,
             num_vars,
             num_io,
-            A: A.into(),
-            B: B.into(),
-            C: C.into(),
+            A: SparseMatrix::new(A, rows, columns),
+            B: SparseMatrix::new(B, rows, columns),
+            C: SparseMatrix::new(C, rows, columns),
         })
-    }
-
-    fn sparse_dot(
-        &self,
-        M: SparseMatrixRef<'_, G::ScalarField>,
-        z: &[G::ScalarField],
-    ) -> Result<Vec<G::ScalarField>, Error> {
-        if z.len() != self.num_io + self.num_vars {
-            return Err(Error::InvalidWitnessLength);
-        }
-
-        #[cfg(feature = "parallel")]
-        let Mz = {
-            let init = || vec![<G::ScalarField as Zero>::zero(); self.num_constraints];
-            M.par_iter()
-                .map(|(row, column, value)| (row, *value * z[*column]))
-                .with_min_len(M.len() / rayon::current_num_threads())
-                .fold(init, |mut Mz, (row, product)| {
-                    Mz[*row] += product;
-                    Mz
-                })
-                .reduce(init, |mut acc, z| {
-                    acc.iter_mut().zip(&z).for_each(|(a, b)| *a += b);
-                    acc
-                })
-        };
-        #[cfg(not(feature = "parallel"))]
-        let Mz = M
-            .iter()
-            .map(|(row, column, value)| (row, *value * z[*column]))
-            .fold(
-                vec![<G::ScalarField as Zero>::zero(); self.num_constraints],
-                |mut Mz, (row, product)| {
-                    Mz[*row] += product;
-                    Mz
-                },
-            );
-
-        Ok(Mz)
-    }
-
-    fn sparse_dot_all(&self, z: &[G::ScalarField]) -> Result<[Vec<G::ScalarField>; 3], Error> {
-        let matrices = ark_std::cfg_into_iter!([&self.A, &self.B, &self.C]);
-
-        #[cfg(feature = "parallel")]
-        let matrices = matrices.with_max_len(1);
-
-        let res = matrices
-            .map(|M| self.sparse_dot(M, z))
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(<[_; 3]>::try_from(res).unwrap())
     }
 
     /// Checks if the R1CS instance together with the witness `W` satisfies the R1CS constraints determined by `shape`.
@@ -174,7 +124,9 @@ impl<G: PrimeGroup> R1CSShape<G> {
         assert_eq!(U.X.len(), self.num_io);
 
         let z = [U.X.as_slice(), W.W.as_slice()].concat();
-        let [Az, Bz, Cz] = self.sparse_dot_all(&z)?;
+        let Az = self.A.multiply_vec(&z);
+        let Bz = self.B.multiply_vec(&z);
+        let Cz = self.C.multiply_vec(&z);
 
         if ark_std::cfg_into_iter!(0..self.num_constraints).any(|idx| Az[idx] * Bz[idx] != Cz[idx])
         {
@@ -200,7 +152,9 @@ impl<G: PrimeGroup> R1CSShape<G> {
         assert_eq!(W.E.len(), self.num_constraints);
 
         let z = [U.X.as_slice(), W.W.as_slice()].concat();
-        let [Az, Bz, Cz] = self.sparse_dot_all(&z)?;
+        let Az = self.A.multiply_vec(&z);
+        let Bz = self.B.multiply_vec(&z);
+        let Cz = self.C.multiply_vec(&z);
 
         let u = U.X[0];
 
@@ -225,13 +179,19 @@ impl<G: PrimeGroup> From<ConstraintSystemRef<G::ScalarField>> for R1CSShape<G> {
         assert!(cs.should_construct_matrices());
         let matrices = cs.to_matrices().unwrap();
 
+        let num_constraints = cs.num_constraints();
+        let num_vars = cs.num_witness_variables();
+        let num_io = cs.num_instance_variables();
+
+        let rows = num_constraints;
+        let columns = num_io + num_vars;
         Self {
-            num_constraints: cs.num_constraints(),
-            num_vars: cs.num_witness_variables(),
-            num_io: cs.num_instance_variables(),
-            A: utils::to_sparse(&matrices.a),
-            B: utils::to_sparse(&matrices.b),
-            C: utils::to_sparse(&matrices.c),
+            num_constraints,
+            num_vars,
+            num_io,
+            A: SparseMatrix::new(&matrices.a, rows, columns),
+            B: SparseMatrix::new(&matrices.b, rows, columns),
+            C: SparseMatrix::new(&matrices.c, rows, columns),
         }
     }
 }
@@ -559,10 +519,14 @@ pub fn commit_T<G: PrimeGroup, C: CommitmentScheme<G>>(
     W2: &R1CSWitness<G>,
 ) -> Result<(Vec<G::ScalarField>, C::Commitment), Error> {
     let z1 = [&U1.X, &W1.W[..]].concat();
-    let [Az1, Bz1, Cz1] = shape.sparse_dot_all(&z1)?;
+    let Az1 = shape.A.multiply_vec(&z1);
+    let Bz1 = shape.B.multiply_vec(&z1);
+    let Cz1 = shape.C.multiply_vec(&z1);
 
     let z2 = [&U2.X, &W2.W[..]].concat();
-    let [Az2, Bz2, Cz2] = shape.sparse_dot_all(&z2)?;
+    let Az2 = shape.A.multiply_vec(&z2);
+    let Bz2 = shape.B.multiply_vec(&z2);
+    let Cz2 = shape.C.multiply_vec(&z2);
 
     // Circle-product.
     let Az1_Bz2: Vec<G::ScalarField> = ark_std::cfg_iter!(Az1)
@@ -599,10 +563,14 @@ pub fn commit_T_with_relaxed<G: PrimeGroup, C: CommitmentScheme<G>>(
     W2: &RelaxedR1CSWitness<G>,
 ) -> Result<(Vec<G::ScalarField>, C::Commitment), Error> {
     let z1 = [&U1.X, &W1.W[..]].concat();
-    let [Az1, Bz1, Cz1] = shape.sparse_dot_all(&z1)?;
+    let Az1 = shape.A.multiply_vec(&z1);
+    let Bz1 = shape.B.multiply_vec(&z1);
+    let Cz1 = shape.C.multiply_vec(&z1);
 
     let z2 = [&U2.X, &W2.W[..]].concat();
-    let [Az2, Bz2, Cz2] = shape.sparse_dot_all(&z2)?;
+    let Az2 = shape.A.multiply_vec(&z2);
+    let Bz2 = shape.B.multiply_vec(&z2);
+    let Cz2 = shape.C.multiply_vec(&z2);
 
     // Circle-product.
     let Az1_Bz2: Vec<G::ScalarField> = ark_std::cfg_iter!(Az1)
@@ -639,33 +607,28 @@ mod tests {
     use crate::pedersen::PedersenCommitment;
 
     use ark_ff::Field;
+    use ark_relations::r1cs::Matrix;
     use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
 
-    fn to_field_sparse<G: PrimeGroup>(matrix: &[&[u64]]) -> SparseMatrix<G::ScalarField> {
-        let mut sparse = SparseMatrix::new();
+    fn to_field_sparse<G: PrimeGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
+        let mut coo_matrix = Matrix::new();
 
-        for i in 0..matrix.len() {
-            for j in 0..matrix[i].len() {
-                let value = matrix[i][j];
-                if value == 0 {
+        for row in matrix {
+            let mut sparse_row = Vec::new();
+            for (j, &f) in row.iter().enumerate() {
+                if f == 0 {
                     continue;
                 }
-
-                let big_int = <G::ScalarField as PrimeField>::BigInt::from(value);
-                sparse.push((i, j, G::ScalarField::from(big_int)));
+                sparse_row.push((G::ScalarField::from(f), j));
             }
+            coo_matrix.push(sparse_row);
         }
 
-        sparse
+        coo_matrix
     }
 
     fn to_field_elements<G: PrimeGroup>(x: &[u64]) -> Vec<G::ScalarField> {
-        x.iter()
-            .map(|x_i| {
-                let big_int = <G::ScalarField as PrimeField>::BigInt::from(*x_i);
-                G::ScalarField::from(big_int)
-            })
-            .collect()
+        x.iter().copied().map(G::ScalarField::from).collect()
     }
 
     #[test]

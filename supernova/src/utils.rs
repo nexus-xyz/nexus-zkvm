@@ -1,7 +1,4 @@
 use ark_ff::{BigInteger, PrimeField, ToConstraintField};
-use ark_relations::r1cs::Matrix;
-
-use super::r1cs::SparseMatrix;
 
 /// Converts an element of F1 to a vector of elements of the base field. This is a one-to-one encoding.
 /// Specifically, the F1 elements is converted to a BigInt in the range [0, p), where p is the order of F1.
@@ -29,19 +26,6 @@ where
     F2: PrimeField,
 {
     F2::from_le_bytes_mod_order(&element.into_bigint().to_bytes_le())
-}
-
-/// Continuously alloc sparse matrix from the given arkworks representation.
-pub fn to_sparse<F: Copy>(matrix: &Matrix<F>) -> SparseMatrix<F> {
-    let mut sparse = SparseMatrix::new();
-
-    for (i, row) in matrix.iter().enumerate() {
-        for &(value, j) in row {
-            sparse.push((i, j, value));
-        }
-    }
-
-    sparse
 }
 
 /// Returns iterator over bits in little-endian order.
