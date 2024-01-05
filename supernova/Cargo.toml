@@ -39,15 +39,3 @@ tracing-subscriber = { version = "0.2", default-features = false, features = [
    "fmt",
    "ansi",
 ] }
-
-[patch.crates-io]
-ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
-ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
-ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-
-ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
-ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
-ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
