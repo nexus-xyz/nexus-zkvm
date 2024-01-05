@@ -11,7 +11,7 @@ pub fn gen_pp<SP>(circuit: &SC) -> Result<PP<SP>, ProofError>
 where
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
-    Ok(SP::setup(ro_config(), circuit)?)
+    Ok(SP::setup(ro_config(), circuit, &(), &())?)
 }
 
 pub fn save_pp<SP>(pp: PP<SP>, file: &str) -> Result<(), ProofError>

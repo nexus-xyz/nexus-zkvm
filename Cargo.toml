@@ -10,13 +10,7 @@ members = [
     "network",
     "msnova",
 ]
-default-members = [
-    "riscv",
-    "riscv-circuit",
-    "tools",
-    "prover",
-    "network",
-]
+default-members = ["riscv", "riscv-circuit", "tools", "prover", "network"]
 
 [workspace.package]
 edition = "2021"
@@ -28,7 +22,7 @@ clap = { version = "4.3", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev="fe89f3e" }
+supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev = "92e884c" }
 #supernova = { path = "../supernova" }
 
 ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge"] }
@@ -50,11 +44,11 @@ ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitive
 #ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
 ark-r1cs-std = { git = "https://github.com/slumber/r1cs-std/", branch = "slumber-hardcode-nonnative-params" }
 
-ark-ff          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-ec          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-serialize   = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 
-ark-bn254    = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 
 # additional settings in .cargo/config
