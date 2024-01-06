@@ -92,10 +92,14 @@ impl R1CS {
         n
     }
 
-    pub fn set_var(&mut self, name: &str, val: u32) -> usize {
+    pub fn set_field_var(&mut self, name: &str, val: F) -> usize {
         let j = self.new_var(name);
-        self.w[j] = F::from(val);
+        self.w[j] = val;
         j
+    }
+
+    pub fn set_var(&mut self, name: &str, val: u32) -> usize {
+        self.set_field_var(name, F::from(val))
     }
 
     pub fn new_local_var(&mut self, name: &str) -> usize {

@@ -1,27 +1,44 @@
 //! Circuits for the RISC-V VM (nexus-riscv)
 
-use super::r1cs::*;
-
+use nexus_riscv::vm::memory::path::Path;
 use nexus_riscv::vm::trace::*;
 use nexus_riscv::rv32::{*, parse::*};
+
+use super::r1cs::*;
 
 // Note: circuit generation code depends on this ordering
 // (inputs: pc,x0..31 and then outputs: PC,x'0..31)
 
 #[allow(clippy::field_reassign_with_default)]
 #[allow(clippy::needless_range_loop)]
-fn init_cs(pc: u32, regs: &[u32; 32]) -> R1CS {
+fn init_cs(w: &Witness) -> R1CS {
     let mut cs = R1CS::default();
-    cs.arity = 33;
-    cs.set_var("pc", pc);
+    cs.arity = 34;
+
+    // inputs
+    cs.set_var("pc", w.regs.pc);
     for i in 0..32 {
-        cs.set_var(&format!("x{i}"), regs[i]);
+        cs.set_var(&format!("x{i}"), w.regs.x[i]);
     }
-    cs.set_var("PC", pc);
+    cs.set_field_var("root", w.pc_path.root);
+
+    // outputs
+    cs.set_var("PC", w.PC);
     for i in 0..32 {
-        cs.set_var(&format!("x'{i}"), regs[i]);
+        cs.set_var(&format!("x'{i}"), w.regs.x[i]);
     }
+    cs.set_field_var("ROOT", w.write_path.root);
+
+    // memory contents
+    add_path(&mut cs, "pc_path", &w.pc_path);
+    add_path(&mut cs, "read_path", &w.read_path);
+    add_path(&mut cs, "write_path", &w.write_path);
     cs
+}
+
+fn add_path(cs: &mut R1CS, prefix: &str, path: &Path) {
+    cs.set_field_var(&format!("{}_1", prefix), path.leaf[0]);
+    cs.set_field_var(&format!("{}_2", prefix), path.leaf[1]);
 }
 
 fn select_XY(cs: &mut R1CS, rs1: u32, rs2: u32) {
@@ -458,7 +475,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
 }
 
 pub fn big_step(vm: &Witness, witness_only: bool) -> R1CS {
-    let mut cs = init_cs(vm.regs.pc, &vm.regs.x);
+    let mut cs = init_cs(vm);
     cs.witness_only = witness_only;
 
     select_XY(&mut cs, vm.rs1, vm.rs2);
@@ -1083,6 +1100,7 @@ fn misc(cs: &mut R1CS) {
 
 #[cfg(test)]
 mod test {
+    use nexus_riscv::vm::eval::Regs;
     use nexus_riscv::rv32::parse::*;
     use super::*;
 
@@ -1160,9 +1178,13 @@ mod test {
     #[test]
     fn test_select_XY() {
         let regs: [u32; 32] = core::array::from_fn(|i| i as u32);
+        let w = Witness {
+            regs: Regs { pc: 0, x: regs },
+            ..Witness::default()
+        };
         for x in [0, 1, 2, 31] {
             for y in [0, 6, 13] {
-                let mut cs = init_cs(0, &regs);
+                let mut cs = init_cs(&w);
                 select_XY(&mut cs, x, y);
                 assert!(cs.is_sat());
                 assert!(cs.get_var("X") == &F::from(x));
@@ -1174,8 +1196,12 @@ mod test {
     #[test]
     fn test_select_Z() {
         let regs: [u32; 32] = core::array::from_fn(|i| i as u32);
+        let w = Witness {
+            regs: Regs { pc: 0, x: regs },
+            ..Witness::default()
+        };
         for i in 0..32 {
-            let mut cs = init_cs(0, &regs);
+            let mut cs = init_cs(&w);
             let j = cs.new_var("Z");
             let z = F::from(100);
             cs.w[j] = z;
