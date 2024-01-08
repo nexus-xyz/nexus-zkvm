@@ -1,5 +1,7 @@
 //! Circuits for the RISC-V VM (nexus-riscv)
 
+use ark_ff::{BigInt, PrimeField};
+
 use nexus_riscv::vm::memory::path::Path;
 use nexus_riscv::vm::trace::*;
 use nexus_riscv::rv32::{*, parse::*};
@@ -30,15 +32,15 @@ fn init_cs(w: &Witness) -> R1CS {
     cs.set_field_var("ROOT", w.write_path.root);
 
     // memory contents
-    add_path(&mut cs, "pc_path", &w.pc_path);
-    add_path(&mut cs, "read_path", &w.read_path);
-    add_path(&mut cs, "write_path", &w.write_path);
+    add_path(&mut cs, "pc_mem", &w.pc_path);
+    add_path(&mut cs, "read_mem", &w.read_path);
+    add_path(&mut cs, "write_mem", &w.write_path);
     cs
 }
 
 fn add_path(cs: &mut R1CS, prefix: &str, path: &Path) {
-    cs.set_field_var(&format!("{}_1", prefix), path.leaf[0]);
-    cs.set_field_var(&format!("{}_2", prefix), path.leaf[1]);
+    cs.set_field_var(&format!("{}_lo", prefix), path.leaf[0]);
+    cs.set_field_var(&format!("{}_hi", prefix), path.leaf[1]);
 }
 
 fn select_XY(cs: &mut R1CS, rs1: u32, rs2: u32) {
@@ -870,20 +872,221 @@ fn br(cs: &mut R1CS) {
     branch(cs, J, "X>=Y", "X<Y");
 }
 
-fn load(cs: &mut R1CS, vm: &Witness) {
-    for lop in [LB, LH, LW, LBU, LHU] {
-        let J = (LOAD { lop, rd: 0, rs1: 0, imm: 0 }).index_j();
-        cs.set_var(&format!("Z{J}"), vm.Z);
-        cs.set_eq(&format!("PC{J}"), "pc+4");
+fn choose(cs: &mut R1CS, result: &str, bit: &str, left: &str, right: &str) {
+    let result = cs.new_var(result);
+    let bit = cs.var(bit);
+    let left = cs.var(left);
+    let right = cs.var(right);
+
+    let li = cs.new_local_var(&format!("{result}_left"));
+    let ri = cs.new_local_var(&format!("{result}_right"));
+
+    if cs.w[bit] == ONE {
+        cs.w[result] = cs.w[left];
+        cs.w[li] = cs.w[left];
+        cs.w[ri] = ZERO;
+    } else {
+        cs.w[result] = cs.w[right];
+        cs.w[li] = ZERO;
+        cs.w[ri] = cs.w[right];
+    };
+
+    if cs.witness_only {
+        return;
+    }
+
+    // li = bit * left
+    cs.constraint(|_cs, a, b, c| {
+        a[bit] = ONE;
+        b[left] = ONE;
+        c[li] = ONE;
+    });
+
+    // ri = (1 - bit) * right
+    cs.constraint(|_cs, a, b, c| {
+        a[0] = ONE;
+        a[bit] = MINUS;
+        b[right] = ONE;
+        c[ri] = ONE;
+    });
+
+    // result = bit * left + bit * right
+    cs.constraint(|_cs, a, b, c| {
+        a[li] = ONE;
+        a[ri] = ONE;
+        b[0] = ONE;
+        c[result] = ONE;
+    });
+}
+
+fn split128(cs: &mut R1CS, scalar: &str, widths: &[usize]) {
+    let BigInt([a, b, _, _]) = cs.get_var(scalar).into_bigint();
+    let val = (b as u128) << 64 | (a as u128);
+
+    let mut v = val;
+    for i in 0..128 {
+        cs.set_bit(&format!("{scalar}_{i}"), (v & 1) != 0);
+        v >>= 1;
+    }
+
+    for bits in widths {
+        let mask = (1u128 << bits) - 1;
+        v = val;
+        for i in 0..(128 / bits) {
+            let x = (v & mask) as u32;
+            v >>= bits;
+            let ndx = cs.set_var(&format!("{scalar}_{bits}_{i}"), x);
+            cs.constraint(|cs, a, b, c| {
+                let mut pow = ONE;
+                for j in (i * bits)..(i * bits + bits) {
+                    a[cs.var(&format!("{scalar}_{j}"))] = pow;
+                    pow *= TWO;
+                }
+                b[0] = ONE;
+                c[ndx] = ONE;
+            });
+        }
     }
 }
 
-fn store(cs: &mut R1CS, _vm: &Witness) {
-    for sop in [SB, SH, SW] {
-        let J = (STORE { sop, rs1: 0, rs2: 0, imm: 0 }).index_j();
-        cs.set_var(&format!("Z{J}"), 0);
-        cs.set_eq(&format!("PC{J}"), "pc+4");
+fn load_select(cs: &mut R1CS, addr_name: &str, name: &str, addr: u32, word_only: bool) {
+    choose(
+        cs,
+        name,
+        &format!("{addr_name}_4"),
+        &format!("{name}_hi"),
+        &format!("{name}_lo"),
+    );
+
+    let widths: &[usize] = if word_only { &[32] } else { &[8, 16, 32] };
+
+    split128(cs, name, widths);
+
+    let mut addr = addr & 0xf;
+    let mut count = 16;
+    if widths.len() == 1 {
+        addr >>= 2;
+        count >>= 2;
     }
+    for width in widths {
+        load_array(
+            cs,
+            &format!("{addr_name}{width}"),
+            &format!("{name}{width}"),
+            &format!("{name}_{width}_"),
+            count,
+            addr,
+        );
+        addr >>= 1;
+        count >>= 1;
+    }
+}
+
+fn sx8(cs: &mut R1CS, output: &str, input: &str) {
+    let input_i = cs.var(input);
+    let BigInt([a, _, _, _]) = cs.w[input_i].into_bigint();
+
+    let sb = (a & 0x80) != 0;
+    let sv = (a & 0x7f) as u32;
+    let sx = if sb { 0xffffff80 | sv } else { sv };
+
+    let sb_i = cs.set_bit(&format!("{input}_sb"), sb);
+    let sv_i = cs.set_var(&format!("{input}_sv"), sv);
+    let sx_i = cs.set_var(output, sx);
+
+    if cs.witness_only {
+        return;
+    }
+
+    // input = sv + sb * 0x80
+    cs.constraint(|_cs, a, b, c| {
+        a[sv_i] = ONE;
+        a[sb_i] = F::from(0x80);
+        b[0] = ONE;
+        c[input_i] = ONE;
+    });
+    // output = sv + sb * 0xffffff80
+    cs.constraint(|_cs, a, b, c| {
+        a[sv_i] = ONE;
+        a[sb_i] = F::from(0xffffff80u32);
+        b[0] = ONE;
+        c[sx_i] = ONE;
+    });
+}
+
+fn sx16(cs: &mut R1CS, output: &str, input: &str) {
+    let input_i = cs.var(input);
+    let BigInt([a, _, _, _]) = cs.w[input_i].into_bigint();
+
+    let sb = (a & 0x8000) != 0;
+    let sv = (a & 0x7fff) as u32;
+    let sx = if sb { 0xffff8000 | sv } else { sv };
+
+    let sb_i = cs.set_bit(&format!("{input}_sb"), sb);
+    let sv_i = cs.set_var(&format!("{input}_sv"), sv);
+    let sx_i = cs.set_var(output, sx);
+
+    if cs.witness_only {
+        return;
+    }
+
+    // input = sv + sb * 0x80
+    cs.constraint(|_cs, a, b, c| {
+        a[sv_i] = ONE;
+        a[sb_i] = F::from(0x8000);
+        b[0] = ONE;
+        c[input_i] = ONE;
+    });
+    // output = sv + sb * 0xffffff80
+    cs.constraint(|_cs, a, b, c| {
+        a[sv_i] = ONE;
+        a[sb_i] = F::from(0xffff8000u32);
+        b[0] = ONE;
+        c[sx_i] = ONE;
+    });
+}
+
+fn load(cs: &mut R1CS, vm: &Witness) {
+    let addr = vm.X.overflowing_add(vm.I).0;
+    cs.to_bits("X+I", addr);
+    load_select(cs, "X+I", "read_mem", addr, false);
+
+    let J = (LOAD { lop: LW, rd: 0, rs1: 0, imm: 0 }).index_j();
+    cs.set_eq(&format!("Z{J}"), "read_mem32");
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+
+    let J = (LOAD { lop: LHU, rd: 0, rs1: 0, imm: 0 }).index_j();
+    cs.set_eq(&format!("Z{J}"), "read_mem16");
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+
+    let J = (LOAD { lop: LBU, rd: 0, rs1: 0, imm: 0 }).index_j();
+    cs.set_eq(&format!("Z{J}"), "read_mem8");
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+
+    let J = (LOAD { lop: LB, rd: 0, rs1: 0, imm: 0 }).index_j();
+    sx8(cs, &format!("Z{J}"), "read_mem8");
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+
+    let J = (LOAD { lop: LH, rd: 0, rs1: 0, imm: 0 }).index_j();
+    sx16(cs, &format!("Z{J}"), "read_mem16");
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+}
+
+fn store(cs: &mut R1CS, vm: &Witness) {
+    let addr = vm.X.overflowing_add(vm.I).0;
+    load_select(cs, "X+I", "write_mem", addr, false);
+
+    let J = (STORE { sop: SW, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    cs.set_var(&format!("Z{J}"), 0);
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+
+    let J = (STORE { sop: SH, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    cs.set_var(&format!("Z{J}"), 0);
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+
+    let J = (STORE { sop: SB, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    cs.set_var(&format!("Z{J}"), 0);
+    cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
 // shift operations
@@ -1100,6 +1303,7 @@ fn misc(cs: &mut R1CS) {
 
 #[cfg(test)]
 mod test {
+    use nexus_riscv::vm::memory::cacheline::CacheLine;
     use nexus_riscv::vm::eval::Regs;
     use nexus_riscv::rv32::parse::*;
     use super::*;
@@ -1358,5 +1562,82 @@ mod test {
                 assert!(cs.get_var("Z34") == &F::from(x ^ y));
             }
         }
+    }
+
+    #[test]
+    fn test_memory_pc() {
+        let values = [1, 2, 3, 4, 5, 6, 7, 8];
+        let cl = CacheLine::from(values);
+        let mut vm = Witness::default();
+        vm.pc_path.leaf = cl.scalars();
+
+        for (i, value) in values.iter().enumerate() {
+            vm.regs.pc = (i * 4) as u32;
+            let mut cs = init_cs(&vm);
+            cs.to_bits("pc", vm.regs.pc);
+            load_select(&mut cs, "pc", "pc_mem", vm.regs.pc, true);
+
+            assert!(cs.is_sat());
+            assert_eq!(cs.get_var("pc_mem32"), &F::from(*value));
+        }
+    }
+
+    #[test]
+    fn test_memory_lw() {
+        let values = [1, 2, 3, 4, 5, 6, 7, 8];
+        let cl = CacheLine::from(values);
+        let mut vm = Witness::default();
+        vm.read_path.leaf = cl.scalars();
+
+        for (i, value) in values.iter().enumerate() {
+            vm.X = (i * 4) as u32;
+            let mut cs = init_cs(&vm);
+            cs.to_bits("X", vm.X);
+            load_select(&mut cs, "X", "read_mem", vm.X, false);
+
+            assert!(cs.is_sat());
+            assert_eq!(cs.get_var("read_mem32"), &F::from(*value));
+            assert_eq!(cs.get_var("read_mem16"), &F::from(*value));
+            assert_eq!(cs.get_var("read_mem8"), &F::from(*value));
+        }
+    }
+
+    #[test]
+    fn test_memory_lb() {
+        let values: [u8; 32] = core::array::from_fn(|i| i as u8);
+        let cl = CacheLine::from(values);
+        let mut vm = Witness::default();
+        vm.read_path.leaf = cl.scalars();
+
+        for i in values.iter() {
+            vm.X = *i as u32;
+            let mut cs = init_cs(&vm);
+            cs.to_bits("X", vm.X);
+            load_select(&mut cs, "X", "read_mem", vm.X, false);
+
+            assert!(cs.is_sat());
+            assert_eq!(cs.get_var("read_mem8"), &F::from(*i));
+        }
+    }
+
+    #[test]
+    fn test_memory_sx() {
+        let values = [0, 0x01028384, 0, 0, 0, 0, 0, 0];
+        let cl = CacheLine::from(values);
+        let mut vm = Witness::default();
+        vm.read_path.leaf = cl.scalars();
+
+        vm.X = 4;
+        let mut cs = init_cs(&vm);
+        cs.set_var("X+I", vm.X);
+        cs.set_var("pc+4", 4);
+        load(&mut cs, &vm);
+        //load_select(&mut cs, "X", "read_mem", vm.X, false);
+
+        assert!(cs.is_sat());
+        assert_eq!(cs.get_var("Z15"), &F::from(0x8384));
+        assert_eq!(cs.get_var("Z14"), &F::from(0x84));
+        assert_eq!(cs.get_var("Z11"), &F::from(0xffffff84u32));
+        assert_eq!(cs.get_var("Z12"), &F::from(0xffff8384u32));
     }
 }

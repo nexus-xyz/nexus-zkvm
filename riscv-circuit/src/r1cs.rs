@@ -426,13 +426,13 @@ pub fn selector(cs: &mut R1CS, name: &str, n: u32, k: u32) {
     member(cs, name, k, &set);
 }
 
-pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
-    debug_assert!(rs < 32);
-    for i in 0..32 {
-        debug_assert!(cs.has_var(&format!("x{i}")));
+pub fn load_array(cs: &mut R1CS, input: &str, output: &str, arr: &str, size: u32, rs: u32) {
+    debug_assert!(rs < size);
+    for i in 0..size {
+        debug_assert!(cs.has_var(&format!("{arr}{i}")));
     }
 
-    selector(cs, input, 32, rs);
+    selector(cs, input, size, rs);
 
     // construct witness
     // starting with selector
@@ -440,15 +440,15 @@ pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
     cs.w[j] = F::from(rs);
 
     // register
-    for i in 0..32 {
-        let reg = *cs.get_var(&format!("x{i}"));
+    for i in 0..size {
+        let reg = *cs.get_var(&format!("{arr}{i}"));
         let j = cs.new_local_var(&format!("rsx{i}"));
         cs.w[j] = if i == rs { reg } else { ZERO };
     }
 
     // output
     let j = cs.new_var(output);
-    cs.w[j] = *cs.get_var(&format!("x{rs}"));
+    cs.w[j] = *cs.get_var(&format!("{arr}{rs}"));
 
     if cs.witness_only {
         cs.seal();
@@ -457,13 +457,13 @@ pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
 
     // build constraints
     // rsx_i = rs_i=i * x_i
-    for i in 0..32 {
-        cs.mul(&format!("rsx{i}"), &format!("{input}={i}"), &format!("x{i}"));
+    for i in 0..size {
+        cs.mul(&format!("rsx{i}"), &format!("{input}={i}"), &format!("{arr}{i}"));
     }
 
     // output = sum_i(rsx_i)
     cs.constraint(|cs, a, b, c| {
-        for i in 0..32 {
+        for i in 0..size {
             let rj = cs.var(&format!("rsx{i}"));
             a[rj] = ONE;
         }
@@ -472,6 +472,10 @@ pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
     });
 
     cs.seal();
+}
+
+pub fn load_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
+    load_array(cs, input, output, "x", 32, rs)
 }
 
 pub fn store_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
