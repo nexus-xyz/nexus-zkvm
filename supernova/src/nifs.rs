@@ -114,7 +114,7 @@ pub(crate) mod tests {
         G: SWCurveConfig,
         G::BaseField: PrimeField + Absorb,
         G::ScalarField: Absorb,
-        C: CommitmentScheme<Projective<G>, Commitment = Projective<G>>,
+        C: CommitmentScheme<Projective<G>, Commitment = Projective<G>, SetupAux = ()>,
         C::PP: Clone,
     {
         let config = poseidon_config::<G::BaseField>();

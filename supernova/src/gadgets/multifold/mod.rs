@@ -11,6 +11,7 @@ use ark_r1cs_std::{
     R1CSVar, ToBitsGadget,
 };
 use ark_relations::r1cs::SynthesisError;
+use ark_std::fmt::Debug;
 
 pub(crate) mod primary;
 pub(crate) mod secondary;
@@ -37,7 +38,8 @@ pub fn multifold<G1, G2, C1, C2, RO>(
 where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Debug + Eq,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
@@ -164,7 +166,8 @@ pub fn multifold_with_relaxed<G1, G2, C1, C2, RO>(
 where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Debug + Eq,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
@@ -355,8 +358,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -368,7 +371,10 @@ mod tests {
         let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
         let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
-        let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
+        let pp_secondary = C2::setup(
+            shape_secondary.num_vars + shape_secondary.num_constraints,
+            &(),
+        );
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
         let W = RelaxedR1CSWitness::<G1>::zero(&shape);
@@ -512,8 +518,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -525,7 +531,10 @@ mod tests {
         let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
         let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
-        let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
+        let pp_secondary = C2::setup(
+            shape_secondary.num_vars + shape_secondary.num_constraints,
+            &(),
+        );
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
         let W = RelaxedR1CSWitness::<G1>::zero(&shape);

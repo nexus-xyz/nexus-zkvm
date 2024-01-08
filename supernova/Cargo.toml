@@ -12,7 +12,10 @@ ark-relations = { version = "0.4.0" }
 ark-r1cs-std = { version = "0.4.0" }
 ark-serialize = { version = "0.4.0", features = ["derive"] }
 ark-poly = "0.4.0"
+ark-poly-commit = { version = "0.4.0", optional = true }
+ark_spartan = { git = "ssh://git@github.com/nexus-xyz/committed-relaxed-spartan.git", package = "ark-spartan", optional = true }
 
+merlin = { version = "3.0.0", optional = true }
 sha3 = { version = "0.10", default-features = false }
 
 tracing = { version = "0.1", default-features = false }
@@ -28,6 +31,7 @@ parallel = [
    "ark-crypto-primitives/parallel",
    "ark-r1cs-std/parallel",
 ]
+spartan = ["ark-poly-commit", "ark_spartan", "merlin"]
 
 [dev-dependencies]
 ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
@@ -35,19 +39,26 @@ ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
 ark-pallas = "0.4.0"
 ark-vesta = "0.4.0"
 
+ark-bn254 = "0.4.0"
+ark-grumpkin = "0.4.0"
+
 tracing-subscriber = { version = "0.2", default-features = false, features = [
    "fmt",
    "ansi",
 ] }
 
 [patch.crates-io]
+ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
 ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "c724fa6" }
 ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves", rev = "ccf8392" }
+ark-grumpkin = { git = "https://github.com/arkworks-rs/curves", rev = "ccf8392" }
 ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
 ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
 ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }

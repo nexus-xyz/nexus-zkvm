@@ -1,12 +1,12 @@
 pub(crate) mod nimfs;
 pub(crate) mod secondary;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Error {
     R1CS(super::r1cs::Error),
     Synthesis(ark_relations::r1cs::SynthesisError),
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "spartan"))]
     InvalidPublicInput,
 }
 

@@ -165,8 +165,7 @@ where
         }
     }
 }
-
-#[cfg(test)]
+#[cfg(any(test, feature = "spartan"))]
 macro_rules! parse_projective {
     ($X:expr) => {
         match &$X[..3] {
@@ -188,7 +187,7 @@ where
     G2: SWCurveConfig,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "spartan"))]
     pub(crate) fn parse_secondary_io<G1>(&self) -> Option<Circuit<G1>>
     where
         G2::BaseField: PrimeField,
@@ -284,7 +283,7 @@ mod tests {
         let r_scalar = unsafe { cast_field_element::<Fq, Fr>(&r) };
         let g_out = g1 + g2 * r_scalar;
 
-        let pp = PedersenCommitment::<ark_vesta::Projective>::setup(shape.num_vars);
+        let pp = PedersenCommitment::<ark_vesta::Projective>::setup(shape.num_vars, &());
         let (U, _) = synthesize::<
             PallasConfig,
             VestaConfig,

@@ -20,11 +20,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: webfactory/ssh-agent@v0.8.0
+        with:
+            ssh-private-key: ${{ secrets.SPARTAN_SSH_DEPLOY }}
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo build --release
-      - run: cd supernova-benches && cargo bench --profile=release --no-run
+      - uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SPARTAN_SSH_DEPLOY }}
+      - run: |
+          cargo build --release
+          cd supernova-benches && cargo bench --profile=release --no-run
 
   cargo-clippy:
     runs-on: ubuntu-latest
@@ -33,7 +40,11 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo clippy --tests --no-default-features && cargo clippy --tests
+      - uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SPARTAN_SSH_DEPLOY }}
+      - run: |
+          cargo clippy --tests --no-default-features && cargo clippy --tests
 
   test:
     needs: build
@@ -43,4 +54,8 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo test --release
+      - uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SPARTAN_SSH_DEPLOY }}
+      - run: |
+          cargo test --release

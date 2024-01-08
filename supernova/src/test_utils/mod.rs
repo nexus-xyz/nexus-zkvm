@@ -51,8 +51,10 @@ pub fn setup_test_r1cs<G, C>(
 where
     G: SWCurveConfig,
     G::BaseField: PrimeField,
-    C: CommitmentScheme<Projective<G>, Commitment = Projective<G>>,
+    C: CommitmentScheme<Projective<G>>,
+    C::Commitment: Into<Projective<G>>,
     C::PP: Clone,
+    C::SetupAux: Default,
 {
     let circuit = CubicCircuit { x };
 
@@ -70,10 +72,12 @@ where
     let cs_borrow = cs.borrow().unwrap();
     let W = cs_borrow.witness_assignment.clone();
     let X = cs_borrow.instance_assignment.clone();
-
-    let pp = pp
-        .cloned()
-        .unwrap_or_else(|| C::setup(cs_borrow.num_witness_variables + cs_borrow.num_constraints));
+    let pp = pp.cloned().unwrap_or_else(|| {
+        C::setup(
+            cs_borrow.num_witness_variables + cs_borrow.num_constraints,
+            &C::SetupAux::default(),
+        )
+    });
     let w = R1CSWitness::<Projective<G>> { W };
 
     let commitment_W = w.commit::<C>(&pp);

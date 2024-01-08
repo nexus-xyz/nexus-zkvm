@@ -13,10 +13,11 @@ where
     G::MulBase: CanonicalSerialize + CanonicalDeserialize,
 {
     type PP = Vec<G::MulBase>;
+    type SetupAux = ();
 
     type Commitment = G;
 
-    fn setup(n: usize) -> Self::PP {
+    fn setup(n: usize, _aux: &Self::SetupAux) -> Self::PP {
         // TODO: replace test rng.
         let mut rng = ark_std::test_rng();
         let ps: Vec<G> = (0..n).map(|_| G::rand(&mut rng)).collect();

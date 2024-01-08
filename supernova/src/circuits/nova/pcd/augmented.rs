@@ -17,7 +17,7 @@ use ark_relations::{
     lc,
     r1cs::{ConstraintSystemRef, Namespace, SynthesisError, Variable},
 };
-use ark_std::Zero;
+use ark_std::{fmt::Debug, Zero};
 
 use crate::{
     circuits::{NovaConstraintSynthesizer, StepCircuit},
@@ -41,7 +41,8 @@ pub enum NovaAugmentedCircuitInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     Base {
@@ -56,7 +57,8 @@ pub struct NovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     pub vk: G1::ScalarField,
@@ -77,7 +79,8 @@ impl<G1, G2, C1, C2, RO> Clone for NovaAugmentedCircuitNonBaseInput<G1, G2, C1, 
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     fn clone(&self) -> Self {
@@ -99,7 +102,8 @@ pub struct PCDNodeInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     pub U: RelaxedR1CSInstance<G1, C1>,
@@ -113,7 +117,8 @@ impl<G1, G2, C1, C2, RO> Clone for PCDNodeInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     fn clone(&self) -> Self {
@@ -133,7 +138,8 @@ where
     G2: SWCurveConfig,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     U: primary::RelaxedR1CSInstanceVar<G1, C1>,
@@ -153,7 +159,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Debug + Eq,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
@@ -188,7 +195,8 @@ where
     G2: SWCurveConfig,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
 {
@@ -219,7 +227,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
@@ -243,8 +252,9 @@ where
         )?;
         let u = primary::R1CSInstanceVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
 
+        let commitment_T_point = input.proof.commitment_T.into();
         let commitment_T =
-            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&input.proof.commitment_T), mode)?;
+            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&commitment_T_point), mode)?;
 
         let u_secondary = (
             secondary::ProofVar::new_variable(
@@ -277,7 +287,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
@@ -303,7 +314,7 @@ where
                 let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
                 let u = R1CSInstance::<G1, C1>::new(
                     &shape,
-                    &Projective::zero(),
+                    &(Projective::zero().into()),
                     &[G1::ScalarField::ONE; AUGMENTED_CIRCUIT_NUM_IO],
                 )
                 .unwrap();
@@ -354,8 +365,9 @@ where
         let node_l = AllocatedPCDNodeInput::new_variable(cs.clone(), || Ok(&input.nodes[0]), mode)?;
         let node_r = AllocatedPCDNodeInput::new_variable(cs.clone(), || Ok(&input.nodes[1]), mode)?;
 
+        let commitment_T_point = input.proof.commitment_T.into();
         let commitment_T =
-            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&input.proof.commitment_T), mode)?;
+            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&commitment_T_point), mode)?;
         let commitment_T_secondary = <ProjectiveVar<G2, FpVar<G2::BaseField>> as AllocVar<
             C2::Commitment,
             G2::BaseField,
@@ -404,7 +416,8 @@ pub struct NovaAugmentedCircuit<'a, G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     SC: StepCircuit<G1::ScalarField>,
@@ -418,7 +431,8 @@ impl<'a, G1, G2, C1, C2, RO, SC> NovaAugmentedCircuit<'a, G1, G2, C1, C2, RO, SC
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     SC: StepCircuit<G1::ScalarField>,
@@ -443,7 +457,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Eq + Debug,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
@@ -470,8 +485,8 @@ where
         let U_base = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_constant(
             cs.clone(),
             RelaxedR1CSInstance {
-                commitment_W: Projective::zero(),
-                commitment_E: Projective::zero(),
+                commitment_W: Projective::zero().into(),
+                commitment_E: Projective::zero().into(),
                 X: vec![G1::ScalarField::ZERO; AUGMENTED_CIRCUIT_NUM_IO],
             },
         )?;

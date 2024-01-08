@@ -22,7 +22,8 @@ impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
@@ -54,7 +55,7 @@ where
         random_oracle.absorb_non_native(&U1_secondary);
 
         let (T, _commitment_T) = r1cs::commit_T_with_relaxed(shape, pp, U1, W1, U2, W2)?;
-        random_oracle.absorb_non_native(&_commitment_T);
+        random_oracle.absorb_non_native(&_commitment_T.into());
 
         let r_0: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
@@ -69,18 +70,18 @@ where
         let E_comm_trace = [
             secondary::synthesize::<G1, G2, C2>(
                 secondary::Circuit {
-                    g1: U1.commitment_E,
-                    g2: _commitment_T,
-                    g_out,
+                    g1: U1.commitment_E.into(),
+                    g2: _commitment_T.into(),
+                    g_out: g_out.into(),
                     r: r_0,
                 },
                 pp_secondary,
             )?,
             secondary::synthesize::<G1, G2, C2>(
                 secondary::Circuit {
-                    g1: g_out,
-                    g2: U2.commitment_E,
-                    g_out: folded_U.commitment_E,
+                    g1: g_out.into(),
+                    g2: U2.commitment_E.into(),
+                    g_out: folded_U.commitment_E.into(),
                     r: unsafe {
                         cast_field_element::<G1::ScalarField, G1::BaseField>(&r_0_scalar.square())
                     },
@@ -90,9 +91,9 @@ where
         ];
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: U1.commitment_W,
-                g2: U2.commitment_W,
-                g_out: folded_U.commitment_W,
+                g1: U1.commitment_W.into(),
+                g2: U2.commitment_W.into(),
+                g_out: folded_U.commitment_W.into(),
                 r: r_0,
             },
             pp_secondary,
@@ -213,7 +214,7 @@ where
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
         random_oracle.absorb_non_native(&U_secondary);
-        random_oracle.absorb_non_native(&self.commitment_T);
+        random_oracle.absorb_non_native(&self.commitment_T.into());
 
         let r_0: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
@@ -228,7 +229,10 @@ where
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
-        if pub_io.r != r_0 || pub_io.g1 != U1.commitment_E || pub_io.g2 != self.commitment_T {
+        if pub_io.r != r_0
+            || pub_io.g1 != U1.commitment_E.into()
+            || pub_io.g2 != self.commitment_T.into()
+        {
             return Err(Error::InvalidPublicInput);
         }
         let g_out = pub_io.g_out;
@@ -250,7 +254,7 @@ where
 
         let r_0_square =
             unsafe { cast_field_element::<G1::ScalarField, G1::BaseField>(&r_0_scalar.square()) };
-        if pub_io.r != r_0_square || pub_io.g1 != g_out || pub_io.g2 != U2.commitment_E {
+        if pub_io.r != r_0_square || pub_io.g1 != g_out || pub_io.g2 != U2.commitment_E.into() {
             return Err(Error::InvalidPublicInput);
         }
 
@@ -271,7 +275,10 @@ where
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
-        if pub_io.r != r_0 || pub_io.g1 != U1.commitment_W || pub_io.g2 != U2.commitment_W {
+        if pub_io.r != r_0
+            || pub_io.g1 != U1.commitment_W.into()
+            || pub_io.g2 != U2.commitment_W.into()
+        {
             return Err(Error::InvalidPublicInput);
         }
 
@@ -284,8 +291,8 @@ where
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let folded_U = RelaxedR1CSInstance::<G1, C1> {
-            commitment_W,
-            commitment_E,
+            commitment_W: commitment_W.into(),
+            commitment_E: commitment_E.into(),
             X: U1
                 .X
                 .iter()
@@ -335,8 +342,10 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>> + fmt::Debug,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>> + fmt::Debug,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>
+            + fmt::Debug,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>
+            + fmt::Debug,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -346,7 +355,10 @@ mod tests {
         let vk = G1::ScalarField::ONE;
         let (shape, _, _, pp) = setup_test_r1cs::<G1, C1>(2, None);
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
-        let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
+        let pp_secondary = C2::setup(
+            shape_secondary.num_vars + shape_secondary.num_constraints,
+            &(),
+        );
 
         let mut rng = ark_std::test_rng();
 
@@ -398,7 +410,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>> + fmt::Debug,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>
+            + fmt::Debug,
         C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>> + fmt::Debug,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,

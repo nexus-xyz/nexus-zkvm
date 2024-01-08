@@ -75,7 +75,7 @@ impl<G: PrimeGroup> R1CSShape<G> {
                 if i >= num_constraints {
                     return Err(Error::ConstraintNumberMismatch);
                 }
-                if *j > num_io + num_vars {
+                if *j >= num_io + num_vars {
                     return Err(Error::InputLengthMismatch);
                 }
             }
@@ -244,14 +244,18 @@ impl<G, C> Absorb for R1CSInstance<G, C>
 where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     G::ScalarField: Absorb,
-    C: CommitmentScheme<G, Commitment = G>,
+    C: CommitmentScheme<G>,
+    C::Commitment: Into<G>,
 {
     fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
         unreachable!()
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(&self.commitment_W, dest);
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+            &self.commitment_W.into(),
+            dest,
+        );
 
         (&self.X[1..]).to_sponge_field_elements(dest);
     }
@@ -353,15 +357,22 @@ impl<G, C> Absorb for RelaxedR1CSInstance<G, C>
 where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     G::ScalarField: Absorb,
-    C: CommitmentScheme<G, Commitment = G>,
+    C: CommitmentScheme<G>,
+    C::Commitment: Into<G>,
 {
     fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
         unreachable!()
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(&self.commitment_W, dest);
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(&self.commitment_E, dest);
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+            &self.commitment_W.into(),
+            dest,
+        );
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+            &self.commitment_E.into(),
+            dest,
+        );
 
         self.X.to_sponge_field_elements(dest);
     }
@@ -669,7 +680,7 @@ mod tests {
         const NUM_WITNESS: usize = 1;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
 
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &a, &a)?;
         let instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
@@ -716,7 +727,7 @@ mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
@@ -774,7 +785,7 @@ mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
@@ -808,7 +819,7 @@ mod tests {
         const NUM_PUBLIC: usize = 2;
         const r: Scalar = Scalar::ONE;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
@@ -853,7 +864,7 @@ mod tests {
         const NUM_PUBLIC: usize = 2;
         const r: Scalar = Scalar::ONE;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS);
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);

@@ -57,6 +57,8 @@ fn bench_recursive_snark(c: &mut Criterion) {
             PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::setup(
                 ro_config.clone(),
                 &step_circuit,
+                &(),
+                &(),
             )
             .unwrap();
 

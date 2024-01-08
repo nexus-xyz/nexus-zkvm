@@ -51,6 +51,8 @@ where
     fn setup(
         ro_config: <RO as CryptographicSponge>::Config,
         step_circuit: &SC,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, multifold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
@@ -71,11 +73,12 @@ where
         let shape = R1CSShape::from(cs);
         let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
 
-        let pp = C1::setup(shape.num_vars.max(shape.num_constraints));
+        let pp = C1::setup(shape.num_vars.max(shape.num_constraints), aux1);
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
+            aux2,
         );
 
         let mut params = public_params::PublicParams {
@@ -439,8 +442,8 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
     {
         let ro_config = poseidon_config();
 
@@ -455,7 +458,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit)?;
+        >::setup(ro_config, &circuit, &(), &())?;
 
         let mut recursive_snark = IVCProof::new(&params, &z_0);
         recursive_snark = recursive_snark.prove_step(&circuit)?;
@@ -483,8 +486,8 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
     {
         let filter = filter::Targets::new().with_target(SUPERNOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()
@@ -507,7 +510,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit)?;
+        >::setup(ro_config, &circuit, &(), &())?;
 
         let mut recursive_snark = IVCProof::new(&params, &z_0);
 

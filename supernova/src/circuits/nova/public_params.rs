@@ -46,8 +46,13 @@ where
     SC: StepCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
-    pub fn setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
-        SP::setup(ro_config, step_circuit)
+    pub fn setup(
+        ro_config: RO::Config,
+        step_circuit: &SC,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
+    ) -> Result<Self, Error> {
+        SP::setup(ro_config, step_circuit, aux1, aux2)
     }
 
     /// Returns first [`SQUEEZE_ELEMENTS_BIT_SIZE`] bits of public parameters sha3 hash reinterpreted
@@ -79,5 +84,7 @@ where
     fn setup(
         ro_config: RO::Config,
         step_circuit: &SC,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
 }

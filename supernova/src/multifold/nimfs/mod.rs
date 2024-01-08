@@ -28,10 +28,12 @@ pub(crate) type RelaxedR1CSWitness<G> = r1cs::RelaxedR1CSWitness<Projective<G>>;
 pub struct NIMFSProof<
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     RO,
-> {
+> where
+    C1::Commitment: Into<Projective<G1>>,
+{
     pub(crate) commitment_T: C1::Commitment,
     pub(crate) commitment_E_proof: [secondary::Proof<G2, C2>; 2],
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
@@ -42,7 +44,8 @@ impl<G1, G2, C1, C2, RO> Clone for NIMFSProof<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
 {
     fn clone(&self) -> Self {
@@ -59,13 +62,14 @@ impl<G1, G2, C1, C2, RO> Default for NIMFSProof<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     G1::BaseField: PrimeField,
 {
     fn default() -> Self {
         Self {
-            commitment_T: Projective::zero(),
+            commitment_T: Projective::zero().into(),
             commitment_E_proof: [secondary::Proof::default(), secondary::Proof::default()],
             commitment_W_proof: secondary::Proof::default(),
             proof_secondary: NIFSProof::default(),
@@ -77,7 +81,8 @@ impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
@@ -108,7 +113,7 @@ where
         random_oracle.absorb_non_native(&U_secondary);
 
         let (T, _commitment_T) = r1cs::commit_T(shape, pp, U, W, u, w)?;
-        random_oracle.absorb_non_native(&_commitment_T);
+        random_oracle.absorb_non_native(&_commitment_T.into());
 
         let r_0: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
@@ -121,18 +126,18 @@ where
         // each trace is (U, W)
         let E_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: U.commitment_E,
-                g2: _commitment_T,
-                g_out: folded_U.commitment_E,
+                g1: U.commitment_E.into(),
+                g2: _commitment_T.into(),
+                g_out: folded_U.commitment_E.into(),
                 r: r_0,
             },
             pp_secondary,
         )?;
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: U.commitment_W,
-                g2: u.commitment_W,
-                g_out: folded_U.commitment_W,
+                g1: U.commitment_W.into(),
+                g2: u.commitment_W.into(),
+                g_out: folded_U.commitment_W.into(),
                 r: r_0,
             },
             pp_secondary,
@@ -199,8 +204,7 @@ where
 
         Ok((proof, (folded_U, folded_W), (U_secondary, W_secondary)))
     }
-
-    #[cfg(test)]
+    #[cfg(any(test, feature = "spartan"))]
     pub fn verify(
         &self,
         config: &RO::Config,
@@ -215,7 +219,7 @@ where
         random_oracle.absorb(&U);
         random_oracle.absorb(&u);
         random_oracle.absorb_non_native(&U_secondary);
-        random_oracle.absorb_non_native(&self.commitment_T);
+        random_oracle.absorb_non_native(&self.commitment_T.into());
 
         let r_0: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
@@ -230,7 +234,10 @@ where
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
-        if pub_io.r != r_0 || pub_io.g1 != U.commitment_E || pub_io.g2 != self.commitment_T {
+        if pub_io.r != r_0
+            || pub_io.g1 != U.commitment_E.into()
+            || pub_io.g2 != self.commitment_T.into()
+        {
             return Err(Error::InvalidPublicInput);
         }
 
@@ -250,7 +257,10 @@ where
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
-        if pub_io.r != r_0 || pub_io.g1 != U.commitment_W || pub_io.g2 != u.commitment_W {
+        if pub_io.r != r_0
+            || pub_io.g1 != U.commitment_W.into()
+            || pub_io.g2 != u.commitment_W.into()
+        {
             return Err(Error::InvalidPublicInput);
         }
 
@@ -262,8 +272,8 @@ where
         let r_2 = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let folded_U = RelaxedR1CSInstance::<G1, C1> {
-            commitment_W,
-            commitment_E,
+            commitment_W: commitment_W.into(),
+            commitment_E: commitment_E.into(),
             X: U.X
                 .iter()
                 .zip(&u.X)
@@ -303,8 +313,10 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>> + fmt::Debug,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>> + fmt::Debug,
+        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>
+            + fmt::Debug,
+        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>
+            + fmt::Debug,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -316,7 +328,10 @@ mod tests {
         let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
 
-        let pp_secondary = C2::setup(shape_secondary.num_vars + shape_secondary.num_constraints);
+        let pp_secondary = C2::setup(
+            shape_secondary.num_vars + shape_secondary.num_constraints,
+            &(),
+        );
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
         let W = RelaxedR1CSWitness::<G1>::zero(&shape);
