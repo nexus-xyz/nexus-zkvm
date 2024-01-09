@@ -9,6 +9,7 @@ members = [
     "prover",
     "network",
     "supernova",
+    "spartan",
     "msnova",
 ]
 default-members = [
@@ -18,6 +19,7 @@ default-members = [
     "prover",
     "network",
     "supernova",
+    "spartan",
 ]
 
 [workspace.package]
@@ -61,6 +63,7 @@ ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92b
 
 ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "c724fa6" }
 
+# note bls is using a different commit from the other curves
 ark-bn254     = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-grumpkin  = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-pallas    = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
