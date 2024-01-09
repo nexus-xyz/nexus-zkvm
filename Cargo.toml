@@ -8,9 +8,17 @@ members = [
     "tools",
     "prover",
     "network",
+    "supernova",
     "msnova",
 ]
-default-members = ["riscv", "riscv-circuit", "tools", "prover", "network"]
+default-members = [
+    "riscv",
+    "riscv-circuit",
+    "tools",
+    "prover",
+    "network",
+    "supernova",
+]
 
 [workspace.package]
 edition = "2021"
@@ -22,9 +30,6 @@ clap = { version = "4.3", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-supernova = { git = "ssh://git@github.com:22/nexus-xyz/supernova.git", rev = "92e884c" }
-#supernova = { path = "../supernova" }
-
 ark-crypto-primitives = { version = "0.4.0", features = ["r1cs", "sponge", "crh", "merkle_tree"] }
 ark-std = "0.4.0"
 
@@ -34,24 +39,34 @@ ark-r1cs-std = { version = "0.4.0" }
 ark-ff = "0.4.0"
 ark-ec = { version = "0.4.0", default-features = false }
 ark-serialize = { version = "0.4.0", features = ["derive"] }
+ark-poly = "0.4.0"
+ark-poly-commit = "0.4.0"
 
 ark-bn254 = "0.4.0"
 ark-grumpkin = "0.4.0"
+ark-pallas = "0.4.0"
+ark-vesta = "0.4.0"
+ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
 
-# Note, this should be in sync with the supernova repo
 [patch.crates-io]
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
-#ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
-ark-r1cs-std = { git = "https://github.com/slumber/r1cs-std/", branch = "slumber-hardcode-nonnative-params" }
 
-ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
 
-ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-ff          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ec          = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-serialize   = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-poly        = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
 
-# additional settings in .cargo/config
+ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "c724fa6" }
+
+ark-bn254     = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-grumpkin  = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-pallas    = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-vesta     = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+
 [profile.release]
 codegen-units = 1
 lto = true

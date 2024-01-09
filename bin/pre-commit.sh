@@ -8,4 +8,4 @@ set -e
 cargo fmt --all --check
 cargo build
 cargo clippy --all-targets
-cargo test
+cargo test -r
