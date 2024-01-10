@@ -27,6 +27,7 @@ use crate::{
 
 mod commitment_utils;
 mod conversion;
+mod secondary;
 
 pub mod error;
 
