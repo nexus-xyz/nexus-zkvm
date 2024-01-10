@@ -10,7 +10,6 @@ members = [
     "network",
     "supernova",
     "spartan",
-    "msnova",
 ]
 default-members = [
     "riscv",
