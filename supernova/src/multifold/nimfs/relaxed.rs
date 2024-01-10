@@ -353,7 +353,7 @@ mod tests {
         let config = poseidon_config();
 
         let vk = G1::ScalarField::ONE;
-        let (shape, _, _, pp) = setup_test_r1cs::<G1, C1>(2, None);
+        let (shape, _, _, pp) = setup_test_r1cs::<G1, C1>(2, None, &());
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
         let pp_secondary = C2::setup(
             shape_secondary.num_vars + shape_secondary.num_constraints,
@@ -421,7 +421,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp));
+        let (shape, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp), &());
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
@@ -441,7 +441,7 @@ mod tests {
                 (&u, &w),
             )?;
 
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp));
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp), &());
         let U1 = RelaxedR1CSInstance::from(&u);
         let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
 
