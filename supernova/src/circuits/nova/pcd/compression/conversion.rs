@@ -7,7 +7,10 @@ use spartan::{
 };
 
 use super::PolyVectorCommitment;
-use crate::multifold::nimfs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness};
+use crate::{
+    multifold::nimfs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
+    r1cs::SparseMatrix,
+};
 
 #[derive(Debug)]
 pub enum ConversionError {
@@ -37,14 +40,14 @@ where
         } = shape;
         // Spartan arranges the R1CS matrices using Z = [w, u, x], rather than [u, x, w]
         let rearrange =
-            |matrix: Vec<(usize, usize, G::ScalarField)>| -> Vec<(usize, usize, G::ScalarField)> {
-                matrix.clone().iter_mut().map(|(row, col, val)|
+            |matrix: SparseMatrix<G::ScalarField>| -> Vec<(usize, usize, G::ScalarField)> {
+                matrix.iter().map(|(row, col, val)|
                 // this is a witness entry 
-                if *col >= num_io {
-                    (*row, *col - num_io, *val)
+                if col >= num_io {
+                    (row, col - num_io, val)
                 } else {
                     // this is an IO entry
-                    (*row, *col + num_vars, *val)
+                    (row, col + num_vars, val)
                 }).collect()
             };
         Ok(CRR1CSShape {
@@ -126,9 +129,9 @@ mod tests {
         PC::Commitment: Copy + Into<Projective<G>>,
     {
         let mut rng = test_rng();
-        let srs = PC::setup(1, b"test_srs_cubic", &mut rng)
+        let srs = PC::setup(3, b"test_srs_cubic", &mut rng)
             .expect("SRS sampling should not produce an error");
-        let (shape, U2, W2, pp) = setup_test_r1cs::<G, PVC<G, PC>>(3, None, Some(&srs));
+        let (shape, U2, W2, pp) = setup_test_r1cs::<G, PVC<G, PC>>(3, None, &srs);
 
         // we fold the instance and witness with themselves to get a
         // relaxed r1cs instance and witness with nontrivial error vector
