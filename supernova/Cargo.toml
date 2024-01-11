@@ -28,9 +28,14 @@ sha3 = { version = "0.10", default-features = false }
 tracing = { version = "0.1", default-features = false }
 rayon = { version = "1.8.0", optional = true }
 halo2_proofs = "0.3.0"
+subtle = "2.5.0"
+rand_core = "0.6.4"
+ff = "0.13.0"
+halo2curves = "0.6.0"
+hex = "0.4.3"
 
 [features]
-default = ["parallel"]
+default = ["parallel", "spartan"]
 parallel = [
    "rayon",
    "ark-ff/parallel",
