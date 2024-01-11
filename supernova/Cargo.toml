@@ -15,7 +15,7 @@ ark-serialize.workspace = true
 ark-poly.workspace = true
 ark-poly-commit = { workspace = true, optional = true }
 
-ark-spartan = { path = "../spartan", optional = true }
+ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
 
 merlin = { version = "3.0.0", optional = true }
 sha3 = { version = "0.10", default-features = false }
@@ -33,7 +33,7 @@ parallel = [
    "ark-crypto-primitives/parallel",
    "ark-r1cs-std/parallel",
 ]
-spartan = ["ark-poly-commit", "ark-spartan", "merlin"]
+spartan = ["ark-poly-commit", "ark_spartan", "merlin"]
 
 [dev-dependencies]
 ark-test-curves.workspace = true
@@ -48,4 +48,3 @@ tracing-subscriber = { version = "0.2", default-features = false, features = [
    "fmt",
    "ansi",
 ] }
-

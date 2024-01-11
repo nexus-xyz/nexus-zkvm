@@ -368,7 +368,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
+        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None, &());
         let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(
@@ -440,7 +440,7 @@ mod tests {
         assert!(cs.is_satisfied().unwrap());
 
         // another round.
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp), &());
 
         let (proof, (folded_U_2, folded_W_2), (folded_U_secondary_2, folded_W_secondary_2)) =
             NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
@@ -528,7 +528,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None);
+        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None, &());
         let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(
@@ -554,7 +554,7 @@ mod tests {
             )
             .unwrap();
 
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp));
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp), &());
         let U1 = RelaxedR1CSInstance::from(&u);
         let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
 

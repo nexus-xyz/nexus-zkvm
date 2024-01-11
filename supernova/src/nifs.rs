@@ -119,7 +119,7 @@ pub(crate) mod tests {
     {
         let config = poseidon_config::<G::BaseField>();
 
-        let (shape, U2, W2, pp) = setup_test_r1cs::<G, C>(3, None);
+        let (shape, U2, W2, pp) = setup_test_r1cs::<G, C>(3, None, &());
 
         let U1 = RelaxedR1CSInstance::<Projective<G>, C>::new(&shape);
         let W1 = RelaxedR1CSWitness::zero(&shape);
@@ -147,7 +147,7 @@ pub(crate) mod tests {
         let U1 = folded_U;
         let W1 = folded_W;
 
-        let (_, U2, W2, _) = setup_test_r1cs(5, Some(&pp));
+        let (_, U2, W2, _) = setup_test_r1cs(5, Some(&pp), &());
         let U2 = RelaxedR1CSInstance::from(&U2);
         let W2 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &W2);
 

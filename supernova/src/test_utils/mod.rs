@@ -42,6 +42,7 @@ impl<F: PrimeField> ConstraintSynthesizer<F> for CubicCircuit {
 pub fn setup_test_r1cs<G, C>(
     x: u64,
     pp: Option<&C::PP>,
+    aux: &C::SetupAux,
 ) -> (
     R1CSShape<Projective<G>>,
     R1CSInstance<Projective<G>, C>,
@@ -54,7 +55,6 @@ where
     C: CommitmentScheme<Projective<G>>,
     C::Commitment: Into<Projective<G>>,
     C::PP: Clone,
-    C::SetupAux: Default,
 {
     let circuit = CubicCircuit { x };
 
@@ -75,7 +75,7 @@ where
     let pp = pp.cloned().unwrap_or_else(|| {
         C::setup(
             cs_borrow.num_witness_variables + cs_borrow.num_constraints,
-            &C::SetupAux::default(),
+            aux,
         )
     });
     let w = R1CSWitness::<Projective<G>> { W };
