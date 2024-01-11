@@ -23,7 +23,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo build
+      - run: cargo build --all-features
 
   cargo-clippy:
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo clippy --all-targets
+      - run: cargo clippy --all-targets --all-features
 
   test:
     runs-on: ubuntu-latest
@@ -41,4 +41,4 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-      - run: cargo test -r
+      - run: cargo test -r --all-features

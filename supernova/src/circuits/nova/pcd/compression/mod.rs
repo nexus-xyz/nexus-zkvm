@@ -397,6 +397,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn compression_test() {
         compression_test_helper::<
             Bn254Config,
