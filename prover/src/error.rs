@@ -49,6 +49,7 @@ impl From<NovaError> for ProofError {
         match x {
             NovaError::R1CS(e) => panic!("R1CS Error {e:?}"),
             NovaError::Synthesis(e) => CircuitError(e),
+            NovaError::InvalidPublicInput => panic!("Invalid Public Input"),
         }
     }
 }
