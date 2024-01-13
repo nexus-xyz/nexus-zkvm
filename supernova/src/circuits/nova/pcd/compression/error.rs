@@ -1,5 +1,5 @@
 use ark_relations::r1cs::SynthesisError;
-use spartan::errors::ProofVerifyError;
+use ark_spartan::errors::ProofVerifyError;
 
 use super::conversion::ConversionError;
 pub use crate::multifold::Error as NovaError;

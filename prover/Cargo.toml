@@ -15,7 +15,7 @@ zstd = { version = "0.12", default-features = false }
 nexus-riscv = { path = "../riscv" }
 nexus-riscv-circuit = { path = "../riscv-circuit" }
 spartan = { path = "../spartan", package = "ark-spartan" }
-supernova = { path = "../supernova" }
+supernova = { path = "../supernova", features = ["spartan"] }
 
 ark-ff.workspace = true
 ark-ec.workspace = true

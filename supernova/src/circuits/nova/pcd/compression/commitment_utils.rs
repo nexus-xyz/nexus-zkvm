@@ -1,9 +1,9 @@
 use ark_ec::CurveGroup;
-use ark_std::marker::PhantomData;
-use spartan::{
+use ark_spartan::{
     math::Math,
     polycommitments::{PCSKeys, PolyCommitmentScheme, VectorCommitmentScheme},
 };
+use ark_std::marker::PhantomData;
 
 use crate::commitment::CommitmentScheme;
 

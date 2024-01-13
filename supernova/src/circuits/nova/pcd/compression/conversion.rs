@@ -1,5 +1,5 @@
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use spartan::{
+use ark_spartan::{
     crr1csproof::{CRR1CSInstance, CRR1CSShape, CRR1CSWitness},
     errors::R1CSError,
     polycommitments::PolyCommitmentScheme,
@@ -108,11 +108,11 @@ mod tests {
     use ark_bn254::{g1::Config as Bn254Config, Bn254};
     use ark_ec::short_weierstrass::Projective;
     use ark_ff::PrimeField;
-    use ark_std::{test_rng, One};
-    use spartan::{
+    use ark_spartan::{
         crr1csproof::{is_sat, CRR1CSKey},
         polycommitments::zeromorph::Zeromorph,
     };
+    use ark_std::{test_rng, One};
 
     use super::*;
     use crate::{

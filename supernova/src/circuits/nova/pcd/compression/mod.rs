@@ -8,13 +8,13 @@ use ark_ec::{
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_std::{cmp::max, marker::PhantomData};
-use merlin::Transcript;
-use spartan::{
+use ark_spartan::{
     committed_relaxed_snark as spartan_snark, committed_relaxed_snark::CRSNARKKey as SNARKGens,
     crr1csproof::CRR1CSShape, polycommitments::PolyCommitmentScheme, ComputationCommitment,
     ComputationDecommitment,
 };
+use ark_std::{cmp::max, marker::PhantomData};
+use merlin::Transcript;
 
 use super::PublicParams;
 use crate::{
@@ -168,7 +168,7 @@ where
                 (&u, &w),
             )?;
         let mut transcript = Transcript::new(b"spartan_snark");
-        // Now, we use Spartan to prove knowledge of the witness `W_prime`
+        // Now, we use ark_spartan to prove knowledge of the witness `W_prime`
         // for the committed relaxed r1cs instance `U_prime`
         let spartan_proof = spartan_snark::SNARK::<Projective<G1>, PC>::prove(
             shape,
@@ -274,8 +274,8 @@ mod tests {
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
+    use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
     use ark_std::{test_rng, One};
-    use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 
     use super::*;
     use crate::{

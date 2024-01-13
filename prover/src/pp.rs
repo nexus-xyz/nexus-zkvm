@@ -120,12 +120,12 @@ where
 mod test {
     use super::*;
     use crate::srs::test_srs::*;
-    use ark_std::test_rng;
 
     #[test]
     fn test_gen_pp_with_srs() {
         gen_test_srs_to_file(10, "test_srs.zst").unwrap();
-        let srs = load_srs("test_srs.zst").unwrap();
+        // unneeded here, since `gen_to_file` will load the srs; just included to test `load_srs`.
+        let _srs = load_srs("test_srs.zst").unwrap();
         gen_to_file(10, true, true, "test_pp.zst", Some("test_srs.zst")).unwrap();
     }
 }
