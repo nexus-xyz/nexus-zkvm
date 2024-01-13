@@ -36,7 +36,7 @@ pub use ark_crypto_primitives::{
 
 pub use ark_relations::r1cs::ConstraintSystemRef;
 
-pub use ark_spartan::polycommitments::{PolyCommitmentScheme, zeromorph::Zeromorph};
+pub use spartan::polycommitments::{PolyCommitmentScheme, zeromorph::Zeromorph};
 
 // types and traits from nexus prover
 pub use supernova::{

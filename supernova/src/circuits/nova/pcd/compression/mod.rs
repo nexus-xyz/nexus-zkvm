@@ -8,13 +8,13 @@ use ark_ec::{
 };
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_spartan::{
-    committed_relaxed_snark as ark_spartan_snark, committed_relaxed_snark::CRSNARKKey as SNARKGens,
+use ark_std::{cmp::max, marker::PhantomData};
+use merlin::Transcript;
+use spartan::{
+    committed_relaxed_snark as spartan_snark, committed_relaxed_snark::CRSNARKKey as SNARKGens,
     crr1csproof::CRR1CSShape, polycommitments::PolyCommitmentScheme, ComputationCommitment,
     ComputationDecommitment,
 };
-use ark_std::{cmp::max, marker::PhantomData};
-use merlin::Transcript;
 
 use super::PublicParams;
 use crate::{
@@ -57,7 +57,7 @@ where
 
     pub W_secondary_prime: RelaxedR1CSWitness<G2>,
 
-    pub spartan_proof: ark_spartan_snark::SNARK<Projective<G1>, PC>,
+    pub spartan_proof: spartan_snark::SNARK<Projective<G1>, PC>,
     pub folding_proof: NIMFSProof<G1, G2, PVC<G1, PC>, C2, RO>,
 
     _random_oracle: PhantomData<RO>,
@@ -121,7 +121,7 @@ where
         let num_nz_entries = max(_shape.A.len(), max(_shape.B.len(), _shape.C.len()));
         let snark_gens = SNARKGens::new(srs, num_cons, num_vars, num_inputs, num_nz_entries);
         let (computation_comm, computation_decomm) =
-            ark_spartan_snark::SNARK::<Projective<G1>, PC>::encode(&shape.inst, &snark_gens);
+            spartan_snark::SNARK::<Projective<G1>, PC>::encode(&shape.inst, &snark_gens);
         Ok(SNARKKey {
             shape,
             computation_comm,
@@ -170,7 +170,7 @@ where
         let mut transcript = Transcript::new(b"spartan_snark");
         // Now, we use Spartan to prove knowledge of the witness `W_prime`
         // for the committed relaxed r1cs instance `U_prime`
-        let spartan_proof = ark_spartan_snark::SNARK::<Projective<G1>, PC>::prove(
+        let spartan_proof = spartan_snark::SNARK::<Projective<G1>, PC>::prove(
             shape,
             &U_prime.try_into()?,
             W_prime.try_into()?,
@@ -255,7 +255,7 @@ where
         // Finally, we verify the Spartan proof for the committed relaxed r1cs instance `U_prime`.
 
         let mut transcript = Transcript::new(b"spartan_snark");
-        ark_spartan_snark::SNARK::<Projective<G1>, PC>::verify(
+        spartan_snark::SNARK::<Projective<G1>, PC>::verify(
             spartan_proof,
             &key.computation_comm,
             &U_prime.try_into()?,
@@ -274,8 +274,8 @@ mod tests {
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
-    use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
     use ark_std::{test_rng, One};
+    use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 
     use super::*;
     use crate::{
