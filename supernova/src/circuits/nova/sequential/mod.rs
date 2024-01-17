@@ -41,8 +41,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
@@ -188,8 +188,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
@@ -442,8 +442,8 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let ro_config = poseidon_config();
 
@@ -486,8 +486,8 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let filter = filter::Targets::new().with_target(SUPERNOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()

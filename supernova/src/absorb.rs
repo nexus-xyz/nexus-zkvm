@@ -20,7 +20,10 @@ use ark_ec::{
 };
 use ark_ff::PrimeField;
 
-use super::{commitment::CommitmentScheme, utils::cast_field_element_unique};
+use super::{
+    commitment::{Commitment, CommitmentScheme},
+    utils::cast_field_element_unique,
+};
 use crate::r1cs::{R1CSInstance, RelaxedR1CSInstance};
 
 /// An interface to objects that can be absorbed by [`ark_sponge::CryptographicSponge`] defined
@@ -72,7 +75,7 @@ where
     P::ScalarField: Absorb,
 {
     fn to_non_native_field_elements(&self, dest: &mut Vec<P::ScalarField>) {
-        let affine = self.into_affine();
+        let affine = <Self as CurveGroup>::into_affine(*self);
 
         let x = cast_field_element_unique::<P::BaseField, P::ScalarField>(&affine.x);
         let y = cast_field_element_unique::<P::BaseField, P::ScalarField>(&affine.y);
@@ -90,7 +93,7 @@ where
     G: CurveGroup,
     G::BaseField: PrimeField + Absorb,
     G::Affine: Absorb,
-    C: CommitmentScheme<G, Commitment = G>,
+    C: CommitmentScheme<G>,
 {
     fn to_non_native_field_elements(&self, dest: &mut Vec<G::BaseField>) {
         Absorb::to_sponge_field_elements(&self.commitment_W.into_affine(), dest);
@@ -108,7 +111,7 @@ where
     G: CurveGroup,
     G::BaseField: PrimeField + Absorb,
     G::Affine: Absorb,
-    C: CommitmentScheme<G, Commitment = G>,
+    C: CommitmentScheme<G>,
 {
     fn to_non_native_field_elements(&self, dest: &mut Vec<G::BaseField>) {
         Absorb::to_sponge_field_elements(&self.commitment_W.into_affine(), dest);

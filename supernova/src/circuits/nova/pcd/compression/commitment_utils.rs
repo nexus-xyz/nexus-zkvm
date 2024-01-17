@@ -19,7 +19,7 @@ where
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CommitmentScheme<G> for PolyVectorCommitment<G, PC>
 where
     G: CurveGroup,
-    PC::Commitment: Copy,
+    PC::Commitment: Copy + Into<G> + From<G>,
 {
     type SetupAux = PC::SRS;
     type PP = PCSKeys<G, PC>;
