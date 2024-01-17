@@ -4,7 +4,7 @@
   </p>
 	<h1 align="center"><b>The Nexus zkVM</b></h1>
 	<p align="center">
-		The ultimate zero-knowledge virtual machine.
+		The zero-knowledge virtual machine.
     <br />
     <a href="https://nexus.xyz"><strong>nexus.xyz »</strong></a>
   </p>
