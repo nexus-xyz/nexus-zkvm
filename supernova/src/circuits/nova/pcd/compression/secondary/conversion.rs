@@ -8,7 +8,8 @@ pub enum FieldConversionError {
     #[cfg(test)]
     ValueMismatch,
 }
-/// converts an arkworks prime field element to a ff prime field element, generically in the
+
+/// Converts an arkworks prime field element to a ff prime field element, generically in the
 /// fields. The const parameter `N` is specified by the impl of `ff::FromUniformBytes` for the
 /// struct implementing `ff::PrimeField`. For the fields in `halo2curves::grumpkin`, this is `64`.
 /// This function returns an error if the moduli of the two fields do not match.
