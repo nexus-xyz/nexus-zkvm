@@ -9,8 +9,8 @@ mod provider;
 mod utils;
 
 mod circuits;
-mod gadgets;
 mod folding;
+mod gadgets;
 
 #[cfg(test)]
 mod test_utils;

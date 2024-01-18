@@ -22,13 +22,13 @@ use ark_std::{fmt::Debug, Zero};
 use crate::{
     circuits::{NovaConstraintSynthesizer, StepCircuit},
     commitment::CommitmentScheme,
-    gadgets::cyclefold::{
-        multifold, multifold_with_relaxed, primary, secondary, NonNativeAffineVar,
-    },
     folding::nova::cyclefold::{
         self,
         nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
+    },
+    gadgets::cyclefold::{
+        multifold, multifold_with_relaxed, primary, secondary, NonNativeAffineVar,
     },
 };
 

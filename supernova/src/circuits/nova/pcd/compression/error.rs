@@ -2,7 +2,7 @@ use ark_relations::r1cs::SynthesisError;
 use ark_spartan::errors::ProofVerifyError;
 
 use super::conversion::ConversionError;
-pub use crate::multifold::Error as NovaError;
+pub use crate::folding::nova::cyclefold::Error as NovaError;
 
 #[derive(Debug)]
 pub enum ProofError {

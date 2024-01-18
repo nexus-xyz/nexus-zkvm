@@ -20,7 +20,9 @@ use super::PublicParams;
 use crate::{
     absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
-    multifold::nimfs::{NIMFSProof, R1CSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness},
+    folding::nova::cyclefold::nimfs::{
+        NIMFSProof, R1CSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness,
+    },
     nova::pcd::{augmented::SQUEEZE_NATIVE_ELEMENTS_NUM, PCDNode},
     StepCircuit, LOG_TARGET,
 };

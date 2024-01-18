@@ -21,12 +21,12 @@ use ark_std::Zero;
 use crate::{
     circuits::{NovaConstraintSynthesizer, StepCircuit},
     commitment::CommitmentScheme,
-    gadgets::cyclefold::{multifold, primary, secondary, NonNativeAffineVar},
     folding::nova::cyclefold::{
         self,
         nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
     },
+    gadgets::cyclefold::{multifold, primary, secondary, NonNativeAffineVar},
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
