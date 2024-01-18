@@ -5,14 +5,12 @@
 #![allow(clippy::large_enum_variant)]
 
 mod absorb;
-mod ml_sumcheck;
-mod multifold;
-mod nifs;
 mod provider;
 mod utils;
 
 mod circuits;
 mod gadgets;
+mod folding;
 
 #[cfg(test)]
 mod test_utils;

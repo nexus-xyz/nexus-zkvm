@@ -1,17 +1,19 @@
 pub(crate) mod nimfs;
 pub(crate) mod secondary;
 
+use crate::r1cs::Error as R1CSError;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
-    R1CS(super::r1cs::Error),
+    R1CS(R1CSError),
     Synthesis(ark_relations::r1cs::SynthesisError),
 
     #[cfg(any(test, feature = "spartan"))]
     InvalidPublicInput,
 }
 
-impl From<super::r1cs::Error> for Error {
-    fn from(error: super::r1cs::Error) -> Self {
+impl From<R1CSError> for Error {
+    fn from(error: R1CSError) -> Self {
         Self::R1CS(error)
     }
 }

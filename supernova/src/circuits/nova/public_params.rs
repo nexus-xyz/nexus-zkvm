@@ -8,7 +8,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerialize
 use super::{Error, StepCircuit};
 use crate::{
     commitment::CommitmentScheme,
-    multifold::nimfs::{R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
+    folding::nova::cyclefold::nimfs::{R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
     utils,
 };
 

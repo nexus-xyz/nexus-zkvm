@@ -1,2 +1,2 @@
-pub(crate) mod multifold;
+pub(crate) mod cyclefold;
 pub(crate) mod nonnative;

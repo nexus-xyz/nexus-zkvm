@@ -22,10 +22,10 @@ use ark_std::{fmt::Debug, Zero};
 use crate::{
     circuits::{NovaConstraintSynthesizer, StepCircuit},
     commitment::CommitmentScheme,
-    gadgets::multifold::{
+    gadgets::cyclefold::{
         multifold, multifold_with_relaxed, primary, secondary, NonNativeAffineVar,
     },
-    multifold::{
+    folding::nova::cyclefold::{
         self,
         nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
@@ -308,7 +308,7 @@ where
             NovaAugmentedCircuitInput::Base { vk, i, z_i } => {
                 let shape =
                     R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
-                let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
+                let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
                 let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
                 let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);

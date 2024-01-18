@@ -16,7 +16,7 @@ use crate::{
 
 pub(crate) mod relaxed;
 
-pub use crate::nifs::{NIFSProof, SQUEEZE_ELEMENTS_BIT_SIZE};
+pub use crate::folding::nova::nifs::{NIFSProof, SQUEEZE_ELEMENTS_BIT_SIZE};
 
 pub(crate) type R1CSShape<G> = r1cs::R1CSShape<Projective<G>>;
 pub(crate) type R1CSInstance<G, C> = r1cs::R1CSInstance<Projective<G>, C>;

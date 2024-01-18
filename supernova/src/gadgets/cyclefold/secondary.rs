@@ -24,7 +24,7 @@ use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use super::{cast_field_element_unique, NonNativeAffineVar};
 use crate::{
     commitment::CommitmentScheme,
-    multifold::{
+    folding::nova::cyclefold::{
         nimfs::{R1CSInstance, RelaxedR1CSInstance},
         secondary::{Circuit as SecondaryCircuit, Proof},
     },

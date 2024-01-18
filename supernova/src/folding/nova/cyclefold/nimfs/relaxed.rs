@@ -8,7 +8,7 @@ use ark_ff::{Field, PrimeField};
 use crate::{
     absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
-    multifold::secondary,
+    folding::nova::cyclefold::secondary,
     r1cs,
     utils::{cast_field_element, cast_field_element_unique},
 };
