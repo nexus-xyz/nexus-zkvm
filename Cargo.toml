@@ -27,6 +27,11 @@ exclude = ["supernova-benches"]
 [workspace.package]
 edition = "2021"
 version = "0.1.0"
+authors = ["The Nexus Team <hello@nexus.xyz>"]
+homepage = "https://nexus.xyz/"
+repository = "https://github.com/nexus-xyz/nexus-zkvm/"
+keywords = ["nexus", "zero-knowledge", "zkvm", "cryptography", "proofs"]
+categories = ["cryptography"]
 publish = false
 
 [workspace.dependencies]
