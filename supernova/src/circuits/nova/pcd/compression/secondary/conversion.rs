@@ -75,10 +75,10 @@ where
     Ok(FF::from_uniform_bytes(&le_bytes))
 }
 
-/// converts a point of an arkworks short weierstrass curve to one on the corresponding halo2 curve.
-/// note that the `CurveAffine` trait from `halo2curves` is for short weierstrass curves only.
-/// this only works when the base field is a prime field.
-/// returns an error if the curves have different equations, different base fields,
+/// Converts a point of an arkworks short weierstrass curve to one on the corresponding halo2 curve.
+/// Note that the `CurveAffine` trait from `halo2curves` is for short weierstrass curves only.
+/// This only works when the base field is a prime field.
+/// Returns an error if the curves have different equations, different base fields,
 /// or different scalar fields/cofactors, or if the point is the point at infinity.
 #[allow(dead_code)]
 pub fn ark_to_halo2_group<AG, HG, const N: usize>(p: Affine<AG>) -> Result<HG, GroupConversionError>
