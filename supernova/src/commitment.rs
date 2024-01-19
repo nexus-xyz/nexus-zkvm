@@ -1,6 +1,9 @@
-use std::ops::{Add, AddAssign, Mul, MulAssign};
+use std::{
+    fmt::Debug,
+    ops::{Add, AddAssign, Mul, MulAssign},
+};
 
-use ark_ec::PrimeGroup;
+use ark_ec::CurveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 /// Defines basic operations on commitments.
@@ -20,34 +23,47 @@ pub trait ScalarMul<Rhs, Output = Self>: Mul<Rhs, Output = Output> + MulAssign<R
 impl<T, Rhs, Output> ScalarMul<Rhs, Output> for T where T: Mul<Rhs, Output = Output> + MulAssign<Rhs>
 {}
 
-pub trait Commitment<G: PrimeGroup>:
+pub trait Commitment<G: CurveGroup>:
     Default
+    + Debug
     + PartialEq
+    + Eq
     + Copy
     + Clone
     + Send
     + Sync
     + CommitmentOps
     + ScalarMul<G::ScalarField>
+    + Into<G>
+    + From<G>
     + CanonicalSerialize
     + CanonicalDeserialize
 {
+    /// Converts `self` into the affine representation.
+    fn into_affine(self) -> G::Affine {
+        self.into().into_affine()
+    }
 }
-impl<G: PrimeGroup, T> Commitment<G> for T where
+
+impl<G: CurveGroup, T> Commitment<G> for T where
     T: Default
+        + Debug
         + PartialEq
+        + Eq
         + Copy
         + Clone
         + Send
         + Sync
         + CommitmentOps
         + ScalarMul<G::ScalarField>
+        + Into<G>
+        + From<G>
         + CanonicalSerialize
         + CanonicalDeserialize
 {
 }
 
-pub trait CommitmentScheme<G: PrimeGroup>: Send + Sync {
+pub trait CommitmentScheme<G: CurveGroup>: Send + Sync {
     /// Commitment scheme public parameters.
     type PP: CanonicalSerialize + CanonicalDeserialize + Sync;
 
