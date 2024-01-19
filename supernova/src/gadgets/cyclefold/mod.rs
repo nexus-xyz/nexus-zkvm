@@ -16,7 +16,9 @@ pub(crate) mod primary;
 pub(crate) mod secondary;
 
 pub use super::nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar};
-use crate::{commitment::CommitmentScheme, multifold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE};
+use crate::{
+    commitment::CommitmentScheme, folding::nova::cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
+};
 
 pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
@@ -326,7 +328,7 @@ where
 mod tests {
     use super::*;
     use crate::{
-        multifold::{
+        folding::nova::cyclefold::{
             nimfs::{NIMFSProof, RelaxedR1CSInstance, RelaxedR1CSWitness},
             secondary as multifold_secondary,
         },

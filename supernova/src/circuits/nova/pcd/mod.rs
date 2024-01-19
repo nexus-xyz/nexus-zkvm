@@ -14,7 +14,7 @@ use super::{public_params, NovaConstraintSynthesizer, StepCircuit};
 use crate::{
     absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
-    multifold::{
+    folding::nova::cyclefold::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
@@ -56,7 +56,7 @@ where
         step_circuit: &SC,
         aux1: &C1::SetupAux,
         aux2: &C2::SetupAux,
-    ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, multifold::Error> {
+    ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
         let i = G1::ScalarField::ZERO;
@@ -76,7 +76,7 @@ where
         cs.finalize();
 
         let shape = R1CSShape::from(cs);
-        let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
+        let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
         let pp = C1::setup(shape.num_vars.max(shape.num_constraints), aux1);
         let pp_secondary = C2::setup(
@@ -169,7 +169,7 @@ where
         step_circuit: &SC,
         i: usize,
         z_i: &[G1::ScalarField],
-    ) -> Result<Self, multifold::Error> {
+    ) -> Result<Self, cyclefold::Error> {
         Self::prove_step_with_commit_fn(params, step_circuit, i, z_i, |pp, w| w.commit::<C1>(pp))
     }
 
@@ -181,7 +181,7 @@ where
         i: usize,
         z_i: &[G1::ScalarField],
         mut commit_fn: impl FnMut(&C1::PP, &R1CSWitness<G1>) -> C1::Commitment,
-    ) -> Result<Self, multifold::Error> {
+    ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "prove_step",
@@ -249,7 +249,7 @@ where
         step_circuit: &SC,
         left_node: &Self,
         right_node: &Self,
-    ) -> Result<Self, multifold::Error> {
+    ) -> Result<Self, cyclefold::Error> {
         Self::prove_from_with_commit_fn(params, step_circuit, left_node, right_node, |pp, w| {
             w.commit::<C1>(pp)
         })
@@ -261,7 +261,7 @@ where
         left_node: &Self,
         right_node: &Self,
         mut commit_fn: impl FnMut(&C1::PP, &R1CSWitness<G1>) -> C1::Commitment,
-    ) -> Result<Self, multifold::Error> {
+    ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "prove_from",
@@ -378,7 +378,7 @@ where
     pub fn verify(
         &self,
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
-    ) -> Result<(), multifold::Error> {
+    ) -> Result<(), cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "verify",
@@ -387,8 +387,8 @@ where
         )
         .entered();
 
-        const NOT_SATISFIED_ERROR: multifold::Error =
-            multifold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
+        const NOT_SATISFIED_ERROR: cyclefold::Error =
+            cyclefold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
         let PCDNode {
             i,
             j,
@@ -456,7 +456,7 @@ mod tests {
         .unwrap()
     }
 
-    fn ivc_base_step_with_cycle<G1, G2, C1, C2>() -> Result<(), multifold::Error>
+    fn ivc_base_step_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
         G1: SWCurveConfig,
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
@@ -499,7 +499,7 @@ mod tests {
         .unwrap()
     }
 
-    fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), multifold::Error>
+    fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
         G1: SWCurveConfig,
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,

@@ -7,7 +7,7 @@ use ark_std::{cfg_iter_mut, vec::Vec};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use crate::ml_sumcheck::{
+use super::super::{
     data_structures::ListOfProductsOfPolynomials,
     protocol::{verifier::VerifierMsg, IPForMLSumcheck},
 };

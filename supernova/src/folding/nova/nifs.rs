@@ -4,7 +4,7 @@ use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSiz
 use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, ToConstraintField};
 
-use super::{
+use crate::{
     absorb::{AbsorbNonNative, CryptographicSpongeExt},
     commitment::{Commitment, CommitmentScheme},
     r1cs::{self, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},

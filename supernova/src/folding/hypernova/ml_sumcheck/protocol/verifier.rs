@@ -4,7 +4,7 @@ use ark_ff::{Field, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::vec::Vec;
 
-use crate::ml_sumcheck::{
+use super::super::{
     data_structures::PolynomialInfo,
     protocol::{prover::ProverMsg, IPForMLSumcheck},
     Error,

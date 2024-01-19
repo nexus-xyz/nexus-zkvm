@@ -17,7 +17,7 @@ use ark_std::fmt::Debug;
 use super::NonNativeAffineVar;
 use crate::{
     commitment::CommitmentScheme,
-    multifold::nimfs::{R1CSInstance, RelaxedR1CSInstance},
+    folding::nova::cyclefold::nimfs::{R1CSInstance, RelaxedR1CSInstance},
 };
 
 #[must_use]

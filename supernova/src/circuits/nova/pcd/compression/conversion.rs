@@ -8,7 +8,7 @@ use ark_spartan::{
 
 use super::PolyVectorCommitment;
 use crate::{
-    multifold::nimfs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
+    folding::nova::cyclefold::nimfs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
     r1cs::SparseMatrix,
 };
 
