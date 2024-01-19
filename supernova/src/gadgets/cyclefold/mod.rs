@@ -11,7 +11,6 @@ use ark_r1cs_std::{
     R1CSVar, ToBitsGadget,
 };
 use ark_relations::r1cs::SynthesisError;
-use ark_std::fmt::Debug;
 
 pub(crate) mod primary;
 pub(crate) mod secondary;
@@ -41,8 +40,7 @@ where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Debug + Eq,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
     RO: SpongeWithGadget<G1::ScalarField>,
@@ -169,8 +167,7 @@ where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Debug + Eq,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
     RO: SpongeWithGadget<G1::ScalarField>,
@@ -360,8 +357,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -405,7 +402,8 @@ mod tests {
             })?;
         let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
-        let commitment_T_cs = NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T))?;
+        let commitment_T_cs =
+            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;
@@ -466,7 +464,8 @@ mod tests {
             })?;
         let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
-        let commitment_T_cs = NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T))?;
+        let commitment_T_cs =
+            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;
@@ -520,8 +519,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -590,13 +589,14 @@ mod tests {
                 Ok(&U2_secondary)
             })?;
         let commitment_T_secondary_cs = <ProjectiveVar<G2, FpVar<G2::BaseField>> as AllocVar<
-            C2::Commitment,
+            Projective<G2>,
             G2::BaseField,
         >>::new_input(cs.clone(), || {
-            Ok(&proof.proof_secondary.commitment_T)
+            Ok(proof.proof_secondary.commitment_T.into())
         })?;
 
-        let commitment_T_cs = NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T))?;
+        let commitment_T_cs =
+            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;

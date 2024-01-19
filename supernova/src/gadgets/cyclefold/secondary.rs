@@ -94,7 +94,7 @@ impl<G2, C2> R1CSVar<G2::BaseField> for R1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     type Value = R1CSInstance<G2, C2>;
 
@@ -106,7 +106,7 @@ where
     }
 
     fn value(&self) -> Result<Self::Value, SynthesisError> {
-        let commitment_W = self.commitment_W.value()?;
+        let commitment_W = self.commitment_W.value()?.into();
         let X = self.X.value()?;
         Ok(R1CSInstance { commitment_W, X })
     }
@@ -116,7 +116,7 @@ impl<G2, C2> AllocVar<R1CSInstance<G2, C2>, G2::BaseField> for R1CSInstanceVar<G
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn new_variable<T: Borrow<R1CSInstance<G2, C2>>>(
         cs: impl Into<Namespace<G2::BaseField>>,
@@ -133,7 +133,7 @@ where
 
         let commitment_W = ProjectiveVar::<G2, FpVar<G2::BaseField>>::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_W),
+            || Ok(r1cs.borrow().commitment_W.into()),
             mode,
         )?;
         let alloc_X = X[1..]
@@ -156,7 +156,7 @@ impl<G2, C2> AbsorbGadget<G2::BaseField> for R1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn to_sponge_bytes(&self) -> Result<Vec<UInt8<G2::BaseField>>, SynthesisError> {
         unreachable!()
@@ -225,7 +225,7 @@ impl<G2, C2> R1CSVar<G2::BaseField> for RelaxedR1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     type Value = RelaxedR1CSInstance<G2, C2>;
 
@@ -238,8 +238,8 @@ where
     }
 
     fn value(&self) -> Result<Self::Value, SynthesisError> {
-        let commitment_W = self.commitment_W.value()?;
-        let commitment_E = self.commitment_E.value()?;
+        let commitment_W = self.commitment_W.value()?.into();
+        let commitment_E = self.commitment_E.value()?.into();
         let X = self.X.value()?;
 
         Ok(RelaxedR1CSInstance {
@@ -254,7 +254,7 @@ impl<G2, C2> AllocVar<RelaxedR1CSInstance<G2, C2>, G2::BaseField> for RelaxedR1C
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn new_variable<T: Borrow<RelaxedR1CSInstance<G2, C2>>>(
         cs: impl Into<Namespace<G2::BaseField>>,
@@ -269,12 +269,12 @@ where
 
         let commitment_W = ProjectiveVar::<G2, FpVar<G2::BaseField>>::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_W),
+            || Ok(r1cs.borrow().commitment_W.into()),
             mode,
         )?;
         let commitment_E = ProjectiveVar::<G2, FpVar<G2::BaseField>>::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_E),
+            || Ok(r1cs.borrow().commitment_E.into()),
             mode,
         )?;
 
@@ -302,7 +302,7 @@ impl<G2, C2> AbsorbGadget<G2::BaseField> for RelaxedR1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn to_sponge_bytes(&self) -> Result<Vec<UInt8<G2::BaseField>>, SynthesisError> {
         unreachable!()
@@ -328,7 +328,7 @@ impl<G2, C2> CondSelectGadget<G2::BaseField> for RelaxedR1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn conditionally_select(
         cond: &Boolean<G2::BaseField>,
@@ -358,7 +358,7 @@ impl<G2, C2> RelaxedR1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     pub(super) fn fold(
         &self,
@@ -411,7 +411,7 @@ pub struct ProofVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     pub(crate) U: R1CSInstanceVar<G2, C2>,
     pub(crate) commitment_T: ProjectiveVar<G2, FpVar<G2::BaseField>>,
@@ -421,7 +421,7 @@ impl<G2, C2> AllocVar<Proof<G2, C2>, G2::BaseField> for ProofVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn new_variable<T: Borrow<Proof<G2, C2>>>(
         cs: impl Into<Namespace<G2::BaseField>>,
@@ -443,10 +443,10 @@ where
         Ok(Self {
             U: R1CSInstanceVar::new_variable(cs.clone(), || Ok(&U), mode)?,
             commitment_T: <ProjectiveVar<G2, FpVar<G2::BaseField>> as AllocVar<
-                C2::Commitment,
+                Projective<G2>,
                 G2::BaseField,
             >>::new_variable(
-                cs.clone(), || Ok(&proof.borrow().commitment_T), mode
+                cs.clone(), || Ok(proof.borrow().commitment_T.into()), mode
             )?,
         })
     }
@@ -477,7 +477,7 @@ impl<G2, C2> R1CSInstanceVar<G2, C2>
 where
     G2: SWCurveConfig,
     G2::BaseField: PrimeField,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     /// Parses `r, g_out` from the public input of the secondary circuit.
     pub fn parse_secondary_io<G1>(

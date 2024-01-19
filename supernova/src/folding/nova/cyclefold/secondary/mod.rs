@@ -101,7 +101,7 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     let cs = ConstraintSystem::<G1::BaseField>::new_ref();
     cs.set_mode(SynthesisMode::Prove {
@@ -128,10 +128,7 @@ where
 }
 
 /// Folding scheme proof for a secondary circuit.
-pub struct Proof<
-    G2: SWCurveConfig,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
-> {
+pub struct Proof<G2: SWCurveConfig, C2: CommitmentScheme<Projective<G2>>> {
     pub(crate) U: R1CSInstance<G2, C2>,
     pub(crate) commitment_T: C2::Commitment,
 }
@@ -139,7 +136,7 @@ pub struct Proof<
 impl<G2, C2> Clone for Proof<G2, C2>
 where
     G2: SWCurveConfig,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -152,16 +149,16 @@ where
 impl<G2, C2> Default for Proof<G2, C2>
 where
     G2: SWCurveConfig,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn default() -> Self {
         let U = R1CSInstance {
-            commitment_W: Projective::zero(),
+            commitment_W: Projective::zero().into(),
             X: vec![G2::ScalarField::ZERO; SECONDARY_NUM_IO],
         };
         Self {
             U,
-            commitment_T: Projective::zero(),
+            commitment_T: Projective::zero().into(),
         }
     }
 }
@@ -185,7 +182,7 @@ macro_rules! parse_projective {
 impl<G2, C2> R1CSInstance<G2, C2>
 where
     G2: SWCurveConfig,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     #[cfg(any(test, feature = "spartan"))]
     pub(crate) fn parse_secondary_io<G1>(&self) -> Option<Circuit<G1>>

@@ -1,7 +1,7 @@
 use ark_std::fmt;
 
 use ark_crypto_primitives::sponge::Absorb;
-use ark_ec::{AdditiveGroup, CurveGroup, PrimeGroup};
+use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::{Field, PrimeField};
 use ark_relations::r1cs::ConstraintSystemRef;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -31,7 +31,7 @@ pub enum Error {
 
 /// A type that holds the shape of the R1CS matrices
 #[derive(Debug, Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct R1CSShape<G: PrimeGroup> {
+pub struct R1CSShape<G: CurveGroup> {
     /// Number of constraints.
     ///
     /// `m` in the Nova paper.
@@ -50,7 +50,7 @@ pub struct R1CSShape<G: PrimeGroup> {
     pub C: SparseMatrix<G::ScalarField>,
 }
 
-impl<G: PrimeGroup> fmt::Display for R1CSShape<G> {
+impl<G: CurveGroup> fmt::Display for R1CSShape<G> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "R1CSShape {{ num_constraints: {}, num_vars: {}, num_io: {}, A: [_, {}], B: [_, {}], C: [_, {}] }}",
             self.num_constraints,
@@ -63,7 +63,7 @@ impl<G: PrimeGroup> fmt::Display for R1CSShape<G> {
     }
 }
 
-impl<G: PrimeGroup> R1CSShape<G> {
+impl<G: CurveGroup> R1CSShape<G> {
     fn validate(
         num_constraints: usize,
         num_vars: usize,
@@ -174,7 +174,7 @@ impl<G: PrimeGroup> R1CSShape<G> {
     }
 }
 
-impl<G: PrimeGroup> From<ConstraintSystemRef<G::ScalarField>> for R1CSShape<G> {
+impl<G: CurveGroup> From<ConstraintSystemRef<G::ScalarField>> for R1CSShape<G> {
     fn from(cs: ConstraintSystemRef<G::ScalarField>) -> Self {
         assert!(cs.should_construct_matrices());
         let matrices = cs.to_matrices().unwrap();
@@ -198,20 +198,20 @@ impl<G: PrimeGroup> From<ConstraintSystemRef<G::ScalarField>> for R1CSShape<G> {
 
 /// A type that holds a witness for a given R1CS instance.
 #[derive(Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct R1CSWitness<G: PrimeGroup> {
+pub struct R1CSWitness<G: CurveGroup> {
     pub W: Vec<G::ScalarField>,
 }
 
 /// A type that holds an R1CS instance.
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct R1CSInstance<G: PrimeGroup, C: CommitmentScheme<G>> {
+pub struct R1CSInstance<G: CurveGroup, C: CommitmentScheme<G>> {
     /// Commitment to witness.
     pub commitment_W: C::Commitment,
     /// X is assumed to start with a `ScalarField::ONE`.
     pub X: Vec<G::ScalarField>,
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for R1CSInstance<G, C> {
+impl<G: CurveGroup, C: CommitmentScheme<G>> Clone for R1CSInstance<G, C> {
     fn clone(&self) -> Self {
         Self {
             commitment_W: self.commitment_W,
@@ -220,7 +220,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for R1CSInstance<G, C> {
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> fmt::Debug for R1CSInstance<G, C>
+impl<G: CurveGroup, C: CommitmentScheme<G>> fmt::Debug for R1CSInstance<G, C>
 where
     C::Commitment: fmt::Debug,
 {
@@ -232,13 +232,13 @@ where
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> PartialEq for R1CSInstance<G, C> {
+impl<G: CurveGroup, C: CommitmentScheme<G>> PartialEq for R1CSInstance<G, C> {
     fn eq(&self, other: &Self) -> bool {
         self.commitment_W == other.commitment_W && self.X == other.X
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> Eq for R1CSInstance<G, C> where C::Commitment: Eq {}
+impl<G: CurveGroup, C: CommitmentScheme<G>> Eq for R1CSInstance<G, C> where C::Commitment: Eq {}
 
 impl<G, C> Absorb for R1CSInstance<G, C>
 where
@@ -261,7 +261,7 @@ where
     }
 }
 
-impl<G: PrimeGroup> R1CSWitness<G> {
+impl<G: CurveGroup> R1CSWitness<G> {
     /// A method to create a witness object using a vector of scalars.
     pub fn new(shape: &R1CSShape<G>, W: &[G::ScalarField]) -> Result<Self, Error> {
         if shape.num_vars != W.len() {
@@ -283,7 +283,7 @@ impl<G: PrimeGroup> R1CSWitness<G> {
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> R1CSInstance<G, C> {
+impl<G: CurveGroup, C: CommitmentScheme<G>> R1CSInstance<G, C> {
     /// A method to create an instance object using constituent elements.
     pub fn new(
         shape: &R1CSShape<G>,
@@ -306,21 +306,21 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> R1CSInstance<G, C> {
 
 /// A type that holds a witness for a given Relaxed R1CS instance.
 #[derive(Default, Clone, Debug, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RelaxedR1CSWitness<G: PrimeGroup> {
+pub struct RelaxedR1CSWitness<G: CurveGroup> {
     pub W: Vec<G::ScalarField>,
     pub E: Vec<G::ScalarField>,
 }
 
 /// A type that holds a Relaxed R1CS instance.
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct RelaxedR1CSInstance<G: PrimeGroup, C: CommitmentScheme<G>> {
+pub struct RelaxedR1CSInstance<G: CurveGroup, C: CommitmentScheme<G>> {
     pub commitment_W: C::Commitment,
     pub commitment_E: C::Commitment,
     /// X is assumed to start with `u`.
     pub X: Vec<G::ScalarField>,
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for RelaxedR1CSInstance<G, C> {
+impl<G: CurveGroup, C: CommitmentScheme<G>> Clone for RelaxedR1CSInstance<G, C> {
     fn clone(&self) -> Self {
         Self {
             commitment_W: self.commitment_W,
@@ -330,7 +330,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> Clone for RelaxedR1CSInstance<G, C> 
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> fmt::Debug for RelaxedR1CSInstance<G, C>
+impl<G: CurveGroup, C: CommitmentScheme<G>> fmt::Debug for RelaxedR1CSInstance<G, C>
 where
     C::Commitment: fmt::Debug,
 {
@@ -343,7 +343,7 @@ where
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> PartialEq for RelaxedR1CSInstance<G, C> {
+impl<G: CurveGroup, C: CommitmentScheme<G>> PartialEq for RelaxedR1CSInstance<G, C> {
     fn eq(&self, other: &Self) -> bool {
         self.commitment_W == other.commitment_W
             && self.commitment_E == other.commitment_E
@@ -351,7 +351,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> PartialEq for RelaxedR1CSInstance<G,
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> Eq for RelaxedR1CSInstance<G, C> where C::Commitment: Eq {}
+impl<G: CurveGroup, C: CommitmentScheme<G>> Eq for RelaxedR1CSInstance<G, C> where C::Commitment: Eq {}
 
 impl<G, C> Absorb for RelaxedR1CSInstance<G, C>
 where
@@ -378,7 +378,7 @@ where
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> From<&R1CSInstance<G, C>>
+impl<G: CurveGroup, C: CommitmentScheme<G>> From<&R1CSInstance<G, C>>
     for RelaxedR1CSInstance<G, C>
 {
     fn from(instance: &R1CSInstance<G, C>) -> Self {
@@ -390,7 +390,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> From<&R1CSInstance<G, C>>
     }
 }
 
-impl<G: PrimeGroup> RelaxedR1CSWitness<G> {
+impl<G: CurveGroup> RelaxedR1CSWitness<G> {
     pub fn zero(shape: &R1CSShape<G>) -> Self {
         Self {
             W: vec![G::ScalarField::ZERO; shape.num_vars],
@@ -460,7 +460,7 @@ impl<G: PrimeGroup> RelaxedR1CSWitness<G> {
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
+impl<G: CurveGroup, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
     pub fn new(shape: &R1CSShape<G>) -> Self {
         Self {
             commitment_W: C::Commitment::default(),
@@ -521,7 +521,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
 
 /// A method to compute a commitment to the cross-term `T` given a
 /// Relaxed R1CS instance-witness pair and **not relaxed** R1CS instance-witness pair.
-pub fn commit_T<G: PrimeGroup, C: CommitmentScheme<G>>(
+pub fn commit_T<G: CurveGroup, C: CommitmentScheme<G>>(
     shape: &R1CSShape<G>,
     pp: &C::PP,
     U1: &RelaxedR1CSInstance<G, C>,
@@ -565,7 +565,7 @@ pub fn commit_T<G: PrimeGroup, C: CommitmentScheme<G>>(
 }
 
 /// A method to compute a commitment to the cross-term `T` given two pairs of Relaxed R1CS instance and witness.
-pub fn commit_T_with_relaxed<G: PrimeGroup, C: CommitmentScheme<G>>(
+pub fn commit_T_with_relaxed<G: CurveGroup, C: CommitmentScheme<G>>(
     shape: &R1CSShape<G>,
     pp: &C::PP,
     U1: &RelaxedR1CSInstance<G, C>,
@@ -621,7 +621,7 @@ mod tests {
     use ark_relations::r1cs::Matrix;
     use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
 
-    fn to_field_sparse<G: PrimeGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
+    fn to_field_sparse<G: CurveGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
         let mut coo_matrix = Matrix::new();
 
         for row in matrix {
@@ -638,7 +638,7 @@ mod tests {
         coo_matrix
     }
 
-    fn to_field_elements<G: PrimeGroup>(x: &[u64]) -> Vec<G::ScalarField> {
+    fn to_field_elements<G: CurveGroup>(x: &[u64]) -> Vec<G::ScalarField> {
         x.iter().copied().map(G::ScalarField::from).collect()
     }
 

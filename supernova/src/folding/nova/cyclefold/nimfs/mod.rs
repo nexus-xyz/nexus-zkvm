@@ -1,15 +1,12 @@
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
-use ark_ec::{
-    short_weierstrass::{Projective, SWCurveConfig},
-    CurveGroup,
-};
+use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_std::Zero;
 
 use super::{secondary, Error};
 use crate::{
     absorb::CryptographicSpongeExt,
-    commitment::CommitmentScheme,
+    commitment::{Commitment, CommitmentScheme},
     r1cs,
     utils::{cast_field_element, cast_field_element_unique},
 };
@@ -29,11 +26,9 @@ pub struct NIMFSProof<
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO,
-> where
-    C1::Commitment: Into<Projective<G1>>,
-{
+> {
     pub(crate) commitment_T: C1::Commitment,
     pub(crate) commitment_E_proof: [secondary::Proof<G2, C2>; 2],
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
@@ -45,8 +40,7 @@ where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -63,8 +57,7 @@ where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     G1::BaseField: PrimeField,
 {
     fn default() -> Self {
@@ -82,8 +75,7 @@ where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
     RO: CryptographicSponge,
@@ -204,6 +196,7 @@ where
 
         Ok((proof, (folded_U, folded_W), (U_secondary, W_secondary)))
     }
+
     #[cfg(any(test, feature = "spartan"))]
     pub fn verify(
         &self,
@@ -296,8 +289,6 @@ mod tests {
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
 
-    use std::fmt;
-
     #[test]
     fn prove_verify() {
         prove_verify_with_cycle::<
@@ -313,10 +304,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>
-            + fmt::Debug,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>
-            + fmt::Debug,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
