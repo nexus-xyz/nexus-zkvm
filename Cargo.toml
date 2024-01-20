@@ -20,6 +20,7 @@ default-members = [
     "supernova",
     "spartan",
 ]
+exclude = ["supernova-benches"]
 
 [workspace.package]
 edition = "2021"

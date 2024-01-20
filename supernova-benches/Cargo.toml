@@ -1,5 +1,3 @@
-[workspace]
-
 [package]
 name = "supernova-benches"
 version = "0.1.0"
