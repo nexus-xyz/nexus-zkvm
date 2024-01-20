@@ -1,13 +1,15 @@
 use std::io::BufReader;
 use std::fs::File;
 
+use nexus_prover::Proof;
+use nexus_prover::types::PCDNode;
 use nexus_riscv::VMOpts;
 use nexus_prover::{pp::gen_or_load, run, prove_par, srs::test_srs::gen_test_srs_to_file};
 use nexus_network::pcd::{decode, NexusMsg::PCDRes};
-use nexus_network::api::Proof;
 use nexus_network::client::*;
 
 use crate::*;
+use ark_serialize::CanonicalDeserialize;
 
 pub fn prove() -> CmdResult<()> {
     let Opts { command: Prove { release, bin } } = options() else {
@@ -41,7 +43,7 @@ pub fn query() -> CmdResult<()> {
 }
 
 pub fn verify() -> CmdResult<()> {
-    let Opts { command: Verify { pp_file, file } } = options() else {
+    let Opts { command: Verify { pp_file, file, local } } = options() else {
         panic!()
     };
 
@@ -53,8 +55,21 @@ pub fn verify() -> CmdResult<()> {
         return Err("invalid proof object".into());
     };
 
-    let PCDRes(node) = decode(&vec)? else {
-        return Err("invalid proof object".into());
+    let node;
+
+    if *local {
+        let tmp = decode(&vec)?;
+        match tmp {
+            PCDRes(n) => node = n,
+            _ => return Err("invalid proof object".into()),
+        };
+    } else {
+        println!("doing local verify");
+        let tmp = PCDNode::deserialize_compressed(&*vec);
+        match tmp {
+            Ok(n) => node = n,
+            Err(_) => return Err("invalid proof object".into()),
+        };
     };
 
     let state = gen_or_load(false, 1, pp_file, &())?;
@@ -84,7 +99,11 @@ pub fn local() -> CmdResult<()> {
     };
     let trace = run(&opts, true)?;
     let state = gen_or_load(false, 1, pp_file, &())?;
-    prove_par(state, trace)?;
+    let proof = prove_par(state, trace)?;
+
+    let vec = serde_json::to_vec(&proof)?;
+    write_file("myproof.json".into(), &vec)?;
+
     Ok(())
 }
 

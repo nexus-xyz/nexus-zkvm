@@ -2,8 +2,9 @@ use std::path::Path;
 
 use reqwest::blocking::Client;
 
-use crate::Result;
-use crate::api::*;
+use crate::{Result, api::NexusAPI};
+use crate::client::NexusAPI::{NexusProof, Error, Program, Query};
+use nexus_prover::Proof;
 
 #[cfg(debug_assertions)]
 const URL: &str = "http://localhost:8080/api";
@@ -17,7 +18,7 @@ pub fn nexus_api(msg: &NexusAPI) -> Result<NexusAPI> {
 fn proof(msg: &NexusAPI) -> Result<Proof> {
     let msg = nexus_api(msg)?;
     match msg {
-        Proof(p) => Ok(p),
+        NexusProof(p) => Ok(p),
         Error(m) => Err(m.into()),
         _ => Err("unexpected response".into()),
     }

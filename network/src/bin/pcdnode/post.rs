@@ -1,17 +1,25 @@
 use std::sync::Arc;
 use std::collections::VecDeque;
 
+use nexus_network::{
+    pcd::{
+        NexusMsg::{self, LeafReq, PCDRes, NodeReq},
+        encode,
+    },
+    api::NexusAPI,
+    Result,
+};
+use nexus_prover::Proof;
 use sha2::{Digest, Sha256};
 
 use hyper::{header, Body, Request, Response, StatusCode};
 use tokio::task::JoinHandle;
 
 use nexus_riscv::{nop_vm, vm, parse_elf, vm::eval::VM};
-use nexus_network::*;
-use nexus_network::pcd::*;
-use nexus_network::api::*;
-
-use crate::workers::*;
+use crate::{
+    api::NexusAPI::{NexusProof, Error, Program, Query},
+    WorkerState, request_work,
+};
 
 pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<()> {
     let trace = Arc::new(vm::trace::trace(&mut vm, 1, true)?);
@@ -102,14 +110,14 @@ fn api(mut state: WorkerState, msg: NexusAPI) -> Result<NexusAPI> {
             let vm = parse_elf(&elf, true)?;
             let hash = hex::encode(Sha256::digest(&elf));
             manage_proof(state, hash.clone(), vm)?;
-            Ok(Proof(Proof { hash, ..Proof::default() }))
+            Ok(NexusProof(Proof { hash, ..Proof::default() }))
         }
         Query { hash } => {
             println!("GOT a query");
             let proof = state.db.query_proof(&hash);
             match proof {
                 None => Err("proof not found".into()),
-                Some(p) => Ok(Proof(p)),
+                Some(p) => Ok(NexusProof(p)),
             }
         }
         _ => Err("Invalid Message".into()),

@@ -73,6 +73,10 @@ pub enum Command {
         /// File containing completed proof
         #[arg(short, long, default_value = "nexus-proof.json")]
         file: std::path::PathBuf,
+
+        /// Specifies whether we are verifying a local proof
+        #[arg(short, long, default_value = "false")]
+        local: bool,
     },
 
     /// Run a Nexus proof locally

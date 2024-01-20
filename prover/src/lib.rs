@@ -4,16 +4,48 @@ pub mod circuit;
 pub mod pp;
 pub mod srs;
 
-use crate::error::*;
-use crate::types::*;
-use crate::circuit::*;
-
 use std::time::Instant;
 use std::io::{self, Write};
+use error::ProofError;
 use nexus_riscv::{
     VMOpts, load_vm,
     vm::trace::{Trace, trace},
 };
+
+use serde::{Serialize, Deserialize};
+use types::{SeqPP, ParPP};
+
+use crate::circuit::Tr;
+use crate::types::{IVCProof, PCDNode};
+use ark_serialize::CanonicalSerialize;
+
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct Proof {
+    pub hash: String,
+    pub total_nodes: u32,
+    pub complete_nodes: u32,
+    pub proof: Option<Vec<u8>>,
+}
+
+impl std::fmt::Display for Proof {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "{} {} {} ",
+            self.hash, self.total_nodes, self.complete_nodes
+        )?;
+        match self.proof {
+            None => writeln!(f, "incomplete")?,
+            Some(ref p) => {
+                for x in p.iter().take(10) {
+                    write!(f, "{:x} ", x)?;
+                }
+                writeln!(f)?;
+            }
+        }
+        Ok(())
+    }
+}
 
 fn estimate_size(tr: &Trace) -> usize {
     use std::mem::size_of_val as sizeof;
@@ -42,7 +74,7 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(trace)
 }
 
-pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<Proof, ProofError> {
     let k = trace.k;
     let tr = Tr::new(trace);
     let icount = tr.instructions();
@@ -78,10 +110,11 @@ pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
     let t = Instant::now();
     proof.verify(num_steps).expect("verify"); // TODO add verify errors?
     println!("{:?}", t.elapsed());
-    Ok(())
+
+    Ok(Proof::default())
 }
 
-pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_par(pp: ParPP, trace: Trace) -> Result<Proof, ProofError> {
     let k = trace.k;
     let tr = Tr::new(trace);
 
@@ -130,5 +163,16 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
     let t = Instant::now();
     vs[0].verify(&pp)?;
     println!("{:?}", t.elapsed());
-    Ok(())
+
+    let mut proof_bytes = Vec::new();
+    vs[0].serialize_compressed(&mut proof_bytes)?;
+
+    let proof = Proof {
+        hash: "test".to_string(),
+        total_nodes: vs.len() as u32,
+        complete_nodes: vs.len() as u32,
+        proof: Some(proof_bytes),
+    };
+
+    Ok(proof)
 }

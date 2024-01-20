@@ -24,3 +24,4 @@ serde_json.workspace = true
 nexus-riscv = { path = "../riscv" }
 nexus-prover = { path = "../prover" }
 nexus-network = { path = "../network" }
+ark-serialize.workspace = true
