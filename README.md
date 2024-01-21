@@ -93,3 +93,51 @@ cargo nexus prove
 ```shell
 cargo nexus verify
 ```
+
+---
+
+## Example programs
+
+TODO
+
+## Developing
+
+### Run all the zkVM tests
+
+```shell
+cargo test -r
+```
+
+### Benchmark the zkVM
+
+```shell
+cargo bench
+```
+
+### Profile the zkVM
+
+TODO
+
+## Spin up a Nexus prover network
+
+```shell
+cargo nexus network start --coordinator
+```
+
+```shell
+cargo nexus network start --node -l 127.0.0.1:0
+```
+
+### Submit proofs against your local network
+
+```shell
+cargo nexus prove --network=localhost
+```
+
+### Submit proofs against the Nexus network
+
+```shell
+cargo nexus prove --network
+
+Connected to https://cloud.nexus.xyz/
+```
