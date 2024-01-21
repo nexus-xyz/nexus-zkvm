@@ -51,11 +51,8 @@ First install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
 Then build and install the Nexus zkVM:
 
 ```shell
-# Download the source code
 git clone https://github.com/nexus-xyz/nexus-zkvm
 cd nexus-zkvm
-
-# Build and install the Nexus zkVM
 cargo install --path .
 ```
 
