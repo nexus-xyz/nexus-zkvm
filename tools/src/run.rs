@@ -20,6 +20,7 @@ pub fn run() -> CmdResult<()> {
         merkle: false,
         nop: None,
         loopk: None,
+        machine: None,
         file: Some(t),
     };
 

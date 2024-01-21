@@ -6,52 +6,22 @@ mod error;
 pub mod rv32;
 pub mod vm;
 mod ark_serde;
+pub mod machines;
 
 #[cfg(test)]
 mod tests;
-
-pub use error::*;
-use rv32::*;
-use vm::{
-    eval::*,
-    //trace::*,
-};
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
 use std::fs::read;
 use std::path::PathBuf;
 
-/// Create a VM with k no-op instructions
-pub fn nop_vm(k: usize) -> VM {
-    let mut pc = 0x1000;
-    let mut vm = VM::new(pc, true);
+pub use error::*;
+use rv32::*;
+use vm::eval::*;
 
-    // TODO: we can do better for large k
-    for _ in 0..k {
-        vm.mem.store(SW, pc, 0x00000013).unwrap(); // nop
-        pc += 4;
-    }
-    vm.mem.store(SW, pc, 0xc0001073).unwrap(); // unimp
-    vm
-}
-
-/// Create a VM which loops k times
-pub fn loop_vm(k: usize) -> VM {
-    assert!(k < (1 << 31));
-
-    let mut vm = VM::new(0x1000, true);
-
-    let hi = (k as u32) & 0xfffff000;
-    let lo = ((k & 0xfff) << 20) as u32;
-    vm.mem.store(SW, 0x1000, hi | 0x137).unwrap(); // lui x2, hi
-    vm.mem.store(SW, 0x1004, lo | 0x10113).unwrap(); // addi x2, x2, lo
-    vm.mem.store(SW, 0x1008, 0x00000093).unwrap(); // li x1, 0
-    vm.mem.store(SW, 0x100c, 0x00108093).unwrap(); // addi x1, x1, 1
-    vm.mem.store(SW, 0x1010, 0xfe209ee3).unwrap(); // bne x1, x2, 0x100c
-    vm.mem.store(SW, 0x1014, 0xc0001073).unwrap(); // unimp
-    vm
-}
+// don't break API
+pub use machines::{nop_vm, loop_vm};
 
 /// Load a VM state from an ELF file
 pub fn load_elf(path: &PathBuf, merkle: bool) -> Result<VM> {
@@ -96,16 +66,29 @@ pub struct VMOpts {
     pub merkle: bool,
 
     /// Use a no-op machine of size n
-    #[arg(group = "vm", short, name = "n")]
+    #[arg(group = "vm", short, long, name = "n")]
     pub nop: Option<usize>,
 
     /// Use a looping machine with l iterations
-    #[arg(group = "vm", short, name = "l")]
+    #[arg(group = "vm", short, long, name = "l")]
     pub loopk: Option<usize>,
+
+    /// Use a named test machine
+    #[arg(group = "vm", long, long_help(list_machines()))]
+    pub machine: Option<String>,
 
     /// Input file, RISC-V 32i ELF
     #[arg(group = "vm", required = true)]
     pub file: Option<std::path::PathBuf>,
+}
+
+fn list_machines() -> String {
+    let ms = machines::MACHINES
+        .iter()
+        .map(|m| m.0.to_string())
+        .collect::<Vec<String>>()
+        .join(", ");
+    "Use a named machine: ".to_string() + &ms
 }
 
 /// Load the VM described by `opts`
@@ -114,6 +97,12 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
         Ok(nop_vm(k))
     } else if let Some(k) = opts.loopk {
         Ok(loop_vm(k))
+    } else if let Some(m) = &opts.machine {
+        if let Some(vm) = machines::lookup_test_machine(m) {
+            Ok(vm)
+        } else {
+            Err(VMError::UnknownMachine(m.clone()))
+        }
     } else {
         load_elf(opts.file.as_ref().unwrap(), opts.merkle)
     }

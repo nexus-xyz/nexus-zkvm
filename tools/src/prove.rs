@@ -79,6 +79,7 @@ pub fn local() -> CmdResult<()> {
         merkle: true,
         nop: None,
         loopk: None,
+        machine: None,
         file: Some(t),
     };
     let trace = run(&opts, true)?;
