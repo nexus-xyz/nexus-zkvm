@@ -1,7 +1,11 @@
 target
 
+Cargo.lock
+
 ### next line: for us Vim users ;-)
 .*.swp
 
 ### next line: for our public-parameters files
 */nexus-public.zst
+
+
