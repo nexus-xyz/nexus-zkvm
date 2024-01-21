@@ -20,85 +20,79 @@
 
 # The Nexus zkVM
 
+The Nexus zkVM is a machine designed to prove abitrary computations. It allows anyone to generate zero-knowledge proofs for programs written in Rust. It is designed for simplicity, safety and performance.
+
+## The Nexus Virtual Machine
+
+The Nexus zkVM proves executions against any CPU architecture (e.g. RISC-V, Wasm, EVM, etc.) through compilation against the Nexus Virtual Machine, a minimal CPU architecture designed to deliver maximum prover efficiency.
+
+## Design Principles
+
+The Nexus zkVM is designed with the following principles:
+- Simplicity:
+  - Generating and verifying zero-knowledge proofs should be as easy as `nexus prove` and `nexus verify`.
+- Universality:
+  - The zkVM can prove *any* computation, for any programming language (e.g. Rust, C++, Go), any machine architecture (e.g. RISC-V, Wasm, EVM), and any circuit arithmetization (e.g. R1CS, Plonkish, AIR).
+- Incrementality:
+  - The zkVM has no bounds on the size of the programs it can prove. Further, the proofs themselves are updatable.
+- Ultra-high Performance:
+  - The zkVM is designed to be massively-parallelizable, and is currently designed only to be practical for really large programs (> 1B CPU cycles).
+- Cryptography-Opinionated:
+  - The Nexus team makes deliberate and precise choices in the cryptography behind the zkVM prover, elliptic curves, proof systems, compression sequence, parallelization strategy, security properties, parameters, etc. to ensure maximum performance and security to developers.
+- Extensibility and modularity:
+  - The zkVM is designed to enrich the open-source community and be developer-first to ensure extensibility: it can easily be extended with custom instructions (e.g. SHA-256), new compilation toolchains, and can be adapted to prove new programming languages and CPU architectures.
+
 ## Quick Start
 
-Make sure you have a recent stable rust compiler with the RISC-V target.
-The RISC-V target can be installed using `rustup`:
+### 1. Install the Nexus zkVM
 
-```sh
-rustup target add riscv32i-unknown-none-elf
+First install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
+
+Then build and install the Nexus zkVM:
+
+```shell
+# Download the source code
+git clone https://github.com/nexus-xyz/nexus-zkvm
+cd nexus-zkvm
+
+# Build and install the Nexus zkVM
+cargo install --path .
 ```
 
-Install the Nexus tools to get access to the `cargo nexus`,
-and the `nexus-run` commands.
+This will generate the executable `~/.cargo/bin/nexus`.
 
-```sh
-cargo install --path tools
+Now you can use the Nexus zkVM:
+
+```shell
+cargo nexus --help
 ```
 
-To start a new project use:
+### 3. Create a new Nexus project
 
-```sh
-cargo nexus new
+```shell
+cargo nexus new nexus-project
 ```
 
-Note, you may get an authentication error. The current new command
-will attempt to add a dependency on this git repo for `nexus-rt`.
-Since this repo is private, you may need to tell cargo to use the
-`git` command to fetch the repo rather than using the built-in
-git library.
-This can be done by setting a parameter in `.cargo/config`:
+This will create a directory with the following structure:
 
-```toml
-net.git-fetch-with-cli = true
+```shell
+./nexus-project
+├── Cargo.lock
+├── Cargo.toml
+└── src
+    └── main.rs
 ```
 
-Alternatively, you can configure your SSH keys with cargo.
+### 4. Prove your code on the Nexus zkVM
 
-Also note that if your new project will live in this repo, it
-is best to change the `Cargo.toml` file to list a local path
-to `runtime` rather than the default git repo.
+Generate a zero-knowledge proof for your Rust program using the Nexus zkVM:
 
-If successful, you can run the new project binary with `cargo run`.
-
-Proving programs can be done with either locally or using the Nexus network.
-To prove using the nexus network, use the `prove` command.
-
-```
-cargo nexus prove -r    # prove release build
-cargo nexus prove       # prove debug build
+```shell
+cargo nexus prove
 ```
 
-If your project contains multiple binaries, you may need to
-specify the binary to use:
+### 5. Verify your proof
 
-```
-cargo nexus prove --bin name
-```
-You can check on the status of your proof, and download the result
-using the `query` command:
-
-```
-cargo nexus query --hash e087116c0b13fb1a66af46d572b78e98b76c0bf814bd4f5df781469a3755fd33
-```
-
-If the proof is complete it will be saved to `nexus-proof.json`; this filename
-can be changed on the command line (see -h for help).
-
-You can check a proof using the `verify` command:
-
-```
+```shell
 cargo nexus verify
-```
-
-You may need to specify the input files on the command line:
-
-```
-cargo nexus verify --public-params nexus-public.zst -f nexus-proof.json
-```
-
-Local proofs can be done using the `local-prove` command:
-
-```
-cargo nexus local-prove --bin example
 ```
