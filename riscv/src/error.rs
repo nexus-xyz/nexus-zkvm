@@ -28,6 +28,9 @@ pub enum VMError {
     /// An error occurred reading file system
     IOError(std::io::Error),
 
+    /// Unknown test machine
+    UnknownMachine(String),
+
     /// An error occurred while parsing the ELF headers
     ELFError(elf::ParseError),
 }
@@ -69,6 +72,7 @@ impl Display for VMError {
             Misaligned(addr) => write!(f, "mis-alligned memory address {addr:x}"),
             HashError(s) => write!(f, "hash error {s}"),
             IOError(e) => write!(f, "{e}"),
+            UnknownMachine(m) => write!(f, "unknown machine {m}"),
             ELFError(e) => write!(f, "{e}"),
         }
     }
