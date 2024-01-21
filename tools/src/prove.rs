@@ -58,17 +58,17 @@ pub fn verify() -> CmdResult<()> {
     let node;
 
     if *local {
-        let tmp = decode(&vec)?;
-        match tmp {
-            PCDRes(n) => node = n,
-            _ => return Err("invalid proof object".into()),
-        };
-    } else {
         println!("doing local verify");
         let tmp = PCDNode::deserialize_compressed(&*vec);
         match tmp {
             Ok(n) => node = n,
             Err(_) => return Err("invalid proof object".into()),
+        };
+    } else {
+        let tmp = decode(&vec)?;
+        match tmp {
+            PCDRes(n) => node = n,
+            _ => return Err("invalid proof object".into()),
         };
     };
 
