@@ -1,0 +1,202 @@
+---
+title: "Compressing Nova proofs for Ethereum"
+description: "This is a description for the compression blog post"
+---
+
+# Compressing Nova proofs for Ethereum
+
+### By Daniel Dore, Ph.D.
+
+At Nexus Laboratories, we are developing a brand new kind of ZKVM based on a recent innovation in the world of ZK-SNArKs: "folding" or "accumulation" schemes. The starting point for this line of work is [Nova], a folding scheme which enables the first truly unbounded construction of IVC - Incrementally Verifiable Computation.
+
+We discuss Nova and how it unlocks a truly unlimited ZKVM in more detail elsewhere (see our [whitepaper]!). At a high level, Nova provides a method to prove that the result of a repeated computation $F^{(n)}(z) =  F(F(F(\ldots F(z))))$ is computed correctly by reducing this claim to a claim which asserts that a _single_ invocation of $F$ is computed correctly. In the context of a ZKVM, we can think of $F$ as representing the execution of a single machine instruction, and the iterated computation $F^{(n)}(z)$ as representing the execution of an entire program.
+
+This is a really powerful primitive! It allows us to verify computations of arbitrary size while keeping the size of the proof _constant_ - and concretely small! Depending on various configuration details, Nova proofs can be around $1$ to $10$ MB in size: smaller than an iPhone photo!
+
+However, if we want our proof to live on the Ethereum blockchain - e.g. if we are verifying large computations for some smart contract service - this is much too large. Storing a megabyte of data on the Ethereum blockchain would cost 640,000,000 gas, or 20 times the block gas limit! Even ignoring the gas limit, at the moment this works out to 20,480,000 gwei, which is 20 ETH, or $50,000!
+
+Therefore, to produce Ethereum-verifiable proofs from Nova, we need a way to reduce the proof size further. Of course, the natural tool for this job is a SNArK: rather than verifying a Nova proof, the Ethereum contract can verify a succinct SNArK proof attesting to the knowledge of a valid Nova proof.
+
+In this post, we'll dive into some of the hairy technical details that come with implementing this strategy. Here, we have a problem that's constrained on two sides: both Nova and Ethereum require specific mathematical properties of our SNArK, and our task is to fit them together. Think square peg, round hole!
+
+## First challenge: Nova proofs are not SNArK friendly
+
+Let's take a quick look at how Nova proofs work. For details, see the [paper] or our [whitepaper].
+
+### R1CS
+
+Nova works over the R1CS model ('arithmetization') of computation: R1CS stands for "rank 1 constraint system". All input, output, and intermediate values encountered in the computation are encoded as elements of a fixed finite _prime_ field $\mathbb{F}$, and the transitions between them are expressed using linear algebra over $\mathbb{F}$. Since this model generalizes the [arithmetic circuit] model of computation, we refer to a computation expressed using R1CS as a 'circuit'. An R1CS circuit consists of the following parameters:
+
+- the number of constraints $m$
+- the number of "witness wires" $n$, expressing internal states of the computation.
+- the number of _public_ input/output values $r$.
+- three matrices $A, B, C \in \mathbb{F}^{m \times (n + r + 1)}$
+
+Given some public I/O vector - also called the "instance" - $x \in \mathbb{F}^r$, a _witness_[^0.1] for the computation is a vector $w \in \mathbb{F}^{n}$ such that, defining $Z = [1, x, w]$, the following equation holds[^0]:
+
+$$
+AZ \circ BZ = CZ
+$$
+
+[^0]: Here, $\circ$ is the component-wise or "Hadamard" product of two vectors: $(x_1, x_2, \ldots, x_k) \circ (y_1, y_2, \ldots, y_k) = (x_1 y_1, x_2 y_2, \ldots, x_k y_k)$.
+[^0.1]: We will abuse notation slightly in this post and refer to the pair $(x; w)$ as the "witness".
+
+R1CS is a universal (Turing-complete) model of computation, so for any computable function $F$ - e.g. the function defining a valid state transition for our VM - we can compute R1CS matrices that encode it.
+
+### Folding, commitments, and commited relaxed R1CS
+
+At its core, Nova is a _folding scheme_: it takes two R1CS witnesses $(x_1; w_1), (x_2; w_2)$ for the same circuit $\mathsf{c} = (A, B, C)$ and "folds" them into a _single_ witness $(x, y)$ for $\mathsf{c}$. Repeating this process for each iteration of our computation $F$ allows us to encode the entire iterative computation in a single R1CS witness!
+
+The folding operation is simple: first, the random oracle[^1/2] samples a random challenge $r \in \mathbb{F}$, and then $w$ is just the linear combination $w_1 + r * w_2$.
+
+[^1/2]: As usual, Nova uses the Fiat-Shamir transform to make the proof non-interactive: the random oracle is simulated by a cryptographic hash function, seeded with the (hash of the) matrices $A, B, C$, plus all other public data.
+
+In order for this construction to work, the Nova prover must compute and keep track of _Pedersen commitments_ $\mathsf{Com}$ to the witnesses $w_1, w_2$, valued in some elliptic curve group $\mathbb{G}$ whose _scalar field_ is $\mathbb{F}$[^1]. Computing these requires a _multiscalar multiplication_ (MSM):
+
+- The commitment scheme $\mathsf{Com}$ uses public parameters $(g_1, g_2, \ldots, g_{n}) \in \mathbb{G}^{n}$, sampled at random during setup.
+- To commit to a vector $w \in \mathbb{F}^{n}$, we compute $\mathsf{Com}(w) = \prod_{j=1}^n w_j * g_j$.
+
+This commitment scheme is _homomorphic_: $\mathsf{Com}(w_1 + r*  w_2) = \mathsf{Com}(w_1) + r * \mathsf{Com}(w_2)$. This means we can compute the commitment $\mathsf{Com}(w)$ to the folded witness $w$ using only the commitments $\mathsf{Com}(w_1), \mathsf{Com}(w_2)$.
+
+Verifying a Nova proof $(x, w)$ requires not just checking (a "relaxed" version of) the R1CS equations, but also verifying that $\mathsf{Com}(w)$ has a specified value[^2]. This commitment check is vital! This is how Nova ensures that knowledge of the folded witness $w$ implies knowledge of the individual witnesses $w_1, w_2$: otherwise, the prover could just produce any old witness to the R1CS matrices, with no relation to the original two.
+
+#### The Nova folding scheme: precise definition
+
+To state precisely how Nova proofs work, we (following the Nova paper) need to introduce the _committed relaxed R1CS_ relation, defined as follows:
+
+- The circuit is still specified by three matrices $\mathsf{c} = (A, B, C)$.
+- In addition to the I/O vector $x \in \mathbb{F}^r$, the public values include two points $\overline{w}, \overline{e} \in \mathbb{G}$ and a scalar $u \in \mathbb{F}$. We call the tuple of public values $(x, \overline{w}, \overline{e}, u)$ the _instance_.
+- A witness vector $w \in \mathbb{F}^n$ _satisfies_ the circuit $\mathsf{c}$ for the instance $(x, \overline{w}, \overline{e}, u)$ if, defining $Z = [u, x, w]$, we have:
+  - $\mathsf{Com}(w) = \overline{w}$
+  - $\mathsf{Com}(AZ \circ BZ - u * CZ) = \overline{e}$.
+
+The Nova folding scheme takes an R1CS witness $(x', w')$ and a committed relaxed R1CS witness $(x, \overline{w}, \overline{e}, u; w)$ - both for the _same_ circuit $\mathsf{c} = (A, B, C)$ and "folds" $(x_1, w_1)$ into $(x_0, \overline{w_0}, \overline{e_0}, u_0; w_0)$ to obtain a new committed relaxed R1CS witness $(x, \overline{w}, \overline{e}, u; w)$ for $\mathsf{c}$:
+
+- The prover first computes $T = A Z_0 \circ B Z_1 + A Z_1 \circ B Z_0 - u_0 C Z_1 - C Z_2$ and sets $\overline{T} = \mathsf{Com}(T)$.
+  - $Z_1 = [1, x_1, w_1]$, $Z_0 = [u_0, x_0, w_0]$.
+- Then, the "random oracle" - simulated by a hash function $\mathsf{hash}$ - samples a value $r \in \mathbb{F}$, based on all public data as well as the "folding proof" $\overline{T}$
+  - $r = \mathsf{hash} \left(\{(A, B, C), x_0, x_1, \overline{w_0}, \overline{e_0}, u_0\}\right)$
+- Then, the folded witness is defined by:
+  - $x = x_0 + r x_1$
+  - $u = u_0 + r$
+  - $\overline{w} = \overline{w_0} + r * \mathsf{Com}(w_1)$
+  - $\overline{e} = \overline{e}_0 + r * \overline{T} = \mathsf{Com}(A Z \circ BZ - u * CZ)$
+  - $w = w_0 + r * w_1$.
+- Here, the public values $x, u, \overline{w}$ can be computed just from the public values of the two incoming witnesses without additional help from the prover. However, the "folding proof" $\overline{T}$ is needed to compute $\overline{e}$.
+
+### Challenge: naively proving Pedersen commitments is very expensive
+
+Now, we hit our first snag: calculating the MSM $\mathsf{Com}(w)$ is a very expensive operation for a SNArK! An R1CS circuit[^3] computing a _single_ elliptic curve scalar multiplication has around $1000$ constraints, so a circuit computing the MSM $\mathsf{Com}(w)$ for $w \in \mathbb{F}^n$ would have something like $1000 * n$ constraints. If our computation runs for fewer than $1000$ steps, we'd be better off not folding at all!
+
+To address this, we follow the technique proposed in the [Nova paper]: essentially, instead of including the commitment check as part of the circuit to be proved, we incorporate it into the logic of the Spartan proof system itself, which also is based on commitments. In other words, we modify Spartan so that it is a proof system for _committed relaxed R1CS_ instead of ordinary R1CS. This modification is similar to how proof systems like [halo2] speed up SNArK recursion by "deferring" expensive operations like elliptic curve pairings to a recursive verifier directly instead of attempting to prove them inside of a circuit.
+
+### Spartan and its modification for committed relaxed R1CS
+
+[Spartan] is a SNArK - invented by Srinath Setty, one of the authors of Nova - for R1CS with several attractive features:
+
+- It has a linear-time prover which is moreover concretely fast, being built on the lightning-fast sumcheck protocol.
+- Using a _universal_ trusted setup, the proof size and verifier time are _logarithmic_ in the size of the circuit.
+  - Here - as in [PlonK] - "universal" means that the trusted setup does not depend on the circuit beyond an upper bound on the circuit's size, so it can be performed once and then used for all circuits below the size bound.
+  - Another variant of Spartan, allowing the proof size and verifier time to grow to $\sqrt{N}$ (for $N$ the circuit size), improves prover speed and removes the need for a trusted setup entirely.
+- Its arithmetization - R1CS - is the same as Nova's.
+  - In addition, it admits a straightforward generalization called [SuperSpartan] for the [CCS] arithmetization of computation, which is also used by [Hypernova], a more efficient descendant of Nova.
+  - CCS is a more expressive model than R1CS, and R1CS as well as Plonkish and AIR arithmetizations all have a "zero cost" representation in CCS.
+
+See the Nova paper for a good discussion of the relevant parts of the Spartan construction, but we'll recall some features now for convenience.
+
+#### Spartan's multilinear polynomial IOP
+
+Like other modern SNArKs, Spartan is described first as an "Polynomial IOP" (Interactive Oracle Proof), which is then "compiled" into a SNArK using a polynomial commitment scheme (PCS). Recall that a polynomial IOP is a type of interactive argument system in which the prover is allowed to send the verifier "polynomial oracles" for some (in our case, multivariate) polynomials $\{f_i(X)\}$, and the verifier may query their values for specific values of $X$.
+
+Spartan works using _multilinear polynomials_ in $s = \log_2 N$ variables[^4]: these are polynomials in $s$ variables which have degree at most $1$ in each variable. The dimension of the space of these polynomials is $2^s = N$, so they are determined entirely by their values on the "boolean hypercube" $\{0, 1\}^s \subseteq \mathbb{F}^s$. Thus the following definition makes sense:
+
+- Given a vector $\mathbf{v} \in \mathbb{F}^N$, its _multilinear extension_ $\widetilde{\mathbf{v}}$ is the unique multilinear polynomial in $s$ variables such that $\mathbf{v}_i = \widetilde{\mathbf{v}}([i])$, where $[i] \in \{0, 1\}^s$ is the binary representation of the integer $i \in [0, N)$.
+  - A basis for the space of multilinear polynomials $p(X)$ in $s$ variables is given by $\{\mathsf{eq}(X, [i])\}$ for $[i] \in \{0, 1\}^s$, with $\mathsf{eq}(X, [i])$ the unique multilinear polynomial such that $\mathsf{eq}([i], [i]) = 1$ and $\mathsf{eq}([j], [i]) = 0$ for $[i] \neq [j] \in \{0,1\}^s$.[^5]
+  - The MLE of $\mathbf{v}$ can be represented as the sum: 
+  $$
+  \begin{equation}\widetilde{\mathbf{v}}(\tau) = \sum\_{[i] \in \{0,1\}^s} \mathbf{v}\_i * \mathsf{eq}(\tau, [i]) \end{equation}
+  $$
+- Similarly, given a matrix $M \in \mathbb{F}^{N \times N}$, its _multilinear extension_ $\widetilde{M}$ is the unique multilinear polynomial on $\mathbb{F}^{s} \times \mathbb{F}^s$ such that $M_{i,j} = \widetilde{M}([i], [j])$.
+
+With these preliminaries, we can describe the relevant details of the Spartan IOP:
+
+- The verifier is given oracles to $\widetilde{w}$ as well as to $\widetilde{A}, \widetilde{B}, \widetilde{C}$.
+  - Given the oracle to $\widetilde{w}$ and the public input $x$, the verifier can easily compute values of $\widetilde{Z}$ with $Z = [1, x, w]$ as above.
+- Let $F$ be the vector $AZ \circ BZ - CZ$. The goal is to prove that $F$ is the zero vector, or equivalently that the MLE $\widetilde{F}(X)$ is the zero polynomial.
+- The verifier samples a random $\tau \in \mathbb{F}^s$ (_after_ receiving the public inputs and description of the circuit as well as these oracles); then, the prover tries to convince the verifier that $\widetilde{F}(\tau) = 0$. Since $\tau$ is random, the [Schwartz-Zippel lemma] implies that the probability of this happening is negligible unless $F$ is the zero vector.
+- Using the formula above for the MLE, we can represent $\widetilde{F}(\tau)$ as a sum over the boolean hypercube: $$\widetilde{F}(\tau) = \sum_{[i] \in \{0,1\}^s} \left(\widetilde{AZ}([i]) \circ \widetilde{BZ}([i]) - \widetilde{CZ}([i]) \right) * \mathsf{eq}(\tau, [i])$$
+- Now, the prover and verifier can engage in the [sumcheck protocol], a fast logarithmic-round protocol in which the claim that the sum $\widetilde{F}(\tau) = 0$ is reduced to claims of the evaluations $\widetilde{AZ}(r), \widetilde{BZ}(r), \widetilde{CZ}(r), \mathsf{eq}(\tau, r)$ for a randomly-chosen $r \in \mathbb{F}^s$.
+- The verifier can compute $\mathsf{eq}(\tau, r)$ directly. For the other three claims, we use another sum representation: $$\widetilde{MZ}(r) = \sum_{[j] \in \{0,1\}^{s}} \widetilde{M}(r, [j]) * Z_j$$
+- The prover and verifier run the sumcheck protocol for the above sum, taking $M$ to be
+  a random linear combination of $A$, $B$, and $C$ (i.e. with coefficients sampled at random by the verifier), reducing the claim of the evaluations of $\widetilde{AZ}, \widetilde{BZ}, \widetilde{CZ}$ at $r$ to: - a claim of the evaluations of $\widetilde{M}$ at $(r, r')$ - a claim of the evaluation of $\widetilde{Z}$ at $r'$
+  for an $r' \in \mathbb{F}^s$ sampled randomly by the verifier.
+- Now, the verifier can compute evaluations of $\widetilde{M}$ and $\widetilde{Z}$ from the given oracles for $\widetilde{A}, \widetilde{B}, \widetilde{C}$, and $\widetilde{w}$[^6].
+
+#### Polynomial commitment schemes
+
+Now, just as with other proof systems (such as PlonK, etc.) that can be described in terms of a polynomial IOP, we derive the Spartan SNArK from the above IOP using a _polynomial commitment scheme_ (PCS) for multilinear polynomials. This is a cryptographic protocol with the following interface:
+
+- Given a multilinear polynomial $p(X)$ in $s$ variables (plus some public parameters), the prover can produce a succinct _commitment_ $C = \mathsf{PolyCom}(p(X))$.
+- For any given $r \in \mathbb{F}^s$, the prover can compute a succinct _proof_ $\pi(p(X), r, y)$ of the evaluation $p(r) = y$.
+- Given the proof $\pi(p(X), r, y)$ and the commitment $C$, the verifier can check the proof without needing to know $p(X)$.
+
+Given a PCS, the procedure to turn an IOP into a SNArK is straightforward: instead of sending the verifier polynomial oracles $\{f_i(X)\}$, the prover sends the commitments $C_i = \mathsf{PolyCom}(f_i(X))$, and whenever the verifier queries the oracle for the value of $f_i(X)$ at some $r \in \mathbb{F}^s$, the prover sends the evaluation $f_i(r) = y$ along with the proof $\pi(f_i(X), r, y)$.
+
+#### Spartan for committed relaxed R1CS
+
+Now, we can describe the needed modifications to Spartan in order to make it work for _committed relaxed_ R1CS. The first observation to be made is that a polynomial commitment scheme is in particular a vector commitment scheme: given a vector $w \in \mathbb{F}^N$, we can define $\mathsf{Com}(w) := \mathsf{PolyCom}(\widetilde{w})$ for $\widetilde{w}$ the MLE of $w$. Now, note that the Spartan proof, among other things, already includes the polynomial commitment $C = \mathsf{PolyCom}(\widetilde{w}) = \mathsf{Com}(w)$! (as the verifier needs to be able to evaluate $\widetilde{w}(r')$ to check the proof). The Spartan proof shows that $C$ is a commitment to a vector $w$ such that $w$ satisfies the R1CS equations!
+
+Thus, we get the verification that $\mathsf{Com}(w) = C$ for free from Spartan! All the verifier needs to do is to check that this commitment $C$, included in the Spartan proof, is equal to the value $\overline{w}$ included as part of the committed relaxed R1CS instance. In fact, this actually _speeds up_ the Spartan prover: instead of computing $\mathsf{Com}(w)$, which involves an expensive MSM, the prover can simply use the value $\overline{w}$ which is already part of the Nova proof.
+
+The other modifications needed to make Spartan a SNArK for committed relaxed R1CS are also simple:
+
+- Instead of defining $F = (AZ + BZ - CZ)$, the prover defines $F = (AZ + BZ - u * CZ - E)$, where $E = AZ + BZ - u * CZ$ is the vector such that $\mathsf{Com}(E) = \overline{e}$.
+- In addition to the "oracles" (the polynomial commitments, that is) for $\widetilde{A}, \widetilde{B}, \widetilde{C}$, and $\widetilde{w}$, the prover also sends the verifier the "oracle" $\mathsf{PolyCom}(\widetilde{E}) = \mathsf{Com}(E)$. The verifier checks that this commitment is equal to the value $\overline{e}$ included in the committed relaxed R1CS instance.
+  - Of course, in the actual implementation, the prover does not need to send this value: the verifier just uses the value $\overline{e}$ from the instance as if it were an "oracle" commitment included in the proof.
+- The first round of sumcheck reduces the claim that $F \equiv 0$ to evaluation claims for $\widetilde{AZ}$, $\widetilde{BZ}$, $\widetilde{CZ}$, and now also $\widetilde{E}$ at the randomly chosen point $r$.
+- The prover includes a PCS opening proof for the evaluation $\widetilde{E}(r)$ along with the other PCS proofs.
+  - Computing this PCS opening proof is a somewhat expensive operation, even given the commitment $\overline{E} = \mathsf{PolyCom}(\widetilde{E})$: this extra proving cost turns out to be about $1.5 \times$ the savings from not having to compute $\mathsf{PolyCom}(\widetilde{w})$, so overall this version of Spartan is a bit slower than the original Spartan for R1CS.
+- The rest of the Spartan protocol proceeds precisely as above, providing proofs of the evaluation claims for $\widetilde{AZ}$, $\widetilde{BZ}$, and $\widetilde{CZ}$.
+
+#### Commitment compatibility and Zeromoroph
+
+In the above discussion, we've elided one _crucial_ fact! In order for this construction to work, we _need_ the vector commitment scheme $\mathsf{Com}_{\mathrm{PCS}}(w) := \mathsf{PolyCom}(\widetilde{w})$ to be identical to the vector commitment scheme $\mathsf{Com}_{\mathrm{vec}}$ that we use throughout Nova. This creates some interesting constraints:
+
+- The Nova construction relies critically on its vector commitment scheme being _homomorphic_: $\mathsf{Com}(w + r * w') = \mathsf{Add}(\mathsf{Com}(w), r * \mathsf{Com}(w'))$, where $\mathsf{Add}(P, Q)$ is a function that can be efficiently represented in an R1CS circuit. This rules out several attractive polynomial commitment schemes, such as those built on hash functions such as [FRI].
+- While _in principle_ the Nova construction is defined for a general homomorphic vector commitment scheme, the efficiency of the actual implementation depends crucially on the fact that the commitments are elements of an elliptic curve group $\mathbb{G}$.[^7]
+  - This rules out the "transparent" version of Spartan, which is the version used in Microsoft's [reference implementation]. This version uses the [Hyrax] polynomial commitment scheme, whose commitments are vectors of elements of $\mathbb{G}$ of length $\sqrt{N}$. Working with these inside Nova's R1CS circuits would be a catastrophe for our prover efficiency!
+
+Thus, we needed to modify the Spartan implementation further to instantiate it with a group-valued commitment scheme. There are a number of these constructions in the literature, with essentially all of them being extensions of the [KZG] polynomial commitment scheme to work with multilinear polynomials. This has a few consequences:
+
+- KZG relies on a _universal_ trusted setup to construct a "structured reference string" (SRS) from which the prover and verifier keys can be (easily) extracted. We therefore inherit this property.
+  - This SRS includes the vector of group elements $(\tau^i g_0)_{i=0}^N$, where $\tau$ is the "toxic waste" secret used to generate the SRS. The corresponding vector commitment $\mathsf{Com}_{\mathrm{PCS}}$ to be used in Nova ends up being a Pedersen commitment, but with respect to this vector, rather than a randomly-sampled vector of group elements.
+- KZG requires working on an elliptic curve $\mathbb{G}$ which supports _pairings_. This is a substantial restriction, and we will explore more of its consequences in the next section.
+
+The PCS we decided to use is [Zeromorph], which has the fastest verifier among the various "multilinear KZG" schemes we considered.[^8] Zeromorph works by transforming a multilinear polynomial $p(X)$ in $s$ variables into a univariate polynomial $\mathcal{U}(p)(T)$ of degree less than $2^s$[^9], then committing to the result using KZG. The claim $p(r) = y$ is shown to be existence of multilinear polynomials $q_1(X), \ldots, q_s(X)$ such that:
+
+- $$p(X) - y = \sum_{j=1}^s (X_j - r_j) q_j(X) $$
+- $q_j(X)$ is a multilinear polynomial that only depends on $\{X_1, \ldots, X_{j-1}\}$ (so in particular $q_1(X)$ is a _constant_).
+
+To prove that $p(r) = y$, the prover first computes KZG commitments to each of the $q_j(X)$'s and sends these to the verifier. Then, the above requirements on the $q_j(X)$ are translated into algebraic properties of the univariate transformations $\mathcal{U}(p)$ and the $\mathcal{U}(q_j)$'s. These are then proved by showing that the prover knows a solution to a particular pairing equation involving the KZG commitments to these univariate polynomials, using similar ideas to the construction of KZG opening proofs.
+
+Ultimately, Zeromorph gives us a multilinear PCS such that:
+
+- An opening proof consists of $s + 3 \approx \log N$ elements of $\mathbb{G}$.
+- To verify an opening proof, the verifier performs around $2s$ scalar multiplications in $\mathbb{G}$ along with $3$ pairings.
+- The prover performs $5 N/ 2 + 1$ scalar multiplciations in $\mathbb{G}$ to compute an opening proof.
+
+## Second challenge: curve cycles and Ethereum restrictions
+
+Hooray! We have constructed a SNArK that can prove an instance of committed relaxed R1CS without needing to deal with in-circuit MSMs. The prover work is linear in $N$ (recall that $N$ is - roughly - the size of the Nova proof) with small constants, and the proof size is logarithmic in $N$. After all that work, we should be home free, right? Unfortunately, we are not quite there yet.
+
+[^1]: i.e. $\mathbb{G}$ is a cyclic group whose (prime) order is equal to the modulus of $\mathbb{F}$, so it makes sense to multiply elements of $\mathbb{G}$ by elements of $\mathbb{F}$.
+[^2]: details omitted here: see below for the definition of _committed relaxed R1CS_.
+[^3]: that is, a circuit defined over the _base_ field of the elliptic curve, not its scalar field $\mathbb{F}$ - that is, the field $\mathbb{F}'$ such that the points of the elliptic curve are $(x,y) \in (\mathbb{F}')^2$.
+[^4]: We assume that $N$ is a power of $2$, which we can always achieve by padding. Using efficient sparse matrix representations, this padding does not entail any cost to prover time.
+[^5]: to wit: $\mathsf{eq}(X, [i]) = \prod_{\ell = 1}^s \left(X_\ell * [i]_\ell - (1 - X_\ell)* (1 - [i]_\ell)\right)$, with $[i]_\ell$ the $\ell$-th bit of the binary representation of $i$.
+[^6]:
+    an astute reader will notice here that, as $\widetilde{M}$ is a multilinear polynomial in $2s$ variables, computing $\widetilde{M}(r, r')$ naively (using a sum representation as above) would take time _quadratic_ in $N =2^s$. In fact, one of the major contributions of Spartan is to introduce a bespoke SNArg based on "memory-checking" techniques for precisely this form of "sparse matrix polynomial evaluation" claims: see $\S 7$ of [Spartan]. During a pre-processing phase (that only depends on the _circuit_ $\mathsf{c} = (A, B, C)$, not the _instance_ $x$), the verifier computes "SPARK computational commitments" to $A, B, C$. With these available, there is an $O(N)$-sized circuit that computes $\widetilde{M}(r, r')$, and this circuit is proved using a special-purpose SNArg (based on [Hyrax]) that takes advantage of the structured nature of the computation of the matrix evaluation for efficiency. Ultimately, this reduces the verification of the evaluation $\widetilde{M}(r, r')$ to the verification of a handful of polynomial commitment opening proofs. This aspect of Spartan is highly non-trivial: thankfully, for our purposes, it's fine to use it as a black box.
+    `
+    [^7]: We'll see more about why this is true in the next section: the key idea is that Nova's efficiency depends critically on having a _cycle_ of elliptic curves. Nova's IVC construction involves verifying scalar multiplication operations on the commitments in-circuit, and curve cycles provide the only known way to do this efficiently.
+    [^8]: Another major achievement of the Zeromorph paper is to provide _blinding_ polynomial commitments (that is, ones which are zero knowledge with respect to the claimed evaluation) requiring exponentially fewer random field elements than prior "multilinear KZG" schemes. However, we don't need our commitments to be blinding, so this isn't relevant for our purposes. (Moreover, one of the authors of Zeromorph - [Tohru Kohrita] - has a background as an academic mathematician working in algebraic geometry! Since I also came from this world (though I did not make it nearly as far!), I inherently trust their algebra prowess.)
+    [^9]: This transformation is unique, reversible, and even compatible with addition of polynomials as well as the multilinear/univariate polynomial extensions of vectors.
