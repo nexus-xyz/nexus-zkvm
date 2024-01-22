@@ -18,7 +18,7 @@ const config: DocsThemeConfig = {
       </svg>
     )
   },
-  docsRepositoryBase: 'https://github.com/nexus-xyz/docs',
+  docsRepositoryBase: 'https://github.com/nexus-xyz/nexus-docs',
   footer: {
     text: 'Nexus Labs © 2024',
   },
