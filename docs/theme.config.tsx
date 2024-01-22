@@ -23,6 +23,9 @@ const config: DocsThemeConfig = {
   footer: {
     text: "Nexus Labs © 2024",
   },
+  sidebar: {
+    toggleButton: true,
+  },
   useNextSeoProps() {
     const { asPath } = useRouter();
     if (asPath !== "/") {
