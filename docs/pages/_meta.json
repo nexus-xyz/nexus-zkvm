@@ -2,7 +2,12 @@
   "index": "Introduction",
   "quick-start": "Quick Start",
   "another": "Another Page",
-  "blog": "Blog",
+  "blog": {
+    "title": "Blog",
+    "theme": {
+      "typesetting": "article"
+    }
+  },
   "Website": {
     "title": "Website ↗",
     "type": "page",
