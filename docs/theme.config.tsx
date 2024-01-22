@@ -20,9 +20,6 @@ const config: DocsThemeConfig = {
     ),
   },
   docsRepositoryBase: "https://github.com/nexus-xyz/nexus-docs/tree/main",
-  footer: {
-    text: "Nexus Labs © 2024",
-  },
   sidebar: {
     toggleButton: true,
   },
@@ -58,6 +55,18 @@ const config: DocsThemeConfig = {
         ></link>
       </>
     );
+  },
+  footer: {
+    text: (
+      <div className="flex w-full flex-col items-center sm:items-start">
+        <p className="mt-6 text-xs" style={{ fontSize: "0.8rem" }}>
+          © {new Date().getFullYear()} Nexus Laboratories, Inc.
+        </p>
+      </div>
+    ),
+  },
+  toc: {
+    backToTop: true,
   },
 };
 
