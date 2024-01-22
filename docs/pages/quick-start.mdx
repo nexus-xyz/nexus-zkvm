@@ -1,45 +1,10 @@
 import Image from "next/image";
 
-<p align="center">
-  <Image src="/logo.png" alt="Logo" width={150} height={150} />
-</p>
-
-<br />
-
-<p style={{display: "flex", justifyContent: "center", alignItems: "center"}}>
-  <a href="https://x.com/NexusLabsHQ">
-    <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"></img>
-  </a>
-  <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"></img>
-  <br />
-</p>
-
-# The Nexus zkVM
-
-The Nexus zkVM is a machine designed to prove abitrary computations. It allows anyone to generate zero-knowledge proofs for programs written in Rust. It is designed for simplicity, safety and performance.
-
-## The Nexus Virtual Machine
-
-The Nexus zkVM proves executions against any CPU architecture (e.g. RISC-V, Wasm, EVM, etc.) through compilation against the Nexus Virtual Machine, a minimal CPU architecture designed to deliver maximum prover efficiency.
-
-## Design Principles
-
-The Nexus zkVM is designed with the following principles:
-
-- Simplicity:
-  - Generating and verifying zero-knowledge proofs should be as easy as `nexus prove` and `nexus verify`.
-- Universality:
-  - The zkVM can prove _any_ computation, for any programming language (e.g. Rust, C++, Go), any machine architecture (e.g. RISC-V, Wasm, EVM), and any circuit arithmetization (e.g. R1CS, Plonkish, AIR).
-- Incrementality:
-  - The zkVM has no bounds on the size of the programs it can prove. Further, the proofs themselves are updatable.
-- Ultra-high Performance:
-  - The zkVM is designed to be massively-parallelizable, and is currently designed only to be practical for really large programs (> 1B CPU cycles).
-- Cryptography-Opinionated:
-  - The Nexus team makes deliberate and precise choices in the cryptography behind the zkVM prover, elliptic curves, proof systems, compression sequence, parallelization strategy, security properties, parameters, etc. to ensure maximum performance and security to developers.
-- Extensibility and modularity:
-  - The zkVM is designed to enrich the open-source community and be developer-first to ensure extensibility: it can easily be extended with custom instructions (e.g. SHA-256), new compilation toolchains, and can be adapted to prove new programming languages and CPU architectures.
+import { Steps } from 'nextra/components'
 
 ## Quick Start
+ 
+<Steps>
 
 ### 1. Install the Nexus zkVM
 
@@ -53,15 +18,7 @@ cd nexus-zkvm
 cargo install --path .
 ```
 
-This will generate the executable `~/.cargo/bin/nexus`.
-
-Now you can use the Nexus zkVM:
-
-```shell
-cargo nexus --help
-```
-
-### 3. Create a new Nexus project
+### 2. Create a new Nexus project
 
 ```shell
 cargo nexus new nexus-project
@@ -77,7 +34,7 @@ This will create a directory with the following structure:
     └── main.rs
 ```
 
-### 4. Prove your code on the Nexus zkVM
+### 3. Prove your code on the Nexus zkVM
 
 Generate a zero-knowledge proof for your Rust program using the Nexus zkVM:
 
@@ -85,11 +42,13 @@ Generate a zero-knowledge proof for your Rust program using the Nexus zkVM:
 cargo nexus prove
 ```
 
-### 5. Verify your proof
+### 4. Verify your proof
 
 ```shell
 cargo nexus verify
 ```
+
+</Steps>
 
 ---
 
