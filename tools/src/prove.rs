@@ -2,11 +2,12 @@ use std::io::BufReader;
 use std::fs::File;
 
 use nexus_prover::Proof;
-use nexus_prover::types::PCDNode;
+use nexus_prover::types::{PCDNode, SRS, PublicParams};
 use nexus_riscv::VMOpts;
 use nexus_prover::{pp::gen_or_load, run, prove_par, srs::test_srs::gen_test_srs_to_file};
 use nexus_network::pcd::{decode, NexusMsg::PCDRes};
 use nexus_network::client::*;
+use supernova::circuits::nova::pcd::compression::SNARK;
 
 use crate::*;
 use ark_serialize::CanonicalDeserialize;
@@ -102,7 +103,7 @@ pub fn local() -> CmdResult<()> {
     let proof = prove_par(state, trace)?;
 
     let vec = serde_json::to_vec(&proof)?;
-    write_file("myproof.json".into(), &vec)?;
+    write_file("local-proof.json".into(), &vec)?;
 
     Ok(())
 }

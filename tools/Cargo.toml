@@ -24,4 +24,6 @@ serde_json.workspace = true
 nexus-riscv = { path = "../riscv" }
 nexus-prover = { path = "../prover" }
 nexus-network = { path = "../network" }
+supernova = { path = "../supernova" , features = ["spartan"]}
+ark-spartan = { path = "../spartan" }
 ark-serialize.workspace = true

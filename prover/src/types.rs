@@ -4,6 +4,7 @@
 
 pub use std::marker::PhantomData;
 
+use ark_ec::short_weierstrass::Projective;
 pub use ark_ff::{
     Field,
     PrimeField
@@ -16,7 +17,10 @@ pub use ark_bn254::{
     g1::Config as G1,
     G1Projective as P1,
     G1Affine as A1,
+    Bn254,
+    g1::Config as Bn254Config
 };
+
 pub use ark_grumpkin::{
     Fr as F2,
     GrumpkinConfig as G2,
@@ -81,3 +85,6 @@ pub type ComPP = pcd::PublicParams<G1,G2,PVC1,C2,RO,SC>;
 
 pub type IVCProof<'a> = seq::IVCProof<'a,G1,G2,C1,C2,RO,SC>;
 pub type PCDNode = pcd::PCDNode<G1,G2,C1,C2,RO,SC>;
+
+pub type PC = Zeromorph<Bn254>;
+pub type SRS = <Zeromorph<ark_ec::models::bn::Bn<ark_bn254::Config>> as PolyCommitmentScheme<Projective<Bn254Config>>>::SRS;

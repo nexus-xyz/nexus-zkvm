@@ -8,7 +8,7 @@ mod absorb;
 mod provider;
 mod utils;
 
-mod circuits;
+pub mod circuits;
 mod folding;
 mod gadgets;
 
