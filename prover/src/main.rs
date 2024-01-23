@@ -79,10 +79,14 @@ fn main() -> Result<(), ProofError> {
 
         Prove { gen, par, pp_file, vm } => {
             let trace = run(&vm, par)?;
-            if par {
+
+            match if par {
                 prove_par(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
             } else {
                 prove_seq(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
+            } {
+                Ok(_proof) => Ok(()),
+                Err(e) => Err(e),
             }
         }
     }
