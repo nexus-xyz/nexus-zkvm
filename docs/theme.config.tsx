@@ -27,7 +27,7 @@ const config: DocsThemeConfig = {
     const { asPath } = useRouter();
     if (asPath !== "/") {
       return {
-        titleTemplate: "%s | Nexus Docs",
+        titleTemplate: "Nexus | %s",
       };
     }
   },
@@ -67,6 +67,9 @@ const config: DocsThemeConfig = {
   },
   toc: {
     backToTop: true,
+  },
+  search: {
+    placeholder: "Search...",
   },
 };
 
