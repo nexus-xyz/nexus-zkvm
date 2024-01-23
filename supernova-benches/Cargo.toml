@@ -15,7 +15,7 @@ ark-vesta = "0.4.0"
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
 
-supernova = { path = "..", default-features = false }
+supernova = { path = "../supernova", default-features = false }
 
 [features]
 default = ["parallel"]
