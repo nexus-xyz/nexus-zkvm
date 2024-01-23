@@ -1,17 +1,14 @@
 {
-  "index": "Introduction",
-  "quick-start": "Quick Start",
-  "another": "Another Page",
-  "blog": {
-    "title": "Blog",
+  "index": {
+    "title": "Introduction",
     "theme": {
-      "typesetting": "article"
+      "breadcrumb": false
     }
   },
-  "Website": {
-    "title": "Website ↗",
+  "quick-start": "Quick Start",
+  "blog": "Blog",
+  "docs": {
     "type": "page",
-    "href": "https://nexus.xyz",
-    "newWindow": true
+    "title": "Documentation"
   }
 }

@@ -1,9 +1,19 @@
 # Nexus Docs
 
-These docs are built with [Nextra](https://nextra.site/).
+Tailwind CSS uses [Next.js](https://nextjs.org/) and [Nextra](https://nextra.site/) for its documentation.
 
-## LaTeX Support
+To run the project locally, first install the dependencies:
 
-LaTeX support has been changed from Katex to MathJax.
+```bash
+npm install
+```
 
-See this [GitHub issue](https://github.com/shuding/nextra/pull/2440).
+Next, run the development server:
+
+```bash
+npm run dev
+```
+
+## License
+
+This project is not licensed under an open-source license and is the intellectual property of Nexus Laboratories, Inc. The source is available only as an educational resource and to accept fixes for minor mistakes.
