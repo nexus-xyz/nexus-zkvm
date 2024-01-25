@@ -1,7 +1,5 @@
 target
 
-Cargo.lock
-
 ### next line: for us Vim users ;-)
 .*.swp
 
