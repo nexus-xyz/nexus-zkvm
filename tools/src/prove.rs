@@ -1,13 +1,15 @@
 use std::io::BufReader;
 use std::fs::File;
 
+use nexus_prover::types::com::PVC;
 use nexus_prover::Proof;
-use nexus_prover::types::{PCDNode, SRS, PublicParams};
+use nexus_prover::types::{PublicParams, C2, G1, G2, PC, RO, SC, SRS};
 use nexus_riscv::VMOpts;
 use nexus_prover::{pp::gen_or_load, run, prove_par, srs::test_srs::gen_test_srs_to_file};
 use nexus_network::pcd::{decode, NexusMsg::PCDRes};
 use nexus_network::client::*;
 use supernova::circuits::nova::pcd::compression::SNARK;
+use supernova::nova::pcd::PCDNode;
 
 use crate::*;
 use ark_serialize::CanonicalDeserialize;
@@ -60,7 +62,7 @@ pub fn verify() -> CmdResult<()> {
 
     if *local {
         println!("doing local verify");
-        let tmp = PCDNode::deserialize_compressed(&*vec);
+        let tmp = nexus_prover::types::PCDNode::deserialize_compressed(&*vec);
         match tmp {
             Ok(n) => node = n,
             Err(_) => return Err("invalid proof object".into()),
