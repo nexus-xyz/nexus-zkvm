@@ -5,7 +5,7 @@ use thiserror::Error;
 pub enum NVMError {
     /// Invalid instruction format, could not parse
     #[error("invalid instruction {1} at {0}")]
-    InvalidInstruction(u32, u32),
+    InvalidInstruction(u64, u32),
 
     /// Unknown ECALL number
     #[error("unknown ecall {1} at {0}")]
