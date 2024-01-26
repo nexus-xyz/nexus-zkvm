@@ -7,6 +7,7 @@ members = [
     "riscv-circuit",
     "nvm",
     "tools",
+    "config",
     "prover",
     "network",
     "supernova",
