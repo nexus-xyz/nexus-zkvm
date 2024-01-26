@@ -30,6 +30,12 @@ impl Memory {
         Ok((cl.ldw(addr)?, path))
     }
 
+    /// write instruction at address
+    pub fn write_inst(&mut self, addr: u32, val: u64) -> Result<()> {
+        let _ = self.trie.update(addr, |cl| cl.sdw(addr, val))?;
+        Ok(())
+    }
+
     /// perform load according to `width`
     pub fn load(&self, width: Width, addr: u32) -> Result<(u32, Path)> {
         let (cl, path) = self.trie.query(addr);

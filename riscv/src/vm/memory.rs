@@ -38,7 +38,7 @@ impl Memory {
     }
 
     /// return memory at address
-    pub(crate) fn read_slice(&self, addr: u32) -> Result<(&[u8], Option<Path>)> {
+    pub fn read_slice(&self, addr: u32) -> Result<(&[u8], Option<Path>)> {
         let (cl, path) = self.trie.query(addr);
         Ok((cl.bytes(addr), path))
     }
