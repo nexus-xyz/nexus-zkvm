@@ -1,14 +1,8 @@
 {
   "index": {
-    "title": "Introduction",
+    "title": "Welcome",
     "theme": {
       "breadcrumb": false
     }
-  },
-  "quick-start": "Quick Start",
-  "blog": "Blog",
-  "docs": {
-    "type": "page",
-    "title": "Documentation"
   }
 }
