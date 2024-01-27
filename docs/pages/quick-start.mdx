@@ -7,10 +7,10 @@ image: "/nexus-head.png"
 
 import Image from "next/image";
 
-import { Steps } from 'nextra/components'
+import { Steps } from "nextra/components";
 
 # Quick Start
- 
+
 <Steps>
 
 ### 1. Install the Nexus zkVM
@@ -41,7 +41,7 @@ This will create a directory with the following structure:
     └── main.rs
 ```
 
-### 3. Prove your code on the Nexus zkVM
+### 3. Prove your program
 
 Generate a zero-knowledge proof for your Rust program using the Nexus zkVM:
 
@@ -57,50 +57,4 @@ cargo nexus verify
 
 </Steps>
 
----
-
-## Example programs
-
-TODO
-
-## Developing
-
-### Run all the zkVM tests
-
-```shell
-cargo test -r
-```
-
-### Benchmark the zkVM
-
-```shell
-cargo bench
-```
-
-### Profile the zkVM
-
-TODO
-
-## Spin up a Nexus prover network
-
-```shell
-cargo nexus network start --coordinator
-```
-
-```shell
-cargo nexus network start --node -l 127.0.0.1:0
-```
-
-### Submit proofs against your local network
-
-```shell
-cargo nexus prove --network=localhost
-```
-
-### Submit proofs against the Nexus network
-
-```shell
-cargo nexus prove --network
-
-Connected to https://cloud.nexus.xyz/
-```
+It's that simple. Next, learn how to connect to the Nexus Network to produce proofs at production-grade scale.
