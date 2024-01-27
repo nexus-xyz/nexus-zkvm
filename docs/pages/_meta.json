@@ -4,5 +4,7 @@
     "theme": {
       "breadcrumb": false
     }
-  }
+  },
+  "quick-start": "Quick Start",
+  "svg": "SVG Images"
 }
