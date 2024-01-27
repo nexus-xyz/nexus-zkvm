@@ -1,10 +1,11 @@
 import React from "react";
-import { DocsThemeConfig, useConfig } from "nextra-theme-docs";
+import { DocsThemeConfig, useConfig, ThemeSwitch } from "nextra-theme-docs";
 import { useRouter } from "next/router";
+import { Head } from "./components/Head";
 
 const config: DocsThemeConfig = {
   logo: <span>N E X U S</span>,
-  logoLink: "https://nexus.xyz",
+  logoLink: "/",
   project: {
     link: "https://github.com/nexus-xyz/nexus-zkvm",
   },
@@ -25,11 +26,9 @@ const config: DocsThemeConfig = {
   },
   useNextSeoProps() {
     const { asPath } = useRouter();
-    if (asPath !== "/") {
-      return {
-        titleTemplate: "Nexus | %s",
-      };
-    }
+    return {
+      titleTemplate: "%s | Nexus Docs",
+    };
   },
   head: () => {
     const { asPath, defaultLocale, locale } = useRouter();
@@ -37,6 +36,10 @@ const config: DocsThemeConfig = {
     const url =
       "https://docs.nexus.xyz" +
       (defaultLocale === locale ? asPath : `/${locale}${asPath}`);
+
+    if (asPath === "/") {
+      return <Head />;
+    }
 
     return (
       <>
@@ -48,11 +51,7 @@ const config: DocsThemeConfig = {
           content={frontMatter.description || "Nexus Docs"}
         />
         <meta name="og:image" content={frontMatter.image} />
-        <link
-          rel="icon"
-          href="/img/icons/favicon.ico"
-          type="image/x-icon"
-        ></link>
+        <link rel="icon" href="/favicon.ico" type="image/x-icon"></link>
       </>
     );
   },
@@ -70,6 +69,16 @@ const config: DocsThemeConfig = {
   },
   search: {
     placeholder: "Search...",
+  },
+  nextThemes: {
+    defaultTheme: "light",
+  },
+  navbar: {
+    extraContent: (
+      <div className="flex items-center">
+        <ThemeSwitch />
+      </div>
+    ),
   },
 };
 
