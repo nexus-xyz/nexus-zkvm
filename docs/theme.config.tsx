@@ -5,7 +5,7 @@ import { Head } from "./components/Head";
 
 const config: DocsThemeConfig = {
   logo: <span>N E X U S</span>,
-  logoLink: "/",
+  logoLink: "https://nexus.xyz",
   project: {
     link: "https://github.com/nexus-xyz/nexus-zkvm",
   },
