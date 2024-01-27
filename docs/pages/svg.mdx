@@ -1,0 +1,66 @@
+---
+title: Images
+description: Handling Images in Nextra
+image: ./images/opengraph.png
+---
+
+## NextJS Images
+
+You can use the NextJS Image component in MDX as follows:
+
+```mdx
+import Image from "next/image"
+
+<p align="center">
+  <Image src="/images/opengraph.png" alt="Hello" width={500} height={500} />
+</p>
+```
+
+import Image from "next/image"
+
+<p align="center">
+  <Image src="/images/opengraph.png" alt="Hello" width={500} height={500} />
+</p>
+
+For more information, see [Nextra NextJS Images](https://nextra.site/docs/guide/image).
+
+## SVG Images
+
+You can use SVG images in MDX either by direct import (which will render a static NextJS image component), or by importing the SVG as a React element. The latter will make the SVG compatible with `dark mode` if the `fill` and `stroke` attributes of the SVG are set to `currentColor`. 
+
+### Direct Import
+
+```mdx
+![Math](/images/math.svg)
+```
+![Math](/images/math.svg)
+
+### React Import
+
+```mdx
+import { Math } from "../components/Math";
+
+<Math />
+```
+
+import { Math } from "../components/Math";
+
+<Math />
+
+Toggle dark mode to see the difference.
+
+## Using the `#gh-dark-mode-only` attribute
+
+See [Using Dark/Light Mode Specific Images in GitHub Markdown](https://dev.to/arnavkr/using-darklight-mode-specific-images-in-github-markdown-3iln#:~:text=To%20make%20an%20Image%20only,%2Dlight%2Dmode%2Donly%20.)
+
+## Recommended Workflow
+
+For Math diagrams, use the React import method. For other images, use the direct import method. If you need to support dark mode, use the React import method and set the `fill` and `stroke` attributes of the SVG to `currentColor`.
+
+For math diagrams using the React import method, design your math diagram in Illustrator and LaTeXiT, exporting to "PDF with outlined fonts". (See [here](https://tex.stackexchange.com/a/457616)).
+
+![Illustrator Diagram](/images/illustrator-diagram.png)
+
+And export with the following SVG confirguration for compatibility with React:
+
+![Illustrator SVG Export](/images/illustrator-svg.png)
