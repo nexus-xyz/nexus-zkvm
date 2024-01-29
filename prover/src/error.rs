@@ -5,6 +5,7 @@ pub use nexus_riscv::VMError;
 pub use ark_serialize::SerializationError;
 pub use ark_relations::r1cs::SynthesisError;
 pub use supernova::nova::Error as NovaError;
+pub use supernova::r1cs::Error as R1CSError;
 
 /// Errors related to proof generation
 #[derive(Debug)]
@@ -21,8 +22,14 @@ pub enum ProofError {
     /// An error occured serializing to disk
     SerError(SerializationError),
 
+    /// The witness does not satisfy the constraints
+    WitnessError(R1CSError),
+
     /// Public Parameters do not match circuit
     InvalidPP,
+
+    /// The Nova prover produced an invalid proof
+    NovaProofError,
 }
 use ProofError::*;
 
@@ -47,8 +54,9 @@ impl From<SynthesisError> for ProofError {
 impl From<NovaError> for ProofError {
     fn from(x: NovaError) -> ProofError {
         match x {
-            NovaError::R1CS(e) => panic!("R1CS Error {e:?}"),
+            NovaError::R1CS(e) => WitnessError(e),
             NovaError::Synthesis(e) => CircuitError(e),
+            NovaError::InvalidPublicInput => NovaProofError,
         }
     }
 }
@@ -66,7 +74,9 @@ impl Error for ProofError {
             IOError(e) => Some(e),
             CircuitError(e) => Some(e),
             SerError(e) => Some(e),
+            WitnessError(e) => Some(e),
             InvalidPP => None,
+            NovaProofError => None,
         }
     }
 }
@@ -78,7 +88,9 @@ impl Display for ProofError {
             IOError(e) => write!(f, "{e}"),
             CircuitError(e) => write!(f, "{e}"),
             SerError(e) => write!(f, "{e}"),
+            WitnessError(e) => write!(f, "{e}"),
             InvalidPP => write!(f, "invalid public parameters"),
+            NovaProofError => write!(f, "invalid Nova proof"),
         }
     }
 }

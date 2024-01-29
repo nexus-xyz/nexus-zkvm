@@ -19,7 +19,7 @@ zstd = { version = "0.12", default-features = false }
 
 nexus-riscv = { path = "../riscv" }
 nexus-riscv-circuit = { path = "../riscv-circuit" }
-supernova = { path = "../supernova" }
+supernova = { path = "../supernova", features = ["spartan"] }
 
 ark-ff.workspace = true
 ark-ec.workspace = true
@@ -33,7 +33,7 @@ ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
 [features]
-default = [ "parallel", "snmalloc" ]
+default = ["parallel", "snmalloc"]
 parallel = [
    "ark-ff/parallel",
    "ark-ec/parallel",
@@ -42,4 +42,4 @@ parallel = [
    "ark-r1cs-std/parallel",
    "supernova/parallel",
 ]
-snmalloc = [ "snmalloc-rs" ]
+snmalloc = ["snmalloc-rs"]
