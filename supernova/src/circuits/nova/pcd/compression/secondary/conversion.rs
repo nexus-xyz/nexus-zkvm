@@ -121,12 +121,11 @@ where
 mod tests {
     use ark_ec::CurveGroup;
     use ark_grumpkin::{Fq as ArkFq, Fr as ArkFr, GrumpkinConfig as ArkGrumpkin};
-    use ark_std::{test_rng, UniformRand};
+    use ark_std::{rand::RngCore, test_rng, UniformRand};
     use halo2curves::{
         group::Curve,
         grumpkin::{Fr as FfFr, G1Affine as HaloGrumpkin},
     };
-    use rand_core::RngCore;
 
     use super::*;
 
@@ -135,14 +134,16 @@ mod tests {
         AF: ArkPrimeField,
         FF: FfPrimeField + FromUniformBytes<N>,
     {
-        let mut rng = test_rng();
-        let mut bytes = [0u8; N];
-        rng.fill_bytes(&mut bytes);
-        let x_ark = AF::from_le_bytes_mod_order(bytes.as_slice());
-        let x_ff = FF::from_uniform_bytes(&bytes);
-        let x_conv = ark_to_ff_field::<AF, FF, N>(x_ark)?;
-        if x_ff != x_conv {
-            return Err(FieldConversionError::ValueMismatch);
+        for _ in 0..20 {
+            let mut rng = test_rng();
+            let mut bytes = [0u8; N];
+            rng.fill_bytes(&mut bytes);
+            let x_ark = AF::from_le_bytes_mod_order(bytes.as_slice());
+            let x_ff = FF::from_uniform_bytes(&bytes);
+            let x_conv = ark_to_ff_field::<AF, FF, N>(x_ark)?;
+            if x_ff != x_conv {
+                return Err(FieldConversionError::ValueMismatch);
+            }
         }
         Ok(())
     }
@@ -157,6 +158,61 @@ mod tests {
         field_conversion_test_helper::<ArkFq, FfFr, 64>().unwrap_err();
     }
 
+    fn field_conversion_test_string_helper<AF, FF, const N: usize>(
+    ) -> Result<(), FieldConversionError>
+    where
+        AF: ArkPrimeField,
+        FF: FfPrimeField + FromUniformBytes<N>,
+    {
+        let mut rng = test_rng();
+        for _ in 0..20 {
+            let x_ark = AF::rand(&mut rng);
+            let x_ark_string = format!("{}", x_ark);
+            let x_ff = FF::from_str_vartime(x_ark_string.as_str()).unwrap();
+            let x_conv = ark_to_ff_field::<AF, FF, N>(x_ark)?;
+            if x_ff != x_conv {
+                return Err(FieldConversionError::ValueMismatch);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn field_conversion_test_string() {
+        field_conversion_test_string_helper::<ArkFr, FfFr, 64>().unwrap();
+    }
+
+    fn field_test_homomorphic_helper<AF, FF, const N: usize>() -> Result<(), FieldConversionError>
+    where
+        AF: ArkPrimeField,
+        FF: FfPrimeField + FromUniformBytes<N>,
+    {
+        let mut rng = test_rng();
+        for _ in 0..20 {
+            let x_ark = AF::rand(&mut rng);
+            let y_ark = AF::rand(&mut rng);
+            let prod_ark = x_ark * y_ark;
+            let sum_ark = x_ark + y_ark;
+
+            let x_ff = ark_to_ff_field::<AF, FF, N>(x_ark)?;
+            let y_ff = ark_to_ff_field::<AF, FF, N>(y_ark)?;
+            let prod_ff = x_ff * y_ff;
+            let sum_ff = x_ff + y_ff;
+            let prod_conv = ark_to_ff_field::<AF, FF, N>(prod_ark)?;
+            let sum_conv = ark_to_ff_field::<AF, FF, N>(sum_ark)?;
+
+            if prod_ff != prod_conv || sum_ff != sum_conv {
+                return Err(FieldConversionError::ValueMismatch);
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn field_test_homomorphic() {
+        field_test_homomorphic_helper::<ArkFr, FfFr, 64>().unwrap();
+    }
+
     // tests conversion of points by checking that conversion commutes with curve addition.
     fn group_conversion_test_helper<AG, HG, const N: usize>()
     where
@@ -167,14 +223,16 @@ mod tests {
         HG::ScalarExt: FromUniformBytes<N>,
     {
         let mut rng = test_rng();
-        let p_ark = Affine::<AG>::rand(&mut rng);
-        let q_ark = Affine::<AG>::rand(&mut rng);
-        let sum_ark = (p_ark + q_ark).into_affine();
-        let p_ff = ark_to_halo2_group::<AG, HG, N>(p_ark).unwrap();
-        let q_ff = ark_to_halo2_group::<AG, HG, N>(q_ark).unwrap();
-        let sum_ff = (p_ff + q_ff).to_affine();
-        let sum_conv = ark_to_halo2_group::<AG, HG, N>(sum_ark).unwrap();
-        assert_eq!(sum_ff, sum_conv);
+        for _ in 0..20 {
+            let p_ark = Affine::<AG>::rand(&mut rng);
+            let q_ark = Affine::<AG>::rand(&mut rng);
+            let sum_ark = (p_ark + q_ark).into_affine();
+            let p_ff = ark_to_halo2_group::<AG, HG, N>(p_ark).unwrap();
+            let q_ff = ark_to_halo2_group::<AG, HG, N>(q_ark).unwrap();
+            let sum_ff = (p_ff + q_ff).to_affine();
+            let sum_conv = ark_to_halo2_group::<AG, HG, N>(sum_ark).unwrap();
+            assert_eq!(sum_ff, sum_conv);
+        }
     }
 
     #[test]
