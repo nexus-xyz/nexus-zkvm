@@ -81,7 +81,7 @@ impl Trace {
 
     /// Return block with index `n`, if it is contained in this (sub)trace.
     pub fn block(&self, n: usize) -> Option<&Block> {
-        if self.start < n || self.start + self.blocks.len() >= n {
+        if self.start > n || self.start + self.blocks.len() <= n {
             return None;
         }
         Some(&self.blocks[n - self.start])
