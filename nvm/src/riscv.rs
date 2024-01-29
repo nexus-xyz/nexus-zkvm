@@ -114,8 +114,6 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
 }
 
 /// Translate a RiscV ELF file to NVM.
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::field_reassign_with_default)]
 pub fn translate_elf(path: &Path) -> Result<NVM> {
     let file_data = read(path)?;
     let bytes = file_data.as_slice();
@@ -182,7 +180,6 @@ pub mod test {
     use nexus_riscv::machines::MACHINES;
 
     // this function is used by other test crates
-    #[allow(clippy::field_reassign_with_default)]
     pub fn test_machines() -> Vec<(&'static str, NVM)> {
         MACHINES
             .iter()

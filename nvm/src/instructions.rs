@@ -22,13 +22,13 @@ use num_derive::FromPrimitive;
 pub enum Opcode {
     /// no operation
     #[default]
-    NOP = 0x00,
+    NOP = 0x01,
 
     /// halt execution, pc is not updated
-    HALT = 0x01,
+    HALT = 0x02,
 
     /// system call
-    SYS = 0x02,
+    SYS = 0x03,
 
     /// jump and link, jump to rs1+imm, store pc+8 in rd
     JAL = 0x10,
