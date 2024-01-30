@@ -107,7 +107,7 @@ pub enum Command {
     /// Sample test SRS
     SampleTestSRS {
         /// Number of variables
-        #[arg(short = 'n', long = "num-vars", default_value = "26")]
+        #[arg(short = 'n', long = "num-vars", default_value = "19")]
         num_vars: usize,
 
         /// File to save test SRS
