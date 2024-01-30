@@ -13,7 +13,6 @@ pub fn load_srs(file: &str) -> Result<SRS, ProofError> {
     Ok(srs)
 }
 
-#[cfg(test)]
 pub mod test_srs {
     use super::*;
     use zstd::stream::Encoder;

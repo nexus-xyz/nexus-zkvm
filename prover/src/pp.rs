@@ -77,7 +77,9 @@ pub fn gen_to_file(
     if par {
         if com {
             let srs_file = srs_file.ok_or(ProofError::MissingSRS)?;
+            println!("Loading SRS from {srs_file}...");
             let srs: SRS = load_srs(srs_file)?;
+            println!("Loaded SRS for {} variables", srs.max_num_vars);
             let pp: ComPP = gen_vm_pp(k, &srs)?;
             show_pp(&pp);
             save_pp(pp, pp_file)
@@ -118,14 +120,23 @@ where
 
 #[cfg(test)]
 mod test {
+    use crate::srs::test_srs::gen_test_srs_to_file;
     use super::*;
-    use crate::srs::test_srs::*;
 
     #[test]
     fn test_gen_pp_with_srs() {
-        gen_test_srs_to_file(10, "test_srs.zst").unwrap();
-        // unneeded here, since `gen_to_file` will load the srs; just included to test `load_srs`.
-        let _srs = load_srs("test_srs.zst").unwrap();
-        gen_to_file(10, true, true, "test_pp.zst", Some("test_srs.zst")).unwrap();
+        gen_to_file(1, true, true, "test_pp.zst", Some("../test_srs.zst")).unwrap();
+    }
+
+    #[test]
+    fn test_srs_gen() {
+        gen_test_srs_to_file(10, "small_test_srs.zst").unwrap();
+        let _srs: SRS = load_srs("small_test_srs.zst").unwrap();
+    }
+
+    #[test]
+    fn test_load_srs() {
+        let srs: SRS = load_srs("../test_srs.zst").unwrap();
+        println!("Loaded SRS for {} variables", srs.max_num_vars);
     }
 }

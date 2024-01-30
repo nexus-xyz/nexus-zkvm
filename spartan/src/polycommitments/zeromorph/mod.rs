@@ -17,6 +17,7 @@ use super::{PCSKeys, PolyCommitmentScheme};
 use crate::{
   dense_mlpoly::DensePolynomial,
   math::Math,
+  polycommitments::SRSTrait,
   transcript::{AppendToTranscript, ProofTranscript},
 };
 
@@ -340,9 +341,12 @@ where
   }
   fn trim(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<E::G1, Self> {
     let max_degree = srs.max_degree();
+    let max_num_vars = srs.max_num_vars();
     let supported_degree = Math::pow2(supported_num_vars) - 1;
     if supported_degree > max_degree {
-      panic!("Unsupported degree");
+      panic!(
+        "required number of variables {supported_num_vars} is greater than SRS maximum number of variables {max_num_vars}",
+      );
     }
     let powers_of_tau_g = srs.powers_of_tau_g[..=supported_degree].to_vec();
     let shifted_powers_of_tau_g =

@@ -103,6 +103,17 @@ pub enum Command {
         #[arg(name = "artifact", value_enum)]
         artifact: Artifact,
     },
+
+    /// Sample test SRS
+    SampleTestSRS {
+        /// Number of variables
+        #[arg(short = 'n', long = "num-vars", default_value = "26")]
+        num_vars: usize,
+
+        /// File to save test SRS
+        #[arg(long = "srs", default_value = "test_srs.zst")]
+        file: String,
+    },
 }
 pub use Command::*;
 

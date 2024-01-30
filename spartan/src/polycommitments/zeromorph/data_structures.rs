@@ -1,5 +1,4 @@
 use crate::{
-  math::Math,
   polycommitments::{PolyCommitmentTrait, SRSTrait},
   transcript::{AppendToTranscript, ProofTranscript},
 };
@@ -57,7 +56,7 @@ where
 
 impl<E: Pairing> SRSTrait for ZeromorphSRS<E> {
   fn max_num_vars(&self) -> usize {
-    self.powers_of_tau_g.len().log_2()
+    self.max_num_vars
   }
 }
 

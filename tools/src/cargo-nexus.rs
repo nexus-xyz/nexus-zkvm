@@ -15,6 +15,7 @@ fn main() {
         Query { .. } => prove::query(),
         Verify { .. } => prove::verify(),
         LocalProve { .. } => prove::local(),
+        SampleTestSRS { .. } => prove::sample_test_srs(),
         cmd => Err(format!("Not Yet Implemented: {:?}", cmd).into()),
     };
 

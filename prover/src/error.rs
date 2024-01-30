@@ -28,7 +28,6 @@ pub enum ProofError {
     MissingSRS,
 
     /// An error occured while sampling the test SRS
-    #[cfg(test)]
     SRSSamplingError,
 }
 use ProofError::*;
@@ -76,7 +75,6 @@ impl Error for ProofError {
             SerError(e) => Some(e),
             InvalidPP => None,
             MissingSRS => None,
-            #[cfg(test)]
             SRSSamplingError => None,
         }
     }
@@ -91,7 +89,6 @@ impl Display for ProofError {
             SerError(e) => write!(f, "{e}"),
             InvalidPP => write!(f, "invalid public parameters"),
             MissingSRS => write!(f, "missing SRS"),
-            #[cfg(test)]
             SRSSamplingError => write!(f, "error sampling test SRS"),
         }
     }

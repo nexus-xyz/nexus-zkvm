@@ -2,7 +2,7 @@ use std::io::BufReader;
 use std::fs::File;
 
 use nexus_riscv::VMOpts;
-use nexus_prover::{pp::gen_or_load, run, prove_par};
+use nexus_prover::{pp::gen_or_load, run, prove_par, srs::test_srs::gen_test_srs_to_file};
 use nexus_network::pcd::{decode, NexusMsg::PCDRes};
 use nexus_network::api::Proof;
 use nexus_network::client::*;
@@ -84,5 +84,17 @@ pub fn local() -> CmdResult<()> {
     let trace = run(&opts, true)?;
     let state = gen_or_load(false, 1, pp_file, &())?;
     prove_par(state, trace)?;
+    Ok(())
+}
+
+pub fn sample_test_srs() -> CmdResult<()> {
+    let Opts {
+        command: SampleTestSRS { num_vars, file },
+    } = options()
+    else {
+        panic!()
+    };
+
+    gen_test_srs_to_file(*num_vars, file)?;
     Ok(())
 }
