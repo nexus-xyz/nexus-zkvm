@@ -256,7 +256,9 @@ impl Iterator for BlockIter<'_> {
         };
 
         self.pc = w.PC;
-        self.regs[w.inst.rd as usize] = w.Z;
+        if w.inst.rd > 0 {
+            self.regs[w.inst.rd as usize] = w.Z;
+        }
         self.index += 1;
         Some(w)
     }
