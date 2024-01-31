@@ -14,8 +14,7 @@ serde = { version = "1.0", features = ["derive"] }
 config = { version = "0.13.4", default-features = false }
 dotenvy = { version = "0.15.7" }
 
-toml = { version = "0.8.8", optional = true }
+clap = { workspace = true, optional = true } 
 
 [features]
-default = ["compile"]
-compile = ["toml"]
+clap_derive = ["clap"]

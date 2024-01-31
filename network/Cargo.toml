@@ -35,6 +35,7 @@ ark-ff.workspace = true
 ark-ec.workspace = true
 ark-serialize.workspace = true
 
+nexus-config = { path = "../config" }
 nexus-riscv = { path = "../riscv" }
 nexus-riscv-circuit = { path = "../riscv-circuit" }
 nexus-prover = { path = "../prover" }

@@ -1,2 +1,3 @@
 [vm]
-k = 1 # instruction per Nova folding step
+k = 1             # instruction per Nova folding step.
+nova_impl = "par" # IVC implementation to be used, should be one of "seq", "par".
