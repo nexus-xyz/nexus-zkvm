@@ -14,11 +14,9 @@ use rayon::iter::{
 
 use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme};
 
-pub mod sparse;
-pub use sparse::SparseMatrix;
+pub use super::sparse::{MatrixRef, SparseMatrix};
 
 pub use ark_relations::r1cs::Matrix;
-pub type MatrixRef<'a, F> = &'a [Vec<(F, usize)>];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
