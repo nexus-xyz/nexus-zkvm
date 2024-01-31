@@ -35,13 +35,9 @@ ark-ff.workspace = true
 ark-ec.workspace = true
 ark-serialize.workspace = true
 
-nexus-riscv = { path = "../riscv" }
-nexus-riscv-circuit = { path = "../riscv-circuit" }
+nexus-nvm = { path = "../nvm" }
 nexus-prover = { path = "../prover" }
 hex = "0.4.3"
-
-[dev-dependencies]
-nexus-riscv = { path = "../riscv" }
 
 [features]
 default = [ "snmalloc" ]
