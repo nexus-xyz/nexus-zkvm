@@ -13,11 +13,12 @@ use nexus_riscv::{
 };
 
 use serde::{Serialize, Deserialize};
-use types::{SeqPP, ParPP};
+use supernova::nova::pcd::compression::SNARK;
+use types::{ComPP, ParPP, SeqPP, SRS};
 
 use crate::circuit::Tr;
-use crate::types::{IVCProof, PCDNode};
-use ark_serialize::CanonicalSerialize;
+use crate::types::{IVCProof, PCDNode, ComPCDNode};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Proof {
@@ -25,6 +26,14 @@ pub struct Proof {
     pub total_nodes: u32,
     pub complete_nodes: u32,
     pub proof: Option<Vec<u8>>,
+}
+
+pub fn load_proof(file: &str) -> Result<Proof, ProofError> {
+    let file = std::fs::File::open(file)?;
+    let reader = std::io::BufReader::new(file);
+    let proof: Proof = serde_json::from_reader(reader).unwrap();
+
+    Ok(proof)
 }
 
 impl std::fmt::Display for Proof {
@@ -175,4 +184,40 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<Proof, ProofError> {
     };
 
     Ok(proof)
+}
+
+pub fn compress(
+    compression_pp: ComPP,
+    compression_srs: SRS,
+    proof: Proof,
+    local: bool,
+) -> Result<(), ProofError> {
+    let Some(vec) = proof.proof else {
+        todo!("handle error better")
+    };
+
+    let node: ComPCDNode;
+
+    if local {
+        println!("doing local verify");
+        let tmp = supernova::nova::pcd::PCDNode::deserialize_compressed(&*vec);
+        match tmp {
+            Ok(n) => node = n,
+            Err(e) => return Err(ProofError::SerError(e)),
+        };
+    } else {
+        unimplemented!()
+    };
+
+    let key = SNARK::setup(&compression_pp, &compression_srs).unwrap();
+    // TODO: save key to file and add an option to load the key
+
+    let compressed_pcd_proof = SNARK::compress(&compression_pp, &key, node).unwrap();
+
+    // And check that the compressed proof verifies.
+    SNARK::verify(&key, &compression_pp, &compressed_pcd_proof).unwrap();
+    
+    // TODO: save compressed proof to file
+    
+    Ok(())
 }

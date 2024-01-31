@@ -4,10 +4,12 @@ static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use clap::{Parser, Subcommand};
 
+use nexus_prover::srs::load_srs;
+use nexus_prover::types::ComPP;
 use nexus_riscv::VMOpts;
 use nexus_prover::*;
 use nexus_prover::error::*;
-use nexus_prover::pp::{gen_to_file, gen_or_load};
+use nexus_prover::pp::{gen_or_load, gen_to_file, load_pp};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -66,6 +68,33 @@ enum Command {
         #[command(flatten)]
         vm: VMOpts,
     },
+
+    /// Compress a Nexus proof via supernova
+    Compress {
+        /// public parameters file
+        #[arg(
+            short = 'p',
+            long = "public-params",
+            default_value = "nexus-public.zst"
+        )]
+        pp_file: String,
+
+        /// srs file
+        #[arg(
+            short = 's',
+            long = "structured-reference-string",
+            default_value = "nexus-srs.zst"
+        )]
+        srs_file: String,
+
+        /// File containing uncompressed proof
+        #[arg(short, long, default_value = "nexus-proof.json")]
+        file: String,
+
+        /// Specifies whether we are compressing a local proof
+        #[arg(short, long, default_value = "false")]
+        local: bool,
+    },
 }
 use Command::*;
 
@@ -86,6 +115,23 @@ fn main() -> Result<(), ProofError> {
                 prove_seq(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
             } {
                 Ok(_proof) => Ok(()),
+                Err(e) => Err(e),
+            }
+        }
+
+        Compress { pp_file, srs_file, file, local } => {
+            println!("Reading srs file");
+            let srs = load_srs(&srs_file)?;
+
+            println!("Reading pp file");
+            let pp: ComPP = load_pp(&pp_file)?;
+
+            let proof = load_proof(&file)?;
+
+            let result = compress(pp, srs, proof, local);
+
+            match result {
+                Ok(_) => Ok(()),
                 Err(e) => Err(e),
             }
         }

@@ -28,13 +28,9 @@ pub use ark_grumpkin::{
 };
 
 // concrete sponge used
-pub use ark_crypto_primitives::{
-    sponge::{
-        poseidon::{
-            PoseidonConfig,
-            PoseidonSponge,
-        }
-    }
+pub use ark_crypto_primitives::sponge::poseidon::{
+    PoseidonConfig,
+    PoseidonSponge,
 };
 
 pub use ark_relations::r1cs::ConstraintSystemRef;
@@ -84,3 +80,4 @@ pub type ComPP = pcd::PublicParams<G1,G2,PVC1,C2,RO,SC>;
 
 pub type IVCProof<'a> = seq::IVCProof<'a,G1,G2,C1,C2,RO,SC>;
 pub type PCDNode = pcd::PCDNode<G1,G2,C1,C2,RO,SC>;
+pub type ComPCDNode = pcd::PCDNode<G1,G2,PVC1,C2,RO,SC>;
