@@ -1,8 +1,5 @@
-use ark_std::fmt;
-
-use ark_crypto_primitives::sponge::Absorb;
 use ark_ec::{AdditiveGroup, CurveGroup};
-use ark_ff::{Field, PrimeField};
+use ark_ff::Field;
 use ark_relations::r1cs::ConstraintSystemRef;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
@@ -12,7 +9,7 @@ use std::ops::Neg;
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme};
+use super::commitment::CommitmentScheme;
 
 pub use super::sparse::{MatrixRef, SparseMatrix};
 
@@ -20,9 +17,6 @@ mod vector_ops;
 use vector_ops::{elem_add, elem_mul, scalar_mul};
 
 use super::r1cs::R1CSShape;
-pub use ark_relations::r1cs::Matrix;
-
-pub type VMatrixRef<'a, F> = &'a Vec<Vec<(F, usize)>>;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
@@ -36,127 +30,53 @@ pub enum Error {
     NotSatisfied,
 }
 
-/// A trait capturing that the type encodes a constraint matrix
-pub trait ConstraintMatrix<F: PrimeField> {
-    fn validate(&self, num_constraints: usize, num_vars: usize, num_io: usize)
-        -> Result<(), Error>;
-    fn sparsify(&self, rows: usize, columns: usize) -> SparseMatrix<F>;
-}
-
-/// A (macro'd) implementation of the ConstraintMatrix trait for explicitly specified matricies
-macro_rules! impl_Explicit_Constraint_Matrix {
-    (for $($t:ty),+) => {
-        $(impl<F: PrimeField> ConstraintMatrix<F> for $t {
-            fn validate(&self, num_constraints: usize, num_vars: usize, num_io: usize) -> Result<(), Error> {
-                for (i, row) in self.iter().enumerate() {
-                    for (_value, j) in row {
-                        if i >= num_constraints {
-                            return Err(Error::ConstraintNumberMismatch);
-                        }
-                        if *j >= num_io + num_vars {
-                            return Err(Error::InputLengthMismatch);
-                        }
-                    }
-                }
-
-                Ok(())
-            }
-
-            fn sparsify(&self, rows: usize, columns: usize) -> SparseMatrix<F> {
-                SparseMatrix::new(self, rows, columns)
-            }
-        })*
-    }
-}
-impl_Explicit_Constraint_Matrix!(for MatrixRef<'_, F>, VMatrixRef<'_, F>);
-
-/// An implementation of the ConstraintMatrix trait for sparse matricies
-impl<F: PrimeField> ConstraintMatrix<F> for SparseMatrix<F> {
-    fn validate(
-        &self,
-        _num_constraints: usize,
-        _num_vars: usize,
-        _num_io: usize,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn sparsify(&self, _rows: usize, _columns: usize) -> SparseMatrix<F> {
-        self.clone()
-    }
-}
-
 /// A type that holds the shape of the CCS matrices
 #[derive(Debug, Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CCSShape<G: CurveGroup> {
-    /// `m` in the Nova paper.
+    /// `m` in the CCS/HyperNova papers.
     pub num_constraints: usize,
     /// Witness length.
     ///
-    /// `m - l - 1` in the Nova paper.
+    /// `m - l - 1` in the CCS/HyperNova papers.
     pub num_vars: usize,
     /// Length of the public input `X`. It is expected to have a leading
     /// `ScalarField::ONE` element, thus this field must be non-zero.
     ///
-    /// `l + 1`, w.r.t. the Nova paper.
+    /// `l + 1`, w.r.t. the CCS/HyperNova papers.
     pub num_io: usize,
     /// Number of matricies.
     ///
-    /// `t` in the CCS paper.
+    /// `t` in the CCS/HyperNova papers.
     pub num_matricies: usize,
     /// Number of multisets
     ///
-    /// `q` in the CCS paper.
+    /// `q` in the CCS/HyperNova papers.
     pub num_multisets: usize,
     /// Max cardinality of the multisets
     ///
-    /// `d` in the CCS paper.
+    /// `d` in the CCS/HyperNova papers.
     pub max_cardinality: usize,
     pub Ms: Vec<SparseMatrix<G::ScalarField>>,
     pub Ss: Vec<Vec<usize>>,
     pub cs: Vec<G::ScalarField>,
 }
 
-impl<G: CurveGroup> fmt::Display for CCSShape<G> {
-    #[rustfmt::skip]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let Ms = self.Ms.iter().map(|x| format!("[_, {}]", x.len())).collect::<Vec<_>>().join(", ");
-        let Ss = self.Ss.iter().map(|x| format!("[_, {}]", x.len())).collect::<Vec<_>>().join(", ");
-        let cs = self.cs.iter().map(|x| format!("{}", x)).collect::<Vec<_>>().join(", ");
-
-        write!(f, "CCSShape {{ num_constraints: {}, num_vars: {}, num_io: {}, num_matricies: {}, num_multisets: {}, max_cardinality: {}, Ms: {}, Ss: {}, cs: {} }}",
-               self.num_constraints,
-               self.num_vars,
-               self.num_io,
-               self.num_matricies,
-               self.num_multisets,
-               self.max_cardinality,
-               Ms,
-               Ss,
-               cs,
-        )
-    }
-}
-
 impl<G: CurveGroup> CCSShape<G> {
     /// Create an object of type `CCSShape` from the specified matricies and constant data structures
-    pub fn new<MT: ConstraintMatrix<G::ScalarField>>(
+    pub fn new(
         num_constraints: usize,
         num_vars: usize,
         num_io: usize,
         num_matricies: usize,
         num_multisets: usize,
         max_cardinality: usize,
-        Ms: Vec<MT>,
+        Ms: Vec<SparseMatrix<G::ScalarField>>,
         Ss: Vec<Vec<usize>>,
         cs: Vec<G::ScalarField>,
     ) -> Result<CCSShape<G>, Error> {
         if num_io == 0 {
             return Err(Error::InvalidInputLength);
         }
-
-        Ms.iter()
-            .try_for_each(|M| M.validate(num_constraints, num_vars, num_io))?;
 
         assert_eq!(Ms.len(), num_matricies);
         assert_eq!(Ss.len(), num_multisets);
@@ -176,14 +96,6 @@ impl<G: CurveGroup> CCSShape<G> {
             })?;
         }
 
-        let rows = num_constraints;
-        let columns = num_io + num_vars;
-
-        let sMs = Ms
-            .iter()
-            .map(|M| M.sparsify(rows, columns))
-            .collect::<Vec<SparseMatrix<G::ScalarField>>>();
-
         Ok(Self {
             num_constraints,
             num_io,
@@ -191,7 +103,7 @@ impl<G: CurveGroup> CCSShape<G> {
             num_matricies,
             num_multisets,
             max_cardinality,
-            Ms: sMs,
+            Ms,
             Ss,
             cs,
         })
@@ -247,7 +159,7 @@ impl<G: CurveGroup> From<R1CSShape<G>> for CCSShape<G> {
             num_matricies: 3,
             num_multisets: 2,
             max_cardinality: 2,
-            Ms: vec![shape.A.clone(), shape.B.clone(), shape.C.clone()],
+            Ms: vec![shape.A, shape.B, shape.C],
             Ss: vec![vec![0, 1], vec![2]],
             cs: vec![G::ScalarField::ONE, G::ScalarField::ONE.neg()],
         }
@@ -256,30 +168,8 @@ impl<G: CurveGroup> From<R1CSShape<G>> for CCSShape<G> {
 
 impl<G: CurveGroup> From<ConstraintSystemRef<G::ScalarField>> for CCSShape<G> {
     fn from(cs: ConstraintSystemRef<G::ScalarField>) -> Self {
-        assert!(cs.should_construct_matrices());
-        let matrices = cs.to_matrices().unwrap();
-
-        let num_constraints = cs.num_constraints();
-        let num_vars = cs.num_witness_variables();
-        let num_io = cs.num_instance_variables();
-
-        let rows = num_constraints;
-        let columns = num_io + num_vars;
-        Self {
-            num_constraints,
-            num_io,
-            num_vars,
-            num_matricies: 3,
-            num_multisets: 2,
-            max_cardinality: 2,
-            Ms: vec![
-                SparseMatrix::new(&matrices.a, rows, columns),
-                SparseMatrix::new(&matrices.b, rows, columns),
-                SparseMatrix::new(&matrices.c, rows, columns),
-            ],
-            Ss: vec![vec![0, 1], vec![2]],
-            cs: vec![G::ScalarField::ONE, G::ScalarField::ONE.neg()],
-        }
+        let shape = R1CSShape::from(cs);
+        shape.into()
     }
 }
 
@@ -307,18 +197,6 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> Clone for CCSInstance<G, C> {
     }
 }
 
-impl<G: CurveGroup, C: CommitmentScheme<G>> fmt::Debug for CCSInstance<G, C>
-where
-    C::Commitment: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CCSInstance")
-            .field("commitment_W", &self.commitment_W)
-            .field("X", &self.X)
-            .finish()
-    }
-}
-
 impl<G: CurveGroup, C: CommitmentScheme<G>> PartialEq for CCSInstance<G, C> {
     fn eq(&self, other: &Self) -> bool {
         self.commitment_W == other.commitment_W && self.X == other.X
@@ -326,27 +204,6 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> PartialEq for CCSInstance<G, C> {
 }
 
 impl<G: CurveGroup, C: CommitmentScheme<G>> Eq for CCSInstance<G, C> where C::Commitment: Eq {}
-
-impl<G, C> Absorb for CCSInstance<G, C>
-where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
-    G::ScalarField: Absorb,
-    C: CommitmentScheme<G>,
-    C::Commitment: Into<G>,
-{
-    fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
-        unreachable!()
-    }
-
-    fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
-            &self.commitment_W.into(),
-            dest,
-        );
-
-        (&self.X[1..]).to_sponge_field_elements(dest);
-    }
-}
 
 impl<G: CurveGroup> CCSWitness<G> {
     /// A method to create a witness object using a vector of scalars.
@@ -399,102 +256,12 @@ mod tests {
     use super::*;
     use crate::pedersen::PedersenCommitment;
 
-    use ark_relations::r1cs::Matrix;
     use ark_test_curves::bls12_381::G1Projective as G;
 
-    fn to_field_sparse<G: CurveGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
-        let mut coo_matrix = Matrix::new();
-
-        for row in matrix {
-            let mut sparse_row = Vec::new();
-            for (j, &f) in row.iter().enumerate() {
-                if f == 0 {
-                    continue;
-                }
-                sparse_row.push((G::ScalarField::from(f), j));
-            }
-            coo_matrix.push(sparse_row);
-        }
-
-        coo_matrix
-    }
-
-    fn to_field_elements<G: CurveGroup>(x: &[i64]) -> Vec<G::ScalarField> {
-        x.iter().copied().map(G::ScalarField::from).collect()
-    }
-
-    #[test]
-    #[rustfmt::skip]
-    fn invalid_input() {
-        let a = {
-            let a: &[&[u64]] = &[
-                &[1, 2, 3],
-                &[3, 4, 5],
-                &[6, 7, 8],
-            ];
-            to_field_sparse::<G>(a)
-        };
-
-        assert_eq!(
-            CCSShape::<G>::new(2, 2, 2, 3, 2, 2, vec![&a, &a, &a], vec![vec![0, 1], vec![2]], to_field_elements::<G>(&[1, -1])),
-            Err(Error::ConstraintNumberMismatch)
-        );
-        assert_eq!(
-            CCSShape::<G>::new(3, 0, 1, 3, 2, 2, vec![&a, &a, &a], vec![vec![0, 1], vec![2]], to_field_elements::<G>(&[1, -1])),
-            Err(Error::InputLengthMismatch)
-        );
-        assert_eq!(
-            CCSShape::<G>::new(3, 1, 2, 3, 1, 2, vec![&a, &a, &a], vec![vec![0, 1, 2]], to_field_elements::<G>(&[1])),
-            Err(Error::MultisetCardinalityMismatch)
-        );
-        assert_eq!(
-            CCSShape::<G>::new(3, 1, 2, 3, 2, 2, vec![&a, &a, &a], vec![vec![3, 1], vec![2]], to_field_elements::<G>(&[1, -1])),
-            Err(Error::InvalidMultiset)
-        );
-    }
+    use crate::r1cs::tests::{to_field_elements, to_field_sparse, A, B, C};
 
     #[test]
     fn zero_instance_is_satisfied() -> Result<(), Error> {
-        #[rustfmt::skip]
-        let a = {
-            let a: &[&[u64]] = &[
-                &[1, 2, 3],
-                &[3, 4, 5],
-                &[6, 7, 8],
-            ];
-            to_field_sparse::<G>(a)
-        };
-
-        const NUM_CONSTRAINTS: usize = 3;
-        const NUM_WITNESS: usize = 1;
-        const NUM_PUBLIC: usize = 2;
-
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
-        let shape = CCSShape::<G>::new(
-            NUM_CONSTRAINTS,
-            NUM_WITNESS,
-            NUM_PUBLIC,
-            3,
-            2,
-            2,
-            vec![&a, &a, &a],
-            vec![vec![0, 1], vec![2]],
-            to_field_elements::<G>(&[1, -1]),
-        )?;
-
-        let X = to_field_elements::<G>(&[0, 0]);
-        let W = to_field_elements::<G>(&[0]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
-
-        let instance = CCSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
-        let witness = CCSWitness::<G>::new(&shape, &W)?;
-
-        shape.is_satisfied(&instance, &witness, &pp)?;
-        Ok(())
-    }
-
-    #[test]
-    fn shape_conversion_from_r1cs() -> Result<(), Error> {
         #[rustfmt::skip]
         let a = {
             let a: &[&[u64]] = &[
@@ -523,32 +290,8 @@ mod tests {
         let witness = CCSWitness::<G>::new(&ccs_shape, &W)?;
 
         ccs_shape.is_satisfied(&instance, &witness, &pp)?;
-
         Ok(())
     }
-
-    // Example from Vitalik's blog for equation x**3 + x + 5 == 35.
-    //
-    // Note that our implementation shuffles columns such that witness comes first.
-
-    const A: &[&[u64]] = &[
-        &[0, 0, 1, 0, 0, 0],
-        &[0, 0, 0, 1, 0, 0],
-        &[0, 0, 1, 0, 1, 0],
-        &[5, 0, 0, 0, 0, 1],
-    ];
-    const B: &[&[u64]] = &[
-        &[0, 0, 1, 0, 0, 0],
-        &[0, 0, 1, 0, 0, 0],
-        &[1, 0, 0, 0, 0, 0],
-        &[1, 0, 0, 0, 0, 0],
-    ];
-    const C: &[&[u64]] = &[
-        &[0, 0, 0, 1, 0, 0],
-        &[0, 0, 0, 0, 1, 0],
-        &[0, 0, 0, 0, 0, 1],
-        &[0, 1, 0, 0, 0, 0],
-    ];
 
     #[test]
     fn is_satisfied() -> Result<(), Error> {
@@ -565,32 +308,26 @@ mod tests {
         const NUM_PUBLIC: usize = 2;
 
         let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
-        let shape = CCSShape::<G>::new(
-            NUM_CONSTRAINTS,
-            NUM_WITNESS,
-            NUM_PUBLIC,
-            3,
-            2,
-            2,
-            vec![&a, &b, &c],
-            vec![vec![0, 1], vec![2]],
-            to_field_elements::<G>(&[1, -1]),
-        )?;
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
+
+        let ccs_shape = CCSShape::from(r1cs_shape);
+
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
         let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
 
-        let instance = CCSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
-        let witness = CCSWitness::<G>::new(&shape, &W)?;
+        let instance = CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_W, &X)?;
+        let witness = CCSWitness::<G>::new(&ccs_shape, &W)?;
 
-        shape.is_satisfied(&instance, &witness, &pp)?;
+        ccs_shape.is_satisfied(&instance, &witness, &pp)?;
 
         // Change commitment.
         let invalid_commitment = commitment_W.double();
         let instance =
-            CCSInstance::<G, PedersenCommitment<G>>::new(&shape, &invalid_commitment, &X)?;
+            CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &invalid_commitment, &X)?;
         assert_eq!(
-            shape.is_satisfied(&instance, &witness, &pp),
+            ccs_shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
         );
 
@@ -598,19 +335,19 @@ mod tests {
         let invalid_W = to_field_elements::<G>(&[4, 9, 27, 30]);
         let commitment_invalid_W = PedersenCommitment::<G>::commit(&pp, &W);
         let instance =
-            CCSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_invalid_W, &X)?;
-        let invalid_witness = CCSWitness::<G>::new(&shape, &invalid_W)?;
+            CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_invalid_W, &X)?;
+        let invalid_witness = CCSWitness::<G>::new(&ccs_shape, &invalid_W)?;
         assert_eq!(
-            shape.is_satisfied(&instance, &invalid_witness, &pp),
+            ccs_shape.is_satisfied(&instance, &invalid_witness, &pp),
             Err(Error::NotSatisfied)
         );
 
         // Provide invalid public input.
         let invalid_X = to_field_elements::<G>(&[1, 36]);
         let instance =
-            CCSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &invalid_X)?;
+            CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_W, &invalid_X)?;
         assert_eq!(
-            shape.is_satisfied(&instance, &witness, &pp),
+            ccs_shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
         );
         Ok(())
