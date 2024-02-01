@@ -1,20 +1,16 @@
 use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::Field;
-use ark_relations::r1cs::ConstraintSystemRef;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use ark_std::Zero;
 use std::ops::Neg;
 
 #[cfg(feature = "parallel")]
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{ParallelIterator, IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
 
 use super::commitment::CommitmentScheme;
 
 pub use super::sparse::{MatrixRef, SparseMatrix};
-
-mod vector_ops;
-use vector_ops::{elem_add, elem_mul, scalar_mul};
 
 use super::r1cs::R1CSShape;
 
@@ -44,51 +40,50 @@ pub struct CCSShape<G: CurveGroup> {
     ///
     /// `l + 1`, w.r.t. the CCS/HyperNova papers.
     pub num_io: usize,
-    /// Number of matricies.
+    /// Number of matrices.
     ///
     /// `t` in the CCS/HyperNova papers.
-    pub num_matricies: usize,
-    /// Number of multisets
+    pub num_matrices: usize,
+    /// Number of multisets.
     ///
     /// `q` in the CCS/HyperNova papers.
     pub num_multisets: usize,
-    /// Max cardinality of the multisets
+    /// Max cardinality of the multisets.
     ///
     /// `d` in the CCS/HyperNova papers.
     pub max_cardinality: usize,
+    /// Set of constraint matrices.
     pub Ms: Vec<SparseMatrix<G::ScalarField>>,
-    pub Ss: Vec<Vec<usize>>,
-    pub cs: Vec<G::ScalarField>,
+    /// Multisets of selector indices, each paired with a constant multiplier.
+    pub cSs: Vec<(G::ScalarField, Vec<usize>)>,
 }
 
 impl<G: CurveGroup> CCSShape<G> {
-    /// Create an object of type `CCSShape` from the specified matricies and constant data structures
+    /// Create an object of type `CCSShape` from the specified matrices and constant data structures
     pub fn new(
         num_constraints: usize,
         num_vars: usize,
         num_io: usize,
-        num_matricies: usize,
+        num_matrices: usize,
         num_multisets: usize,
         max_cardinality: usize,
         Ms: Vec<SparseMatrix<G::ScalarField>>,
-        Ss: Vec<Vec<usize>>,
-        cs: Vec<G::ScalarField>,
+        cSs: Vec<(G::ScalarField, Vec<usize>)>,
     ) -> Result<CCSShape<G>, Error> {
         if num_io == 0 {
             return Err(Error::InvalidInputLength);
         }
 
-        assert_eq!(Ms.len(), num_matricies);
-        assert_eq!(Ss.len(), num_multisets);
-        assert_eq!(cs.len(), num_multisets);
+        assert_eq!(Ms.len(), num_matrices);
+        assert_eq!(cSs.len(), num_multisets);
 
-        for S in Ss.iter() {
+        for (_c, S) in cSs.iter() {
             if S.len() > max_cardinality {
                 return Err(Error::MultisetCardinalityMismatch);
             }
 
             S.iter().try_for_each(|idx| {
-                if idx >= &num_matricies {
+                if idx >= &num_matrices {
                     Err(Error::InvalidMultiset)
                 } else {
                     Ok(())
@@ -100,12 +95,11 @@ impl<G: CurveGroup> CCSShape<G> {
             num_constraints,
             num_io,
             num_vars,
-            num_matricies,
+            num_matrices,
             num_multisets,
             max_cardinality,
             Ms,
-            Ss,
-            cs,
+            cSs,
         })
     }
 
@@ -122,22 +116,22 @@ impl<G: CurveGroup> CCSShape<G> {
         let z = [U.X.as_slice(), W.W.as_slice()].concat();
 
         let mut acc = vec![G::ScalarField::ZERO; self.num_constraints];
+        for (c, S) in &self.cSs {
+            let mut circle_product = vec![*c; self.num_constraints];
 
-        for i in 0..self.num_multisets {
-            let Ms_i: Vec<&SparseMatrix<G::ScalarField>> =
-                self.Ss[i].iter().map(|j| &self.Ms[*j]).collect();
+            for idx in S {
+                let Mz = self.Ms[*idx].multiply_vec(&z);
+                ark_std::cfg_iter_mut!(circle_product)
+                    .enumerate()
+                    .for_each(|(j, x)| *x *= Mz[j]);
+            }
 
-            let hadamard_i: Vec<G::ScalarField> = Ms_i.iter().fold(
-                vec![G::ScalarField::ONE; self.num_constraints],
-                |acc, M_j| elem_mul(&acc, &M_j.multiply_vec(&z)),
-            );
-
-            let res_i: Vec<G::ScalarField> = scalar_mul(&hadamard_i, &self.cs[i]);
-
-            acc = elem_add(&acc, &res_i);
+            ark_std::cfg_iter_mut!(acc)
+                .enumerate()
+                .for_each(|(i, s)| *s += circle_product[i]);
         }
 
-        if ark_std::cfg_into_iter!(0..self.num_constraints).any(|idx| !acc[idx].is_zero()) {
+        if ark_std::cfg_iter!(acc).any(|s| !s.is_zero()) {
             return Err(Error::NotSatisfied);
         }
 
@@ -156,20 +150,12 @@ impl<G: CurveGroup> From<R1CSShape<G>> for CCSShape<G> {
             num_constraints: shape.num_constraints,
             num_io: shape.num_io,
             num_vars: shape.num_vars,
-            num_matricies: 3,
+            num_matrices: 3,
             num_multisets: 2,
             max_cardinality: 2,
             Ms: vec![shape.A, shape.B, shape.C],
-            Ss: vec![vec![0, 1], vec![2]],
-            cs: vec![G::ScalarField::ONE, G::ScalarField::ONE.neg()],
+            cSs: vec![(G::ScalarField::ONE, vec![0, 1]), (G::ScalarField::ONE.neg(), vec![2])],
         }
-    }
-}
-
-impl<G: CurveGroup> From<ConstraintSystemRef<G::ScalarField>> for CCSShape<G> {
-    fn from(cs: ConstraintSystemRef<G::ScalarField>) -> Self {
-        let shape = R1CSShape::from(cs);
-        shape.into()
     }
 }
 
