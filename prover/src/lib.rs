@@ -216,8 +216,8 @@ pub fn compress(
 
     // And check that the compressed proof verifies.
     SNARK::verify(&key, &compression_pp, &compressed_pcd_proof).unwrap();
-    
+
     // TODO: save compressed proof to file
-    
+
     Ok(())
 }
