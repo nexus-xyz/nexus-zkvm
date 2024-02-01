@@ -6,7 +6,9 @@ use ark_std::Zero;
 use std::ops::Neg;
 
 #[cfg(feature = "parallel")]
-use rayon::iter::{ParallelIterator, IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator};
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 
 use super::commitment::CommitmentScheme;
 
@@ -154,7 +156,10 @@ impl<G: CurveGroup> From<R1CSShape<G>> for CCSShape<G> {
             num_multisets: 2,
             max_cardinality: 2,
             Ms: vec![shape.A, shape.B, shape.C],
-            cSs: vec![(G::ScalarField::ONE, vec![0, 1]), (G::ScalarField::ONE.neg(), vec![2])],
+            cSs: vec![
+                (G::ScalarField::ONE, vec![0, 1]),
+                (G::ScalarField::ONE.neg(), vec![2]),
+            ],
         }
     }
 }
