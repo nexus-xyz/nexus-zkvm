@@ -1481,6 +1481,7 @@ dependencies = [
  "ark-r1cs-std",
  "ark-relations",
  "ark-serialize",
+ "ark-spartan",
  "ark-std",
  "clap 4.4.18",
  "nexus-riscv",

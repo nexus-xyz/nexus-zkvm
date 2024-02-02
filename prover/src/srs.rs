@@ -10,9 +10,9 @@ pub fn load_srs(file: &str) -> Result<SRS, ProofError> {
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
     // The `unchecked` here refers to a check that the point is in the correct
-    // prime-order subgroup of the curve group: this is automatic for the 
+    // prime-order subgroup of the curve group: this is automatic for the
     // `bn254` and `grumpkin` curves, which are prime order (as is always the)
-    // case for a cycle of curves). 
+    // case for a cycle of curves).
     let srs = SRS::deserialize_compressed_unchecked(&mut dec)?;
     Ok(srs)
 }
