@@ -61,50 +61,6 @@ pub struct CCSShape<G: CurveGroup> {
 }
 
 impl<G: CurveGroup> CCSShape<G> {
-    /// Create an object of type `CCSShape` from the specified matrices and constant data structures
-    pub fn new(
-        num_constraints: usize,
-        num_vars: usize,
-        num_io: usize,
-        num_matrices: usize,
-        num_multisets: usize,
-        max_cardinality: usize,
-        Ms: Vec<SparseMatrix<G::ScalarField>>,
-        cSs: Vec<(G::ScalarField, Vec<usize>)>,
-    ) -> Result<CCSShape<G>, Error> {
-        if num_io == 0 {
-            return Err(Error::InvalidInputLength);
-        }
-
-        assert_eq!(Ms.len(), num_matrices);
-        assert_eq!(cSs.len(), num_multisets);
-
-        for (_c, S) in cSs.iter() {
-            if S.len() > max_cardinality {
-                return Err(Error::MultisetCardinalityMismatch);
-            }
-
-            S.iter().try_for_each(|idx| {
-                if idx >= &num_matrices {
-                    Err(Error::InvalidMultiset)
-                } else {
-                    Ok(())
-                }
-            })?;
-        }
-
-        Ok(Self {
-            num_constraints,
-            num_io,
-            num_vars,
-            num_matrices,
-            num_multisets,
-            max_cardinality,
-            Ms,
-            cSs,
-        })
-    }
-
     /// Checks if the CCS instance together with the witness `W` satisfies the CCS constraints determined by `shape`.
     pub fn is_satisfied<C: CommitmentScheme<G>>(
         &self,
