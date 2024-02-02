@@ -104,10 +104,10 @@ pub enum Command {
         artifact: Artifact,
     },
 
-    /// Sample test SRS
+    /// Sample test SRS (memory-heavy operation!)
     SampleTestSRS {
         /// Number of variables
-        #[arg(short = 'n', long = "num-vars", default_value = "19")]
+        #[arg(short = 'n', long = "num-vars", default_value = "26")]
         num_vars: usize,
 
         /// File to save test SRS
