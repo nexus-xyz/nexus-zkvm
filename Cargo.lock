@@ -1622,6 +1622,7 @@ dependencies = [
  "nexus-riscv",
  "num-derive",
  "num-traits",
+ "serde",
  "thiserror",
 ]
 
