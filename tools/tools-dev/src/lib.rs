@@ -5,7 +5,7 @@ pub mod command;
 
 mod utils;
 
-const LOG_TARGET: &str = "nexus-tools";
+const LOG_TARGET: &str = "nexus-tools-dev";
 
 #[derive(Debug, Parser)]
 #[command(name = "cargo", bin_name = "cargo")]
