@@ -6,15 +6,19 @@ use sha2::{Digest, Sha256};
 use hyper::{header, Body, Request, Response, StatusCode};
 use tokio::task::JoinHandle;
 
-use nexus_riscv::{nop_vm, vm, parse_elf, vm::eval::VM};
+use nexus_nvm::{
+    eval::{NVM},
+    trace::trace,
+    riscv::translate_elf_bytes,
+};
 use nexus_network::*;
 use nexus_network::pcd::*;
 use nexus_network::api::*;
 
 use crate::workers::*;
 
-pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<()> {
-    let trace = Arc::new(vm::trace::trace(&mut vm, 1, true)?);
+pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NVM) -> Result<()> {
+    let trace = Arc::new(trace(&mut vm, 1, true)?);
 
     let steps = trace.blocks.len() as u32;
     state.db.new_proof(hash.clone(), steps - 1);
@@ -68,8 +72,8 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<
                     panic!()
                 };
                 state.db.update_complete(hash.to_string(), 2);
-                let ltr = trace.get(l.j as usize);
-                let rtr = trace.get(r.j as usize);
+                let ltr = trace.get(l.j as usize).unwrap();
+                let rtr = trace.get(r.j as usize).unwrap();
                 let req = NodeReq(vec![(l, ltr), (r, rtr)]);
                 request_work(&ch, req).await.unwrap()
             }));
@@ -79,27 +83,11 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<
     Ok(())
 }
 
-pub async fn post_recv_file(state: WorkerState, req: Request<Body>) -> Result<Response<Body>> {
-    //let _whole_body = hyper::body::aggregate(req).await?;
-    let whole_body = hyper::body::to_bytes(req).await?;
-    let mut count: usize = std::str::from_utf8(&whole_body[2..])?.parse()?;
-    if count == 0 {
-        count = 1;
-    }
-    println!("running proof of {count} instructions...");
-    manage_proof(state, "nop".to_string(), nop_vm(count - 1))?;
-
-    let response = Response::builder()
-        .status(StatusCode::OK)
-        .body(Body::from("Running fake proof..."))?;
-    Ok(response)
-}
-
 fn api(mut state: WorkerState, msg: NexusAPI) -> Result<NexusAPI> {
     match msg {
         Program { elf, .. } => {
             println!("GOT a program");
-            let vm = parse_elf(&elf, true)?;
+            let vm = translate_elf_bytes(&elf)?;
             let hash = hex::encode(Sha256::digest(&elf));
             manage_proof(state, hash.clone(), vm)?;
             Ok(Proof(Proof { hash, ..Proof::default() }))

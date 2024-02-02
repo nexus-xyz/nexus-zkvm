@@ -11,7 +11,13 @@ use elf::{
     ElfBytes,
 };
 
-use nexus_riscv::rv32::{RV32, Inst as RVInst, parse::parse_inst};
+use nexus_riscv::{
+    nop_vm, loop_vm, VMError,
+    machines::lookup_test_machine,
+    vm::eval::VM,
+    rv32::{RV32, Inst as RVInst, parse::parse_inst},
+};
+pub use nexus_riscv::VMOpts;
 
 use crate::error::{Result, NVMError::ELFFormat};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
@@ -117,6 +123,12 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
 pub fn translate_elf(path: &Path) -> Result<NVM> {
     let file_data = read(path)?;
     let bytes = file_data.as_slice();
+    translate_elf_bytes(bytes)
+}
+
+/// Translate a RiscV ELF file to NVM.
+#[allow(clippy::needless_range_loop)]
+pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NVM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     if file.ehdr.e_entry != 0x1000 {
@@ -172,6 +184,46 @@ pub fn translate_elf(path: &Path) -> Result<NVM> {
     Ok(vm)
 }
 
+// internal function to translate RISC-V test VMs to NVMs
+fn translate_test_machine(rvm: &VM) -> Result<NVM> {
+    let mut nvm = NVM::default();
+    nvm.pc = rvm.regs.pc;
+    let mut i = 0;
+    loop {
+        let rpc = nvm.pc + i * 4;
+        let (word, _) = rvm.mem.read_slice(rpc)?;
+        let inst = match parse_inst(rpc, word) {
+            Err(_) => break,
+            Ok(inst) => inst,
+        };
+
+        let inst = translate_inst(nvm.pc, nvm.pc + 0x1000, inst);
+        let dword = u64::from(inst);
+        let npc = nvm.pc + i * 8;
+        nvm.memory.write_inst(npc, dword)?;
+
+        i += 1;
+    }
+    Ok(nvm)
+}
+
+/// Load a NVM according the `opts`.
+pub fn load_nvm(opts: &VMOpts) -> Result<NVM> {
+    if let Some(k) = opts.nop {
+        translate_test_machine(&nop_vm(k))
+    } else if let Some(k) = opts.loopk {
+        translate_test_machine(&loop_vm(k))
+    } else if let Some(m) = &opts.machine {
+        if let Some(vm) = lookup_test_machine(m) {
+            translate_test_machine(&vm)
+        } else {
+            Err(VMError::UnknownMachine(m.clone()).into())
+        }
+    } else {
+        translate_elf(opts.file.as_ref().unwrap())
+    }
+}
+
 #[cfg(test)]
 pub mod test {
     use super::*;
@@ -185,24 +237,7 @@ pub mod test {
             .iter()
             .map(|(name, f_vm, _)| {
                 let rvm = f_vm();
-                let mut nvm = NVM::default();
-                nvm.pc = rvm.regs.pc;
-                let mut i = 0;
-                loop {
-                    let rpc = nvm.pc + i * 4;
-                    let (word, _) = rvm.mem.read_slice(rpc).unwrap();
-                    let inst = match parse_inst(rpc, word) {
-                        Err(_) => break,
-                        Ok(inst) => inst,
-                    };
-
-                    let inst = translate_inst(nvm.pc, nvm.pc + 0x1000, inst);
-                    let dword = u64::from(inst);
-                    let npc = nvm.pc + i * 8;
-                    nvm.memory.write_inst(npc, dword).unwrap();
-
-                    i += 1;
-                }
+                let nvm = translate_test_machine(&rvm).unwrap();
                 (*name, nvm)
             })
             .collect()

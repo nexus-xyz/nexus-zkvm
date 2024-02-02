@@ -4,10 +4,12 @@ static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use clap::{Parser, Subcommand};
 
-use nexus_riscv::VMOpts;
-use nexus_prover::*;
-use nexus_prover::error::*;
-use nexus_prover::pp::{gen_to_file, gen_or_load};
+use nexus_nvm::riscv::VMOpts;
+use nexus_prover::{
+    run, prove_seq, prove_par,
+    error::ProofError,
+    pp::{gen_to_file, gen_or_load},
+};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]

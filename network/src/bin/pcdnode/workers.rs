@@ -11,7 +11,7 @@ use hyper::upgrade::Upgraded;
 
 use async_channel::{unbounded, Receiver, Sender};
 
-use nexus_riscv_circuit::Trace;
+use nexus_nvm::trace::{Trace};
 use nexus_prover::{error::ProofError, types::*, circuit::Tr};
 
 use nexus_network::*;
@@ -146,9 +146,9 @@ fn prove_leaf(
     trace: Trace,
 ) -> std::result::Result<PCDNode, ProofError> {
     let i = trace.start;
-    let tr = Tr::new(trace);
+    let tr = Tr(trace);
     println!("proving leaf...");
-    let node = PCDNode::prove_step_with_commit_fn(&st.pp, &tr, i, &tr.input(i), |_pp, w| {
+    let node = PCDNode::prove_step_with_commit_fn(&st.pp, &tr, i, &tr.input(i)?, |_pp, w| {
         request_msm(rt, st, w)
     })?;
     Ok(node)
@@ -161,7 +161,7 @@ fn prove_node(
     l: PCDNode,
     r: PCDNode,
 ) -> std::result::Result<PCDNode, ProofError> {
-    let tr = Tr::new(trace);
+    let tr = Tr(trace);
     let node =
         PCDNode::prove_from_with_commit_fn(&st.pp, &tr, &l, &r, |_pp, w| request_msm(rt, st, w))?;
     Ok(node)

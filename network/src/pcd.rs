@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Serialize, Deserialize};
 
-use nexus_riscv::vm::trace::Trace;
+use nexus_nvm::trace::Trace;
 use nexus_prover::types::*;
 
 use crate::Result;
@@ -186,14 +186,8 @@ mod test {
     use super::*;
 
     use ark_ff::fields::AdditiveGroup;
-    use nexus_riscv::{nop_vm, vm::trace::trace};
     use nexus_prover::pp::gen_pp;
-    use nexus_prover::circuit::Tr;
-
-    fn nop() -> Trace {
-        let mut vm = nop_vm(3);
-        trace(&mut vm, 1, true).unwrap()
-    }
+    use nexus_prover::circuit::nop_circuit;
 
     fn round_trip(msg: &NexusMsg) {
         let v = encode_lz4(msg).unwrap();
@@ -213,26 +207,25 @@ mod test {
 
     #[test]
     fn round_trip_leaf() {
-        let t = nop();
+        let t = nop_circuit(3).unwrap().0;
         round_trip(&LeafReq(t));
     }
 
     #[test]
     #[ignore]
     fn round_trip_node() {
-        let trace = nop();
-        let circuit = Tr::new(trace.clone());
+        let circuit = nop_circuit(3).unwrap();
         let pp: ParPP = gen_pp(&circuit).unwrap();
-        let n0 = PCDNode::prove_step(&pp, &circuit, 0, &circuit.input(0)).unwrap();
-        let n2 = PCDNode::prove_step(&pp, &circuit, 2, &circuit.input(2)).unwrap();
+        let n0 = PCDNode::prove_step(&pp, &circuit, 0, &circuit.input(0).unwrap()).unwrap();
+        let n2 = PCDNode::prove_step(&pp, &circuit, 2, &circuit.input(2).unwrap()).unwrap();
         let n = PCDNode::prove_from(&pp, &circuit, &n0, &n2).unwrap();
 
         let i = std::time::Instant::now();
-        round_trip(&NodeReq(vec![(n0, trace.clone())]));
+        round_trip(&NodeReq(vec![(n0, circuit.0.clone())]));
         println!("leaf ser/de {:?}", i.elapsed());
 
         let i = std::time::Instant::now();
-        round_trip(&NodeReq(vec![(n, trace)]));
+        round_trip(&NodeReq(vec![(n, circuit.0)]));
         println!("node ser/de {:?}", i.elapsed());
     }
 }

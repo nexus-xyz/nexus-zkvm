@@ -40,7 +40,6 @@ async fn router(state: WorkerState, req: Request<Body>) -> Result<Response<Body>
 
     if req.method() == Method::POST {
         match req.uri().path() {
-            "/elf" => return post_recv_file(state, req).await,
             "/api" => return post_api(state, req).await,
             _ => return r404(),
         }
