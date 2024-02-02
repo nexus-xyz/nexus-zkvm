@@ -38,7 +38,7 @@ where
 {
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
-    let pp = PP::<C, SP>::deserialize_compressed(&mut dec)?;
+    let pp = PP::<C, SP>::deserialize_compressed_unchecked(&mut dec)?;
     Ok(pp)
 }
 
