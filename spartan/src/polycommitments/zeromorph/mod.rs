@@ -276,7 +276,6 @@ where
       ));
       let beta = E::ScalarField::rand(rng);
       let g = E::G1::rand(rng);
-      let gamma_g = E::G1::rand(rng);
       let h = E::G2::rand(rng);
       let mut powers_of_beta = vec![E::ScalarField::one()];
 
@@ -294,14 +293,6 @@ where
       let powers_of_g =
         FixedBase::msm::<E::G1>(scalar_bits, window_size, &g_table, &powers_of_beta);
       end_timer!(g_time);
-      let gamma_g_time = start_timer!(|| "Generating powers of gamma * G");
-      let gamma_g_table = FixedBase::get_window_table(scalar_bits, window_size, gamma_g);
-      let mut powers_of_gamma_g =
-        FixedBase::msm::<E::G1>(scalar_bits, window_size, &gamma_g_table, &powers_of_beta);
-      // Add an additional power of gamma_g, because we want to be able to support
-      // up to D queries.
-      powers_of_gamma_g.push(powers_of_gamma_g.last().unwrap().mul(&beta));
-      end_timer!(gamma_g_time);
 
       let powers_of_g = E::G1::normalize_batch(&powers_of_g);
 
