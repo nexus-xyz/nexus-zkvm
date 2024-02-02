@@ -180,6 +180,17 @@ impl CacheLine {
         }
         Ok(())
     }
+
+    /// store 64-bit value at addr
+    pub fn sdw(&mut self, addr: u32, val: u64) -> Result<()> {
+        if (addr & 7) != 0 {
+            return Err(Misaligned(addr));
+        }
+        unsafe {
+            self.dwords[((addr >> 3) & 3) as usize] = val;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]

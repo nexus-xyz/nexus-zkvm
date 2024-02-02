@@ -28,8 +28,14 @@ sha3 = { version = "0.10", default-features = false }
 tracing = { version = "0.1", default-features = false }
 rayon = { version = "1.8.0", optional = true }
 
+ff = { version = "0.13.0", optional = true }
+hex = { version = "0.4.3", optional = true }
+
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20", optional = true }
+halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves.git", rev = "8e4cb9f0c66c864e8ca25da07f50ae95f664a5b7", optional = true }
+
 [features]
-default = ["parallel"]
+default = ["parallel", "spartan"]
 parallel = [
    "rayon",
    "ark-ff/parallel",
@@ -38,7 +44,15 @@ parallel = [
    "ark-crypto-primitives/parallel",
    "ark-r1cs-std/parallel",
 ]
-spartan = ["ark-poly-commit", "ark_spartan", "merlin"]
+spartan = [
+   "ark-poly-commit",
+   "ark_spartan",
+   "merlin",
+   "ff",
+   "hex",
+   "halo2_proofs",
+   "halo2curves",
+]
 
 [dev-dependencies]
 ark-test-curves.workspace = true

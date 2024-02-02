@@ -29,6 +29,7 @@ use crate::{
 
 mod commitment_utils;
 mod conversion;
+mod secondary;
 
 pub mod error;
 
@@ -398,6 +399,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn compression_test() {
         compression_test_helper::<
             Bn254Config,

@@ -5,6 +5,7 @@ use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::{Field, PrimeField};
 use ark_relations::r1cs::ConstraintSystemRef;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::fmt::Display;
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
@@ -27,6 +28,20 @@ pub enum Error {
     InvalidInputLength,
 
     NotSatisfied,
+}
+
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ConstraintNumberMismatch => write!(f, "constraint number mismatch"),
+            Self::InputLengthMismatch => write!(f, "input length mismatch"),
+            Self::InvalidWitnessLength => write!(f, "invalid witness length"),
+            Self::InvalidInputLength => write!(f, "invalid input length"),
+            Self::NotSatisfied => write!(f, "not satisfied"),
+        }
+    }
 }
 
 /// A type that holds the shape of the R1CS matrices
