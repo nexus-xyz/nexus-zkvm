@@ -17,6 +17,7 @@ pub struct ConfigArgs {
 
 #[derive(Debug, Subcommand)]
 enum ConfigAction {
+    /// Compiles configuration layout into env file, overwriting previous one.
     Compile,
 }
 

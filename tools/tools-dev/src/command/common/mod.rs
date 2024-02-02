@@ -12,10 +12,15 @@ pub use self::{
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Create a new Nexus package at <path>.
     New(NewArgs),
+    /// Run a binary with the Nexus VM.
     Run(RunArgs),
+    /// Send compiled binary to the Nexus prover network.
     Prove(ProveArgs),
+    /// Request proof status; download it if it's finished.
     Request(RequestArgs),
+    /// Verify the proof.
     Verify(VerifyArgs),
 }
 

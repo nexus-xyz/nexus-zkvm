@@ -1,3 +1,6 @@
+//! When "dev" feature is enabled, the Cli will use lightweight implementation
+//! of common commands, similar to [`crate::command::dev::Command``].
+
 use crate::command::common::Command;
 
 pub mod prove;

@@ -18,6 +18,7 @@ pub enum ProveAction {
         #[arg(short, name = "k")]
         k: Option<usize>,
 
+        /// Path to public parameters file.
         #[arg(short = 'p', long = "public-params")]
         pp_file: Option<PathBuf>,
     },
@@ -25,11 +26,11 @@ pub enum ProveAction {
 
 #[derive(Debug, Args)]
 pub struct CommonProveArgs {
-    /// Use release mode artifacts
+    /// Use release mode artifacts.
     #[arg(short, long)]
     pub release: bool,
 
-    /// Name of the bin target to run
+    /// Name of the bin target to run.
     #[arg(long)]
     pub bin: Option<String>,
 }

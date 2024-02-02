@@ -12,14 +12,18 @@ use crate::{
     utils::cargo,
 };
 
+// TODO: switch to enum
 #[derive(Debug, Args)]
 pub struct NodeArgs {
+    /// Run coordinator node.
     #[arg(group = "type", short, default_value = "false")]
     well_known: bool,
 
+    /// Run pcd-prover node.
     #[arg(group = "type", short, default_value = "false")]
     pcd: bool,
 
+    /// Run msm-prover node.
     #[arg(group = "type", short, default_value = "false")]
     msm: bool,
 }

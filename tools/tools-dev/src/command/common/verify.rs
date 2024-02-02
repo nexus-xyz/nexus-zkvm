@@ -4,6 +4,7 @@ use clap::Args;
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
+    /// Path to public parameters file.
     #[arg(short = 'p', long = "public-params")]
     pub pp_file: Option<PathBuf>,
 

@@ -19,10 +19,12 @@ pub enum Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Helper commands for the development inside workspace.
     #[cfg(feature = "dev")]
     #[clap(flatten)]
     Dev(command::dev::Command),
 
+    /// Cli commands for interaction with the prover interface and the network.
     #[clap(flatten)]
     Common(command::common::Command),
 }

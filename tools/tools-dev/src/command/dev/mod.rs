@@ -1,3 +1,8 @@
+//! Development commands should only be available and used inside the workspace.
+//!
+//! To avoid recompiling Cli, it shouldn't depend on crates from the workspace, and instead
+//! run binaries with cargo.
+
 use std::path::PathBuf;
 
 use clap::Subcommand;
@@ -21,11 +26,14 @@ pub(crate) use config::compile_to_env_from_bases as compile_env_configs;
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Remove compiled configs and public parameters cache.
     Clean,
+    /// Configuration management.
     Config(config::ConfigArgs),
+    /// Nova public parameters management.
     #[clap(name = "pp")]
     PublicParams(public_params::PublicParamsArgs),
-
+    /// Run the network node.
     Node(node::NodeArgs),
 }
 
@@ -38,6 +46,7 @@ pub(crate) fn handle_command(cmd: Command) -> anyhow::Result<()> {
     }
 }
 
+/// Creates and returns the cache path.
 pub(crate) fn cache_path() -> anyhow::Result<PathBuf> {
     let path = MiscConfig::from_env()?.cache_path;
     std::fs::create_dir_all(&path)?;
