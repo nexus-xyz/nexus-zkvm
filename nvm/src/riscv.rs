@@ -191,8 +191,8 @@ fn translate_test_machine(rvm: &VM) -> Result<NVM> {
     let mut i = 0;
     loop {
         let rpc = nvm.pc + i * 4;
-        let (word, _) = rvm.mem.read_slice(rpc)?;
-        let inst = match parse_inst(rpc, word) {
+        let slice = rvm.mem.rd_page(rpc);
+        let inst = match parse_inst(rpc, slice) {
             Err(_) => break,
             Ok(inst) => inst,
         };

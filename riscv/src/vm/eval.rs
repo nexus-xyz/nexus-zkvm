@@ -2,7 +2,6 @@
 
 use crate::error::*;
 use crate::rv32::{parse::*, *};
-use super::memory::path::*;
 use super::memory::*;
 use VMError::*;
 
@@ -20,12 +19,6 @@ pub struct VM {
     pub inst: Inst,
     /// internal result register
     pub Z: u32,
-    /// merkle tree path to instruction (if available)
-    pub pc_path: Option<Path>,
-    /// merkle tree path read (if available)
-    pub read_path: Option<Path>,
-    /// merkle tree update for write (if available)
-    pub write_path: Option<Path>,
 }
 
 // ArkWorks macros are not hygenic
@@ -54,8 +47,8 @@ mod ark_confusion {
 pub use ark_confusion::*;
 
 impl VM {
-    pub fn new(pc: u32, merkle: bool) -> Self {
-        let mem = Memory::new(merkle);
+    pub fn new(pc: u32) -> Self {
+        let mem = Memory::default();
         let mut vm = VM { mem, ..Self::default() };
         vm.regs.pc = pc;
         vm
@@ -81,7 +74,7 @@ impl VM {
     pub fn init_memory(&mut self, addr: u32, bytes: &[u8]) -> Result<()> {
         // slow, but simple
         for (i, b) in bytes.iter().enumerate() {
-            self.mem.store(SB, addr + (i as u32), *b as u32)?;
+            self.mem.sb(addr + (i as u32), *b as u32);
         }
         Ok(())
     }
@@ -124,15 +117,11 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut VM) -> Result<()> {
-    let (slice, pc_path) = vm.mem.read_slice(vm.regs.pc)?;
+    let slice = vm.mem.rd_page(vm.regs.pc);
     vm.inst = parse_inst(vm.regs.pc, slice)?;
-    vm.pc_path = pc_path;
 
     // initialize micro-architecture state
     vm.Z = 0;
-    vm.read_path = None;
-    vm.write_path = None;
-
     let mut RD = 0u32;
     let mut PC = 0;
 
@@ -169,24 +158,24 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
             RD = rd;
 
             let addr = add32(X, imm);
-            let (val, path) = vm.mem.load(lop, addr)?;
-            vm.read_path = path;
-            vm.Z = val
+            match lop {
+                LB => vm.Z = vm.mem.lb(addr),
+                LH => vm.Z = vm.mem.lh(addr),
+                LW => vm.Z = vm.mem.lw(addr),
+                LBU => vm.Z = vm.mem.lbu(addr),
+                LHU => vm.Z = vm.mem.lhu(addr),
+            }
         }
         STORE { sop, rs1, rs2, imm } => {
             let X = vm.get_reg(rs1);
             let Y = vm.get_reg(rs2);
 
             let addr = add32(X, imm);
-            let lop = match sop {
-                SB => LBU,
-                SH => LHU,
-                SW => LW,
-            };
-
-            let (_val, path) = vm.mem.load(lop, addr)?;
-            vm.read_path = path;
-            vm.write_path = vm.mem.store(sop, addr, Y)?;
+            match sop {
+                SB => vm.mem.sb(addr, Y),
+                SH => vm.mem.sh(addr, Y),
+                SW => vm.mem.sw(addr, Y),
+            }
         }
         ALUI { aop, rd, rs1, imm } => {
             RD = rd;
@@ -209,7 +198,7 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
             if num == 1 {
                 let mut stdout = std::io::stdout();
                 for addr in a0..a0 + a1 {
-                    let (b, _) = vm.mem.load(LB, addr)?;
+                    let b = vm.mem.lb(addr);
                     stdout.write_all(&[b as u8])?;
                 }
                 let _ = stdout.flush();

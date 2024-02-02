@@ -5,11 +5,7 @@
 mod error;
 pub mod rv32;
 pub mod vm;
-mod ark_serde;
 pub mod machines;
-
-#[cfg(test)]
-mod tests;
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
@@ -24,13 +20,13 @@ use vm::eval::*;
 pub use machines::{nop_vm, loop_vm};
 
 /// Load a VM state from an ELF file
-pub fn load_elf(path: &PathBuf, merkle: bool) -> Result<VM> {
+pub fn load_elf(path: &PathBuf) -> Result<VM> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
-    parse_elf(slice, merkle)
+    parse_elf(slice)
 }
 
-pub fn parse_elf(bytes: &[u8], merkle: bool) -> Result<VM> {
+pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
@@ -41,7 +37,7 @@ pub fn parse_elf(bytes: &[u8], merkle: bool) -> Result<VM> {
         .collect();
 
     // TODO: read PC from elf file (and related changes)
-    let mut vm = VM::new(0x1000, merkle);
+    let mut vm = VM::new(0x1000);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
@@ -60,10 +56,6 @@ pub struct VMOpts {
     /// Instructions per step
     #[arg(short, name = "k", default_value = "1")]
     pub k: usize,
-
-    /// Use merkle-tree memory
-    #[arg(short, default_value = "false")]
-    pub merkle: bool,
 
     /// Use a no-op machine of size n
     #[arg(group = "vm", short, long, name = "n")]
@@ -104,7 +96,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
             Err(VMError::UnknownMachine(m.clone()))
         }
     } else {
-        load_elf(opts.file.as_ref().unwrap(), opts.merkle)
+        load_elf(opts.file.as_ref().unwrap())
     }
 }
 

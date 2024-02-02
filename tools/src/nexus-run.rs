@@ -12,7 +12,6 @@ fn main() {
 
     let opts = VMOpts {
         k: 1,
-        merkle: false,
         nop: None,
         loopk: None,
         machine: None,

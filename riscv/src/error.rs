@@ -1,79 +1,36 @@
-use std::error::Error;
-use std::fmt::{self, Debug, Display, Formatter};
+use thiserror::Error;
 
 /// Errors related to VM initialization and execution
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum VMError {
     /// not enough bytes available to complete instruction parse
+    #[error("partial instruction at pc:{0:x}")]
     PartialInstruction(u32),
 
     /// Invalid instruction size found during parse
+    #[error("invalid instruction size, {1}, at pc:{0:x}")]
     InvalidSize(u32, u32),
 
     /// Invalid instruction format, could not parse
+    #[error("invalid instruction {1:x} at pc:{0:x}")]
     InvalidInstruction(u32, u32),
 
     /// Unknown ECALL number
+    #[error("unknown ecall {1} at pc:{0:x}")]
     UnknownECall(u32, u32),
 
-    /// Invalid memory address
-    SegFault(u32),
-
-    /// Invalid memory alignment
-    Misaligned(u32),
-
-    /// An error occured while hashing
-    HashError(String),
-
     /// An error occurred reading file system
-    IOError(std::io::Error),
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
 
     /// Unknown test machine
+    #[error("unknown machine {0}")]
     UnknownMachine(String),
 
     /// An error occurred while parsing the ELF headers
-    ELFError(elf::ParseError),
+    #[error(transparent)]
+    ELFError(#[from] elf::ParseError),
 }
-use VMError::*;
 
 /// Result type for VM functions that can produce errors
-pub type Result<T> = std::result::Result<T, VMError>;
-
-impl From<std::io::Error> for VMError {
-    fn from(x: std::io::Error) -> VMError {
-        IOError(x)
-    }
-}
-
-impl From<elf::ParseError> for VMError {
-    fn from(x: elf::ParseError) -> VMError {
-        ELFError(x)
-    }
-}
-
-impl Error for VMError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            IOError(e) => Some(e),
-            ELFError(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl Display for VMError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            PartialInstruction(pc) => write!(f, "partial instruction at pc:{pc:x}"),
-            InvalidSize(pc, sz) => write!(f, "invalid instruction size, {sz}, at pc:{pc:x}"),
-            InvalidInstruction(pc, i) => write!(f, "invalid instruction {i:x} at pc:{pc:x}"),
-            UnknownECall(pc, n) => write!(f, "unknown ecall {n} at pc:{pc:x}"),
-            SegFault(addr) => write!(f, "invalid memory address {addr:x}"),
-            Misaligned(addr) => write!(f, "mis-alligned memory address {addr:x}"),
-            HashError(s) => write!(f, "hash error {s}"),
-            IOError(e) => write!(f, "{e}"),
-            UnknownMachine(m) => write!(f, "unknown machine {m}"),
-            ELFError(e) => write!(f, "{e}"),
-        }
-    }
-}
+pub type Result<T, E = VMError> = std::result::Result<T, E>;
