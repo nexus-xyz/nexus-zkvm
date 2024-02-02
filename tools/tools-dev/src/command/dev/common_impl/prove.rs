@@ -1,5 +1,6 @@
 use std::{
     ffi::OsString,
+    io,
     path::{Path, PathBuf},
 };
 
@@ -15,6 +16,7 @@ use crate::{
         },
     },
     utils::{cargo, path_to_artifact},
+    LOG_TARGET,
 };
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
@@ -29,6 +31,13 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let vm_config = VmConfig::from_env()?;
 
     let path = path_to_artifact(bin, release)?;
+
+    if !release {
+        tracing::warn!(
+            target: LOG_TARGET,
+            "proving debug build, use `-r` for release",
+        )
+    }
 
     match action {
         ProveAction::Request => request_prove(&path),
@@ -56,12 +65,25 @@ fn request_prove(path: &Path) -> anyhow::Result<()> {
 
 fn local_prove(path: &Path, k: usize, pp_file: Option<PathBuf>) -> anyhow::Result<()> {
     // setup if necessary
-    let pp_file = setup_params_from_env(SetupArgs {
-        k: Some(k),
-        nova_impl: Some(NovaImpl::Parallel),
-        path: pp_file.clone(),
-        force: false,
-    })?;
+    let pp_file = if let Some(path) = pp_file {
+        // return early if the path was explicitly specified and doesn't exist
+        if !path.try_exists()? {
+            tracing::error!(
+                target: LOG_TARGET,
+                "path {} was not found",
+                path.display(),
+            );
+            return Err(io::Error::from(io::ErrorKind::NotFound).into());
+        }
+        path
+    } else {
+        setup_params_from_env(SetupArgs {
+            k: Some(k),
+            nova_impl: Some(NovaImpl::Parallel),
+            path: None,
+            force: false,
+        })?
+    };
 
     // <path> -k=<k> [-m] [-p=<pp_file>] [-P] [--gen]
     let mut prover_opts = vec![
