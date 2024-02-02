@@ -17,7 +17,7 @@ use ark_std::fmt::Debug;
 use super::NonNativeAffineVar;
 use crate::{
     commitment::CommitmentScheme,
-    multifold::nimfs::{R1CSInstance, RelaxedR1CSInstance},
+    folding::nova::cyclefold::nimfs::{R1CSInstance, RelaxedR1CSInstance},
 };
 
 #[must_use]
@@ -54,7 +54,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Eq + Debug,
 {
     type Value = R1CSInstance<G1, C1>;
 
@@ -80,7 +79,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>>,
 {
     fn new_variable<T: Borrow<R1CSInstance<G1, C1>>>(
         cs: impl Into<Namespace<G1::ScalarField>>,
@@ -120,7 +118,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>>,
 {
     fn to_sponge_bytes(&self) -> Result<Vec<UInt8<G1::ScalarField>>, SynthesisError> {
         unreachable!()
@@ -191,7 +188,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Eq + Debug,
 {
     type Value = RelaxedR1CSInstance<G1, C1>;
 
@@ -222,7 +218,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>>,
 {
     fn new_variable<T: Borrow<RelaxedR1CSInstance<G1, C1>>>(
         cs: impl Into<Namespace<G1::ScalarField>>,
@@ -265,7 +260,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>>,
 {
     fn to_sponge_bytes(&self) -> Result<Vec<UInt8<G1::ScalarField>>, SynthesisError> {
         unreachable!()
@@ -286,7 +280,6 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>>,
 {
     fn conditionally_select(
         cond: &Boolean<G1::ScalarField>,

@@ -1,8 +1,13 @@
 [package]
 name = "nexus-prover"
-edition.workspace = true
-version.workspace = true
-publish = false
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
 
 [dependencies]
 clap.workspace = true
@@ -14,7 +19,6 @@ zstd = { version = "0.12", default-features = false }
 
 nexus-riscv = { path = "../riscv" }
 nexus-riscv-circuit = { path = "../riscv-circuit" }
-spartan = { path = "../spartan", package = "ark-spartan" }
 supernova = { path = "../supernova", features = ["spartan"] }
 
 ark-ff.workspace = true

@@ -1,23 +1,23 @@
 use std::marker::PhantomData;
 
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
-use ark_ec::{CurveGroup, PrimeGroup};
+use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, ToConstraintField};
 
-use super::{
+use crate::{
     absorb::{AbsorbNonNative, CryptographicSpongeExt},
-    commitment::CommitmentScheme,
+    commitment::{Commitment, CommitmentScheme},
     r1cs::{self, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
 };
 
 pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(127);
 
-pub struct NIFSProof<G: PrimeGroup, C: CommitmentScheme<G>, RO> {
+pub struct NIFSProof<G: CurveGroup, C: CommitmentScheme<G>, RO> {
     pub(crate) commitment_T: C::Commitment,
     _random_oracle: PhantomData<RO>,
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> Default for NIFSProof<G, C, RO> {
+impl<G: CurveGroup, C: CommitmentScheme<G>, RO> Default for NIFSProof<G, C, RO> {
     fn default() -> Self {
         Self {
             commitment_T: Default::default(),
@@ -26,7 +26,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> Default for NIFSProof<G, C, RO> 
     }
 }
 
-impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> Clone for NIFSProof<G, C, RO> {
+impl<G: CurveGroup, C: CommitmentScheme<G>, RO> Clone for NIFSProof<G, C, RO> {
     fn clone(&self) -> Self {
         Self {
             commitment_T: self.commitment_T,
@@ -38,7 +38,7 @@ impl<G: PrimeGroup, C: CommitmentScheme<G>, RO> Clone for NIFSProof<G, C, RO> {
 impl<G, C, RO> NIFSProof<G, C, RO>
 where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,
-    C: CommitmentScheme<G, Commitment = G>,
+    C: CommitmentScheme<G>,
     G::BaseField: PrimeField + Absorb,
     G::ScalarField: Absorb,
     G::Affine: Absorb + ToConstraintField<G::BaseField>,
@@ -114,7 +114,7 @@ pub(crate) mod tests {
         G: SWCurveConfig,
         G::BaseField: PrimeField + Absorb,
         G::ScalarField: Absorb,
-        C: CommitmentScheme<Projective<G>, Commitment = Projective<G>, SetupAux = ()>,
+        C: CommitmentScheme<Projective<G>, SetupAux = ()>,
         C::PP: Clone,
     {
         let config = poseidon_config::<G::BaseField>();

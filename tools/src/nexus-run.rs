@@ -15,6 +15,7 @@ fn main() {
         merkle: false,
         nop: None,
         loopk: None,
+        machine: None,
         file: Some(PathBuf::from(args[1].clone())),
     };
     match run_vm(&opts, false) {

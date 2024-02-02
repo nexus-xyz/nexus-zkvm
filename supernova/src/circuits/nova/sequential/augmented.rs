@@ -21,12 +21,12 @@ use ark_std::Zero;
 use crate::{
     circuits::{NovaConstraintSynthesizer, StepCircuit},
     commitment::CommitmentScheme,
-    gadgets::multifold::{multifold, primary, secondary, NonNativeAffineVar},
-    multifold::{
+    folding::nova::cyclefold::{
         self,
         nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
     },
+    gadgets::cyclefold::{multifold, primary, secondary, NonNativeAffineVar},
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
@@ -38,8 +38,8 @@ pub enum NovaAugmentedCircuitInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     Base {
         vk: G1::ScalarField,
@@ -52,8 +52,8 @@ pub struct NovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     pub vk: G1::ScalarField,
     pub i: G1::ScalarField,
@@ -69,8 +69,8 @@ impl<G1, G2, C1, C2, RO> Clone for NovaAugmentedCircuitNonBaseInput<G1, G2, C1, 
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -92,8 +92,8 @@ where
     G2: SWCurveConfig,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
 {
     vk: FpVar<G1::ScalarField>,
@@ -118,8 +118,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
 {
@@ -138,13 +138,13 @@ where
             NovaAugmentedCircuitInput::Base { vk, z_0 } => {
                 let shape =
                     R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap();
-                let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
+                let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
                 let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
                 let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
                 let u = R1CSInstance::<G1, C1>::new(
                     &shape,
-                    &Projective::zero(),
+                    &Projective::zero().into(),
                     &[G1::ScalarField::ONE; AUGMENTED_CIRCUIT_NUM_IO],
                 )
                 .unwrap();
@@ -182,8 +182,11 @@ where
         )?;
         let u = primary::R1CSInstanceVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
 
-        let commitment_T =
-            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&input.proof.commitment_T), mode)?;
+        let commitment_T = NonNativeAffineVar::new_variable(
+            cs.clone(),
+            || Ok(input.proof.commitment_T.into()),
+            mode,
+        )?;
 
         let u_secondary = (
             secondary::ProofVar::new_variable(
@@ -217,8 +220,8 @@ pub struct NovaAugmentedCircuit<'a, G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     SC: StepCircuit<G1::ScalarField>,
 {
@@ -231,8 +234,8 @@ impl<'a, G1, G2, C1, C2, RO, SC> NovaAugmentedCircuit<'a, G1, G2, C1, C2, RO, SC
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     SC: StepCircuit<G1::ScalarField>,
 {
@@ -256,8 +259,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     SC: StepCircuit<G1::ScalarField>,
@@ -277,16 +280,16 @@ where
         let U_base = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_constant(
             cs.clone(),
             RelaxedR1CSInstance {
-                commitment_W: Projective::zero(),
-                commitment_E: Projective::zero(),
+                commitment_W: Projective::zero().into(),
+                commitment_E: Projective::zero().into(),
                 X: vec![G1::ScalarField::ZERO; AUGMENTED_CIRCUIT_NUM_IO],
             },
         )?;
         let U_secondary_base = secondary::RelaxedR1CSInstanceVar::<G2, C2>::new_constant(
             cs.clone(),
             RelaxedR1CSInstance {
-                commitment_W: Projective::zero(),
-                commitment_E: Projective::zero(),
+                commitment_W: Projective::zero().into(),
+                commitment_E: Projective::zero().into(),
                 X: vec![G2::ScalarField::ZERO; SecondaryCircuit::<G1>::NUM_IO],
             },
         )?;
@@ -390,8 +393,8 @@ mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+        C1: CommitmentScheme<Projective<G1>>,
+        C2: CommitmentScheme<Projective<G2>>,
         C1::PP: Clone,
     {
         let ro_config = poseidon_config();

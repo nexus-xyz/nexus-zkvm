@@ -34,7 +34,16 @@ mod ark_confusion {
     use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 
     /// ISA defined registers
-    #[derive(Clone, Default, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+    #[derive(
+        Clone,
+        Debug,
+        PartialEq,
+        Default,
+        Serialize,
+        Deserialize,
+        CanonicalSerialize,
+        CanonicalDeserialize,
+    )]
     pub struct Regs {
         /// ISA defined program counter register
         pub pc: u32,

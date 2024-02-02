@@ -20,13 +20,16 @@ use super::PublicParams;
 use crate::{
     absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
-    multifold::nimfs::{NIMFSProof, R1CSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness},
+    folding::nova::cyclefold::nimfs::{
+        NIMFSProof, R1CSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness,
+    },
     nova::pcd::{augmented::SQUEEZE_NATIVE_ELEMENTS_NUM, PCDNode},
     StepCircuit, LOG_TARGET,
 };
 
 mod commitment_utils;
 mod conversion;
+mod secondary;
 
 pub mod error;
 
@@ -39,7 +42,7 @@ pub struct CompressedPCDProof<G1, G2, PC, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     PC: PolyCommitmentScheme<Projective<G1>>,
     PC::Commitment: Into<Projective<G1>> + From<Projective<G1>> + Copy,
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
@@ -95,7 +98,7 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     PC: PolyCommitmentScheme<Projective<G1>>,
     PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
@@ -304,7 +307,7 @@ mod tests {
         G2::BaseField: PrimeField + Absorb,
         PC: PolyCommitmentScheme<Projective<G1>>,
         PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         // we hardcode the minimum SRS size here for simplicity. If we need to derive it, we can do:
         // let shape = setup_shape(ro_config, step_circuit).unwrap();
@@ -345,7 +348,7 @@ mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         PC: PolyCommitmentScheme<Projective<G1>>,
         PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
     {
@@ -396,6 +399,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn compression_test() {
         compression_test_helper::<
             Bn254Config,

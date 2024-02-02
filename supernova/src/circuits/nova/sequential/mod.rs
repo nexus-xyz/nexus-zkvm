@@ -13,7 +13,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use crate::{
     absorb::CryptographicSpongeExt,
     commitment::CommitmentScheme,
-    multifold::{
+    folding::nova::cyclefold::{
         self,
         nimfs::{
             NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
@@ -41,8 +41,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
@@ -53,7 +53,7 @@ where
         step_circuit: &SC,
         aux1: &C1::SetupAux,
         aux2: &C2::SetupAux,
-    ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, multifold::Error> {
+    ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
@@ -71,7 +71,7 @@ where
         cs.finalize();
 
         let shape = R1CSShape::from(cs);
-        let shape_secondary = multifold::secondary::setup_shape::<G1, G2>()?;
+        let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
         let pp = C1::setup(shape.num_vars.max(shape.num_constraints), aux1);
         let pp_secondary = C2::setup(
@@ -188,8 +188,8 @@ where
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
-    C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
     RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
@@ -221,7 +221,7 @@ where
             .unwrap_or(0)
     }
 
-    pub fn prove_step(self, step_circuit: &SC) -> Result<Self, multifold::Error> {
+    pub fn prove_step(self, step_circuit: &SC) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "prove_step",
@@ -330,11 +330,11 @@ where
         })
     }
 
-    pub fn verify(&self, num_steps: usize) -> Result<(), multifold::Error> {
+    pub fn verify(&self, num_steps: usize) -> Result<(), cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
 
-        const NOT_SATISFIED_ERROR: multifold::Error =
-            multifold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
+        const NOT_SATISFIED_ERROR: cyclefold::Error =
+            cyclefold::Error::R1CS(crate::r1cs::Error::NotSatisfied);
 
         let Some(non_base) = &self.non_base else {
             return Err(NOT_SATISFIED_ERROR);
@@ -436,14 +436,14 @@ pub(crate) mod tests {
         .unwrap()
     }
 
-    fn ivc_base_step_with_cycle<G1, G2, C1, C2>() -> Result<(), multifold::Error>
+    fn ivc_base_step_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
         G1: SWCurveConfig,
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let ro_config = poseidon_config();
 
@@ -480,14 +480,14 @@ pub(crate) mod tests {
         .unwrap()
     }
 
-    fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), multifold::Error>
+    fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
         G1: SWCurveConfig,
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let filter = filter::Targets::new().with_target(SUPERNOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()

@@ -8,7 +8,7 @@ use ark_spartan::{
 
 use super::PolyVectorCommitment;
 use crate::{
-    multifold::nimfs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
+    folding::nova::cyclefold::nimfs::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
     r1cs::SparseMatrix,
 };
 
@@ -69,7 +69,7 @@ impl<G, PC> TryFrom<RelaxedR1CSInstance<G, PolyVectorCommitment<Projective<G>, P
 where
     G: SWCurveConfig,
     PC: PolyCommitmentScheme<Projective<G>>,
-    PC::Commitment: Copy,
+    PC::Commitment: Copy + Into<Projective<G>> + From<Projective<G>>,
 {
     type Error = ConversionError;
     fn try_from(
@@ -126,7 +126,7 @@ mod tests {
         G: SWCurveConfig,
         G::BaseField: PrimeField,
         PC: PolyCommitmentScheme<Projective<G>>,
-        PC::Commitment: Copy + Into<Projective<G>>,
+        PC::Commitment: Copy + Into<Projective<G>> + From<Projective<G>>,
     {
         let mut rng = test_rng();
         let srs = PC::setup(3, b"test_srs_cubic", &mut rng)

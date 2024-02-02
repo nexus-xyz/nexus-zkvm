@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use crate::{commitment::CommitmentScheme, LOG_TARGET};
-use ark_ec::{ScalarMul, VariableBaseMSM};
+use ark_ec::{CurveGroup, ScalarMul, VariableBaseMSM};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 #[derive(Debug)]
@@ -9,7 +9,7 @@ pub struct PedersenCommitment<G>(PhantomData<G>);
 
 impl<G> CommitmentScheme<G> for PedersenCommitment<G>
 where
-    G: VariableBaseMSM,
+    G: CurveGroup,
     G::MulBase: CanonicalSerialize + CanonicalDeserialize,
 {
     type PP = Vec<G::MulBase>;

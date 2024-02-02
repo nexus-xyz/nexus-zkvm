@@ -97,7 +97,7 @@ pub fn compute_zeros(params: &Params) -> Result<Vec<Digest>, VMError> {
 
 /// Holds a proof of a particular path from leaf to root
 /// For example, if we have the tree:
-///```ignore
+///```text
 ///         [A]
 ///        /   \
 ///      [B]    C

@@ -1,14 +1,11 @@
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
-use ark_ec::{
-    short_weierstrass::{Projective, SWCurveConfig},
-    CurveGroup,
-};
+use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{Field, PrimeField};
 
 use crate::{
     absorb::CryptographicSpongeExt,
-    commitment::CommitmentScheme,
-    multifold::secondary,
+    commitment::{Commitment, CommitmentScheme},
+    folding::nova::cyclefold::secondary,
     r1cs,
     utils::{cast_field_element, cast_field_element_unique},
 };
@@ -23,8 +20,7 @@ where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
     C1: CommitmentScheme<Projective<G1>>,
-    C1::Commitment: Into<Projective<G1>> + From<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>>,
+    C2: CommitmentScheme<Projective<G2>>,
     G1::BaseField: PrimeField + Absorb,
     G2::BaseField: PrimeField + Absorb,
     RO: CryptographicSponge,
@@ -325,8 +321,6 @@ mod tests {
     use ark_ff::Field;
     use ark_std::{rand::Rng, UniformRand, Zero};
 
-    use std::fmt;
-
     #[test]
     fn prove_verify() {
         prove_verify_with_cycle::<
@@ -342,10 +336,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>
-            + fmt::Debug,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>, SetupAux = ()>
-            + fmt::Debug,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -410,9 +402,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, Commitment = Projective<G1>, SetupAux = ()>
-            + fmt::Debug,
-        C2: CommitmentScheme<Projective<G2>, Commitment = Projective<G2>> + fmt::Debug,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -461,7 +452,7 @@ mod tests {
                 (&U2_secondary, &W2_secondary),
             )?;
 
-        assert!(!U.commitment_E.is_zero());
+        assert!(!U.commitment_E.into().is_zero());
         Ok(((U, W), (U_secondary, W_secondary)))
     }
 }
