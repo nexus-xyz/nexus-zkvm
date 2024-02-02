@@ -22,7 +22,7 @@ pub trait Config: DeserializeOwned {
 
         Ok(config::Config::builder()
             .add_source(
-                config::Environment::with_prefix(&prefix).separator(constants::CONFIG_SEPARATOR),
+                config::Environment::with_prefix(prefix).separator(constants::CONFIG_SEPARATOR),
             )
             .build()?
             .try_deserialize()?)

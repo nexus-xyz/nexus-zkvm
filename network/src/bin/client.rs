@@ -35,7 +35,7 @@ fn main() {
             if proof.proof.is_some() {
                 println!("Saving proof...");
                 let serialized = serde_json::to_vec(&proof).unwrap();
-                std::fs::write(path, &serialized).unwrap();
+                std::fs::write(path, serialized).unwrap();
             }
 
             proof
