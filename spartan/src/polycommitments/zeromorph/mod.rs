@@ -1,5 +1,4 @@
-use ark_ec::{pairing::Pairing, scalar_mul::fixed_base::FixedBase, AffineRepr, CurveGroup};
-use ark_ff::PrimeField;
+use ark_ec::{pairing::Pairing, scalar_mul::ScalarMul, AffineRepr, CurveGroup};
 use ark_poly::{univariate::DensePolynomial as DenseUnivarPolynomial, DenseUVPolynomial};
 use ark_poly_commit::{
   error::Error,
@@ -7,8 +6,8 @@ use ark_poly_commit::{
   PCUniversalParams,
 };
 use ark_std::{
-  collections::BTreeMap, end_timer, marker::PhantomData, ops::Mul, rand::RngCore, start_timer,
-  vec::Vec, One, UniformRand, Zero,
+  end_timer, marker::PhantomData, ops::Mul, rand::RngCore, start_timer, vec::Vec, One, UniformRand,
+  Zero,
 };
 use merlin::Transcript;
 
@@ -276,34 +275,20 @@ where
       ));
       let beta = E::ScalarField::rand(rng);
       let g = E::G1::rand(rng);
-      let gamma_g = E::G1::rand(rng);
       let h = E::G2::rand(rng);
+
+      // powers_of_beta = [1, b, ..., b^(max_degree + 1)], len = max_degree + 2
       let mut powers_of_beta = vec![E::ScalarField::one()];
 
       let mut cur = beta;
-      for _ in 0..max_degree {
+      for _ in 0..=max_degree {
         powers_of_beta.push(cur);
         cur *= &beta;
       }
 
-      let window_size = FixedBase::get_mul_window_size(max_degree + 1);
-
-      let scalar_bits = E::ScalarField::MODULUS_BIT_SIZE as usize;
       let g_time = start_timer!(|| "Generating powers of G");
-      let g_table = FixedBase::get_window_table(scalar_bits, window_size, g);
-      let powers_of_g =
-        FixedBase::msm::<E::G1>(scalar_bits, window_size, &g_table, &powers_of_beta);
+      let powers_of_g = g.batch_mul(&powers_of_beta[0..max_degree + 1]);
       end_timer!(g_time);
-      let gamma_g_time = start_timer!(|| "Generating powers of gamma * G");
-      let gamma_g_table = FixedBase::get_window_table(scalar_bits, window_size, gamma_g);
-      let mut powers_of_gamma_g =
-        FixedBase::msm::<E::G1>(scalar_bits, window_size, &gamma_g_table, &powers_of_beta);
-      // Add an additional power of gamma_g, because we want to be able to support
-      // up to D queries.
-      powers_of_gamma_g.push(powers_of_gamma_g.last().unwrap().mul(&beta));
-      end_timer!(gamma_g_time);
-
-      let powers_of_g = E::G1::normalize_batch(&powers_of_g);
 
       let powers_of_h_time = start_timer!(|| "Generating powers of h in G2");
       let shift_powers_of_tau_h = {
@@ -312,17 +297,10 @@ where
           // powers_of_beta[k] = beta^k and N_max = max_degree + 1; we want shift_powers_of_beta[n] = beta^(N_max - 2^n + 1)
           shift_powers_of_beta.push(powers_of_beta[max_degree + 1 - Math::pow2(n) + 1]);
         }
-        let window_size = FixedBase::get_mul_window_size(max_num_poly_vars + 1);
-        let h_table = FixedBase::get_window_table(scalar_bits, window_size, h);
-        let powers_of_h =
-          FixedBase::msm::<E::G2>(scalar_bits, window_size, &h_table, &shift_powers_of_beta);
-
-        let affines = E::G2::normalize_batch(&powers_of_h);
-        let mut affines_map = BTreeMap::new();
-        affines.into_iter().enumerate().for_each(|(i, a)| {
-          affines_map.insert(i, a);
-        });
-        affines_map
+        h.batch_mul(&shift_powers_of_beta)
+          .into_iter()
+          .enumerate()
+          .collect()
       };
 
       end_timer!(powers_of_h_time);
