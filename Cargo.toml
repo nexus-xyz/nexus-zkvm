@@ -59,11 +59,11 @@ ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitive
 
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
 
-ark-ff = { git = "https://github.com/dorebell/algebra/", rev = "1bdb129" }
-ark-ec = { git = "https://github.com/dorebell/algebra/", rev = "1bdb129" }
-ark-serialize = { git = "https://github.com/dorebell/algebra/", rev = "1bdb129" }
-ark-poly = { git = "https://github.com/dorebell/algebra/", rev = "1bdb129" }
-ark-test-curves = { git = "https://github.com/dorebell/algebra/", rev = "1bdb129" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
 
 ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "12f5529" }
 
