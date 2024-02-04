@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub use nexus_nvm::error::NVMError;
+pub use nexus_vm::error::NexusVMError;
 pub use ark_serialize::SerializationError;
 pub use ark_relations::r1cs::SynthesisError;
 pub use supernova::nova::Error as NovaError;
@@ -11,7 +11,7 @@ pub use supernova::r1cs::Error as R1CSError;
 #[derive(Debug)]
 pub enum ProofError {
     /// An error occured executing program
-    NVMError(NVMError),
+    NexusVMError(NexusVMError),
 
     /// An error occurred reading file system
     IOError(std::io::Error),
@@ -36,9 +36,9 @@ pub enum ProofError {
 }
 use ProofError::*;
 
-impl From<NVMError> for ProofError {
-    fn from(x: NVMError) -> ProofError {
-        NVMError(x)
+impl From<NexusVMError> for ProofError {
+    fn from(x: NexusVMError) -> ProofError {
+        NexusVMError(x)
     }
 }
 
@@ -73,7 +73,7 @@ impl From<SerializationError> for ProofError {
 impl Error for ProofError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            NVMError(e) => Some(e),
+            NexusVMError(e) => Some(e),
             IOError(e) => Some(e),
             CircuitError(e) => Some(e),
             SerError(e) => Some(e),
@@ -88,7 +88,7 @@ impl Error for ProofError {
 impl Display for ProofError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            NVMError(e) => write!(f, "{e}"),
+            NexusVMError(e) => write!(f, "{e}"),
             IOError(e) => write!(f, "{e}"),
             CircuitError(e) => write!(f, "{e}"),
             SerError(e) => write!(f, "{e}"),

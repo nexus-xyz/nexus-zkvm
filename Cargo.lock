@@ -1424,9 +1424,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "miniz_oxide"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7810e0be55b428ada41041c41f32c9f1a42817901b4ccf45fa3d4b6561e74c7"
+checksum = "9d811f3e15f28568be3407c8e7fdb6514c1cda3cb30683f15b6a1a1dc4ea14a7"
 dependencies = [
  "adler",
 ]
@@ -1455,8 +1455,8 @@ dependencies = [
  "hex",
  "hyper",
  "lz4",
- "nexus-nvm",
  "nexus-prover",
+ "nexus-vm",
  "postcard",
  "reqwest",
  "serde",
@@ -1466,25 +1466,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
-]
-
-[[package]]
-name = "nexus-nvm"
-version = "0.1.0"
-dependencies = [
- "ark-bn254",
- "ark-crypto-primitives",
- "ark-ff",
- "ark-r1cs-std",
- "ark-relations",
- "ark-serialize",
- "ark-std",
- "elf",
- "nexus-riscv",
- "num-derive",
- "num-traits",
- "serde",
- "thiserror",
 ]
 
 [[package]]
@@ -1501,7 +1482,7 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "clap 4.4.18",
- "nexus-nvm",
+ "nexus-vm",
  "snmalloc-rs",
  "supernova",
  "zstd",
@@ -1550,6 +1531,25 @@ dependencies = [
  "nexus-prover",
  "nexus-riscv",
  "serde_json",
+]
+
+[[package]]
+name = "nexus-vm"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "ark-crypto-primitives",
+ "ark-ff",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-serialize",
+ "ark-std",
+ "elf",
+ "nexus-riscv",
+ "num-derive",
+ "num-traits",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

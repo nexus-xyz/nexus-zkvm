@@ -6,8 +6,8 @@ use sha2::{Digest, Sha256};
 use hyper::{header, Body, Request, Response, StatusCode};
 use tokio::task::JoinHandle;
 
-use nexus_nvm::{
-    eval::{NVM},
+use nexus_vm::{
+    eval::{NexusVM},
     trace::trace,
     riscv::translate_elf_bytes,
 };
@@ -17,7 +17,7 @@ use nexus_network::api::*;
 
 use crate::workers::*;
 
-pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NVM) -> Result<()> {
+pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Result<()> {
     let trace = Arc::new(trace(&mut vm, 1, true)?);
 
     let steps = trace.blocks.len() as u32;

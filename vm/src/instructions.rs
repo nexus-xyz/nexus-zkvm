@@ -97,7 +97,7 @@ pub enum Width {
     HU = 4,
 }
 
-/// NVM instruction
+/// NexusVM instruction
 #[derive(Debug, Copy, Clone, Default, PartialEq)]
 pub struct Inst {
     /// Instruction opcode

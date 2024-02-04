@@ -6,7 +6,7 @@ pub mod pp;
 use std::time::Instant;
 use std::io::{self, Write};
 
-use nexus_nvm::{
+use nexus_vm::{
     riscv::{VMOpts, load_nvm},
     trace::{Trace, trace},
 };

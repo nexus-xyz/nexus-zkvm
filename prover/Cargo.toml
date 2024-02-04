@@ -17,7 +17,7 @@ snmalloc-rs = { version = "0.3.4", optional = true }
 
 zstd = { version = "0.12", default-features = false }
 
-nexus-nvm = { path = "../nvm" }
+nexus-vm = { path = "../vm" }
 supernova = { path = "../supernova", features = ["spartan"] }
 
 ark-ff.workspace = true

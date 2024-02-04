@@ -7,7 +7,7 @@ use ark_r1cs_std::{
 use crate::{
     error::Result,
     riscv::test::test_machines,
-    eval::{NVM, halt_vm},
+    eval::{NexusVM, halt_vm},
     trace::trace,
 };
 
@@ -23,7 +23,7 @@ fn vm_circuit(k: usize) -> Result<R1CS> {
 
 // check each step of each block for satisfiability
 // all values of k are equivalent at this level
-fn nvm_check_steps(mut vm: NVM) -> Result<()> {
+fn nvm_check_steps(mut vm: NexusVM) -> Result<()> {
     let mut rcs = vm_circuit(1)?;
     assert!(rcs.is_sat());
 
@@ -50,7 +50,7 @@ fn nvm_step() {
     }
 }
 
-fn ark_check(mut vm: NVM, k: usize) -> Result<()> {
+fn ark_check(mut vm: NexusVM, k: usize) -> Result<()> {
     let tr = trace(&mut vm, k, false)?;
 
     for i in 0..tr.blocks.len() {

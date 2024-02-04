@@ -2,7 +2,7 @@ use thiserror::Error;
 
 /// Errors related to VM initialization and execution
 #[derive(Debug, Error)]
-pub enum NVMError {
+pub enum NexusVMError {
     /// Invalid instruction format, could not parse
     #[error("invalid instruction {1} at {0}")]
     InvalidInstruction(u64, u32),
@@ -40,4 +40,4 @@ pub enum NVMError {
     RVError(#[from] nexus_riscv::VMError),
 }
 
-pub(crate) type Result<T, E = NVMError> = std::result::Result<T, E>;
+pub(crate) type Result<T, E = NexusVMError> = std::result::Result<T, E>;

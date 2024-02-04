@@ -12,9 +12,9 @@ use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use ark_r1cs_std::{alloc::AllocVar, boolean::Boolean, fields::fp::FpVar, prelude::*};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::error::NVMError;
+use crate::error::NexusVMError;
 use super::cacheline::*;
-use NVMError::HashError;
+use NexusVMError::HashError;
 
 pub type F = ark_bn254::Fr;
 pub type CS = ConstraintSystemRef<F>;
@@ -57,29 +57,29 @@ pub fn poseidon_config() -> PoseidonConfig<F> {
     }
 }
 
-pub fn hash_leaf(params: &Params, leaf: &[F]) -> Result<Digest, NVMError> {
+pub fn hash_leaf(params: &Params, leaf: &[F]) -> Result<Digest, NexusVMError> {
     match LeafHash::evaluate(params, leaf) {
         Ok(d) => Ok(d),
         Err(e) => Err(HashError(e.to_string())),
     }
 }
 
-pub fn compress(params: &Params, left: &Digest, right: &Digest) -> Result<Digest, NVMError> {
+pub fn compress(params: &Params, left: &Digest, right: &Digest) -> Result<Digest, NexusVMError> {
     match TwoToOneHash::compress(params, left, right) {
         Ok(d) => Ok(d),
         Err(e) => Err(HashError(e.to_string())),
     }
 }
 
-pub fn hash_memory(params: &Params, cl: &CacheLine) -> Result<Digest, NVMError> {
+pub fn hash_memory(params: &Params, cl: &CacheLine) -> Result<Digest, NexusVMError> {
     hash_leaf(params, &cl.scalars())
 }
 
 /// Calculate a hash chain of length `CACHE_LOG`, starting from
 /// a default `CacheLine`. This is used to construct paths for
 /// missing elements in the memory.
-pub fn compute_zeros(params: &Params) -> Result<Vec<Digest>, NVMError> {
-    fn f(params: &Params, v: &mut Vec<Digest>, n: usize) -> Result<Digest, NVMError> {
+pub fn compute_zeros(params: &Params) -> Result<Vec<Digest>, NexusVMError> {
+    fn f(params: &Params, v: &mut Vec<Digest>, n: usize) -> Result<Digest, NexusVMError> {
         if n == 0 {
             return hash_memory(params, &CacheLine::default());
         }
@@ -122,7 +122,7 @@ impl Path {
     }
 
     /// Verify a `Path` by checking hashes
-    pub fn verify(&self, params: &Params) -> Result<bool, NVMError> {
+    pub fn verify(&self, params: &Params) -> Result<bool, NexusVMError> {
         let mut hash = hash_leaf(params, &self.leaf)?;
         for (is_left, s) in &self.auth {
             if *is_left {

@@ -4,7 +4,7 @@ static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use clap::{Parser, Subcommand};
 
-use nexus_nvm::riscv::VMOpts;
+use nexus_vm::riscv::VMOpts;
 use nexus_prover::{
     run, prove_seq, prove_par,
     error::ProofError,
