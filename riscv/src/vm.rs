@@ -2,4 +2,3 @@
 
 pub mod memory;
 pub mod eval;
-pub mod trace;
