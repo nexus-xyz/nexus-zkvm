@@ -3,15 +3,18 @@ pub mod types;
 pub mod circuit;
 pub mod pp;
 
-use crate::error::*;
-use crate::types::*;
-use crate::circuit::*;
-
 use std::time::Instant;
 use std::io::{self, Write};
-use nexus_riscv::{
-    VMOpts, load_vm,
-    vm::trace::{Trace, trace},
+
+use nexus_vm::{
+    riscv::{VMOpts, load_nvm},
+    trace::{Trace, trace},
+};
+
+use crate::{
+    error::ProofError,
+    types::{SeqPP, ParPP, IVCProof, PCDNode},
+    circuit::Tr,
 };
 
 fn estimate_size(tr: &Trace) -> usize {
@@ -22,7 +25,7 @@ fn estimate_size(tr: &Trace) -> usize {
 }
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    let mut vm = load_vm(opts)?;
+    let mut vm = load_nvm(opts)?;
 
     let start = Instant::now();
     println!("Executing program...");
@@ -43,9 +46,9 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
 
 pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
-    let tr = Tr::new(trace);
+    let tr = Tr(trace);
     let icount = tr.instructions();
-    let z_0 = tr.input(0);
+    let z_0 = tr.input(0)?;
     let mut proof = IVCProof::new(&pp, &z_0);
 
     println!("\nProving Execution Trace:");
@@ -59,7 +62,7 @@ pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
         io::stdout().flush().unwrap();
 
         let t = Instant::now();
-        proof = IVCProof::prove_step(proof, &tr).unwrap();
+        proof = IVCProof::prove_step(proof, &tr)?;
 
         println!(
             "{:?}  {:0.2}%",
@@ -82,7 +85,7 @@ pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
 
 pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
     let k = trace.k;
-    let tr = Tr::new(trace);
+    let tr = Tr(trace);
 
     let steps = tr.steps();
     println!("\nproving {steps} steps...");
@@ -95,7 +98,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
             print!("leaf step {i}... ");
             io::stdout().flush().unwrap();
             let t = Instant::now();
-            let v = PCDNode::prove_step(&pp, &tr, i, &tr.input(i))?;
+            let v = PCDNode::prove_step(&pp, &tr, i, &tr.input(i)?)?;
             println!("{:?}", t.elapsed());
             Ok(v)
         })

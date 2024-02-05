@@ -1,4 +1,4 @@
-//! Translation of RISC-V ro NVM.
+//! Translation of RISC-V ro NexusVM.
 
 use std::path::Path;
 use std::fs::read;
@@ -11,11 +11,17 @@ use elf::{
     ElfBytes,
 };
 
-use nexus_riscv::rv32::{RV32, Inst as RVInst, parse::parse_inst};
+use nexus_riscv::{
+    nop_vm, loop_vm, VMError,
+    machines::lookup_test_machine,
+    vm::eval::VM,
+    rv32::{RV32, Inst as RVInst, parse::parse_inst},
+};
+pub use nexus_riscv::VMOpts;
 
-use crate::error::{Result, NVMError::ELFFormat};
+use crate::error::{Result, NexusVMError::ELFFormat};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
-use crate::eval::NVM;
+use crate::eval::NexusVM;
 
 #[inline]
 fn add32(a: u32, b: u32) -> u32 {
@@ -27,7 +33,7 @@ fn mul32(a: u32, b: u32) -> u32 {
     a.overflowing_mul(b).0
 }
 
-// Translate a RV32 instruction to an NVM instruction.
+// Translate a RV32 instruction to an NexusVM instruction.
 // We use the start and end of the code segment to heuristically,
 // decide how to handle PC-relative computations.
 // This technique works for programs built with nexus_rt, but is
@@ -113,12 +119,16 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
     inst
 }
 
-/// Translate a RiscV ELF file to NVM.
-#[allow(clippy::needless_range_loop)]
-#[allow(clippy::field_reassign_with_default)]
-pub fn translate_elf(path: &Path) -> Result<NVM> {
+/// Translate a RiscV ELF file to NexusVM.
+pub fn translate_elf(path: &Path) -> Result<NexusVM> {
     let file_data = read(path)?;
     let bytes = file_data.as_slice();
+    translate_elf_bytes(bytes)
+}
+
+/// Translate a RiscV ELF file to NexusVM.
+#[allow(clippy::needless_range_loop)]
+pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     if file.ehdr.e_entry != 0x1000 {
@@ -147,10 +157,10 @@ pub fn translate_elf(path: &Path) -> Result<NVM> {
     }
 
     if code.p_offset + code.p_filesz * 2 >= data.p_offset {
-        return Err(ELFFormat("not enough room to expand code to NVM"));
+        return Err(ELFFormat("not enough room to expand code to NexusVM"));
     }
 
-    let mut vm = NVM::default();
+    let mut vm = NexusVM::default();
     vm.pc = 0x1000;
 
     // write code segment
@@ -174,6 +184,46 @@ pub fn translate_elf(path: &Path) -> Result<NVM> {
     Ok(vm)
 }
 
+// internal function to translate RISC-V test VMs to NexusVMs
+fn translate_test_machine(rvm: &VM) -> Result<NexusVM> {
+    let mut nvm = NexusVM::default();
+    nvm.pc = rvm.regs.pc;
+    let mut i = 0;
+    loop {
+        let rpc = nvm.pc + i * 4;
+        let slice = rvm.mem.rd_page(rpc);
+        let inst = match parse_inst(rpc, slice) {
+            Err(_) => break,
+            Ok(inst) => inst,
+        };
+
+        let inst = translate_inst(nvm.pc, nvm.pc + 0x1000, inst);
+        let dword = u64::from(inst);
+        let npc = nvm.pc + i * 8;
+        nvm.memory.write_inst(npc, dword)?;
+
+        i += 1;
+    }
+    Ok(nvm)
+}
+
+/// Load a NexusVM according the `opts`.
+pub fn load_nvm(opts: &VMOpts) -> Result<NexusVM> {
+    if let Some(k) = opts.nop {
+        translate_test_machine(&nop_vm(k))
+    } else if let Some(k) = opts.loopk {
+        translate_test_machine(&loop_vm(k))
+    } else if let Some(m) = &opts.machine {
+        if let Some(vm) = lookup_test_machine(m) {
+            translate_test_machine(&vm)
+        } else {
+            Err(VMError::UnknownMachine(m.clone()).into())
+        }
+    } else {
+        translate_elf(opts.file.as_ref().unwrap())
+    }
+}
+
 #[cfg(test)]
 pub mod test {
     use super::*;
@@ -182,30 +232,12 @@ pub mod test {
     use nexus_riscv::machines::MACHINES;
 
     // this function is used by other test crates
-    #[allow(clippy::field_reassign_with_default)]
-    pub fn test_machines() -> Vec<(&'static str, NVM)> {
+    pub fn test_machines() -> Vec<(&'static str, NexusVM)> {
         MACHINES
             .iter()
             .map(|(name, f_vm, _)| {
                 let rvm = f_vm();
-                let mut nvm = NVM::default();
-                nvm.pc = rvm.regs.pc;
-                let mut i = 0;
-                loop {
-                    let rpc = nvm.pc + i * 4;
-                    let (word, _) = rvm.mem.read_slice(rpc).unwrap();
-                    let inst = match parse_inst(rpc, word) {
-                        Err(_) => break,
-                        Ok(inst) => inst,
-                    };
-
-                    let inst = translate_inst(nvm.pc, nvm.pc + 0x1000, inst);
-                    let dword = u64::from(inst);
-                    let npc = nvm.pc + i * 8;
-                    nvm.memory.write_inst(npc, dword).unwrap();
-
-                    i += 1;
-                }
+                let nvm = translate_test_machine(&rvm).unwrap();
                 (*name, nvm)
             })
             .collect()

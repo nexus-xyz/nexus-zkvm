@@ -17,7 +17,6 @@ pub fn run() -> CmdResult<()> {
 
     let opts = VMOpts {
         k: 1,
-        merkle: false,
         nop: None,
         loopk: None,
         machine: None,

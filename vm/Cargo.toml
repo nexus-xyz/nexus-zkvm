@@ -1,8 +1,13 @@
 [package]
-name = "nvm"
-edition.workspace = true
-version.workspace = true
-publish = false
+name = "nexus-vm"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
 
 [dependencies]
 thiserror = "1.0"

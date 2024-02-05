@@ -4,8 +4,7 @@ members = [
     "runtime",
     "examples",
     "riscv",
-    "riscv-circuit",
-    "nvm",
+    "vm",
     "tools",
     "tools/tools-dev",
     "config",
@@ -16,8 +15,7 @@ members = [
 ]
 default-members = [
     "riscv",
-    "riscv-circuit",
-    "nvm",
+    "vm",
     "tools",
     "prover",
     "network",

@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub use nexus_riscv::VMError;
+pub use nexus_vm::error::NexusVMError;
 pub use ark_serialize::SerializationError;
 pub use ark_relations::r1cs::SynthesisError;
 pub use supernova::nova::Error as NovaError;
@@ -11,7 +11,7 @@ pub use supernova::r1cs::Error as R1CSError;
 #[derive(Debug)]
 pub enum ProofError {
     /// An error occured executing program
-    VMError(VMError),
+    NexusVMError(NexusVMError),
 
     /// An error occurred reading file system
     IOError(std::io::Error),
@@ -25,6 +25,9 @@ pub enum ProofError {
     /// The witness does not satisfy the constraints
     WitnessError(R1CSError),
 
+    /// Invalid folding step index
+    InvalidIndex(usize),
+
     /// Public Parameters do not match circuit
     InvalidPP,
 
@@ -33,9 +36,9 @@ pub enum ProofError {
 }
 use ProofError::*;
 
-impl From<VMError> for ProofError {
-    fn from(x: VMError) -> ProofError {
-        VMError(x)
+impl From<NexusVMError> for ProofError {
+    fn from(x: NexusVMError) -> ProofError {
+        NexusVMError(x)
     }
 }
 
@@ -70,12 +73,13 @@ impl From<SerializationError> for ProofError {
 impl Error for ProofError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            VMError(e) => Some(e),
+            NexusVMError(e) => Some(e),
             IOError(e) => Some(e),
             CircuitError(e) => Some(e),
             SerError(e) => Some(e),
             WitnessError(e) => Some(e),
             InvalidPP => None,
+            InvalidIndex(_) => None,
             NovaProofError => None,
         }
     }
@@ -84,12 +88,13 @@ impl Error for ProofError {
 impl Display for ProofError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            VMError(e) => write!(f, "{e}"),
+            NexusVMError(e) => write!(f, "{e}"),
             IOError(e) => write!(f, "{e}"),
             CircuitError(e) => write!(f, "{e}"),
             SerError(e) => write!(f, "{e}"),
             WitnessError(e) => write!(f, "{e}"),
             InvalidPP => write!(f, "invalid public parameters"),
+            InvalidIndex(i) => write!(f, "invalid step index {i}"),
             NovaProofError => write!(f, "invalid Nova proof"),
         }
     }

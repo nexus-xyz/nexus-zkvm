@@ -13,6 +13,7 @@ categories = { workspace = true }
 clap.workspace = true
 serde.workspace = true
 elf.workspace = true
+thiserror = "1.0"
 
 ark-ff.workspace = true
 ark-relations.workspace = true

@@ -17,7 +17,7 @@ use num_traits::FromPrimitive;
 
 use crate::error::Result;
 use crate::instructions::{Inst, Opcode::HALT};
-use crate::eval::{NVM, eval_step};
+use crate::eval::{NexusVM, eval_step};
 use crate::memory::path::Path;
 
 use ark_bn254::Fr as F;
@@ -50,7 +50,7 @@ pub struct Block {
 /// A program step.
 #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Step {
-    /// Encoded NVM instruction.
+    /// Encoded NexusVM instruction.
     pub inst: u64,
     /// Result of instruction evaluation.
     pub Z: u32,
@@ -81,7 +81,7 @@ impl Trace {
 
     /// Return block with index `n`, if it is contained in this (sub)trace.
     pub fn block(&self, n: usize) -> Option<&Block> {
-        if self.start < n || self.start + self.blocks.len() >= n {
+        if self.start > n || self.start + self.blocks.len() <= n {
             return None;
         }
         Some(&self.blocks[n - self.start])
@@ -97,7 +97,7 @@ impl Trace {
     }
 
     /// Return the circuit input for block at index `n`.
-    /// This vector is compatible with the NVM step circuit.
+    /// This vector is compatible with the NexusVM step circuit.
     pub fn input(&self, n: usize) -> Option<Vec<F>> {
         let b = self.block(n)?;
         let mut v = Vec::new();
@@ -120,7 +120,7 @@ impl Trace {
 }
 
 // Generate a `Step` by evaluating the next instruction of `vm`.
-fn step(vm: &mut NVM) -> Result<Step> {
+fn step(vm: &mut NexusVM) -> Result<Step> {
     let pc = vm.pc;
     eval_step(vm)?;
     let step = Step {
@@ -135,7 +135,7 @@ fn step(vm: &mut NVM) -> Result<Step> {
 }
 
 // Generate a `Block` by evaluating `k` steps of `vm`.
-fn k_step(vm: &mut NVM, k: usize) -> Result<Block> {
+fn k_step(vm: &mut NexusVM, k: usize) -> Result<Block> {
     let mut block = Block {
         pc: vm.pc,
         regs: vm.regs,
@@ -153,7 +153,7 @@ fn k_step(vm: &mut NVM, k: usize) -> Result<Block> {
 /// per block. If `pow` is true, the total number of steps will
 /// be rounded up to the nearest power of two by inserting HALT
 /// instructions.
-pub fn trace(vm: &mut NVM, k: usize, pow: bool) -> Result<Trace> {
+pub fn trace(vm: &mut NexusVM, k: usize, pow: bool) -> Result<Trace> {
     let mut trace = Trace { k, start: 0, blocks: Vec::new() };
 
     loop {
@@ -256,7 +256,9 @@ impl Iterator for BlockIter<'_> {
         };
 
         self.pc = w.PC;
-        self.regs[w.inst.rd as usize] = w.Z;
+        if w.inst.rd > 0 {
+            self.regs[w.inst.rd as usize] = w.Z;
+        }
         self.index += 1;
         Some(w)
     }
