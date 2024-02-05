@@ -16,7 +16,7 @@ pub trait Config: DeserializeOwned {
             &[constants::CONFIG_ENV_PREFIX, Self::PREFIX].join(constants::CONFIG_SEPARATOR);
 
         let _result = dotenvy::from_path(constants::CONFIG_ENV_PATH);
-        // don't bail in tests.
+        // don't bail in tests to keep them isolated from env files.
         #[cfg(not(test))]
         _result?;
 
