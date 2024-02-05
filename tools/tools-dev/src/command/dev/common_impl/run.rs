@@ -31,15 +31,8 @@ fn run_vm(bin: Option<String>, verbose: bool, release: bool) -> anyhow::Result<(
 }
 
 pub fn run_vm_with_elf_file(path: &Path, verbose: bool) -> anyhow::Result<()> {
-    // make sure configs are compiled
-    compile_env_configs(false)?;
-    let vm_config = VmConfig::from_env()?;
-
-    // <path> -k=<k> [--trace]
-    let mut vm_opts = vec![
-        path.as_os_str().to_os_string(),
-        format!("-k={}", vm_config.k).into(),
-    ];
+    // <path> [--trace]
+    let mut vm_opts = vec![path.as_os_str().to_os_string()];
     if verbose {
         vm_opts.push("--trace".into());
     }
