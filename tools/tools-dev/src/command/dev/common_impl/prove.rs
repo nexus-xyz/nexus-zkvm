@@ -89,7 +89,6 @@ fn local_prove(path: &Path, k: usize, pp_file: Option<PathBuf>) -> anyhow::Resul
     let mut prover_opts = vec![
         path.as_os_str().to_os_string(),
         format!("-k={k}").into(),
-        "-m".into(),
         "-P".into(),
     ];
     let path = pp_file.to_str().context("path is not valid utf8")?;
