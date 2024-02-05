@@ -13,7 +13,7 @@ fn add32(x: u32, y: u32) -> u32 {
     x.overflowing_add(y).0
 }
 
-/// The arity of the NVM step circuit
+/// The arity of the NexusVM step circuit
 pub const ARITY: usize = 34;
 
 // Note: step circuit generation code depends on this ordering
@@ -69,7 +69,7 @@ fn parse_inst(cs: &mut R1CS, inst: Inst) {
     cs.from_bits("rs2", inst.rs2 as u32, "inst", 27, 32);
 }
 
-/// Generate circuit for a single step of the NVM.
+/// Generate circuit for a single step of the NexusVM.
 /// This circuit corresponds to `eval::step`.
 pub fn step(vm: &Witness, witness_only: bool) -> R1CS {
     let mut cs = init_cs(vm);

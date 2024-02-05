@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Serialize, Deserialize};
 
-use nexus_nvm::trace::Trace;
+use nexus_vm::trace::Trace;
 use nexus_prover::types::*;
 
 use crate::Result;

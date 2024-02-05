@@ -12,7 +12,7 @@ pub use ark_r1cs_std::{
     },
 };
 
-use nexus_nvm::{
+use nexus_vm::{
     eval::halt_vm,
     trace::{Trace, trace},
     circuit::{ARITY, build_constraints},

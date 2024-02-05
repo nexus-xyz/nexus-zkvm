@@ -11,7 +11,7 @@ use hyper::upgrade::Upgraded;
 
 use async_channel::{unbounded, Receiver, Sender};
 
-use nexus_nvm::trace::{Trace};
+use nexus_vm::trace::{Trace};
 use nexus_prover::{error::ProofError, types::*, circuit::Tr};
 
 use nexus_network::*;

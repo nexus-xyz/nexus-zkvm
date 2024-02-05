@@ -2,13 +2,13 @@
 
 use num_traits::FromPrimitive;
 
-use crate::error::{Result, NVMError::InvalidInstruction};
+use crate::error::{Result, NexusVMError::InvalidInstruction};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width};
 use crate::memory::{Memory, path::Path};
 
 /// State of a running Nexus VM program.
 #[derive(Default)]
-pub struct NVM {
+pub struct NexusVM {
     /// Current program counter.
     pub pc: u32,
     /// Register file.
@@ -28,8 +28,8 @@ pub struct NVM {
 }
 
 /// Generate a trivial VM with a single HALT instruction.
-pub fn halt_vm() -> NVM {
-    let mut vm = NVM { pc: 0x1000, ..NVM::default() };
+pub fn halt_vm() -> NexusVM {
+    let mut vm = NexusVM { pc: 0x1000, ..NexusVM::default() };
     let inst = Inst { opcode: HALT, ..Inst::default() };
     vm.memory.write_inst(vm.pc, inst.into()).unwrap();
     vm
@@ -63,7 +63,7 @@ fn brcc(opcode: Opcode, x: u32, y: u32) -> bool {
 /// located at the program counter, execute the instruction,
 /// and update the register file, program counter, and merkle
 /// proofs.
-pub fn eval_step(vm: &mut NVM) -> Result<()> {
+pub fn eval_step(vm: &mut NexusVM) -> Result<()> {
     let (dword, path) = vm.memory.read_inst(vm.pc)?;
     let Some(inst) = Inst::from_u64(dword) else {
         return Err(InvalidInstruction(dword, vm.pc));
@@ -150,7 +150,7 @@ pub fn eval_step(vm: &mut NVM) -> Result<()> {
 
 /// Run a VM to completion. The VM will stop when it encounters
 /// a HALT instruction.
-pub fn eval(vm: &mut NVM, verbose: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM, verbose: bool) -> Result<()> {
     loop {
         let pc = vm.pc;
         eval_step(vm)?;

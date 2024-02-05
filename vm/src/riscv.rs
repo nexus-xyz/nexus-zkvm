@@ -1,4 +1,4 @@
-//! Translation of RISC-V ro NVM.
+//! Translation of RISC-V ro NexusVM.
 
 use std::path::Path;
 use std::fs::read;
@@ -19,9 +19,9 @@ use nexus_riscv::{
 };
 pub use nexus_riscv::VMOpts;
 
-use crate::error::{Result, NVMError::ELFFormat};
+use crate::error::{Result, NexusVMError::ELFFormat};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
-use crate::eval::NVM;
+use crate::eval::NexusVM;
 
 #[inline]
 fn add32(a: u32, b: u32) -> u32 {
@@ -33,7 +33,7 @@ fn mul32(a: u32, b: u32) -> u32 {
     a.overflowing_mul(b).0
 }
 
-// Translate a RV32 instruction to an NVM instruction.
+// Translate a RV32 instruction to an NexusVM instruction.
 // We use the start and end of the code segment to heuristically,
 // decide how to handle PC-relative computations.
 // This technique works for programs built with nexus_rt, but is
@@ -119,16 +119,16 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
     inst
 }
 
-/// Translate a RiscV ELF file to NVM.
-pub fn translate_elf(path: &Path) -> Result<NVM> {
+/// Translate a RiscV ELF file to NexusVM.
+pub fn translate_elf(path: &Path) -> Result<NexusVM> {
     let file_data = read(path)?;
     let bytes = file_data.as_slice();
     translate_elf_bytes(bytes)
 }
 
-/// Translate a RiscV ELF file to NVM.
+/// Translate a RiscV ELF file to NexusVM.
 #[allow(clippy::needless_range_loop)]
-pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NVM> {
+pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     if file.ehdr.e_entry != 0x1000 {
@@ -157,10 +157,10 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NVM> {
     }
 
     if code.p_offset + code.p_filesz * 2 >= data.p_offset {
-        return Err(ELFFormat("not enough room to expand code to NVM"));
+        return Err(ELFFormat("not enough room to expand code to NexusVM"));
     }
 
-    let mut vm = NVM::default();
+    let mut vm = NexusVM::default();
     vm.pc = 0x1000;
 
     // write code segment
@@ -184,9 +184,9 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NVM> {
     Ok(vm)
 }
 
-// internal function to translate RISC-V test VMs to NVMs
-fn translate_test_machine(rvm: &VM) -> Result<NVM> {
-    let mut nvm = NVM::default();
+// internal function to translate RISC-V test VMs to NexusVMs
+fn translate_test_machine(rvm: &VM) -> Result<NexusVM> {
+    let mut nvm = NexusVM::default();
     nvm.pc = rvm.regs.pc;
     let mut i = 0;
     loop {
@@ -207,8 +207,8 @@ fn translate_test_machine(rvm: &VM) -> Result<NVM> {
     Ok(nvm)
 }
 
-/// Load a NVM according the `opts`.
-pub fn load_nvm(opts: &VMOpts) -> Result<NVM> {
+/// Load a NexusVM according the `opts`.
+pub fn load_nvm(opts: &VMOpts) -> Result<NexusVM> {
     if let Some(k) = opts.nop {
         translate_test_machine(&nop_vm(k))
     } else if let Some(k) = opts.loopk {
@@ -232,7 +232,7 @@ pub mod test {
     use nexus_riscv::machines::MACHINES;
 
     // this function is used by other test crates
-    pub fn test_machines() -> Vec<(&'static str, NVM)> {
+    pub fn test_machines() -> Vec<(&'static str, NexusVM)> {
         MACHINES
             .iter()
             .map(|(name, f_vm, _)| {
