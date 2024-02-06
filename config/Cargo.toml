@@ -1,0 +1,20 @@
+[package]
+name = "nexus-config"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+config = { version = "0.13.4", default-features = false }
+dotenvy = { version = "0.15.7" }
+
+clap = { workspace = true, optional = true } 
+
+[features]
+clap_derive = ["clap"]

@@ -6,6 +6,8 @@ members = [
     "riscv",
     "vm",
     "tools",
+    "tools/tools-dev",
+    "config",
     "prover",
     "network",
     "supernova",

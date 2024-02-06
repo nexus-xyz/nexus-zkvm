@@ -2,16 +2,17 @@ use std::path::Path;
 
 use reqwest::blocking::Client;
 
+use nexus_config::{Config, NetworkConfig};
+
 use crate::Result;
 use crate::api::*;
 
-#[cfg(debug_assertions)]
-const URL: &str = "http://localhost:8080/api";
-#[cfg(not(debug_assertions))]
-const URL: &str = "http://35.209.216.211:80/api";
+// const URL: &str = "http://35.209.216.211:80/api";
 
 pub fn nexus_api(msg: &NexusAPI) -> Result<NexusAPI> {
-    Ok(Client::new().post(URL).json(msg).send()?.json()?)
+    let bind_addr = NetworkConfig::from_env()?.api.bind_addr();
+    let url = format!("http://{bind_addr}/api");
+    Ok(Client::new().post(url).json(msg).send()?.json()?)
 }
 
 fn proof(msg: &NexusAPI) -> Result<Proof> {

@@ -63,7 +63,7 @@ ark-vesta.workspace = true
 ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
-tracing-subscriber = { version = "0.2", default-features = false, features = [
+tracing-subscriber = { version = "0.3", default-features = false, features = [
    "fmt",
    "ansi",
 ] }

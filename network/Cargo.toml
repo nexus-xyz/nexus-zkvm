@@ -35,6 +35,7 @@ ark-ff.workspace = true
 ark-ec.workspace = true
 ark-serialize.workspace = true
 
+nexus-config = { path = "../config" }
 nexus-vm = { path = "../vm" }
 nexus-prover = { path = "../prover" }
 hex = "0.4.3"

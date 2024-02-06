@@ -1,0 +1,3 @@
+[vm]
+k = 1             # number of NexusVM instructions proved per Nova folding step.
+nova_impl = "par" # IVC implementation to be used, should be one of "seq" (sequential), "par" (parallel).
