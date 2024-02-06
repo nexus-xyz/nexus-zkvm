@@ -136,10 +136,10 @@ mod tests {
         let env = compile_flat_config("PREFIX", TABLE).unwrap();
 
         let expected = [
-            ("PREFIX__IP", "127.0.0.1"),
-            ("PREFIX__DB__URL", "test.url"),
-            ("PREFIX__DB__CONN_LIMIT", "10"),
-            ("PREFIX__DB__INNER__URL", "test.url.1"),
+            ("PREFIX_IP", "127.0.0.1"),
+            ("PREFIX_DB_URL", "test.url"),
+            ("PREFIX_DB_CONNLIMIT", "10"),
+            ("PREFIX_DB_INNER_URL", "test.url.1"),
         ];
         assert_eq!(env.len(), expected.len());
 
