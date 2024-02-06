@@ -10,7 +10,10 @@ use ark_serialize::*;
 use merlin::Transcript;
 
 #[derive(Debug)]
-pub struct ProductCircuit<F> {
+pub struct ProductCircuit<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   left_vec: Vec<DensePolynomial<F>>,
   right_vec: Vec<DensePolynomial<F>>,
 }
@@ -64,7 +67,10 @@ impl<F: PrimeField> ProductCircuit<F> {
   }
 }
 
-pub struct DotProductCircuit<F> {
+pub struct DotProductCircuit<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   left: DensePolynomial<F>,
   right: DensePolynomial<F>,
   weight: DensePolynomial<F>,

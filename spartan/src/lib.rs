@@ -43,12 +43,17 @@ use timer::Timer;
 use transcript::{AppendToTranscript, ProofTranscript};
 
 /// `ComputationCommitment` holds a public preprocessed NP statement (e.g., R1CS)
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct ComputationCommitment<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   comm: R1CSCommitment<G, PC>,
 }
 
 /// `ComputationDecommitment` holds information to decommit `ComputationCommitment`
-pub struct ComputationDecommitment<F> {
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
+pub struct ComputationDecommitment<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   decomm: R1CSDecommitment<F>,
 }
 
@@ -100,6 +105,7 @@ pub type VarsAssignment<F> = Assignment<F>;
 pub type InputsAssignment<F> = Assignment<F>;
 
 /// `Instance` holds the description of R1CS matrices
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct Instance<F: PrimeField> {
   pub inst: R1CSInstance<F>,
 }
