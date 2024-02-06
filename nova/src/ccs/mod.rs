@@ -12,9 +12,10 @@ use rayon::iter::{
 
 use super::commitment::CommitmentScheme;
 
+use super::r1cs::R1CSShape;
 pub use super::sparse::{MatrixRef, SparseMatrix};
 
-use super::r1cs::R1CSShape;
+pub mod mle;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
