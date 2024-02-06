@@ -1,9 +1,9 @@
 //! Wrapper macro for deriving `serde::Deserialize`.
 //!
-//! Linux (shell) environment variables are only allowed to contain alphanumeric (ASCII-text format), and an
-//! underscore (_). And because underscore is already used as a separator, no struct names are allowed to
-//! contain it. For example, `http_url` should be renamed to `httpurl`. Lowercase-with-no-underscores isn't
-//! conventional -- therefore, this macro renames each field manually.
+//! Linux (shell) environment variables are only allowed to contain alphanumeric (ASCII-text format) symbols, and 
+//! an underscore (_). And because underscore is already used as a separator, no struct names are allowed to contain
+//! it. For example, `http_url` should be renamed to `httpurl`. Lowercase-with-no-underscores isn't conventional;
+//! therefore, this macro renames each field manually.
 //!
 //! The macro duplicates struct definition with added `rename` attributes and derives `serde::Deserialize`, voiding
 //! initial macro-input.
