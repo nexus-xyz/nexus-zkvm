@@ -16,8 +16,11 @@ use merlin::Transcript;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-#[derive(Debug, Clone)]
-pub struct DensePolynomial<F> {
+#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct DensePolynomial<F>
+where
+  F: Sync + CanonicalSerialize + CanonicalDeserialize,
+{
   num_vars: usize, // the number of variables in the multilinear polynomial
   len: usize,
   Z: Vec<F>, // evaluations of the polynomial in all the 2^num_vars Boolean inputs
@@ -278,7 +281,10 @@ impl<F: PrimeField> DensePolynomial<F> {
   }
 }
 
-impl<F> Index<usize> for DensePolynomial<F> {
+impl<F> Index<usize> for DensePolynomial<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   type Output = F;
 
   #[inline(always)]
