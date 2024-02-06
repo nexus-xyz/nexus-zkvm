@@ -15,6 +15,7 @@ use super::commitment::CommitmentScheme;
 use super::r1cs::R1CSShape;
 pub use super::sparse::{MatrixRef, SparseMatrix};
 
+pub mod lccs;
 pub mod mle;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
