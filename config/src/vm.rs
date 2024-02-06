@@ -1,16 +1,14 @@
 use std::fmt;
 
-use serde::Deserialize;
-
 use super::Config;
 
-#[derive(Deserialize)]
+#[derive(serde_wrapper::Deserialize)]
 pub struct VmConfig {
     pub k: usize,
     pub nova_impl: NovaImpl,
 }
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Copy, Clone, serde_wrapper::Deserialize)]
 #[cfg_attr(feature = "clap_derive", derive(clap::ValueEnum))]
 pub enum NovaImpl {
     #[serde(rename = "seq")]
@@ -41,8 +39,8 @@ mod tests {
 
     #[test]
     fn read_config() {
-        std::env::set_var("NEXUS__VM__K", "1");
-        std::env::set_var("NEXUS__VM__NOVA_IMPL", "seq");
+        std::env::set_var("NEXUS_VM_K", "1");
+        std::env::set_var("NEXUS_VM_NOVAIMPL", "seq");
 
         <VmConfig as Config>::from_env().unwrap();
     }

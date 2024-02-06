@@ -31,8 +31,15 @@ pub trait Config: DeserializeOwned {
 
 #[doc(hidden)]
 pub mod constants {
-    pub const CONFIG_SEPARATOR: &str = "__";
+    /// All environment variables are prefixed to avoid collisions.
     pub const CONFIG_ENV_PREFIX: &str = "NEXUS";
+    /// Separator for nested configs and the prefix.
+    ///
+    /// Note that to avoid ambiguity in path resolution (see https://github.com/SergioBenitez/Figment/issues/12) this
+    /// crate uses a wrapper to derive [`serde::Deserialize`]. See [`serde_wrapper`] doc-comments for details.
+    pub const CONFIG_SEPARATOR: &str = "_";
+    /// File for storing and reading environment variables.
     pub const CONFIG_FILE_NAME: &str = ".config.env";
+    /// Full path to [`CONFIG_FILE_NAME`].
     pub const CONFIG_ENV_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/.config.env");
 }

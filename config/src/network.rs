@@ -1,15 +1,13 @@
 use std::net::SocketAddr;
 
-use serde::Deserialize;
-
 use super::Config;
 
-#[derive(Deserialize)]
+#[derive(serde_wrapper::Deserialize)]
 pub struct NetworkConfig {
     pub api: ApiConfig,
 }
 
-#[derive(Deserialize)]
+#[derive(serde_wrapper::Deserialize)]
 pub struct ApiConfig {
     http_url: String,
     http_port: u16,
@@ -34,8 +32,8 @@ mod tests {
 
     #[test]
     fn read_config() {
-        std::env::set_var("NEXUS__NETWORK__API__HTTP_URL", "127.0.0.1");
-        std::env::set_var("NEXUS__NETWORK__API__HTTP_PORT", "9999");
+        std::env::set_var("NEXUS_NETWORK_API_HTTPURL", "127.0.0.1");
+        std::env::set_var("NEXUS_NETWORK_API_HTTPPORT", "9999");
 
         let config = <NetworkConfig as Config>::from_env().unwrap();
         config.api.bind_addr();

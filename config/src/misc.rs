@@ -1,10 +1,8 @@
 use std::path::PathBuf;
 
-use serde::Deserialize;
-
 use super::{Config, Error};
 
-#[derive(Deserialize)]
+#[derive(serde_wrapper::Deserialize)]
 pub struct MiscConfig {
     pub cache_path: PathBuf,
 }

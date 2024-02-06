@@ -1533,6 +1533,7 @@ dependencies = [
  "config",
  "dotenvy",
  "serde",
+ "serde_wrapper",
 ]
 
 [[package]]
@@ -2218,6 +2219,15 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_wrapper"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

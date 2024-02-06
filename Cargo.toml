@@ -8,6 +8,7 @@ members = [
     "tools",
     "tools/tools-dev",
     "config",
+    "config/serde_wrapper",
     "prover",
     "network",
     "supernova",

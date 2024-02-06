@@ -92,7 +92,7 @@ pub(crate) fn compile_to_env_from_bases(force: bool) -> anyhow::Result<()> {
 
 fn compile_flat_config(prefix: &str, raw_table: &str) -> anyhow::Result<Vec<(String, String)>> {
     let mut values = Vec::new();
-    let toml_config: toml::Table = toml::from_str(&raw_table)?;
+    let toml_config: toml::Table = toml::from_str(raw_table)?;
 
     parse_table(prefix, &toml_config, &mut values);
     Ok(values)
@@ -100,7 +100,7 @@ fn compile_flat_config(prefix: &str, raw_table: &str) -> anyhow::Result<Vec<(Str
 
 fn parse_table(prefix: &str, table: &toml::Table, out: &mut Vec<(String, String)>) {
     for (key, value) in table {
-        let key = key.to_ascii_uppercase();
+        let key = key.replace('_', "").to_ascii_uppercase();
         let prefix = [prefix, &key].join(CONFIG_SEPARATOR);
         let str_value = match value {
             toml::Value::Table(t) => {
@@ -136,10 +136,10 @@ mod tests {
         let env = compile_flat_config("PREFIX", TABLE).unwrap();
 
         let expected = [
-            ("PREFIX__IP", "127.0.0.1"),
-            ("PREFIX__DB__URL", "test.url"),
-            ("PREFIX__DB__CONN_LIMIT", "10"),
-            ("PREFIX__DB__INNER__URL", "test.url.1"),
+            ("PREFIX_IP", "127.0.0.1"),
+            ("PREFIX_DB_URL", "test.url"),
+            ("PREFIX_DB_CONNLIMIT", "10"),
+            ("PREFIX_DB_INNER_URL", "test.url.1"),
         ];
         assert_eq!(env.len(), expected.len());
 
