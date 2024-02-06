@@ -1,5 +1,6 @@
 use ark_ec::CurveGroup;
 use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{cmp::max, test_rng, One, UniformRand, Zero};
 
 use super::polycommitments::{PCSKeys, PolyCommitmentScheme, VectorCommitmentScheme};
@@ -7,7 +8,7 @@ use crate::{
   committed_relaxed_snark::CRSNARKKey, dense_mlpoly::DensePolynomial, errors::R1CSError,
   math::Math, InputsAssignment, Instance, VarsAssignment,
 };
-
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   pub keys: PCSKeys<G, PC>,
 }
@@ -26,7 +27,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
     n.log_2()
   }
 }
-
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct CRR1CSShape<F: PrimeField> {
   pub inst: Instance<F>,
 }

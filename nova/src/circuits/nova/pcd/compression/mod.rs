@@ -67,6 +67,7 @@ where
     _step_circuit: PhantomData<SC>,
 }
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     shape: CRR1CSShape<G::ScalarField>,
     computation_comm: ComputationCommitment<G, PC>,
@@ -353,11 +354,6 @@ mod tests {
         PC: PolyCommitmentScheme<Projective<G1>>,
         PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
     {
-        let circuit = CubicCircuit::<G1::ScalarField>::default();
-        // First we set up a Nova PCD instance.
-        let z_0 = vec![G1::ScalarField::one()];
-        let z_1 = vec![G1::ScalarField::from(7)];
-
         // We set up the public parameters both for Nova and Spartan.
         let (srs, params) = test_setup_helper::<G1, G2, PC, C2>();
         let key = SNARK::<
@@ -375,7 +371,6 @@ mod tests {
         key.serialize_compressed(&mut enc).unwrap();
         enc.finish().unwrap();
         f.sync_all().unwrap();
-        ()
     }
     #[test]
     fn spartan_encode_test() {

@@ -33,6 +33,7 @@ impl<G: CurveGroup> AppendToTranscript<G> for R1CSInstance<G::ScalarField> {
   }
 }
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct R1CSCommitmentGens<G, PC>
 where
   G: CurveGroup,
@@ -92,7 +93,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> AppendToTranscript<G> for R1CSC
   }
 }
 
-pub struct R1CSDecommitment<F> {
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
+pub struct R1CSDecommitment<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   dense: MultiSparseMatPolynomialAsDense<F>,
 }
 
