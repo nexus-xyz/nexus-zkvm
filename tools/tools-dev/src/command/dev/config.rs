@@ -92,7 +92,7 @@ pub(crate) fn compile_to_env_from_bases(force: bool) -> anyhow::Result<()> {
 
 fn compile_flat_config(prefix: &str, raw_table: &str) -> anyhow::Result<Vec<(String, String)>> {
     let mut values = Vec::new();
-    let toml_config: toml::Table = toml::from_str(&raw_table)?;
+    let toml_config: toml::Table = toml::from_str(raw_table)?;
 
     parse_table(prefix, &toml_config, &mut values);
     Ok(values)
@@ -100,7 +100,7 @@ fn compile_flat_config(prefix: &str, raw_table: &str) -> anyhow::Result<Vec<(Str
 
 fn parse_table(prefix: &str, table: &toml::Table, out: &mut Vec<(String, String)>) {
     for (key, value) in table {
-        let key = key.to_ascii_uppercase();
+        let key = key.replace('_', "").to_ascii_uppercase();
         let prefix = [prefix, &key].join(CONFIG_SEPARATOR);
         let str_value = match value {
             toml::Value::Table(t) => {

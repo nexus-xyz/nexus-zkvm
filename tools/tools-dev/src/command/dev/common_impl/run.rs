@@ -1,9 +1,7 @@
 use std::{ffi::OsString, path::Path};
 
-use nexus_config::{Config, VmConfig};
-
 use crate::{
-    command::{common::RunArgs, dev::compile_env_configs},
+    command::common::RunArgs,
     utils::{cargo, path_to_artifact},
 };
 
