@@ -1,5 +1,5 @@
 use ark_ec::{AdditiveGroup, CurveGroup};
-use ark_poly::{Polynomial, DenseMultilinearExtension, SparseMultilinearExtension};
+use ark_poly::{polynomial::multivariate::{SparsePolynomial, SparseTerm}, Polynomial, DenseMultilinearExtension, SparseMultilinearExtension};
 use ark_poly_commit::{LabeledPolynomial, PolynomialCommitment};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_crypto_primitives::sponge::CryptographicSponge;
@@ -11,7 +11,7 @@ use rayon::iter::{
     IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
 
-use super::mle::{matrix_to_mle, vec_to_mle, fold_vec_to_mle_low};
+use super::mle::{mle_to_mvp, matrix_to_mle, vec_to_mle, fold_vec_to_mle_low};
 use super::super::utils::index_to_le_field_encoding;
 pub use super::super::sparse::{MatrixRef, SparseMatrix};
 
@@ -150,8 +150,11 @@ impl<G: CurveGroup> LCCSShape<G> {
             return Err(Error::NotSatisfied);
         }
 
-        let lw = LabeledPolynomial::<G::ScalarField, DenseMultilinearExtension<G::ScalarField>>::new("witness".to_string(), W.W, Some(W.W.num_vars), None);
-        if U.commitment_W != *P::commit(ck, &[lw], None).unwrap().0[0].commitment() {
+        let mvp_W = mle_to_mvp(&W.W);
+
+        // confusingly, the DenseMVPolynomial trait is only implemented by SparsePolynomial
+        let lab_W = LabeledPolynomial::<G::ScalarField, SparsePolynomial<G::ScalarField, SparseTerm>>::new("witness".to_string(), mvp_W, Some(W.W.num_vars), None);
+        if U.commitment_W != *P::commit(ck, &[lab_W], None).unwrap().0[0].commitment() {
             return Err(Error::NotSatisfied);
         }
 
@@ -220,14 +223,17 @@ impl<G: CurveGroup> LCCSWitness<G> {
         &self,
         ck: &P::CommitterKey
     ) -> P::Commitment {
-        let lw = LabeledPolynomial::<G::ScalarField, DenseMultilinearExtension<G::ScalarField>>::new("witness".to_string(), self.W, Some(self.W.num_vars), None);
-        let wc = P::commit(ck, &[lw], None).unwrap().0[0].commitment();
+        let mvp_W: SparsePolynomial<G::ScalarField, SparseTerm> = mle_to_mvp(&self.W);
+
+        // confusingly, the DenseMVPolynomial trait is only implemented by SparsePolynomial
+        let lab_W = LabeledPolynomial::<G::ScalarField, SparsePolynomial<G::ScalarField, SparseTerm>>::new("witness".to_string(), mvp_W, Some(self.W.num_vars), None);
+        let wc = P::commit(ck, &[lab_W], None).unwrap().0[0].commitment();
 
         *wc
     }
 }
 
-impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq> LCCSInstance<G, S, P> {
+impl<G: CurveGroup, S: CryptographicSponge, T: Term, P: PolynomialCommitment<G::ScalarField, SparsePolynomial<G::ScalarField, T>, S> + PartialEq> LCCSInstance<G, S, P> {
     /// A method to create an instance object using constituent elements.
     pub fn new(
         shape: &LCCSShape<G>,
@@ -272,8 +278,8 @@ mod tests {
 
     type F = <ark_ec::short_weierstrass::Projective<ark_test_curves::bls12_381::g1::Config> as ark_ec::PrimeGroup>::ScalarField;
 
-    type DMLE = DenseMultilinearExtension<F>;
-    type MPST = MarlinPST13::<Bls12_381, DMLE, PoseidonSponge<F>>;
+    // confusingly, the DenseMVPolynomial trait is only implemented by SparsePolynomial
+    type MPST = MarlinPST13::<Bls12_381, SparsePolynomial<F, SparseTerm>, PoseidonSponge<F>>;
 
     use crate::r1cs::tests::{to_field_elements, to_field_sparse, A, B, C};
 

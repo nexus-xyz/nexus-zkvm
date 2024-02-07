@@ -1,22 +1,22 @@
 //! Helper code for multilinear extensions
 
 use ark_ff::{Field, PrimeField};
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension};
+use ark_poly::{
+    polynomial::multivariate::{SparsePolynomial, SparseTerm, Term},
+    DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension
+};
 
 use super::super::sparse::SparseMatrix;
 
-impl<F: Field> DenseMVPolynomial<F> for DenseMultilinearExtension<F> {
-    type Term: multivariate::Term;
+pub fn mle_to_mvp<F: PrimeField, T: Term>(
+    mle: &DenseMultilinearExtension<F>
+) -> SparsePolynomial<F, T> { // confusingly, the DenseMVPolynomial trait is only implemented by SparsePolynomial
 
-    fn from_coefficients_vec(num_vars: usize, terms: Vec<(F, Self::Term)>) -> Self;
+    let points = 1 << mle.num_vars;
 
-    fn terms(&self) -> &[(F, Self::Term)];
+    (0..points).iter().map(|pt| ).collect();
 
-    fn num_vars(&self) -> usize {
-        self.num_vars
-    };
-
-    fn rand<R: Rng>(d: usize, num_vars: usize, rng: &mut R) -> Self;
+    SparsePolynomial::<F, T>::from_coefficients_vec(mle.num_vars, coeffs)
 }
 
 /// Converts a matrix into a (sparse) mle.
