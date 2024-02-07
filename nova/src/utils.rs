@@ -35,9 +35,26 @@ pub fn iter_bits_le(bytes: &[u8]) -> impl Iterator<Item = bool> + '_ {
         .flat_map(|byte| (0..8).map(move |bit| ((1 << bit) & byte) != 0))
 }
 
+/// Returns field encoded bits in little-endian order.
+pub fn index_to_le_field_encoding<F: PrimeField>(idx: u32, trim: Option<u32>) -> Vec<F> {
+    let mut ot = trim;
+    if let None = ot {
+        ot = Some(32);
+    }
+    let t = ot.unwrap() as usize;
+    assert!(t <= 32);
+
+    iter_bits_le(&idx.to_le_bytes())
+        .map(|byte| if byte { F::ONE } else { F::ZERO })
+        .collect::<Vec<_>>()[0..t]
+        .to_vec()
+}
+
 #[cfg(test)]
 mod tests {
-    use ark_ff::{BigInteger, PrimeField};
+    use ark_ec::AdditiveGroup;
+    use ark_ff::{BigInteger, Field, PrimeField};
+    use ark_pallas::Fr;
     use ark_std::UniformRand;
 
     type BigInt = <ark_pallas::Fr as PrimeField>::BigInt;
@@ -54,5 +71,56 @@ mod tests {
 
             assert_eq!(BigInt::from_bits_le(&bits), big_int);
         }
+    }
+
+    #[test]
+    fn index_le_field_encoding() {
+        const X: u32 = 13; // 1101
+
+        assert_eq!(
+            super::index_to_le_field_encoding::<Fr>(X, Some(4)),
+            [Fr::ONE, Fr::ZERO, Fr::ONE, Fr::ONE]
+        );
+        assert_eq!(
+            super::index_to_le_field_encoding::<Fr>(X, Some(5)),
+            [Fr::ONE, Fr::ZERO, Fr::ONE, Fr::ONE, Fr::ZERO]
+        );
+        assert_eq!(
+            super::index_to_le_field_encoding::<Fr>(X, None),
+            [
+                Fr::ONE,
+                Fr::ZERO,
+                Fr::ONE,
+                Fr::ONE,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+            ]
+        );
     }
 }

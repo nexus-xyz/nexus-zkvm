@@ -5,6 +5,20 @@ use ark_poly::{DenseMultilinearExtension, MultilinearExtension, SparseMultilinea
 
 use super::super::sparse::SparseMatrix;
 
+impl<F: Field> DenseMVPolynomial<F> for DenseMultilinearExtension<F> {
+    type Term: multivariate::Term;
+
+    fn from_coefficients_vec(num_vars: usize, terms: Vec<(F, Self::Term)>) -> Self;
+
+    fn terms(&self) -> &[(F, Self::Term)];
+
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    };
+
+    fn rand<R: Rng>(d: usize, num_vars: usize, rng: &mut R) -> Self;
+}
+
 /// Converts a matrix into a (sparse) mle.
 pub fn matrix_to_mle<F: PrimeField>(
     m: usize,
@@ -63,7 +77,7 @@ pub fn fold_vec_to_mle_low<F: Field>(
 mod tests {
     use super::*;
 
-    use ark_poly::MultilinearExtension;
+    use ark_poly::Polynomial;
     use ark_std::{UniformRand, Zero};
     use ark_test_curves::bls12_381::{Fr, G1Projective as G};
 
@@ -102,7 +116,7 @@ mod tests {
                     .take(NUM_VARS)
                     .collect();
 
-                let eval = mle.evaluate(&j_bits).unwrap();
+                let eval = mle.evaluate(&j_bits);
 
                 let expected = if i < NUM_ROWS && j < NUM_COLS {
                     M[i][j].into()
@@ -131,7 +145,7 @@ mod tests {
                 .take(NUM_VARS)
                 .collect();
 
-            let eval = mle.evaluate(&i_bits).unwrap();
+            let eval = mle.evaluate(&i_bits);
 
             let expected = if i < LEN { z[i].into() } else { Fr::zero() };
             assert_eq!(eval, expected);
@@ -160,7 +174,7 @@ mod tests {
                 .take(NUM_VARS)
                 .collect();
 
-            let eval = mle2.evaluate(&i_bits).unwrap();
+            let eval = mle2.evaluate(&i_bits);
 
             if i < VEC_LEN {
                 assert_eq!(eval, z2[i].into());

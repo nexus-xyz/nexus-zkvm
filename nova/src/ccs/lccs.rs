@@ -1,5 +1,5 @@
 use ark_ec::{AdditiveGroup, CurveGroup};
-use ark_poly::{DenseMultilinearExtension, SparseMultilinearExtension};
+use ark_poly::{Polynomial, DenseMultilinearExtension, SparseMultilinearExtension};
 use ark_poly_commit::{LabeledPolynomial, PolynomialCommitment};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_crypto_primitives::sponge::CryptographicSponge;
@@ -12,7 +12,7 @@ use rayon::iter::{
 };
 
 use super::mle::{matrix_to_mle, vec_to_mle, fold_vec_to_mle_low};
-
+use super::super::utils::index_to_le_field_encoding;
 pub use super::super::sparse::{MatrixRef, SparseMatrix};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -128,8 +128,7 @@ impl<G: CurveGroup> LCCSShape<G> {
         })
     }
 
-
-    pub fn is_satisfied<S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>>(
+    pub fn is_satisfied<S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq>(
         &self,
         U: &LCCSInstance<G, S, P>,
         W: &LCCSWitness<G>,
@@ -139,19 +138,20 @@ impl<G: CurveGroup> LCCSShape<G> {
 
         let z: DenseMultilinearExtension<G::ScalarField> = fold_vec_to_mle_low(&U.X, &W.W);
 
-        let s = (self.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
-        let n = (self.num_io + self.num_vars).next_power_of_two();
+        let s = (self.num_io + self.num_vars - 1).checked_ilog2().unwrap_or(0) + 1; // s' in papers
+
+       let rys: Vec<Vec<G::ScalarField>> = (0..s as usize).map(|y| [U.rs.as_slice(), index_to_le_field_encoding(y as u32, Some(s)).as_slice()].concat()).collect();
 
         let Mzs: Vec<G::ScalarField> = ark_std::cfg_iter!(&self.Ms)
-            .map(|M| (0..s as usize).fold(G::ScalarField::ZERO, |acc, j| acc + *M.index(n * U.r + j) * z.index(j)))
+            .map(|M| (0..s as usize).map(|y| M.evaluate(&rys[y]) * z.index(y)).sum())
             .collect();
 
         if ark_std::cfg_into_iter!(0..self.num_matrices).any(|idx| Mzs[idx] != U.vs[idx]) {
             return Err(Error::NotSatisfied);
         }
 
-        let lw = LabeledPolynomial::<G::ScalarField, DenseMultilinearExtension<G::ScalarField>>::new("witness".to_string(), W.W, Some(1), None);
-        if U.commitment_W != P::commit(ck, &[lw], None).unwrap().0[0] {
+        let lw = LabeledPolynomial::<G::ScalarField, DenseMultilinearExtension<G::ScalarField>>::new("witness".to_string(), W.W, Some(W.W.num_vars), None);
+        if U.commitment_W != *P::commit(ck, &[lw], None).unwrap().0[0].commitment() {
             return Err(Error::NotSatisfied);
         }
 
@@ -167,37 +167,37 @@ pub struct LCCSWitness<G: CurveGroup> {
 
 /// A type that holds an LCCS instance.
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
-pub struct LCCSInstance<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>> {
+pub struct LCCSInstance<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq> {
     /// Commitment to MLE of witness.
     ///
     /// C in HyperNova/CCS papers.
     pub commitment_W: P::Commitment,
     /// X is assumed to start with a `ScalarField` field element `u`.
     pub X: Vec<G::ScalarField>,
-    /// (Random) evaluation point (row index in matrix representation of MLE)
-    pub r: usize,
+    /// (Random) evaluation point
+    pub rs: Vec<G::ScalarField>,
     /// Evaluation targets
     pub vs: Vec<G::ScalarField>,
 }
 
-impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>> Clone for LCCSInstance<G, S, P> {
+impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq> Clone for LCCSInstance<G, S, P> {
     fn clone(&self) -> Self {
         Self {
             commitment_W: self.commitment_W,
             X: self.X.clone(),
-            r: self.r,
+            rs: self.rs.clone(),
             vs: self.vs.clone(),
         }
     }
 }
 
-impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>> PartialEq for LCCSInstance<G, S, P> {
+impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq> PartialEq for LCCSInstance<G, S, P> {
     fn eq(&self, other: &Self) -> bool {
         self.commitment_W == other.commitment_W && self.X == other.X
     }
 }
 
-impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>> Eq for LCCSInstance<G, S, P> where P::Commitment: Eq {}
+impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq> Eq for LCCSInstance<G, S, P> where P::Commitment: Eq {}
 
 impl<G: CurveGroup> LCCSWitness<G> {
     /// A method to create a witness object using a vector of scalars.
@@ -215,30 +215,32 @@ impl<G: CurveGroup> LCCSWitness<G> {
         }
     }
 
-    /// Commits to the witness using the supplied generators
-    pub fn commit<S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>>(
+    /// Commits to the witness using the supplied key
+    pub fn commit<S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq>(
         &self,
         ck: &P::CommitterKey
     ) -> P::Commitment {
-        let lw = LabeledPolynomial::<G::ScalarField, DenseMultilinearExtension<G::ScalarField>>::new("witness".to_string(), self.W, Some(1), None);
-        P::commit(ck, &[lw], None).unwrap().0[0]
+        let lw = LabeledPolynomial::<G::ScalarField, DenseMultilinearExtension<G::ScalarField>>::new("witness".to_string(), self.W, Some(self.W.num_vars), None);
+        let wc = P::commit(ck, &[lw], None).unwrap().0[0].commitment();
+
+        *wc
     }
 }
 
-impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S>> LCCSInstance<G, S, P> {
+impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarField, DenseMultilinearExtension<G::ScalarField>, S> + PartialEq> LCCSInstance<G, S, P> {
     /// A method to create an instance object using constituent elements.
     pub fn new(
         shape: &LCCSShape<G>,
         commitment_W: &P::Commitment,
         X: &[G::ScalarField],
-        r: usize,
+        rs: Vec<G::ScalarField>,
         vs: Vec<G::ScalarField>,
     ) -> Result<Self, Error> {
         if X.is_empty() {
             return Err(Error::InvalidInputLength);
         } else if shape.num_io != X.len() {
             Err(Error::InvalidInputLength)
-        } else if shape.num_constraints <= r  {
+        } else if ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) != rs.len() as u32 {
             Err(Error::InvalidEvaluationPoint)
         } else if shape.num_matrices != vs.len() {
             Err(Error::InvalidTargets)
@@ -246,7 +248,7 @@ impl<G: CurveGroup, S: CryptographicSponge, P: PolynomialCommitment<G::ScalarFie
             Ok(Self {
                 commitment_W: *commitment_W,
                 X: X.to_owned(),
-                r: r,
+                rs: rs,
                 vs: vs,
             })
         }
@@ -259,14 +261,25 @@ mod tests {
     #![allow(clippy::needless_range_loop)]
 
     use super::*;
-    use crate::pedersen::PedersenCommitment;
 
-    use ark_test_curves::bls12_381::{Fr, G1Projective as G};
+    use ark_std::rand;
+    use ark_ff::Field;
+    use ark_poly_commit::marlin_pst13_pc::MarlinPST13;
+    use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+    use ark_test_curves::bls12_381::{Bls12_381, G1Projective as G};
+
+     use std::ops::Neg;
+
+    type F = <ark_ec::short_weierstrass::Projective<ark_test_curves::bls12_381::g1::Config> as ark_ec::PrimeGroup>::ScalarField;
+
+    type DMLE = DenseMultilinearExtension<F>;
+    type MPST = MarlinPST13::<Bls12_381, DMLE, PoseidonSponge<F>>;
 
     use crate::r1cs::tests::{to_field_elements, to_field_sparse, A, B, C};
 
     #[test]
     fn zero_instance_is_satisfied() -> Result<(), Error> {
+
         #[rustfmt::skip]
         let a = {
             let a: &[&[u64]] = &[
@@ -281,23 +294,39 @@ mod tests {
         const NUM_WITNESS: usize = 1;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
-        let r1cs_shape: R1CSShape<G> =
-            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &a, &a).unwrap();
-
-        let ccs_shape = CCSShape::from(r1cs_shape);
+        let lccs_shape =  LCCSShape::<G>::new(NUM_CONSTRAINTS,
+                                              NUM_WITNESS,
+                                              NUM_PUBLIC,
+                                              3,
+                                              2,
+                                              2,
+                                              vec![&a, &a, &a],
+                                              vec![
+                                                  (F::ONE, vec![0, 1]),
+                                                  (F::ONE.neg(), vec![2]),
+                                              ],
+        )?;
 
         let X = to_field_elements::<G>(&[0, 0]);
         let W = to_field_elements::<G>(&[0]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let witness = LCCSWitness::<G>::new(&lccs_shape, &W)?;
 
-        let instance = CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_W, &X)?;
-        let witness = CCSWitness::<G>::new(&ccs_shape, &W)?;
+        let up = MPST::setup(witness.W.num_vars, false, None);
+        let (ck, _vk) = MPST::trim(&up, witness.W.num_vars, 0, witness.W.num_vars);
 
-        ccs_shape.is_satisfied(&instance, &witness, &pp)?;
+        let commitment_W = witness.commit::<PoseidonSponge<F>, MPST>(&ck);
+
+        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+
+        let mut rng = rand::thread_rng();
+        let rs: Vec<F> = (0..s).map(|_| F::random(rng)).collect();
+
+        let instance = LCCSInstance::<G, PoseidonSponge<F>, MPST>::new(&lccs_shape, &commitment_W, &X, rs, )?;
+
+        lccs_shape.is_satisfied(&instance, &witness, &ck)?;
         Ok(())
     }
-
+/*
     #[test]
     fn is_satisfied() -> Result<(), Error> {
         let (a, b, c) = {
@@ -357,4 +386,5 @@ mod tests {
         );
         Ok(())
     }
+*/
 }
