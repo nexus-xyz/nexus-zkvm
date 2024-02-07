@@ -368,6 +368,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyCommitmentKey<G, P
   ) -> usize {
     let (num_vars_ops, num_vars_mem, num_vars_derefs) =
       Self::get_gens_sizes(num_vars_x, num_vars_y, num_nz_entries, batch_size);
+    println!(
+      "num_vars_ops = {}, num_vars_mem = {}, num_vars_derefs = {}",
+      num_vars_ops, num_vars_mem, num_vars_derefs
+    );
     max(num_vars_ops, max(num_vars_mem, num_vars_derefs))
   }
 }

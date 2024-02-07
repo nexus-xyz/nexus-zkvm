@@ -275,33 +275,103 @@ where
 mod tests {
     use ark_bn254::{g1::Config as Bn254Config, Bn254};
     use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, Absorb};
-    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+    use ark_ec::{
+        short_weierstrass::{Projective, SWCurveConfig},
+        AdditiveGroup, CurveConfig,
+    };
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
+    use ark_relations::r1cs::{ConstraintSystem, OptimizationGoal, SynthesisMode};
+    use ark_spartan::math::Math;
     use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
     use ark_std::{fs::File, test_rng, One};
-    use zstd::stream::Encoder;
+    use zstd::{stream::Encoder, Decoder};
 
     use super::*;
     use crate::{
         circuits::nova::sequential::tests::CubicCircuit,
         commitment::CommitmentScheme,
-        nova::pcd::{compression::SNARK, PCDNode, PublicParams},
+        folding::nova::cyclefold::nimfs::R1CSShape,
+        nova::{
+            pcd::{
+                augmented::{NovaAugmentedCircuit, NovaAugmentedCircuitInput},
+                compression::{spartan_snark::CRSNARKKey, SNARK},
+                PCDNode, PublicParams,
+            },
+            NovaConstraintSynthesizer,
+        },
         pedersen::PedersenCommitment,
         poseidon_config,
     };
 
-    fn test_setup_helper<G1, G2, PC, C2>() -> (
-        PC::SRS,
-        PublicParams<
-            G1,
-            G2,
-            PVC<G1, PC>,
-            C2,
-            PoseidonSponge<G1::ScalarField>,
-            CubicCircuit<G1::ScalarField>,
-        >,
-    )
+    type F = <Bn254Config as CurveConfig>::ScalarField;
+    type G1 = Bn254Config;
+    type G2 = GrumpkinConfig;
+    type C1 = PolyVectorCommitment<Projective<G1>, Zeromorph<Bn254>>;
+    type C2 = PedersenCommitment<GrumpkinProjective>;
+    type RO = PoseidonSponge<F>;
+    #[test]
+    fn get_num_vars() {
+        let ro_config = poseidon_config();
+        let step_circuit = CubicCircuit::<F>::default();
+
+        let i = F::ZERO;
+        let z_i = vec![F::ZERO];
+
+        let cs = ConstraintSystem::new_ref();
+        cs.set_mode(SynthesisMode::Setup);
+
+        let input = NovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
+            i,
+            z_i,
+            vk: <ark_bn254::g1::Config as ark_ec::CurveConfig>::ScalarField::ZERO,
+        };
+        let circuit = NovaAugmentedCircuit::new(&ro_config, &step_circuit, input);
+        let _ = NovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()).unwrap();
+
+        cs.finalize();
+
+        let shape: R1CSShape<G1> = R1CSShape::from(cs);
+        let (num_cons, num_vars, num_input) = (shape.num_constraints, shape.num_vars, shape.num_io);
+        println!(
+            "num_cons: {}, num_vars: {}, num_inputs: {}",
+            num_cons, num_vars, num_input
+        );
+        let num_nz_entries = max(shape.A.len(), max(shape.B.len(), shape.C.len()));
+        println!("num_nz_entries: {}", num_nz_entries);
+        let spartan_shape: CRR1CSShape<
+            <ark_bn254::g1::Config as ark_ec::CurveConfig>::ScalarField,
+        > = shape.clone().try_into().unwrap();
+        let (num_cons, num_vars, num_inputs) = (
+            spartan_shape.get_num_cons(),
+            spartan_shape.get_num_vars(),
+            spartan_shape.get_num_inputs(),
+        );
+        let num_nz_entries = max(shape.A.len(), max(shape.B.len(), shape.C.len()));
+        println!(
+            "num_cons: {}, num_vars: {}, num_inputs: {}, num_nz_entries: {}",
+            num_cons, num_vars, num_inputs, num_nz_entries
+        );
+        let (log_num_cons, log_num_vars, log_num_inputs, log_num_nz_entries) = (
+            num_cons.log_2(),
+            num_vars.log_2(),
+            num_inputs.log_2(),
+            num_nz_entries.log_2(),
+        );
+        println!(
+            "log_num_cons: {}, log_num_vars: {}, log_num_inputs: {}, log_num_nz_entries: {}",
+            log_num_cons, log_num_vars, log_num_inputs, log_num_nz_entries
+        );
+        let min_num_vars = CRSNARKKey::<Projective<G1>, Zeromorph<Bn254>>::get_min_num_vars(
+            num_cons,
+            num_vars,
+            num_inputs,
+            num_nz_entries,
+        );
+        println!("min_num_vars: {}", min_num_vars);
+    }
+
+    fn test_setup_helper<G1, G2, PC, C2>()
     where
         G1: SWCurveConfig,
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
@@ -331,7 +401,18 @@ mod tests {
         let mut rng = test_rng();
         let ro_config = poseidon_config();
         let step_circuit = CubicCircuit::<G1::ScalarField>::default();
+
+        println!("generating test SRS for 26 variables...");
         let srs = PC::setup(NUM_VARS, b"test_srs", &mut rng).unwrap();
+        println!("test SRS generated");
+        println!("writing SRS to test_srs.zst");
+        let f = File::create("test_srs.zst").unwrap();
+        let mut enc = Encoder::new(&f, 0).unwrap();
+        srs.serialize_uncompressed(&mut enc).unwrap();
+        enc.finish().unwrap();
+        f.sync_all().unwrap();
+
+        println!("processing Nova public parameters from SRS...");
         let params = PublicParams::<
             G1,
             G2,
@@ -341,21 +422,15 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &step_circuit, &srs, &())
         .expect("setup should not fail");
-        (srs, params)
-    }
+        println!("Nova public parameters processed");
+        println!("writing Nova public parameters to nova_params.zst");
+        let f = File::create("nova_params.zst").unwrap();
+        let mut enc = Encoder::new(&f, 0).unwrap();
+        params.serialize_uncompressed(&mut enc).unwrap();
+        enc.finish().unwrap();
+        f.sync_all().unwrap();
 
-    fn spartan_encode_test_helper<G1, G2, PC, C2>()
-    where
-        G1: SWCurveConfig,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
-        G1::BaseField: PrimeField + Absorb,
-        G2::BaseField: PrimeField + Absorb,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
-        PC: PolyCommitmentScheme<Projective<G1>>,
-        PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
-    {
-        // We set up the public parameters both for Nova and Spartan.
-        let (srs, params) = test_setup_helper::<G1, G2, PC, C2>();
+        println!("Spartan preprocessing...");
         let key = SNARK::<
             G1,
             G2,
@@ -365,22 +440,26 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(&params, &srs)
         .unwrap();
-
+        println!("Spartan preprocessing done");
+        println!("Saving Spartan public parameters to spartan_key.zst");
         let f = File::create("spartan_key.zst").unwrap();
         let mut enc = Encoder::new(&f, 0).unwrap();
-        key.serialize_compressed(&mut enc).unwrap();
+        key.serialize_uncompressed(&mut enc).unwrap();
         enc.finish().unwrap();
         f.sync_all().unwrap();
     }
+
     #[test]
-    fn spartan_encode_test() {
-        spartan_encode_test_helper::<
+    #[ignore]
+    fn test_setup() {
+        test_setup_helper::<
             Bn254Config,
             GrumpkinConfig,
             Zeromorph<Bn254>,
             PedersenCommitment<GrumpkinProjective>,
         >();
     }
+
     fn compression_test_helper<G1, G2, PC, C2>()
     where
         G1: SWCurveConfig,
@@ -396,25 +475,36 @@ mod tests {
         let z_0 = vec![G1::ScalarField::one()];
         let z_1 = vec![G1::ScalarField::from(7)];
 
-        // We set up the public parameters both for Nova and Spartan.
-        let (srs, params) = test_setup_helper::<G1, G2, PC, C2>();
-        let key = SNARK::<
+        println!("reading Nova public parameters from nova_params.zst...");
+        let f = File::open("nova_params.zst").unwrap();
+        let mut dec = Decoder::new(&f).unwrap();
+        let params = PublicParams::<
             G1,
             G2,
-            PC,
+            PVC<G1, PC>,
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(&params, &srs)
+        >::deserialize_uncompressed_unchecked(&mut dec)
         .unwrap();
+        println!("Nova public parameters read");
 
         // Now, we perform a PCD proof step and check that the resulting proof verifies.
+        println!("performing PCD proof step...");
         let nova_proof = PCDNode::prove_step(&params, &circuit, 0, &z_0).unwrap();
         nova_proof.verify(&params).unwrap();
-
         assert_eq!(&nova_proof.z_j, &z_1);
+        println!("PCD proof step done");
+
+        println!("reading Spartan key from spartan_key.zst...");
+        let f = File::open("spartan_key.zst").unwrap();
+        let mut dec = Decoder::new(&f).unwrap();
+        let key =
+            SNARKKey::<Projective<G1>, PC>::deserialize_uncompressed_unchecked(&mut dec).unwrap();
+        println!("Spartan key read");
 
         // Now, we compress the proof using Spartan
+        println!("compressing PCD proof using Spartan...");
         let compressed_pcd_proof = SNARK::<
             G1,
             G2,
@@ -424,8 +514,10 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::compress(&params, &key, nova_proof)
         .unwrap();
+        println!("compressing PCD proof done");
 
         // And check that the compressed proof verifies.
+        println!("verifying compressed proof...");
         SNARK::<
                  G1,
                  G2,
