@@ -14,7 +14,8 @@ use ark_r1cs_std::{
     ToBitsGadget,
 };
 use ark_relations::r1cs::{
-    ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,
+    ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, OptimizationGoal, SynthesisError,
+    SynthesisMode,
 };
 use ark_std::Zero;
 
@@ -85,6 +86,7 @@ where
 {
     let cs = ConstraintSystem::<G1::BaseField>::new_ref();
     cs.set_mode(SynthesisMode::Setup);
+    cs.set_optimization_goal(OptimizationGoal::Weight);
 
     Circuit::<G1>::default().generate_constraints(cs.clone())?;
 

@@ -320,6 +320,7 @@ mod tests {
 
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Setup);
+        cs.set_optimization_goal(OptimizationGoal::Weight);
 
         let input = NovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
             i,
