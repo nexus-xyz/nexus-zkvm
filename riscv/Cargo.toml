@@ -11,16 +11,5 @@ categories = { workspace = true }
 
 [dependencies]
 clap.workspace = true
-serde.workspace = true
 elf.workspace = true
 thiserror = "1.0"
-
-ark-ff.workspace = true
-ark-relations.workspace = true
-ark-r1cs-std.workspace = true
-ark-serialize.workspace = true
-ark-bn254.workspace = true
-ark-crypto-primitives.workspace = true
-
-[dev-dependencies]
-ark-std.workspace = true
