@@ -21,30 +21,14 @@ pub struct VM {
     pub Z: u32,
 }
 
-// ArkWorks macros are not hygenic
-mod ark_confusion {
-    use serde::{Serialize, Deserialize};
-    use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
-
-    /// ISA defined registers
-    #[derive(
-        Clone,
-        Debug,
-        PartialEq,
-        Default,
-        Serialize,
-        Deserialize,
-        CanonicalSerialize,
-        CanonicalDeserialize,
-    )]
-    pub struct Regs {
-        /// ISA defined program counter register
-        pub pc: u32,
-        /// ISA defined registers x0-x31
-        pub x: [u32; 32],
-    }
+/// ISA defined registers
+#[derive(Debug, PartialEq, Default)]
+pub struct Regs {
+    /// ISA defined program counter register
+    pub pc: u32,
+    /// ISA defined registers x0-x31
+    pub x: [u32; 32],
 }
-pub use ark_confusion::*;
 
 impl VM {
     pub fn new(pc: u32) -> Self {
