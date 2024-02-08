@@ -162,11 +162,7 @@ impl<G: CurveGroup> LCCSShape<G> {
             .collect();
 
         let Mzs: Vec<G::ScalarField> = ark_std::cfg_iter!(Mrs)
-            .map(|M| {
-                (0..n)
-                    .map(|y| M.evaluate(&ys[y]) * z.index(y))
-                    .sum()
-            })
+            .map(|M| (0..n).map(|y| M.evaluate(&ys[y]) * z.index(y)).sum())
             .collect();
 
         if ark_std::cfg_into_iter!(0..self.num_matrices).any(|idx| Mzs[idx] != U.vs[idx]) {
