@@ -10,7 +10,7 @@ use crate::api::*;
 // const URL: &str = "http://35.209.216.211:80/api";
 
 pub fn nexus_api(msg: &NexusAPI) -> Result<NexusAPI> {
-    let bind_addr = NetworkConfig::from_env()?.api.bind_addr();
+    let bind_addr = NetworkConfig::from_env()?.api.bind_addr;
     let url = format!("http://{bind_addr}/api");
     Ok(Client::new().post(url).json(msg).send()?.json()?)
 }

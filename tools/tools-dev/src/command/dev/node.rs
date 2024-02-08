@@ -33,7 +33,7 @@ pub fn handle_command(args: NodeArgs) -> anyhow::Result<()> {
     compile_env_configs(false)?;
 
     let network_config = NetworkConfig::from_env()?;
-    let bind_addr = network_config.api.bind_addr();
+    let bind_addr = network_config.api.bind_addr;
 
     // setup if necessary
     let pp_file = setup_params_from_env(SetupArgs::default())?;

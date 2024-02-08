@@ -93,6 +93,7 @@ async fn main() -> Result<()> {
     }
     if opts.pcd {
         bin::client(state.clone(), opts.connect, "pcd", pcd_client_proxy).await?;
+    } else {
     }
 
     let new_service = make_service_fn(move |_| {
