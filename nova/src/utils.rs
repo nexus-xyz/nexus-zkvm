@@ -35,10 +35,10 @@ pub fn iter_bits_le(bytes: &[u8]) -> impl Iterator<Item = bool> + '_ {
         .flat_map(|byte| (0..8).map(move |bit| ((1 << bit) & byte) != 0))
 }
 
-/// Returns field encoded bits in little-endian order.
-pub fn index_to_le_field_encoding<F: PrimeField>(idx: u32, trim: Option<u32>) -> Vec<F> {
+/// Returns field encoded bits in big-endian order.
+pub fn index_to_be_field_encoding<F: PrimeField>(idx: u32, trim: Option<u32>) -> Vec<F> {
     let mut ot = trim;
-    if let None = ot {
+    if ot.is_none() {
         ot = Some(32);
     }
     let t = ot.unwrap() as usize;
@@ -46,7 +46,8 @@ pub fn index_to_le_field_encoding<F: PrimeField>(idx: u32, trim: Option<u32>) ->
 
     let bytes = idx.to_le_bytes();
     let mut bits = iter_bits_le(&bytes);
-    (0..t)
+
+    let mut enc = (0..t)
         .map(|_| {
             if bits.next().unwrap() {
                 F::ONE
@@ -54,8 +55,10 @@ pub fn index_to_le_field_encoding<F: PrimeField>(idx: u32, trim: Option<u32>) ->
                 F::ZERO
             }
         })
-        .collect::<Vec<F>>()
-        .to_vec()
+        .collect::<Vec<F>>();
+
+    enc.reverse();
+    enc
 }
 
 #[cfg(test)]
@@ -82,52 +85,52 @@ mod tests {
     }
 
     #[test]
-    fn index_le_field_encoding() {
+    fn index_be_field_encoding() {
         const X: u32 = 13; // 1101
 
         assert_eq!(
-            super::index_to_le_field_encoding::<Fr>(X, Some(4)),
-            [Fr::ONE, Fr::ZERO, Fr::ONE, Fr::ONE]
+            super::index_to_be_field_encoding::<Fr>(X, Some(4)),
+            [Fr::ONE, Fr::ONE, Fr::ZERO, Fr::ONE]
         );
         assert_eq!(
-            super::index_to_le_field_encoding::<Fr>(X, Some(5)),
-            [Fr::ONE, Fr::ZERO, Fr::ONE, Fr::ONE, Fr::ZERO]
+            super::index_to_be_field_encoding::<Fr>(X, Some(5)),
+            [Fr::ZERO, Fr::ONE, Fr::ONE, Fr::ZERO, Fr::ONE]
         );
         assert_eq!(
-            super::index_to_le_field_encoding::<Fr>(X, None),
+            super::index_to_be_field_encoding::<Fr>(X, None),
             [
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ZERO,
+                Fr::ONE,
                 Fr::ONE,
                 Fr::ZERO,
                 Fr::ONE,
-                Fr::ONE,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
-                Fr::ZERO,
             ]
         );
     }

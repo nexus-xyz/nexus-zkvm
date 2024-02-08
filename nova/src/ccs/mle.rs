@@ -1,7 +1,10 @@
 //! Helper code for multilinear extensions
 
 use ark_ff::{Field, PrimeField};
-use ark_poly::{multivariate::Term, DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension};
+use ark_poly::{
+    multivariate::Term, DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension,
+    SparseMultilinearExtension,
+};
 
 use super::super::sparse::SparseMatrix;
 use super::super::utils::iter_bits_le;
@@ -36,19 +39,21 @@ pub fn mle_to_mvp<F: PrimeField, M: DenseMVPolynomial<F>>(mle: &DenseMultilinear
 
     let n = 1 << mle.num_vars;
 
-    let terms: Vec<(F, M::Term)> = (0..n).map(|i| {
-        let bytes = (i as usize).to_le_bytes();
-        let mut bits = iter_bits_le(&bytes);
+    let terms: Vec<(F, M::Term)> = (0..n)
+        .map(|i| {
+            let bytes = (i as u32).to_le_bytes();
+            let mut bits = iter_bits_le(&bytes);
 
-        let mut t: Vec<(usize, usize)> = vec![];
-        (0..mle.num_vars).for_each(|j| {
-            if bits.next().unwrap() {
-                t.push((j, 1));
-            }
-        });
+            let mut t: Vec<(usize, usize)> = vec![];
+            (0..mle.num_vars).for_each(|j| {
+                if bits.next().unwrap() {
+                    t.push((j, 1));
+                }
+            });
 
-        (coeffs[i], M::Term::new(t))
-    }).collect();
+            (coeffs[i], M::Term::new(t))
+        })
+        .collect();
 
     M::from_coefficients_vec(mle.num_vars, terms)
 }
@@ -66,7 +71,7 @@ pub fn matrix_to_mle<F: PrimeField>(
     let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
 
     // number of columns in padded matrix
-    let n = n.next_power_of_two();
+    let n = if n == 1 { 2 } else { n.next_power_of_two() };
 
     let evaluations: Vec<(usize, F)> = M.iter().map(|(i, j, value)| ((i * n + j), value)).collect();
 
@@ -79,7 +84,7 @@ pub fn vec_to_mle<F: Field>(z: &[F]) -> DenseMultilinearExtension<F> {
     assert!(n > 0);
 
     let mut z = z.to_owned();
-    z.resize(n.next_power_of_two(), F::zero());
+    z.resize(if n == 1 { 2 } else { n.next_power_of_two() }, F::zero());
 
     // compute s'
     let s = (n - 1).checked_ilog2().unwrap_or(0) + 1;
@@ -99,7 +104,7 @@ pub fn fold_vec_to_mle_low<F: Field>(
     z.extend(&mle.to_evaluations());
 
     n = z.len();
-    z.resize(n.next_power_of_two(), F::zero());
+    z.resize(if n == 1 { 2 } else { n.next_power_of_two() }, F::zero());
 
     // compute s'
     let s = (n - 1).checked_ilog2().unwrap_or(0) + 1;
@@ -111,9 +116,8 @@ pub fn fold_vec_to_mle_low<F: Field>(
 mod tests {
     use super::*;
 
-    use ark_ec::AdditiveGroup;
-    use ark_poly::Polynomial;
     use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
+    use ark_poly::Polynomial;
     use ark_std::{UniformRand, Zero};
     use ark_test_curves::bls12_381::{Fr, G1Projective as G};
 

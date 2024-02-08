@@ -13,7 +13,7 @@ use ark_std::ops::Index;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 pub use super::super::sparse::{MatrixRef, SparseMatrix};
-use super::super::utils::index_to_le_field_encoding;
+use super::super::utils::index_to_be_field_encoding;
 use super::mle::{fold_vec_to_mle_low, matrix_to_mle, mle_to_mvp, vec_to_mle};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -154,18 +154,16 @@ impl<G: CurveGroup> LCCSShape<G> {
             .map(|M| M.fix_variables(U.rs.as_slice()))
             .collect();
 
-        let s = (self.num_io + self.num_vars - 1)
-            .checked_ilog2()
-            .unwrap_or(0)
-            + 1; // s' in papers
+        let n = (self.num_io + self.num_vars).next_power_of_two();
+        let s = (n - 1).checked_ilog2().unwrap_or(0) + 1; // s' in papers
 
-        let ys: Vec<Vec<G::ScalarField>> = ark_std::cfg_into_iter!(0..s as usize)
-            .map(|y| index_to_le_field_encoding(y as u32, Some(s)))
+        let ys: Vec<Vec<G::ScalarField>> = ark_std::cfg_into_iter!(0..n)
+            .map(|y| index_to_be_field_encoding(y as u32, Some(s)))
             .collect();
 
         let Mzs: Vec<G::ScalarField> = ark_std::cfg_iter!(Mrs)
             .map(|M| {
-                (0..s as usize)
+                (0..n)
                     .map(|y| M.evaluate(&ys[y]) * z.index(y))
                     .sum()
             })
@@ -314,12 +312,10 @@ impl<
         shape: &LCCSShape<G>,
         commitment_W: &P::Commitment,
         X: &[G::ScalarField],
-        rs: Vec<G::ScalarField>,
-        vs: Vec<G::ScalarField>,
+        rs: &Vec<G::ScalarField>,
+        vs: &Vec<G::ScalarField>,
     ) -> Result<Self, Error> {
-        if X.is_empty() {
-            return Err(Error::InvalidInputLength);
-        } else if shape.num_io != X.len() {
+        if X.is_empty() || shape.num_io != X.len() {
             Err(Error::InvalidInputLength)
         } else if ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) != rs.len() as u32
         {
@@ -330,8 +326,8 @@ impl<
             Ok(Self {
                 commitment_W: commitment_W.clone(),
                 X: X.to_owned(),
-                rs,
-                vs,
+                rs: rs.clone(),
+                vs: vs.clone(),
             })
         }
     }
@@ -348,7 +344,7 @@ mod tests {
     use ark_ff::Field;
     use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
     use ark_poly_commit::marlin_pst13_pc::MarlinPST13;
-    use ark_std::rand;
+    use ark_std::UniformRand;
 
     use ark_test_curves::bls12_381::{Bls12_381, G1Projective as G};
 
@@ -361,7 +357,7 @@ mod tests {
     type P = MarlinPST13<Bls12_381, M, S>;
 
     use crate::r1cs::tests::{to_field_elements, to_field_sparse, A, B, C};
-/*
+
     #[test]
     fn zero_instance_is_satisfied() -> Result<(), Error> {
         #[rustfmt::skip]
@@ -374,11 +370,11 @@ mod tests {
             to_field_sparse::<G>(a)
         };
 
-        let mut rng = rand::thread_rng();
-
         const NUM_CONSTRAINTS: usize = 3;
         const NUM_WITNESS: usize = 1;
         const NUM_PUBLIC: usize = 2;
+
+        let mut rng = ark_std::test_rng();
 
         let lccs_shape = LCCSShape::<G>::new(
             NUM_CONSTRAINTS,
@@ -400,75 +396,114 @@ mod tests {
 
         let commitment_W = witness.commit::<M, S, P>(&ck);
 
-        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s1 = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<F> = (0..s1).map(|_| F::rand(&mut rng)).collect();
 
-        let rs: Vec<F> = (0..s).map(|_| F::random(rng)).collect();
+        let z = fold_vec_to_mle_low(&X, &vec_to_mle(&W));
 
-        let instance = LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_W, &X, rs)?;
+        let Mrs: Vec<SparseMultilinearExtension<F>> = ark_std::cfg_iter!(lccs_shape.Ms)
+            .map(|M| M.fix_variables(rs.as_slice()))
+            .collect();
+
+        let n = (NUM_WITNESS + NUM_PUBLIC).next_power_of_two();
+        let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
+
+        let ys: Vec<Vec<F>> = ark_std::cfg_into_iter!(0..n)
+            .map(|y| index_to_be_field_encoding(y as u32, Some(s2)))
+            .collect();
+
+        let vs: Vec<F> = ark_std::cfg_iter!(Mrs)
+            .map(|M| (0..n).map(|y| M.evaluate(&ys[y]) * z.index(y)).sum())
+            .collect();
+
+        let instance = LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_W, &X, &rs, &vs)?;
 
         lccs_shape.is_satisfied::<M, S, P>(&instance, &witness, &ck)?;
+
         Ok(())
-}
-    */
-    /*
-        #[test]
-        fn is_satisfied() -> Result<(), Error> {
-            let (a, b, c) = {
-                (
-                    to_field_sparse::<G>(A),
-                    to_field_sparse::<G>(B),
-                    to_field_sparse::<G>(C),
-                )
-            };
+    }
 
-            const NUM_CONSTRAINTS: usize = 4;
-            const NUM_WITNESS: usize = 4;
-            const NUM_PUBLIC: usize = 2;
+    #[test]
+    fn is_satisfied() -> Result<(), Error> {
+        let (a, b, c) = {
+            (
+                to_field_sparse::<G>(A),
+                to_field_sparse::<G>(B),
+                to_field_sparse::<G>(C),
+            )
+        };
 
-            let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
-            let r1cs_shape: R1CSShape<G> =
-                R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
+        const NUM_CONSTRAINTS: usize = 4;
+        const NUM_WITNESS: usize = 4;
+        const NUM_PUBLIC: usize = 2;
 
-            let ccs_shape = CCSShape::from(r1cs_shape);
+        let mut rng = ark_std::test_rng();
 
-            let X = to_field_elements::<G>(&[1, 35]);
-            let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-            let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let lccs_shape = LCCSShape::<G>::new(
+            NUM_CONSTRAINTS,
+            NUM_WITNESS,
+            NUM_PUBLIC,
+            3,
+            2,
+            2,
+            vec![&a, &b, &c],
+            vec![(F::ONE, vec![0, 1]), (F::ONE.neg(), vec![2])],
+        )?;
 
-            let instance = CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_W, &X)?;
-            let witness = CCSWitness::<G>::new(&ccs_shape, &W)?;
+        let X = to_field_elements::<G>(&[1, 35]);
+        let W = to_field_elements::<G>(&[3, 9, 27, 30]);
+        let witness = LCCSWitness::<G>::new(&lccs_shape, &W)?;
 
-            ccs_shape.is_satisfied(&instance, &witness, &pp)?;
+        let up = P::setup(witness.W.num_vars, Some(witness.W.num_vars), &mut rng).unwrap();
+        let (ck, _vk) = P::trim(&up, witness.W.num_vars, 0, None).unwrap();
 
-            // Change commitment.
-            let invalid_commitment = commitment_W.double();
-            let instance =
-                CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &invalid_commitment, &X)?;
-            assert_eq!(
-                ccs_shape.is_satisfied(&instance, &witness, &pp),
-                Err(Error::NotSatisfied)
-            );
+        let commitment_W = witness.commit::<M, S, P>(&ck);
 
-            // Provide invalid witness.
-            let invalid_W = to_field_elements::<G>(&[4, 9, 27, 30]);
-            let commitment_invalid_W = PedersenCommitment::<G>::commit(&pp, &W);
-            let instance =
-                CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_invalid_W, &X)?;
-            let invalid_witness = CCSWitness::<G>::new(&ccs_shape, &invalid_W)?;
-            assert_eq!(
-                ccs_shape.is_satisfied(&instance, &invalid_witness, &pp),
-                Err(Error::NotSatisfied)
-            );
+        let s1 = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<F> = (0..s1).map(|_| F::rand(&mut rng)).collect();
 
-            // Provide invalid public input.
-            let invalid_X = to_field_elements::<G>(&[1, 36]);
-            let instance =
-                CCSInstance::<G, PedersenCommitment<G>>::new(&ccs_shape, &commitment_W, &invalid_X)?;
-            assert_eq!(
-                ccs_shape.is_satisfied(&instance, &witness, &pp),
-                Err(Error::NotSatisfied)
-            );
-            Ok(())
-        }
-    */
+        let z = fold_vec_to_mle_low(&X, &vec_to_mle(&W));
+
+        let Mrs: Vec<SparseMultilinearExtension<F>> = ark_std::cfg_iter!(lccs_shape.Ms)
+            .map(|M| M.fix_variables(rs.as_slice()))
+            .collect();
+
+        let n = (NUM_WITNESS + NUM_PUBLIC).next_power_of_two();
+        let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
+
+        let ys: Vec<Vec<F>> = ark_std::cfg_into_iter!(0..n)
+            .map(|y| index_to_be_field_encoding(y as u32, Some(s2)))
+            .collect();
+
+        let vs: Vec<F> = ark_std::cfg_iter!(Mrs)
+            .map(|M| (0..n).map(|y| M.evaluate(&ys[y]) * z.index(y)).sum())
+            .collect();
+
+        let instance = LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_W, &X, &rs, &vs)?;
+
+        lccs_shape.is_satisfied::<M, S, P>(&instance, &witness, &ck)?;
+
+        // Provide invalid witness.
+        let invalid_W = to_field_elements::<G>(&[4, 9, 27, 30]);
+        let invalid_witness = LCCSWitness::<G>::new(&lccs_shape, &invalid_W)?;
+        let commitment_invalid_W = invalid_witness.commit::<M, S, P>(&ck);
+
+        let instance =
+            LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_invalid_W, &X, &rs, &vs)?;
+        assert_eq!(
+            lccs_shape.is_satisfied(&instance, &invalid_witness, &ck),
+            Err(Error::NotSatisfied)
+        );
+
+        // Provide invalid public input.
+        let invalid_X = to_field_elements::<G>(&[1, 36]);
+        let instance =
+            LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_W, &invalid_X, &rs, &vs)?;
+        assert_eq!(
+            lccs_shape.is_satisfied(&instance, &witness, &ck),
+            Err(Error::NotSatisfied)
+        );
+
+        Ok(())
+    }
 }
