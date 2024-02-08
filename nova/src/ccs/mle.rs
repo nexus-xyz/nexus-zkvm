@@ -1,22 +1,56 @@
 //! Helper code for multilinear extensions
 
 use ark_ff::{Field, PrimeField};
-use ark_poly::{
-    polynomial::multivariate::{SparsePolynomial, SparseTerm, Term},
-    DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension
-};
+use ark_poly::{multivariate::Term, DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension};
 
 use super::super::sparse::SparseMatrix;
+use super::super::utils::iter_bits_le;
 
-pub fn mle_to_mvp<F: PrimeField, T: Term>(
-    mle: &DenseMultilinearExtension<F>
-) -> SparsePolynomial<F, T> { // confusingly, the DenseMVPolynomial trait is only implemented by SparsePolynomial
+/// Utility function for mle -> mvp conversion.
+fn ext<F: PrimeField>(pts: &[F]) -> Vec<F> {
+    let n = pts.len();
 
-    let points = 1 << mle.num_vars;
+    // https://crypto.stackexchange.com/a/84416
+    if n == 1 {
+        return pts.to_vec();
+    }
 
-    (0..points).iter().map(|pt| ).collect();
+    let h = n / 2;
+    let l = ext(&pts[0..h]);
+    let r = ext(&pts[h..n]);
 
-    SparsePolynomial::<F, T>::from_coefficients_vec(mle.num_vars, coeffs)
+    [
+        l.clone(),
+        l.iter()
+            .zip(r.iter())
+            .map(|(vl, vr)| *vr - vl)
+            .collect::<Vec<F>>(),
+    ]
+    .concat()
+}
+
+/// Converts an mle into a generic multivariate polynomial.
+pub fn mle_to_mvp<F: PrimeField, M: DenseMVPolynomial<F>>(mle: &DenseMultilinearExtension<F>) -> M {
+    let evals = mle.to_evaluations();
+    let coeffs = ext(evals.as_slice());
+
+    let n = 1 << mle.num_vars;
+
+    let terms: Vec<(F, M::Term)> = (0..n).map(|i| {
+        let bytes = (i as usize).to_le_bytes();
+        let mut bits = iter_bits_le(&bytes);
+
+        let mut t: Vec<(usize, usize)> = vec![];
+        (0..mle.num_vars).for_each(|j| {
+            if bits.next().unwrap() {
+                t.push((j, 1));
+            }
+        });
+
+        (coeffs[i], M::Term::new(t))
+    }).collect();
+
+    M::from_coefficients_vec(mle.num_vars, terms)
 }
 
 /// Converts a matrix into a (sparse) mle.
@@ -77,12 +111,42 @@ pub fn fold_vec_to_mle_low<F: Field>(
 mod tests {
     use super::*;
 
+    use ark_ec::AdditiveGroup;
     use ark_poly::Polynomial;
+    use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
     use ark_std::{UniformRand, Zero};
     use ark_test_curves::bls12_381::{Fr, G1Projective as G};
 
     use crate::r1cs::tests::to_field_sparse;
     use crate::utils::iter_bits_le;
+
+    #[test]
+    fn test_ext() {
+        // https://crypto.stackexchange.com/a/84416
+        let pts = [Fr::from(10), Fr::from(32), Fr::from(57), Fr::from(81)];
+        let exp = [Fr::from(10), Fr::from(22), Fr::from(47), Fr::from(2)];
+
+        let coeffs = ext(&pts);
+
+        assert_eq!(exp.len(), coeffs.len());
+        assert!(exp.iter().zip(coeffs.iter()).all(|(e, c)| e == c));
+    }
+
+    #[test]
+    fn test_mle_to_mvp() {
+        let pts = [Fr::from(10), Fr::from(32), Fr::from(57), Fr::from(81)];
+        let mle = DenseMultilinearExtension::<Fr>::from_evaluations_slice(2, &pts);
+        let mvp: SparsePolynomial<Fr, SparseTerm> = mle_to_mvp(&mle);
+
+        let terms = vec![
+            (Fr::from(10), SparseTerm::new(vec![])),
+            (Fr::from(47), SparseTerm::new(vec![(1, 1)])), // mvp repr reorders internally
+            (Fr::from(22), SparseTerm::new(vec![(0, 1)])),
+            (Fr::from(2), SparseTerm::new(vec![(0, 1), (1, 1)])),
+        ];
+
+        assert!(mvp.terms().iter().enumerate().all(|(e, t)| *t == terms[e]));
+    }
 
     #[test]
     fn test_matrix_to_mle() {

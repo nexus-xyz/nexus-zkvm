@@ -44,9 +44,17 @@ pub fn index_to_le_field_encoding<F: PrimeField>(idx: u32, trim: Option<u32>) ->
     let t = ot.unwrap() as usize;
     assert!(t <= 32);
 
-    iter_bits_le(&idx.to_le_bytes())
-        .map(|byte| if byte { F::ONE } else { F::ZERO })
-        .collect::<Vec<_>>()[0..t]
+    let bytes = idx.to_le_bytes();
+    let mut bits = iter_bits_le(&bytes);
+    (0..t)
+        .map(|_| {
+            if bits.next().unwrap() {
+                F::ONE
+            } else {
+                F::ZERO
+            }
+        })
+        .collect::<Vec<F>>()
         .to_vec()
 }
 
