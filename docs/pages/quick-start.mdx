@@ -15,14 +15,18 @@ import { Steps } from "nextra/components";
 
 ### 1. Install the Nexus zkVM
 
-First install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
+First, install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
 
-Then build and install the Nexus zkVM:
+Then, install the Nexus zkVM:
 
 ```shell
-git clone https://github.com/nexus-xyz/nexus-zkvm
-cd nexus-zkvm
-cargo install --path .
+cargo install --git https://github.com/nexus-xyz/nexus-zkvm nexus-tools
+```
+
+Verify the installation:
+
+```shell
+cargo nexus --version
 ```
 
 ### 2. Create a new Nexus project
@@ -31,7 +35,7 @@ cargo install --path .
 cargo nexus new nexus-project
 ```
 
-This will create a directory with the following structure:
+This will create a new Rust project directory with the following structure:
 
 ```shell
 ./nexus-project
@@ -41,20 +45,52 @@ This will create a directory with the following structure:
     └── main.rs
 ```
 
+And an example zkVM Rust program in `./src/main.rs`:
+
+```rust
+#![no_std]
+#![no_main]
+
+fn fib(n: u32) -> u32 {
+    match n {
+        0 => 1,
+        1 => 1,
+        _ => fib(n - 1) + fib(n - 2),
+    }
+}
+
+#[nexus::main]
+fn main() {
+    let n = 7;
+    let result = fib(n);
+    assert_eq!(result, 13);
+}
+```
+
 ### 3. Prove your program
 
-Generate a zero-knowledge proof for your Rust program using the Nexus zkVM:
+Generate a zero-knowledge proof for your Rust program using the Nexus zkVM.
+
+#### 3.1 Locally
 
 ```shell
 cargo nexus prove
 ```
 
+#### 3.2 On the Nexus Network
+
+```shell
+cargo nexus prove --network
+```
+
+This will generate a proof, and store it in `./proof.json`.
+
 ### 4. Verify your proof
+
+Finally, load and verify the proof:
 
 ```shell
 cargo nexus verify
 ```
 
 </Steps>
-
-It's that simple. Next, learn how to connect to the Nexus Network to produce proofs at production-grade scale.
