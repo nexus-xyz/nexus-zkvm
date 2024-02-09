@@ -1,5 +1,4 @@
 use std::future::Future;
-use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use hyper::{
@@ -7,6 +6,7 @@ use hyper::{
     upgrade::Upgraded,
     Body, Client, Request, Response, StatusCode,
 };
+use http::uri;
 
 use super::*;
 use super::pcd::*;
@@ -72,7 +72,7 @@ where
 
 pub async fn client<S, F>(
     state: S,
-    addr: SocketAddr,
+    addr: &uri::Authority,
     path: &str,
     f: fn(S, Upgraded) -> F,
 ) -> Result<()>
@@ -91,6 +91,5 @@ where
 
     let upgraded = hyper::upgrade::on(res).await?;
     println!("connected to {}/{}", addr, path);
-    tokio::spawn(f(state, upgraded));
-    Ok(())
+    f(state, upgraded).await
 }

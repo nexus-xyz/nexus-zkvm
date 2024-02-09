@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::{fmt, net::SocketAddr};
 
 use serde::{Deserialize, Deserializer};
 
@@ -22,6 +22,18 @@ pub struct ClientConfig {
 
     #[serde(default)]
     pub port: Option<u16>,
+}
+
+impl fmt::Display for ClientConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let hostname = &self.host_name;
+        let port = self
+            .port
+            .map(|port| [":", &port.to_string()].concat())
+            .unwrap_or_default();
+
+        write!(f, "{hostname}{port}")
+    }
 }
 
 impl Config for NetworkConfig {
