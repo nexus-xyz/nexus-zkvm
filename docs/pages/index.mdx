@@ -4,6 +4,64 @@ description: Enabling Verifiable Computing
 image: ./images/opengraph.png
 ---
 
+import Image from "next/image"
+
+import { Callout } from 'nextra/components'
+
 # Introduction
 
-Nexus is an open-source framework for computing zero-knowledge proofs at scale.
+> The Nexus Project seeks to build a zkVM that runs at a **trillion CPU cycles proved per second**.
+
+Welcome to the Nexus documentation.  Here you will find docs for:
+
+- **The Nexus zkVM**: A massively-parallelized zkVM
+    - A machine that can generate zero-knowledge proofs for any program, with initial support for [Rust](https://www.rust-lang.org/).
+
+- **The Nexus Network**: A zkVM supercomputer
+    - A massivelly parallelized prover network, jointly running the Nexus zkVM.
+
+To get started with using the Nexus zkVM, check out the [Quick Start](/quick-start.mdx) guide.
+
+<Callout type="info" emoji="ℹ️">
+  Nexus is in experimental stages and not recommended for production use. The system has low performance and high costs. Many future upgrades are expected.
+</Callout>
+
+## The science behind Nexus
+
+For an in depth look at the science behind the Nexus zkVM and the Nexus Network, see the [Nexus Whitepaper](https://nexus.xyz/whitepaper). We briefly describe the Nexus system.
+
+### The Nexus zkVM
+
+The Nexus zkVM is a massively paralellized, general-purpose, prover-optimized, zkVM. It is powered by a massivelly-parallelized proof aggregation mechanism, based on Incrementally Verifiable Computation (IVC) and (multi)-folding schemes, such as [Nova](https://eprint.iacr.org/2021/370), [CycleFold](https://eprint.iacr.org/2023/1192.pdf), [SuperNova](https://eprint.iacr.org/2022/1758.pdf), [HyperNova](https://eprint.iacr.org/2023/573.pdf), and more.
+
+We provide the first production-grade open-source implementation of folding schemes: https://github.com/nexus-xyz/nexus-zkvm, which we hope is useful for the broader community.
+
+<br />
+
+<p align="center">
+    <Image alt="Nexus zkVM" src="/images/execution-sequence.svg" width={700} height={700}/>
+</p>
+
+### The Nexus Network
+
+The Nexus Network is a massivelly parallelized prover network, running the Nexus zkVM. The Nexus Network is a distributed supercomputer, operated by Nexus Labs, inspired by the SETI@Home project. 
+
+The Nexus Network aggregates the CPU / GPU computing power of an untrusted distributed prover network to scale the throughput of the Nexus zkVM by orders of magnitude.
+
+To sign up to provide compute to the Nexus Network, contact us at `hello@nexus.xyz`.
+
+<div align="center">
+    <img alt="Nexus Network" src="/images/nexus-network.svg"></img>
+</div>
+
+### The Nexus Virtual machine
+
+The Nexus Virtual Machine (NVM) is a simple and minimal Instruction Set Architecture (ISA) designed to maximize prover performance.
+
+<p align="center">
+    <img alt="NVM" src="/images/nvm.svg"></img>
+</p>
+
+Many more details will be released in the coming months.
+
+Next, try out the Nexus zkVM yourself to prove example Rust programs: See the [Quick Start](/quick-start.mdx) guide.
