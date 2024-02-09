@@ -166,7 +166,7 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
     // write code segment
     let s = code.p_offset as u32;
     let e = (code.p_offset + code.p_filesz) as u32;
-    for i in s..e {
+    for i in (s..e).step_by(4) {
         let inst = parse_inst(i, &bytes[i as usize..])?;
         let pc = s + (i - s) * 2;
         let inst = translate_inst(s, e, inst);
