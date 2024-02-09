@@ -6,5 +6,8 @@
     }
   },
   "quick-start": "Quick Start",
-  "svg": "SVG Images"
+  "svg": {
+    "title": "SVG Images",
+    "display": "hidden"
+  }
 }
