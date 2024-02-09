@@ -16,6 +16,7 @@ use hyper::{
     Body, Method, Request, Response, Server, StatusCode,
 };
 use http::uri;
+use tracing_subscriber::EnvFilter;
 
 use nexus_prover::pp::gen_or_load;
 
@@ -77,9 +78,10 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let filter = EnvFilter::from_default_env();
     tracing_subscriber::fmt()
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-        .with_env_filter("supernova=trace,nexus=trace")
+        .with_env_filter(filter)
         .init();
 
     let opts = Opts::parse();
@@ -111,7 +113,12 @@ async fn main() -> Result<()> {
             .tcp_nodelay(true)
             .serve(new_service);
 
-        println!("Listening on http://{}", server.local_addr());
+        tracing::info!(
+            target: LOG_TARGET,
+            "Listening on http://{}",
+            server.local_addr(),
+        );
+
         server.await?;
     }
     Ok(())

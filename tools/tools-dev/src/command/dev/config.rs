@@ -40,6 +40,7 @@ macro_rules! config_dir {
 
 const CONFIG_BASE_DIR: &str = concat!(config_dir!(), "/bases");
 const CONFIG_BASE_FILES: &[&str] = &["network.toml", "vm.toml"];
+const RUST_ENV_FILE: &str = "rust.toml";
 
 pub(crate) fn compile_to_env_from_bases(force: bool) -> anyhow::Result<()> {
     let mut flat_config = Vec::new();
@@ -51,6 +52,10 @@ pub(crate) fn compile_to_env_from_bases(force: bool) -> anyhow::Result<()> {
         let mut config = compile_flat_config(CONFIG_ENV_PREFIX, &raw_file)?;
         flat_config.append(&mut config);
     }
+    // rust envs are parsed separately
+    let config_path = Path::new(CONFIG_BASE_DIR).join(RUST_ENV_FILE);
+    let raw_file = fs::read_to_string(&config_path)?;
+    parse_rust_env(&raw_file, &mut flat_config)?;
 
     let env_out = flat_config
         .into_iter()
@@ -115,6 +120,23 @@ fn parse_table(prefix: &str, table: &toml::Table, out: &mut Vec<(String, String)
 
         out.push((prefix, str_value));
     }
+}
+
+// Rust environment variables are copied without prefixing.
+fn parse_rust_env(raw_table: &str, out: &mut Vec<(String, String)>) -> anyhow::Result<()> {
+    let toml_config: toml::Table = toml::from_str(raw_table)?;
+
+    for (key, value) in toml_config {
+        let key = key.to_ascii_uppercase();
+        let str_value = match value {
+            toml::Value::String(s) => s.clone(),
+            toml::Value::Integer(i) => i.to_string(),
+            toml::Value::Boolean(b) => b.to_string(),
+            _ => panic!("unexpected value"),
+        };
+        out.push((key, str_value));
+    }
+    Ok(())
 }
 
 #[cfg(test)]

@@ -16,7 +16,11 @@ const MAX_SIZE: u32 = 40 * 1024 * 1024;
 pub async fn read_msg(upgraded: &mut Upgraded) -> Result<NexusMsg> {
     let size = upgraded.read_u32().await?;
     if size > MAX_SIZE {
-        println!("read SIZE is {size}");
+        tracing::warn!(
+            target: LOG_TARGET,
+            max_size = MAX_SIZE,
+            "Read size {size} exceeded the limit",
+        );
         return Err("bad size".into());
     }
     let mut b = vec![0; size as usize];
@@ -29,7 +33,11 @@ pub async fn write_msg(upgraded: &mut Upgraded, msg: &NexusMsg) -> Result<()> {
     let v = encode_lz4(msg)?;
     let size = v.len() as u32;
     if size > MAX_SIZE {
-        println!("write SIZE is {size}");
+        tracing::warn!(
+            target: LOG_TARGET,
+            max_size = MAX_SIZE,
+            "Write size {size} exceeded the limit",
+        );
         return Err("bad size".into());
     }
     upgraded.write_u32(size).await?;
@@ -53,12 +61,24 @@ where
     tokio::task::spawn(async move {
         match hyper::upgrade::on(req).await {
             Ok(upgraded) => {
-                println!("new nexus connection");
+                tracing::debug!(
+                    target: LOG_TARGET,
+                    "new node connected, switching protocols",
+                );
                 if let Err(e) = f(state, upgraded).await {
-                    eprintln!("io error: {}", e)
+                    tracing::warn!(
+                        target: LOG_TARGET,
+                        error = ?e,
+                    );
                 };
             }
-            Err(e) => eprintln!("upgrade error: {}", e),
+            Err(e) => {
+                tracing::warn!(
+                    target: LOG_TARGET,
+                    error = ?e,
+                    "failed to switch protocols",
+                );
+            }
         }
     });
 
@@ -90,6 +110,9 @@ where
     }
 
     let upgraded = hyper::upgrade::on(res).await?;
-    println!("connected to {}/{}", addr, path);
+    tracing::debug!(
+        target: LOG_TARGET,
+        "connected to {addr}",
+    );
     f(state, upgraded).await
 }

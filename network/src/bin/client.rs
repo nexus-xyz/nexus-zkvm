@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use clap::{Parser, Subcommand, Args};
-use nexus_network::client::*;
+use nexus_network::client::{self, Client};
 
 #[derive(Debug, Parser)]
 struct Opts {
@@ -46,7 +46,11 @@ fn main() {
             let path = path_to_save.unwrap_or_else(|| PathBuf::from("nexus-proof.json"));
 
             if proof.proof.is_some() {
-                println!("Saving proof...");
+                tracing::info!(
+                    target: client::LOG_TARGET,
+                    "Storing proof to {}",
+                    path.display(),
+                );
                 let serialized = serde_json::to_vec(&proof).unwrap();
                 std::fs::write(path, serialized).unwrap();
             }

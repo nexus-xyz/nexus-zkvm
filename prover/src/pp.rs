@@ -6,6 +6,7 @@ pub use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 use crate::types::*;
 use crate::error::*;
 use crate::circuit::{Tr, nop_circuit};
+use crate::LOG_TARGET;
 
 pub fn gen_pp<SP>(circuit: &SC) -> Result<PP<SP>, ProofError>
 where
@@ -50,18 +51,25 @@ fn show_pp<SP>(pp: &PP<SP>)
 where
     SP: SetupParams<G1, G2, C1, C2, RO, Tr>,
 {
-    println!(
-        "Primary Circuit {} vars x {} constraints, {} io",
-        pp.shape.num_vars, pp.shape.num_constraints, pp.shape.num_io
+    tracing::info!(
+        target: LOG_TARGET,
+        "Primary circuit {}",
+        pp.shape,
     );
-    println!(
-        "Secondary Circuit {} vars x {} constraints, {} io",
-        pp.shape_secondary.num_vars, pp.shape_secondary.num_constraints, pp.shape_secondary.num_io
+    tracing::info!(
+        target: LOG_TARGET,
+        "Secondary circuit {}",
+        pp.shape_secondary,
     );
 }
 
 pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError> {
-    println!("Generating public parameters to {pp_file}...");
+    tracing::info!(
+        target: LOG_TARGET,
+        path = ?pp_file,
+        "Generating public parameters",
+    );
+
     if par {
         let pp: ParPP = gen_vm_pp(k)?;
         show_pp(&pp);
@@ -79,13 +87,24 @@ where
 {
     let t = std::time::Instant::now();
     let pp: PP<SP> = if gen {
-        println!("Generating public parameters...");
+        tracing::info!(
+            target: LOG_TARGET,
+            "Generating public parameters",
+        );
         gen_vm_pp(k)?
     } else {
-        println!("Loading public parameters from {pp_file}...");
+        tracing::info!(
+            target: LOG_TARGET,
+            path = ?pp_file,
+            "Loading public parameters",
+        );
         load_pp(pp_file)?
     };
-    println!("Got public parameters in {:?}", t.elapsed());
+    tracing::info!(
+        target: LOG_TARGET,
+        "Done in {:?}",
+        t.elapsed(),
+    );
     show_pp(&pp);
     Ok(pp)
 }

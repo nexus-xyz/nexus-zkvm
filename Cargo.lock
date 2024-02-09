@@ -1541,6 +1541,8 @@ dependencies = [
  "nexus-vm",
  "snmalloc-rs",
  "supernova",
+ "tracing",
+ "tracing-subscriber 0.3.18",
  "zstd",
 ]
 
@@ -1588,6 +1590,7 @@ dependencies = [
  "anyhow",
  "cargo_metadata",
  "clap 4.4.18",
+ "dotenvy",
  "http",
  "nexus-config",
  "toml",

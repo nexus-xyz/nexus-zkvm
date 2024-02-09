@@ -25,7 +25,11 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Re
     let hash = Arc::new(hash);
 
     let t = std::time::Instant::now();
-    println!("proving {} steps", trace.blocks.len());
+    tracing::debug!(
+        target: LOG_TARGET,
+        steps = trace.blocks.len(),
+        "starting computing the proof",
+    );
 
     let mut v: VecDeque<JoinHandle<NexusMsg>> = VecDeque::with_capacity(trace.blocks.len() / 2);
 
@@ -42,12 +46,19 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Re
             tokio::spawn(async move {
                 let proof = v.pop_front().unwrap().await.unwrap();
                 state.db.update_complete(hash.to_string(), 1);
-                println!("proof complete {:?}", t.elapsed());
+                tracing::info!(
+                    target: LOG_TARGET,
+                    elapsed = ?t.elapsed(),
+                    "proof complete, verifying",
+                );
 
-                println!("verifying proof...");
                 let PCDRes(ref node) = proof else { panic!() };
                 node.verify(&state.pp).unwrap();
-                println!("proof OK");
+
+                tracing::info!(
+                    target: LOG_TARGET,
+                    "proof OK",
+                );
                 // at this point we store the proof so user
                 // can get it later
                 let proof: Vec<u8> = encode(&proof).unwrap();
@@ -86,14 +97,20 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Re
 fn api(mut state: WorkerState, msg: NexusAPI) -> Result<NexusAPI> {
     match msg {
         Program { elf, .. } => {
-            println!("GOT a program");
+            tracing::info!(
+                target: LOG_TARGET,
+                "received prove-request",
+            );
             let vm = translate_elf_bytes(&elf)?;
             let hash = hex::encode(Sha256::digest(&elf));
             manage_proof(state, hash.clone(), vm)?;
             Ok(Proof(Proof { hash, ..Proof::default() }))
         }
         Query { hash } => {
-            println!("GOT a query");
+            tracing::info!(
+                target: LOG_TARGET,
+                "received proof-query",
+            );
             let proof = state.db.query_proof(&hash);
             match proof {
                 None => Err("proof not found".into()),

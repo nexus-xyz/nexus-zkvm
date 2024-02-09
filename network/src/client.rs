@@ -8,6 +8,8 @@ use tokio::runtime;
 use crate::Result;
 use crate::api::*;
 
+pub const LOG_TARGET: &str = "nexus-network::client";
+
 // const URL: &str = "http://35.209.216.211:80/api";
 
 #[derive(Clone)]
@@ -36,6 +38,12 @@ impl Client {
     }
 
     fn request(&self, msg: NexusAPI) -> Result<Proof> {
+        tracing::info!(
+            target: LOG_TARGET,
+            "sending request to {}",
+            self.url,
+        );
+
         let client = self.clone();
         let response = std::thread::spawn(move || -> Result<NexusAPI> {
             let rt = runtime::Builder::new_current_thread()
@@ -46,7 +54,7 @@ impl Client {
         })
         .join()
         .map_err(|_err| "request failed".to_owned())??;
-        // let msg = nexus_api(msg)?;
+
         match response {
             Proof(p) => Ok(p),
             Error(m) => Err(m.into()),
