@@ -1,8 +1,7 @@
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_poly::{
-    DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, Polynomial,
-    SparseMultilinearExtension,
+    DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension,
 };
 use ark_poly_commit::{LabeledPolynomial, PolynomialCommitment};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -13,7 +12,6 @@ use ark_std::ops::Index;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 pub use super::super::sparse::{MatrixRef, SparseMatrix};
-use super::super::utils::index_to_be_field_encoding;
 use super::mle::{fold_vec_to_mle_low, matrix_to_mle, mle_to_mvp, vec_to_mle};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -155,14 +153,15 @@ impl<G: CurveGroup> LCCSShape<G> {
             .collect();
 
         let n = (self.num_io + self.num_vars).next_power_of_two();
-        let s = (n - 1).checked_ilog2().unwrap_or(0) + 1; // s' in papers
 
-        let ys: Vec<Vec<G::ScalarField>> = ark_std::cfg_into_iter!(0..n)
-            .map(|y| index_to_be_field_encoding(y as u32, Some(s)))
-            .collect();
+        let shift = usize::BITS - ((n - 1).checked_ilog2().unwrap_or(0) + 1); // for fixing endianness
 
         let Mzs: Vec<G::ScalarField> = ark_std::cfg_iter!(Mrs)
-            .map(|M| (0..n).map(|y| M.evaluate(&ys[y]) * z.index(y)).sum())
+            .map(|M| {
+                (0..n)
+                    .map(|y| *M.index(y.reverse_bits() >> shift) * z.index(y))
+                    .sum()
+            })
             .collect();
 
         if ark_std::cfg_into_iter!(0..self.num_matrices).any(|idx| Mzs[idx] != U.vs[idx]) {
@@ -402,14 +401,15 @@ mod tests {
             .collect();
 
         let n = (NUM_WITNESS + NUM_PUBLIC).next_power_of_two();
-        let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
 
-        let ys: Vec<Vec<F>> = ark_std::cfg_into_iter!(0..n)
-            .map(|y| index_to_be_field_encoding(y as u32, Some(s2)))
-            .collect();
+        let shift = usize::BITS - ((n - 1).checked_ilog2().unwrap_or(0) + 1);
 
         let vs: Vec<F> = ark_std::cfg_iter!(Mrs)
-            .map(|M| (0..n).map(|y| M.evaluate(&ys[y]) * z.index(y)).sum())
+            .map(|M| {
+                (0..n)
+                    .map(|y| *M.index(y.reverse_bits() >> shift) * z.index(y))
+                    .sum()
+            })
             .collect();
 
         let instance = LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_W, &X, &rs, &vs)?;
@@ -465,14 +465,15 @@ mod tests {
             .collect();
 
         let n = (NUM_WITNESS + NUM_PUBLIC).next_power_of_two();
-        let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
 
-        let ys: Vec<Vec<F>> = ark_std::cfg_into_iter!(0..n)
-            .map(|y| index_to_be_field_encoding(y as u32, Some(s2)))
-            .collect();
+        let shift = usize::BITS - ((n - 1).checked_ilog2().unwrap_or(0) + 1);
 
         let vs: Vec<F> = ark_std::cfg_iter!(Mrs)
-            .map(|M| (0..n).map(|y| M.evaluate(&ys[y]) * z.index(y)).sum())
+            .map(|M| {
+                (0..n)
+                    .map(|y| *M.index(y.reverse_bits() >> shift) * z.index(y))
+                    .sum()
+            })
             .collect();
 
         let instance = LCCSInstance::<G, M, S, P>::new(&lccs_shape, &commitment_W, &X, &rs, &vs)?;
