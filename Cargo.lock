@@ -1591,7 +1591,6 @@ dependencies = [
  "cargo_metadata",
  "clap 4.4.18",
  "dotenvy",
- "http",
  "nexus-config",
  "toml",
  "tracing",

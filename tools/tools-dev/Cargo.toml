@@ -36,9 +36,8 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
    "env-filter",
 ] }
 toml = { version = "0.8.8", optional = true }
-http = { version = "0.2.11", optional = true }
 dotenvy = { version = "0.15.7", optional = true }
 
 [features]
 default = ["dev"]
-dev = ["nexus-config", "toml", "http", "dotenvy"]
+dev = ["nexus-config", "toml", "dotenvy"]

@@ -1,8 +1,7 @@
-use std::{path::Path, str::FromStr};
+use std::path::Path;
 
 use anyhow::Context;
 use clap::Args;
-use http::uri;
 use nexus_config::{Config, NetworkConfig};
 
 use crate::{
@@ -52,7 +51,7 @@ fn launch_node(args: NodeArgs, config: NetworkConfig, pp_file: &Path) -> anyhow:
     }
     let listen_addr = config.api.bind_addr;
 
-    let connect_addr = uri::Authority::from_str(&config.client.to_string())?;
+    let connect_addr = config.client.to_string();
 
     // -w|-p|-m [-l=<addr>] [-c=<addr>] [--public-params=<path>]
     let mut network_opts = Vec::new();
