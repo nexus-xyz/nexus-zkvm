@@ -1,7 +1,9 @@
 use std::io::BufReader;
 use std::fs::File;
 
-use nexus_prover::Proof;
+use nexus_prover::srs::load_srs;
+use nexus_prover::types::{ComPP, ParPP};
+use nexus_prover::{prove_par_com, Proof};
 use nexus_riscv::VMOpts;
 use nexus_prover::{pp::gen_or_load, run, prove_par, srs::test_srs::gen_test_srs_to_file};
 use nexus_network::pcd::{decode, NexusMsg::PCDRes};
@@ -82,7 +84,7 @@ pub fn verify() -> CmdResult<()> {
 
 pub fn local() -> CmdResult<()> {
     let Opts {
-        command: LocalProve { k, pp_file, release, bin },
+        command: LocalProve { k, pp_file, srs_file, release, bin },
     } = options()
     else {
         panic!()
@@ -97,10 +99,21 @@ pub fn local() -> CmdResult<()> {
         file: Some(t),
     };
     let trace = run(&opts, true)?;
-    let state = gen_or_load(false, 1, pp_file, &())?;
-    let proof = prove_par(state, trace)?;
+    let vec = match srs_file {
+        Some(srs_file) => {
+            let srs = load_srs(srs_file)?;
+            let pp: ComPP = gen_or_load(false, 1, pp_file, &(srs))?;
+            let proof = prove_par_com(pp, trace)?;
+            serde_json::to_vec(&proof)?
+        }
 
-    let vec = serde_json::to_vec(&proof)?;
+        None => {
+            let pp: ParPP = gen_or_load(false, 1, pp_file, &())?;
+            let proof = prove_par(pp, trace)?;
+            serde_json::to_vec(&proof)?
+        }
+    };
+
     write_file("local-proof.json".into(), &vec)?;
 
     Ok(())

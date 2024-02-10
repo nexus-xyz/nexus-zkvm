@@ -93,6 +93,10 @@ pub enum Command {
         )]
         pp_file: String,
 
+        /// SRS file: required with `--compressible`, otherwise ignored
+        #[arg(short = 's', long = "srs")]
+        srs_file: Option<String>,
+
         /// Use release mode artifacts
         #[arg(short, long)]
         release: bool,
