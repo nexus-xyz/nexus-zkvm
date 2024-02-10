@@ -67,6 +67,10 @@ enum Command {
 
         #[command(flatten)]
         vm: VMOpts,
+
+        /// SRS file: if supplied, compressible proof is generated
+        #[arg(short = 's', long = "srs")]
+        srs_file: Option<String>,
     },
 
     /// Compress a Nexus proof via supernova
@@ -106,11 +110,18 @@ fn main() -> Result<(), ProofError> {
             gen_to_file(k, par, com, &pp_file, srs_file.as_deref())
         }
 
-        Prove { gen, par, pp_file, vm } => {
+        Prove { gen, par, pp_file, vm, srs_file } => {
             let trace = run(&vm, par)?;
 
             match if par {
-                prove_par(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
+                match srs_file {
+                    Some(srs_file) => {
+                        let srs = load_srs(&srs_file)?;
+                        prove_par_com(gen_or_load(gen, vm.k, &pp_file, &(srs))?, trace)
+                    }
+
+                    None => prove_par(gen_or_load(gen, vm.k, &pp_file, &())?, trace),
+                }
             } else {
                 prove_seq(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
             } {

@@ -186,6 +186,69 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<Proof, ProofError> {
     Ok(proof)
 }
 
+pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<Proof, ProofError> {
+    let k = trace.k;
+    let tr = Tr::new(trace);
+
+    let steps = tr.steps();
+    println!("\nproving {steps} steps...");
+
+    let start = Instant::now();
+
+    let mut vs = (0..steps)
+        .step_by(2)
+        .map(|i| {
+            print!("leaf step {i}... ");
+            io::stdout().flush().unwrap();
+            let t = Instant::now();
+            let v = ComPCDNode::prove_step(&pp, &tr, i, &tr.input(i))?;
+            println!("{:?}", t.elapsed());
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>, ProofError>>()?;
+
+    loop {
+        if vs.len() == 1 {
+            break;
+        }
+        println!("proving {} vertex steps", vs.len() / 2);
+        vs = vs
+            .chunks(2)
+            .map(|ab| {
+                print!("vertex step ...  ");
+                io::stdout().flush().unwrap();
+                let t = Instant::now();
+                let c = ComPCDNode::prove_from(&pp, &tr, &ab[0], &ab[1])?;
+                println!("{:?}", t.elapsed());
+                Ok(c)
+            })
+            .collect::<Result<Vec<_>, ProofError>>()?;
+    }
+
+    println!(
+        "\nProof Complete: {:.2} instructions / second",
+        (k * tr.steps()) as f64 / start.elapsed().as_secs_f64()
+    );
+
+    print!("\nVerifying root...  ");
+    io::stdout().flush().unwrap();
+    let t = Instant::now();
+    vs[0].verify(&pp)?;
+    println!("{:?}", t.elapsed());
+
+    let mut proof_bytes = Vec::new();
+    vs[0].serialize_compressed(&mut proof_bytes)?;
+
+    let proof = Proof {
+        hash: "test".to_string(),
+        total_nodes: vs.len() as u32,
+        complete_nodes: vs.len() as u32,
+        proof: Some(proof_bytes),
+    };
+
+    Ok(proof)
+}
+
 pub fn compress(
     compression_pp: ComPP,
     compression_srs: SRS,
@@ -221,3 +284,144 @@ pub fn compress(
 
     Ok(())
 }
+
+/* cursed enum matching below
+pub fn prove_par(pp: PPEnum, trace: Trace) -> Result<Proof, ProofError> {
+    let k = trace.k;
+    let tr = Tr::new(trace);
+
+    let steps = tr.steps();
+    println!("\nproving {steps} steps...");
+
+    let start = Instant::now();
+
+    let mut vs = (0..steps)
+        .step_by(2)
+        .map(|i| {
+            print!("leaf step {i}... ");
+            io::stdout().flush().unwrap();
+            let t = Instant::now();
+            let v = match &pp {
+                PPEnum::Com(par) => {
+                    NodeEnum::Com(ComPCDNode::prove_step(&par, &tr, i, &tr.input(i))?)
+                },
+
+                PPEnum::NoCom(par) => {
+                    NodeEnum::NoCom(PCDNode::prove_step(&par, &tr, i, &tr.input(i))?)
+                }
+            };
+            println!("{:?}", t.elapsed());
+            Ok(v)
+        })
+        .collect::<Result<Vec<_>, ProofError>>()?;
+
+    loop {
+        if vs.len() == 1 {
+            break;
+        }
+        println!("proving {} vertex steps", vs.len() / 2);
+        vs = vs
+            .chunks(2)
+            .map(|_| {
+                print!("vertex step ...  ");
+                io::stdout().flush().unwrap();
+                let t = Instant::now();
+                let c = match &pp {
+                    PPEnum::Com(par) => {
+                        match &vs[0] {
+                            NodeEnum::Com(v) => {
+                                match &vs[1] {
+                                    NodeEnum::Com(w) => {
+                                        NodeEnum::Com(ComPCDNode::prove_from(&par, &tr, &v, &w)?)
+                                    },
+                                    NodeEnum::NoCom(_) => {
+                                        panic!("should never get here")
+                                    }
+                                }
+                            },
+                            NodeEnum::NoCom(_) => {
+                                match &vs[1] {
+                                    NodeEnum::Com(_) => {
+                                        panic!("should never get here")
+                                    },
+                                    NodeEnum::NoCom(_) => {
+                                        panic!("should never get here")
+                                    }
+                                }
+                            }
+                        }
+                    },
+
+                    PPEnum::NoCom(par) => {
+                        match &vs[0] {
+                            NodeEnum::Com(_) => {
+                                match &vs[1] {
+                                    NodeEnum::Com(_) => {
+                                        panic!("should never get here")
+                                    },
+                                    NodeEnum::NoCom(_) => {
+                                        panic!("should never get here")
+                                    }
+                                }
+                            },
+                            NodeEnum::NoCom(v) => {
+                                match &vs[1] {
+                                    NodeEnum::Com(_) => {
+                                        panic!("should never get here")
+                                    },
+                                    NodeEnum::NoCom(w) => {
+                                        NodeEnum::NoCom(PCDNode::prove_from(&par, &tr, &v, &w)?)
+                                    }
+                                }
+                            }
+                        }
+
+                    }
+                };
+                println!("{:?}", t.elapsed());
+                Ok(c)
+            })
+            .collect::<Result<Vec<_>, ProofError>>()?;
+    }
+
+    println!(
+        "\nProof Complete: {:.2} instructions / second",
+        (k * tr.steps()) as f64 / start.elapsed().as_secs_f64()
+    );
+
+    print!("\nVerifying root...  ");
+    io::stdout().flush().unwrap();
+    let t = Instant::now();
+    match &vs[0] {
+        NodeEnum::Com(v) => {
+            match &pp {
+                PPEnum::Com(pp) => v.verify(&pp)?,
+                PPEnum::NoCom(_) => panic!("Trying to verify compressed proof with non compression parameters")
+            }
+        },
+        NodeEnum::NoCom(v) => {
+            match &pp {
+                PPEnum::Com(_) => panic!("Trying to verify non compressed proof with compression parameters"),
+                PPEnum::NoCom(pp) => v.verify(&pp)?
+            }
+        }
+    };
+    println!("{:?}", t.elapsed());
+
+    let mut proof_bytes = Vec::new();
+
+    match &vs[0] {
+        NodeEnum::Com(v) => v.serialize_compressed(&mut proof_bytes)?,
+        NodeEnum::NoCom(v) => v.serialize_compressed(&mut proof_bytes)?
+    };
+
+    let proof = Proof {
+        hash: "test".to_string(),
+        total_nodes: vs.len() as u32,
+        complete_nodes: vs.len() as u32,
+        proof: Some(proof_bytes),
+    };
+
+    Ok(proof)
+}
+*/

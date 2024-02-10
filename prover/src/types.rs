@@ -77,7 +77,15 @@ pub type PP<C, SP> = PublicParams<G1,G2,C,C2,RO,SC,SP>;
 pub type SeqPP = seq::PublicParams<G1,G2,C1,C2,RO,SC>;
 pub type ParPP = pcd::PublicParams<G1,G2,C1,C2,RO,SC>;
 pub type ComPP = pcd::PublicParams<G1,G2,PVC1,C2,RO,SC>;
+// pub enum PPEnum {
+//     Com(ComPP),
+//     NoCom(ParPP),
+// }
 
 pub type IVCProof<'a> = seq::IVCProof<'a,G1,G2,C1,C2,RO,SC>;
 pub type PCDNode = pcd::PCDNode<G1,G2,C1,C2,RO,SC>;
 pub type ComPCDNode = pcd::PCDNode<G1,G2,PVC1,C2,RO,SC>;
+// pub enum NodeEnum {
+//     Com(ComPCDNode),
+//     NoCom(PCDNode),
+// }
