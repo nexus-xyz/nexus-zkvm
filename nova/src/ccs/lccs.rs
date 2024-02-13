@@ -1,5 +1,6 @@
 use ark_crypto_primitives::sponge::CryptographicSponge;
 use ark_ec::{AdditiveGroup, CurveGroup};
+use ark_ff::Field;
 use ark_poly::{
     DenseMVPolynomial, DenseMultilinearExtension, MultilinearExtension, SparseMultilinearExtension,
 };
@@ -7,24 +8,22 @@ use ark_poly_commit::{LabeledPolynomial, PolynomialCommitment};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use ark_std::ops::Index;
+use std::ops::Neg;
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
+use super::super::r1cs::R1CSShape;
 pub use super::super::sparse::{MatrixRef, SparseMatrix};
 use super::mle::{fold_vec_to_mle_low, matrix_to_mle, mle_to_mvp, vec_to_mle};
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
-    ConstraintNumberMismatch,
-    InputLengthMismatch,
     InvalidWitnessLength,
     InvalidInputLength,
-    InvalidConversion,
-    InvalidMultiset,
-    MultisetCardinalityMismatch,
     InvalidEvaluationPoint,
     InvalidTargets,
+    FailedWitnessCommitting,
     NotSatisfied,
 }
 
@@ -59,78 +58,6 @@ pub struct LCCSShape<G: CurveGroup> {
 }
 
 impl<G: CurveGroup> LCCSShape<G> {
-    fn validate(
-        num_constraints: usize,
-        num_vars: usize,
-        num_io: usize,
-        M: MatrixRef<'_, G::ScalarField>,
-    ) -> Result<(), Error> {
-        for (i, row) in M.iter().enumerate() {
-            for (_value, j) in row {
-                if i >= num_constraints {
-                    return Err(Error::ConstraintNumberMismatch);
-                }
-                if *j >= num_io + num_vars {
-                    return Err(Error::InputLengthMismatch);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Create an object of type `LCCSShape` from the explicitly specified CCS matrices
-    pub fn new(
-        num_constraints: usize,
-        num_vars: usize,
-        num_io: usize,
-        num_matrices: usize,
-        num_multisets: usize,
-        max_cardinality: usize,
-        Ms: Vec<MatrixRef<'_, G::ScalarField>>,
-        cSs: Vec<(G::ScalarField, Vec<usize>)>,
-    ) -> Result<LCCSShape<G>, Error> {
-        if num_io == 0 {
-            return Err(Error::InvalidInputLength);
-        }
-
-        Ms.iter()
-            .try_for_each(|M| Self::validate(num_constraints, num_vars, num_io, M))?;
-
-        assert_eq!(Ms.len(), num_matrices);
-        assert_eq!(cSs.len(), num_multisets);
-
-        for (_c, S) in cSs.iter() {
-            if S.len() > max_cardinality {
-                return Err(Error::MultisetCardinalityMismatch);
-            }
-
-            S.iter().try_for_each(|idx| {
-                if idx >= &num_matrices {
-                    Err(Error::InvalidMultiset)
-                } else {
-                    Ok(())
-                }
-            })?;
-        }
-
-        let rows = num_constraints;
-        let columns = num_io + num_vars;
-        Ok(Self {
-            num_constraints,
-            num_vars,
-            num_io,
-            num_matrices,
-            num_multisets,
-            max_cardinality,
-            Ms: Ms
-                .iter()
-                .map(|M| matrix_to_mle(rows, columns, &SparseMatrix::new(M, rows, columns)))
-                .collect(),
-            cSs,
-        })
-    }
-
     pub fn is_satisfied<
         M: DenseMVPolynomial<G::ScalarField>,
         S: CryptographicSponge,
@@ -177,11 +104,41 @@ impl<G: CurveGroup> LCCSShape<G> {
             None,
         );
 
-        if U.commitment_W != *P::commit(ck, &[lab_W], None).unwrap().0[0].commitment() {
-            return Err(Error::NotSatisfied);
-        }
+        if let Ok(commit) = P::commit(ck, &[lab_W], None) {
+            if U.commitment_W != *commit.0[0].commitment() {
+                return Err(Error::NotSatisfied);
+            }
 
-        Ok(())
+            Ok(())
+        } else {
+            Err(Error::FailedWitnessCommitting)
+        }
+    }
+}
+
+/// Create an object of type `LCCSShape` from the specified R1CS shape
+impl<G: CurveGroup> From<R1CSShape<G>> for LCCSShape<G> {
+    fn from(shape: R1CSShape<G>) -> Self {
+        let rows = shape.num_constraints;
+        let columns = shape.num_io + shape.num_vars;
+
+        Self {
+            num_constraints: shape.num_constraints,
+            num_io: shape.num_io,
+            num_vars: shape.num_vars,
+            num_matrices: 3,
+            num_multisets: 2,
+            max_cardinality: 2,
+            Ms: vec![
+                matrix_to_mle(rows, columns, &shape.A),
+                matrix_to_mle(rows, columns, &shape.B),
+                matrix_to_mle(rows, columns, &shape.C),
+            ],
+            cSs: vec![
+                (G::ScalarField::ONE, vec![0, 1]),
+                (G::ScalarField::ONE.neg(), vec![2]),
+            ],
+        }
     }
 }
 
@@ -336,14 +293,11 @@ mod tests {
     use super::*;
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
-    use ark_ff::Field;
     use ark_poly::polynomial::multivariate::{SparsePolynomial, SparseTerm};
     use ark_poly_commit::marlin_pst13_pc::MarlinPST13;
     use ark_std::UniformRand;
 
     use ark_test_curves::bls12_381::{Bls12_381, G1Projective as G};
-
-    use std::ops::Neg;
 
     type F = <ark_ec::short_weierstrass::Projective<ark_test_curves::bls12_381::g1::Config> as ark_ec::PrimeGroup>::ScalarField;
 
@@ -371,16 +325,10 @@ mod tests {
 
         let mut rng = ark_std::test_rng();
 
-        let lccs_shape = LCCSShape::<G>::new(
-            NUM_CONSTRAINTS,
-            NUM_WITNESS,
-            NUM_PUBLIC,
-            3,
-            2,
-            2,
-            vec![&a, &a, &a],
-            vec![(F::ONE, vec![0, 1]), (F::ONE.neg(), vec![2])],
-        )?;
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &a, &a).unwrap();
+
+        let lccs_shape = LCCSShape::from(r1cs_shape);
 
         let X = to_field_elements::<G>(&[0, 0]);
         let W = to_field_elements::<G>(&[0]);
@@ -435,16 +383,10 @@ mod tests {
 
         let mut rng = ark_std::test_rng();
 
-        let lccs_shape = LCCSShape::<G>::new(
-            NUM_CONSTRAINTS,
-            NUM_WITNESS,
-            NUM_PUBLIC,
-            3,
-            2,
-            2,
-            vec![&a, &b, &c],
-            vec![(F::ONE, vec![0, 1]), (F::ONE.neg(), vec![2])],
-        )?;
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
+
+        let lccs_shape = LCCSShape::from(r1cs_shape);
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);

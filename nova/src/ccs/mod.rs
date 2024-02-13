@@ -20,13 +20,8 @@ pub mod mle;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
-    ConstraintNumberMismatch,
-    InputLengthMismatch,
     InvalidWitnessLength,
     InvalidInputLength,
-    InvalidConversion,
-    InvalidMultiset,
-    MultisetCardinalityMismatch,
     NotSatisfied,
 }
 
