@@ -279,7 +279,8 @@ mod tests {
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
     use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
-    use ark_std::{test_rng, One};
+    use ark_std::{fs::File, test_rng, One};
+    use zstd::stream::Encoder;
 
     use super::*;
     use crate::{

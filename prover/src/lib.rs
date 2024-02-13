@@ -2,6 +2,7 @@ pub mod error;
 pub mod types;
 pub mod circuit;
 pub mod pp;
+pub mod key;
 pub mod srs;
 
 use std::time::Instant;
@@ -14,7 +15,7 @@ use nexus_riscv::{
 
 use serde::{Serialize, Deserialize};
 use supernova::nova::pcd::compression::SNARK;
-use types::{ComPP, ParPP, SeqPP, SRS};
+use types::{ComPP, ParPP, SeqPP, SpartanKey};
 
 use crate::circuit::Tr;
 use crate::types::{IVCProof, PCDNode, ComPCDNode};
@@ -250,8 +251,8 @@ pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<Proof, ProofError> {
 }
 
 pub fn compress(
-    compression_pp: ComPP,
-    compression_srs: SRS,
+    compression_pp: &ComPP,
+    key: &SpartanKey,
     proof: Proof,
     local: bool,
 ) -> Result<(), ProofError> {
@@ -272,13 +273,10 @@ pub fn compress(
         unimplemented!()
     };
 
-    let key = SNARK::setup(&compression_pp, &compression_srs).unwrap();
-    // TODO: save key to file and add an option to load the key
-
     let compressed_pcd_proof = SNARK::compress(&compression_pp, &key, node).unwrap();
 
     // And check that the compressed proof verifies.
-    SNARK::verify(&key, &compression_pp, &compressed_pcd_proof).unwrap();
+    SNARK::verify(key, compression_pp, &compressed_pcd_proof).unwrap();
 
     // TODO: save compressed proof to file
 

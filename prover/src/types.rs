@@ -82,6 +82,8 @@ pub type ComPP = pcd::PublicParams<G1,G2,PVC1,C2,RO,SC>;
 //     NoCom(ParPP),
 // }
 
+pub type SpartanKey = pcd::compression::SNARKKey<P1, PC>;
+
 pub type IVCProof<'a> = seq::IVCProof<'a,G1,G2,C1,C2,RO,SC>;
 pub type PCDNode = pcd::PCDNode<G1,G2,C1,C2,RO,SC>;
 pub type ComPCDNode = pcd::PCDNode<G1,G2,PVC1,C2,RO,SC>;

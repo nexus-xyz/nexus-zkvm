@@ -10,6 +10,7 @@ use nexus_riscv::VMOpts;
 use nexus_prover::*;
 use nexus_prover::error::*;
 use nexus_prover::pp::{gen_or_load, gen_to_file, load_pp};
+use nexus_prover::key::{gen_key_to_file, gen_or_load_key};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -72,9 +73,16 @@ enum Command {
         #[arg(short = 's', long = "srs")]
         srs_file: Option<String>,
     },
+    /// Generate public parameters file
+    SpartanKeyGen {
+        /// whether to generate Nova public parameters
+        #[arg(short = 'g', long = "gen-pp", default_value = "true")]
+        gen_pp: bool,
 
-    /// Compress a Nexus proof via supernova
-    Compress {
+        /// instructions per step: only required if 'gen_pp' is true
+        #[arg(short, name = "k", default_value = "1")]
+        k: Option<usize>,
+
         /// public parameters file
         #[arg(
             short = 'p',
@@ -83,7 +91,42 @@ enum Command {
         )]
         pp_file: String,
 
-        /// srs file
+        /// SRS file
+        #[arg(short = 's', long = "srs")]
+        srs_file: String,
+
+        /// Spartan key file
+        #[arg(
+            short = 'k',
+            long = "spartan-key",
+            default_value = "nexus-spartan-key.zst"
+        )]
+        key_file: String,
+    },
+
+    /// Compress a Nexus proof via supernova
+    Compress {
+        /// generate Spartan key (ignore files)
+        #[arg(short)]
+        gen: bool,
+
+        /// Spartan key file
+        #[arg(
+            short = 'k',
+            long = "spartan-key",
+            default_value = "nexus-spartan-key.zst"
+        )]
+        key_file: String,
+
+        /// public parameters file; only needed if `gen` is `false`
+        #[arg(
+            short = 'p',
+            long = "public-params",
+            default_value = "nexus-public.zst"
+        )]
+        pp_file: String,
+
+        /// srs file; only needed if `gen` is `false`
         #[arg(
             short = 's',
             long = "structured-reference-string",
@@ -110,6 +153,17 @@ fn main() -> Result<(), ProofError> {
             gen_to_file(k, par, com, &pp_file, srs_file.as_deref())
         }
 
+        SpartanKeyGen { gen_pp, k, pp_file, srs_file, key_file } => {
+            let k = match gen_pp {
+                //todo: error handling
+                true => k.unwrap(),
+                false => 1,
+            };
+            let srs = load_srs(&srs_file)?;
+            let pp: ComPP = gen_or_load(gen_pp, k, &pp_file, &srs)?;
+            gen_key_to_file(&pp, &srs, &key_file)
+        }
+
         Prove { gen, par, pp_file, vm, srs_file } => {
             let trace = run(&vm, par)?;
 
@@ -130,16 +184,25 @@ fn main() -> Result<(), ProofError> {
             }
         }
 
-        Compress { pp_file, srs_file, file, local } => {
+        Compress {
+            gen,
+            key_file,
+            pp_file,
+            srs_file,
+            file,
+            local,
+        } => {
             println!("Reading srs file");
             let srs = load_srs(&srs_file)?;
 
             println!("Reading pp file");
             let pp: ComPP = load_pp(&pp_file)?;
 
+            let key = gen_or_load_key(gen, &key_file, &pp, &srs)?;
+
             let proof = load_proof(&file)?;
 
-            let result = compress(pp, srs, proof, local);
+            let result = compress(&pp, &key, proof, local);
 
             match result {
                 Ok(_) => Ok(()),
