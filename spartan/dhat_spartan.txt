@@ -1,0 +1,116 @@
+
+Supernova circuit size:
+
+    Before padding:
+
+    num_cons: 351089, num_vars: 315522, num_inputs: 2
+    num_nz_entries: 2636670
+
+    After padding:
+
+    num_cons: 524288, num_vars: 524288, num_inputs: 1, num_nz_entries: 2636670
+    log_num_cons: 19, log_num_vars: 19, log_num_inputs: 0, log_num_nz_entries: 22
+    num_vars_ops = 26, num_vars_mem = 21, num_vars_derefs = 25
+    min_num_vars: 26
+
+Public parameter sizes (uncompressed):
+
+SRS: 4.1GB (agrees with 2^26*64B)
+Nova PP: 68MB
+Spartan Key: 13GB!!!
+
+At t_gmax: 57.1GB allocated
+
+3.2GB from dense_mlpoly::DensePolynomial<F>::merge():
+
+    2.1GB from creating comb_ops: DensePolynomial of length 15*num_ops ~ 2^26:
+        (ABC_rows || ABC_row_ts || ABC_cols || ABC_col_ts || ABC_vals)
+        2^26 scalars * 2^5 bytes/scalar = 2^31 bytes ~ 2.1GB
+
+        created as part of ComputationDecommitment: dense, which also includes:
+        
+            comb_mem: DensePolynomial of length (num_cons + num_vars) = (row_audit_ts, col_audit_ts)
+            (row, col): each an AddrTimestamps<>
+                3x ops_addr_usize: usize vec of length num_ops
+                3x ops_addr: DensePolynomial of length num_ops
+                3x read_ts: DensePolynomial of length num_ops
+                1x audit_ts: DensePolynomial of length num_cons or num_vars
+            val: 3x DensePolynomial of length num_ops
+        
+        total size of ComputationDecommitment: (2*num_cons + 2*num_vars + 30*num_ops)*32B + 3*num_ops*4B
+        setting num_cons, num_vars = 2^19, num_ops = 2^22:
+        2^26 + 2^28 * 15  + 3 * 2^24: approx 4GB 
+
+        seems very redundant???
+
+    1.1GB from `derefs = dense.deref(eq(rx, *), eq(ry, *))` in SparseMatPolyEvalProof::prove()
+        derefs = merge(deref_row_A, deref_row_B, deref_row_C, deref_col_A, deref_col_B, deref_col_C)
+            each of these is AddrTimestamps::deref_mem(ops_addr_usize, [eq(rx/ry, *)])
+                which is [eq(rx/ry, row/col[addr_i])]_i: num_ops size vector of eq(r, j)'s
+        6*num_ops scalars = 3 * 2^23 scalars = 3 * 2^28B ~ 750MB? rounded to 2^30B ~ 1.1GB? 
+
+2.1 GB from KZG10::commit: `skip_leading_zeros_and_convert_to_bigints(polynomial)`
+    created while computing KZG commitment to q_zeta_Z during zeromorph eval proof
+    created in HashLayerProof::prove() during r1cs eval proof
+    performing a PCS eval proof of comb_ops (so a copy of comb_ops in format appropriate for MSM)
+    note: HashLayerProof also includes a PCS eval proof for derefs, from above
+
+4.8GB: SRS
+    size seems correct, commitment key used in PCS eval proof of comb_ops essentially the same object
+
+7.5GB(!): scalar_digits, created during msm_bigint_wnaf() 
+    also while computing KZG::commit(q_zeta_Z) during Zeromorph eval proof for comb_ops
+    scalar_digits: prep for Pippenger, replace scalar with sequence of 26-bit values (log(#comb_ops)), 
+        each represented as a u64. so ~3x expansion of a 2GB vector. 
+
+7.5GB: allocated from Zeromorph::trim(), specifically constructing 'powers_of_tau_g'
+    4.8GB: gens_ops, constructed during R1CSCommitmentGens::new()
+        - this is essentially a copy of the SRS; maybe we can avoid making this? 
+    2.4GB: gens_derefs, constructed during R1CSCommitmentGens::new()
+        - this is an initial segment of the SRS; derefs requires 25 variables, so half the size of above is right
+
+7.5GB: ditto to the above, but constructing 'shifted_powers_of_tau_g'
+
+4.2GB: allocated from Zeromorph::algebra::multilinear_to_univar()
+    2.1GB: constructing 'uni_poly' in Zeromorph::prove()
+        - maybe this could be done without copying?
+    2.1GB: constructing 'get_truncated_quotients' in Zeromorph::prove()
+        - it makes sense that these are the same size: the quotients are of size (N/2, N/4, ....), so total size N.
+    both occur while computing 'proof_ops' in HashLayerProof::prove() (PCS eval proof for 'comb_ops')
+
+2.1GB: 'Z_x'
+2.1GB 'zeta_x'
+2.1GB: 'q_Z'
+2.1GB: 'q_zeta'
+2.1GB: 'q_hat'
+2.1GB: 'q_zeta_Z'
+    - all constructed during Zeromorph PCS eval proof for comb_ops
+    - seems like Z_x and zeta_x can be dropped after constructing q_Z and q_zeta_Z? 
+
+1.6GB: ops_addr_vec and read_ts_vec, part of AddrTimestamps
+    - DensePolynomials, constructed by DensePolynomial::from_usize()
+    - i.e. field-scalar versions of the address and timestamp vectors used to encode the r1cs matrices
+
+1.1GB: allocated at '[446 insignificant]' (?)
+
+3.5GB: allocated by ProductCircuit::new() (specifically from `poly.split()`)
+
+800MB: allocated somewhere by from_iter() for DensePolynomials. 
+
+Conclusions:
+- t_gmax is while computing the Zeromorph PCS eval proof during HashLayerProof::prove() for comb_ops
+- Zeromorph::prove() allocates memory for several intermediate polynomials, each of similar size to the polynomial whose
+    evaluation is being proven. 
+    - potentially these can be dropped somewhat earlier than they are; mostly each is used to compute others further down 
+        the list or to commit to them. 
+- there is some substantial redundancy in the Spartan prover key: 
+    - redundancy in the various 'gens' structs: all just pieces of the SRS. Can probably be rewritten with references. 
+        - at least 15GB savings possible here
+    - redundancy in the ComputationDecommitment
+        - 'comb_ops' is just several of the other polynomials appearing in the ComputationDecommitment merged. 
+        - can we remove the other polynomials and just use operations on comb_ops everywhere? 
+        - potentially ~2GB savings possible here
+- computing KZG commitments allocates a lot of memory, but this is probably hard to avoid:
+    - e.g. you want to do things like convert a DensePolynomial to various intermediate representations used to 
+        compute the MSM, but you can't destroy the DensePolynomial. 
+
