@@ -67,6 +67,7 @@ where
     _step_circuit: PhantomData<SC>,
 }
 
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     shape: CRR1CSShape<G::ScalarField>,
     computation_comm: ComputationCommitment<G, PC>,
