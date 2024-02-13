@@ -38,6 +38,7 @@ pub use error::{ProofError, SpartanError};
 
 pub type PVC<G, PC> = PolyVectorCommitment<Projective<G>, PC>;
 
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct CompressedPCDProof<G1, G2, PC, C2, RO, SC>
 where
     G1: SWCurveConfig,

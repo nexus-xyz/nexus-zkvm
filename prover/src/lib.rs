@@ -5,8 +5,10 @@ pub mod pp;
 pub mod key;
 pub mod srs;
 
+use std::fs::File;
 use std::time::Instant;
 use std::io::{self, Write};
+use zstd::stream::Encoder;
 use error::ProofError;
 use nexus_riscv::{
     VMOpts, load_vm,
@@ -255,6 +257,7 @@ pub fn compress(
     key: &SpartanKey,
     proof: Proof,
     local: bool,
+    compressed_proof_file: &str,
 ) -> Result<(), ProofError> {
     let Some(vec) = proof.proof else {
         todo!("handle error better")
@@ -278,7 +281,12 @@ pub fn compress(
     // And check that the compressed proof verifies.
     SNARK::verify(key, compression_pp, &compressed_pcd_proof).unwrap();
 
-    // TODO: save compressed proof to file
+    // Save compressed proof to file.
+    let f = File::create(compressed_proof_file)?;
+    let mut enc = Encoder::new(&f, 0)?;
+    compressed_pcd_proof.serialize_compressed(&mut enc)?;
+    enc.finish()?;
+    f.sync_all()?;
 
     Ok(())
 }

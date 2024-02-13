@@ -16,6 +16,7 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,
 };
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::Zero;
 
 use crate::commitment::CommitmentScheme;
@@ -128,6 +129,7 @@ where
 }
 
 /// Folding scheme proof for a secondary circuit.
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct Proof<G2: SWCurveConfig, C2: CommitmentScheme<Projective<G2>>> {
     pub(crate) U: R1CSInstance<G2, C2>,
     pub(crate) commitment_T: C2::Commitment,

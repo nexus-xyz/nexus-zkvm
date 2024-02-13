@@ -135,8 +135,16 @@ enum Command {
         srs_file: String,
 
         /// File containing uncompressed proof
-        #[arg(short, long, default_value = "nexus-proof.json")]
-        file: String,
+        #[arg(short = 'f', long = "proof-file", default_value = "nexus-proof.json")]
+        proof_file: String,
+
+        /// File to save compressed proof
+        #[arg(
+            short = 'c',
+            long = "compressed-proof-file",
+            default_value = "nexus-proof-compressed.json"
+        )]
+        compressed_proof_file: String,
 
         /// Specifies whether we are compressing a local proof
         #[arg(short, long, default_value = "false")]
@@ -189,7 +197,8 @@ fn main() -> Result<(), ProofError> {
             key_file,
             pp_file,
             srs_file,
-            file,
+            proof_file,
+            compressed_proof_file,
             local,
         } => {
             println!("Reading srs file");
@@ -200,9 +209,9 @@ fn main() -> Result<(), ProofError> {
 
             let key = gen_or_load_key(gen, &key_file, &pp, &srs)?;
 
-            let proof = load_proof(&file)?;
+            let proof = load_proof(&proof_file)?;
 
-            let result = compress(&pp, &key, proof, local);
+            let result = compress(&pp, &key, proof, local, &compressed_proof_file);
 
             match result {
                 Ok(_) => Ok(()),
