@@ -109,9 +109,12 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
             "pc", "mem[pc]", "inst", "Z", "PC"
         );
     }
+    let t = std::time::Instant::now();
+    let mut count = 0;
 
     loop {
         eval_inst(vm)?;
+        count += 1;
         if show {
             println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.regs.pc);
         }
@@ -133,6 +136,8 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
     if show {
         println!("\nFinal Machine State: pc: {:x}", vm.regs.pc);
         table("x", &vm.regs.x);
+
+        println!("Executed {count} instructions in {:?}", t.elapsed());
     }
     Ok(())
 }
