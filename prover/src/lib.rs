@@ -51,7 +51,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     let tr = Tr(trace);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
-    let mut proof = IVCProof::new(&pp, &z_0);
+    let mut proof = IVCProof::new(pp, &z_0);
 
     println!("\nProving Execution Trace:");
     println!("step. {:7} {:8} {:32} time", "pc", "mem[pc]", "inst");

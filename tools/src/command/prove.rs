@@ -44,9 +44,9 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     } else {
         // build artifact if needed
         if release {
-            cargo(None, &["build", "--release"])?;
+            cargo(None, ["build", "--release"])?;
         } else {
-            cargo(None, &["build"])?;
+            cargo(None, ["build"])?;
         }
 
         let LocalProveArgs { k, pp_file, nova_impl } = local_args;
