@@ -6,10 +6,11 @@ extern crate merlin;
 
 use ark_bls12_381::{Bls12_381, G1Projective};
 use ark_serialize::CanonicalSerialize;
+use ark_std::test_rng;
 
 use libspartan::{
   committed_relaxed_snark::SNARK, crr1csproof::produce_synthetic_crr1cs,
-  polycommitments::zeromorph::Zeromorph,
+  polycommitments::zeromorph::Zeromorph, polycommitments::PolyCommitmentScheme,
 };
 use merlin::Transcript;
 
@@ -20,9 +21,16 @@ fn print(msg: &str) {
 
 pub fn main() {
   // the list of number of variables (and constraints) in an R1CS instance
-  let inst_sizes = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  let inst_sizes = [10, 11, 12, 13, 14, 15, 16];
 
-  println!("Profiler:: SNARK");
+  println!("Profiler:: SNARK with Zeromorph");
+
+  let srs = Zeromorph::<Bls12_381>::setup(
+    *inst_sizes.iter().max().unwrap() + 4,
+    b"zeromorph-profiler",
+    &mut test_rng(),
+  )
+  .unwrap();
   for &s in inst_sizes.iter() {
     let num_vars = (2_usize).pow(s as u32);
     let num_cons = num_vars;
@@ -32,7 +40,7 @@ pub fn main() {
     let (shape, instance, witness, gens) = produce_synthetic_crr1cs::<
       G1Projective,
       Zeromorph<Bls12_381>,
-    >(num_cons, num_vars, num_inputs);
+    >(&srs, num_cons, num_vars, num_inputs);
 
     // create a commitment to R1CSInstance
     let (comm, decomm) = SNARK::encode(&shape.inst, &gens);

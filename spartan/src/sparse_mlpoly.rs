@@ -71,9 +71,9 @@ impl<F: PrimeField> Derefs<F> {
     derefs
   }
 
-  pub fn commit<G: CurveGroup<ScalarField = F>, PC: PolyCommitmentScheme<G>>(
+  pub fn commit<'a, G: CurveGroup<ScalarField = F>, PC: PolyCommitmentScheme<G>>(
     &self,
-    gens: &PC::PolyCommitmentKey,
+    gens: &PC::PolyCommitmentKey<'a>,
   ) -> DerefsCommitment<G, PC> {
     let comm_ops_val = PC::commit(&self.comb, gens);
     DerefsCommitment { comm_ops_val }
@@ -90,11 +90,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> DerefsEvalProof<G, PC> {
     b"Derefs evaluation proof"
   }
 
-  fn prove_single(
+  fn prove_single<'a>(
     joint_poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     evals: Vec<G::ScalarField>,
-    ck: &PC::PolyCommitmentKey,
+    ck: &PC::PolyCommitmentKey<'a>,
     transcript: &mut Transcript,
   ) -> PC::PolyCommitmentProof {
     assert_eq!(joint_poly.get_num_vars(), r.len() + evals.len().log_2());
@@ -129,12 +129,12 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> DerefsEvalProof<G, PC> {
   }
 
   // evalues both polynomials at r and produces a joint proof of opening
-  pub fn prove(
+  pub fn prove<'a>(
     derefs: &Derefs<G::ScalarField>,
     eval_row_ops_val_vec: &[G::ScalarField],
     eval_col_ops_val_vec: &[G::ScalarField],
     r: &[G::ScalarField],
-    ck: &PC::PolyCommitmentKey,
+    ck: &PC::PolyCommitmentKey<'a>,
     transcript: &mut Transcript,
   ) -> Self {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
@@ -306,17 +306,17 @@ where
 }
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
-pub struct SparseMatPolyCommitmentKey<G, PC>
+pub struct SparseMatPolyCommitmentKey<'b, G, PC>
 where
   G: CurveGroup,
   PC: PolyCommitmentScheme<G>,
 {
-  gens_ops: PCSKeys<G, PC>,
-  gens_mem: PCSKeys<G, PC>,
-  gens_derefs: PCSKeys<G, PC>,
+  gens_ops: PCSKeys<'b, G, PC>,
+  gens_mem: PCSKeys<'b, G, PC>,
+  gens_derefs: PCSKeys<'b, G, PC>,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyCommitmentKey<G, PC> {
+impl<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyCommitmentKey<'a, G, PC> {
   pub fn new(
     SRS: &PC::SRS,
     num_vars_x: usize,
@@ -368,10 +368,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyCommitmentKey<G, P
   ) -> usize {
     let (num_vars_ops, num_vars_mem, num_vars_derefs) =
       Self::get_gens_sizes(num_vars_x, num_vars_y, num_nz_entries, batch_size);
-    println!(
-      "num_vars_ops = {}, num_vars_mem = {}, num_vars_derefs = {}",
-      num_vars_ops, num_vars_mem, num_vars_derefs
-    );
     max(num_vars_ops, max(num_vars_mem, num_vars_derefs))
   }
 }

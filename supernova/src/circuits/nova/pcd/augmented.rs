@@ -15,7 +15,7 @@ use ark_r1cs_std::{
 };
 use ark_relations::{
     lc,
-    r1cs::{ConstraintSystemRef, Namespace, OptimizationGoal, SynthesisError, Variable},
+    r1cs::{ConstraintSystemRef, Namespace, SynthesisError, Variable},
 };
 use ark_std::Zero;
 
@@ -166,7 +166,6 @@ where
         (z_i, z_j): (&[FpVar<G1::ScalarField>], &[FpVar<G1::ScalarField>]),
     ) -> Result<FpVar<G1::ScalarField>, SynthesisError> {
         let cs = self.U.cs();
-        println!("cs.optimization_goal(): {:?}", cs.optimization_goal());
         let mut random_oracle = RO::Var::new(cs, ro_config);
 
         random_oracle.absorb(vk)?;

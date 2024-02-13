@@ -11,11 +11,14 @@ use ark_poly_commit::{
   kzg10::{Commitment as KZGCommitment, Powers},
   PCCommitment, PCUniversalParams,
 };
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{
+  CanonicalDeserialize, CanonicalSerialize, Compress, SerializationError, Valid, Validate,
+};
 use ark_std::{
   borrow::Cow,
   collections::BTreeMap,
   fmt::Debug,
+  io::{Read, Write},
   ops::{Add, AddAssign, Mul, MulAssign},
   vec::Vec,
 };
@@ -73,39 +76,128 @@ where
 
 /// The 'ZeromorphCommitterKey' is a truncated version of the SRS containing the G1 elements
 /// needed to commit to polynomials and to compute evaluation proofs.
-#[derive(Derivative, CanonicalDeserialize, CanonicalSerialize)]
+#[derive(Derivative)]
 #[derivative(Hash(bound = ""), Clone(bound = ""), Debug(bound = ""))]
-pub struct ZeromorphCommitterKey<E>
+pub struct ZeromorphCommitterKey<'b, E>
 where
   E: Pairing,
 {
   /// Underlying KZG committer key: {\tau^n g}_{n=0}^{2^(num_vars) - 1}
-  pub powers_of_tau_g: Vec<E::G1Affine>,
+  pub powers_of_tau_g: Cow<'b, [E::G1Affine]>,
   /// Powers shifted for degree check commitment to be used in evaluation proofs.
-  pub shifted_powers_of_tau_g: Vec<E::G1Affine>,
+  pub shifted_powers_of_tau_g: Cow<'b, [E::G1Affine]>,
   /// Size of the SRS from which this key was derived
   pub N_max: usize,
   /// Number of variables for which this key was trimmed
   pub num_vars: usize,
 }
 
-impl<E: Pairing> ZeromorphCommitterKey<E> {
+impl<'a, E: Pairing> Valid for ZeromorphCommitterKey<'a, E> {
+  fn check(&self) -> Result<(), SerializationError> {
+    Ok(())
+  }
+}
+impl<'a, E: Pairing> CanonicalSerialize for ZeromorphCommitterKey<'a, E> {
+  fn serialize_with_mode<W: Write>(
+    &self,
+    mut writer: W,
+    compress: Compress,
+  ) -> Result<(), SerializationError> {
+    self
+      .powers_of_tau_g
+      .serialize_with_mode(&mut writer, compress)?;
+    self
+      .shifted_powers_of_tau_g
+      .serialize_with_mode(&mut writer, compress)?;
+    self.N_max.serialize_with_mode(&mut writer, compress)?;
+    self.num_vars.serialize_with_mode(&mut writer, compress)
+  }
+
+  fn serialized_size(&self, compress: Compress) -> usize {
+    self.powers_of_tau_g.serialized_size(compress)
+      + self.shifted_powers_of_tau_g.serialized_size(compress)
+  }
+}
+
+impl<'a, E: Pairing> CanonicalDeserialize for ZeromorphCommitterKey<'a, E> {
+  fn deserialize_with_mode<R: Read>(
+    mut reader: R,
+    compress: Compress,
+    validate: Validate,
+  ) -> Result<Self, SerializationError> {
+    let powers_of_tau_g = Vec::deserialize_with_mode(&mut reader, compress, validate)?;
+    let shifted_powers_of_tau_g = Vec::deserialize_with_mode(&mut reader, compress, validate)?;
+    let N_max = usize::deserialize_with_mode(&mut reader, compress, validate)?;
+    let num_vars = usize::deserialize_with_mode(&mut reader, compress, validate)?;
+    let result = Self {
+      powers_of_tau_g: Cow::Owned(powers_of_tau_g),
+      shifted_powers_of_tau_g: Cow::Owned(shifted_powers_of_tau_g),
+      N_max,
+      num_vars,
+    };
+    if let Validate::Yes = validate {
+      result.check()?;
+    }
+    Ok(result)
+  }
+}
+
+impl<'a, E: Pairing> ZeromorphCommitterKey<'a, E> {
   /// Gets the number of variables for which this key was initialized
   pub fn supported_num_vars(&self) -> usize {
     self.num_vars
   }
   /// Extracts the vector of powers {\tau^i * g}_{i=0}^{2^{num_vars} - 1}
-  pub fn powers(&self) -> Powers<E> {
+  pub fn powers(&self) -> Powers<'a, E> {
     Powers {
-      powers_of_g: self.powers_of_tau_g.as_slice().into(),
+      powers_of_g: self.powers_of_tau_g.clone(),
       powers_of_gamma_g: Cow::Borrowed(&[]),
     }
   }
   /// Extracts the vector of shifted powers {\tau^(N_max - 2^num_vars + i) * g}_{i=0}^{2^{num_vars} - 1}
-  pub fn shifted_powers(&self) -> Powers<E> {
+  pub fn shifted_powers(&self) -> Powers<'a, E> {
     Powers {
-      powers_of_g: self.shifted_powers_of_tau_g.as_slice().into(),
+      powers_of_g: self.shifted_powers_of_tau_g.clone(),
       powers_of_gamma_g: Cow::Borrowed(&[]),
+    }
+  }
+}
+
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+pub struct ZeromorphCommitterKeyOwned<E>
+where
+  E: Pairing,
+{
+  powers_of_tau_g: Vec<E::G1Affine>,
+  shifted_powers_of_tau_g: Vec<E::G1Affine>,
+  N_max: usize,
+  num_vars: usize,
+}
+
+impl<E> From<ZeromorphCommitterKey<'_, E>> for ZeromorphCommitterKeyOwned<E>
+where
+  E: Pairing,
+{
+  fn from(key: ZeromorphCommitterKey<'_, E>) -> Self {
+    Self {
+      powers_of_tau_g: key.powers_of_tau_g.into_owned(),
+      shifted_powers_of_tau_g: key.shifted_powers_of_tau_g.into_owned(),
+      N_max: key.N_max,
+      num_vars: key.num_vars,
+    }
+  }
+}
+
+impl<'a, E> From<ZeromorphCommitterKeyOwned<E>> for ZeromorphCommitterKey<'a, E>
+where
+  E: Pairing,
+{
+  fn from(key: ZeromorphCommitterKeyOwned<E>) -> Self {
+    Self {
+      powers_of_tau_g: Cow::Owned(key.powers_of_tau_g),
+      shifted_powers_of_tau_g: Cow::Owned(key.shifted_powers_of_tau_g),
+      N_max: key.N_max,
+      num_vars: key.num_vars,
     }
   }
 }

@@ -1,7 +1,7 @@
 use ark_ec::CurveGroup;
 use ark_spartan::{
     math::Math,
-    polycommitments::{PCSKeys, PolyCommitmentScheme, VectorCommitmentScheme},
+    polycommitments::{PCSKeysOwned, PolyCommitmentScheme, VectorCommitmentScheme},
 };
 use ark_std::marker::PhantomData;
 
@@ -22,16 +22,16 @@ where
     PC::Commitment: Copy + Into<G> + From<G>,
 {
     type SetupAux = PC::SRS;
-    type PP = PCSKeys<G, PC>;
+    type PP = PCSKeysOwned<G, PC>;
     type Commitment = PC::Commitment;
 
     /// This function is just for testing purposes: in practice, we will need to
     /// load PC's SRS from a file.
     fn setup(n: usize, srs: &PC::SRS) -> Self::PP {
-        PC::trim(srs, n.log_2())
+        PC::trim(srs, n.log_2()).into()
     }
 
     fn commit(pp: &Self::PP, x: &[G::ScalarField]) -> Self::Commitment {
-        <PC as VectorCommitmentScheme<G>>::commit(x, &pp.ck)
+        <PC as VectorCommitmentScheme<G>>::commit(x, &pp.ck.clone().into())
     }
 }

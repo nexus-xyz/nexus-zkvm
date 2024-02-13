@@ -7,8 +7,8 @@ use ark_poly_commit::{
   PCUniversalParams,
 };
 use ark_std::{
-  collections::BTreeMap, end_timer, marker::PhantomData, ops::Mul, rand::RngCore, start_timer,
-  vec::Vec, One, UniformRand, Zero,
+  borrow::Cow, collections::BTreeMap, end_timer, marker::PhantomData, ops::Mul, rand::RngCore,
+  start_timer, vec::Vec, One, UniformRand, Zero,
 };
 use merlin::Transcript;
 
@@ -38,7 +38,9 @@ impl<E> PolyCommitmentScheme<E::G1> for Zeromorph<E>
 where
   E: Pairing,
 {
-  type PolyCommitmentKey = ZeromorphCommitterKey<E>;
+  type PolyCommitmentKey<'a> = ZeromorphCommitterKey<'a, E>;
+
+  type PolyCommitmentKeyOwned = ZeromorphCommitterKeyOwned<E>;
 
   type EvalVerifierKey = ZeromorphVerifierKey<E>;
 
@@ -48,21 +50,21 @@ where
 
   type PolyCommitmentProof = ZeromorphProof<E>;
 
-  fn commit(
+  fn commit<'a>(
     poly: &DensePolynomial<E::ScalarField>,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
   ) -> Self::Commitment {
     let uni_poly: DenseUnivarPolynomial<E::ScalarField> = multilinear_to_univar(poly);
     let (commitment, _blinds) = KZG10::commit(&ck.powers(), &uni_poly, None, None).unwrap();
     ZeromorphCommitment { commitment }
   }
 
-  fn prove(
+  fn prove<'a>(
     C: Option<&Self::Commitment>,
     poly: &DensePolynomial<E::ScalarField>,
     u: &[E::ScalarField],
     eval: &E::ScalarField,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
     transcript: &mut Transcript,
   ) -> Self::PolyCommitmentProof {
     // First, we send the claimed evaluation, opening point, and commitment to the verifier.
@@ -339,9 +341,9 @@ where
         "required number of variables {supported_num_vars} is greater than SRS maximum number of variables {max_num_vars}",
       );
     }
-    let powers_of_tau_g = srs.powers_of_tau_g[..=supported_degree].to_vec();
+    let powers_of_tau_g = Cow::from(&srs.powers_of_tau_g[..=supported_degree]);
     let shifted_powers_of_tau_g =
-      srs.powers_of_tau_g[(max_degree - supported_degree + 1)..].to_vec();
+      Cow::from(&srs.powers_of_tau_g[(max_degree - supported_degree + 1)..]);
     let ck = ZeromorphCommitterKey {
       powers_of_tau_g,
       shifted_powers_of_tau_g,

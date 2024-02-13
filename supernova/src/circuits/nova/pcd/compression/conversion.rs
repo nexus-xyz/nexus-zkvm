@@ -160,7 +160,7 @@ mod tests {
         let instance = CRR1CSInstance::<Projective<G>, PC>::try_from(folded_instance).unwrap();
         let witness = CRR1CSWitness::<G::ScalarField>::try_from(witness).unwrap();
 
-        let key = CRR1CSKey { keys: pp };
+        let key = CRR1CSKey { keys: pp.into() };
 
         // check that the Spartan instance-witness pair is still satisfying
         assert!(is_sat(&shape, &instance, &witness, &key).unwrap());

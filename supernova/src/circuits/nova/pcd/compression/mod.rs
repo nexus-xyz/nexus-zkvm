@@ -68,11 +68,11 @@ where
 }
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
-pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+pub struct SNARKKey<'b, 'c, G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     shape: CRR1CSShape<G::ScalarField>,
     computation_comm: ComputationCommitment<G, PC>,
     computation_decomm: ComputationDecommitment<G::ScalarField>,
-    snark_gens: SNARKGens<G, PC>,
+    snark_gens: SNARKGens<'b, 'c, G, PC>,
 }
 
 pub struct SNARK<G1, G2, PC, C2, RO, SC>
@@ -107,10 +107,10 @@ where
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     SC: StepCircuit<G1::ScalarField>,
 {
-    pub fn setup(
+    pub fn setup<'a, 'b, 'c: 'a + 'b>(
         pp: &PublicParams<G1, G2, PVC<G1, PC>, C2, RO, SC>,
-        srs: &PC::SRS,
-    ) -> Result<SNARKKey<Projective<G1>, PC>, SpartanError> {
+        srs: &'c PC::SRS,
+    ) -> Result<SNARKKey<'a, 'b, Projective<G1>, PC>, SpartanError> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "Spartan_setup").entered();
         let PublicParams { shape: _shape, .. } = pp;
         // converts the R1CSShape from this crate into a CRR1CSShape from the Spartan crate
@@ -281,7 +281,7 @@ mod tests {
     };
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
-    use ark_relations::r1cs::{ConstraintSystem, OptimizationGoal, SynthesisMode};
+    use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
     use ark_spartan::math::Math;
     use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
     use ark_std::{fs::File, test_rng, One};
@@ -320,7 +320,6 @@ mod tests {
 
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Setup);
-        cs.set_optimization_goal(OptimizationGoal::Weight);
 
         let input = NovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
             i,

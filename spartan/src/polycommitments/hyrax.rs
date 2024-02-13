@@ -150,7 +150,8 @@ pub struct Hyrax<G> {
 impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
   type SRS = HyraxSRS;
   type Commitment = HyraxCommitment<G>;
-  type PolyCommitmentKey = HyraxKey<G>;
+  type PolyCommitmentKey<'a> = HyraxKey<G>;
+  type PolyCommitmentKeyOwned = HyraxKey<G>;
   type EvalVerifierKey = HyraxKey<G>;
 
   type PolyCommitmentProof = HyraxProof<G>;
@@ -169,7 +170,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
 
   fn commit<'a>(
     poly: &DensePolynomial<G::ScalarField>,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
   ) -> HyraxCommitment<G> {
     let (C, _blinds) = poly.commit(&ck.gens, None);
     HyraxCommitment { C }
@@ -180,7 +181,7 @@ impl<G: CurveGroup> PolyCommitmentScheme<G> for Hyrax<G> {
     poly: &DensePolynomial<G::ScalarField>,
     r: &[<G>::ScalarField],
     eval: &<G>::ScalarField,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
     transcript: &mut Transcript,
   ) -> Self::PolyCommitmentProof {
     let mut new_tape = RandomTape::new(b"HyraxPolyCommitmentProof");

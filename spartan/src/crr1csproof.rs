@@ -643,8 +643,9 @@ mod tests {
     let num_vars = 1024;
     let num_cons = num_vars;
     let num_inputs = 10;
+    let srs = PC::setup(14, b"crr1cs_proof_test", &mut test_rng()).unwrap();
     let (shape, instance, witness, gens) =
-      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
+      produce_synthetic_crr1cs::<G, PC>(&srs, num_cons, num_vars, num_inputs);
     assert!(is_sat(&shape, &instance, &witness, &gens.gens_r1cs_sat).unwrap());
     let (num_cons, num_vars, _num_inputs) = (
       shape.get_num_cons(),

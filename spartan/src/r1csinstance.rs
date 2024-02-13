@@ -34,15 +34,15 @@ impl<G: CurveGroup> AppendToTranscript<G> for R1CSInstance<G::ScalarField> {
 }
 
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
-pub struct R1CSCommitmentGens<G, PC>
+pub struct R1CSCommitmentGens<'b, G, PC>
 where
   G: CurveGroup,
   PC: PolyCommitmentScheme<G>,
 {
-  gens: SparseMatPolyCommitmentKey<G, PC>,
+  gens: SparseMatPolyCommitmentKey<'b, G, PC>,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSCommitmentGens<G, PC> {
+impl<'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSCommitmentGens<'a, G, PC> {
   pub fn new(
     SRS: &PC::SRS,
     num_cons: usize,

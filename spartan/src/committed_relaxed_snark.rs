@@ -19,16 +19,16 @@ use crate::{
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
-pub struct CRSNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pub gens_r1cs_sat: CRR1CSKey<G, PC>,
-  pub gens_r1cs_eval: R1CSCommitmentGens<G, PC>,
+pub struct CRSNARKKey<'b, 'c, G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  pub gens_r1cs_sat: CRR1CSKey<'b, G, PC>,
+  pub gens_r1cs_eval: R1CSCommitmentGens<'c, G, PC>,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRSNARKKey<G, PC> {
+impl<'a, 'b, G: CurveGroup, PC: PolyCommitmentScheme<G>> CRSNARKKey<'a, 'b, G, PC> {
   /// Constructs a new `SNARKGens` given the size of the R1CS statement
   /// `num_nz_entries` specifies the maximum number of non-zero entries in any of the three R1CS matrices
-  pub fn new(
-    SRS: &PC::SRS,
+  pub fn new<'c: 'a + 'b>(
+    SRS: &'c PC::SRS,
     num_cons: usize,
     num_vars: usize,
     num_inputs: usize,
@@ -254,6 +254,7 @@ mod tests {
   };
 
   use ark_bls12_381::{Bls12_381, G1Projective};
+  use ark_std::test_rng;
 
   #[test]
   pub fn check_crsnark() {
@@ -264,8 +265,11 @@ mod tests {
     let num_cons = num_vars;
     let num_inputs = 10;
 
+    let srs = PC::setup(12, b"spartan-crsnark-test", &mut test_rng()).unwrap();
+
     // produce a synthetic CRR1CSInstance
-    let (shape, instance, witness, key) = produce_synthetic_crr1cs(num_cons, num_vars, num_inputs);
+    let (shape, instance, witness, key) =
+      produce_synthetic_crr1cs(&srs, num_cons, num_vars, num_inputs);
 
     // create a commitment to R1CSInstance
     let (comm, decomm) = SNARK::<_, PC>::encode(&shape.inst, &key);

@@ -22,8 +22,8 @@ pub trait VectorCommitmentScheme<G: CurveGroup> {
     + Sync
     + CanonicalSerialize
     + CanonicalDeserialize;
-  type CommitmentKey;
-  fn commit(vec: &[G::ScalarField], ck: &Self::CommitmentKey) -> Self::VectorCommitment;
+  type CommitmentKey<'a>;
+  fn commit<'a>(vec: &[G::ScalarField], ck: &Self::CommitmentKey<'a>) -> Self::VectorCommitment;
 
   // Commitment to the zero vector of length n
   fn zero(n: usize) -> Self::VectorCommitment;
@@ -56,18 +56,59 @@ pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
 
 #[derive(CanonicalSerialize, CanonicalDeserialize, Derivative, Debug)]
 #[derivative(Clone(bound = ""))]
-pub struct PCSKeys<G, PC>
+pub struct PCSKeys<'b, G, PC>
 where
   G: CurveGroup,
   PC: PolyCommitmentScheme<G> + ?Sized,
 {
-  pub ck: PC::PolyCommitmentKey,
+  pub ck: PC::PolyCommitmentKey<'b>,
   pub vk: PC::EvalVerifierKey,
 }
 
+#[derive(CanonicalSerialize, CanonicalDeserialize, Derivative, Debug)]
+#[derivative(Clone(bound = ""))]
+pub struct PCSKeysOwned<G, PC>
+where
+  G: CurveGroup,
+  PC: PolyCommitmentScheme<G> + ?Sized,
+{
+  pub ck: PC::PolyCommitmentKeyOwned,
+  pub vk: PC::EvalVerifierKey,
+}
+
+impl<G, PC> From<PCSKeys<'_, G, PC>> for PCSKeysOwned<G, PC>
+where
+  G: CurveGroup,
+  PC: PolyCommitmentScheme<G> + ?Sized,
+{
+  fn from(pcs_keys: PCSKeys<'_, G, PC>) -> Self {
+    Self {
+      ck: pcs_keys.ck.into(),
+      vk: pcs_keys.vk,
+    }
+  }
+}
+
+impl<'a, G, PC> From<PCSKeysOwned<G, PC>> for PCSKeys<'a, G, PC>
+where
+  G: CurveGroup,
+  PC: PolyCommitmentScheme<G> + ?Sized,
+{
+  fn from(pcs_keys: PCSKeysOwned<G, PC>) -> Self {
+    Self {
+      ck: pcs_keys.ck.into(),
+      vk: pcs_keys.vk,
+    }
+  }
+}
 pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
   type SRS: SRSTrait;
-  type PolyCommitmentKey: CanonicalSerialize + CanonicalDeserialize + Clone;
+  type PolyCommitmentKey<'a>: CanonicalSerialize
+    + CanonicalDeserialize
+    + Clone
+    + Into<Self::PolyCommitmentKeyOwned>
+    + From<Self::PolyCommitmentKeyOwned>;
+  type PolyCommitmentKeyOwned: CanonicalSerialize + CanonicalDeserialize + Clone;
   type EvalVerifierKey: CanonicalSerialize + CanonicalDeserialize + Clone;
   type Commitment: PolyCommitmentTrait<G>;
   // The commitments should be compatible with a homomorphic vector commitment valued in G
@@ -75,17 +116,17 @@ pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
 
   // Optionally takes `vector_comm` as a "hint" to speed up the commitment process if a
   // commitment to the vector of evaluations has already been computed
-  fn commit(
+  fn commit<'a>(
     poly: &DensePolynomial<G::ScalarField>,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
   ) -> Self::Commitment;
 
-  fn prove(
+  fn prove<'a>(
     C: Option<&Self::Commitment>,
     poly: &DensePolynomial<G::ScalarField>,
     r: &[G::ScalarField],
     eval: &G::ScalarField,
-    ck: &Self::PolyCommitmentKey,
+    ck: &Self::PolyCommitmentKey<'a>,
     transcript: &mut Transcript,
   ) -> Self::PolyCommitmentProof;
 
@@ -111,8 +152,8 @@ pub trait PolyCommitmentScheme<G: CurveGroup>: Send + Sync {
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> VectorCommitmentScheme<G> for PC {
   type VectorCommitment = PC::Commitment;
-  type CommitmentKey = PC::PolyCommitmentKey;
-  fn commit(vec: &[<G>::ScalarField], ck: &Self::CommitmentKey) -> Self::VectorCommitment {
+  type CommitmentKey<'a> = PC::PolyCommitmentKey<'a>;
+  fn commit<'a>(vec: &[<G>::ScalarField], ck: &Self::CommitmentKey<'a>) -> Self::VectorCommitment {
     let poly = DensePolynomial::new(vec.to_vec());
     PC::commit(&poly, ck)
   }

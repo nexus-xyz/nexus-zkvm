@@ -6,10 +6,11 @@ extern crate merlin;
 
 use ark_bls12_381::G1Projective;
 use ark_serialize::CanonicalSerialize;
+use ark_std::test_rng;
 
 use libspartan::{
   committed_relaxed_snark::SNARK, crr1csproof::produce_synthetic_crr1cs,
-  polycommitments::hyrax::Hyrax,
+  polycommitments::hyrax::Hyrax, polycommitments::PolyCommitmentScheme,
 };
 use merlin::Transcript;
 
@@ -20,17 +21,25 @@ fn print(msg: &str) {
 
 pub fn main() {
   // the list of number of variables (and constraints) in an R1CS instance
-  let inst_sizes = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+  let inst_sizes = [10, 11, 12, 13, 14, 15, 16];
+  let srs = Hyrax::<G1Projective>::setup(
+    *inst_sizes.iter().max().unwrap(),
+    b"hyrax-profiler",
+    &mut test_rng(),
+  )
+  .unwrap();
 
-  println!("Profiler:: SNARK");
+  println!("Profiler:: SNARK with Hyrax");
   for &s in inst_sizes.iter() {
     let num_vars = (2_usize).pow(s as u32);
     let num_cons = num_vars;
     let num_inputs = 10;
 
     // produce a synthetic R1CSInstance
-    let (shape, instance, witness, gens) =
-      produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
+    let (shape, instance, witness, gens) = produce_synthetic_crr1cs::<
+      G1Projective,
+      Hyrax<G1Projective>,
+    >(&srs, num_cons, num_vars, num_inputs);
 
     // create a commitment to R1CSInstance
     let (comm, decomm) = SNARK::encode(&shape.inst, &gens);

@@ -3,18 +3,18 @@ use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{cmp::max, test_rng, One, UniformRand, Zero};
 
-use super::polycommitments::{PCSKeys, PolyCommitmentScheme, VectorCommitmentScheme};
+use super::polycommitments::{PCSKeys, PolyCommitmentScheme, SRSTrait, VectorCommitmentScheme};
 use crate::{
   committed_relaxed_snark::CRSNARKKey, dense_mlpoly::DensePolynomial, errors::R1CSError,
   math::Math, InputsAssignment, Instance, VarsAssignment,
 };
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
-pub struct CRR1CSKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
-  pub keys: PCSKeys<G, PC>,
+pub struct CRR1CSKey<'b, G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+  pub keys: PCSKeys<'b, G, PC>,
 }
 
-impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
-  pub fn new(SRS: &PC::SRS, num_cons: usize, num_vars: usize) -> Self {
+impl<'a, 'b: 'a, G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<'a, G, PC> {
+  pub fn new(SRS: &'b PC::SRS, num_cons: usize, num_vars: usize) -> Self {
     // Since we have commitments both to the witness and the error vectors
     // we need the commitment key to hold the larger of the two
     let n = max(num_cons, num_vars);
@@ -176,7 +176,8 @@ pub fn is_sat<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
 
 #[allow(clippy::type_complexity)]
 // This produces a random satisfying structure, instance, witness, and public parameters for testing and benchmarking purposes.
-pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
+pub fn produce_synthetic_crr1cs<'a, 'b, 'c: 'a + 'b, G: CurveGroup, PC: PolyCommitmentScheme<G>>(
+  SRS: &'c PC::SRS,
   num_cons: usize,
   num_vars: usize,
   num_inputs: usize,
@@ -184,7 +185,7 @@ pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   CRR1CSShape<G::ScalarField>,
   CRR1CSInstance<G, PC>,
   CRR1CSWitness<G::ScalarField>,
-  CRSNARKKey<G, PC>,
+  CRSNARKKey<'a, 'b, G, PC>,
 ) {
   // compute random satisfying assignment for r1cs
   let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
@@ -224,8 +225,12 @@ pub fn produce_synthetic_crr1cs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(
   // produce public parameters
   let min_num_vars =
     CRSNARKKey::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
-  let SRS = PC::setup(min_num_vars, b"CRSNARK_profiler_SRS", &mut test_rng()).unwrap();
-  let gens = CRSNARKKey::<G, PC>::new(&SRS, num_cons, num_vars, num_inputs, num_cons);
+  assert!(
+    SRS.max_num_vars() >= min_num_vars,
+    "SRS max_num_vars is too small: need {min_num_vars} but SRS is only for {}",
+    SRS.max_num_vars()
+  );
+  let gens = CRSNARKKey::<G, PC>::new(SRS, num_cons, num_vars, num_inputs, num_cons);
 
   // compute commitments to the vectors `vars` and `E`.
   let comm_W = <PC as VectorCommitmentScheme<G>>::commit(
