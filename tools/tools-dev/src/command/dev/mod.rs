@@ -18,7 +18,6 @@ macro_rules! cargo_manifest_dir_path {
 mod clean;
 mod config;
 mod node;
-mod public_params;
 
 pub mod common_impl;
 
@@ -30,9 +29,6 @@ pub enum Command {
     Clean,
     /// Configuration management.
     Config(config::ConfigArgs),
-    /// Nova public parameters management.
-    #[clap(name = "pp")]
-    PublicParams(public_params::PublicParamsArgs),
     /// Run the network node.
     Node(node::NodeArgs),
 }
@@ -40,7 +36,6 @@ pub enum Command {
 pub(crate) fn handle_command(cmd: Command) -> anyhow::Result<()> {
     match cmd {
         Command::Config(args) => config::handle_command(args),
-        Command::PublicParams(args) => public_params::handle_command(args),
         Command::Clean => clean::handle_command(),
         Command::Node(args) => node::handle_command(args),
     }

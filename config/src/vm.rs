@@ -8,7 +8,7 @@ pub struct VmConfig {
     pub nova_impl: NovaImpl,
 }
 
-#[derive(Debug, Copy, Clone, serde_wrapper::Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, serde_wrapper::Deserialize)]
 #[cfg_attr(feature = "clap_derive", derive(clap::ValueEnum))]
 pub enum NovaImpl {
     #[serde(rename = "seq")]

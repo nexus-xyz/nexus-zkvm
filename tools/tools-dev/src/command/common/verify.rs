@@ -11,4 +11,7 @@ pub struct VerifyArgs {
     /// File containing completed proof
     #[arg(default_value = "nexus-proof.json")]
     pub file: PathBuf,
+
+    #[arg(short)]
+    pub k: Option<usize>,
 }

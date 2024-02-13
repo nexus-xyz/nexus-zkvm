@@ -46,7 +46,7 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(trace)
 }
 
-pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     let k = trace.k;
     let tr = Tr(trace);
     let icount = tr.instructions();
@@ -82,10 +82,10 @@ pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
     let t = Instant::now();
     proof.verify(num_steps).expect("verify"); // TODO add verify errors?
     println!("{:?}", t.elapsed());
-    Ok(())
+    Ok(proof)
 }
 
-pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
     let k = trace.k;
     let tr = Tr(trace);
 
@@ -134,5 +134,5 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
     let t = Instant::now();
     vs[0].verify(&pp)?;
     println!("{:?}", t.elapsed());
-    Ok(())
+    Ok(vs.into_iter().next().unwrap())
 }

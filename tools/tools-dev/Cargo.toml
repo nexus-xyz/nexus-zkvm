@@ -24,7 +24,7 @@ clap.workspace = true
 
 nexus-config = { path = "../../config", features = [
    "clap_derive",
-], optional = true }
+]}
 
 anyhow = "1.0"
 cargo_metadata = "0.18.1"
@@ -40,4 +40,4 @@ dotenvy = { version = "0.15.7", optional = true }
 
 [features]
 default = ["dev"]
-dev = ["nexus-config", "toml", "dotenvy"]
+dev = ["toml", "dotenvy"]

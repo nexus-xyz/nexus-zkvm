@@ -2,6 +2,7 @@ RUST_LOG="""\
 nexus-network=debug,\
 nexus-prover=info,\
 nexus-tools-dev=debug,\
+supernova::sequential=debug,\
 supernova::pcd=debug\
 """
 

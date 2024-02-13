@@ -2,6 +2,7 @@ use clap::Subcommand;
 
 pub mod new;
 pub mod prove;
+pub mod public_params;
 pub mod request;
 pub mod run;
 pub mod verify;
@@ -16,12 +17,15 @@ pub enum Command {
     New(NewArgs),
     /// Run a binary with the Nexus VM.
     Run(RunArgs),
-    /// Send compiled binary to the Nexus prover network.
+    /// Compute proof of program execution.
     Prove(ProveArgs),
-    /// Request proof status; download it if it's finished.
+    /// Request proof status from the network; download it if it's finished.
     Request(RequestArgs),
     /// Verify the proof.
     Verify(VerifyArgs),
+    /// Nova public parameters management.
+    #[clap(name = "pp")]
+    PublicParams(public_params::PublicParamsArgs),
 }
 
 #[cfg(feature = "dev")]
