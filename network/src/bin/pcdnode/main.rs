@@ -15,6 +15,8 @@ use hyper::{
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
+use http::uri;
+use tracing_subscriber::EnvFilter;
 
 use nexus_prover::pp::gen_or_load;
 
@@ -67,7 +69,7 @@ pub struct Opts {
     listen: SocketAddr,
 
     #[arg(short, default_value = "127.0.0.1:8080")]
-    connect: SocketAddr,
+    connect: uri::Authority,
 
     /// public parameters file
     #[arg(long = "public-params", default_value = "nexus-public.zst")]
@@ -76,9 +78,10 @@ pub struct Opts {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let filter = EnvFilter::from_default_env();
     tracing_subscriber::fmt()
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
-        .with_env_filter("supernova=trace,nexus=trace")
+        .with_env_filter(filter)
         .init();
 
     let opts = Opts::parse();
@@ -89,29 +92,34 @@ async fn main() -> Result<()> {
     start_local_workers(state.clone())?;
 
     if opts.msm {
-        bin::client(state.clone(), opts.connect, "msm", msm_client_proxy).await?;
+        bin::client(state.clone(), &opts.connect, "msm", msm_client_proxy).await?;
     }
     if opts.pcd {
-        bin::client(state.clone(), opts.connect, "pcd", pcd_client_proxy).await?;
+        bin::client(state.clone(), &opts.connect, "pcd", pcd_client_proxy).await?;
+    } else {
+        let new_service = make_service_fn(move |_| {
+            let state = state.clone();
+            async move {
+                let f = service_fn(move |req| {
+                    let state = state.clone();
+                    router(state, req)
+                });
+                Ok::<_, DynError>(f)
+            }
+        });
+
+        let server = Server::bind(&opts.listen)
+            .tcp_keepalive(Some(core::time::Duration::from_secs(20)))
+            .tcp_nodelay(true)
+            .serve(new_service);
+
+        tracing::info!(
+            target: LOG_TARGET,
+            "Listening on http://{}",
+            server.local_addr(),
+        );
+
+        server.await?;
     }
-
-    let new_service = make_service_fn(move |_| {
-        let state = state.clone();
-        async move {
-            let f = service_fn(move |req| {
-                let state = state.clone();
-                router(state, req)
-            });
-            Ok::<_, DynError>(f)
-        }
-    });
-
-    let server = Server::bind(&opts.listen)
-        .tcp_keepalive(Some(core::time::Duration::from_secs(20)))
-        .tcp_nodelay(true)
-        .serve(new_service);
-
-    println!("Listening on http://{}", server.local_addr());
-    server.await?;
     Ok(())
 }

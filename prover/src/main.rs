@@ -3,6 +3,7 @@
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use clap::{Parser, Subcommand};
+use tracing_subscriber::EnvFilter;
 
 use nexus_vm::riscv::VMOpts;
 use nexus_prover::{
@@ -64,6 +65,12 @@ enum Command {
 use Command::*;
 
 fn main() -> Result<(), ProofError> {
+    let filter = EnvFilter::from_default_env();
+    tracing_subscriber::fmt()
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_env_filter(filter)
+        .init();
+
     let opts = Opts::parse();
 
     match opts.command {

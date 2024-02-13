@@ -22,7 +22,9 @@ required-features = ["dev"]
 [dependencies]
 clap.workspace = true
 
-nexus-config = { path = "../../config", features = ["clap_derive"], optional = true }
+nexus-config = { path = "../../config", features = [
+   "clap_derive",
+], optional = true }
 
 anyhow = "1.0"
 cargo_metadata = "0.18.1"
@@ -31,9 +33,11 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
    "fmt",
    "ansi",
    "chrono",
+   "env-filter",
 ] }
 toml = { version = "0.8.8", optional = true }
+dotenvy = { version = "0.15.7", optional = true }
 
 [features]
 default = ["dev"]
-dev = ["nexus-config", "toml"]
+dev = ["nexus-config", "toml", "dotenvy"]

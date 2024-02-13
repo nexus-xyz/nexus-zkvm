@@ -9,12 +9,15 @@ use nexus_network::client::*;
 
 use crate::*;
 
+const URL: &str = "35.209.216.211:80";
+
 pub fn prove() -> CmdResult<()> {
     let Opts { command: Prove { release, bin } } = options() else {
         panic!()
     };
     let t = get_target(*release, bin)?;
-    let proof = submit_proof("account".to_string(), &t)?;
+    let client = Client::new(URL)?;
+    let proof = client.submit_proof("account".to_string(), &t)?;
 
     println!("{} submitted", proof.hash);
 
@@ -26,7 +29,8 @@ pub fn query() -> CmdResult<()> {
         panic!()
     };
 
-    let proof = fetch_proof(hash)?;
+    let client = Client::new(URL)?;
+    let proof = client.fetch_proof(hash)?;
 
     if proof.total_nodes > proof.complete_nodes {
         let pct = (proof.complete_nodes as f32) / (proof.total_nodes as f32);

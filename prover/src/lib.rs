@@ -17,6 +17,8 @@ use crate::{
     circuit::Tr,
 };
 
+const LOG_TARGET: &str = "nexus-prover";
+
 fn estimate_size(tr: &Trace) -> usize {
     use std::mem::size_of_val as sizeof;
     sizeof(tr)

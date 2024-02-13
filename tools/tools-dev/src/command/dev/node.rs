@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, path::Path};
+use std::path::Path;
 
 use anyhow::Context;
 use clap::Args;
@@ -33,15 +33,14 @@ pub fn handle_command(args: NodeArgs) -> anyhow::Result<()> {
     compile_env_configs(false)?;
 
     let network_config = NetworkConfig::from_env()?;
-    let bind_addr = network_config.api.bind_addr();
 
     // setup if necessary
     let pp_file = setup_params_from_env(SetupArgs::default())?;
 
-    launch_node(args, bind_addr, &pp_file)
+    launch_node(args, network_config, &pp_file)
 }
 
-fn launch_node(args: NodeArgs, bind_addr: SocketAddr, pp_file: &Path) -> anyhow::Result<()> {
+fn launch_node(args: NodeArgs, config: NetworkConfig, pp_file: &Path) -> anyhow::Result<()> {
     let NodeArgs {
         mut well_known,
         pcd,
@@ -50,22 +49,23 @@ fn launch_node(args: NodeArgs, bind_addr: SocketAddr, pp_file: &Path) -> anyhow:
     if !(well_known || pcd || msm) {
         well_known = true;
     }
-    let connect_addr = bind_addr;
-    let mut listen_addr = bind_addr;
+    let listen_addr = config.api.bind_addr;
+
+    let connect_addr = config.client.to_string();
 
     // -w|-p|-m [-l=<addr>] [-c=<addr>] [--public-params=<path>]
     let mut network_opts = Vec::new();
-    if well_known {
-        network_opts.push("-w".to_string());
+    let role = if well_known {
+        "-w"
     } else if pcd {
-        // TODO: should be configurable.
-        listen_addr.set_port(0);
-        network_opts.push("-p".into());
-    } else if msm {
-        // TODO: should be configurable.
-        listen_addr.set_port(0);
-        network_opts.push("-m".into());
+        "-p"
+    } else {
+        assert!(msm);
+        "-m"
     }
+    .to_string();
+    network_opts.push(role);
+
     let path = pp_file.to_str().context("path is not valid utf8")?;
     network_opts.extend([
         format!("-l={listen_addr}"),

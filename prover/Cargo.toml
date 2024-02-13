@@ -20,6 +20,9 @@ zstd = { version = "0.12", default-features = false }
 nexus-vm = { path = "../vm" }
 supernova = { path = "../supernova", features = ["spartan"] }
 
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
 ark-ff.workspace = true
 ark-ec.workspace = true
 ark-std.workspace = true

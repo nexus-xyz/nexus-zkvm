@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-use tracing_subscriber::{filter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub mod command;
 
@@ -30,8 +30,12 @@ pub enum Command {
 }
 
 pub fn setup_logger() -> tracing::subscriber::DefaultGuard {
-    // TODO: replace with `EnvFilter` using compiled configs.
-    let filter = filter::Targets::new().with_target(LOG_TARGET, tracing::Level::DEBUG);
+    #[cfg(feature = "dev")]
+    let _: () = {
+        let _ = command::dev::compile_env_configs(false);
+        let _ = dotenvy::from_path(nexus_config::constants::CONFIG_ENV_PATH);
+    };
+    let filter = EnvFilter::from_default_env();
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()

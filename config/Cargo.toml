@@ -15,6 +15,8 @@ serde_wrapper = { path = "./serde_wrapper" }
 config = { version = "0.13.4", default-features = false }
 dotenvy = { version = "0.15.7" }
 
+url = { version = "2.5.0", features = ["serde"] }
+
 clap = { workspace = true, optional = true } 
 
 [features]

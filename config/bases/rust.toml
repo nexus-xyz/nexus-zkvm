@@ -1,0 +1,9 @@
+RUST_LOG="""\
+nexus-network=debug,\
+nexus-prover=info,\
+nexus-tools-dev=debug,\
+supernova::pcd=debug\
+"""
+
+RUST_BACKTRACE="full"
+RUST_LIB_BACKTRACE="1"
