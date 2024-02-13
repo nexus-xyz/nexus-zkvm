@@ -264,8 +264,8 @@ impl<
         shape: &LCCSShape<G>,
         commitment_W: &P::Commitment,
         X: &[G::ScalarField],
-        rs: &Vec<G::ScalarField>,
-        vs: &Vec<G::ScalarField>,
+        rs: &[G::ScalarField],
+        vs: &[G::ScalarField],
     ) -> Result<Self, Error> {
         if X.is_empty() || shape.num_io != X.len() {
             Err(Error::InvalidInputLength)
@@ -278,8 +278,8 @@ impl<
             Ok(Self {
                 commitment_W: commitment_W.clone(),
                 X: X.to_owned(),
-                rs: rs.clone(),
-                vs: vs.clone(),
+                rs: rs.to_owned(),
+                vs: vs.to_owned(),
             })
         }
     }

@@ -184,21 +184,21 @@ mod tests {
         let m = NUM_ROWS.next_power_of_two();
         let n = NUM_COLS.next_power_of_two();
 
-        for i in 0..m {
-            for j in 0..n {
+        for (i, row) in M.iter().enumerate().take(m) {
+            for (j, entry) in row.iter().enumerate().take(n) {
                 let row_mask = (1 << 3) * i; // shift column bits
                 let _j = j | row_mask;
 
                 let j_bytes = _j.to_le_bytes();
                 let j_bits: Vec<Fr> = iter_bits_le(j_bytes.as_slice())
-                    .map(|b| Fr::from(b))
+                    .map(Fr::from)
                     .take(NUM_VARS)
                     .collect();
 
                 let eval = mle.evaluate(&j_bits);
 
                 let expected = if i < NUM_ROWS && j < NUM_COLS {
-                    M[i][j].into()
+                    (*entry).into()
                 } else {
                     Fr::zero()
                 };
@@ -217,16 +217,16 @@ mod tests {
         let mle = vec_to_mle(&z);
 
         let n = LEN.next_power_of_two();
-        for i in 0..n {
+        for (i, entry) in z.iter().enumerate().take(n) {
             let i_bytes = i.to_le_bytes();
             let i_bits: Vec<Fr> = iter_bits_le(i_bytes.as_slice())
-                .map(|b| Fr::from(b))
+                .map(Fr::from)
                 .take(NUM_VARS)
                 .collect();
 
             let eval = mle.evaluate(&i_bits);
 
-            let expected = if i < LEN { z[i].into() } else { Fr::zero() };
+            let expected = if i < LEN { *entry } else { Fr::zero() };
             assert_eq!(eval, expected);
         }
     }
@@ -249,16 +249,16 @@ mod tests {
         for i in 0..n {
             let i_bytes = i.to_le_bytes();
             let i_bits: Vec<Fr> = iter_bits_le(i_bytes.as_slice())
-                .map(|b| Fr::from(b))
+                .map(Fr::from)
                 .take(NUM_VARS)
                 .collect();
 
             let eval = mle2.evaluate(&i_bits);
 
-            if i < VEC_LEN {
-                assert_eq!(eval, z2[i].into());
-            } else if i >= VEC_LEN && i < TOT_LEN {
-                assert_eq!(eval, z1[i - VEC_LEN].into());
+            if (0..VEC_LEN).contains(&i) {
+                assert_eq!(eval, z2[i]);
+            } else if (VEC_LEN..TOT_LEN).contains(&i) {
+                assert_eq!(eval, z1[i - VEC_LEN]);
             } else {
                 assert_eq!(eval, Fr::zero());
             }
