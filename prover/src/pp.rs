@@ -51,12 +51,12 @@ fn show_pp<SP>(pp: &PP<SP>)
 where
     SP: SetupParams<G1, G2, C1, C2, RO, Tr>,
 {
-    tracing::info!(
+    tracing::debug!(
         target: LOG_TARGET,
         "Primary circuit {}",
         pp.shape,
     );
-    tracing::info!(
+    tracing::debug!(
         target: LOG_TARGET,
         "Secondary circuit {}",
         pp.shape_secondary,

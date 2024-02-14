@@ -46,12 +46,12 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(trace)
 }
 
-pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     let k = trace.k;
     let tr = Tr(trace);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
-    let mut proof = IVCProof::new(&pp, &z_0);
+    let mut proof = IVCProof::new(pp, &z_0);
 
     println!("\nProving Execution Trace:");
     println!("step. {:7} {:8} {:32} time", "pc", "mem[pc]", "inst");
@@ -82,10 +82,10 @@ pub fn prove_seq(pp: SeqPP, trace: Trace) -> Result<(), ProofError> {
     let t = Instant::now();
     proof.verify(num_steps).expect("verify"); // TODO add verify errors?
     println!("{:?}", t.elapsed());
-    Ok(())
+    Ok(proof)
 }
 
-pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
+pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
     let k = trace.k;
     let tr = Tr(trace);
 
@@ -134,5 +134,5 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<(), ProofError> {
     let t = Instant::now();
     vs[0].verify(&pp)?;
     println!("{:?}", t.elapsed());
-    Ok(())
+    Ok(vs.into_iter().next().unwrap())
 }

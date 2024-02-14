@@ -1,44 +1,18 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use clap::{Args, Subcommand};
 use nexus_config::{vm as vm_config, Config};
 
 use crate::{
-    command::dev::{cache_path, compile_env_configs},
+    command::{
+        common::public_params::{
+            format_params_file, PublicParamsAction, PublicParamsArgs, SetupArgs,
+        },
+        dev::{cache_path, compile_env_configs},
+    },
     utils::cargo,
     LOG_TARGET,
 };
-
-#[derive(Debug, Args)]
-pub struct PublicParamsArgs {
-    #[command(subcommand)]
-    command: Option<PublicParamsAction>,
-}
-
-#[derive(Debug, Subcommand)]
-pub enum PublicParamsAction {
-    /// Generate public parameters to file.
-    Setup(SetupArgs),
-}
-
-#[derive(Debug, Default, Args)]
-pub struct SetupArgs {
-    /// Number of vm instructions per fold.
-    #[arg(short, name = "k")]
-    pub k: Option<usize>,
-
-    #[arg(long("impl"))]
-    pub nova_impl: Option<vm_config::NovaImpl>,
-
-    /// Where to save the file.
-    #[arg(short, long)]
-    pub path: Option<PathBuf>,
-
-    /// Overwrite the file if it already exists.
-    #[arg(long)]
-    pub force: bool,
-}
 
 pub(crate) fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
     let action = args
@@ -50,11 +24,6 @@ pub(crate) fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
         }
     }
     Ok(())
-}
-
-// TODO: make it accessible to all crates.
-pub(crate) fn format_params_file(nova_impl: vm_config::NovaImpl, k: usize) -> String {
-    format!("nexus-public-{nova_impl}-{k}.zst")
 }
 
 pub(crate) fn setup_params_from_env(args: SetupArgs) -> anyhow::Result<PathBuf> {
@@ -75,7 +44,7 @@ pub(crate) fn setup_params_from_env(args: SetupArgs) -> anyhow::Result<PathBuf> 
     };
 
     if !force && path.try_exists()? {
-        tracing::debug!(
+        tracing::info!(
             target: LOG_TARGET,
             "path {} already exists, use `setup --force` to overwrite",
             path.display(),

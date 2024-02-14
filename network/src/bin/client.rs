@@ -1,5 +1,8 @@
 use std::path::PathBuf;
+
 use clap::{Parser, Subcommand, Args};
+use tracing_subscriber::EnvFilter;
+
 use nexus_network::client::{self, Client};
 
 #[derive(Debug, Parser)]
@@ -13,7 +16,7 @@ struct Opts {
 
 #[derive(Debug, Args)]
 pub struct RequestArgs {
-    #[arg(short, long, default_value = "127.0.0.1:8080")]
+    #[arg(long, default_value = "127.0.0.1:8080")]
     pub url: http::uri::Authority,
 }
 
@@ -31,6 +34,12 @@ enum Command {
 }
 
 fn main() {
+    let filter = EnvFilter::from_default_env();
+    tracing_subscriber::fmt()
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_env_filter(filter)
+        .init();
+
     let opts = Opts::parse();
 
     let url = opts.args.url;

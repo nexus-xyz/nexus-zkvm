@@ -5,9 +5,9 @@ use clap::Args;
 use nexus_config::{Config, NetworkConfig};
 
 use crate::{
-    command::dev::{
-        compile_env_configs,
-        public_params::{setup_params_from_env, SetupArgs},
+    command::{
+        common::public_params::SetupArgs,
+        dev::{common_impl::public_params::setup_params_from_env, compile_env_configs},
     },
     utils::cargo,
 };

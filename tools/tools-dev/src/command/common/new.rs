@@ -21,10 +21,10 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
     let path_str = path.to_str().context("path is not a valid UTF-8 string")?;
 
     // run cargo to setup project
-    cargo(None, &["new", path_str])?;
+    cargo(None, ["new", path_str])?;
     cargo(
         Some(&path),
-        &[
+        [
             "add",
             "--git",
             "ssh://git@github.com:22/nexus-xyz/nexus-zkvm.git",
