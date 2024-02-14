@@ -39,9 +39,7 @@ pub fn setup_logger() -> tracing::subscriber::DefaultGuard {
     };
 
     let filter = if let Ok(filter) = EnvFilter::try_from_default_env() {
-        let f = filter;
-        println!("{f}");
-        f.boxed()
+        filter.boxed()
     } else {
         Targets::new()
             .with_target("r1cs", LevelFilter::OFF)

@@ -15,7 +15,7 @@ pub(crate) fn handle_command(cmd: Command) -> anyhow::Result<()> {
         Command::Prove(args) => prove::handle_command(args),
         Command::Request(args) => request::handle_command(args),
         Command::PublicParams(args) => public_params::handle_command(args),
-        Command::Verify(_) => todo!(),
+        Command::Verify(args) => verify::handle_command(args),
 
         _ => unimplemented!(),
     }
