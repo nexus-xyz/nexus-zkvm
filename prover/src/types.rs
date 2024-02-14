@@ -36,7 +36,7 @@ pub use ark_crypto_primitives::{
 pub use ark_relations::r1cs::ConstraintSystemRef;
 
 // types and traits from nexus prover
-pub use supernova::{
+pub use nexus_nova::{
     r1cs::{R1CSShape, R1CSWitness},
     commitment::CommitmentScheme,
     pedersen::PedersenCommitment,
@@ -52,7 +52,7 @@ pub type CS = ConstraintSystemRef<F1>;
 // random oracle
 pub type ROConfig = PoseidonConfig<F1>;
 pub type RO = PoseidonSponge<F1>;
-pub use supernova::poseidon_config as ro_config;
+pub use nexus_nova::poseidon_config as ro_config;
 
 // commitment scheme
 

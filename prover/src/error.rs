@@ -4,8 +4,8 @@ use std::fmt::{self, Debug, Display, Formatter};
 pub use nexus_vm::error::NexusVMError;
 pub use ark_serialize::SerializationError;
 pub use ark_relations::r1cs::SynthesisError;
-pub use supernova::nova::Error as NovaError;
-pub use supernova::r1cs::Error as R1CSError;
+pub use nexus_nova::nova::Error as NovaError;
+pub use nexus_nova::r1cs::Error as R1CSError;
 
 /// Errors related to proof generation
 #[derive(Debug)]

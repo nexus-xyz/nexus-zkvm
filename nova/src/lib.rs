@@ -21,4 +21,4 @@ pub mod r1cs;
 pub use circuits::{nova, StepCircuit};
 pub use provider::{pedersen, poseidon::poseidon_config};
 
-pub(crate) const LOG_TARGET: &str = "supernova";
+pub(crate) const LOG_TARGET: &str = "nexus-nova";

@@ -1525,6 +1525,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "nexus-nova"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff",
+ "ark-grumpkin",
+ "ark-pallas",
+ "ark-poly",
+ "ark-poly-commit",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-serialize",
+ "ark-spartan",
+ "ark-std",
+ "ark-test-curves",
+ "ark-vesta",
+ "ff",
+ "halo2_proofs",
+ "halo2curves 0.3.3",
+ "hex",
+ "merlin",
+ "rayon",
+ "sha3 0.10.8",
+ "tracing",
+ "tracing-subscriber 0.3.18",
+]
+
+[[package]]
 name = "nexus-prover"
 version = "0.1.0"
 dependencies = [
@@ -1538,9 +1568,9 @@ dependencies = [
  "ark-serialize",
  "ark-std",
  "clap 4.4.18",
+ "nexus-nova",
  "nexus-vm",
  "snmalloc-rs",
- "supernova",
  "tracing",
  "tracing-subscriber 0.3.18",
  "zstd",
@@ -2305,36 +2335,6 @@ name = "subtle"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
-
-[[package]]
-name = "supernova"
-version = "0.1.0"
-dependencies = [
- "ark-bn254",
- "ark-crypto-primitives",
- "ark-ec",
- "ark-ff",
- "ark-grumpkin",
- "ark-pallas",
- "ark-poly",
- "ark-poly-commit",
- "ark-r1cs-std",
- "ark-relations",
- "ark-serialize",
- "ark-spartan",
- "ark-std",
- "ark-test-curves",
- "ark-vesta",
- "ff",
- "halo2_proofs",
- "halo2curves 0.3.3",
- "hex",
- "merlin",
- "rayon",
- "sha3 0.10.8",
- "tracing",
- "tracing-subscriber 0.3.18",
-]
 
 [[package]]
 name = "syn"

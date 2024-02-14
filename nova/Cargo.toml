@@ -1,5 +1,5 @@
 [package]
-name = "supernova"
+name = "nexus-nova"
 authors = { workspace = true }
 version = { workspace = true }
 edition = { workspace = true }

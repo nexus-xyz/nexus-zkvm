@@ -16,7 +16,7 @@ use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use criterion::*;
 use pprof::criterion::{Output, PProfProfiler};
 
-use supernova::{
+use nexus_nova::{
     nova::sequential::{IVCProof, PublicParams},
     pedersen::PedersenCommitment,
     poseidon_config, StepCircuit,

@@ -32,7 +32,7 @@ use augmented::{
     NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput, PCDNodeInput,
 };
 
-const LOG_TARGET: &str = "supernova::pcd";
+const LOG_TARGET: &str = "nexus-nova::pcd";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
@@ -435,7 +435,7 @@ mod tests {
     use super::*;
     use crate::{
         circuits::nova::sequential::tests::CubicCircuit, pedersen::PedersenCommitment,
-        poseidon_config, LOG_TARGET as SUPERNOVA_TARGET,
+        poseidon_config, LOG_TARGET as NOVA_TARGET,
     };
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
@@ -508,7 +508,7 @@ mod tests {
         C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
         C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
-        let filter = filter::Targets::new().with_target(SUPERNOVA_TARGET, tracing::Level::DEBUG);
+        let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()
             .with(
                 tracing_subscriber::fmt::layer().with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE),

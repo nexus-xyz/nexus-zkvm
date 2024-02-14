@@ -1,5 +1,5 @@
 [package]
-name = "supernova-benches"
+name = "nova-benches"
 version = "0.1.0"
 edition = "2021"
 
@@ -15,11 +15,11 @@ ark-vesta = "0.4.0"
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
 
-supernova = { path = "../supernova", default-features = false }
+nexus-nova = { path = "../nova", default-features = false }
 
 [features]
 default = ["parallel"]
-parallel = ["supernova/parallel"]
+parallel = ["nexus-nova/parallel"]
 
 [[bench]]
 name = "recursive-snark"
