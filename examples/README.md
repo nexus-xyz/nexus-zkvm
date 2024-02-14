@@ -8,8 +8,8 @@ program. More complex programs can be found in `src/bin`.
 
 Programs in this repository are built against `nexus-rt`, a
 minimal RISC-V runtime for the nexus VM. After building the
-examples, you can run them using the `nexus-run` too, which is
-configure as the default for cargo in this crate:
+examples, you can run them using the `nexus-run` tool, which is
+configured as the default for cargo in this crate:
 
 ```sh
 cargo run -r --bin example
