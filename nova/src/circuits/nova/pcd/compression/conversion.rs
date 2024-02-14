@@ -75,11 +75,7 @@ where
     fn try_from(
         instance: RelaxedR1CSInstance<G, PolyVectorCommitment<Projective<G>, PC>>,
     ) -> Result<Self, Self::Error> {
-        let RelaxedR1CSInstance {
-            commitment_W,
-            commitment_E,
-            X,
-        } = instance;
+        let RelaxedR1CSInstance { commitment_W, commitment_E, X } = instance;
         Ok(CRR1CSInstance {
             input: Assignment::new(&X[1..])?,
             u: X[0],
@@ -96,10 +92,7 @@ where
     type Error = ConversionError;
     fn try_from(witness: RelaxedR1CSWitness<G>) -> Result<Self, Self::Error> {
         let RelaxedR1CSWitness { W, E } = witness;
-        Ok(CRR1CSWitness {
-            W: Assignment::new(&W)?,
-            E,
-        })
+        Ok(CRR1CSWitness { W: Assignment::new(&W)?, E })
     }
 }
 

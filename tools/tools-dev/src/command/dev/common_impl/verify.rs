@@ -5,11 +5,7 @@ use nexus_config::{Config, VmConfig};
 use crate::command::{common::VerifyArgs, dev::compile_env_configs};
 
 pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
-    let VerifyArgs {
-        pp_file,
-        file,
-        k: _k,
-    } = args;
+    let VerifyArgs { pp_file, file, k: _k } = args;
 
     // make sure configs are compiled
     compile_env_configs(false)?;

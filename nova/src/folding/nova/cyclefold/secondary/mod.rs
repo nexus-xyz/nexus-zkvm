@@ -104,9 +104,7 @@ where
     C2: CommitmentScheme<Projective<G2>>,
 {
     let cs = ConstraintSystem::<G1::BaseField>::new_ref();
-    cs.set_mode(SynthesisMode::Prove {
-        construct_matrices: false,
-    });
+    cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
     circuit.generate_constraints(cs.clone())?;
 
@@ -119,10 +117,7 @@ where
     let W = R1CSWitness::<G2> { W: witness };
 
     let commitment_W = W.commit::<C2>(pp_secondary);
-    let U = R1CSInstance::<G2, C2> {
-        commitment_W,
-        X: pub_io,
-    };
+    let U = R1CSInstance::<G2, C2> { commitment_W, X: pub_io };
 
     Ok((U, W))
 }

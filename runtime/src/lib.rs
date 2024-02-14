@@ -4,8 +4,8 @@
 // Nexus VM runtime environment
 // Note: adapted from riscv-rt, which was adapted from cortex-m.
 
-use core::panic::PanicInfo;
 use core::alloc::{GlobalAlloc, Layout};
+use core::panic::PanicInfo;
 
 pub use nexus_rt_macros::main;
 

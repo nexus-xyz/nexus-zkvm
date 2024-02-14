@@ -66,12 +66,7 @@ impl<F: PrimeField> SparseMatrix<F> {
             data.extend(val);
         }
 
-        SparseMatrix {
-            data,
-            indices,
-            indptr,
-            cols,
-        }
+        SparseMatrix { data, indices, indptr, cols }
     }
 
     /// Retrieves the data for row slice [i..j] from `ptrs`.

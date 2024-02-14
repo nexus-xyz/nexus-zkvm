@@ -16,14 +16,14 @@
 use num_traits::FromPrimitive;
 
 use crate::error::Result;
+use crate::eval::{eval_step, NexusVM};
 use crate::instructions::{Inst, Opcode::HALT};
-use crate::eval::{NexusVM, eval_step};
 use crate::memory::path::Path;
 
 use ark_bn254::Fr as F;
 
-use serde::{Serialize, Deserialize};
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use serde::{Deserialize, Serialize};
 
 /// Represents a program trace.
 #[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]

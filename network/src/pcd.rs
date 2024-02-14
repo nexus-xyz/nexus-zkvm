@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use nexus_vm::trace::Trace;
 use nexus_prover::types::*;
+use nexus_vm::trace::Trace;
 
 use crate::Result;
 
@@ -32,9 +32,9 @@ pub enum NexusMsg {
 pub use NexusMsg::*;
 
 mod scalars {
+    use ark_ff::{BigInt, Fp256, MontBackend, MontConfig, PrimeField};
+    use serde::{de::Visitor, ser::SerializeSeq, Deserializer, Serializer};
     use std::fmt;
-    use serde::{Serializer, Deserializer, ser::SerializeSeq, de::Visitor};
-    use ark_ff::{BigInt, PrimeField, Fp256, MontBackend, MontConfig};
 
     type F<C> = Fp256<MontBackend<C, 4>>;
     type T<C> = Vec<F<C>>;
@@ -97,9 +97,9 @@ mod scalars {
 }
 
 mod ark {
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+    use serde::{de::Visitor, Deserializer, Serializer};
     use std::fmt;
-    use serde::{Serializer, Deserializer, de::Visitor};
-    use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 
     pub fn serialize<T, S>(t: &T, s: S) -> Result<S::Ok, S::Error>
     where
@@ -186,8 +186,8 @@ mod test {
     use super::*;
 
     use ark_ff::fields::AdditiveGroup;
-    use nexus_prover::pp::gen_pp;
     use nexus_prover::circuit::nop_circuit;
+    use nexus_prover::pp::gen_pp;
 
     fn round_trip(msg: &NexusMsg) {
         let v = encode_lz4(msg).unwrap();

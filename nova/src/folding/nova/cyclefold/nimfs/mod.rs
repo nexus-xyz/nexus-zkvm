@@ -159,10 +159,7 @@ where
         let U_secondary_temp = U_secondary.fold(&E_comm_trace.0, &commitment_T, &r_1)?;
         let W_secondary_temp = W_secondary.fold(&E_comm_trace.1, &T, &r_1)?;
 
-        let commitment_E_proof = secondary::Proof {
-            commitment_T,
-            U: E_comm_trace.0,
-        };
+        let commitment_E_proof = secondary::Proof { commitment_T, U: E_comm_trace.0 };
 
         let (T, commitment_T) = r1cs::commit_T(
             shape_secondary,
@@ -182,10 +179,7 @@ where
         let U_secondary = U_secondary_temp.fold(&W_comm_trace.0, &commitment_T, &r_2)?;
         let W_secondary = W_secondary_temp.fold(&W_comm_trace.1, &T, &r_2)?;
 
-        let commitment_W_proof = secondary::Proof {
-            commitment_T,
-            U: W_comm_trace.0,
-        };
+        let commitment_W_proof = secondary::Proof { commitment_T, U: W_comm_trace.0 };
 
         let proof = Self {
             commitment_T: _commitment_T,
@@ -219,10 +213,7 @@ where
         let r_0_scalar: G1::ScalarField =
             unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&r_0) };
 
-        let secondary::Proof {
-            U: comm_E_proof,
-            commitment_T,
-        } = &self.commitment_E_proof[0];
+        let secondary::Proof { U: comm_E_proof, commitment_T } = &self.commitment_E_proof[0];
         let pub_io = comm_E_proof
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;

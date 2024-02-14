@@ -1,20 +1,20 @@
-pub mod error;
-pub mod types;
 pub mod circuit;
+pub mod error;
 pub mod pp;
+pub mod types;
 
-use std::time::Instant;
 use std::io::{self, Write};
+use std::time::Instant;
 
 use nexus_vm::{
-    riscv::{VMOpts, load_nvm},
-    trace::{Trace, trace},
+    riscv::{load_nvm, VMOpts},
+    trace::{trace, Trace},
 };
 
 use crate::{
-    error::ProofError,
-    types::{SeqPP, ParPP, IVCProof, PCDNode},
     circuit::Tr,
+    error::ProofError,
+    types::{IVCProof, PCDNode, ParPP, SeqPP},
 };
 
 const LOG_TARGET: &str = "nexus-prover";

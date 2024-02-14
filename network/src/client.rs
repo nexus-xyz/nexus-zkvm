@@ -1,12 +1,12 @@
 use std::path::Path;
 
-use hyper::body::{HttpBody, Buf};
 use http::uri;
+use hyper::body::{Buf, HttpBody};
 use hyper::client::HttpConnector;
 use tokio::runtime;
 
-use crate::Result;
 use crate::api::*;
+use crate::Result;
 
 pub const LOG_TARGET: &str = "nexus-network::client";
 

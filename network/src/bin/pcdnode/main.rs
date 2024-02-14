@@ -2,27 +2,27 @@
 #[global_allocator]
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
-mod workers;
-mod post;
 mod db;
+mod post;
+mod workers;
 
 use std::net::SocketAddr;
 
 use clap::Parser;
 
+use http::uri;
 use hyper::{
     header::UPGRADE,
     service::{make_service_fn, service_fn},
     Body, Method, Request, Response, Server, StatusCode,
 };
-use http::uri;
 use tracing_subscriber::EnvFilter;
 
 use nexus_prover::pp::gen_or_load;
 
 use nexus_network::*;
-use workers::*;
 use post::*;
+use workers::*;
 
 fn r404() -> Result<Response<Body>> {
     Ok(Response::builder()

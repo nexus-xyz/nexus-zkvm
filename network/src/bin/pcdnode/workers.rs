@@ -11,11 +11,11 @@ use hyper::upgrade::Upgraded;
 
 use async_channel::{unbounded, Receiver, Sender};
 
-use nexus_vm::trace::{Trace};
-use nexus_prover::{error::ProofError, types::*, circuit::Tr};
+use nexus_prover::{circuit::Tr, error::ProofError, types::*};
+use nexus_vm::trace::Trace;
 
-use nexus_network::*;
 use nexus_network::pcd::*;
+use nexus_network::*;
 
 use crate::db::DB;
 

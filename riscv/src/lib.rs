@@ -3,9 +3,9 @@
 #![allow(non_snake_case)]
 
 mod error;
+pub mod machines;
 pub mod rv32;
 pub mod vm;
-pub mod machines;
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
@@ -17,7 +17,7 @@ use rv32::*;
 use vm::eval::*;
 
 // don't break API
-pub use machines::{nop_vm, loop_vm};
+pub use machines::{loop_vm, nop_vm};
 
 /// Load a VM state from an ELF file
 pub fn load_elf(path: &PathBuf) -> Result<VM> {

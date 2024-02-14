@@ -430,11 +430,7 @@ where
         step_circuit: &'a SC,
         input: NovaAugmentedCircuitInput<G1, G2, C1, C2, RO>,
     ) -> Self {
-        Self {
-            ro_config,
-            step_circuit,
-            input,
-        }
+        Self { ro_config, step_circuit, input }
     }
 }
 

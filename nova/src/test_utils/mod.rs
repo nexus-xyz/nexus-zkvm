@@ -59,9 +59,7 @@ where
     let circuit = CubicCircuit { x };
 
     let cs = ConstraintSystem::<G::ScalarField>::new_ref();
-    cs.set_mode(SynthesisMode::Prove {
-        construct_matrices: true,
-    });
+    cs.set_mode(SynthesisMode::Prove { construct_matrices: true });
 
     circuit.generate_constraints(cs.clone()).unwrap();
     assert!(cs.is_satisfied().unwrap());

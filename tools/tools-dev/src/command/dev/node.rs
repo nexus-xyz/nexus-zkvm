@@ -41,11 +41,7 @@ pub fn handle_command(args: NodeArgs) -> anyhow::Result<()> {
 }
 
 fn launch_node(args: NodeArgs, config: NetworkConfig, pp_file: &Path) -> anyhow::Result<()> {
-    let NodeArgs {
-        mut well_known,
-        pcd,
-        msm,
-    } = args;
+    let NodeArgs { mut well_known, pcd, msm } = args;
     if !(well_known || pcd || msm) {
         well_known = true;
     }

@@ -1,15 +1,15 @@
 use std::future::Future;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use http::uri;
 use hyper::{
     header::{CONNECTION, UPGRADE},
     upgrade::Upgraded,
     Body, Client, Request, Response, StatusCode,
 };
-use http::uri;
 
-use super::*;
 use super::pcd::*;
+use super::*;
 
 const MAX_SIZE: u32 = 40 * 1024 * 1024;
 

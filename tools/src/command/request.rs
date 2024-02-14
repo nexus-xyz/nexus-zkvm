@@ -1,7 +1,7 @@
 use anyhow::Context;
 
-use nexus_tools_dev::command::common::RequestArgs;
 use nexus_network::client::Client;
+use nexus_tools_dev::command::common::RequestArgs;
 
 use crate::LOG_TARGET;
 

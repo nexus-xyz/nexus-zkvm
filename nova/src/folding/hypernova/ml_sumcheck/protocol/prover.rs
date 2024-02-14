@@ -161,8 +161,6 @@ impl<F: Field, RO> IPForMLSumcheck<F, RO> {
             },
         );
 
-        ProverMsg {
-            evaluations: products_sum,
-        }
+        ProverMsg { evaluations: products_sum }
     }
 }

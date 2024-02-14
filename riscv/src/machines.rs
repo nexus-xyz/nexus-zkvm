@@ -3,7 +3,7 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::identity_op)]
 
-use crate::{VM, Regs};
+use crate::{Regs, VM};
 
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]

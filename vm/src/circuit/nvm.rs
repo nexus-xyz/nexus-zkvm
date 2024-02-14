@@ -2,7 +2,7 @@
 
 use ark_ff::{BigInt, PrimeField};
 
-use crate::instructions::{*, Opcode::*};
+use crate::instructions::{Opcode::*, *};
 use crate::memory::path::Path;
 use crate::trace::Witness;
 

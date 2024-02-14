@@ -6,11 +6,11 @@ extern crate alloc;
 use alloc::format;
 
 use nexus_rt::{
+    print,     // macro similar to std::print!
+    println,   // macro similar to std::println!
     write_log, // primitive string printing function
     NexusLog,  // Type implementing core::fmt::Write
     Write,     // re-export or core::fmt::Write for convenience
-    print,     // macro similar to std::print!
-    println,   // macro similar to std::println!
 };
 
 #[nexus_rt::main]

@@ -204,9 +204,7 @@ where
         };
 
         let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Prove {
-            construct_matrices: false,
-        });
+        cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
         let circuit = NovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
         let z_next = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
@@ -219,10 +217,7 @@ where
         let w = R1CSWitness::<G1> { W: witness };
 
         let commitment_W = commit_fn(&params.pp, &w);
-        let u = R1CSInstance::<G1, C1> {
-            commitment_W,
-            X: pub_io,
-        };
+        let u = R1CSInstance::<G1, C1> { commitment_W, X: pub_io };
         let z_j = z_next
             .iter()
             .map(R1CSVar::value)
@@ -335,9 +330,7 @@ where
         };
 
         let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Prove {
-            construct_matrices: false,
-        });
+        cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
         let circuit = NovaAugmentedCircuit::new(
             &params.ro_config,
@@ -354,10 +347,7 @@ where
         let w = R1CSWitness::<G1> { W: witness };
 
         let commitment_W = commit_fn(&params.pp, &w);
-        let u = R1CSInstance::<G1, C1> {
-            commitment_W,
-            X: pub_io,
-        };
+        let u = R1CSInstance::<G1, C1> { commitment_W, X: pub_io };
 
         Ok(Self {
             i,

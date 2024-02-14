@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::{Write, println};
+use nexus_rt::{println, Write};
 
 use core::ops::Add;
 

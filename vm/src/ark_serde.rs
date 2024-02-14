@@ -1,6 +1,6 @@
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use serde::{de::Visitor, Deserializer, Serializer};
 use std::fmt;
-use serde::{Serializer, Deserializer, de::Visitor};
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 
 pub fn serialize<T, S>(t: &T, s: S) -> Result<S::Ok, S::Error>
 where

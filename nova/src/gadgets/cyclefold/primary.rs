@@ -67,10 +67,7 @@ where
     fn value(&self) -> Result<Self::Value, SynthesisError> {
         let commitment_W = self.commitment_W.value()?;
         let X = self.X.value()?;
-        Ok(R1CSInstance {
-            commitment_W: commitment_W.into(),
-            X,
-        })
+        Ok(R1CSInstance { commitment_W: commitment_W.into(), X })
     }
 }
 

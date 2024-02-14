@@ -1,21 +1,21 @@
 use ark_ff::BigInt;
-pub use ark_relations::{
-    lc,
-    r1cs::{Variable, SynthesisMode, SynthesisError},
-};
 pub use ark_r1cs_std::{
-    R1CSVar,
     alloc::AllocVar,
     fields::{
-        fp::{FpVar, AllocatedFp},
+        fp::{AllocatedFp, FpVar},
         FieldVar,
     },
+    R1CSVar,
+};
+pub use ark_relations::{
+    lc,
+    r1cs::{SynthesisError, SynthesisMode, Variable},
 };
 
 use nexus_vm::{
+    circuit::{build_constraints, ARITY},
     eval::halt_vm,
-    trace::{Trace, trace},
-    circuit::{ARITY, build_constraints},
+    trace::{trace, Trace},
 };
 
 use crate::error::*;

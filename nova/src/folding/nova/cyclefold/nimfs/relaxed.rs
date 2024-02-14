@@ -170,10 +170,7 @@ where
         let U_secondary = U_secondary_temp.fold(&W_comm_trace.0, &commitment_T, &r_3)?;
         let W_secondary = W_secondary_temp.fold(&W_comm_trace.1, &T, &r_3)?;
 
-        let commitment_W_proof = secondary::Proof {
-            commitment_T,
-            U: W_comm_trace.0,
-        };
+        let commitment_W_proof = secondary::Proof { commitment_T, U: W_comm_trace.0 };
 
         random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&r_3));
         let (proof_secondary, (U_secondary, W_secondary)) = NIFSProof::prove_with_relaxed(
@@ -217,10 +214,7 @@ where
         let r_0_scalar: G1::ScalarField =
             unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&r_0) };
 
-        let secondary::Proof {
-            U: comm_E_proof_0,
-            commitment_T,
-        } = &self.commitment_E_proof[0];
+        let secondary::Proof { U: comm_E_proof_0, commitment_T } = &self.commitment_E_proof[0];
         let pub_io = comm_E_proof_0
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;

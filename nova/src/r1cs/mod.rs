@@ -502,11 +502,7 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
         // Note that U2 is not relaxed, thus E2 = 0 and u2 = 1.
         let commitment_E = comm_E1 + *comm_T * *r;
 
-        Ok(Self {
-            commitment_W,
-            commitment_E,
-            X,
-        })
+        Ok(Self { commitment_W, commitment_E, X })
     }
 
     /// Folds an incoming [`RelaxedR1CSInstance`] into the current one.
@@ -526,11 +522,7 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> RelaxedR1CSInstance<G, C> {
         let commitment_W = comm_W1 + *comm_W2 * *r;
         let commitment_E = comm_E1 + *comm_T * *r + *comm_E2 * r.square();
 
-        Ok(Self {
-            commitment_W,
-            commitment_E,
-            X,
-        })
+        Ok(Self { commitment_W, commitment_E, X })
     }
 }
 
@@ -659,13 +651,8 @@ mod tests {
 
     #[test]
     fn invalid_input() {
-        #[rustfmt::skip]
         let a = {
-            let a: &[&[u64]] = &[
-                &[1, 2, 3],
-                &[3, 4, 5],
-                &[6, 7, 8],
-            ];
+            let a: &[&[u64]] = &[&[1, 2, 3], &[3, 4, 5], &[6, 7, 8]];
             to_field_sparse::<G>(a)
         };
 
@@ -681,13 +668,8 @@ mod tests {
 
     #[test]
     fn zero_instance_is_satisfied() -> Result<(), Error> {
-        #[rustfmt::skip]
         let a = {
-            let a: &[&[u64]] = &[
-                &[1, 2, 3],
-                &[3, 4, 5],
-                &[6, 7, 8],
-            ];
+            let a: &[&[u64]] = &[&[1, 2, 3], &[3, 4, 5], &[6, 7, 8]];
             to_field_sparse::<G>(a)
         };
 

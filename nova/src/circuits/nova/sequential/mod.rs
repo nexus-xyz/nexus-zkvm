@@ -228,11 +228,7 @@ where
             step_num = %self.step_num(),
         )
         .entered();
-        let IVCProof {
-            params,
-            z_0,
-            non_base,
-        } = self;
+        let IVCProof { params, z_0, non_base } = self;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {
@@ -290,9 +286,7 @@ where
         };
 
         let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Prove {
-            construct_matrices: false,
-        });
+        cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
         let circuit = NovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
 
@@ -306,10 +300,7 @@ where
         let w = R1CSWitness::<G1> { W: witness };
 
         let commitment_W = w.commit::<C1>(&params.pp);
-        let u = R1CSInstance::<G1, C1> {
-            commitment_W,
-            X: pub_io,
-        };
+        let u = R1CSInstance::<G1, C1> { commitment_W, X: pub_io };
 
         let z_i = z_i.iter().map(R1CSVar::value).collect::<Result<_, _>>()?;
 

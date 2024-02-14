@@ -242,11 +242,7 @@ where
         let commitment_E = self.commitment_E.value()?.into();
         let X = self.X.value()?;
 
-        Ok(RelaxedR1CSInstance {
-            commitment_W,
-            commitment_E,
-            X,
-        })
+        Ok(RelaxedR1CSInstance { commitment_W, commitment_E, X })
     }
 }
 
