@@ -6,7 +6,6 @@ extern crate alloc;
 use alloc::format;
 
 use nexus_rt::{
-    entry,     // proc macro to specify entry point
     write_log, // primitive string printing function
     NexusLog,  // Type implementing core::fmt::Write
     Write,     // re-export or core::fmt::Write for convenience
@@ -14,7 +13,7 @@ use nexus_rt::{
     println,   // macro similar to std::println!
 };
 
-#[entry]
+#[nexus_rt::main]
 fn main() {
     // basic output of strings
     write_log("Hello\n");

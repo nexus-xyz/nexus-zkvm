@@ -54,9 +54,7 @@ Finally, a minimal `main.rs` file may look like:
 #![no_std]
 #![no_main]
 
-use nexus_rt::entry;
-
-#[entry]
+#[nexus_rt::main]
 fn main() {}
 ```
 
@@ -64,7 +62,5 @@ The first two lines declare that our program will not link against the
 `std` crate, and that we do not want the compiler to emit the standard
 start-up code to process command-line arguments and call `main`. The
 Nexus Runtime has a minimal start-up process and will call your entry
-function directly.  The fourth line brings the nexux-rt `entry` macro
-into scope.  This macro is used to mark the `main` function as the
-starting point of the program.
-
+function directly. The `nexus_rt::main` macro is used to mark the `main`
+function as the starting point of the program.

@@ -1,9 +1,9 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::*;
+use nexus_rt::{Write, println};
 
-#[entry]
+#[nexus_rt::main]
 fn main() {
     fn f(n: u32) -> u32 {
         if n <= 1 {

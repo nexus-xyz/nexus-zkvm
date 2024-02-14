@@ -7,7 +7,7 @@
 use core::panic::PanicInfo;
 use core::alloc::{GlobalAlloc, Layout};
 
-pub use nexus_rt_macros::entry;
+pub use nexus_rt_macros::main;
 
 mod ecalls;
 pub use ecalls::*;
@@ -56,7 +56,7 @@ unsafe impl GlobalAlloc for Heap {
 #[export_name = "_start_rust"]
 pub unsafe extern "C" fn start_rust(a0: u32, a1: u32, a2: u32) -> u32 {
     extern "Rust" {
-        // This symbol will be provided by the user via `#[entry]`
+        // This symbol will be provided by the user via `#[nexus_rt::main]`
         fn main(a0: u32, a1: u32, a2: u32) -> u32;
     }
     main(a0, a1, a2)
