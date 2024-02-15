@@ -16,7 +16,7 @@ use merlin::Transcript;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-#[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct DensePolynomial<F>
 where
   F: Sync + CanonicalSerialize + CanonicalDeserialize,
@@ -25,6 +25,7 @@ where
   len: usize,
   Z: Vec<F>, // evaluations of the polynomial in all the 2^num_vars Boolean inputs
 }
+
 #[derive(Debug, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct PolyCommitmentGens<G>
 where

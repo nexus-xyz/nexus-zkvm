@@ -78,14 +78,14 @@ impl<G: CurveGroup> CCSShape<G> {
             let mut hadamard_product = vec![*c; self.num_constraints];
 
             for idx in S {
-                ark_std::cfg_iter_mut!(circle_product)
+                ark_std::cfg_iter_mut!(hadamard_product)
                     .enumerate()
                     .for_each(|(j, x)| *x *= Mzs[*idx][j]);
             }
 
             ark_std::cfg_iter_mut!(acc)
                 .enumerate()
-                .for_each(|(i, s)| *s += circle_product[i]);
+                .for_each(|(i, s)| *s += hadamard_product[i]);
         }
 
         if ark_std::cfg_iter!(acc).any(|s| !s.is_zero()) {
