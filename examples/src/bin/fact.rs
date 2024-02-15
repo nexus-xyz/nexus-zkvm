@@ -9,9 +9,12 @@ fn main() {
         if n <= 1 {
             1
         } else {
-            n * f(n - 1)
+            // n * f(n - 1) would panic if the factorial overflows u32::MAX in debug build,
+            // and wrap around in release. Therefore, use built-in checked methods to make
+            // the output deterministic.
+            n.saturating_mul(f(n - 1))
         }
     }
-    let n = 15;
+    let n = 12;
     println!("fact {n} = {}", f(n))
 }
