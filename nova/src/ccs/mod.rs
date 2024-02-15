@@ -85,7 +85,7 @@ impl<G: CurveGroup> CCSShape<G> {
 
         let mut acc = vec![G::ScalarField::ZERO; self.num_constraints];
         for (c, S) in &self.cSs {
-            let mut circle_product = vec![*c; self.num_constraints];
+            let mut hadamard_product = vec![*c; self.num_constraints];
 
             for idx in S {
                 ark_std::cfg_iter_mut!(circle_product)
