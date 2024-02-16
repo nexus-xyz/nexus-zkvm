@@ -12,8 +12,9 @@ use std::path::Path;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use nexus_vm::{
+    memory::trie::MerkleTrie,
     riscv::{load_nvm, VMOpts},
-    trace::{trace, Trace},
+    trace::trace,
 };
 
 use nexus_nova::nova::pcd::compression::SNARK;
@@ -68,6 +69,8 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
     Ok(proof)
 }
 
+type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
+
 fn estimate_size(tr: &Trace) -> usize {
     use std::mem::size_of_val as sizeof;
     sizeof(tr)
@@ -76,7 +79,7 @@ fn estimate_size(tr: &Trace) -> usize {
 }
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    let mut vm = load_nvm(opts)?;
+    let mut vm = load_nvm::<MerkleTrie>(opts)?;
 
     println!("Executing program...");
 

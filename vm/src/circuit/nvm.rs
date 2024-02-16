@@ -3,7 +3,7 @@
 use ark_ff::{BigInt, PrimeField};
 
 use crate::instructions::{Opcode::*, *};
-use crate::memory::path::Path;
+use crate::memory::MemoryProof;
 use crate::trace::Witness;
 
 use super::r1cs::*;
@@ -18,7 +18,7 @@ pub const ARITY: usize = 34;
 
 // Note: step circuit generation code depends on this ordering
 
-fn init_cs(w: &Witness) -> R1CS {
+fn init_cs(w: &Witness<impl MemoryProof>) -> R1CS {
     let mut cs = R1CS::default();
     cs.arity = ARITY;
 
@@ -27,25 +27,26 @@ fn init_cs(w: &Witness) -> R1CS {
     for i in 0..32 {
         cs.set_var(&format!("x{i}"), w.regs[i]);
     }
-    cs.set_field_var("root", w.pc_path.root);
+    cs.set_field_var("root", w.pc_proof.commit());
 
     // outputs
     cs.set_var("PC", w.PC);
     for i in 0..32 {
         cs.set_var(&format!("x'{i}"), w.regs[i]);
     }
-    cs.set_field_var("ROOT", w.write_path.root);
+    cs.set_field_var("ROOT", w.write_proof.commit());
 
     // memory contents
-    add_path(&mut cs, "pc_mem", &w.pc_path);
-    add_path(&mut cs, "read_mem", &w.read_path);
-    add_path(&mut cs, "write_mem", &w.write_path);
+    add_proof(&mut cs, "pc_mem", &w.pc_proof);
+    add_proof(&mut cs, "read_mem", &w.read_proof);
+    add_proof(&mut cs, "write_mem", &w.write_proof);
     cs
 }
 
-fn add_path(cs: &mut R1CS, prefix: &str, path: &Path) {
-    cs.set_field_var(&format!("{}_lo", prefix), path.leaf[0]);
-    cs.set_field_var(&format!("{}_hi", prefix), path.leaf[1]);
+fn add_proof(cs: &mut R1CS, prefix: &str, proof: &impl MemoryProof) {
+    let leaf = proof.data();
+    cs.set_field_var(&format!("{}_lo", prefix), leaf[0]);
+    cs.set_field_var(&format!("{}_hi", prefix), leaf[1]);
 }
 
 fn select_XY(cs: &mut R1CS, rs1: u8, rs2: u8) {
@@ -71,7 +72,7 @@ fn parse_inst(cs: &mut R1CS, inst: Inst) {
 
 /// Generate circuit for a single step of the NexusVM.
 /// This circuit corresponds to `eval::step`.
-pub fn step(vm: &Witness, witness_only: bool) -> R1CS {
+pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     let mut cs = init_cs(vm);
     cs.witness_only = witness_only;
 
@@ -198,7 +199,7 @@ fn add_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
     cs.seal();
 }
 
-fn alu(cs: &mut R1CS, vm: &Witness) {
+fn alu(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     add(cs, vm);
     sub(cs, vm);
     slt(cs);
@@ -212,7 +213,7 @@ fn alu(cs: &mut R1CS, vm: &Witness) {
     }
 }
 
-fn add(cs: &mut R1CS, vm: &Witness) {
+fn add(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u8 = ADD as u8;
 
     add_cir(cs, "X+Y+I", "X", "Y+I", vm.X, add32(vm.Y, vm.inst.imm));
@@ -343,7 +344,7 @@ fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
     cs.seal();
 }
 
-fn sub(cs: &mut R1CS, vm: &Witness) {
+fn sub(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u8 = SUB as u8;
 
     sub_cir(cs, "X-Y+I", "X", "Y+I", vm.X, add32(vm.Y, vm.inst.imm));
@@ -395,7 +396,7 @@ fn branch(cs: &mut R1CS, J: u8, cond_name: &str, inverse_cond_name: &str) {
     cs.seal();
 }
 
-fn br(cs: &mut R1CS, vm: &Witness) {
+fn br(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let J = JAL as u8;
     cs.set_eq(&format!("Z{J}"), "pc+8");
     // call/ret is slightly different from jalr (see:eval.rs)
@@ -545,7 +546,7 @@ fn load_select(cs: &mut R1CS, addr_name: &str, name: &str, addr: u32, word_only:
     }
 }
 
-fn load_inst(cs: &mut R1CS, vm: &Witness) {
+fn load_inst(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     load_select(cs, "pc", "pc_mem", vm.pc, true);
 
     cs.equal_scalar("pc_0", ZERO);
@@ -627,7 +628,7 @@ fn sx16(cs: &mut R1CS, output: &str, input: &str) {
     });
 }
 
-fn load(cs: &mut R1CS, vm: &Witness) {
+fn load(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let addr = vm.X.overflowing_add(vm.inst.imm).0;
     cs.to_bits("X+I", addr);
     load_select(cs, "X+I", "read_mem", addr, false);
@@ -653,7 +654,7 @@ fn load(cs: &mut R1CS, vm: &Witness) {
     cs.set_eq(&format!("PC{J}"), "pc+8");
 }
 
-fn store(cs: &mut R1CS, vm: &Witness) {
+fn store(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let addr = vm.X.overflowing_add(vm.inst.imm).0;
     load_select(cs, "X+I", "write_mem", addr, false);
 
@@ -795,7 +796,7 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
     cs.seal();
 }
 
-fn shift(cs: &mut R1CS, vm: &Witness) {
+fn shift(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let shamt = add32(vm.Y, vm.inst.imm) & 0x1f;
     selector(cs, "shamt", 32, shamt);
 
@@ -827,7 +828,7 @@ fn bitop(cs: &mut R1CS, output: &str, y_name: &str, z: u32, adj: F) {
     }
 }
 
-fn bitops(cs: &mut R1CS, vm: &Witness) {
+fn bitops(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let YI = add32(vm.Y, vm.inst.imm);
 
     // and
@@ -872,19 +873,22 @@ fn misc(cs: &mut R1CS) {
 mod test {
     use super::*;
     use crate::memory::cacheline::CacheLine;
+    use crate::memory::path::Path;
     use num_traits::FromPrimitive;
+
+    type Witness = crate::trace::Witness<Path>;
 
     #[test]
     fn test_load_inst() {
         let values = [0, 1, 8, 9, 16, 17, 24, 25];
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.pc_path.leaf = cl.scalars();
+        vm.pc_proof.leaf = cl.scalars();
 
         for addr in [0, 8, 16, 24] {
             vm.pc = addr;
             let mut cs = R1CS::default();
-            add_path(&mut cs, "pc_mem", &vm.pc_path);
+            add_proof(&mut cs, "pc_mem", &vm.pc_proof);
             cs.to_bits("pc", vm.pc);
             load_inst(&mut cs, &vm);
             assert!(cs.is_sat());
@@ -1074,7 +1078,7 @@ mod test {
         let values = [1, 2, 3, 4, 5, 6, 7, 8];
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.read_path.leaf = cl.scalars();
+        vm.read_proof.leaf = cl.scalars();
 
         for (i, value) in values.iter().enumerate() {
             vm.X = (i * 4) as u32;
@@ -1094,7 +1098,7 @@ mod test {
         let values: [u8; 32] = core::array::from_fn(|i| i as u8);
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.read_path.leaf = cl.scalars();
+        vm.read_proof.leaf = cl.scalars();
 
         for i in values.iter() {
             vm.X = *i as u32;
@@ -1112,7 +1116,7 @@ mod test {
         let values = [0, 0x01028384, 0, 0, 0, 0, 0, 0];
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.read_path.leaf = cl.scalars();
+        vm.read_proof.leaf = cl.scalars();
 
         vm.X = 4;
         let mut cs = init_cs(&vm);

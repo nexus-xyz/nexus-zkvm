@@ -3,6 +3,8 @@
 
 use super::cacheline::*;
 use super::path::*;
+use super::Memory;
+use crate::circuit::F;
 use crate::error::*;
 
 /// A sparse Trie of `CacheLines` with merkle hashing.
@@ -161,8 +163,8 @@ impl Default for MerkleTrie {
 }
 
 impl MerkleTrie {
-    /// return the current merkle root
-    pub fn root(&self) -> Digest {
+    // return the current merkle root
+    fn root(&self) -> Digest {
         self.digest(0, &self.root)
     }
 
@@ -254,6 +256,21 @@ impl MerkleTrie {
         let rh = self.digest(level, node.data.right());
         node.digest = compress(&self.params, &lh, &rh)?;
         Ok(cl)
+    }
+}
+
+impl Memory for MerkleTrie {
+    type Proof = Path;
+
+    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
+        self.query(addr)
+    }
+
+    fn update<F>(&mut self, addr: u32, f: F) -> Result<Self::Proof>
+    where
+        F: Fn(&mut CacheLine) -> Result<()>,
+    {
+        self.update(addr, f)
     }
 }
 

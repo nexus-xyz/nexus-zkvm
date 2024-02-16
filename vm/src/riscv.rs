@@ -21,6 +21,7 @@ use nexus_riscv::{
 use crate::error::{NexusVMError::ELFFormat, Result};
 use crate::eval::NexusVM;
 use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
+use crate::memory::Memory;
 
 #[inline]
 fn add32(a: u32, b: u32) -> u32 {
@@ -172,15 +173,14 @@ fn translate_inst(rv: RVInst) -> (u32, Inst) {
 }
 
 /// Translate a RiscV ELF file to NexusVM.
-pub fn translate_elf(path: &Path) -> Result<NexusVM> {
+pub fn translate_elf<M: Memory>(path: &Path) -> Result<NexusVM<M>> {
     let file_data = read(path)?;
     let bytes = file_data.as_slice();
     translate_elf_bytes(bytes)
 }
 
 /// Translate a RiscV ELF file to NexusVM.
-#[allow(clippy::needless_range_loop)]
-pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
+pub fn translate_elf_bytes<M: Memory>(bytes: &[u8]) -> Result<NexusVM<M>> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let segments: Vec<ProgramHeader> = file
@@ -208,7 +208,7 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
         return Err(ELFFormat("not enough room to expand code to NexusVM"));
     }
 
-    let mut vm = NexusVM::default();
+    let mut vm = NexusVM::<M>::default();
     vm.pc = file.ehdr.e_entry as u32;
 
     // load code segment
@@ -242,7 +242,7 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
 }
 
 // internal function to translate RISC-V test VMs to NexusVMs
-fn translate_test_machine(rv_code: &[u32]) -> Result<NexusVM> {
+fn translate_test_machine<M: Memory>(rv_code: &[u32]) -> Result<NexusVM<M>> {
     let mut rv_code = rv_code
         .iter()
         .enumerate()
@@ -251,7 +251,7 @@ fn translate_test_machine(rv_code: &[u32]) -> Result<NexusVM> {
 
     peephole(rv_code.as_mut_slice());
 
-    let mut nvm = NexusVM::default();
+    let mut nvm = NexusVM::<M>::default();
     for inst in rv_code {
         let (pc, inst) = translate_inst(inst);
         nvm.memory.write_inst(pc, inst.into())?;
@@ -260,7 +260,7 @@ fn translate_test_machine(rv_code: &[u32]) -> Result<NexusVM> {
 }
 
 /// Load a NexusVM according the `opts`.
-pub fn load_nvm(opts: &VMOpts) -> Result<NexusVM> {
+pub fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
     if let Some(k) = opts.nop {
         translate_test_machine(&nop_code(k))
     } else if let Some(k) = opts.loopk {
@@ -280,11 +280,12 @@ pub fn load_nvm(opts: &VMOpts) -> Result<NexusVM> {
 pub mod test {
     use super::*;
     use crate::eval::eval;
+    use crate::memory::trie::MerkleTrie;
     use nexus_riscv::machines::MACHINES;
     use nexus_riscv::rv32::{AOP, BOP, LOP, SOP};
 
     // this function is used by other test crates
-    pub fn test_machines() -> Vec<(&'static str, NexusVM)> {
+    pub fn test_machines() -> Vec<(&'static str, NexusVM<MerkleTrie>)> {
         MACHINES
             .iter()
             .map(|(name, f_vm, _)| {

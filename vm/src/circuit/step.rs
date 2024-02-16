@@ -11,7 +11,7 @@ use ark_relations::{
 
 use crate::{
     error::Result,
-    memory::path::{poseidon_config, ParamsVar},
+    memory::MemoryProof,
     trace::{Block, Trace, Witness},
 };
 
@@ -23,21 +23,24 @@ use super::{
 
 type CS = ConstraintSystemRef<F>;
 
-fn add_paths(cs: CS, w: &Witness, vars: &[FpVar<F>]) -> Result<(), SynthesisError> {
-    let params = poseidon_config();
-    let params = ParamsVar::new_constant(cs.clone(), params)?;
+fn add_memory_proofs<P: MemoryProof>(
+    cs: CS,
+    w: &Witness<P>,
+    vars: &[FpVar<F>],
+) -> Result<(), SynthesisError> {
+    let params = P::params(cs.clone())?;
 
     // TODO: fixme (constants) - see init_cs in riscv module
     let root_in = &vars[ARITY];
     let root_out = &vars[ARITY * 2];
     let mem = ARITY * 2 + 1;
 
-    w.pc_path
-        .verify_circuit(cs.clone(), &params, root_in, &vars[mem..])?;
-    w.read_path
-        .verify_circuit(cs.clone(), &params, root_in, &vars[mem + 2..])?;
-    w.write_path
-        .verify_circuit(cs.clone(), &params, root_out, &vars[mem + 4..])?;
+    w.pc_proof
+        .circuit(cs.clone(), &params, root_in, &vars[mem..])?;
+    w.read_proof
+        .circuit(cs.clone(), &params, root_in, &vars[mem + 2..])?;
+    w.write_proof
+        .circuit(cs.clone(), &params, root_out, &vars[mem + 4..])?;
 
     Ok(())
 }
@@ -46,7 +49,7 @@ fn build_constraints_partial(
     cs: CS,
     witness_only: bool,
     z: &[FpVar<F>],
-    w: &Witness,
+    w: &Witness<impl MemoryProof>,
     rcs: R1CS,
 ) -> Result<Vec<FpVar<F>>, SynthesisError> {
     let mut vars: Vec<FpVar<F>> = Vec::new();
@@ -66,7 +69,7 @@ fn build_constraints_partial(
         }
     }
 
-    add_paths(cs.clone(), w, &vars)?;
+    add_memory_proofs(cs.clone(), w, &vars)?;
 
     if witness_only {
         return Ok(output);
@@ -92,15 +95,15 @@ fn build_constraints_partial(
     Ok(output)
 }
 
-pub fn build_constraints(
+pub fn build_constraints<P: MemoryProof>(
     cs: CS,
     index: usize,
     z: &[FpVar<F>],
-    tr: &Trace,
+    tr: &Trace<P>,
 ) -> Result<Vec<FpVar<F>>, SynthesisError> {
     let witness_only = !cs.should_construct_matrices();
 
-    let b: &Block = match tr.block(index) {
+    let b: &Block<P> = match tr.block(index) {
         Some(b) => b,
         None => return Err(SynthesisError::AssignmentMissing),
     };

@@ -3,9 +3,10 @@ use std::net::SocketAddr;
 use serde::{Deserialize, Serialize};
 
 use nexus_prover::types::*;
-use nexus_vm::trace::Trace;
 
 use crate::Result;
+
+pub type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize)]
@@ -21,6 +22,7 @@ pub enum NexusMsg {
     #[serde(with = "ark")]
     MSMRes(P1),
 
+    #[serde(with = "ark")]
     LeafReq(Trace),
 
     #[serde(with = "ark")]

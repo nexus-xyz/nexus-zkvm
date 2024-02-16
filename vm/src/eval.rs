@@ -8,11 +8,11 @@ use crate::error::{
     Result,
 };
 use crate::instructions::{Inst, Opcode, Opcode::*, Width};
-use crate::memory::{path::Path, Memory};
+use crate::memory::Memory;
 
 /// State of a running Nexus VM program.
 #[derive(Default)]
-pub struct NexusVM {
+pub struct NexusVM<M: Memory> {
     /// Current program counter.
     pub pc: u32,
     /// Register file.
@@ -22,20 +22,21 @@ pub struct NexusVM {
     /// Result of most recent instruction.
     pub Z: u32,
     /// Machine memory.
-    pub memory: Memory,
-    /// Merkle proof for current instruction at pc
-    pub pc_path: Path,
-    /// Merkle proof for load/store instructions.
-    pub read_path: Option<Path>,
-    /// Merkle proof for store instructions.
-    pub write_path: Option<Path>,
+    pub memory: M,
+    /// Memory proof for current instruction at pc
+    pub pc_proof: M::Proof,
+    /// Memory proof for load/store instructions.
+    pub read_proof: Option<M::Proof>,
+    /// Memory proof for store instructions.
+    pub write_proof: Option<M::Proof>,
 }
 
 /// Generate a trivial VM with a single HALT instruction.
-pub fn halt_vm() -> NexusVM {
-    let mut vm = NexusVM { pc: 0x1000, ..NexusVM::default() };
+pub fn halt_vm<M: Memory>() -> NexusVM<M> {
+    let mut vm = NexusVM::<M>::default();
     let inst = Inst { opcode: HALT, ..Inst::default() };
     vm.memory.write_inst(vm.pc, inst.into()).unwrap();
+    vm.memory.write_inst(vm.pc + 8, inst.into()).unwrap();
     vm
 }
 
@@ -72,8 +73,8 @@ fn brcc(opcode: Opcode, x: u32, y: u32) -> bool {
 /// located at the program counter, execute the instruction,
 /// and update the register file, program counter, and merkle
 /// proofs.
-pub fn eval_step(vm: &mut NexusVM) -> Result<()> {
-    let (dword, path) = vm.memory.read_inst(vm.pc)?;
+pub fn eval_step(vm: &mut NexusVM<impl Memory>) -> Result<()> {
+    let (dword, proof) = vm.memory.read_inst(vm.pc)?;
     let Some(inst) = Inst::from_u64(dword) else {
         return Err(InvalidInstruction(dword, vm.pc));
     };
@@ -89,9 +90,9 @@ pub fn eval_step(vm: &mut NexusVM) -> Result<()> {
 
     vm.inst = inst;
     vm.Z = 0;
-    vm.pc_path = path;
-    vm.read_path = None;
-    vm.write_path = None;
+    vm.pc_proof = proof;
+    vm.read_proof = None;
+    vm.write_proof = None;
 
     match inst.opcode {
         NOP => {}
@@ -137,17 +138,17 @@ pub fn eval_step(vm: &mut NexusVM) -> Result<()> {
             // Note: unwrap cannot fail
             let width = Width::try_from(inst.opcode).unwrap();
             let addr = add32(X, I);
-            let (val, path) = vm.memory.load(width, addr)?;
-            vm.read_path = Some(path);
+            let (val, proof) = vm.memory.load(width, addr)?;
+            vm.read_proof = Some(proof);
             vm.Z = val;
         }
         SB | SH | SW => {
             // Note: unwrap cannot fail
             let width = Width::try_from(inst.opcode).unwrap();
             let addr = add32(X, I);
-            let (_, path) = vm.memory.load(width, addr)?;
-            vm.read_path = Some(path);
-            vm.write_path = Some(vm.memory.store(width, addr, Y)?);
+            let (_, proof) = vm.memory.load(width, addr)?;
+            vm.read_proof = Some(proof);
+            vm.write_proof = Some(vm.memory.store(width, addr, Y)?);
         }
 
         ADD => vm.Z = add32(X, YI),
@@ -177,7 +178,7 @@ pub fn eval_step(vm: &mut NexusVM) -> Result<()> {
 
 /// Run a VM to completion. The VM will stop when it encounters
 /// a HALT instruction.
-pub fn eval(vm: &mut NexusVM, verbose: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM<impl Memory>, verbose: bool) -> Result<()> {
     loop {
         let pc = vm.pc;
         eval_step(vm)?;

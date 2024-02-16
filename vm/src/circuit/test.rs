@@ -4,6 +4,7 @@ use ark_relations::r1cs::ConstraintSystem;
 use crate::{
     error::Result,
     eval::{halt_vm, NexusVM},
+    memory::{trie::MerkleTrie, Memory},
     riscv::test::test_machines,
     trace::trace,
 };
@@ -12,7 +13,7 @@ use super::{nvm::step, r1cs::R1CS, step::build_constraints, F};
 
 // generate R1CS matrices
 fn vm_circuit(k: usize) -> Result<R1CS> {
-    let mut vm = halt_vm();
+    let mut vm = halt_vm::<MerkleTrie>();
     let tr = trace(&mut vm, k, false)?;
     let w = tr.blocks[0].into_iter().next().unwrap();
     Ok(step(&w, false))
@@ -20,7 +21,7 @@ fn vm_circuit(k: usize) -> Result<R1CS> {
 
 // check each step of each block for satisfiability
 // all values of k are equivalent at this level
-fn nvm_check_steps(mut vm: NexusVM) -> Result<()> {
+fn nvm_check_steps(mut vm: NexusVM<impl Memory>) -> Result<()> {
     let mut rcs = vm_circuit(1)?;
     assert!(rcs.is_sat());
 
@@ -38,7 +39,7 @@ fn nvm_check_steps(mut vm: NexusVM) -> Result<()> {
 #[test]
 #[ignore]
 fn nvm_step() {
-    let vm = halt_vm();
+    let vm = halt_vm::<MerkleTrie>();
     nvm_check_steps(vm).unwrap();
 
     for (name, vm) in test_machines() {
@@ -47,7 +48,7 @@ fn nvm_step() {
     }
 }
 
-fn ark_check(mut vm: NexusVM, k: usize) -> Result<()> {
+fn ark_check(mut vm: NexusVM<impl Memory>, k: usize) -> Result<()> {
     let tr = trace(&mut vm, k, false)?;
 
     for i in 0..tr.blocks.len() {
@@ -66,7 +67,7 @@ fn ark_check(mut vm: NexusVM, k: usize) -> Result<()> {
 }
 
 fn ark_check_steps(k: usize) {
-    let vm = halt_vm();
+    let vm = halt_vm::<MerkleTrie>();
     ark_check(vm, k).unwrap();
 
     for (name, vm) in test_machines() {

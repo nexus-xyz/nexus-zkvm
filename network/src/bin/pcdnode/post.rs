@@ -18,9 +18,13 @@ use crate::{
     api::NexusAPI::{Error, NexusProof, Program, Query},
     request_work, WorkerState, LOG_TARGET,
 };
-use nexus_vm::{eval::NexusVM, riscv::translate_elf_bytes, trace::trace};
+use nexus_vm::{eval::NexusVM, memory::trie::MerkleTrie, riscv::translate_elf_bytes, trace::trace};
 
-pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Result<()> {
+pub fn manage_proof(
+    mut state: WorkerState,
+    hash: String,
+    mut vm: NexusVM<MerkleTrie>,
+) -> Result<()> {
     let trace = Arc::new(trace(&mut vm, 1, true)?);
 
     let steps = trace.blocks.len() as u32;

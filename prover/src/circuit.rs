@@ -15,13 +15,14 @@ pub use ark_relations::{
 use nexus_vm::{
     circuit::{build_constraints, ARITY},
     eval::halt_vm,
+    memory::{path::Path, trie::MerkleTrie},
     trace::{trace, Trace},
 };
 
 use crate::error::*;
 use crate::types::*;
 
-pub struct Tr(pub Trace);
+pub struct Tr(pub Trace<Path>);
 
 impl Tr {
     pub fn steps(&self) -> usize {
@@ -38,7 +39,7 @@ impl Tr {
 }
 
 pub fn nop_circuit(k: usize) -> Result<Tr, ProofError> {
-    let mut vm = halt_vm();
+    let mut vm = halt_vm::<MerkleTrie>();
     let trace = trace(&mut vm, k, false)?;
     Ok(Tr(trace))
 }
