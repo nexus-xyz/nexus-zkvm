@@ -304,7 +304,7 @@ mod tests {
         assert_eq!(ccs_shape.num_io, r1cs_shape.num_io);
 
         assert_eq!(ccs_shape.num_matrices, 3);
-        assert_eq!(ccs_shape.num_multisets, 3);
+        assert_eq!(ccs_shape.num_multisets, 2);
         assert_eq!(ccs_shape.max_cardinality, 2);
 
         assert_eq!(ccs_shape.Ms.len(), 3);
@@ -314,7 +314,7 @@ mod tests {
 
         assert_eq!(ccs_shape.cSs.len(), 2);
         assert_eq!(ccs_shape.cSs[0], (Fr::ONE, vec![0, 1]));
-        assert_eq!(ccs_shape.cSs[0], (Fr::ONE.neg(), vec![2]));
+        assert_eq!(ccs_shape.cSs[1], (Fr::ONE.neg(), vec![2]));
 
         Ok(())
     }
