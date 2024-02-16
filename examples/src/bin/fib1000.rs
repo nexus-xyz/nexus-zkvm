@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::*;
+use nexus_rt::{println, Write};
 
 use core::ops::Add;
 
@@ -44,7 +44,7 @@ fn fib_iter(n: u32) -> BN {
     b
 }
 
-#[entry]
+#[nexus_rt::main]
 fn main() {
     let b = fib_iter(1000);
 

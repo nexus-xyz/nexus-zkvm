@@ -2,14 +2,14 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
-use nexus_tools_dev::command::common::public_params::{
-    PublicParamsAction, PublicParamsArgs, SetupArgs, format_params_file,
-};
 use nexus_config::vm as vm_config;
+use nexus_tools_dev::command::common::public_params::{
+    format_params_file, PublicParamsAction, PublicParamsArgs, SetupArgs,
+};
 
 use crate::{
-    LOG_TARGET,
     command::{DEFAULT_K, DEFAULT_NOVA_IMPL},
+    LOG_TARGET,
 };
 
 pub fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {

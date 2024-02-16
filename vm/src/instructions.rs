@@ -13,8 +13,8 @@
 //! The opcode specifies the instruction; the availabe opcodes are contained
 //! in the `Opcode` enumeration.
 
-use num_traits::FromPrimitive;
 use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 
 /// Instruction opcodes for the Nexus VM.
 #[repr(u8)]

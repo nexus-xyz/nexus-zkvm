@@ -6,6 +6,8 @@ use std::{
 use anyhow::Context;
 use ark_serialize::CanonicalSerialize;
 
+use nexus_config::vm as vm_config;
+use nexus_network::client::Client;
 use nexus_tools_dev::{
     command::common::{
         prove::{CommonProveArgs, LocalProveArgs, ProveArgs},
@@ -13,12 +15,10 @@ use nexus_tools_dev::{
     },
     utils::{cargo, path_to_artifact},
 };
-use nexus_network::client::Client;
-use nexus_config::vm as vm_config;
 
 use crate::{
+    command::{public_params::setup_params, DEFAULT_K, DEFAULT_NOVA_IMPL},
     LOG_TARGET,
-    command::{DEFAULT_K, DEFAULT_NOVA_IMPL, public_params::setup_params},
 };
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {

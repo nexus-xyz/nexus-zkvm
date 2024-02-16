@@ -17,8 +17,8 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
-use ark_ff::{BigInt, Fp, MontConfig};
 use ark_bn254::FrConfig;
+use ark_ff::{BigInt, Fp, MontConfig};
 
 pub use ark_bn254::Fr as F;
 

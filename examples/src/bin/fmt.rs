@@ -6,15 +6,14 @@ extern crate alloc;
 use alloc::format;
 
 use nexus_rt::{
-    entry,     // proc macro to specify entry point
+    print,     // macro similar to std::print!
+    println,   // macro similar to std::println!
     write_log, // primitive string printing function
     NexusLog,  // Type implementing core::fmt::Write
     Write,     // re-export or core::fmt::Write for convenience
-    print,     // macro similar to std::print!
-    println,   // macro similar to std::println!
 };
 
-#[entry]
+#[nexus_rt::main]
 fn main() {
     // basic output of strings
     write_log("Hello\n");

@@ -1,27 +1,29 @@
 //! Translation of RISC-V ro NexusVM.
 
-use std::path::Path;
-use std::fs::read;
 use num_traits::FromPrimitive;
+use std::fs::read;
+use std::path::Path;
 
 use elf::{
-    abi::{PT_LOAD, PF_X},
+    abi::{PF_X, PT_LOAD},
     endian::LittleEndian,
     segment::ProgramHeader,
     ElfBytes,
 };
 
-use nexus_riscv::{
-    nop_vm, loop_vm, VMError,
-    machines::lookup_test_machine,
-    vm::eval::VM,
-    rv32::{RV32, Inst as RVInst, parse::parse_inst},
-};
 pub use nexus_riscv::VMOpts;
+use nexus_riscv::{
+    loop_vm,
+    machines::lookup_test_machine,
+    nop_vm,
+    rv32::{parse::parse_inst, Inst as RVInst, RV32},
+    vm::eval::VM,
+    VMError,
+};
 
-use crate::error::{Result, NexusVMError::ELFFormat};
-use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
+use crate::error::{NexusVMError::ELFFormat, Result};
 use crate::eval::NexusVM;
+use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
 
 #[inline]
 fn add32(a: u32, b: u32) -> u32 {
@@ -228,8 +230,8 @@ pub fn load_nvm(opts: &VMOpts) -> Result<NexusVM> {
 pub mod test {
     use super::*;
     use crate::eval::eval;
-    use nexus_riscv::rv32::{BOP, LOP, SOP, AOP};
     use nexus_riscv::machines::MACHINES;
+    use nexus_riscv::rv32::{AOP, BOP, LOP, SOP};
 
     // this function is used by other test crates
     pub fn test_machines() -> Vec<(&'static str, NexusVM)> {

@@ -5,15 +5,15 @@
 // https://github.com/arkworks-rs/crypto-primitives
 
 use ark_crypto_primitives::{
-    sponge::poseidon::{PoseidonConfig, find_poseidon_ark_and_mds},
-    crh::{TwoToOneCRHScheme, CRHScheme, poseidon, TwoToOneCRHSchemeGadget, CRHSchemeGadget},
+    crh::{poseidon, CRHScheme, CRHSchemeGadget, TwoToOneCRHScheme, TwoToOneCRHSchemeGadget},
+    sponge::poseidon::{find_poseidon_ark_and_mds, PoseidonConfig},
 };
-use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use ark_r1cs_std::{alloc::AllocVar, boolean::Boolean, fields::fp::FpVar, prelude::*};
+use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::error::NexusVMError;
 use super::cacheline::*;
+use crate::error::NexusVMError;
 use NexusVMError::HashError;
 
 pub type F = ark_bn254::Fr;

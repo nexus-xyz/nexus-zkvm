@@ -1,24 +1,24 @@
 //! Integration with ArkWorks R1CS circuits.
 
-use ark_relations::{
-    lc,
-    r1cs::{ConstraintSystemRef, Variable, SynthesisError},
-};
 use ark_r1cs_std::{
     alloc::AllocVar,
-    fields::fp::{FpVar, AllocatedFp},
+    fields::fp::{AllocatedFp, FpVar},
+};
+use ark_relations::{
+    lc,
+    r1cs::{ConstraintSystemRef, SynthesisError, Variable},
 };
 
 use crate::{
     error::Result,
     memory::path::{poseidon_config, ParamsVar},
-    trace::{Trace, Block, Witness},
+    trace::{Block, Trace, Witness},
 };
 
 use super::{
+    nvm::{step, ARITY},
+    r1cs::{R1CS, V, ZERO},
     F,
-    r1cs::{ZERO, V, R1CS},
-    nvm::{ARITY, step},
 };
 
 type CS = ConstraintSystemRef<F>;

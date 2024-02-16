@@ -2,9 +2,9 @@
 
 use num_traits::FromPrimitive;
 
-use crate::error::{Result, NexusVMError::InvalidInstruction};
+use crate::error::{NexusVMError::InvalidInstruction, Result};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width};
-use crate::memory::{Memory, path::Path};
+use crate::memory::{path::Path, Memory};
 
 /// State of a running Nexus VM program.
 #[derive(Default)]

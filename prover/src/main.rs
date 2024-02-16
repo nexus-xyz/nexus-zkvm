@@ -5,12 +5,12 @@ static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 use clap::{Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
-use nexus_vm::riscv::VMOpts;
 use nexus_prover::{
-    run, prove_seq, prove_par,
     error::ProofError,
-    pp::{gen_to_file, gen_or_load},
+    pp::{gen_or_load, gen_to_file},
+    prove_par, prove_seq, run,
 };
+use nexus_vm::riscv::VMOpts;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]

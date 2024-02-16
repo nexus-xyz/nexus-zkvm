@@ -1,9 +1,9 @@
 //! A sparse trie of `CacheLine` structures which hold the memory of the
 //! machine.
 
-use crate::error::*;
 use super::cacheline::*;
 use super::path::*;
+use crate::error::*;
 
 /// A sparse Trie of `CacheLines` with merkle hashing.
 pub struct MerkleTrie {
@@ -215,9 +215,7 @@ impl MerkleTrie {
         if self.root.is_none() {
             self.root = Some(Box::new(Node::new_node()));
         }
-        let Some(ref mut b) = self.root else {
-            unreachable!()
-        };
+        let Some(ref mut b) = self.root else { unreachable!() };
 
         // Note: root is never accessed through self in update_,
         // so we can safely make the following optimization
@@ -261,8 +259,8 @@ impl MerkleTrie {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::path::test::*;
+    use super::*;
 
     #[test]
     #[should_panic]

@@ -49,11 +49,7 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         };
         request_prove(&path, &url)
     } else {
-        let LocalProveArgs {
-            k,
-            pp_file,
-            nova_impl,
-        } = local_args;
+        let LocalProveArgs { k, pp_file, nova_impl } = local_args;
         let k = k.unwrap_or(vm_config.k);
         let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);
         local_prove(&path, k, nova_impl, pp_file)

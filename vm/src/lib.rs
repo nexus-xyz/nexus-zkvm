@@ -4,12 +4,12 @@
 #![allow(clippy::field_reassign_with_default)]
 
 pub mod error;
-pub mod instructions;
-mod memory;
 pub mod eval;
+pub mod instructions;
+pub mod riscv;
 pub mod trace;
 
 mod ark_serde;
-pub mod riscv;
+mod memory;
 
 pub mod circuit;

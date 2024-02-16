@@ -1,19 +1,15 @@
-use std::sync::Arc;
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
 
 use hyper::{header, Body, Request, Response, StatusCode};
 use tokio::task::JoinHandle;
 
-use nexus_vm::{
-    eval::{NexusVM},
-    trace::trace,
-    riscv::translate_elf_bytes,
-};
-use nexus_network::*;
-use nexus_network::pcd::*;
 use nexus_network::api::*;
+use nexus_network::pcd::*;
+use nexus_network::*;
+use nexus_vm::{eval::NexusVM, riscv::translate_elf_bytes, trace::trace};
 
 use crate::workers::*;
 
@@ -76,12 +72,8 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Re
             let r = v.pop_front().unwrap();
             let trace = trace.clone();
             v2.push_back(tokio::spawn(async move {
-                let PCDRes(l) = l.await.unwrap() else {
-                    panic!()
-                };
-                let PCDRes(r) = r.await.unwrap() else {
-                    panic!()
-                };
+                let PCDRes(l) = l.await.unwrap() else { panic!() };
+                let PCDRes(r) = r.await.unwrap() else { panic!() };
                 state.db.update_complete(hash.to_string(), 2);
                 let ltr = trace.get(l.j as usize).unwrap();
                 let rtr = trace.get(r.j as usize).unwrap();

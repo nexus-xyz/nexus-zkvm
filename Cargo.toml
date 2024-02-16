@@ -11,7 +11,7 @@ members = [
     "config/serde_wrapper",
     "prover",
     "network",
-    "supernova",
+    "nova",
     "spartan",
 ]
 default-members = [
@@ -20,10 +20,10 @@ default-members = [
     "tools",
     "prover",
     "network",
-    "supernova",
+    "nova",
     "spartan",
 ]
-exclude = ["supernova-benches"]
+exclude = ["nova-benches"]
 
 [workspace.package]
 edition = "2021"

@@ -6,11 +6,7 @@ use crate::{
 };
 
 pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
-    let RunArgs {
-        verbose,
-        release,
-        bin,
-    } = args;
+    let RunArgs { verbose, release, bin } = args;
 
     run_vm(bin, verbose, release)
 }

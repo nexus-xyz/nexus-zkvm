@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand, Args};
+use clap::{Args, Parser, Subcommand};
 use tracing_subscriber::EnvFilter;
 
 use nexus_network::client::{self, Client};

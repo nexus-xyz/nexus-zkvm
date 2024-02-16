@@ -1,11 +1,11 @@
 use std::fs::File;
-use zstd::stream::{Encoder, Decoder};
+use zstd::stream::{Decoder, Encoder};
 
-pub use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::types::*;
+use crate::circuit::{nop_circuit, Tr};
 use crate::error::*;
-use crate::circuit::{Tr, nop_circuit};
+use crate::types::*;
 use crate::LOG_TARGET;
 
 pub fn gen_pp<SP>(circuit: &SC) -> Result<PP<SP>, ProofError>

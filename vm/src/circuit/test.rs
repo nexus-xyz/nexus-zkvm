@@ -1,17 +1,14 @@
+use ark_r1cs_std::{alloc::AllocVar, fields::fp::FpVar};
 use ark_relations::r1cs::ConstraintSystem;
-use ark_r1cs_std::{
-    alloc::AllocVar,
-    fields::fp::{FpVar},
-};
 
 use crate::{
     error::Result,
+    eval::{halt_vm, NexusVM},
     riscv::test::test_machines,
-    eval::{NexusVM, halt_vm},
     trace::trace,
 };
 
-use super::{F, r1cs::R1CS, nvm::step, step::build_constraints};
+use super::{nvm::step, r1cs::R1CS, step::build_constraints, F};
 
 // generate R1CS matrices
 fn vm_circuit(k: usize) -> Result<R1CS> {

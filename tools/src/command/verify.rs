@@ -5,12 +5,12 @@ use std::{
 };
 
 use anyhow::Context;
-use nexus_prover::types::PCDNode;
-use nexus_tools_dev::command::common::{public_params::format_params_file, VerifyArgs};
 use ark_serialize::CanonicalDeserialize;
 use nexus_config::vm as vm_config;
+use nexus_prover::types::PCDNode;
+use nexus_tools_dev::command::common::{public_params::format_params_file, VerifyArgs};
 
-use crate::{LOG_TARGET, command::DEFAULT_K};
+use crate::{command::DEFAULT_K, LOG_TARGET};
 
 pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
     let VerifyArgs { pp_file, k, file } = args;

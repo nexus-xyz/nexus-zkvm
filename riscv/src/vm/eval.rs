@@ -1,8 +1,8 @@
 //! A Virtual Machine for RISC-V
 
+use super::memory::*;
 use crate::error::*;
 use crate::rv32::{parse::*, *};
-use super::memory::*;
 use VMError::*;
 
 // for ecall
