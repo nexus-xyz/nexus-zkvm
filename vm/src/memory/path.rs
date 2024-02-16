@@ -12,11 +12,12 @@ use ark_r1cs_std::{alloc::AllocVar, boolean::Boolean, fields::fp::FpVar, prelude
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use super::cacheline::*;
+use crate::circuit::F;
 use crate::error::NexusVMError;
+
+use super::{cacheline::*, MemoryProof};
 use NexusVMError::HashError;
 
-pub type F = ark_bn254::Fr;
 pub type CS = ConstraintSystemRef<F>;
 
 pub type Digest = F;
@@ -154,6 +155,32 @@ impl Path {
             hash = TwoToOneHashG::compress(params, &l, &r)?;
         }
         hash.enforce_equal(root)
+    }
+}
+
+impl MemoryProof for Path {
+    type Params = ParamsVar;
+
+    fn params(cs: CS) -> Result<Self::Params, SynthesisError> {
+        ParamsVar::new_constant(cs.clone(), poseidon_config())
+    }
+
+    fn circuit(
+        &self,
+        cs: ConstraintSystemRef<F>,
+        params: &Self::Params,
+        root: &FpVar<F>,
+        data: &[FpVar<F>],
+    ) -> Result<(), SynthesisError> {
+        self.verify_circuit(cs, params, root, data)
+    }
+
+    fn commit(&self) -> F {
+        self.root
+    }
+
+    fn data(&self) -> [F; 2] {
+        self.leaf
     }
 }
 

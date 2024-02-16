@@ -14,6 +14,6 @@ pub mod riscv;
 pub mod trace;
 
 mod ark_serde;
-mod memory;
+pub mod memory;
 
 pub mod circuit;
