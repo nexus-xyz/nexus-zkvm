@@ -1,27 +1,31 @@
 use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::Field;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_spartan::polycommitments::PolyCommitmentScheme;
 
 use ark_std::Zero;
 use std::ops::Neg;
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
-    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
+    IntoParallelRefMutIterator, ParallelIterator,
 };
 
 use super::commitment::CommitmentScheme;
 
 use super::r1cs::R1CSShape;
 pub use super::sparse::{MatrixRef, SparseMatrix};
+use mle::vec_to_mle;
 
-pub mod lccs;
 pub mod mle;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
     InvalidWitnessLength,
     InvalidInputLength,
+    InvalidEvaluationPoint,
+    InvalidTargets,
     NotSatisfied,
 }
 
@@ -92,7 +96,32 @@ impl<G: CurveGroup> CCSShape<G> {
             return Err(Error::NotSatisfied);
         }
 
-        if U.commitment_W != C::commit(pp, &W.W) {
+        if U.commitment_W != W.commit::<C>(pp) {
+            return Err(Error::NotSatisfied);
+        }
+
+        Ok(())
+    }
+
+    pub fn is_satisfied_linearized<C: PolyCommitmentScheme<G>>(
+        &self,
+        U: &LCCSInstance<G, C>,
+        W: &CCSWitness<G>,
+        ck: &C::PolyCommitmentKey,
+    ) -> Result<(), Error> {
+        assert_eq!(W.W.len(), self.num_vars);
+        assert_eq!(U.X.len(), self.num_io);
+
+        let z = [U.X.as_slice(), W.W.as_slice()].concat();
+        let Mzs: Vec<G::ScalarField> = ark_std::cfg_iter!(&self.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<G>(U.rs.as_slice()))
+            .collect();
+
+        if ark_std::cfg_into_iter!(0..self.num_matrices).any(|idx| Mzs[idx] != U.vs[idx]) {
+            return Err(Error::NotSatisfied);
+        }
+
+        if U.commitment_W != W.commit_linearized::<C>(ck) {
             return Err(Error::NotSatisfied);
         }
 
@@ -126,7 +155,7 @@ pub struct CCSWitness<G: CurveGroup> {
 }
 
 /// A type that holds an CCS instance.
-#[derive(CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
 pub struct CCSInstance<G: CurveGroup, C: CommitmentScheme<G>> {
     /// Commitment to witness.
     pub commitment_W: C::Commitment,
@@ -142,14 +171,6 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> Clone for CCSInstance<G, C> {
         }
     }
 }
-
-impl<G: CurveGroup, C: CommitmentScheme<G>> PartialEq for CCSInstance<G, C> {
-    fn eq(&self, other: &Self) -> bool {
-        self.commitment_W == other.commitment_W && self.X == other.X
-    }
-}
-
-impl<G: CurveGroup, C: CommitmentScheme<G>> Eq for CCSInstance<G, C> where C::Commitment: Eq {}
 
 impl<G: CurveGroup> CCSWitness<G> {
     /// A method to create a witness object using a vector of scalars.
@@ -170,6 +191,14 @@ impl<G: CurveGroup> CCSWitness<G> {
     /// Commits to the witness using the supplied generators
     pub fn commit<C: CommitmentScheme<G>>(&self, pp: &C::PP) -> C::Commitment {
         C::commit(pp, &self.W)
+    }
+
+    /// Commits to the witness as a polynomial using the supplied key
+    fn commit_linearized<C: PolyCommitmentScheme<G>>(
+        &self,
+        ck: &C::PolyCommitmentKey,
+    ) -> C::Commitment {
+        C::commit(&vec_to_mle(&self.W), ck)
     }
 }
 
@@ -194,6 +223,48 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> CCSInstance<G, C> {
     }
 }
 
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
+    /// A method to create an instance object using constituent elements.
+    pub fn new(
+        shape: &CCSShape<G>,
+        commitment_W: &C::Commitment,
+        X: &[G::ScalarField],
+        rs: &[G::ScalarField],
+        vs: &[G::ScalarField],
+    ) -> Result<Self, Error> {
+        if X.is_empty() || shape.num_io != X.len() {
+            Err(Error::InvalidInputLength)
+        } else if ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) != rs.len() as u32
+        {
+            Err(Error::InvalidEvaluationPoint)
+        } else if shape.num_matrices != vs.len() {
+            Err(Error::InvalidTargets)
+        } else {
+            Ok(Self {
+                commitment_W: commitment_W.clone(),
+                X: X.to_owned(),
+                rs: rs.to_owned(),
+                vs: vs.to_owned(),
+            })
+        }
+    }
+}
+
+/// A type that holds an LCCS instance.
+#[derive(Clone, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+pub struct LCCSInstance<G: CurveGroup, C: PolyCommitmentScheme<G>> {
+    /// Commitment to MLE of witness.
+    ///
+    /// C in HyperNova/CCS papers.
+    pub commitment_W: C::Commitment,
+    /// X is assumed to start with a `ScalarField` field element `u`.
+    pub X: Vec<G::ScalarField>,
+    /// (Random) evaluation point
+    pub rs: Vec<G::ScalarField>,
+    /// Evaluation targets
+    pub vs: Vec<G::ScalarField>,
+}
+
 #[cfg(test)]
 mod tests {
     #![allow(non_upper_case_globals)]
@@ -201,10 +272,52 @@ mod tests {
 
     use super::*;
     use crate::pedersen::PedersenCommitment;
-
-    use ark_test_curves::bls12_381::G1Projective as G;
+    use ark_test_curves::bls12_381::{Bls12_381 as E, Fr, G1Projective as G};
 
     use crate::r1cs::tests::{to_field_elements, to_field_sparse, A, B, C};
+
+    #[test]
+    fn test_r1cs_to_ccs() -> Result<(), Error> {
+        let (a, b, c) = {
+            (
+                to_field_sparse::<G>(A),
+                to_field_sparse::<G>(B),
+                to_field_sparse::<G>(C),
+            )
+        };
+
+        const NUM_CONSTRAINTS: usize = 4;
+        const NUM_WITNESS: usize = 4;
+        const NUM_PUBLIC: usize = 2;
+
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
+
+        let ccs_shape = CCSShape::from(r1cs_shape.clone());
+        assert_eq!(ccs_shape.num_constraints, NUM_CONSTRAINTS);
+        assert_eq!(ccs_shape.num_constraints, r1cs_shape.num_constraints);
+        
+        assert_eq!(ccs_shape.num_vars, NUM_WITNESS);
+        assert_eq!(ccs_shape.num_vars, r1cs_shape.num_vars);
+
+        assert_eq!(ccs_shape.num_io, NUM_PUBLIC);
+        assert_eq!(ccs_shape.num_io, r1cs_shape.num_io);
+
+        assert_eq!(ccs_shape.num_matrices, 3);
+        assert_eq!(ccs_shape.num_multisets, 3);
+        assert_eq!(ccs_shape.max_cardinality, 2);
+
+        assert_eq!(ccs_shape.Ms.len(), 3);
+        assert_eq!(ccs_shape.Ms[0], SparseMatrix::new(&a, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC));
+        assert_eq!(ccs_shape.Ms[1], SparseMatrix::new(&b, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC));
+        assert_eq!(ccs_shape.Ms[2], SparseMatrix::new(&c, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC));
+
+        assert_eq!(ccs_shape.cSs.len(), 2);
+        assert_eq!(ccs_shape.cSs[0], (Fr::ONE, vec![0, 1]));
+        assert_eq!(ccs_shape.cSs[0], (Fr::ONE.neg(), vec![2]));
+
+        Ok(())
+    }
 
     #[test]
     fn zero_instance_is_satisfied() -> Result<(), Error> {
@@ -296,6 +409,129 @@ mod tests {
             ccs_shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
         );
+        Ok(())
+    }
+
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use ark_spartan::polycommitments::PCSKeys;
+    use ark_std::{test_rng, UniformRand};
+
+    type Z = Zeromorph<E>;
+
+    #[test]
+    fn zero_instance_is_satisfied_linearized() -> Result<(), Error> {
+        #[rustfmt::skip]
+        let a = {
+            let a: &[&[u64]] = &[
+                &[1, 2, 3],
+                &[3, 4, 5],
+                &[6, 7, 8],
+            ];
+            to_field_sparse::<G>(a)
+        };
+
+        const NUM_CONSTRAINTS: usize = 3;
+        const NUM_WITNESS: usize = 1;
+        const NUM_PUBLIC: usize = 2;
+
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &a, &a).unwrap();
+
+        let ccs_shape = CCSShape::from(r1cs_shape);
+
+        let mut rng = test_rng();
+        let SRS = Z::setup(4, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 4);
+
+        let X = to_field_elements::<G>(&[0, 0]);
+        let W = to_field_elements::<G>(&[0]);
+        let witness = CCSWitness::<G>::new(&ccs_shape, &W)?;
+
+        let commitment_W = witness.commit_linearized::<Z>(&ck);
+
+        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
+
+        let z = [X.as_slice(), W.as_slice()].concat();
+        let vs: Vec<Fr> = ark_std::cfg_iter!(&ccs_shape.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<G>(rs.as_slice()))
+            .collect();
+
+        let instance = LCCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X, &rs, &vs)?;
+
+        ccs_shape.is_satisfied_linearized::<Z>(&instance, &witness, &ck)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn is_satisfied_linearized() -> Result<(), Error> {
+        let (a, b, c) = {
+            (
+                to_field_sparse::<G>(A),
+                to_field_sparse::<G>(B),
+                to_field_sparse::<G>(C),
+            )
+        };
+
+        const NUM_CONSTRAINTS: usize = 4;
+        const NUM_WITNESS: usize = 4;
+        const NUM_PUBLIC: usize = 2;
+
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
+
+        let ccs_shape = CCSShape::from(r1cs_shape);
+
+        let mut rng = test_rng();
+        let SRS = Z::setup(8, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 8);
+
+        let X = to_field_elements::<G>(&[1, 35]);
+        let W = to_field_elements::<G>(&[3, 9, 27, 30]);
+        let witness = CCSWitness::<G>::new(&ccs_shape, &W)?;
+
+        let commitment_W = witness.commit_linearized::<Z>(&ck);
+
+        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
+
+        let z = [X.as_slice(), W.as_slice()].concat();
+        let vs: Vec<Fr> = ark_std::cfg_iter!(&ccs_shape.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<G>(rs.as_slice()))
+            .collect();
+
+        let instance = LCCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X, &rs, &vs)?;
+
+        ccs_shape.is_satisfied_linearized::<Z>(&instance, &witness, &ck)?;
+
+        // Change commitment.
+        let invalid_commitment = commitment_W + commitment_W;
+        let instance = LCCSInstance::<G, Z>::new(&ccs_shape, &invalid_commitment, &X, &rs, &vs)?;
+        assert_eq!(
+            ccs_shape.is_satisfied_linearized(&instance, &witness, &ck),
+            Err(Error::NotSatisfied)
+        );
+
+        // Provide invalid witness.
+        let invalid_W = to_field_elements::<G>(&[4, 9, 27, 30]);
+        let invalid_witness = CCSWitness::<G>::new(&ccs_shape, &invalid_W)?;
+        let commitment_invalid_W = invalid_witness.commit_linearized::<Z>(&ck);
+
+        let instance = LCCSInstance::<G, Z>::new(&ccs_shape, &commitment_invalid_W, &X, &rs, &vs)?;
+        assert_eq!(
+            ccs_shape.is_satisfied_linearized(&instance, &invalid_witness, &ck),
+            Err(Error::NotSatisfied)
+        );
+
+        // Provide invalid public input.
+        let invalid_X = to_field_elements::<G>(&[1, 36]);
+        let instance = LCCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &invalid_X, &rs, &vs)?;
+        assert_eq!(
+            ccs_shape.is_satisfied_linearized(&instance, &witness, &ck),
+            Err(Error::NotSatisfied)
+        );
+
         Ok(())
     }
 }

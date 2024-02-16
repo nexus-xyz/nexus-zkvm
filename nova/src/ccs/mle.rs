@@ -2,7 +2,6 @@
 
 use ark_ff::PrimeField;
 use ark_spartan::dense_mlpoly::DensePolynomial as DenseMultilinearExtension;
-use ark_spartan::math::Math;
 use ark_spartan::sparse_mlpoly::{
     SparsePolyEntry as MultilinearEvaluation, SparsePolynomial as SparseMultilinearExtension,
 };
@@ -21,11 +20,11 @@ pub fn matrix_to_mle<F: PrimeField>(
     let s1 = (m - 1).checked_ilog2().unwrap_or(0) + 1;
     let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
 
-    let n = n.next_power_of_two();
+    let s = 1 << s1;
 
     let evaluations: Vec<MultilinearEvaluation<F>> = M
         .iter()
-        .map(|(i, j, value)| MultilinearEvaluation::new(i * n + j, value))
+        .map(|(i, j, value)| MultilinearEvaluation::new(j * s + i, value))
         .collect();
 
     SparseMultilinearExtension::<F>::new((s1 + s2) as usize, evaluations)
@@ -40,20 +39,6 @@ pub fn vec_to_mle<F: PrimeField>(z: &[F]) -> DenseMultilinearExtension<F> {
     z.resize(n.next_power_of_two(), F::zero());
 
     DenseMultilinearExtension::<F>::new(z)
-}
-
-pub fn compose_mle_input<F: PrimeField>(r: &[F], y: usize, t: usize) -> Vec<F> {
-    assert!(t < 32);
-
-    [
-        r,
-        &y.get_bits(t)
-            .iter()
-            .map(|b| F::from(*b as u32))
-            .collect::<Vec<F>>(),
-    ]
-    .concat()
-    .to_vec()
 }
 
 #[cfg(test)]
@@ -87,17 +72,17 @@ mod tests {
 
         for (i, row) in M.iter().enumerate().take(m) {
             for (j, entry) in row.iter().enumerate().take(n) {
-                let row_mask = (1 << 3) * i; // shift column bits
-                let _j = j | row_mask;
+                let col_mask = (1 << 2) * j; // shift column bits
+                let _i = i | col_mask;
 
-                let j_bytes = _j.to_le_bytes();
-                let mut j_bits: Vec<Fr> = iter_bits_le(j_bytes.as_slice())
+                let i_bytes = _i.to_le_bytes();
+                let mut i_bits: Vec<Fr> = iter_bits_le(i_bytes.as_slice())
                     .map(Fr::from)
                     .take(NUM_VARS)
                     .collect();
 
-                j_bits.reverse();
-                let eval = mle.evaluate(&j_bits);
+                i_bits.reverse();
+                let eval = mle.evaluate(&i_bits);
 
                 let expected = if i < NUM_ROWS && j < NUM_COLS {
                     (*entry).into()
@@ -132,70 +117,5 @@ mod tests {
             let expected = if i < LEN { *entry } else { Fr::zero() };
             assert_eq!(eval, expected);
         }
-    }
-
-    #[test]
-    fn test_compose_mle_input() {
-        let rs1 = [Fr::from(1), Fr::from(4), Fr::from(6)];
-        let ry1 = compose_mle_input(&rs1, 5, 3); // ...00101 -> 1, 0, 1
-
-        let ex1 = vec![
-            Fr::from(1),
-            Fr::from(4),
-            Fr::from(6),
-            Fr::from(1),
-            Fr::from(0),
-            Fr::from(1),
-        ];
-
-        assert_eq!(ry1.len(), ex1.len());
-        ex1.iter()
-            .zip(ry1.iter())
-            .for_each(|(a, b)| assert_eq!(a, b));
-
-        let rs2: [Fr; 0] = [];
-        let ry2 = compose_mle_input(&rs2, 5, 3); // ...00101 -> 1, 0, 1
-
-        let ex2 = vec![Fr::from(1), Fr::from(0), Fr::from(1)];
-
-        assert_eq!(ry2.len(), ex2.len());
-        ex2.iter()
-            .zip(ry2.iter())
-            .for_each(|(a, b)| assert_eq!(a, b));
-
-        let rs3 = rs1;
-        let ry3 = compose_mle_input(&rs3, 5, 5); // ...00101 -> 0, 0, 1, 0, 1
-
-        let ex3 = vec![
-            Fr::from(1),
-            Fr::from(4),
-            Fr::from(6),
-            Fr::from(0),
-            Fr::from(0),
-            Fr::from(1),
-            Fr::from(0),
-            Fr::from(1),
-        ];
-
-        assert_eq!(ry3.len(), ex3.len());
-        ex3.iter()
-            .zip(ry3.iter())
-            .for_each(|(a, b)| assert_eq!(a, b));
-
-        let rs4 = rs1;
-        let ry4 = compose_mle_input(&rs4, 5, 2); // ...00101 -> 0, 1
-
-        let ex4 = vec![
-            Fr::from(1),
-            Fr::from(4),
-            Fr::from(6),
-            Fr::from(0),
-            Fr::from(1),
-        ];
-
-        assert_eq!(ry4.len(), ex4.len());
-        ex4.iter()
-            .zip(ry4.iter())
-            .for_each(|(a, b)| assert_eq!(a, b));
     }
 }
