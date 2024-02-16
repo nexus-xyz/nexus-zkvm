@@ -125,8 +125,10 @@ As we show in the next section, the RISC-V instruction set can be easily compile
 
 ### Translation from RISC-V to Nexus VM
 
+
 The syntax of RISC-V instructions supported by the Nexus VM is the following:
 
+$$
 \begin{align*}
     %\text{Binary Operators}\\
     i \in&\: \{0..2^{32}\} &\text{Immediate values} \\
@@ -179,9 +181,11 @@ The syntax of RISC-V instructions supported by the Nexus VM is the following:
         \mid&\: \textbf{ecall}                 & \text{Environment call} \\
         \mid&\: \textbf{unimp}                 & \text{Unimplemented} \\
 \end{align*}
+$$
 
 These RISC-V instructions can be easily converted to Nexus VM instructions according to:
 
+$$
 \begin{align*}
     \mathcal{C}(\textbf{lui}\;rd\;i)   =& \textbf{add}\;rd\;x_0\;x_0\;i \\
     \mathcal{C}(\textbf{auipc}\;rd\;i) =& \textbf{add}\;rd\;x_0\;x_0\;(pc+i) \\
@@ -196,6 +200,7 @@ These RISC-V instructions can be easily converted to Nexus VM instructions accor
     \mathcal{C}(\textbf{jal}\;rd\;i) =& \textbf{jal}\;rd\;x_0\;i \\
     \mathcal{C}(\textbf{jalr}\;rd\;rs_1\;i) =& \textbf{jal}\;rd\;rs_1\;i \\
     \end{align*}
+$$
 
 Note that, the special RISC-V load immediate instructions ($\textbf{lui}$ and $\textbf{auipc}$), are a result of the fixed 32-bit encoding of instructions. The Nexus VM relaxes this constraint allowing for a reduced instruction set.
 
@@ -220,7 +225,6 @@ Nevertheless, as described in the Nexus whitepaper, we will soon be switching to
 ![nvm-architecture-coprocessors](/images/nvm-coprocessors.svg)
 </center>
 
-
 The main advantage of using co-processors is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
 
@@ -240,6 +244,7 @@ Let $P$ be a program that has been compiled to the Nexus VM, possibly with acces
 The following subsections provide an overview of each of these  components.
 
 ### Initialization
+
 Let $P$ be a program that which we execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x1000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
 
 In order to enforce the consistency of the memory throughout the execution of the program $P$, the Nexus zkVM currently uses Merkle Trees [[M87](#References)] for memory checking together with the Poseidon hash function [[GKR21](#References)]. In this method, we compute a Merkle root associated with the current contents of the memory and we update its value whenever there is a change to the contents of the memory.
@@ -251,11 +256,10 @@ Once the Merkle Root for the initial state is computed, the Nexus zkVM starts lo
 Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for the current state of the memory as the public input to the execution step of the proof system.
 
 ### Program execution
+
 After receiving a Merkle proof from the initialization step with a Merkle proof for the initial memory state with the program loaded at address $\mathtt{0x1000}$, the Nexus zkVM runs the program on the Nexus VM and generates a full execution trace for it. This execution trace is then passed to the proof accumulation step, as indicated in the following diagram taken from the Nexus whitepaper, where each step $F$ denotes one step of the Nexus VM.
 
-<center>
 ![zkvm-architecture](/images/execution-sequence.svg)
-</center>
 
 ### Proof accumulation
 
@@ -293,7 +297,7 @@ Since the current version of the Nexus VM uses a universal model of computation,
 
 [[GGPR13](https://eprint.iacr.org/2012/215.pdf)] Rosario Gennaro, Craig Gentry, Bryan Parno, and Mariana Raykova. “Quadratic span programs and succinct NIZKs without PCPs”. In EUROCRYPT 2013.
 
-[[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for {Zero-Knowledge} proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
+[[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for Zero-Knowledge proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
 
 [[GWC19](https://eprint.iacr.org/2019/953)] Ariel Gabizon, Zachary J Williamson, and Oana Ciobotaru. “Plonk: Permutations over lagrange-bases for oecumenical noninteractive arguments of knowledge”. In: Cryptology ePrint Archive (2019)
 
