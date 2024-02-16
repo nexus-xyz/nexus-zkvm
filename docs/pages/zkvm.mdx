@@ -219,7 +219,7 @@ To deal with such scenarios, the Nexus Virtual Machine is being  designed with e
 
 Currently, the Nexus Virtual Machine uses universal circuits to simulate the whole CPU and this unfortunately increases the complexity of the Nexus Proof System with each additional instruction.
 
-Nevertheless, as described in the Nexus whitepaper, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#References)], [[BC23](#References)]), via the concept of *zkVM co-processors*. In the new model, the cost of proving custom co-processor extensions of the NVM instruction set is only occurs when that particular co-processor is executed by the program.
+Nevertheless, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#References)], [[BC23](#References)]), via the concept of *zkVM co-processors*. In the new model, the cost of proving custom co-processor extensions of the NVM instruction set is only occurs when that particular co-processor is executed by the program.
 
 <center>
 ![nvm-architecture-coprocessors](/images/nvm-coprocessors.svg)
@@ -257,7 +257,7 @@ Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for th
 
 ### Program execution
 
-After receiving a Merkle proof from the initialization step with a Merkle proof for the initial memory state with the program loaded at address $\mathtt{0x1000}$, the Nexus zkVM runs the program on the Nexus VM and generates a full execution trace for it. This execution trace is then passed to the proof accumulation step, as indicated in the following diagram taken from the Nexus whitepaper, where each step $F$ denotes one step of the Nexus VM.
+After receiving a Merkle proof from the initialization step with a Merkle proof for the initial memory state with the program loaded at address $\mathtt{0x1000}$, the Nexus zkVM runs the program on the Nexus VM and generates a full execution trace for it. This execution trace is then passed to the proof accumulation step, as indicated in the following diagram, where each step $F$ denotes one step of the Nexus VM.
 
 ![zkvm-architecture](/images/execution-sequence.svg)
 
@@ -267,7 +267,7 @@ In order to enable a high-level of parallelization without impacting the efficie
 
 In the current version of Nexus zkVM, this step makes use of  the Nova folding scheme [[KST22](#References)] over a cycle of elliptic curves.
 
-As mentioned in the whitepaper, this is the most computationally expensive part of the proof generation, since each folding step requires computing a single multi-scalar multiplication (MSM). Nevertheless, this computation is highly parallelizable. 
+This is the most computationally expensive part of the proof generation, since each folding step requires computing a single multi-scalar multiplication (MSM). Nevertheless, this computation is highly parallelizable. 
 
 
 ### Proof compression
