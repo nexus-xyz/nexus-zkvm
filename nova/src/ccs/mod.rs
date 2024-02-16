@@ -296,7 +296,7 @@ mod tests {
         let ccs_shape = CCSShape::from(r1cs_shape.clone());
         assert_eq!(ccs_shape.num_constraints, NUM_CONSTRAINTS);
         assert_eq!(ccs_shape.num_constraints, r1cs_shape.num_constraints);
-        
+
         assert_eq!(ccs_shape.num_vars, NUM_WITNESS);
         assert_eq!(ccs_shape.num_vars, r1cs_shape.num_vars);
 
@@ -308,9 +308,18 @@ mod tests {
         assert_eq!(ccs_shape.max_cardinality, 2);
 
         assert_eq!(ccs_shape.Ms.len(), 3);
-        assert_eq!(ccs_shape.Ms[0], SparseMatrix::new(&a, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC));
-        assert_eq!(ccs_shape.Ms[1], SparseMatrix::new(&b, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC));
-        assert_eq!(ccs_shape.Ms[2], SparseMatrix::new(&c, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC));
+        assert_eq!(
+            ccs_shape.Ms[0],
+            SparseMatrix::new(&a, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC)
+        );
+        assert_eq!(
+            ccs_shape.Ms[1],
+            SparseMatrix::new(&b, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC)
+        );
+        assert_eq!(
+            ccs_shape.Ms[2],
+            SparseMatrix::new(&c, NUM_CONSTRAINTS, NUM_WITNESS + NUM_PUBLIC)
+        );
 
         assert_eq!(ccs_shape.cSs.len(), 2);
         assert_eq!(ccs_shape.cSs[0], (Fr::ONE, vec![0, 1]));
