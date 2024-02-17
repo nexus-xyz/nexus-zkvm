@@ -77,7 +77,7 @@ fn fib(n: u32) -> u32 {
     }
 }
 
-#[nexus::main]
+#[nexus_rt::main]
 fn main() {
     let n = 7;
     let result = fib(n);
@@ -105,20 +105,6 @@ cargo nexus verify
 
 ## Learn More
 
-Run `cargo nexus --help` to see all the available commands:
+Run `cargo nexus --help` to see all the available commands.
 
-```shell
-Usage: cargo nexus <COMMAND>
-
-Commands:
-  new      Create a new Nexus package at <path>
-  run      Run a binary with the Nexus VM
-  prove    Compute proof of program execution
-  request  Request proof status from the network; download it if it's finished
-  verify   Verify the proof
-  pp       Nova public parameters management
-  help     Print this message or the help of the given subcommand(s)
-
-Options:
-  -h, --help  Print help
-```
+Also check out the documentation at [docs.nexus.xyz](https://docs.nexus.xyz), or join our [Telegram](https://t.me/nexus_zkvm) chat to discuss!
