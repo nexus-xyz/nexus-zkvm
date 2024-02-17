@@ -4,29 +4,90 @@ description: Enabling Verifiable Computing
 image: ./images/opengraph.png
 ---
 
-import Image from "next/image"
+import {NexusImage as Image} from "../components/Image";
 
 import { Callout } from 'nextra/components'
 
-# Introduction
+# The Nexus zkVM v1.0
 
-> The Nexus Project seeks to build a zkVM that runs at a **trillion CPU cycles proved per second**.
+<br />
 
-Welcome to the Nexus documentation.  Here you will find docs for:
+<div style={{display: "flex"}}>
+    <a href="https://t.me/nexus_zkvm" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/>
+    </a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/badge/GitHub-black?logo=github&logoColor=white"/>
+    </a>
+    <a href="https://twitter.com/NexusLabsHQ" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/>
+    </a>
+    <a href="https://nexus.xyz" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/>
+    </a>
+</div>
 
-- **The Nexus zkVM**: A massively-parallelized zkVM
-    - A machine that can generate zero-knowledge proofs for any program, with initial support for [Rust](https://www.rust-lang.org/).
+The Nexus zkVM is a modular, extensible, open-source, massively-parallelized zkVM, designed to run at *a trillion CPU cycles per second*, given enough computing power connected to it.
 
-- **The Nexus Network**: A zkVM supercomputer
-    - A massivelly parallelized prover network, jointly running the Nexus zkVM.
+<br />
 
-To get started with using the Nexus zkVM, check out the [Quick Start](/quick-start.mdx) guide.
+<p align="center">
+    <Image alt="Nexus zkVM" src="/images/speed.svg" width={800} height={800}/>
+</p>
+
+## What is the Nexus zkVM?
+
+The Nexus zkVM is a machine that can prove any computation, for example any Rust program:
+
+```rust
+#![no_std]
+#![no_main]
+
+fn fib(n: u32) -> u32 {
+    match n {
+        0 => 1,
+        1 => 1,
+        _ => fib(n - 1) + fib(n - 2),
+    }
+}
+
+#[nexus::main]
+fn main() {
+    let n = 7;
+    let result = fib(n);
+    assert_eq!(result, 13);
+}
+```
+
+Generating a zero-knowledge proof for any Rust program is as easy as running:
+
+```bash
+cargo nexus prove
+```
+
+And verification is as simple as running:
+
+```bash
+cargo nexus verify
+```
+
+To get started with the Nexus zkVM, check out the [Quick Start](/quick-start.mdx) guide.
 
 <Callout type="info" emoji="ℹ️">
   Nexus is in experimental stages and not recommended for production use. The system has low performance and high costs. Many future upgrades are expected.
 </Callout>
 
-## The science behind Nexus
+### Open Source, Extensibility, and Modularity
+
+Open-source and fully-transparent science, cryptography and benchmarks are the core ethos of the Nexus project. The Nexus zkVM is designed to be modular and extensible, with highly optimized isolated components:
+
+- **The Nexus Prover**: A prover that provides the first production-grade implementations of folding-scheme provers like [Nova](https://eprint.iacr.org/2021/370), [CycleFold](https://eprint.iacr.org/2023/1192.pdf), [SuperNova](https://eprint.iacr.org/2022/1758.pdf), [HyperNova](https://eprint.iacr.org/2023/573.pdf), and more, to enable highly efficient Incrementally Verifiable Computation (IVC).
+- **The Nexus Virtual Machine**: A minimal, general-purpose virtual machine designed to optimize prover performance. The NVM can run programs in any high-level language (e.g. Rust, C++, etc), or emulate with minimal overhead any Instruction Set Architecture (ISA) (e.g. RISC-V, EVM, Wasm).
+- **The Nexus Compiler**: A safe and correct compiler that compiles high-level languages and any other ISAs to the NVM, with compiler optimizations designed to maximize prover performance.
+- **The Nexus Co-Processor System**: Nexus co-processors are custom extensions on the NVM instruction set, like SHA-256, keccack256, etc, that developers can use to accelerate specific computations. Nexus co-processors are exactly like Ethereum precompiles, but in the context of zkVMs. Developers can extend the zkVM with custom co-processors, and import other developer's co-processors. This is only possible due to the non-uniform IVC system introduced by [SuperNova](https://eprint.iacr.org/2022/1758.pdf).
+- **The Nexus Proof Compressor**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, so they can be compressed through recursive applications of this system down to a few bytes.
+
+## Architecture and Science
 
 For an in depth look at the science behind the Nexus zkVM and the Nexus Network, see the [Nexus Whitepaper](https://nexus.xyz/whitepaper). We briefly describe the Nexus system.
 
