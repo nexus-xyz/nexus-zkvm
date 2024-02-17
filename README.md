@@ -11,17 +11,14 @@
 </p>
 
 <div align="center">
-    <a href="https://t.me/nexus_zkvm" style={{marginRight: 3}}>
+    <a href="https://t.me/nexus_zkvm">
         <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/>
     </a>
-    <a href="https://twitter.com/NexusLabsHQ" style={{marginRight: 3}}>
+    <a href="https://twitter.com/NexusLabsHQ">
         <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/>
     </a>
-    <a href="https://nexus.xyz" style={{marginRight: 3}}>
+    <a href="https://nexus.xyz">
         <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/>
-    </a>
-    <a href="https://codecov.io/gh/nexus-xyz/nexus-zkvm" style={{marginRight: 3}}>
-        <img src="https://codecov.io/gh/nexus-xyz/nexus-zkvm/graph/badge.svg?token=C6CX1882UH"/>
     </a>
 </div>
 
