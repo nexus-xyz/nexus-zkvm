@@ -42,19 +42,3 @@ jobs:
         with:
           toolchain: stable
       - run: cargo test -r --all-features
-
-  codecov:
-    # See https://github.com/codecov/example-rust/blob/main/.github/workflows/rust.yml
-    runs-on: ubuntu-latest
-    steps:
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4.0.1
-      env:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        slug: nexus-xyz/nexus-zkvm
-      with:
-        # Repository upload token - get it from codecov.io. Required only for private repositories
-        token: 2912bfb9-9b7f-4620-b0c0-b56dd1db9f18
-        # Specify whether the Codecov output should be verbose
-        verbose: true
-        fail_ci_if_error: true
