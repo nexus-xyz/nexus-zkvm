@@ -17,7 +17,7 @@ import { Steps } from "nextra/components";
 
 First, install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
 
-Then install the RISC-V target: `rustup target add riscv32i-unknown-none-elf`.
+Next, install the RISC-V target: `rustup target add riscv32i-unknown-none-elf`.
 
 Then, install the Nexus zkVM:
 
@@ -39,7 +39,13 @@ This should print all the available commands.
 cargo nexus new nexus-project
 ```
 
-This will create a new Rust project directory with the following structure:
+And change directory to the new project:
+
+```shell
+cd nexus-project
+```
+
+This will create a new Rust project with the following structure:
 
 ```shell
 ./nexus-project
@@ -55,39 +61,37 @@ And an example zkVM Rust program in `./src/main.rs`:
 #![no_std]
 #![no_main]
 
-fn fib(n: u32) -> u32 {
-    match n {
-        0 => 1,
-        1 => 1,
-        _ => fib(n - 1) + fib(n - 2),
-    }
-}
+use nexus_rt::write_log;
 
-#[nexus::main]
+#[nexus_rt::main]
 fn main() {
-    let n = 7;
-    let result = fib(n);
-    assert_eq!(result, 13);
+    write_log("Hello, World!\n");
 }
+```
+
+### 3. Run your program
+
+```shell
+cargo nexus run
+```
+
+You should see the program print:
+
+```shell
+"Hello, World!"
 ```
 
 ### 3. Prove your program
 
 Generate a zero-knowledge proof for your Rust program using the Nexus zkVM.
 
-#### 3.1 Locally
-
 ```shell
-cargo nexus prove
+cargo nexus prove -r
 ```
 
-#### 3.2 On the Nexus Network
+> Note: we use the `-r` flag to prove the program in Rust *release* mode, which is significantly faster.
 
-```shell
-cargo nexus prove --network
-```
-
-This will generate a proof, and store it in `./proof.json`.
+This will generate a proof, and store it in `./nexus-proof.json`.
 
 ### 4. Verify your proof
 
@@ -95,6 +99,12 @@ Finally, load and verify the proof:
 
 ```shell
 cargo nexus verify
+```
+
+You should see the program print:
+
+```shell
+INFO nexus-tools: Proof is valid
 ```
 
 </Steps>
