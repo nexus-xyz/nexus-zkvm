@@ -178,10 +178,7 @@ impl<G: CurveGroup> CCSWitness<G> {
     }
 
     /// Commits to the witness as a polynomial using the supplied key
-    fn commit<C: PolyCommitmentScheme<G>>(
-        &self,
-        ck: &C::PolyCommitmentKey,
-    ) -> C::Commitment {
+    fn commit<C: PolyCommitmentScheme<G>>(&self, ck: &C::PolyCommitmentKey) -> C::Commitment {
         C::commit(&vec_to_mle(&self.W), ck)
     }
 }
@@ -389,8 +386,7 @@ mod tests {
 
         // Change commitment.
         let invalid_commitment = commitment_W + commitment_W;
-        let instance =
-            CCSInstance::<G, Z>::new(&ccs_shape, &invalid_commitment, &X)?;
+        let instance = CCSInstance::<G, Z>::new(&ccs_shape, &invalid_commitment, &X)?;
         assert_eq!(
             ccs_shape.is_satisfied(&instance, &witness, &ck),
             Err(Error::NotSatisfied)
@@ -401,8 +397,7 @@ mod tests {
         let invalid_witness = CCSWitness::<G>::new(&ccs_shape, &invalid_W)?;
         let commitment_invalid_W = invalid_witness.commit::<Z>(&ck);
 
-        let instance =
-            CCSInstance::<G, Z>::new(&ccs_shape, &commitment_invalid_W, &X)?;
+        let instance = CCSInstance::<G, Z>::new(&ccs_shape, &commitment_invalid_W, &X)?;
         assert_eq!(
             ccs_shape.is_satisfied(&instance, &invalid_witness, &ck),
             Err(Error::NotSatisfied)
@@ -410,8 +405,7 @@ mod tests {
 
         // Provide invalid public input.
         let invalid_X = to_field_elements::<G>(&[1, 36]);
-        let instance =
-            CCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &invalid_X)?;
+        let instance = CCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &invalid_X)?;
         assert_eq!(
             ccs_shape.is_satisfied(&instance, &witness, &ck),
             Err(Error::NotSatisfied)
