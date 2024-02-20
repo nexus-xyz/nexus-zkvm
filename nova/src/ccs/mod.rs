@@ -3,8 +3,7 @@ use ark_ff::Field;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
-use ark_std::Zero;
-use std::ops::Neg;
+use ark_std::{Zero, ops::Neg};
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
@@ -229,6 +228,45 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
             })
         }
     }
+
+    /// Folds an incoming **non-linearized** [`CCSInstance`] into the current one.
+    pub fn fold(
+        &self,
+        U2: &CCSInstance<G, C>,
+        rho: &G::ScalarField,
+        rs: &[G::ScalarField],
+        sigmas: &[G::ScalarField],
+        thetas: &[G::ScalarField],
+    ) -> Result<Self, Error> {
+        let (uX1, comm_W1) = (&self.X, self.commitment_W.clone());
+        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());
+
+        if sigmas.len() != thetas.len() {
+            return Err(Error::InvalidTargets);
+        }
+
+        let (u1, X1) = (&uX1[0], &uX1[1..]);
+        let X2 = &oX2[1..];
+
+        let commitment_W = comm_W1 + comm_W2 * *rho;
+
+        let u = [*u1 + *rho];
+        let X: Vec<G::ScalarField> = ark_std::cfg_iter!(X1)
+            .zip(X2)
+            .map(|(a, b)| *a + *b * *rho)
+            .collect();
+        let vs: Vec<G::ScalarField> = ark_std::cfg_iter!(sigmas)
+            .zip(thetas)
+            .map(|(sigma, theta)| *sigma + *theta * *rho)
+            .collect();
+
+        Ok(Self {
+            commitment_W: commitment_W,
+            X: [&u, X.as_slice()].concat(),
+            rs: rs.to_owned(),
+            vs: vs,
+        })
+    }
 }
 
 /// A type that holds an LCCS instance.
@@ -256,7 +294,7 @@ mod tests {
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_spartan::polycommitments::PCSKeys;
     use ark_std::{test_rng, UniformRand};
-    use ark_test_curves::bls12_381::{Bls12_381 as E, Fr, G1Projective as G};
+    use ark_test_curves::bls12_381::{Bls12_381 as E, Fr as Scalar, G1Projective as G};
 
     type Z = Zeromorph<E>;
 
@@ -527,6 +565,73 @@ mod tests {
             Err(Error::NotSatisfied)
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn folded_instance_is_satisfied() -> Result<(), Error> {
+        // Fold linearized and non-linearized instances together and verify that resulting
+        // linearized instance is satisfied.
+        let (a, b, c) = {
+            (
+                to_field_sparse::<G>(A),
+                to_field_sparse::<G>(B),
+                to_field_sparse::<G>(C),
+            )
+        };
+
+        const NUM_CONSTRAINTS: usize = 4;
+        const NUM_WITNESS: usize = 4;
+        const NUM_PUBLIC: usize = 2;
+        const rho: Scalar = Scalar::ONE;
+
+        let r1cs_shape: R1CSShape<G> =
+            R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
+
+        let ccs_shape = CCSShape::from(r1cs_shape);
+
+        let mut rng = test_rng();
+        let SRS = Z::setup(8, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 8);
+
+        let X = to_field_elements::<G>(&[1, 35]);
+        let W = to_field_elements::<G>(&[3, 9, 27, 30]);
+        let W2 = CCSWitness::<G>::new(&ccs_shape, &W)?;
+
+        let commitment_W = W2.commit::<Z>(&ck);
+
+        let U2 = CCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X)?;
+
+        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs1: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+
+        let z1 = [X.as_slice(), W.as_slice()].concat();
+        let vs1: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z1).as_slice()).evaluate::<G>(rs1.as_slice()))
+            .collect();
+
+        let U1 = LCCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X, &rs1, &vs1)?;
+        let W1 = W2.clone();
+
+        let z2 = z1;
+        let rs2: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+
+        let thetas: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z2).as_slice()).evaluate::<G>(rs2.as_slice()))
+            .collect();
+
+        let folded_instance = U1.fold(&U2, &rho, &rs2, &vs1, &thetas)?;
+
+        // Compute resulting witness.
+        let W: Vec<_> =
+            W1.W.iter()
+                .zip(&W2.W)
+                .map(|(w1, w2)| *w1 + rho * w2)
+                .collect();
+
+        let witness = CCSWitness::<G> { W };
+
+        ccs_shape.is_satisfied_linearized(&folded_instance, &witness, &ck)?;
         Ok(())
     }
 }
