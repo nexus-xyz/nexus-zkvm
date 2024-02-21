@@ -1,5 +1,5 @@
 pub(crate) mod nimfs;
-pub(crate) mod secondary;
+pub(crate) use super::super::cyclefold::secondary;
 
 use ark_std::fmt::Display;
 
