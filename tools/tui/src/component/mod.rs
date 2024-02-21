@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, fmt, ops::Deref, time};
 
 use superconsole::{Component, Dimensions, DrawMode, Lines};
 
@@ -7,12 +7,34 @@ use crate::action::Action;
 mod loading;
 mod timer;
 
-pub fn format_duration(elapsed: std::time::Duration) -> String {
-    if elapsed.as_secs() == 0 {
-        format!("{}ms", elapsed.as_millis())
-    } else {
-        let secs = elapsed.as_secs_f32();
-        format!("{:.1}s", secs)
+#[derive(Debug)]
+pub struct FmtDuration(time::Duration);
+
+impl From<time::Duration> for FmtDuration {
+    fn from(d: time::Duration) -> Self {
+        Self(d)
+    }
+}
+
+impl Deref for FmtDuration {
+    type Target = time::Duration;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Display for FmtDuration {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let secs = self.as_secs();
+        if secs == 0 {
+            write!(f, "{}ms", self.as_millis())
+        } else if secs >= 60 {
+            write!(f, "{}min{}s", secs / 60, secs % 60)
+        } else {
+            let secs = self.as_secs_f32();
+            write!(f, "{:.1}s", secs)
+        }
     }
 }
 

@@ -72,7 +72,7 @@ pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError>
     let mut term = nexus_tui::TerminalHandle::new();
     let mut term_ctx = term
         .context("Setting up")
-        .on_step(|_step| format!("public parameters"));
+        .on_step(|_step| "public parameters".into());
     let _guard = term_ctx.display_step();
 
     if par {

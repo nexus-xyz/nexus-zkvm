@@ -8,7 +8,7 @@ use superconsole::{
     Component, Dimensions, DrawMode, Line, Lines, Span,
 };
 
-use super::format_duration;
+use super::FmtDuration;
 use crate::action::Action;
 
 pub struct Timer<'a> {
@@ -26,7 +26,7 @@ impl Component for Timer<'_> {
         if action.is_finished() {
             return Ok(Lines::new());
         }
-        let elapsed = self.last_tick.elapsed();
+        let elapsed: FmtDuration = self.last_tick.elapsed().into();
         let action = self.action.borrow();
 
         let heading_span = Span::new_styled(action.step_header.to_owned().bold().with(self.color))?;
@@ -47,7 +47,7 @@ impl Component for Timer<'_> {
         ))?;
         self.num_dots.set(((num_dots + 1) % 4).max(1));
 
-        let elapsed_span = Span::new_styled(format_duration(elapsed).bold())?;
+        let elapsed_span = Span::new_styled(elapsed.to_string().bold())?;
 
         let line = Line::from_iter([heading_span, trailing_span, dots, elapsed_span]);
         Ok(Lines(vec![line]))

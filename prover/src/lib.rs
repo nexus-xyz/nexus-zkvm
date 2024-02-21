@@ -64,8 +64,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
         .completion_header("Proved")
         .completion_stats(move |elapsed| {
             format!(
-                "{num_steps} step(s) in {}; {:.2} instructions / second",
-                nexus_tui::format_duration(elapsed),
+                "{num_steps} step(s) in {elapsed}; {:.2} instructions / second",
                 icount as f32 / elapsed.as_secs_f32()
             )
         });
@@ -115,8 +114,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
         .completion_header("Proved")
         .completion_stats(move |elapsed| {
             format!(
-                "tree root in {}; {:.2} instructions / second",
-                nexus_tui::format_duration(elapsed),
+                "tree root in {elapsed}; {:.2} instructions / second",
                 (k * num_steps) as f32 / elapsed.as_secs_f32()
             )
         });

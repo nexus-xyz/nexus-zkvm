@@ -50,7 +50,7 @@ impl Component for LoadingBar<'_> {
             let elapsed = self.time_spent;
 
             let heading_span = Span::new_styled(action.completion_header.to_owned().blue().bold())?;
-            let completion_span = Span::new_unstyled((action.completion_trailing)(elapsed))?;
+            let completion_span = Span::new_unstyled((action.completion_trailing)(elapsed.into()))?;
 
             Line::from_iter([heading_span, Span::padding(1), completion_span])
         };

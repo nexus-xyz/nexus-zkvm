@@ -1,6 +1,6 @@
-use std::{sync::mpsc, time::Duration};
+use std::sync::mpsc;
 
-use super::{action::Action, thread as tui_thread};
+use super::{action::Action, component::FmtDuration, thread as tui_thread};
 
 pub struct TerminalHandle {
     thread: tui_thread::ThreadHandle,
@@ -83,7 +83,7 @@ impl TerminalContext<'_> {
 
     pub fn completion_stats<F>(self, on_completion: F) -> Self
     where
-        F: Fn(Duration) -> String + Send + 'static,
+        F: Fn(FmtDuration) -> String + Send + 'static,
     {
         Self {
             action: self.action.map(|action| Action {

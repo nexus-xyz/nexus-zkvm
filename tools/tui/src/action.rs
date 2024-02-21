@@ -1,6 +1,4 @@
-use std::time::Duration;
-
-use super::component::format_duration;
+use super::component::FmtDuration;
 
 pub(crate) struct Action {
     pub iter: usize,
@@ -11,7 +9,7 @@ pub(crate) struct Action {
     pub loading_bar_header: Option<&'static str>,
 
     pub completion_header: &'static str,
-    pub completion_trailing: Box<dyn Fn(Duration) -> String + Send>,
+    pub completion_trailing: Box<dyn Fn(FmtDuration) -> String + Send>,
 }
 
 impl Action {
@@ -40,7 +38,7 @@ impl Default for Action {
             step_trailing: Box::new(|_step| String::new()),
             loading_bar_header: None,
             completion_header: "Finished",
-            completion_trailing: Box::new(|elapsed| format!("in {}", format_duration(elapsed))),
+            completion_trailing: Box::new(|elapsed| format!("in {elapsed}")),
         }
     }
 }
