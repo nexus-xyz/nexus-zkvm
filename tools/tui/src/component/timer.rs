@@ -1,4 +1,7 @@
-use std::{cell::Cell, time::Instant};
+use std::{
+    cell::{Cell, RefCell},
+    time::Instant,
+};
 
 use superconsole::{
     style::{Color, Stylize},
@@ -6,35 +9,37 @@ use superconsole::{
 };
 
 use super::format_duration;
-use crate::action::TimedAction;
+use crate::action::Action;
 
-pub struct Timer {
+pub struct Timer<'a> {
     pub start: Instant,
-
-    pub(super) finished: bool,
-    pub(super) action: TimedAction,
+    pub(super) action: &'a RefCell<Action>,
 
     num_dots: Cell<usize>,
     last_tick: Instant,
     color: Color,
 }
 
-impl Component for Timer {
+impl Component for Timer<'_> {
     fn draw_unchecked(&self, _: Dimensions, _: DrawMode) -> anyhow::Result<Lines> {
-        if self.finished {
+        let action = self.action.borrow();
+        if action.is_finished() {
             return Ok(Lines::new());
         }
         let elapsed = self.last_tick.elapsed();
-        let action = &self.action;
+        let action = self.action.borrow();
 
-        let heading_span =
-            Span::new_styled(action.step_header().to_owned().bold().with(self.color))?;
-        let trailing_span = Span::new_unstyled(action.step_trailing())?;
+        let heading_span = Span::new_styled(action.step_header.to_owned().bold().with(self.color))?;
+        let mut trailing = (action.step_trailing)(action.iter);
+        if !trailing.is_empty() {
+            trailing.insert(0, ' ');
+        }
+        let trailing_span = Span::new_unstyled(trailing)?;
 
         // dots
         let num_dots = self.num_dots.get();
         let dots = Span::new_unstyled(format!(
-            "{dot:.>num_dots$}{empty:>num_spaces$}",
+            " {dot:.>num_dots$}{empty:>num_spaces$}",
             dot = '.',
             num_dots = num_dots,
             empty = "",
@@ -49,16 +54,16 @@ impl Component for Timer {
     }
 }
 
-impl Timer {
-    pub fn new(action: TimedAction) -> Self {
+impl<'a> Timer<'a> {
+    pub fn new(action: &'a RefCell<Action>) -> Self {
         let start = Instant::now();
         Self {
             start,
-            finished: false,
+            // finished: false,
             action,
             num_dots: Cell::new(1),
             last_tick: start,
-            color: if action.show_progress() {
+            color: if action.borrow().show_progress() {
                 Color::Blue
             } else {
                 Color::Cyan
@@ -66,8 +71,7 @@ impl Timer {
         }
     }
 
-    pub fn next_iter(&mut self) {
-        self.action.next_iter();
+    pub fn reset(&mut self) {
         *self = Self::new(self.action);
     }
 
@@ -76,6 +80,9 @@ impl Timer {
         self.num_dots.set(3);
         self.color = Color::Blue;
 
-        self.draw_unchecked(Dimensions::default(), DrawMode::Normal)
+        let mut lines = self.draw_unchecked(Dimensions::default(), DrawMode::Normal)?;
+        lines.pad_lines_left(2);
+
+        Ok(lines)
     }
 }

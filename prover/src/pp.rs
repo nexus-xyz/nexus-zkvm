@@ -69,6 +69,11 @@ pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError>
         path = ?pp_file,
         "Generating public parameters",
     );
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Setting up")
+        .on_step(|_step| format!("public parameters"));
+    let _guard = term_ctx.display_step();
 
     if par {
         let pp: ParPP = gen_vm_pp(k)?;
@@ -85,12 +90,18 @@ pub fn gen_or_load<SP>(gen: bool, k: usize, pp_file: &str) -> Result<PP<SP>, Pro
 where
     SP: SetupParams<G1, G2, C1, C2, RO, Tr> + Sync,
 {
-    let t = std::time::Instant::now();
+    let mut term = nexus_tui::TerminalHandle::new();
+
     let pp: PP<SP> = if gen {
         tracing::info!(
             target: LOG_TARGET,
             "Generating public parameters",
         );
+        let mut term_ctx = term
+            .context("Setting up")
+            .on_step(|_step| "public parameters".into());
+        let _guard = term_ctx.display_step();
+
         gen_vm_pp(k)?
     } else {
         tracing::info!(
@@ -98,13 +109,15 @@ where
             path = ?pp_file,
             "Loading public parameters",
         );
+        let mut term_ctx = term
+            .context("Loading")
+            .on_step(|_step| "public parameters".into());
+        let _guard = term_ctx.display_step();
+
         load_pp(pp_file)?
     };
-    tracing::info!(
-        target: LOG_TARGET,
-        "Done in {:?}",
-        t.elapsed(),
-    );
+    drop(term);
+
     show_pp(&pp);
     Ok(pp)
 }

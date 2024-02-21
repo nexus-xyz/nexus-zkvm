@@ -1,74 +1,46 @@
-#[derive(Copy, Clone)]
-pub enum TimedAction {
-    Prove { iteration: usize, total: usize },
-    SetupParams,
-    LoadParams,
+use std::time::Duration;
+
+use super::component::format_duration;
+
+pub(crate) struct Action {
+    pub iter: usize,
+    pub iter_num: usize,
+
+    pub step_header: &'static str,
+    pub step_trailing: Box<dyn Fn(usize) -> String + Send>,
+    pub loading_bar_header: Option<&'static str>,
+
+    pub completion_header: &'static str,
+    pub completion_trailing: Box<dyn Fn(Duration) -> String + Send>,
 }
 
-impl TimedAction {
-    // Returns `true` if the action requires showing the progress bar, and `false` otherwise.
-    pub fn show_progress(&self) -> bool {
-        match self {
-            Self::Prove { .. } => true,
-            Self::SetupParams | Self::LoadParams => false,
-        }
+impl Action {
+    pub(crate) fn show_progress(&self) -> bool {
+        self.loading_bar_header.is_some()
     }
 
-    // Returns the current iter number paired with the number of total steps.
-    pub fn num_iters(&self) -> (usize, usize) {
-        match self {
-            Self::Prove { iteration, total } => (*iteration, *total),
-            Self::SetupParams | Self::LoadParams => (0, 1),
-        }
+    pub(crate) fn next_iter(&mut self) {
+        let next_iter = self.iter + 1;
+        assert!(next_iter <= self.iter_num);
+
+        self.iter = next_iter;
     }
 
-    // Increments iteration number.
-    pub fn next_iter(&mut self) {
-        match self {
-            Self::Prove { iteration, total } => {
-                let next_iter = *iteration + 1;
-                assert!(next_iter <= *total);
-
-                *iteration = next_iter
-            }
-            Self::SetupParams | Self::LoadParams => {}
-        }
+    pub(crate) fn is_finished(&self) -> bool {
+        self.iter == self.iter_num
     }
+}
 
-    pub const fn step_header(&self) -> &'static str {
-        match self {
-            Self::Prove { .. } => "  Computing",
-            Self::LoadParams => "  Loading",
-            Self::SetupParams => "  Setting up",
-        }
-    }
-
-    pub fn step_trailing(&self) -> String {
-        match self {
-            Self::Prove { iteration, .. } => format!(" step {iteration} "),
-            Self::SetupParams | Self::LoadParams => " public parameters ".to_owned(),
-        }
-    }
-
-    pub fn loading_header(&self) -> &'static str {
-        match self {
-            Self::Prove { .. } => "   Proving",
-            Self::SetupParams | Self::LoadParams => "",
-        }
-    }
-
-    pub fn completion_header(&self) -> &'static str {
-        match self {
-            Self::Prove { .. } => "     Proved",
-            Self::LoadParams => " Finished",
-            Self::SetupParams => "    Finished",
-        }
-    }
-
-    pub fn completion_trailing(&self, elapsed_str: &str) -> String {
-        match self {
-            Self::Prove { total, .. } => format!(" {total} step(s) in {elapsed_str}"),
-            Self::SetupParams | Self::LoadParams => format!(" in {elapsed_str}"),
+impl Default for Action {
+    fn default() -> Self {
+        Self {
+            iter: 0,
+            iter_num: 1,
+            step_header: "",
+            step_trailing: Box::new(|_step| String::new()),
+            loading_bar_header: None,
+            completion_header: "Finished",
+            completion_trailing: Box::new(|elapsed| format!("in {}", format_duration(elapsed))),
         }
     }
 }

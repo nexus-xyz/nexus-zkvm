@@ -1,6 +1,6 @@
-use std::sync::mpsc;
+use std::{sync::mpsc, time::Duration};
 
-use super::{action::TimedAction, thread as tui_thread};
+use super::{action::Action, thread as tui_thread};
 
 pub struct TerminalHandle {
     thread: tui_thread::ThreadHandle,
@@ -21,43 +21,84 @@ impl TerminalHandle {
         }
     }
 
-    pub fn iter_context(&mut self, num_steps: usize) -> TerminalContext<'_> {
+    pub fn context(&mut self, step_header: &'static str) -> TerminalContext<'_> {
         let _ = self.ctx_sender.take();
         TerminalContext {
             term: self,
-            action: Some(TimedAction::Prove { iteration: 0, total: num_steps }),
-            steps_left: num_steps,
+            action: Some(Action { step_header, ..Default::default() }),
+            steps_left: 1,
         }
-    }
-
-    pub fn display_setup(&mut self) -> Guard<'_> {
-        self.display_action(TimedAction::SetupParams)
-    }
-
-    pub fn display_load(&mut self) -> Guard<'_> {
-        self.display_action(TimedAction::LoadParams)
-    }
-
-    fn display_action(&mut self, action: TimedAction) -> Guard<'_> {
-        let (tx, rx) = mpsc::channel();
-
-        let sender = self.ctx_sender.insert(tx);
-        let _ = self.thread.sender().send((action, rx));
-        Guard { sender }
     }
 }
 
 pub struct TerminalContext<'a> {
     term: &'a mut TerminalHandle,
-    action: Option<TimedAction>,
+    action: Option<Action>,
     steps_left: usize,
 }
 
 impl TerminalContext<'_> {
-    pub fn display_next_step(&mut self) -> Guard<'_> {
-        self.steps_left
+    pub fn with_loading_bar(self, loading_header: &'static str) -> Self {
+        Self {
+            action: self.action.map(|action| Action {
+                loading_bar_header: Some(loading_header),
+                ..action
+            }),
+            ..self
+        }
+    }
+
+    pub fn num_steps(self, num_steps: usize) -> Self {
+        assert!(num_steps > 0);
+        Self {
+            action: self
+                .action
+                .map(|action| Action { iter_num: num_steps, ..action }),
+            steps_left: num_steps,
+            ..self
+        }
+    }
+
+    pub fn on_step<F>(self, on_step: F) -> Self
+    where
+        F: Fn(usize) -> String + Send + 'static,
+    {
+        Self {
+            action: self.action.map(|action| Action {
+                step_trailing: Box::new(on_step),
+                ..action
+            }),
+            ..self
+        }
+    }
+
+    pub fn completion_header(self, completion_header: &'static str) -> Self {
+        Self {
+            action: self
+                .action
+                .map(|action| Action { completion_header, ..action }),
+            ..self
+        }
+    }
+
+    pub fn completion_stats<F>(self, on_completion: F) -> Self
+    where
+        F: Fn(Duration) -> String + Send + 'static,
+    {
+        Self {
+            action: self.action.map(|action| Action {
+                completion_trailing: Box::new(on_completion),
+                ..action
+            }),
+            ..self
+        }
+    }
+
+    pub fn display_step(&mut self) -> Guard<'_> {
+        self.steps_left = self
+            .steps_left
             .checked_sub(1)
-            .expect("step number overflow");
+            .expect("steps number overflow");
         let ctx_sender = &mut self.term.ctx_sender;
 
         let sender = if let Some(action) = self.action.take() {
@@ -83,34 +124,5 @@ pub struct Guard<'a> {
 impl Drop for Guard<'_> {
     fn drop(&mut self) {
         let _ = self.sender.send(());
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn output() {
-        let mut term = TerminalHandle::new();
-
-        {
-            let _guard = term.display_setup();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-
-        {
-            let _guard = term.display_load();
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-
-        let mut term_ctx = term.iter_context(5);
-
-        for _ in 0..5 {
-            let _guard = term_ctx.display_next_step();
-
-            std::thread::sleep(std::time::Duration::from_secs(1));
-        }
-        // std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }

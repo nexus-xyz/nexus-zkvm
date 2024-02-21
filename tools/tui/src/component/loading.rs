@@ -1,36 +1,42 @@
-use std::time::Duration;
+use std::{cell::RefCell, time::Duration};
 
 use superconsole::{style::Stylize, Component, Dimensions, DrawMode, Line, Lines, Span};
 
-use super::format_duration;
-use crate::action::TimedAction;
+use crate::action::Action;
 
 const WIDTH: usize = "=======>                  ".len() - 1;
 
-pub struct LoadingBar {
+pub struct LoadingBar<'a> {
     pub time_spent: Duration,
 
-    pub(super) finished: bool,
-    pub(super) action: TimedAction,
+    action: &'a RefCell<Action>,
 }
 
-impl Component for LoadingBar {
+impl Component for LoadingBar<'_> {
     fn draw_unchecked(&self, _: Dimensions, _: DrawMode) -> anyhow::Result<Lines> {
-        let action = &self.action;
+        let action = self.action.borrow();
 
-        let res = if !self.finished {
-            if !self.action.show_progress() {
+        let res = if !action.is_finished() {
+            if !action.show_progress() {
                 return Ok(Lines::new());
             }
-            let (iteration, total) = self.action.num_iters();
+            let iteration = action.iter;
+            let total = action.iter_num;
 
-            let heading_span = Span::new_styled(action.loading_header().to_owned().cyan().bold())?;
+            let heading_span = Span::new_styled(
+                action
+                    .loading_bar_header
+                    .unwrap_or_default()
+                    .to_owned()
+                    .cyan()
+                    .bold(),
+            )?;
 
             let percentage = iteration as f64 / total as f64;
             let amount = (percentage * WIDTH as f64).ceil() as usize;
 
             let loading_bar = format!(
-                "[{test:=>bar_amt$}{empty:padding_amt$}] {}/{}: ...",
+                " [{test:=>bar_amt$}{empty:padding_amt$}] {}/{}: ...",
                 iteration,
                 total,
                 test = ">",
@@ -42,25 +48,19 @@ impl Component for LoadingBar {
             Line::from_iter([heading_span, loading])
         } else {
             let elapsed = self.time_spent;
-            let elapsed_str = format_duration(elapsed);
 
-            let heading_span =
-                Span::new_styled(action.completion_header().to_owned().blue().bold())?;
-            let completion_span = Span::new_unstyled(action.completion_trailing(&elapsed_str))?;
+            let heading_span = Span::new_styled(action.completion_header.to_owned().blue().bold())?;
+            let completion_span = Span::new_unstyled((action.completion_trailing)(elapsed))?;
 
-            Line::from_iter([heading_span, completion_span])
+            Line::from_iter([heading_span, Span::padding(1), completion_span])
         };
 
         Ok(Lines(vec![res]))
     }
 }
 
-impl LoadingBar {
-    pub fn new(action: TimedAction) -> Self {
-        Self {
-            action,
-            finished: false,
-            time_spent: Duration::ZERO,
-        }
+impl<'a> LoadingBar<'a> {
+    pub fn new(action: &'a RefCell<Action>) -> Self {
+        Self { action, time_spent: Duration::ZERO }
     }
 }

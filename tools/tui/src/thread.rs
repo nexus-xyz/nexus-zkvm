@@ -1,15 +1,16 @@
 use std::mem::ManuallyDrop;
 use std::time::Duration;
 use std::{
-    sync::mpsc::{self, Receiver, SyncSender, TryRecvError},
+    cell::RefCell,
+    sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender},
     thread::JoinHandle,
 };
 
 use superconsole::SuperConsole;
 
-use super::{action::TimedAction, component::Compositor};
+use super::{action::Action, component::Compositor};
 
-pub(crate) type Payload = (TimedAction, Receiver<()>);
+pub(crate) type Payload = (Action, Receiver<()>);
 
 pub(crate) struct ThreadHandle {
     sender: ManuallyDrop<SyncSender<Payload>>,
@@ -36,11 +37,9 @@ impl Drop for ThreadHandle {
     fn drop(&mut self) {
         let Self { sender, join_handle } = self;
         // SAFETY: struct fields are not accessible once `drop` returns.
-        let sender = unsafe { ManuallyDrop::take(sender) };
+        unsafe { ManuallyDrop::drop(sender) };
         let join_handle = unsafe { ManuallyDrop::take(join_handle) };
 
-        // disconnect the sender and join the thread.
-        drop(sender);
         let _ = join_handle.join();
     }
 }
@@ -57,36 +56,37 @@ fn thread_main(receiver: Receiver<Payload>) {
 
 fn handle_action(
     superconsole: &mut SuperConsole,
-    action: TimedAction,
+    action: Action,
     receiver: Receiver<()>,
 ) -> anyhow::Result<()> {
     const SLEEP_DURATION: Duration = Duration::from_millis(100);
 
     let mut total_elapsed = Duration::ZERO;
-    let (_, total_steps) = action.num_iters();
+    let iter_num = action.iter_num;
 
-    let mut component = Compositor::new(action);
-    for i in 0..total_steps {
+    let action = RefCell::new(action);
+    let mut component = Compositor::new(&action);
+    for i in 0..iter_num {
+        component.timer.reset();
+
         loop {
             superconsole.render(&component)?;
 
-            match receiver.try_recv() {
+            match receiver.recv_timeout(SLEEP_DURATION) {
                 Ok(_) => break,
-                Err(TryRecvError::Disconnected) => anyhow::bail!("sender dropped"),
-                Err(TryRecvError::Empty) => {}
+                Err(RecvTimeoutError::Disconnected) => anyhow::bail!("sender dropped"),
+                Err(RecvTimeoutError::Timeout) => {}
             }
-
-            std::thread::sleep(SLEEP_DURATION);
         }
         total_elapsed += component.timer.start.elapsed();
-
         let step_line = component.timer.finalize()?;
 
         superconsole.render(&component)?;
         superconsole.emit(step_line);
 
-        component.next_iter();
-        if i + 1 < total_steps {
+        action.borrow_mut().next_iter();
+
+        if i + 1 < iter_num {
             // wait for the next step.
             receiver.recv()?;
         }
