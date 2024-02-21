@@ -111,18 +111,27 @@ impl TerminalContext<'_> {
             let tx = ctx_sender.as_ref().unwrap();
             let _ = tx.send(());
             tx
-        };
+        }
+        .into();
 
         Guard { sender }
     }
 }
 
 pub struct Guard<'a> {
-    sender: &'a mpsc::Sender<()>,
+    sender: Option<&'a mpsc::Sender<()>>,
+}
+
+impl Guard<'_> {
+    pub fn abort(mut self) {
+        let _ = self.sender.take();
+    }
 }
 
 impl Drop for Guard<'_> {
     fn drop(&mut self) {
-        let _ = self.sender.send(());
+        if let Some(sender) = self.sender {
+            let _ = sender.send(());
+        }
     }
 }

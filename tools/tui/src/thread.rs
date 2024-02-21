@@ -50,7 +50,7 @@ fn thread_main(receiver: Receiver<Payload>) {
     };
 
     while let Ok((action, _receiver)) = receiver.recv() {
-        handle_action(&mut superconsole, action, _receiver).expect("tui-thread error");
+        let _ = handle_action(&mut superconsole, action, _receiver);
     }
 }
 

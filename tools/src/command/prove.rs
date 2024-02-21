@@ -7,7 +7,6 @@ use anyhow::Context;
 use ark_serialize::CanonicalSerialize;
 
 use nexus_config::vm as vm_config;
-use nexus_network::client::Client;
 use nexus_tools_dev::{
     command::common::{
         prove::{CommonProveArgs, LocalProveArgs, ProveArgs},
@@ -56,18 +55,22 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     }
 }
 
-fn request_prove(path: &Path, url: &str) -> anyhow::Result<()> {
+fn request_prove(_path: &Path, _url: &str) -> anyhow::Result<()> {
     // TODO: network errors cannot be converted to anyhow.
 
-    let client = Client::new(url).map_err(|err| anyhow::anyhow!("url is invalid: {err}"))?;
-    let proof = client
-        .submit_proof("account".to_string(), path)
-        .map_err(|err| anyhow::anyhow!("failed to send request: {err}"))?;
+    // let client = Client::new(url).map_err(|err| anyhow::anyhow!("url is invalid: {err}"))?;
+    // let proof = client
+    //     .submit_proof("account".to_string(), path)
+    //     .map_err(|err| anyhow::anyhow!("failed to send request: {err}"))?;
 
-    tracing::info!(
+    // tracing::info!(
+    //     target: LOG_TARGET,
+    //     hash = %proof.hash,
+    //     "Prove request submitted",
+    // );
+    tracing::warn!(
         target: LOG_TARGET,
-        hash = %proof.hash,
-        "Prove request submitted",
+        "Networking commands are disabled",
     );
 
     Ok(())
@@ -114,20 +117,20 @@ fn local_prove(
         let state = nexus_prover::pp::gen_or_load(false, DEFAULT_K, path_str)?;
         let root = nexus_prover::prove_par(state, trace)?;
 
-        let mut buf = Vec::new();
-        root.serialize_compressed(&mut buf)?;
-
         let current_dir = std::env::current_dir()?;
-        let path = current_dir.join("nexus-proof.json");
+        let path = current_dir.join("nexus-proof");
         tracing::info!(
             target: LOG_TARGET,
-            path = %path.to_string_lossy(),
-            "Storing the proof",
+            path = %path.display(),
+            "Saving the proof",
         );
-        let proof = nexus_network::api::Proof { proof: Some(buf), ..Default::default() };
 
-        let serialized = serde_json::to_vec(&proof)?;
-        std::fs::write(path, serialized)?;
+        let mut term = nexus_tui::TerminalHandle::new();
+        let mut context = term.context("Saving").on_step(|_step| "proof".into());
+        let _guard = context.display_step();
+
+        let file = std::fs::File::create(path)?;
+        root.serialize_compressed(file)?;
     } else {
         let state = nexus_prover::pp::gen_or_load(false, DEFAULT_K, path_str)?;
         nexus_prover::prove_seq(&state, trace)?;
