@@ -255,6 +255,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
             .zip(X2)
             .map(|(a, b)| *a + *b * *rho)
             .collect();
+
         let vs: Vec<G::ScalarField> = ark_std::cfg_iter!(sigmas)
             .zip(thetas)
             .map(|(sigma, theta)| *sigma + *theta * *rho)
@@ -583,7 +584,8 @@ mod tests {
         const NUM_CONSTRAINTS: usize = 4;
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
-        const rho: Scalar = Scalar::ONE;
+
+        let rho: Scalar = Scalar::from(11);
 
         let r1cs_shape: R1CSShape<G> =
             R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
@@ -613,23 +615,20 @@ mod tests {
         let U1 = LCCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X, &rs1, &vs1)?;
         let W1 = W2.clone();
 
-        let z2 = z1;
+        let z2 = z1.clone();
         let rs2: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+
+        let sigmas: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z1).as_slice()).evaluate::<G>(rs2.as_slice()))
+            .collect();
 
         let thetas: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
             .map(|M| vec_to_mle(M.multiply_vec(&z2).as_slice()).evaluate::<G>(rs2.as_slice()))
             .collect();
 
-        let folded_instance = U1.fold(&U2, &rho, &rs2, &vs1, &thetas)?;
+        let folded_instance = U1.fold(&U2, &rho, &rs2, &sigmas, &thetas)?;
 
-        // Compute resulting witness.
-        let W: Vec<_> =
-            W1.W.iter()
-                .zip(&W2.W)
-                .map(|(w1, w2)| *w1 + rho * w2)
-                .collect();
-
-        let witness = CCSWitness::<G> { W };
+        let witness = W1.fold(&W2, &rho)?;
 
         ccs_shape.is_satisfied_linearized(&folded_instance, &witness, &ck)?;
         Ok(())
