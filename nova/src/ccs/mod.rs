@@ -3,7 +3,7 @@ use ark_ff::Field;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
-use ark_std::{Zero, ops::Neg};
+use ark_std::{ops::Neg, Zero};
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
@@ -180,6 +180,23 @@ impl<G: CurveGroup> CCSWitness<G> {
     fn commit<C: PolyCommitmentScheme<G>>(&self, ck: &C::PolyCommitmentKey) -> C::Commitment {
         C::commit(&vec_to_mle(&self.W), ck)
     }
+
+    /// Folds an incoming [`CCSWitness`] into the current one.
+    pub fn fold(&self, W2: &CCSWitness<G>, rho: &G::ScalarField) -> Result<Self, Error> {
+        let W1 = &self.W;
+        let W2 = &W2.W;
+
+        if W1.len() != W2.len() {
+            return Err(Error::InvalidWitnessLength);
+        }
+
+        let W: Vec<G::ScalarField> = ark_std::cfg_iter!(W1)
+            .zip(W2)
+            .map(|(a, b)| *a + *rho * *b)
+            .collect();
+
+        Ok(Self { W })
+    }
 }
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
@@ -262,10 +279,10 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
             .collect();
 
         Ok(Self {
-            commitment_W: commitment_W,
+            commitment_W,
             X: [&u, X.as_slice()].concat(),
             rs: rs.to_owned(),
-            vs: vs,
+            vs,
         })
     }
 }
