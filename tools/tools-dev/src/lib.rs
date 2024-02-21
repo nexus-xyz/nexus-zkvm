@@ -1,8 +1,6 @@
 use clap::{Parser, Subcommand};
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{
-    filter::Targets, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer,
-};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub mod command;
 pub mod utils;
@@ -38,14 +36,11 @@ pub fn setup_logger() -> tracing::subscriber::DefaultGuard {
         let _ = dotenvy::from_path(nexus_config::constants::CONFIG_ENV_PATH);
     };
 
-    let filter = if let Ok(filter) = EnvFilter::try_from_default_env() {
-        filter.boxed()
-    } else {
-        Targets::new()
-            .with_target("r1cs", LevelFilter::OFF)
-            .with_default(LevelFilter::INFO)
-            .boxed()
-    };
+    let filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::WARN.into())
+        .from_env()
+        .unwrap()
+        .add_directive("r1cs=off".parse().unwrap());
 
     tracing_subscriber::registry()
         .with(
