@@ -25,7 +25,7 @@ where
 }
 
 /// Checks if the binary is part of cargo manifest and returns path to the build artifact.
-pub fn path_to_artifact(bin: Option<String>, release: bool) -> anyhow::Result<PathBuf> {
+pub fn path_to_artifact(bin: Option<String>, mut profile: &str) -> anyhow::Result<PathBuf> {
     let md = MetadataCommand::new().exec()?;
 
     let pkg = md.root_package().context("package root not found")?;
@@ -38,11 +38,12 @@ pub fn path_to_artifact(bin: Option<String>, release: bool) -> anyhow::Result<Pa
 
     let mut path = PathBuf::from(&md.target_directory);
     path.push("riscv32i-unknown-none-elf");
-    if release {
-        path.push("release");
-    } else {
-        path.push("debug");
+
+    // "debug" profile is reserved.
+    if profile == "dev" {
+        profile = "debug";
     }
+    path.push(profile);
 
     if bin_targets.len() == 1 {
         path.push(&bin_targets[0]);

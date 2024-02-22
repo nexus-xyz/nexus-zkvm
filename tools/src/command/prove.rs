@@ -19,19 +19,19 @@ use crate::{command::public_params::setup_params, LOG_TARGET};
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
-        common_args: CommonProveArgs { release, bin },
+        common_args: CommonProveArgs { profile, bin },
         network,
         url,
         local_args,
     } = args;
 
-    let path = path_to_artifact(bin, release)?;
+    let path = path_to_artifact(bin, &profile)?;
     let vm_config = vm_config::VmConfig::from_env()?;
 
-    if !release {
+    if &profile == "dev" {
         tracing::warn!(
             target: LOG_TARGET,
-            "proving debug build, use `-r` for release",
+            "proving debug build",
         )
     }
 
@@ -41,11 +41,7 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     } else {
         // build artifact if needed
         if !path.try_exists()? {
-            if release {
-                cargo(None, ["build", "--release"])?;
-            } else {
-                cargo(None, ["build"])?;
-            }
+            cargo(None, ["build", "--profile", &profile])?;
         }
 
         let LocalProveArgs { k, pp_file, nova_impl } = local_args;

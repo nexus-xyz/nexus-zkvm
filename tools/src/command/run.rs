@@ -13,13 +13,15 @@ pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
 
 fn run_vm(bin: Option<String>, verbose: bool, release: bool) -> anyhow::Result<()> {
     // build the artifact
-    if release {
+    let profile = if release {
         cargo(None, ["build", "--release"])?;
+        "release"
     } else {
         cargo(None, ["build"])?;
-    }
+        "debug"
+    };
 
-    let path = path_to_artifact(bin, release)?;
+    let path = path_to_artifact(bin, profile)?;
 
     run_vm_with_elf_file(&path, verbose)
 }
