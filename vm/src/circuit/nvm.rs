@@ -398,7 +398,21 @@ fn branch(cs: &mut R1CS, J: u8, cond_name: &str, inverse_cond_name: &str) {
 fn br(cs: &mut R1CS, vm: &Witness) {
     let J = JAL as u8;
     cs.set_eq(&format!("Z{J}"), "pc+8");
-    cs.set_eq(&format!("PC{J}"), "X+I");
+    // call/ret is slightly different from jalr (see:eval.rs)
+    let j = cs.new_var(&format!("PC{J}"));
+    if vm.inst.rs1 > 1 {
+        cs.w[j] = *cs.get_var("X+I") * TWO;
+    } else {
+        cs.w[j] = *cs.get_var("X+I");
+    }
+    cs.constraint(|cs, a, b, c| {
+        a[0] = ONE;
+        for i in 2..32 {
+            a[cs.var(&format!("rs1={i}"))] = ONE;
+        }
+        b[cs.var("X+I")] = ONE;
+        c[j] = ONE;
+    });
 
     sub_cir(cs, "X-Y", "X", "Y", vm.X, vm.Y);
 
@@ -994,6 +1008,10 @@ mod test {
     fn test_br() {
         let w = Witness { Y: 1, ..Witness::default() };
         let mut cs = R1CS::default();
+        cs.set_var("rs1=0", 1);
+        for i in 1..32 {
+            cs.set_var(&format!("rs1={i}"), 0);
+        }
         cs.set_var("pc+I", 1);
         cs.set_var("pc+8", 0);
         cs.to_bits("X", 0);

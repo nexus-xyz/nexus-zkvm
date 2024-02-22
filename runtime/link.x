@@ -1,27 +1,25 @@
-
-MEMORY {
-  PROG (rx) : ORIGIN = 0x1000,     LENGTH = 0x10000000 - 0x1000
-  HEAP (rw) : ORIGIN = 0x10000000, LENGTH = 0x80000000 - 0x10000000
-}
-
-REGION_ALIAS("REGION_TEXT",   PROG);
-REGION_ALIAS("REGION_DATA",   HEAP);
-REGION_ALIAS("REGION_BSS",    HEAP);
+ENTRY(_start);
 
 SECTIONS
 {
+  __memory_top = 0x400000;
+  . = 0;
+
   .text : ALIGN(4)
   {
     KEEP(*(.init));
     . = ALIGN(4);
     KEEP(*(.init.rust));
     *(.text .text.*);
-  } > REGION_TEXT
+  }
+
+  . = ALIGN(8);
+  . = .* 2;
 
   .data : ALIGN(4)
   {
     /* Must be called __global_pointer$ for linker relaxations to work. */
-    PROVIDE(__global_pointer$ = . + 0x800);
+    __global_pointer$ = . + 0x800;
     *(.srodata .srodata.*);
     *(.rodata .rodata.*);
     *(.sdata .sdata.* .sdata2 .sdata2.*);
@@ -31,14 +29,14 @@ SECTIONS
     . = ALIGN(4);
     _heap = .;
     LONG(_ebss);
-  } > REGION_DATA
+  }
 
   .bss (NOLOAD) : ALIGN(4)
   {
     *(.sbss .sbss.* .bss .bss.*);
     . = ALIGN(4);
     _ebss = .;
-  } > REGION_BSS
+  }
 
   /* Dynamic relocations are unsupported. This section is only used to detect
      relocatable code in the input files and raise an error if relocatable code
@@ -58,6 +56,8 @@ SECTIONS
   .eh_frame (INFO) : { KEEP(*(.eh_frame)) }
   .eh_frame_hdr (INFO) : { *(.eh_frame_hdr) }
 }
+
+ASSERT(. < __memory_top, "Program is too large for the VM memory.");
 
 ASSERT(SIZEOF(.got) == 0, "
 .got section detected in the input files. Dynamic relocations are not

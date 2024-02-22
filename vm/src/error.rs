@@ -8,8 +8,8 @@ pub enum NexusVMError {
     InvalidInstruction(u64, u32),
 
     /// Unknown ECALL number
-    #[error("unknown ecall {1} at {0}")]
-    UnknownECall(u32, u32),
+    #[error("unknown syscall {1} at {0}")]
+    UnknownSyscall(u32, u32),
 
     /// Invalid memory address
     #[error("invalid memory access {0:x}")]

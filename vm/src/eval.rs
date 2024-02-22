@@ -1,8 +1,12 @@
 //! Evaluation for Nexus VM programs.
 
 use num_traits::FromPrimitive;
+use std::io::Write;
 
-use crate::error::{NexusVMError::InvalidInstruction, Result};
+use crate::error::{
+    NexusVMError::{InvalidInstruction, UnknownSyscall},
+    Result,
+};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width};
 use crate::memory::{path::Path, Memory};
 
@@ -38,6 +42,11 @@ pub fn halt_vm() -> NexusVM {
 #[inline]
 fn add32(x: u32, y: u32) -> u32 {
     x.overflowing_add(y).0
+}
+
+#[inline]
+fn mul32(x: u32, y: u32) -> u32 {
+    x.overflowing_mul(y).0
 }
 
 #[inline]
@@ -93,16 +102,34 @@ pub fn eval_step(vm: &mut NexusVM) -> Result<()> {
             let num = vm.regs[18]; // s2 = x18  syscall number
             let a0 = vm.regs[10]; // a0 = x10
             let a1 = vm.regs[11]; // a1 = x11
-            println!("SYS CALL {num} {a0:x} {a1:x}");
+            if num == 1 {
+                // write_log
+                let mut stdout = std::io::stdout();
+                for addr in a0..a0 + a1 {
+                    let b = vm.memory.load(Width::BU, addr)?.0;
+                    stdout.write_all(&[b as u8])?;
+                }
+                let _ = stdout.flush();
+            } else {
+                return Err(UnknownSyscall(vm.pc, num));
+            }
         }
 
         JAL => {
             vm.Z = add32(vm.pc, 8);
-            PC = add32(X, I);
+            let XI = add32(X, I);
+            // This semantics treats canonical call/ret
+            // differently from general jalr.
+            // TODO: seperate call/ret into their own instructions.
+            if inst.rs1 <= 1 {
+                PC = XI;
+            } else {
+                PC = mul32(XI, 2);
+            }
         }
         BEQ | BNE | BLT | BGE | BLTU | BGEU => {
             if brcc(inst.opcode, X, Y) {
-                PC = add32(vm.pc, I)
+                PC = add32(vm.pc, I);
             }
         }
 

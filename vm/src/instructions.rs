@@ -112,6 +112,17 @@ pub struct Inst {
     pub imm: u32,
 }
 
+impl std::fmt::Display for Inst {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let opc = format!("{:?}", self.opcode).to_lowercase();
+        write!(
+            f,
+            "{opc} x{}, x{}, x{}, 0x{:x}",
+            self.rd, self.rs1, self.rs2, self.imm
+        )
+    }
+}
+
 impl TryFrom<Opcode> for Width {
     type Error = &'static str;
     fn try_from(opcode: Opcode) -> Result<Self, Self::Error> {

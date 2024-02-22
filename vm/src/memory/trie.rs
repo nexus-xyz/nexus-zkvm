@@ -177,7 +177,7 @@ impl MerkleTrie {
     /// Query the tree at `addr` returning the `CacheLine` (and `Path` if hashes enabled).
     /// The default CacheLine is returned if the tree is unpopulated at `addr`.
     pub fn query(&self, addr: u32) -> (&CacheLine, Path) {
-        let addr = addr.reverse_bits();
+        let addr = addr.reverse_bits() >> IGNORED_BITS;
         let mut auth = Vec::new();
         let cl = self.query_inner(&self.root, &mut auth, 0, addr);
         let path = Path::new(self.root(), cl.scalars(), auth);
@@ -210,7 +210,7 @@ impl MerkleTrie {
     where
         F: Fn(&mut CacheLine) -> Result<()>,
     {
-        let addr = addr.reverse_bits();
+        let addr = addr.reverse_bits() >> IGNORED_BITS;
         let mut auth = Vec::new();
         if self.root.is_none() {
             self.root = Some(Box::new(Node::new_node()));
