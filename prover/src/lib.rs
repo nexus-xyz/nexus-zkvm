@@ -51,7 +51,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     let tr = Tr(trace);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
-    let mut proof = IVCProof::new(pp, &z_0);
+    let mut proof = IVCProof::new(&z_0);
 
     let num_steps = tr.steps();
 
@@ -72,7 +72,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     for _ in 0..num_steps {
         let _guard = term_ctx.display_step();
 
-        proof = IVCProof::prove_step(proof, &tr)?;
+        proof = IVCProof::prove_step(proof, pp, &tr)?;
     }
 
     Ok(proof)

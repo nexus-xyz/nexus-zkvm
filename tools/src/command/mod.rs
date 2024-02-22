@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use nexus_config::{vm as vm_config, Config, MiscConfig};
+use nexus_config::{Config, MiscConfig};
 use nexus_tools_dev::{command::common::Command as CommonCommand, Command};
 
 pub mod new;
@@ -10,12 +10,16 @@ pub mod request;
 pub mod run;
 pub mod verify;
 
-// TODO: handle default values.
-const DEFAULT_K: usize = 1;
-const DEFAULT_NOVA_IMPL: vm_config::NovaImpl = vm_config::NovaImpl::Parallel;
+/// Default environment variables for prover configuration.
+const ENV: &str = r#"
+NEXUS_VM_K=16
+NEXUS_VM_NOVAIMPL=seq
+"#;
 
 pub fn handle_command(cmd: Command) -> anyhow::Result<()> {
     #![allow(irrefutable_let_patterns)] // rust-analyzer may give a false warning in a workspace.
+
+    dotenvy::from_read(ENV.as_bytes()).expect("env must be valid");
 
     let Command::Common(cmd) = cmd else { unreachable!() };
     match cmd {
@@ -41,4 +45,16 @@ pub(crate) fn cache_path() -> anyhow::Result<PathBuf> {
     std::fs::create_dir_all(&path)?;
 
     Ok(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nexus_config::{Config, VmConfig};
+
+    #[test]
+    fn env_config() {
+        dotenvy::from_read(ENV.as_bytes()).unwrap();
+        <VmConfig as Config>::from_env().unwrap();
+    }
 }

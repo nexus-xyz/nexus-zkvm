@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, num::NonZeroU64};
+use std::marker::PhantomData;
 
 use ark_crypto_primitives::sponge::{
     constraints::{CryptographicSpongeVar, SpongeWithGadget},
@@ -108,7 +108,8 @@ where
 pub type PublicParams<G1, G2, C1, C2, RO, SC> =
     public_params::PublicParams<G1, G2, C1, C2, RO, SC, SetupParams<(G1, G2, C1, C2, RO, SC)>>;
 
-pub struct IVCProof<'a, G1, G2, C1, C2, RO, SC>
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
+pub struct IVCProof<G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -118,13 +119,15 @@ where
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
-    params: &'a PublicParams<G1, G2, C1, C2, RO, SC>,
     z_0: Vec<G1::ScalarField>,
 
     non_base: Option<IVCProofNonBase<G1, G2, C1, C2>>,
+
+    _random_oracle: PhantomData<RO>,
+    _step_circuit: PhantomData<SC>,
 }
 
-impl<G1, G2, C1, C2, RO, SC> Clone for IVCProof<'_, G1, G2, C1, C2, RO, SC>
+impl<G1, G2, C1, C2, RO, SC> Clone for IVCProof<G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -136,13 +139,15 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            params: self.params,
             z_0: self.z_0.clone(),
             non_base: self.non_base.clone(),
+            _random_oracle: PhantomData,
+            _step_circuit: PhantomData,
         }
     }
 }
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 struct IVCProofNonBase<G1, G2, C1, C2>
 where
     G1: SWCurveConfig,
@@ -157,7 +162,7 @@ where
 
     u: R1CSInstance<G1, C1>,
     w: R1CSWitness<G1>,
-    i: NonZeroU64,
+    i: u64,
     z_i: Vec<G1::ScalarField>,
 }
 
@@ -182,7 +187,7 @@ where
     }
 }
 
-impl<'a, G1, G2, C1, C2, RO, SC> IVCProof<'a, G1, G2, C1, C2, RO, SC>
+impl<G1, G2, C1, C2, RO, SC> IVCProof<G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
     G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
@@ -195,15 +200,12 @@ where
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
-    pub fn new(
-        public_params: &'a PublicParams<G1, G2, C1, C2, RO, SC>,
-        z_0: &[G1::ScalarField],
-    ) -> Self {
+    pub fn new(z_0: &[G1::ScalarField]) -> Self {
         Self {
-            params: public_params,
             z_0: z_0.to_owned(),
-
             non_base: None,
+            _random_oracle: PhantomData,
+            _step_circuit: PhantomData,
         }
     }
 
@@ -217,18 +219,22 @@ where
     pub fn step_num(&self) -> u64 {
         self.non_base
             .as_ref()
-            .map(|non_base| non_base.i.get())
+            .map(|non_base| non_base.i)
             .unwrap_or(0)
     }
 
-    pub fn prove_step(self, step_circuit: &SC) -> Result<Self, cyclefold::Error> {
+    pub fn prove_step(
+        self,
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+        step_circuit: &SC,
+    ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "prove_step",
             step_num = %self.step_num(),
         )
         .entered();
-        let IVCProof { params, z_0, non_base } = self;
+        let IVCProof { z_0, non_base, .. } = self;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {
@@ -255,7 +261,7 @@ where
 
             let input = NovaAugmentedCircuitInput::NonBase(NovaAugmentedCircuitNonBaseInput {
                 vk: params.digest,
-                i: G1::ScalarField::from(i.get()),
+                i: G1::ScalarField::from(i),
                 z_0: z_0.clone(),
                 z_i,
                 U: U.clone(),
@@ -280,7 +286,7 @@ where
                 vk: params.digest,
                 z_0: z_0.clone(),
             };
-            let i_next = NonZeroU64::new(1).unwrap();
+            let i_next = 1;
 
             (i_next, input, U, W, U_secondary, W_secondary)
         };
@@ -305,7 +311,6 @@ where
         let z_i = z_i.iter().map(R1CSVar::value).collect::<Result<_, _>>()?;
 
         Ok(Self {
-            params,
             z_0,
 
             non_base: Some(IVCProofNonBase {
@@ -318,10 +323,16 @@ where
                 i: i_next,
                 z_i,
             }),
+            _random_oracle: PhantomData,
+            _step_circuit: PhantomData,
         })
     }
 
-    pub fn verify(&self, num_steps: usize) -> Result<(), cyclefold::Error> {
+    pub fn verify(
+        &self,
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+        num_steps: usize,
+    ) -> Result<(), cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
 
         const NOT_SATISFIED_ERROR: cyclefold::Error =
@@ -343,14 +354,14 @@ where
         } = non_base;
 
         let num_steps = num_steps as u64;
-        if num_steps != i.get() {
+        if num_steps != *i {
             return Err(NOT_SATISFIED_ERROR);
         }
 
-        let mut random_oracle = RO::new(&self.params.ro_config);
+        let mut random_oracle = RO::new(&params.ro_config);
 
-        random_oracle.absorb(&self.params.digest);
-        random_oracle.absorb(&G1::ScalarField::from(i.get()));
+        random_oracle.absorb(&params.digest);
+        random_oracle.absorb(&G1::ScalarField::from(*i));
         random_oracle.absorb(&self.z_0);
         random_oracle.absorb(&z_i);
         random_oracle.absorb(U);
@@ -363,15 +374,13 @@ where
             return Err(NOT_SATISFIED_ERROR);
         }
 
-        self.params
-            .shape
-            .is_relaxed_satisfied(U, W, &self.params.pp)?;
-        self.params.shape_secondary.is_relaxed_satisfied(
+        params.shape.is_relaxed_satisfied(U, W, &params.pp)?;
+        params.shape_secondary.is_relaxed_satisfied(
             U_secondary,
             W_secondary,
-            &self.params.pp_secondary,
+            &params.pp_secondary,
         )?;
-        self.params.shape.is_satisfied(u, w, &self.params.pp)?;
+        params.shape.is_satisfied(u, w, &params.pp)?;
 
         Ok(())
     }
@@ -451,9 +460,9 @@ pub(crate) mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit, &(), &())?;
 
-        let mut recursive_snark = IVCProof::new(&params, &z_0);
-        recursive_snark = recursive_snark.prove_step(&circuit)?;
-        recursive_snark.verify(num_steps).unwrap();
+        let mut recursive_snark = IVCProof::new(&z_0);
+        recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
+        recursive_snark.verify(&params, num_steps).unwrap();
 
         assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(7));
 
@@ -503,12 +512,12 @@ pub(crate) mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit, &(), &())?;
 
-        let mut recursive_snark = IVCProof::new(&params, &z_0);
+        let mut recursive_snark = IVCProof::new(&z_0);
 
         for _ in 0..num_steps {
-            recursive_snark = IVCProof::prove_step(recursive_snark, &circuit)?;
+            recursive_snark = IVCProof::prove_step(recursive_snark, &params, &circuit)?;
         }
-        recursive_snark.verify(num_steps).unwrap();
+        recursive_snark.verify(&params, num_steps).unwrap();
 
         assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(44739235));
         Ok(())

@@ -118,6 +118,7 @@ impl TerminalContext<'_> {
     }
 }
 
+#[derive(Default)]
 pub struct Guard<'a> {
     sender: Option<&'a mpsc::Sender<()>>,
 }

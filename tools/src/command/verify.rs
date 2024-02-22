@@ -4,37 +4,89 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
 use ark_serialize::CanonicalDeserialize;
-use nexus_config::vm as vm_config;
-use nexus_prover::types::PCDNode;
-use nexus_tools_dev::command::common::{public_params::format_params_file, VerifyArgs};
+use nexus_config::{
+    vm::{NovaImpl, VmConfig},
+    Config,
+};
+use nexus_prover::types::{IVCProof, PCDNode, ParPP, SeqPP};
+use nexus_tools_dev::command::common::{
+    prove::LocalProveArgs, public_params::format_params_file, VerifyArgs,
+};
 
-use crate::{command::DEFAULT_K, LOG_TARGET};
+use crate::{command::cache_path, LOG_TARGET};
 
 pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
-    let VerifyArgs { pp_file, k, file } = args;
+    let VerifyArgs {
+        file,
+        prover_args: LocalProveArgs { k, pp_file, nova_impl },
+    } = args;
 
-    verify_proof(&file, k.unwrap_or(DEFAULT_K), pp_file)
+    let vm_config = VmConfig::from_env()?;
+
+    verify_proof(
+        &file,
+        k.unwrap_or(vm_config.k),
+        nova_impl.unwrap_or(vm_config.nova_impl),
+        pp_file,
+    )
 }
 
-fn verify_proof(path: &Path, k: usize, pp_file: Option<PathBuf>) -> anyhow::Result<()> {
+fn verify_proof(
+    path: &Path,
+    k: usize,
+    nova_impl: NovaImpl,
+    pp_file: Option<PathBuf>,
+) -> anyhow::Result<()> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
-    let root = PCDNode::deserialize_compressed(reader)?;
 
-    let path = pp_file
-        .as_deref()
-        .map(|path| path.to_string_lossy().to_string())
-        .unwrap_or_else(|| format_params_file(vm_config::NovaImpl::Parallel, k));
-    let state = nexus_prover::pp::gen_or_load(false, k, &path)?;
+    let path = match pp_file {
+        Some(path) => path,
+        None => {
+            let pp_file_name = format_params_file(nova_impl, k);
+            let cache_path = cache_path()?;
+
+            cache_path.join(pp_file_name)
+        }
+    }
+    .to_str()
+    .context("path is not utf8")?
+    .to_owned();
 
     let mut term = nexus_tui::TerminalHandle::new();
-    let mut ctx = term.context("Verifying").on_step(|_step| "proof".into());
-    let guard = ctx.display_step();
+    let mut ctx = term.context("Verifying").on_step(move |_step| {
+        match nova_impl {
+            NovaImpl::Parallel => "root",
+            NovaImpl::Sequential => "proof",
+        }
+        .into()
+    });
+    let mut _guard = Default::default();
 
-    match root.verify(&state) {
+    let result = match nova_impl {
+        NovaImpl::Parallel => {
+            let root = PCDNode::deserialize_compressed(reader)?;
+            let params: ParPP = nexus_prover::pp::gen_or_load(false, k, &path)?;
+
+            _guard = ctx.display_step();
+            root.verify(&params).map_err(anyhow::Error::from)
+        }
+        NovaImpl::Sequential => {
+            let proof = IVCProof::deserialize_compressed(reader)?;
+            let params: SeqPP = nexus_prover::pp::gen_or_load(false, k, &path)?;
+
+            _guard = ctx.display_step();
+            proof
+                .verify(&params, proof.step_num() as usize)
+                .map_err(anyhow::Error::from)
+        }
+    };
+
+    match result {
         Ok(_) => {
-            drop(guard);
+            drop(_guard);
 
             tracing::info!(
                 target: LOG_TARGET,
@@ -42,11 +94,13 @@ fn verify_proof(path: &Path, k: usize, pp_file: Option<PathBuf>) -> anyhow::Resu
             );
         }
         Err(err) => {
-            guard.abort();
+            _guard.abort();
 
             tracing::error!(
                 target: LOG_TARGET,
                 err = ?err,
+                ?k,
+                %nova_impl,
                 "Proof is invalid",
             );
             std::process::exit(1);

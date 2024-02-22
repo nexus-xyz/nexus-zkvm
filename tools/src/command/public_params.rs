@@ -2,16 +2,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 
-use nexus_config::vm as vm_config;
+use nexus_config::{vm as vm_config, Config};
 use nexus_tools_dev::command::common::public_params::{
     format_params_file, PublicParamsAction, PublicParamsArgs, SetupArgs,
 };
 
-use crate::{
-    command::cache_path,
-    command::{DEFAULT_K, DEFAULT_NOVA_IMPL},
-    LOG_TARGET,
-};
+use crate::{command::cache_path, LOG_TARGET};
 
 pub fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
     let action = args
@@ -26,9 +22,11 @@ pub fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
 }
 
 pub(crate) fn setup_params(args: SetupArgs) -> anyhow::Result<PathBuf> {
+    let vm_config = vm_config::VmConfig::from_env()?;
+
     let force = args.force;
-    let k = args.k.unwrap_or(DEFAULT_K);
-    let nova_impl = args.nova_impl.unwrap_or(DEFAULT_NOVA_IMPL);
+    let k = args.k.unwrap_or(vm_config.k);
+    let nova_impl = args.nova_impl.unwrap_or(vm_config.nova_impl);
 
     let path = match args.path {
         Some(path) => path,

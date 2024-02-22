@@ -17,10 +17,10 @@ macro_rules! cargo_manifest_dir_path {
 }
 
 mod clean;
-mod config;
 mod node;
 
 pub mod common_impl;
+pub mod config;
 
 pub(crate) use config::compile_to_env_from_bases as compile_env_configs;
 
