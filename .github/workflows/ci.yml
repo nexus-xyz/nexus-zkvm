@@ -42,12 +42,3 @@ jobs:
         with:
           toolchain: stable
       - run: cargo test -r --all-features
-
-  codecov:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4.0.1
-      env:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        slug: nexus-xyz/nexus-zkvm
