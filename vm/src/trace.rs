@@ -163,7 +163,7 @@ pub fn trace(vm: &mut NexusVM, k: usize, pow: bool) -> Result<Trace> {
         if vm.inst.opcode == HALT {
             if pow {
                 let count = trace.blocks.len();
-                if count.next_power_of_two() == count {
+                if count.next_power_of_two() == count + 1 {
                     break;
                 }
             } else {

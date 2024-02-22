@@ -49,6 +49,13 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         };
         request_prove(&path, &url)
     } else {
+        // build artifact if needed
+        if release {
+            cargo(None, ["build", "--release"])?;
+        } else {
+            cargo(None, ["build"])?;
+        }
+
         let LocalProveArgs { k, pp_file, nova_impl } = local_args;
         let k = k.unwrap_or(vm_config.k);
         let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);

@@ -1,9 +1,7 @@
 RUST_LOG="""\
 nexus-network=debug,\
 nexus-prover=info,\
-nexus-tools-dev=debug,\
-nexus-nova::sequential=debug,\
-nexus-nova::pcd=debug\
+nexus-tools-dev=debug\
 """
 
 RUST_BACKTRACE="full"

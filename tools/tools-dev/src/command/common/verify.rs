@@ -9,7 +9,7 @@ pub struct VerifyArgs {
     pub pp_file: Option<PathBuf>,
 
     /// File containing completed proof
-    #[arg(default_value = "nexus-proof.json")]
+    #[arg(default_value = "nexus-proof")]
     pub file: PathBuf,
 
     #[arg(short)]

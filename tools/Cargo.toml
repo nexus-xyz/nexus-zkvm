@@ -24,11 +24,11 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 cargo_metadata = "0.18.1"
 clap.workspace = true
-serde_json.workspace = true
+
 nexus-tools-dev = { path = "./tools-dev", default-features = false }
 nexus-config = { path = "../config" }
 nexus-riscv = { path = "../riscv" }
 nexus-prover = { path = "../prover" }
-nexus-network = { path = "../network" }
+nexus-tui = { path = "./tui" }
 
 ark-serialize.workspace = true

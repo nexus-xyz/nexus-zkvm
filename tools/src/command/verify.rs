@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::Context;
 use ark_serialize::CanonicalDeserialize;
 use nexus_config::vm as vm_config;
 use nexus_prover::types::PCDNode;
@@ -21,10 +20,7 @@ pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
 fn verify_proof(path: &Path, k: usize, pp_file: Option<PathBuf>) -> anyhow::Result<()> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
-    let proof: nexus_network::api::Proof = serde_json::from_reader(reader)?;
-
-    let serialized_proof = proof.proof.context("invalid proof object")?;
-    let root = PCDNode::deserialize_compressed(serialized_proof.as_slice())?;
+    let root = PCDNode::deserialize_compressed(reader)?;
 
     let path = pp_file
         .as_deref()
@@ -32,14 +28,22 @@ fn verify_proof(path: &Path, k: usize, pp_file: Option<PathBuf>) -> anyhow::Resu
         .unwrap_or_else(|| format_params_file(vm_config::NovaImpl::Parallel, k));
     let state = nexus_prover::pp::gen_or_load(false, k, &path)?;
 
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut ctx = term.context("Verifying").on_step(|_step| "proof".into());
+    let guard = ctx.display_step();
+
     match root.verify(&state) {
         Ok(_) => {
+            drop(guard);
+
             tracing::info!(
                 target: LOG_TARGET,
                 "Proof is valid",
             );
         }
         Err(err) => {
+            guard.abort();
+
             tracing::error!(
                 target: LOG_TARGET,
                 err = ?err,

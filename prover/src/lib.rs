@@ -47,41 +47,34 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
 }
 
 pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
-    let k = trace.k;
+    // let k = trace.k;
     let tr = Tr(trace);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
     let mut proof = IVCProof::new(pp, &z_0);
 
-    println!("\nProving Execution Trace:");
-    println!("step. {:7} {:8} {:32} time", "pc", "mem[pc]", "inst");
-
-    let start = Instant::now();
-
     let num_steps = tr.steps();
-    for i in 0..num_steps {
-        print!("{:4}. {:51}", i, format!("{} instructions...", k));
-        io::stdout().flush().unwrap();
 
-        let t = Instant::now();
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Computing")
+        .on_step(|step| format!("step {step}"))
+        .num_steps(num_steps)
+        .with_loading_bar("Proving")
+        .completion_header("Proved")
+        .completion_stats(move |elapsed| {
+            format!(
+                "{num_steps} step(s) in {elapsed}; {:.2} instructions / second",
+                icount as f32 / elapsed.as_secs_f32()
+            )
+        });
+
+    for _ in 0..num_steps {
+        let _guard = term_ctx.display_step();
+
         proof = IVCProof::prove_step(proof, &tr)?;
-
-        println!(
-            "{:?}  {:0.2}%",
-            t.elapsed(),
-            ((i + 1) as f32) * 100.0 / (num_steps as f32)
-        );
     }
-    println!(
-        "\nProof Complete: {:.2} instructions / second",
-        icount as f64 / start.elapsed().as_secs_f64()
-    );
 
-    print!("\nVerifying Proof... ");
-    io::stdout().flush().unwrap();
-    let t = Instant::now();
-    proof.verify(num_steps).expect("verify"); // TODO add verify errors?
-    println!("{:?}", t.elapsed());
     Ok(proof)
 }
 
@@ -89,19 +82,44 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
     let k = trace.k;
     let tr = Tr(trace);
 
-    let steps = tr.steps();
-    println!("\nproving {steps} steps...");
+    let num_steps = tr.steps();
+    assert!((num_steps + 1).is_power_of_two());
 
-    let start = Instant::now();
+    let on_step = move |iter: usize| {
+        let b = (num_steps + 1).ilog2();
+        let a = b - 1 - (num_steps - iter).ilog2();
 
-    let mut vs = (0..steps)
+        let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
+        let step_type = if iter <= num_steps / 2 {
+            "leaf"
+        } else if iter == num_steps - 1 {
+            "root"
+        } else {
+            "node"
+        };
+        format!("{step_type} {step}")
+    };
+
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Computing")
+        .on_step(on_step)
+        .num_steps(num_steps)
+        .with_loading_bar("Proving")
+        .completion_header("Proved")
+        .completion_stats(move |elapsed| {
+            format!(
+                "tree root in {elapsed}; {:.2} instructions / second",
+                (k * num_steps) as f32 / elapsed.as_secs_f32()
+            )
+        });
+
+    let mut vs = (0..num_steps)
         .step_by(2)
         .map(|i| {
-            print!("leaf step {i}... ");
-            io::stdout().flush().unwrap();
-            let t = Instant::now();
+            let _guard = term_ctx.display_step();
+
             let v = PCDNode::prove_step(&pp, &tr, i, &tr.input(i)?)?;
-            println!("{:?}", t.elapsed());
             Ok(v)
         })
         .collect::<Result<Vec<_>, ProofError>>()?;
@@ -110,29 +128,16 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
         if vs.len() == 1 {
             break;
         }
-        println!("proving {} vertex steps", vs.len() / 2);
         vs = vs
             .chunks(2)
             .map(|ab| {
-                print!("vertex step ...  ");
-                io::stdout().flush().unwrap();
-                let t = Instant::now();
+                let _guard = term_ctx.display_step();
+
                 let c = PCDNode::prove_from(&pp, &tr, &ab[0], &ab[1])?;
-                println!("{:?}", t.elapsed());
                 Ok(c)
             })
             .collect::<Result<Vec<_>, ProofError>>()?;
     }
 
-    println!(
-        "\nProof Complete: {:.2} instructions / second",
-        (k * tr.steps()) as f64 / start.elapsed().as_secs_f64()
-    );
-
-    print!("\nVerifying root...  ");
-    io::stdout().flush().unwrap();
-    let t = Instant::now();
-    vs[0].verify(&pp)?;
-    println!("{:?}", t.elapsed());
     Ok(vs.into_iter().next().unwrap())
 }

@@ -19,6 +19,7 @@ zstd = { version = "0.12", default-features = false }
 
 nexus-vm = { path = "../vm" }
 nexus-nova = { path = "../nova", features = ["spartan"] }
+nexus-tui = { path = "../tools/tui" }
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
