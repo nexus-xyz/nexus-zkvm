@@ -59,7 +59,6 @@ impl<'a> Timer<'a> {
         let start = Instant::now();
         Self {
             start,
-            // finished: false,
             action,
             num_dots: Cell::new(1),
             last_tick: start,
