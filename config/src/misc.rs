@@ -1,24 +1,27 @@
 use std::path::PathBuf;
 
-use super::{Config, Error};
+use super::Config;
 
 #[derive(serde_wrapper::Deserialize)]
 pub struct MiscConfig {
-    pub cache_path: PathBuf,
+    pub cache: PathBuf,
 }
 
+// NOTE: there's no base value for cache path -- cli reuse workspace target directory for simplicity.
+//
+// Subject to change.
 impl Config for MiscConfig {
-    const PREFIX: &'static str = "MISC";
+    const PREFIX: &'static str = "";
+}
 
-    fn from_env() -> Result<Self, Error> {
-        // NOTE: non-configurable -- hardcoded to reuse workspace target directory for simplicity.
-        //
-        // Subject to change.
-        let manifest_path: PathBuf = env!("CARGO_MANIFEST_DIR").into();
-        let cache_path = manifest_path
-            .parent()
-            .expect("parent directory not found")
-            .join("target/nexus-cache");
-        Ok(Self { cache_path })
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_config() {
+        std::env::set_var("NEXUS_CACHE", "/dev/null");
+
+        <MiscConfig as Config>::from_env().unwrap();
     }
 }

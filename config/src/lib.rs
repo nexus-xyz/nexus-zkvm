@@ -12,17 +12,15 @@ pub trait Config: DeserializeOwned {
     const PREFIX: &'static str;
 
     fn from_env() -> Result<Self, Error> {
-        let prefix =
-            &[constants::CONFIG_ENV_PREFIX, Self::PREFIX].join(constants::CONFIG_SEPARATOR);
-
-        let _result = dotenvy::from_path(constants::CONFIG_ENV_PATH);
-        // don't bail in tests to keep them isolated from env files.
-        #[cfg(not(test))]
-        _result?;
+        let prefix = if Self::PREFIX.is_empty() {
+            constants::CONFIG_ENV_PREFIX.to_owned()
+        } else {
+            [constants::CONFIG_ENV_PREFIX, Self::PREFIX].join(constants::CONFIG_SEPARATOR)
+        };
 
         Ok(config::Config::builder()
             .add_source(
-                config::Environment::with_prefix(prefix).separator(constants::CONFIG_SEPARATOR),
+                config::Environment::with_prefix(&prefix).separator(constants::CONFIG_SEPARATOR),
             )
             .build()?
             .try_deserialize()?)

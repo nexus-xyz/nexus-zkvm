@@ -3,8 +3,9 @@
 //! To avoid recompiling Cli, it shouldn't depend on crates from the workspace, and instead
 //! run binaries with cargo.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use anyhow::Context;
 use clap::Subcommand;
 
 use nexus_config::{Config, MiscConfig};
@@ -43,7 +44,17 @@ pub(crate) fn handle_command(cmd: Command) -> anyhow::Result<()> {
 
 /// Creates and returns the cache path.
 pub(crate) fn cache_path() -> anyhow::Result<PathBuf> {
-    let path = MiscConfig::from_env()?.cache_path;
+    let path = if let Ok(config) = MiscConfig::from_env() {
+        config.cache
+    } else {
+        // default to using workspace target directory
+        let manifest_path = cargo_manifest_dir_path!();
+        manifest_path
+            .parent()
+            .and_then(Path::parent)
+            .context("parent directory not found")?
+            .join("target/nexus-cache")
+    };
     std::fs::create_dir_all(&path)?;
 
     Ok(path)

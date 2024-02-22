@@ -8,6 +8,7 @@ use nexus_tools_dev::command::common::public_params::{
 };
 
 use crate::{
+    command::cache_path,
     command::{DEFAULT_K, DEFAULT_NOVA_IMPL},
     LOG_TARGET,
 };
@@ -32,11 +33,10 @@ pub(crate) fn setup_params(args: SetupArgs) -> anyhow::Result<PathBuf> {
     let path = match args.path {
         Some(path) => path,
         None => {
-            // default to current directory
             let pp_file_name = format_params_file(nova_impl, k);
-            let current_dir = std::env::current_dir()?;
+            let cache_path = cache_path()?;
 
-            current_dir.join(pp_file_name)
+            cache_path.join(pp_file_name)
         }
     };
 
