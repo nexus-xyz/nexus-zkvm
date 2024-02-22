@@ -25,8 +25,11 @@ pub union CacheLine {
 /// The number of bits of address the cacheline holds
 pub const CACHE_BITS: usize = 5;
 
+/// The number of ignored bits in the address
+pub const IGNORED_BITS: usize = 11;
+
 /// The log of the number of `CacheLines` in a complete memory.
-pub const CACHE_LOG: usize = 32 - CACHE_BITS;
+pub const CACHE_LOG: usize = 22 - CACHE_BITS;
 
 // This will generate a compile error if CacheLine is not the right size
 const _: fn() = || {
