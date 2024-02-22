@@ -75,11 +75,6 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
         proof = IVCProof::prove_step(proof, &tr)?;
     }
 
-    {
-        let mut term_ctx = term.context("Verifying").on_step(|_step| "proof".into());
-        let _guard = term_ctx.display_step();
-        proof.verify(num_steps).expect("verify"); // TODO add verify errors?
-    }
     Ok(proof)
 }
 
@@ -142,13 +137,6 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
                 Ok(c)
             })
             .collect::<Result<Vec<_>, ProofError>>()?;
-    }
-
-    {
-        let mut term_ctx = term.context("Verifying").on_step(|_step| "root".into());
-        let _guard = term_ctx.display_step();
-
-        vs[0].verify(&pp)?;
     }
 
     Ok(vs.into_iter().next().unwrap())
