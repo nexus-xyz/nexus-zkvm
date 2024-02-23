@@ -15,9 +15,15 @@ import { Steps } from "nextra/components";
 
 ### 1. Install the Nexus zkVM
 
-First, install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
+First, install Rust: [Rust Install Instructions](https://www.rust-lang.org/tools/install).
 
-Next, install the RISC-V target: `rustup target add riscv32i-unknown-none-elf`.
+Next, install the RISC-V target:
+
+```shell
+rustup target add riscv32i-unknown-none-elf
+```
+
+Also, make sure you have a working version of [cmake](https://cmake.org).
 
 Then, install the Nexus zkVM:
 
@@ -86,12 +92,10 @@ You should see the program print:
 Generate a zero-knowledge proof for your Rust program using the Nexus zkVM.
 
 ```shell
-cargo nexus prove -r
+cargo nexus prove
 ```
 
-> Note: we use the `-r` flag to prove the program in Rust *release* mode, which is significantly faster.
-
-This will generate a proof, and store it in `./nexus-proof.json`.
+This will generate a proof, and store it in `./nexus-proof`.
 
 ### 4. Verify your proof
 
@@ -101,10 +105,7 @@ Finally, load and verify the proof:
 cargo nexus verify
 ```
 
-You should see the program print:
-
-```shell
-INFO nexus-tools: Proof is valid
-```
+You should see the program print `Verifying Proof...` and
+finally `Finished` when complete.
 
 </Steps>
