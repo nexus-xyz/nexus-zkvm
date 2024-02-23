@@ -1,7 +1,4 @@
-// Note: this module will be migrated to the riscv crate
-// so that the NVM crate does not depend on riscv.
-// It is here for now to avoid disturbing the riscv crate
-// until the final PR.
+//! Translation of RISC-V ro NVM.
 
 use std::path::Path;
 use std::fs::read;
@@ -14,10 +11,11 @@ use elf::{
     ElfBytes,
 };
 
-use nexus_riscv::rv32::{RV32, Inst as RVInst, parse::parse_buf};
+use nexus_riscv::rv32::{RV32, Inst as RVInst, parse::parse_inst};
 
-use crate::error::Result;
-use crate::instructions::{Inst, Opcode, Opcode::*};
+use crate::error::{Result, NVMError::ELFFormat};
+use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
+use crate::eval::NVM;
 
 #[inline]
 fn add32(a: u32, b: u32) -> u32 {
@@ -41,6 +39,8 @@ fn mul32(a: u32, b: u32) -> u32 {
 fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
     let RVInst { pc, len: _, word: _, inst: rv } = rv;
 
+    let npc = start + (pc - start) * 2;
+
     let mut inst = Inst::default();
     match rv {
         RV32::LUI { rd, imm } => {
@@ -54,7 +54,7 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
             let res = add32(pc, imm);
             if res >= start && res < end {
                 // assume address of label and adjust
-                inst.imm = add32(pc, mul32(imm, 2));
+                inst.imm = add32(npc, mul32(imm, 2));
             } else {
                 inst.imm = res;
             }
@@ -62,7 +62,7 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
         RV32::JAL { rd, imm } => {
             inst.opcode = JAL;
             inst.rd = rd as u8;
-            inst.imm = add32(pc, mul32(imm, 2));
+            inst.imm = add32(npc, mul32(imm, 2));
         }
         RV32::JALR { rd, rs1, imm } => {
             inst.opcode = JAL;
@@ -113,27 +113,17 @@ fn translate_inst(start: u32, end: u32, rv: RVInst) -> Inst {
     inst
 }
 
-// Translate a code segment from RV32 to NVM. The result
-// is a vector of NVM encoded instructions.
-
-fn translate(pc: u32, bytes: &[u8]) -> Result<Vec<u64>> {
-    let end = pc + bytes.len() as u32;
-    let insts = parse_buf(pc, bytes)?;
-    let mut output: Vec<u64> = Vec::with_capacity(insts.len());
-    for i in insts {
-        output.push(translate_inst(pc, end, i).into());
-    }
-    Ok(output)
-}
-
 /// Translate a RiscV ELF file to NVM.
-
-// Note: no result is constructed at this point.
-
-pub fn translate_elf(path: &Path) -> Result<()> {
+#[allow(clippy::needless_range_loop)]
+#[allow(clippy::field_reassign_with_default)]
+pub fn translate_elf(path: &Path) -> Result<NVM> {
     let file_data = read(path)?;
     let bytes = file_data.as_slice();
-    let file = ElfBytes::<LittleEndian>::minimal_parse(bytes).unwrap();
+    let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
+
+    if file.ehdr.e_entry != 0x1000 {
+        return Err(ELFFormat("invalid start address"));
+    }
 
     let segments: Vec<ProgramHeader> = file
         .segments()
@@ -143,37 +133,106 @@ pub fn translate_elf(path: &Path) -> Result<()> {
         .collect();
 
     if segments.len() != 2 {
-        panic!("ELF format: expected 2 loadable segments");
+        return Err(ELFFormat("expected 2 loadable segments"));
     }
     let code = segments[0];
     let data = segments[1];
 
     if code.p_flags & PF_X != PF_X {
-        panic!("ELF format: expecting one code segment in low memory");
+        return Err(ELFFormat("expecting one code segment in low memory"));
     }
 
     if data.p_flags & PF_X != 0 {
-        panic!("ELF format: expecting one code segment in low memory");
+        return Err(ELFFormat("expecting one data segment in high memory"));
     }
 
-    println!("Code {code:?}");
-    println!("Data {data:?}");
+    if code.p_offset + code.p_filesz * 2 >= data.p_offset {
+        return Err(ELFFormat("not enough room to expand code to NVM"));
+    }
 
-    let s = code.p_offset as usize;
-    let e = (code.p_offset + code.p_filesz) as usize;
+    let mut vm = NVM::default();
+    vm.pc = 0x1000;
 
-    translate(s as u32, &bytes[s..e]).unwrap();
+    // write code segment
+    let s = code.p_offset as u32;
+    let e = (code.p_offset + code.p_filesz) as u32;
+    for i in s..e {
+        let inst = parse_inst(i, &bytes[i as usize..])?;
+        let pc = s + (i - s) * 2;
+        let inst = translate_inst(s, e, inst);
+        vm.memory.write_inst(pc, inst.into())?;
+    }
 
-    Ok(())
+    // write data segment
+    let s = data.p_offset as usize;
+    let e = (data.p_offset + data.p_filesz) as usize;
+    for i in s..e {
+        let b = bytes[i];
+        vm.memory.store(BU, (s + i) as u32, b as u32)?;
+    }
+
+    Ok(vm)
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
+    use crate::eval::eval;
     use nexus_riscv::rv32::{BOP, LOP, SOP, AOP};
+    use nexus_riscv::machines::MACHINES;
+
+    // this function is used by other test crates
+    #[allow(clippy::field_reassign_with_default)]
+    pub fn test_machines() -> Vec<(&'static str, NVM)> {
+        MACHINES
+            .iter()
+            .map(|(name, f_vm, _)| {
+                let rvm = f_vm();
+                let mut nvm = NVM::default();
+                nvm.pc = rvm.regs.pc;
+                let mut i = 0;
+                loop {
+                    let rpc = nvm.pc + i * 4;
+                    let (word, _) = rvm.mem.read_slice(rpc).unwrap();
+                    let inst = match parse_inst(rpc, word) {
+                        Err(_) => break,
+                        Ok(inst) => inst,
+                    };
+
+                    let inst = translate_inst(nvm.pc, nvm.pc + 0x1000, inst);
+                    let dword = u64::from(inst);
+                    let npc = nvm.pc + i * 8;
+                    nvm.memory.write_inst(npc, dword).unwrap();
+
+                    i += 1;
+                }
+                (*name, nvm)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn compare_test_machines() {
+        let tests = MACHINES.iter().zip(test_machines());
+        for ((name, _, f_regs), (_, mut nvm)) in tests {
+            println!("Checking machine {name}");
+            let regs = f_regs();
+
+            eval(&mut nvm, false).unwrap();
+
+            let npc = 0x1000 + (regs.pc - 0x1000) * 2;
+            assert_eq!(nvm.pc, npc);
+
+            // code addresses will not match, so register checks
+            // for tests with jal are skipped
+            if name != &"loop10" && name != &"jump" {
+                assert_eq!(nvm.regs, regs.x);
+            }
+        }
+    }
 
     // these tests check that the invariants assumed by translate
-    // are satisfied: the try_from's will never fail.
+    // are satisfied: the from_u8's will never fail.
     macro_rules! inv {
         ($base:ident, $enum:ident, $op:ident) => {
             assert_eq!(

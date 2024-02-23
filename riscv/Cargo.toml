@@ -12,7 +12,7 @@ categories = { workspace = true }
 [dependencies]
 clap.workspace = true
 serde.workspace = true
-elf = { version = "0.7", default-features = false, features = ["std"] }
+elf.workspace = true
 
 ark-ff.workspace = true
 ark-relations.workspace = true
