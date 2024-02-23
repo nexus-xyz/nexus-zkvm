@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::{Field, PrimeField};
-use ark_poly::{DenseMultilinearExtension, MultilinearExtension};
+use ark_poly::{DenseMultilinearExtension, MultilinearExtension, Polynomial};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::{cmp::max, rc::Rc};
 
@@ -118,7 +118,7 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
             .map(|(c, p)| {
                 *c * p
                     .iter()
-                    .map(|&i| self.flattened_ml_extensions[i].evaluate(point).unwrap())
+                    .map(|&i| self.flattened_ml_extensions[i].evaluate(&point.to_vec()))
                     .product::<F>()
             })
             .sum()

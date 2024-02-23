@@ -157,7 +157,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "ark-ff",
  "ark-poly",
@@ -165,7 +165,7 @@ dependencies = [
  "ark-std",
  "derivative",
  "hashbrown",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "num-bigint",
  "num-traits",
  "rayon",
@@ -175,42 +175,42 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "ark-ff-asm",
  "ark-ff-macros",
  "ark-serialize",
  "ark-std",
+ "arrayvec",
  "derivative",
  "digest 0.10.7",
- "itertools 0.11.0",
+ "itertools 0.12.1",
  "num-bigint",
  "num-traits",
  "paste",
  "rayon",
- "rustc_version",
  "zeroize",
 ]
 
 [[package]]
 name = "ark-ff-asm"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "quote",
- "syn 1.0.109",
+ "syn 2.0.50",
 ]
 
 [[package]]
 name = "ark-ff-macros"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "num-bigint",
  "num-traits",
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.50",
 ]
 
 [[package]]
@@ -237,7 +237,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "ark-ff",
  "ark-serialize",
@@ -250,7 +250,7 @@ dependencies = [
 [[package]]
 name = "ark-poly-commit"
 version = "0.4.0"
-source = "git+https://github.com/arkworks-rs/poly-commit/?rev=c724fa6#c724fa666e935bbba8db5a1421603bab542e15ab"
+source = "git+https://github.com/arkworks-rs/poly-commit/?rev=12f5529#12f5529c9ca609d07dd4683fcd1e196bc375eb0d"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ec",
@@ -295,7 +295,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "ark-serialize-derive",
  "ark-std",
@@ -306,11 +306,11 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.50",
 ]
 
 [[package]]
@@ -367,7 +367,7 @@ dependencies = [
 [[package]]
 name = "ark-test-curves"
 version = "0.4.2"
-source = "git+https://github.com/arkworks-rs/algebra/?rev=c92be0e#c92be0e8815875460e736086a6b02fed9e4273ff"
+source = "git+https://github.com/arkworks-rs/algebra/?rev=2a80c54#2a80c54687582f49cbbe9a27b94071e1a500f056"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -1445,9 +1445,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.11.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
