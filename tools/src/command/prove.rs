@@ -136,8 +136,10 @@ fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()
     let mut context = term.context("Saving").on_step(|_step| "proof".into());
     let _guard = context.display_step();
 
-    let file = std::fs::File::create(path)?;
-    proof.serialize_compressed(file)?;
+    let mut buf = Vec::new();
+
+    proof.serialize_compressed(&mut buf)?;
+    std::fs::write(path, buf)?;
 
     Ok(())
 }
