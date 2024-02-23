@@ -36,8 +36,7 @@ pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
         .filter(|phdr| phdr.p_type == PT_LOAD)
         .collect();
 
-    // TODO: read PC from elf file (and related changes)
-    let mut vm = VM::new(0x1000);
+    let mut vm = VM::new(file.ehdr.e_entry as u32);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
