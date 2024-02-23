@@ -16,6 +16,7 @@
 //!
 //! as a full binary tree of pcd nodes
 //!
+//!```text
 //!              ┌───┐
 //!        ┌─────┤ 3 ├─────┐
 //!        │     └───┘     │
@@ -25,6 +26,7 @@
 //!  ┌─┴─┐   ┌─┴─┐   ┌─┴─┐   ┌─┴─┐
 //!  │ 0 │   │ 2 │   │ 4 │   │ 6 │
 //!  └───┘   └───┘   └───┘   └───┘
+//!```
 //!
 //! To get to the root of the tree, a prover would start with proving even steps of F_i -- leaves.
 //! Folding leaf [i; i + 1) with [i + 1; i + 2) will require prover to execute step i + 1, the output
