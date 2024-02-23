@@ -9,7 +9,7 @@ use crate::error::*;
 
 pub fn gen_key(pp: &ComPP, srs: &SRS) -> Result<SpartanKey, ProofError> {
     //todo: handle error better
-    Ok(SNARK::setup(&pp, &srs).unwrap())
+    Ok(SNARK::setup(pp, srs).unwrap())
 }
 
 pub fn save_key(key: SpartanKey, file: &str) -> Result<(), ProofError> {

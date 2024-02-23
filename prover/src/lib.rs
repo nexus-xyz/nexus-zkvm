@@ -276,7 +276,7 @@ pub fn compress(
         unimplemented!()
     };
 
-    let compressed_pcd_proof = SNARK::compress(&compression_pp, &key, node).unwrap();
+    let compressed_pcd_proof = SNARK::compress(compression_pp, key, node).unwrap();
 
     // And check that the compressed proof verifies.
     SNARK::verify(key, compression_pp, &compressed_pcd_proof).unwrap();
