@@ -124,3 +124,4 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
             .sum()
     }
 }
+BBB

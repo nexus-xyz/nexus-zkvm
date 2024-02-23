@@ -1,6 +1,7 @@
 use ark_ec::{AdditiveGroup, CurveGroup};
-use ark_ff::Field;
+use ark_ff::{Field, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_crypto_primitives::sponge::Absorb;
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
 use ark_std::{ops::Neg, Zero};
@@ -10,6 +11,8 @@ use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator,
     IntoParallelRefMutIterator, ParallelIterator,
 };
+
+use super::absorb::AbsorbNonNative;
 
 use super::r1cs::R1CSShape;
 pub use super::sparse::{MatrixRef, SparseMatrix};
@@ -199,6 +202,27 @@ impl<G: CurveGroup> CCSWitness<G> {
     }
 }
 
+impl<G, C> Absorb for CCSInstance<G, C>
+where
+    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G::ScalarField: Absorb,
+    C: PolyCommitmentScheme<G>,
+    C::Commitment: Into<G>,
+{
+    fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
+        unreachable!()
+    }
+
+    fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+            &self.commitment_W.into(),
+            dest,
+        );
+
+        self.X.to_sponge_field_elements(dest);
+    }
+}
+
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
     /// A method to create an instance object using constituent elements.
     pub fn new(
@@ -217,6 +241,29 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
                 X: X.to_owned(),
             })
         }
+    }
+}
+
+impl<G, C> Absorb for LCCSInstance<G, C>
+where
+    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G::ScalarField: Absorb,
+    C: PolyCommitmentScheme<G>,
+    C::Commitment: Into<G>,
+{
+    fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
+        unreachable!()
+    }
+
+    fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
+        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+            &self.commitment_W.into(),
+            dest,
+        );
+
+        self.X.to_sponge_field_elements(dest);
+        self.rs.to_sponge_field_elements(dest);
+        self.xs.to_sponge_field_elements(dest);
     }
 }
 
