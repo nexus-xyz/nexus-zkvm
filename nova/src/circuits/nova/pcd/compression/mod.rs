@@ -370,7 +370,7 @@ mod tests {
         .unwrap();
 
         // Now, we perform a PCD proof step and check that the resulting proof verifies.
-        let nova_proof = PCDNode::prove_step(&params, &circuit, 0, &z_0).unwrap();
+        let nova_proof = PCDNode::prove_leaf(&params, &circuit, 0, &z_0).unwrap();
         nova_proof.verify(&params).unwrap();
 
         assert_eq!(&nova_proof.z_j, &z_1);

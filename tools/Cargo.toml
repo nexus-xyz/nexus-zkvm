@@ -20,6 +20,7 @@ path = "src/bin/nexus-run.rs"
 
 [dependencies]
 anyhow = "1.0"
+dotenvy = "0.15.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 cargo_metadata = "0.18.1"

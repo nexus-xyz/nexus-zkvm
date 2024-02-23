@@ -21,7 +21,7 @@ use crate::{
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
-        common_args: CommonProveArgs { release, bin },
+        common_args: CommonProveArgs { profile, bin },
         network,
         url,
         local_args,
@@ -31,12 +31,12 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     compile_env_configs(false)?;
     let vm_config = VmConfig::from_env()?;
 
-    let path = path_to_artifact(bin, release)?;
+    let path = path_to_artifact(bin, &profile)?;
 
-    if !release {
+    if &profile == "dev" {
         tracing::warn!(
             target: LOG_TARGET,
-            "proving debug build, use `-r` for release",
+            "proving debug build",
         )
     }
 
@@ -50,11 +50,7 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         request_prove(&path, &url)
     } else {
         // build artifact if needed
-        if release {
-            cargo(None, ["build", "--release"])?;
-        } else {
-            cargo(None, ["build"])?;
-        }
+        cargo(None, ["build", "--profile", &profile])?;
 
         let LocalProveArgs { k, pp_file, nova_impl } = local_args;
         let k = k.unwrap_or(vm_config.k);

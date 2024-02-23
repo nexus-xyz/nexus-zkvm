@@ -35,9 +35,9 @@ pub struct LocalProveArgs {
 
 #[derive(Debug, Args)]
 pub struct CommonProveArgs {
-    /// Use release mode artifacts.
-    #[arg(short, long)]
-    pub release: bool,
+    /// Build artifacts with the specified profile. "release" is default.
+    #[arg(long, default_value = "release")]
+    pub profile: String,
 
     /// Name of the bin target to run.
     #[arg(long)]

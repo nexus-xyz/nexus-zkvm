@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use ark_serialize::CanonicalSerialize;
 
-use nexus_config::vm as vm_config;
+use nexus_config::{vm as vm_config, Config};
 use nexus_tools_dev::{
     command::common::{
         prove::{CommonProveArgs, LocalProveArgs, ProveArgs},
@@ -15,25 +15,23 @@ use nexus_tools_dev::{
     utils::{cargo, path_to_artifact},
 };
 
-use crate::{
-    command::{public_params::setup_params, DEFAULT_K, DEFAULT_NOVA_IMPL},
-    LOG_TARGET,
-};
+use crate::{command::public_params::setup_params, LOG_TARGET};
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
-        common_args: CommonProveArgs { release, bin },
+        common_args: CommonProveArgs { profile, bin },
         network,
         url,
         local_args,
     } = args;
 
-    let path = path_to_artifact(bin, release)?;
+    let path = path_to_artifact(bin, &profile)?;
+    let vm_config = vm_config::VmConfig::from_env()?;
 
-    if !release {
+    if &profile == "dev" {
         tracing::warn!(
             target: LOG_TARGET,
-            "proving debug build, use `-r` for release",
+            "proving debug build",
         )
     }
 
@@ -42,15 +40,11 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         request_prove(&path, &url)
     } else {
         // build artifact if needed
-        if release {
-            cargo(None, ["build", "--release"])?;
-        } else {
-            cargo(None, ["build"])?;
-        }
+        cargo(None, ["build", "--profile", &profile])?;
 
         let LocalProveArgs { k, pp_file, nova_impl } = local_args;
-        let k = k.unwrap_or(DEFAULT_K);
-        let nova_impl = nova_impl.unwrap_or(DEFAULT_NOVA_IMPL);
+        let k = k.unwrap_or(vm_config.k);
+        let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);
         local_prove(&path, k, nova_impl, pp_file)
     }
 }
@@ -113,33 +107,39 @@ fn local_prove(
     };
     let trace = nexus_prover::run(&opts, true)?;
 
+    let current_dir = std::env::current_dir()?;
+    let proof_path = current_dir.join("nexus-proof");
+
     if nova_impl == vm_config::NovaImpl::Parallel {
-        let state = nexus_prover::pp::gen_or_load(false, DEFAULT_K, path_str)?;
+        let state = nexus_prover::pp::gen_or_load(false, k, path_str)?;
         let root = nexus_prover::prove_par(state, trace)?;
 
-        let current_dir = std::env::current_dir()?;
-        let path = current_dir.join("nexus-proof");
-        tracing::info!(
-            target: LOG_TARGET,
-            path = %path.display(),
-            "Saving the proof",
-        );
-
-        let mut term = nexus_tui::TerminalHandle::new();
-        let mut context = term.context("Saving").on_step(|_step| "proof".into());
-        let _guard = context.display_step();
-
-        let file = std::fs::File::create(path)?;
-        root.serialize_compressed(file)?;
+        save_proof(root, &proof_path)?;
     } else {
-        let state = nexus_prover::pp::gen_or_load(false, DEFAULT_K, path_str)?;
-        nexus_prover::prove_seq(&state, trace)?;
+        let state = nexus_prover::pp::gen_or_load(false, k, path_str)?;
+        let proof = nexus_prover::prove_seq(&state, trace)?;
 
-        tracing::warn!(
-            target: LOG_TARGET,
-            "Storing proofs on disk requires parallel mode",
-        );
+        save_proof(proof, &proof_path)?;
     }
+
+    Ok(())
+}
+
+fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
+    tracing::info!(
+        target: LOG_TARGET,
+        path = %path.display(),
+        "Saving the proof",
+    );
+
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut context = term.context("Saving").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
+
+    let mut buf = Vec::new();
+
+    proof.serialize_compressed(&mut buf)?;
+    std::fs::write(path, buf)?;
 
     Ok(())
 }

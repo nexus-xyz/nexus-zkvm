@@ -155,7 +155,7 @@ fn prove_leaf(
         ?i,
         "proving leaf",
     );
-    let node = PCDNode::prove_step_with_commit_fn(&st.pp, &tr, i, &tr.input(i)?, |_pp, w| {
+    let node = PCDNode::prove_leaf_with_commit_fn(&st.pp, &tr, i, &tr.input(i)?, |_pp, w| {
         request_msm(rt, st, w)
     })?;
     Ok(node)
@@ -170,7 +170,7 @@ fn prove_node(
 ) -> std::result::Result<PCDNode, ProofError> {
     let tr = Tr(trace);
     let node =
-        PCDNode::prove_from_with_commit_fn(&st.pp, &tr, &l, &r, |_pp, w| request_msm(rt, st, w))?;
+        PCDNode::prove_parent_with_commit_fn(&st.pp, &tr, &l, &r, |_pp, w| request_msm(rt, st, w))?;
     Ok(node)
 }
 

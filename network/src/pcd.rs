@@ -216,9 +216,9 @@ mod test {
     fn round_trip_node() {
         let circuit = nop_circuit(3).unwrap();
         let pp: ParPP = gen_pp(&circuit).unwrap();
-        let n0 = PCDNode::prove_step(&pp, &circuit, 0, &circuit.input(0).unwrap()).unwrap();
-        let n2 = PCDNode::prove_step(&pp, &circuit, 2, &circuit.input(2).unwrap()).unwrap();
-        let n = PCDNode::prove_from(&pp, &circuit, &n0, &n2).unwrap();
+        let n0 = PCDNode::prove_leaf(&pp, &circuit, 0, &circuit.input(0).unwrap()).unwrap();
+        let n2 = PCDNode::prove_leaf(&pp, &circuit, 2, &circuit.input(2).unwrap()).unwrap();
+        let n = PCDNode::prove_parent(&pp, &circuit, &n0, &n2).unwrap();
 
         let i = std::time::Instant::now();
         round_trip(&NodeReq(vec![(n0, circuit.0.clone())]));

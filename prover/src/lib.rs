@@ -51,7 +51,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     let tr = Tr(trace);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
-    let mut proof = IVCProof::new(pp, &z_0);
+    let mut proof = IVCProof::new(&z_0);
 
     let num_steps = tr.steps();
 
@@ -72,7 +72,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     for _ in 0..num_steps {
         let _guard = term_ctx.display_step();
 
-        proof = IVCProof::prove_step(proof, &tr)?;
+        proof = IVCProof::prove_step(proof, pp, &tr)?;
     }
 
     Ok(proof)
@@ -119,7 +119,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
         .map(|i| {
             let _guard = term_ctx.display_step();
 
-            let v = PCDNode::prove_step(&pp, &tr, i, &tr.input(i)?)?;
+            let v = PCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
             Ok(v)
         })
         .collect::<Result<Vec<_>, ProofError>>()?;
@@ -133,7 +133,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
             .map(|ab| {
                 let _guard = term_ctx.display_step();
 
-                let c = PCDNode::prove_from(&pp, &tr, &ab[0], &ab[1])?;
+                let c = PCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
                 Ok(c)
             })
             .collect::<Result<Vec<_>, ProofError>>()?;

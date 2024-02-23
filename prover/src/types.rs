@@ -45,5 +45,5 @@ pub type PP<SP> = PublicParams<G1, G2, C1, C2, RO, SC, SP>;
 pub type SeqPP = seq::PublicParams<G1, G2, C1, C2, RO, SC>;
 pub type ParPP = pcd::PublicParams<G1, G2, C1, C2, RO, SC>;
 
-pub type IVCProof<'a> = seq::IVCProof<'a, G1, G2, C1, C2, RO, SC>;
+pub type IVCProof = seq::IVCProof<G1, G2, C1, C2, RO, SC>;
 pub type PCDNode = pcd::PCDNode<G1, G2, C1, C2, RO, SC>;

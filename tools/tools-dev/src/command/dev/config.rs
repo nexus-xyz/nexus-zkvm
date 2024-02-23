@@ -91,11 +91,12 @@ pub(crate) fn compile_to_env_from_bases(force: bool) -> anyhow::Result<()> {
         "saved config to {}",
         path.display()
     );
+    dotenvy::from_path(nexus_config::constants::CONFIG_ENV_PATH)?;
 
     Ok(())
 }
 
-fn compile_flat_config(prefix: &str, raw_table: &str) -> anyhow::Result<Vec<(String, String)>> {
+pub fn compile_flat_config(prefix: &str, raw_table: &str) -> anyhow::Result<Vec<(String, String)>> {
     let mut values = Vec::new();
     let toml_config: toml::Table = toml::from_str(raw_table)?;
 
