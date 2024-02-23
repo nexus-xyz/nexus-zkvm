@@ -1,3 +1,39 @@
+//! Cycle-fold Nova based proof carrying data construction.
+//!
+//! Similar to [IVC](super::sequential::IVCProof) each [`PCDNode`] proves a range of computing F_i,
+//! with the difference of left index possibly being non-zero.
+//!
+//! A node proving range [i; k) can be folded with another node that proves range [k; j) to build a new
+//! node with range [i; j). These indices correspond to [`PCDNode::min_step`] and [`PCDNode::max_step`].
+//! Therefore, this construction is often associated with binary tree, where the root proves the whole
+//! n steps in range [0; n).
+//!
+//! ### Example
+//!
+//! For simplicity, notating i as F_i(z_i), one can prove sequential computation
+//!
+//! 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6
+//!
+//! as a full binary tree of pcd nodes
+//!
+//!              ┌───┐
+//!        ┌─────┤ 3 ├─────┐
+//!        │     └───┘     │
+//!      ┌─┴─┐           ┌─┴─┐
+//!    ┌─┤ 1 ├─┐       ┌─┤ 5 ├─┐
+//!    │ └───┘ │       │ └───┘ │
+//!  ┌─┴─┐   ┌─┴─┐   ┌─┴─┐   ┌─┴─┐
+//!  │ 0 │   │ 2 │   │ 4 │   │ 6 │
+//!  └───┘   └───┘   └───┘   └───┘
+//!
+//! To get to the root of the tree, a prover would start with proving even steps of F_i -- leaves.
+//! Folding leaf [i; i + 1) with [i + 1; i + 2) will require prover to execute step i + 1, the output
+//! will be a parent node proving [i; i + 2).
+//!
+//! This algorithm is then applied recursively to each pair of nodes.
+//!
+//! Current implementation requires padding execution of F to next (2 ** n - 1).
+
 use std::marker::PhantomData;
 
 use ark_crypto_primitives::sponge::{
@@ -164,18 +200,18 @@ where
         self.j
     }
 
-    pub fn prove_step(
+    pub fn prove_leaf(
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         step_circuit: &SC,
         i: usize,
         z_i: &[G1::ScalarField],
     ) -> Result<Self, cyclefold::Error> {
-        Self::prove_step_with_commit_fn(params, step_circuit, i, z_i, |pp, w| w.commit::<C1>(pp))
+        Self::prove_leaf_with_commit_fn(params, step_circuit, i, z_i, |pp, w| w.commit::<C1>(pp))
     }
 
     /// Proves step of step circuit execution and calls `commit_fn(pp, w)` to
     /// compute commitment to the witness of the augmented circuit.
-    pub fn prove_step_with_commit_fn(
+    pub fn prove_leaf_with_commit_fn(
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         step_circuit: &SC,
         i: usize,
@@ -239,18 +275,18 @@ where
         })
     }
 
-    pub fn prove_from(
+    pub fn prove_parent(
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         step_circuit: &SC,
         left_node: &Self,
         right_node: &Self,
     ) -> Result<Self, cyclefold::Error> {
-        Self::prove_from_with_commit_fn(params, step_circuit, left_node, right_node, |pp, w| {
+        Self::prove_parent_with_commit_fn(params, step_circuit, left_node, right_node, |pp, w| {
             w.commit::<C1>(pp)
         })
     }
 
-    pub fn prove_from_with_commit_fn(
+    pub fn prove_parent_with_commit_fn(
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         step_circuit: &SC,
         left_node: &Self,
@@ -470,7 +506,7 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit, &(), &())?;
 
-        let recursive_snark = PCDNode::prove_step(&params, &circuit, 0, &z_0)?;
+        let recursive_snark = PCDNode::prove_leaf(&params, &circuit, 0, &z_0)?;
         recursive_snark.verify(&params)?;
 
         assert_eq!(&recursive_snark.z_j, &z_1);
@@ -525,10 +561,10 @@ mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config, &circuit, &(), &())?;
 
-        let node_0 = PCDNode::prove_step(&params, &circuit, 0, z[0])?;
-        let node_1 = PCDNode::prove_step(&params, &circuit, 2, z[2])?;
+        let node_0 = PCDNode::prove_leaf(&params, &circuit, 0, z[0])?;
+        let node_1 = PCDNode::prove_leaf(&params, &circuit, 2, z[2])?;
 
-        let root = PCDNode::prove_from(&params, &circuit, &node_0, &node_1)?;
+        let root = PCDNode::prove_parent(&params, &circuit, &node_0, &node_1)?;
 
         assert_eq!(&root.z_i, &z[0]);
         assert_eq!(&root.z_j, &z[3]);

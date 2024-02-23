@@ -119,7 +119,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
         .map(|i| {
             let _guard = term_ctx.display_step();
 
-            let v = PCDNode::prove_step(&pp, &tr, i, &tr.input(i)?)?;
+            let v = PCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
             Ok(v)
         })
         .collect::<Result<Vec<_>, ProofError>>()?;
@@ -133,7 +133,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
             .map(|ab| {
                 let _guard = term_ctx.display_step();
 
-                let c = PCDNode::prove_from(&pp, &tr, &ab[0], &ab[1])?;
+                let c = PCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
                 Ok(c)
             })
             .collect::<Result<Vec<_>, ProofError>>()?;
