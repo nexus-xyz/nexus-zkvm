@@ -515,7 +515,7 @@ pub(crate) mod tests {
         let mut recursive_snark = IVCProof::new(&z_0);
 
         for _ in 0..num_steps {
-            recursive_snark = IVCProof::prove_leaf(recursive_snark, &params, &circuit)?;
+            recursive_snark = IVCProof::prove_step(recursive_snark, &params, &circuit)?;
         }
         recursive_snark.verify(&params, num_steps).unwrap();
 
