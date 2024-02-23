@@ -40,9 +40,7 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         request_prove(&path, &url)
     } else {
         // build artifact if needed
-        if !path.try_exists()? {
-            cargo(None, ["build", "--profile", &profile])?;
-        }
+        cargo(None, ["build", "--profile", &profile])?;
 
         let LocalProveArgs { k, pp_file, nova_impl } = local_args;
         let k = k.unwrap_or(vm_config.k);
