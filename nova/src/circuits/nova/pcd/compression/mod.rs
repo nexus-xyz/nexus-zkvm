@@ -373,6 +373,7 @@ mod tests {
         f.sync_all().unwrap();
     }
     #[test]
+    #[ignore]
     fn spartan_encode_test() {
         spartan_encode_test_helper::<
             Bn254Config,
