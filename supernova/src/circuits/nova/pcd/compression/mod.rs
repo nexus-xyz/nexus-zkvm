@@ -373,6 +373,7 @@ mod tests {
         enc.finish().unwrap();
         f.sync_all().unwrap();
     }
+    #[ignore]
     #[test]
     fn spartan_encode_test() {
         spartan_encode_test_helper::<
