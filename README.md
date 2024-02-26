@@ -20,6 +20,12 @@
     <a href="https://nexus.xyz">
         <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/>
     </a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-MIT">
+        <img src="https://img.shields.io/badge/license-MIT-blue"/>
+    </a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-APACHE">
+        <img src="https://img.shields.io/badge/license-APACHE-blue"/>
+    </a>
 </div>
 
 # The Nexus zkVM
@@ -126,3 +132,5 @@ cargo nexus verify
 Run `cargo nexus --help` to see all the available commands.
 
 Also check out the documentation at [docs.nexus.xyz](https://docs.nexus.xyz), or join our [Telegram](https://t.me/nexus_zkvm) chat to discuss!
+
+Nexus is committed to open-source. All of our code is dual licensed under MIT and Apache licenses. We encourage and appreciate contributions.
