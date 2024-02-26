@@ -5,7 +5,8 @@
     }
   },
   "network": {},
-  "quick-start": "Quick Start",
+  "zkVM": {},
+  "Specs": {},
   "svg": {
     "title": "SVG Images",
     "display": "hidden"
