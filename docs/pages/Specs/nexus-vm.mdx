@@ -1,29 +1,17 @@
 ---
-title: "Nexus-zkVM Specification"
+title: "Nexus Virtual Machine"
 lang: en-US
-description: "A description of the Nexus Zero-Knowledge Virtual Machine."
+description: "A description of the Nexus Virtual Machine."
 image: "/nexus-head.png"
 ---
 
-# Introduction
-
-
-# Nexus Zero-Knowledge Virtual Machine
-The *Nexus Zero-Knowledge Virtual Machine* (***Nexus zkVM*** for short) is a general computing platform allowing programs to be executed in a verifiable way.  The Nexus zkVM architecture has two main components: the *Nexus Virtual Machine* and the *Nexus Proof System*.
-
-The Nexus zkVM provides not only a general computing platform on which programs written in other languages can be compiled to run, but also a unified computing paradigm enabling the generation of accurate claims and proofs about the correctness of the computation.
-
-Being inspired by the RISC-V ISA [[WLPA14](#References)] and the vnTinyRAM architecture [[CGTV20](#References)], the Nexus VM can be easily translated from the RISC-V instruction set, for which a rich set of compilation tools already exists. As a result, the Nexus zkVM can easily support the verifiable execution of programs written in high-level programming languages such as Rust and C++. Support for other machine architectures such as EVM and Wasm can be provided through translation, emulation, or native execution.
-
-The first iteration of the Nexus Virtual Machine provides support for circuits encoded in Rank-1 Constraint Satisfiability (R1CS). Future versions of the Nexus zkVM will provide support for user-defined circuits encoded in CCS [[STW23](#References)], a modern encoding that simultaneously captures R1CS, Plonkish, and AIR. 
-
-## Nexus Virtual Machine
+# Nexus Virtual Machine
 
 The Nexus Virtual Machine (Nexus VM) is a reduced instruction set computer (RISC) with a word-addressable random-access memory and input tapes. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
 
-### Nexus Virtual Machine Architecture
+## Nexus Virtual Machine Architecture
 
-The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions and data in the same read-write memory space.  The machine has 32 registers and a read-write memory with addresses in the range $\{0\ldots 2^{32}\}$.   The state of the machine is defined as a five-tuple, $(pc;M;R;I;W)$, where
+The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions and data in the same read-write memory space.  The machine has 32 registers and a read-write memory with addresses in the range $\{0\ldots 2^{32}-1\}$.   The state of the machine is defined as a five-tuple, $(pc;M;R;I;W)$, where
 * $pc$ denotes the program counter register;
 * $M$ denotes the memory;
 * $R$ denotes the set of registers;
@@ -123,7 +111,7 @@ We also do not specify an output tape. Nevertheless, one can easily return arbit
 
 As we show in the next section, the RISC-V instruction set can be easily compiled to the instruction set of the Nexus VM, by applying a simple translation function to a subset of these instructions. As a result, the Nexus VM can effortlessly support the execution of programs written in high-level programming languages such as Rust and C++. In addition to that, as indicated further below, future versions of the Nexus VM will be able to be *extended* with custom instructions (e.g. SHA-256). 
 
-### Translation from RISC-V to Nexus VM
+## Translation from RISC-V to Nexus VM
 
 
 The syntax of RISC-V instructions supported by the Nexus VM is the following:
@@ -204,14 +192,14 @@ $$
 
 Note that, the special RISC-V load immediate instructions ($\textbf{lui}$ and $\textbf{auipc}$), are a result of the fixed 32-bit encoding of instructions. The Nexus VM relaxes this constraint allowing for a reduced instruction set.
 
-### Nexus Virtual Machine Initialization
+## Nexus Virtual Machine Initialization
 
 Initially, the memory is assumed to only contain undefined values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x1000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link). 
 
 In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x1000}$.
 
 
-### Nexus Virtual Machine Extensions
+## Nexus Virtual Machine Extensions
 
 While the universality of the current instruction set allows for executing any program on the Nexus VM, the translation process may yield inefficient programs due to the limited instruction set of the Nexus VM. As a result, proving the correctness of such computations within the Nexus zkVM may become infeasible for more complex programs. The cost of such an abstraction may be multiplied by more than a $1000$ factor for functions such as the SHA-256 circuit.
 
@@ -231,57 +219,7 @@ The main advantage of using co-processors is that it maintains a developer-frien
 Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined co-processors written as as CCS circuits [[STW23](#References)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set.
 CCS circuits are a generalization of R1CS [[GGPR13](#References)], Plonkish [[GWC19; CBBZ23](#References)], and AIR [[BBHR19; Sta21; BCKL22](#References)].
 
-## Nexus Proof System
-
-The second main component of the Nexus zkVM is the Nexus Proof System, which provides proofs of correctness for any computation being run on the Nexus VM. In order to realize this goal and be able to support arbitrarily large computations, the Nexus Proof System relies on modern recursive zero-knowledge proof systems such as folding and accumulation schemes [[KST22; KS22; BC23](#References)] to achieve a high level of parallelization.
-
-Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors.  The proof generation process for $P$ has four main steps: 
-1. Nexus zkVM initialization;
-2. Program execution;
-3. Proof accumulation; and
-4. Proof compression.
-
-The following subsections provide an overview of each of these  components.
-
-### Initialization
-
-Let $P$ be a program that which we execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x1000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
-
-In order to enforce the consistency of the memory throughout the execution of the program $P$, the Nexus zkVM currently uses Merkle Trees [[M87](#References)] for memory checking together with the Poseidon hash function [[GKR21](#References)]. In this method, we compute a Merkle root associated with the current contents of the memory and we update its value whenever there is a change to the contents of the memory.
-
-Since the memory for the Nexus VM contains $2^{32}$ bytes, we associate leafs to 256-bit-long strings (i.e., 32 bytes) and then use a Merkle binary tree with 27 levels to describe its contents. In order to compute the Merkle root for the initial memory, we compute a default value for each tree level starting from the leaves and ending with the Merkle root. To compute the default value for a given level, we simply compute the hash of the concatenation of two default values for the level below.
-
-Once the Merkle Root for the initial state is computed, the Nexus zkVM starts loading the program $P$ one instruction at a time, updating the Merkle Tree Root accordingly after each memory update. 
-
-Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for the current state of the memory as the public input to the execution step of the proof system.
-
-### Program execution
-
-After receiving a Merkle proof from the initialization step with a Merkle proof for the initial memory state with the program loaded at address $\mathtt{0x1000}$, the Nexus zkVM runs the program on the Nexus VM and generates a full execution trace for it. This execution trace is then passed to the proof accumulation step, as indicated in the following diagram, where each step $F$ denotes one step of the Nexus VM.
-
-![zkvm-architecture](/images/execution-sequence.svg)
-
-### Proof accumulation
-
-In order to enable a high-level of parallelization without impacting the efficiency of the scheme, the Nexus zkVM uses proof accumulation (without SNARKs), represented by the IVC step in the diagram above. The main advantage of using such schemes is that it realizes the notion of Proof-Carrying Data (PCD) [CT10], a generalization of IVC to the distributed setting.
-
-In the current version of Nexus zkVM, this step makes use of  the Nova folding scheme [[KST22](#References)] over a cycle of elliptic curves.
-
-This is the most computationally expensive part of the proof generation, since each folding step requires computing a single multi-scalar multiplication (MSM). Nevertheless, this computation is highly parallelizable. 
-
-
-### Proof compression
-
-Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short.
-
-
-## Nexus zkVM costs
-
-Most of instructions of the Nexus VM instruction set can be implemented quite efficiently requiring less than 2000 constraints in total. The main exception are memory operations, which require expensive Merkle proof computations. More precisely, in the case of a memory update, one needs to compute 3 Merkle proofs, one to read the current instruction from memory, one to read the current contents of the memory location, and one to update that memory location. Each of the Merkle proofs require about 10000 constraints (about 400 constraints for each of the 27 levels of the Merkle tree).
-
-Since the current version of the Nexus VM uses a universal model of computation, the total cost of each proof accumulation step is currently around 32000 constraints, which is quite inefficient. However, we expect to significantly improve these costs by using better memory checking techniques and a non-uniform model of computation. The use of co-processors also has the pontential to significantly improve the efficiency of the Nexus Proof System. 
-
-# References
+## References
 
 [[BBHR19](https://www.iacr.org/archive/crypto2019/116940201/116940201.pdf)] Eli Ben-Sasson, Iddo Bentov, Yinon Horesh, and Michael Riabzev. “Scalable zero knowledge with no trusted setup”. In CRYPTO 2019.
 
@@ -289,34 +227,18 @@ Since the current version of the Nexus VM uses a universal model of computation,
 
 [[BCKL22](https://eprint.iacr.org/2022/1542)] Eli Ben-Sasson, Dan Carmon, Swastik Kopparty, and David Levit. “Scalable and transparent proofs over all large fields, via elliptic curves”. In: Electronic Colloquium on Computational Complexity, Report. Vol. 110. 2022, p. 2022
 
-[[CGTV20](https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)] Eli Ben-Sasson Alessandro Chiesa, Daniel Genkin, Eran Tromer, and Madars Virza. “TinyRAM Architecture Specification v2. 000”. (2020) 
-
 [[CBBZ23](https://eprint.iacr.org/2022/1355)] Binyi Chen, Benedikt Bünz, Dan Boneh, and Zhenfei Zhang. “Hyperplonk: Plonk with linear-time prover and high-degree custom gates”. In EUROCRYPT 2023. 
 
-[[CT10](https://projects.csail.mit.edu/pcd/)] Alessandro Chiesa and Eran Tromer. “Proof-Carrying Data and Hearsay Arguments from Signature Cards.” In: ICS. Vol. 10. 2010, pp. 310–331
-
 [[GGPR13](https://eprint.iacr.org/2012/215.pdf)] Rosario Gennaro, Craig Gentry, Bryan Parno, and Mariana Raykova. “Quadratic span programs and succinct NIZKs without PCPs”. In EUROCRYPT 2013.
-
-[[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for Zero-Knowledge proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
 
 [[GWC19](https://eprint.iacr.org/2019/953)] Ariel Gabizon, Zachary J Williamson, and Oana Ciobotaru. “Plonk: Permutations over lagrange-bases for oecumenical noninteractive arguments of knowledge”. In: Cryptology ePrint Archive (2019)
 
 [[KS22](https://eprint.iacr.org/2022/1758)] Abhiram Kothapalli and Srinath Setty. “SuperNova: Proving universal machine executions without universal circuits”. In: Cryptology ePrint Archive (2022)
 
-[[KST22](https://eprint.iacr.org/2021/370)] Abhiram Kothapalli, Srinath Setty, and Ioanna Tzialla. “Nova: Recursive zero-knowledge arguments from folding schemes”. In CRYPTO 2022.
-
-[[M87](https://link.springer.com/chapter/10.1007/3-540-48184-2_32)] Ralph C Merkle. “A digital signature based on a conventional encryption function”. In CRYPTO 1987.
-
 [[Sta21](https://eprint.iacr.org/2021/582)] StarkWare. ethSTARK Documentation. Cryptology ePrint Archive, Paper 2021/582. 
 
 [[STW23](https://eprint.iacr.org/2023/552)] Srinath Setty, Justin Thaler, and Riad Wahby. “Customizable constraint systems for succinct arguments”. In: Cryptology ePrint Archive (2023)
 
-[[Val08](https://link.springer.com/chapter/10.1007/978-3-540-78524-8_1)] Paul Valiant. “Incrementally verifiable computation or proofs of knowledge imply time/space efficiency”. In TCC 2008.
-
-[[WLPA14](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2014/EECS-2014-54.pdf)] Andrew Waterman, Yunsup Lee, David A Patterson, and Krste Asanovic. “The RISC-V instruction set manual, volume I: User-level ISA, version 2.0”. In: EECS Department, University of California, Berkeley, Tech. Rep. UCB/EECS-2014-54 (2014)
-
-    
 [TinyRAM]: (https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)
 [RISCZero]: (https://www.risczero.com)
 [zkMISP]: (https://whitepaper.zkm.io/whitepaper1.2.pdf)
-
