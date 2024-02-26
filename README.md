@@ -31,9 +31,13 @@ The Nexus zkVM is a modular, extensible, open-source, and massively-parallelized
 
 ### 1. Install the Nexus zkVM
 
-First, install Rust: [bit.ly/start-rust](https://bit.ly/start-rust).
+First, install Rust: https://www.rust-lang.org/tools/install.
 
-Second, install the RISC-V
+With the RISC-V target:
+
+```shell
+rustup target add riscv32i-unknown-none-elf
+```
 
 Then, install the Nexus zkVM:
 
@@ -63,7 +67,7 @@ This will create a new Rust project directory with the following structure:
     └── main.rs
 ```
 
-And an example zkVM Rust program in `./src/main.rs`:
+As an example, you can change the content of `./src/main.rs` to:
 
 ```rust
 #![no_std]
@@ -81,19 +85,19 @@ fn fib(n: u32) -> u32 {
 fn main() {
     let n = 7;
     let result = fib(n);
-    assert_eq!(result, 13);
+    assert_eq!(result, 21);
 }
 ```
 
 ### 3. Prove your program
 
-Generate a zero-knowledge proof for your Rust program using the Nexus zkVM.
+Generate a proof for your Rust program using the Nexus zkVM.
 
 ```shell
 cargo nexus prove
 ```
 
-This will generate a proof, and store it in `./proof.json`.
+This command will save the proof to `./nexus-proof`.
 
 ### 4. Verify your proof
 

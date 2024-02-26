@@ -13,11 +13,8 @@ use elf::{
 
 pub use nexus_riscv::VMOpts;
 use nexus_riscv::{
-    loop_vm,
-    machines::lookup_test_machine,
-    nop_vm,
+    machines::{lookup_test_code, loop_code, nop_code},
     rv32::{parse::parse_inst, Inst as RVInst, AOP, RV32},
-    vm::eval::VM,
     VMError,
 };
 
@@ -207,7 +204,7 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
         return Err(ELFFormat("expecting one data segment in high memory"));
     }
 
-    if code.p_vaddr + code.p_filesz * 2 >= data.p_vaddr {
+    if code.p_vaddr + code.p_filesz * 2 > data.p_vaddr {
         return Err(ELFFormat("not enough room to expand code to NexusVM"));
     }
 
@@ -245,22 +242,16 @@ pub fn translate_elf_bytes(bytes: &[u8]) -> Result<NexusVM> {
 }
 
 // internal function to translate RISC-V test VMs to NexusVMs
-fn translate_test_machine(rvm: &VM) -> Result<NexusVM> {
-    let mut rv_code = Vec::new();
-    let mut pc = rvm.regs.pc;
-    loop {
-        let slice = rvm.mem.rd_page(pc);
-        match parse_inst(pc, slice) {
-            Err(_) => break,
-            Ok(inst) => rv_code.push(inst),
-        };
-        pc += 4;
-    }
+fn translate_test_machine(rv_code: &[u32]) -> Result<NexusVM> {
+    let mut rv_code = rv_code
+        .iter()
+        .enumerate()
+        .map(|(i, word)| parse_inst(i as u32 * 4, &word.to_le_bytes()).unwrap())
+        .collect::<Vec<_>>();
 
-    peephole(&mut rv_code);
+    peephole(rv_code.as_mut_slice());
 
     let mut nvm = NexusVM::default();
-    nvm.pc = rvm.regs.pc;
     for inst in rv_code {
         let (pc, inst) = translate_inst(inst);
         nvm.memory.write_inst(pc, inst.into())?;
@@ -271,11 +262,11 @@ fn translate_test_machine(rvm: &VM) -> Result<NexusVM> {
 /// Load a NexusVM according the `opts`.
 pub fn load_nvm(opts: &VMOpts) -> Result<NexusVM> {
     if let Some(k) = opts.nop {
-        translate_test_machine(&nop_vm(k))
+        translate_test_machine(&nop_code(k))
     } else if let Some(k) = opts.loopk {
-        translate_test_machine(&loop_vm(k))
+        translate_test_machine(&loop_code(k))
     } else if let Some(m) = &opts.machine {
-        if let Some(vm) = lookup_test_machine(m) {
+        if let Some(vm) = lookup_test_code(m) {
             translate_test_machine(&vm)
         } else {
             Err(VMError::UnknownMachine(m.clone()).into())
@@ -305,7 +296,6 @@ pub mod test {
     }
 
     #[test]
-    #[ignore] // invalid due to NVM changes... will fix later
     fn compare_test_machines() {
         let tests = MACHINES.iter().zip(test_machines());
         for ((name, _, f_regs), (_, mut nvm)) in tests {
@@ -314,12 +304,11 @@ pub mod test {
 
             eval(&mut nvm, false).unwrap();
 
-            let npc = 0x1000 + (regs.pc - 0x1000) * 2;
-            assert_eq!(nvm.pc, npc);
+            assert_eq!(nvm.pc, regs.pc * 2);
 
             // code addresses will not match, so register checks
-            // for tests with jal are skipped
-            if name != &"loop10" && name != &"jump" {
+            // for jump tests are skipped
+            if name != &"jump" {
                 assert_eq!(nvm.regs, regs.x);
             }
         }
