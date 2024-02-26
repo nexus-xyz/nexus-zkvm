@@ -4,3 +4,6 @@ target
 .*.swp
 
 .config.env
+
+# public parameter files
+*.zst

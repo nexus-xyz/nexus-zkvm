@@ -19,9 +19,12 @@ pub use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 pub use nexus_nova::{
     commitment::CommitmentScheme,
     nova::pcd,
-    nova::pcd,
+    nova::pcd::compression::{self as com, PolyVectorCommitment},
     nova::public_params::{PublicParams, SetupParams},
     nova::sequential as seq,
+    pedersen::PedersenCommitment,
+    r1cs::{R1CSShape, R1CSWitness},
+    StepCircuit,
 };
 
 // concrete constraint system
@@ -46,10 +49,11 @@ pub type SRS = <PC as PolyCommitmentScheme<P1>>::SRS;
 pub type SC = crate::circuit::Tr;
 
 // concrete public parameters
-pub type PP<SP> = PublicParams<G1, G2, C1, C2, RO, SC, SP>;
+pub type PP<C, SP> = PublicParams<G1, G2, C, C2, RO, SC, SP>;
 
 pub type SeqPP = seq::PublicParams<G1, G2, C1, C2, RO, SC>;
 pub type ParPP = pcd::PublicParams<G1, G2, C1, C2, RO, SC>;
+pub type ComPP = pcd::PublicParams<G1, G2, PVC1, C2, RO, SC>;
 
 pub type IVCProof = seq::IVCProof<G1, G2, C1, C2, RO, SC>;
 pub type PCDNode = pcd::PCDNode<G1, G2, C1, C2, RO, SC>;

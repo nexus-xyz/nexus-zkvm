@@ -68,14 +68,14 @@ fn verify_proof(
     let result = match nova_impl {
         NovaImpl::Parallel => {
             let root = PCDNode::deserialize_compressed(reader)?;
-            let params: ParPP = nexus_prover::pp::gen_or_load(false, k, &path)?;
+            let params: ParPP = nexus_prover::pp::gen_or_load(false, k, &path, &())?;
 
             _guard = ctx.display_step();
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::Sequential => {
             let proof = IVCProof::deserialize_compressed(reader)?;
-            let params: SeqPP = nexus_prover::pp::gen_or_load(false, k, &path)?;
+            let params: SeqPP = nexus_prover::pp::gen_or_load(false, k, &path, &())?;
 
             _guard = ctx.display_step();
             proof

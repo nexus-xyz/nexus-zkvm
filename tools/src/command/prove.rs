@@ -111,12 +111,12 @@ fn local_prove(
     let proof_path = current_dir.join("nexus-proof");
 
     if nova_impl == vm_config::NovaImpl::Parallel {
-        let state = nexus_prover::pp::gen_or_load(false, k, path_str)?;
+        let state = nexus_prover::pp::gen_or_load(false, k, path_str, &())?;
         let root = nexus_prover::prove_par(state, trace)?;
 
         save_proof(root, &proof_path)?;
     } else {
-        let state = nexus_prover::pp::gen_or_load(false, k, path_str)?;
+        let state = nexus_prover::pp::gen_or_load(false, k, path_str, &())?;
         let proof = nexus_prover::prove_seq(&state, trace)?;
 
         save_proof(proof, &proof_path)?;

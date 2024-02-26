@@ -171,7 +171,7 @@ where
                 (&u, &w),
             )?;
         let mut transcript = Transcript::new(b"spartan_snark");
-        // Now, we use ark_spartan to prove knowledge of the witness `W_prime`
+        // Now, we use Spartan to prove knowledge of the witness `W_prime`
         // for the committed relaxed r1cs instance `U_prime`
         let spartan_proof = spartan_snark::SNARK::<Projective<G1>, PC>::prove(
             shape,

@@ -4,10 +4,6 @@ pub mod pp;
 pub mod srs;
 pub mod types;
 
-use crate::circuit::*;
-use crate::error::*;
-use crate::types::*;
-
 use std::io::{self, Write};
 use std::time::Instant;
 
