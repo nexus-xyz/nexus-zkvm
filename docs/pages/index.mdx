@@ -1,6 +1,6 @@
 ---
-title: Introduction
-description: Enabling Verifiable Computing
+title: The Nexus zkVM (v1.0)
+description: A modular, extensible, open-source, highly-parallelized zkVM, written in Rust.
 image: ./images/opengraph.png
 ---
 
@@ -27,17 +27,37 @@ import { Callout } from 'nextra/components'
     </a>
 </div>
 
-The Nexus zkVM is a modular, extensible, open-source, massively-parallelized zkVM, designed to run at *a trillion CPU cycles per second*, given enough computing power connected to it.
+The Nexus zkVM (zero-knowledge virtual machine) is a modular, extensible, open-source, highly-parallelized, prover-optimized, contributor-friendly, zkVM written in Rust, focused on performance and security.
 
-<br />
+Each component of the Nexus zkVM (prover, proof compression, machine architecture, compiler toolchains, witness extraction, precompile system) has been designed and implemented by the [Nexus team](https://nexus.xyz) from the ground-up to maximize security, performance, modularity, and extensibility.
 
-<p align="center">
-    <Image alt="Nexus zkVM" src="/images/speed.svg" width={800} height={800}/>
-</p>
+The zkVM aims to offer developers out-of-the-box prover performance and security, designed to power production-grade applications.
 
-## What is the Nexus zkVM?
+## v1.0 vs v2.0
 
-The Nexus zkVM is a machine that can prove any computation, for example any Rust program:
+This documentation is for the Nexus 1.0. Many improvements to individual components are incoming, and will be featured on the Nexus zkVM 2.0. Expected improvements include:
+1. **Prover**: A new IVC system upgraded from Nova to HyperNova.
+2. **Proof Compression**: A second phase of proof compression, on top of the v1.0 $O(log(n))$ proof compression mechanism, which will bring the proof to $O(log(log(n)))$. That is, a proof of a proof of a proof.
+3. **NVM**: A revised NVM architecture, with a simpler ISA, and an improved compiler toolchain with further prover-related compiler optimizations. 
+4. **Improved Precompile System**: A new library of Nexus precompiles, with in-depth guides showing how to write precompiles in R1CS, Plonkish and AIR.
+5. **Memory checking**: An upgraded memory checking mechanism that is exponentially more performant than Merkle Trees, based on permutation checks and instruction sorting.
+6. **Modularized compiler**: A modularized compiler toolchain that will break the Nexus compiler into smaller tools, that developers can use and extend to add support for new ISAs and languages.
+
+## Security, Open Science, Open Source
+
+We believe a zkVM's main purpose is to provide an efficient proving mechanism, without compromising on security and correctness. Every component of a zkVM should be powered by open-source, peer-reviewed science and well-understood cryptographic components, with fully security and performance analyses.
+
+The Nexus zkVM features no code obfuscation, no proprietary components, and no closed-source code.
+
+## Modularity and Extensibility
+
+The Nexus zkVM is designed to be modular and extensible, with highly optimized isolated components. With thoroughly analyzed sensible defaults (provers, compilers, etc.) that will work for most users, developers can feel confident in the security and performance of the zkVM.
+
+That said, the Nexus zkVM is specifically designed to be extensible. Users can add support for new languages, new ISAs, new precompiles, and new provers, and import other developer's precompiles, with no vendor lock-in. 
+
+## Prove any computation
+
+The Nexus zkVM is a machine that can prove any computation, for example, any Rust program:
 
 ```rust
 #![no_std]
@@ -45,7 +65,7 @@ The Nexus zkVM is a machine that can prove any computation, for example any Rust
 
 fn fib(n: u32) -> u32 {
     match n {
-        0 => 1,
+        0 => 0,
         1 => 1,
         _ => fib(n - 1) + fib(n - 2),
     }
@@ -77,15 +97,15 @@ To get started with the Nexus zkVM, check out the [Quick Start](/quick-start.mdx
   Nexus is in experimental stages and not recommended for production use. The system has low performance and high costs. Many future upgrades are expected.
 </Callout>
 
-### Open Source, Extensibility, and Modularity
+## Design
 
 Open-source and fully-transparent science, cryptography and benchmarks are the core ethos of the Nexus project. The Nexus zkVM is designed to be modular and extensible, with highly optimized isolated components:
 
 - **The Nexus Prover**: A prover that provides the first production-grade implementations of folding-scheme provers like [Nova](https://eprint.iacr.org/2021/370), [CycleFold](https://eprint.iacr.org/2023/1192.pdf), [SuperNova](https://eprint.iacr.org/2022/1758.pdf), [HyperNova](https://eprint.iacr.org/2023/573.pdf), and more, to enable highly efficient Incrementally Verifiable Computation (IVC).
 - **The Nexus Virtual Machine**: A minimal, general-purpose virtual machine designed to optimize prover performance. The NVM can run programs in any high-level language (e.g. Rust, C++, etc), or emulate with minimal overhead any Instruction Set Architecture (ISA) (e.g. RISC-V, EVM, Wasm).
 - **The Nexus Compiler**: A safe and correct compiler that compiles high-level languages and any other ISAs to the NVM, with compiler optimizations designed to maximize prover performance.
-- **The Nexus Co-Processor System**: Nexus co-processors are custom extensions on the NVM instruction set, like SHA-256, keccack256, etc, that developers can use to accelerate specific computations. Nexus co-processors are exactly like Ethereum precompiles, but in the context of zkVMs. Developers can extend the zkVM with custom co-processors, and import other developer's co-processors. This is only possible due to the non-uniform IVC system introduced by [SuperNova](https://eprint.iacr.org/2022/1758.pdf).
-- **The Nexus Proof Compressor**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, so they can be compressed through recursive applications of this system down to a few bytes.
+- **The Nexus Precompile System**: Nexus precompiles are custom extensions on the NVM instruction set, like SHA-256, keccack256, etc, that developers can use to accelerate specific computations. Nexus precompiles are exactly like Ethereum precompiles, but in the context of zkVMs. Developers can extend the zkVM with custom precompiles, and import other developer's precompiles. This is only possible due to the non-uniform IVC system introduced by [SuperNova](https://eprint.iacr.org/2022/1758.pdf).
+- **The Nexus Proof Compression Mechanism**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, so they can be compressed through recursive applications of this system down to a few bytes.
 
 ## Architecture and Science
 
@@ -95,7 +115,7 @@ For an in depth look at the science behind the Nexus zkVM and the Nexus Network,
 
 The Nexus zkVM is a massively paralellized, general-purpose, prover-optimized, zkVM. It is powered by a massivelly-parallelized proof aggregation mechanism, based on Incrementally Verifiable Computation (IVC) and (multi)-folding schemes, such as [Nova](https://eprint.iacr.org/2021/370), [CycleFold](https://eprint.iacr.org/2023/1192.pdf), [SuperNova](https://eprint.iacr.org/2022/1758.pdf), [HyperNova](https://eprint.iacr.org/2023/573.pdf), and more.
 
-We provide the first production-grade open-source implementation of folding schemes: https://github.com/nexus-xyz/nexus-zkvm, which we hope is useful for the broader community.
+We provide the first production-grade open-source implementation of folding schemes: https://github.com/nexus-xyz/nexus-zkvm, which we hope is also useful for the broader community.
 
 <br />
 
@@ -111,8 +131,10 @@ The Nexus Network aggregates the CPU / GPU computing power of an untrusted distr
 
 To sign up to provide compute to the Nexus Network, contact us at `hello@nexus.xyz`.
 
+<br />
+
 <div align="center">
-    <img alt="Nexus Network" src="/images/nexus-network.svg"></img>
+    <Image alt="Nexus Network" src="/images/network.svg" width={700} height={700}></Image>
 </div>
 
 ### The Nexus Virtual machine
@@ -120,7 +142,7 @@ To sign up to provide compute to the Nexus Network, contact us at `hello@nexus.x
 The Nexus Virtual Machine (NVM) is a simple and minimal Instruction Set Architecture (ISA) designed to maximize prover performance.
 
 <p align="center">
-    <img alt="NVM" src="/images/nvm.svg"></img>
+    <Image alt="NVM" src="/images/machine.svg" width={500} height={500}/>
 </p>
 
 Many more details will be released in the coming months.

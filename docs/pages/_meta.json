@@ -1,10 +1,10 @@
 {
   "index": {
-    "title": "Welcome",
     "theme": {
       "breadcrumb": false
     }
   },
+  "network": {},
   "quick-start": "Quick Start",
   "svg": {
     "title": "SVG Images",
