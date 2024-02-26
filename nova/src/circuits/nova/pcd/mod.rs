@@ -222,7 +222,7 @@ where
     ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
-            "prove_step",
+            "prove_leaf",
             ?i,
             j = i + 1,
         )
@@ -297,7 +297,7 @@ where
     ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
-            "prove_from",
+            "prove_parent",
             i = left_node.i,
             j = right_node.j,
         )
