@@ -3,11 +3,14 @@
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use clap::{Parser, Subcommand};
+use tracing_subscriber::EnvFilter;
 
-use nexus_riscv::VMOpts;
-use nexus_prover::*;
-use nexus_prover::error::*;
-use nexus_prover::pp::{gen_to_file, gen_or_load};
+use nexus_prover::{
+    error::ProofError,
+    pp::{gen_or_load, gen_to_file},
+    prove_par, prove_seq, run,
+};
+use nexus_vm::riscv::VMOpts;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -70,6 +73,12 @@ enum Command {
 use Command::*;
 
 fn main() -> Result<(), ProofError> {
+    let filter = EnvFilter::from_default_env();
+    tracing_subscriber::fmt()
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_env_filter(filter)
+        .init();
+
     let opts = Opts::parse();
 
     match opts.command {
@@ -80,10 +89,11 @@ fn main() -> Result<(), ProofError> {
         Prove { gen, par, pp_file, vm } => {
             let trace = run(&vm, par)?;
             if par {
-                prove_par(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
+                prove_par(gen_or_load(gen, vm.k, &pp_file, &())?, trace)?;
             } else {
-                prove_seq(gen_or_load(gen, vm.k, &pp_file, &())?, trace)
+                prove_seq(&gen_or_load(gen, vm.k, &pp_file, &())?, trace)?;
             }
+            Ok(())
         }
     }
 }

@@ -11,11 +11,11 @@ use hyper::upgrade::Upgraded;
 
 use async_channel::{unbounded, Receiver, Sender};
 
-use nexus_riscv_circuit::Trace;
-use nexus_prover::{error::ProofError, types::*, circuit::Tr};
+use nexus_prover::{circuit::Tr, error::ProofError, types::*};
+use nexus_vm::trace::Trace;
 
-use nexus_network::*;
 use nexus_network::pcd::*;
+use nexus_network::*;
 
 use crate::db::DB;
 
@@ -131,7 +131,10 @@ pub fn start_local_workers(state: WorkerState) -> Result<()> {
 }
 
 fn request_msm(rt: &Handle, state: &WorkerState, w: &R1CSWitness<P1>) -> P1 {
-    println!("requesting MSM...");
+    tracing::trace!(
+        target: LOG_TARGET,
+        "sending MSM request",
+    );
     // TODO eliminate clone
     let msg = MSMReq(w.W.clone());
     match rt.block_on(request_work(&state.msm.0, msg)) {
@@ -146,9 +149,13 @@ fn prove_leaf(
     trace: Trace,
 ) -> std::result::Result<PCDNode, ProofError> {
     let i = trace.start;
-    let tr = Tr::new(trace);
-    println!("proving leaf...");
-    let node = PCDNode::prove_step_with_commit_fn(&st.pp, &tr, i, &tr.input(i), |_pp, w| {
+    let tr = Tr(trace);
+    tracing::trace!(
+        target: LOG_TARGET,
+        ?i,
+        "proving leaf",
+    );
+    let node = PCDNode::prove_leaf_with_commit_fn(&st.pp, &tr, i, &tr.input(i)?, |_pp, w| {
         request_msm(rt, st, w)
     })?;
     Ok(node)
@@ -161,9 +168,9 @@ fn prove_node(
     l: PCDNode,
     r: PCDNode,
 ) -> std::result::Result<PCDNode, ProofError> {
-    let tr = Tr::new(trace);
+    let tr = Tr(trace);
     let node =
-        PCDNode::prove_from_with_commit_fn(&st.pp, &tr, &l, &r, |_pp, w| request_msm(rt, st, w))?;
+        PCDNode::prove_parent_with_commit_fn(&st.pp, &tr, &l, &r, |_pp, w| request_msm(rt, st, w))?;
     Ok(node)
 }
 
@@ -172,7 +179,12 @@ fn local_pcd(rt: Handle, state: WorkerState) -> Result<()> {
         let Work { msg, response: ch } = state.pcd.1.recv_blocking()?;
         match msg {
             LeafReq(t) => {
-                println!("PCDLeaf start: {}, len: {}", t.start, t.blocks.len());
+                tracing::trace!(
+                    target: LOG_TARGET,
+                    "PCDLeaf start: {}, len: {}",
+                    t.start,
+                    t.blocks.len(),
+                );
                 let node = prove_leaf(&rt, &state, t)?;
                 send_response(ch, PCDRes(node))?;
             }
@@ -180,12 +192,24 @@ fn local_pcd(rt: Handle, state: WorkerState) -> Result<()> {
                 // TODO extend to > 2 nodes
                 let (r, _) = ns.pop().unwrap();
                 let (l, lt) = ns.pop().unwrap();
-                println!("PCDNode {}-{}, {}-{} lts:{}", l.i, l.j, r.i, r.j, lt.start);
+                tracing::trace!(
+                    target: LOG_TARGET,
+                    "PCDNode {}-{}, {}-{} lts:{}",
+                    l.i,
+                    l.j,
+                    r.i,
+                    r.j,
+                    lt.start,
+                );
+
                 let node = prove_node(&rt, &state, lt, l, r)?;
                 send_response(ch, PCDRes(node))?;
             }
             _ => {
-                eprintln!("bad message in PCD channel")
+                tracing::error!(
+                    target: LOG_TARGET,
+                    "unexpected message in pcd-channel",
+                );
             }
         }
     }
@@ -196,12 +220,20 @@ fn local_msm(state: WorkerState) -> Result<()> {
         let Work { msg, response: ch } = state.msm.1.recv_blocking()?;
         match msg {
             MSMReq(fs) => {
-                println!("MSM F1 size {}", fs.len());
+                tracing::trace!(
+                    target: LOG_TARGET,
+                    "MSM F1 size {}",
+                    fs.len(),
+                );
+
                 let res: P1 = C1::commit(&state.pp.pp, &fs);
                 send_response(ch, MSMRes(res))?;
             }
             _ => {
-                eprintln!("invlid message on msm channel")
+                tracing::error!(
+                    target: LOG_TARGET,
+                    "unexpected message in msm-channel",
+                );
             }
         }
     }

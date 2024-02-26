@@ -1,7 +1,6 @@
 use nexus_riscv::*;
 
 use clap::Parser;
-use std::time::Instant;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -16,14 +15,8 @@ pub struct Opts {
 
 fn main() {
     let opts = Opts::parse();
-
-    let t = Instant::now();
     match run_vm(&opts.vm, opts.trace) {
-        Ok(()) => {
-            if opts.trace {
-                println!("Elapsed time: {:?}", t.elapsed());
-            }
-        }
+        Ok(()) => (),
         Err(e) => println!("{e}"),
     }
 }

@@ -47,10 +47,19 @@ where
                 ws.set_auto_pong(true);
                 let ws = WS::new(ws);
                 if let Err(e) = f(state, ws).await {
-                    eprintln!("Error in websocket connection: {}", e);
+                    tracing::warn!(
+                        target: LOG_TARGET,
+                        error = ?e,
+                    );
                 }
             }
-            Err(e) => eprintln!("upgrade error: {e}"),
+            Err(e) => {
+                tracing::warn!(
+                    target: LOG_TARGET,
+                    error = ?e,
+                    "failed to upgrade to ws connection",
+                );
+            }
         }
     });
 

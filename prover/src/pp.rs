@@ -1,12 +1,13 @@
 use std::fs::File;
-use zstd::stream::{Encoder, Decoder};
+use zstd::stream::{Decoder, Encoder};
 
-pub use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use super::srs::load_srs;
-use crate::types::*;
+use crate::circuit::{nop_circuit, Tr};
 use crate::error::*;
-use crate::circuit::{Tr, nop_circuit};
+use crate::types::*;
+use crate::LOG_TARGET;
 
 pub fn gen_pp<C, SP>(circuit: &SC, aux: &C::SetupAux) -> Result<PP<C, SP>, ProofError>
 where
@@ -56,13 +57,15 @@ where
     SP: SetupParams<G1, G2, C, C2, RO, Tr>,
     C: CommitmentScheme<P1>,
 {
-    println!(
-        "Primary Circuit {} vars x {} constraints, {} io",
-        pp.shape.num_vars, pp.shape.num_constraints, pp.shape.num_io
+    tracing::debug!(
+        target: LOG_TARGET,
+        "Primary circuit {}",
+        pp.shape,
     );
-    println!(
-        "Secondary Circuit {} vars x {} constraints, {} io",
-        pp.shape_secondary.num_vars, pp.shape_secondary.num_constraints, pp.shape_secondary.num_io
+    tracing::debug!(
+        target: LOG_TARGET,
+        "Secondary circuit {}",
+        pp.shape_secondary,
     );
 }
 
@@ -73,7 +76,17 @@ pub fn gen_to_file(
     pp_file: &str,
     srs_file: Option<&str>,
 ) -> Result<(), ProofError> {
-    println!("Generating public parameters to {pp_file}...");
+    tracing::info!(
+        target: LOG_TARGET,
+        path = ?pp_file,
+        "Generating public parameters",
+    );
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Setting up")
+        .on_step(|_step| "public parameters".into());
+    let _guard = term_ctx.display_step();
+
     if par {
         if com {
             let srs_file = srs_file.ok_or(ProofError::MissingSRS)?;
@@ -105,23 +118,42 @@ where
     SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,
     C: CommitmentScheme<P1>,
 {
-    let t = std::time::Instant::now();
+    let mut term = nexus_tui::TerminalHandle::new();
+
     let pp: PP<C, SP> = if gen {
-        println!("Generating public parameters...");
+        tracing::info!(
+            target: LOG_TARGET,
+            "Generating public parameters",
+        );
+        let mut term_ctx = term
+            .context("Setting up")
+            .on_step(|_step| "public parameters".into());
+        let _guard = term_ctx.display_step();
+
         gen_vm_pp(k, aux)?
     } else {
-        println!("Loading public parameters from {pp_file}...");
+        tracing::info!(
+            target: LOG_TARGET,
+            path = ?pp_file,
+            "Loading public parameters",
+        );
+        let mut term_ctx = term
+            .context("Loading")
+            .on_step(|_step| "public parameters".into());
+        let _guard = term_ctx.display_step();
+
         load_pp(pp_file)?
     };
-    println!("Got public parameters in {:?}", t.elapsed());
+    drop(term);
+
     show_pp(&pp);
     Ok(pp)
 }
 
 #[cfg(test)]
 mod test {
-    use crate::srs::test_srs::gen_test_srs_to_file;
     use super::*;
+    use crate::srs::test_srs::gen_test_srs_to_file;
 
     // This test will not pass unless we use the full 26-variable SRS
     #[test]

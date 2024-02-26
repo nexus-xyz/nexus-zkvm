@@ -3,13 +3,9 @@
 #![allow(non_snake_case)]
 
 mod error;
+pub mod machines;
 pub mod rv32;
 pub mod vm;
-mod ark_serde;
-pub mod machines;
-
-#[cfg(test)]
-mod tests;
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
@@ -21,16 +17,16 @@ use rv32::*;
 use vm::eval::*;
 
 // don't break API
-pub use machines::{nop_vm, loop_vm};
+pub use machines::{loop_vm, nop_vm};
 
 /// Load a VM state from an ELF file
-pub fn load_elf(path: &PathBuf, merkle: bool) -> Result<VM> {
+pub fn load_elf(path: &PathBuf) -> Result<VM> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
-    parse_elf(slice, merkle)
+    parse_elf(slice)
 }
 
-pub fn parse_elf(bytes: &[u8], merkle: bool) -> Result<VM> {
+pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
@@ -40,8 +36,7 @@ pub fn parse_elf(bytes: &[u8], merkle: bool) -> Result<VM> {
         .filter(|phdr| phdr.p_type == PT_LOAD)
         .collect();
 
-    // TODO: read PC from elf file (and related changes)
-    let mut vm = VM::new(0x1000, merkle);
+    let mut vm = VM::new(file.ehdr.e_entry as u32);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
@@ -60,10 +55,6 @@ pub struct VMOpts {
     /// Instructions per step
     #[arg(short, name = "k", default_value = "1")]
     pub k: usize,
-
-    /// Use merkle-tree memory
-    #[arg(short, default_value = "false")]
-    pub merkle: bool,
 
     /// Use a no-op machine of size n
     #[arg(group = "vm", short, long, name = "n")]
@@ -104,7 +95,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
             Err(VMError::UnknownMachine(m.clone()))
         }
     } else {
-        load_elf(opts.file.as_ref().unwrap(), opts.merkle)
+        load_elf(opts.file.as_ref().unwrap())
     }
 }
 
@@ -117,9 +108,12 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
             "pc", "mem[pc]", "inst", "Z", "PC"
         );
     }
+    let t = std::time::Instant::now();
+    let mut count = 0;
 
     loop {
         eval_inst(vm)?;
+        count += 1;
         if show {
             println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.regs.pc);
         }
@@ -141,6 +135,8 @@ pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
     if show {
         println!("\nFinal Machine State: pc: {:x}", vm.regs.pc);
         table("x", &vm.regs.x);
+
+        println!("Executed {count} instructions in {:?}", t.elapsed());
     }
     Ok(())
 }

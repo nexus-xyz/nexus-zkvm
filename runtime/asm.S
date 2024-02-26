@@ -3,7 +3,7 @@
 // We assume the Nexus VM is initialized according to the
 // machine description and ABI=ilp32. In particular:
 //  - all memory is initialized (bss cleared)
-//  - pc = 0x1000
+//  - pc = set according to ELF file
 //  - a0-a7 = program arguments
 //  - all other registers set to zero
 
@@ -18,19 +18,23 @@ _start:
     la gp, __global_pointer$
     .option pop
 
-    li sp, 0xfffffff0
+    la sp, __memory_top - 4
     mv fp, sp
 
     jal ra, _start_rust
+    /* halt with result of main in a0 */
+    unimp
 
 .globl abort
 abort:
+    li a0, 1    /* indicate error */
     unimp
 
 .globl alloc_
 alloc_:
     lw s0, _heap
     add a0, a0, s0
+    bgeu a0, sp, abort
     la s0, _heap
     sw a0, 0(s0)
     ret

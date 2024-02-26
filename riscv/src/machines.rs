@@ -3,7 +3,7 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::identity_op)]
 
-use crate::{VM, Regs};
+use crate::{Regs, VM};
 
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]
@@ -31,13 +31,12 @@ pub fn lookup_test_machine(name: &str) -> Option<VM> {
 
 #[inline]
 fn sw(vm: &mut VM, pc: u32, word: u32) {
-    use crate::rv32::SOP::SW;
-    vm.mem.store(SW, pc, word).unwrap();
+    vm.mem.sw(pc, word)
 }
 
 fn assemble(words: &[u32]) -> VM {
     let mut pc = 0x1000;
-    let mut vm = VM::new(pc, true);
+    let mut vm = VM::new(pc);
     vm.regs.pc = pc;
     for w in words {
         sw(&mut vm, pc, *w);

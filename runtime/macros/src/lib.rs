@@ -16,14 +16,14 @@ use syn::{parse, spanned::Spanned, FnArg, ItemFn, PathArguments, ReturnType, Typ
 use proc_macro::TokenStream;
 
 #[proc_macro_attribute]
-pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
     let f = parse_macro_input!(input as ItemFn);
 
     // check the function arguments
     if f.sig.inputs.len() > 3 {
         return parse::Error::new(
             f.sig.inputs.last().unwrap().span(),
-            "`#[entry]` function has too many arguments",
+            "function has too many arguments",
         )
         .to_compile_error()
         .into();
@@ -61,7 +61,7 @@ pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     if !valid_signature {
         return parse::Error::new(
             f.span(),
-            "`#[entry]` function must have signature `fn([arg0: u32, ...]) [-> u32]`",
+            "function must have signature `fn([arg0: u32, ...]) [-> u32]`",
         )
         .to_compile_error()
         .into();
@@ -90,7 +90,6 @@ pub fn entry(args: TokenStream, input: TokenStream) -> TokenStream {
     .into()
 }
 
-#[allow(unused)]
 fn is_simple_type(ty: &Type, name: &str) -> bool {
     if let Type::Path(p) = ty {
         if p.qself.is_none() && p.path.leading_colon.is_none() && p.path.segments.len() == 1 {

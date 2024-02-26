@@ -1,9 +1,7 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::entry;
-
-#[entry]
+#[nexus_rt::main]
 fn main() {
     panic!();
 }

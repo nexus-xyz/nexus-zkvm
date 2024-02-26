@@ -1,4 +1,4 @@
-pub use core::{fmt::Write};
+pub use core::fmt::Write;
 
 // To simplify calling out to the environment, we keep the
 // argument registers intact, and place the function number
