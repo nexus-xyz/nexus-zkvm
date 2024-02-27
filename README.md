@@ -48,8 +48,10 @@ cargo install --git https://github.com/nexus-xyz/nexus-zkvm nexus-tools
 Verify the installation:
 
 ```shell
-cargo nexus --version
+cargo nexus --help
 ```
+
+This should print the available CLI commands.
 
 ### 2. Create a new Nexus project
 
@@ -75,7 +77,7 @@ As an example, you can change the content of `./src/main.rs` to:
 
 fn fib(n: u32) -> u32 {
     match n {
-        0 => 1,
+        0 => 0,
         1 => 1,
         _ => fib(n - 1) + fib(n - 2),
     }
@@ -85,11 +87,23 @@ fn fib(n: u32) -> u32 {
 fn main() {
     let n = 7;
     let result = fib(n);
-    assert_eq!(result, 21);
+    assert_eq!(result, 13);
 }
 ```
 
-### 3. Prove your program
+### 3. Run your program
+
+```bash
+cargo nexus run
+```
+
+This command should run successfully. To print the full step-by-step execution trace on the NVM, run:
+
+```bash
+cargo nexus run -v
+```
+
+### 4. Prove your program
 
 Generate a proof for your Rust program using the Nexus zkVM.
 
@@ -99,7 +113,7 @@ cargo nexus prove
 
 This command will save the proof to `./nexus-proof`.
 
-### 4. Verify your proof
+### 5. Verify your proof
 
 Finally, load and verify the proof:
 
