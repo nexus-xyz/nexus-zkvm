@@ -22,18 +22,22 @@ The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions
 ![An abstraction of the Nexus Virtual Machine](/images/nvm-architecture.svg)
 </center>
 
-Both $M$ and $R$ are finite maps. The memory $M$ can, at any given state, be viewed as a partial map from addresses in the range $\{0,\ldots, 2^{32}-1\}$ to 32-bit words. There are 32 registers named $\{x_0\ldots x_{31}\}$. By design, updates to register $x_0$ are ignored and the value of $R[x_0]$ is always zero. Though the current implementation of the Nexus VM does not support public and auxiliary/private inputs, this will soon be available.
+Both $M$ and $R$ are finite maps. The keys of $M$ are addresses in the range $\{0,\ldots, 2^{32}-1\}$ and the keys of $R$ are register selectors from the set $\{x_0\ldots x_{31}\}$. By design, updates to register $x_0$ are ignored and the value of $R[x_0]$ is always zero.
 
-At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x1000}$. The input and auxiliary tapes, once supported, should contain the public and input auxiliary inputs for the program. Since $pc$ is initially $\mathtt{0x1000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x1000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
+The current implementation of the Nexus VM does not yet support public and auxiliary/private inputs, but this feature will soon be available. Also, we remark that specific implementations of the Nexus VM may choose memory sizes smaller than $2^{32}$ for efficient reasons.
 
-There are 30 instructions in total in the instruction set of the Nexus VM, as summarized in table below. Each instruction is specified via an **opcode** and takes three arguments, two register selectors and a full 32-bit immediate value. The exact format $(\textbf{opcode}\;rd\;\;rs_1\;rs_2\;i)$ of each instruction is defined as follows: 
+At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The input and auxiliary tapes, once supported, should contain the public and input auxiliary inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
+
+## Nexus Virtual Machine Instruction Set
+
+The Nexus VM instruction set contains 30 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and takes three arguments, two register selectors and a full 32-bit immediate value. The exact format $(\textbf{opcode}\;rd\;\;rs_1\;rs_2\;i)$ of each instruction is defined as follows: 
 * $\textbf{opcode}$ is a string defining the instruction;
 * $rd$ is a register selector specifying the destination register;
 * $rs_1$ is a register selector specifying the first operand;
 * $rs_2$ is a register selector specifying the second operand; and
 * $i$ is a full 32-bit immediate value.
 
-Table: Summary of the Nexus Virtual Machine Instruction Set.
+Table: Summary of the Nexus Virtual Machine Instruction Set, where operations are mod $2^{32}$.
 | Instruction mnemonic| Arguments | Description of functionality |
 | -------- | -------- | -------- |
 | $\textbf{add}$     | $rd$ $rs_1$  $rs_2$  $i$     | sets $rd$ to $R[rs_1] + (R[rs_2] + i)$     |
@@ -64,7 +68,8 @@ Table: Summary of the Nexus Virtual Machine Instruction Set.
 | $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$| 
 | $\textbf{jal}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$  and stores $pc+8$ into $rd$| 
 | $\textbf{nop}$ |  | no operation | 
-| $\textbf{halt}$ |  | halts execution, $pc$ is not updated| 
+| $\textbf{halt}$ | $rs_1$ $i$ | halts execution with a return value $(R[rs_1] + i)$, $pc$ is not updated| 
+| $\textbf{sys}$ |  | system call| 
 
 
 Each instruction is encoded as a 64-bits long string, starting with 8-bit-long $\textbf{opcode}$ string, followed by a 9-bit-long zero string, three 5-bit-long register selectors for $rd$, $rs_1$, and $rs_1$, and a 32-bit immediate value. 
@@ -74,7 +79,8 @@ Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denote
 | Instruction mnemonic| Arguments | Binary Encodings |
 | -------- | -------- | -------- |
 | $\textbf{nop}$ | | $\begin{array}{llllll} \texttt{0x01}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$| 
-| $\textbf{halt}$ | | $\begin{array}{llllll} \texttt{0x02}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$| 
+| $\textbf{halt}$ | $rs_1$ $i$ | $\begin{array}{llllll} \texttt{0x02}  & \mathtt{*^5} \; \  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle \end{array}$| 
+| $\textbf{sys}$ | | $\begin{array}{llllll} \texttt{0x03}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$| 
 | $\textbf{jal}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x10}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
 | $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x11}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
 | $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x12}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
@@ -100,14 +106,14 @@ Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denote
 | $\textbf{or}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x47}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 | $\textbf{and}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x48}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 | $\textbf{xor}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x49}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{mul}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x??}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{div}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x??}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
+| $\textbf{mul}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x4A}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
+| $\textbf{div}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x4B}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 
 Compared to RISC-V, Nexus VM instructions are longer (64 bits versus 32 bits) and allow for an additional argument.  One of the advantages of having an additional argument is that it allows for a reduced instruction set. In particular, as noted in the section describing the translation from RISC-V to Nexus VM,  different RISC-V instructions can be emulated with a single Nexus VM instruction.
 
-Though not yet defined in the existing instruction set, we expect to have a special instruction which indicates whether the program halts in an accepting or rejecting state, similarly to the [TinyRAM architecture specification][TinyRAM].
+Similarly to the $\textbf{answer}$ instruction in the [TinyRAM architecture specification][TinyRAM], the output produced by $\textbf{halt}$ indicates whether the program halts in an accepting or rejecting state by setting $R[rs_1] + i=0$ or not.
 
-We also do not specify an output tape. Nevertheless, one can easily return arbitrary strings as output by encoding that string in some specific region of the memory before halting in an accepting state.
+The current architecture does not specify an output tape. Nevertheless, one can easily return arbitrary strings as output by encoding that string in some specific region of the memory before halting in an accepting state.
 
 As we show in the next section, the RISC-V instruction set can be easily compiled to the instruction set of the Nexus VM, by applying a simple translation function to a subset of these instructions. As a result, the Nexus VM can effortlessly support the execution of programs written in high-level programming languages such as Rust and C++. In addition to that, as indicated further below, future versions of the Nexus VM will be able to be *extended* with custom instructions (e.g. SHA-256). 
 
@@ -119,8 +125,8 @@ The syntax of RISC-V instructions supported by the Nexus VM is the following:
 $$
 \begin{align*}
     %\text{Binary Operators}\\
-    i \in&\: \{0..2^{32}\} &\text{Immediate values} \\
-    pc \in&\: \{0..2^{32}\} &\text{Program counter} \\
+    i \in&\: \{0..2^{32}-1\} &\text{Immediate values} \\
+    pc \in&\: \{0..2^{32}-1\} &\text{Program counter} \\
     rd,rs_1,rs_2 \in&\: \{x_0 .. x_{31}\} &\text{Register selectors} \\
     alu    =&\: \textbf{add}
          \mid   \textbf{sub}
@@ -181,7 +187,8 @@ $$
     \mathcal{C}(alu\;rd\;\;rs_1\;i)    =& alu\;rd\;rs_1\;x_0\;i \\
     \mathcal{C}(\textbf{ebreak})       =& \textbf{nop} \\
     \mathcal{C}(\textbf{fence})        =& \textbf{nop} \\
-    \mathcal{C}(\textbf{unimp})        =& \textbf{halt} \\
+    \mathcal{C}(\textbf{ecall})        =& \textbf{sys} \\
+    \mathcal{C}(\textbf{unimp})        =& \textbf{halt}\;x_0\;1 \\
     \mathcal{C}(bcc\;rs_1\;rs_2\;i) =& bcc\;rs_1\;rs_2\;i \\
     \mathcal{C}(ld\;rs_1\;i) =& ld\;rs_1\;i \\
     \mathcal{C}(st\;rs_1\;rs_2\;i) =& st\;rs_1\;rs_2\;i \\
@@ -190,13 +197,17 @@ $$
     \end{align*}
 $$
 
-Note that, the special RISC-V load immediate instructions ($\textbf{lui}$ and $\textbf{auipc}$), are a result of the fixed 32-bit encoding of instructions. The Nexus VM relaxes this constraint allowing for a reduced instruction set.
+Note that the special RISC-V load immediate instructions ($\textbf{lui}$ and $\textbf{auipc}$) are a result of the fixed 32-bit encoding of instructions. The Nexus VM relaxes this constraint allowing for a reduced instruction set.
+
+Both $\textbf{ebreak}$ and $\textbf{fence}$ are mapped to $\textbf{nop}$ since they have no effect as we do not support debugging and our virtual machine only has one CPU core (a.k.a. Hart in RISC-V terminology),
+
+$\textbf{unimp}$ is mapped to $\textbf{halt}\;x_0\;1$ to indicate a failure condition. 
 
 ## Nexus Virtual Machine Initialization
 
-Initially, the memory is assumed to only contain undefined values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x1000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link). 
+Initially, the memory is assumed to only contain undefined values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link). 
 
-In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x1000}$.
+In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next, each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x0000}$.
 
 
 ## Nexus Virtual Machine Extensions
@@ -207,17 +218,15 @@ To deal with such scenarios, the Nexus Virtual Machine is being  designed with e
 
 Currently, the Nexus Virtual Machine uses universal circuits to simulate the whole CPU and this unfortunately increases the complexity of the Nexus Proof System with each additional instruction.
 
-Nevertheless, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#References)], [[BC23](#References)]), via the concept of *zkVM co-processors*. In the new model, the cost of proving custom co-processor extensions of the NVM instruction set is only occurs when that particular co-processor is executed by the program.
+Nevertheless, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#References)], [[BC23](#References)]), via the concept of *zkVM precompiles*. In the new model, the cost of proving custom precompile extensions of the NVM instruction set only occurs when that particular precompile is executed by the program.
 
 <center>
 ![nvm-architecture-coprocessors](/images/nvm-coprocessors.svg)
 </center>
 
-The main advantage of using co-processors is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
+The main advantage of using precompiles is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
-
-Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined co-processors written as as CCS circuits [[STW23](#References)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set.
-CCS circuits are a generalization of R1CS [[GGPR13](#References)], Plonkish [[GWC19; CBBZ23](#References)], and AIR [[BBHR19; Sta21; BCKL22](#References)].
+Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles written as as CCS circuits [[STW23](#References)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set. CCS circuits are a generalization of R1CS [[GGPR13](#References)], Plonkish [[GWC19; CBBZ23](#References)], and AIR [[BBHR19; Sta21; BCKL22](#References)].
 
 ## References
 
