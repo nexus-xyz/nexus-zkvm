@@ -1,9 +1,9 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::{entry, write_log};
+use nexus_rt::write_log;
 
-#[entry]
+#[nexus_rt::main]
 fn main() {
     write_log("Hello, World!\n");
 }

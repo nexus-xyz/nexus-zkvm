@@ -3,14 +3,17 @@
 static ALLOC: snmalloc_rs::SnMalloc = snmalloc_rs::SnMalloc;
 
 use clap::{Parser, Subcommand};
+use tracing_subscriber::EnvFilter;
 
-use nexus_prover::srs::load_srs;
-use nexus_prover::types::ComPP;
-use nexus_riscv::VMOpts;
-use nexus_prover::*;
-use nexus_prover::error::*;
-use nexus_prover::pp::{gen_or_load, gen_to_file, load_pp};
-use nexus_prover::key::{gen_key_to_file, gen_or_load_key};
+use nexus_prover::{
+    error::ProofError,
+    key::{gen_key_to_file, gen_or_load_key},
+    pp::{gen_or_load, gen_to_file, load_pp},
+    prove_par, prove_seq, run,
+    srs::load_srs,
+    types::ComPP,
+};
+use nexus_vm::riscv::VMOpts;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -154,6 +157,12 @@ enum Command {
 use Command::*;
 
 fn main() -> Result<(), ProofError> {
+    let filter = EnvFilter::from_default_env();
+    tracing_subscriber::fmt()
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
+        .with_env_filter(filter)
+        .init();
+
     let opts = Opts::parse();
 
     match opts.command {
@@ -217,6 +226,7 @@ fn main() -> Result<(), ProofError> {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e),
             }
+            Ok(())
         }
     }
 }

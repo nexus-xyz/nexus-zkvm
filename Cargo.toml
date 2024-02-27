@@ -4,25 +4,27 @@ members = [
     "runtime",
     "examples",
     "riscv",
-    "riscv-circuit",
-    "nvm",
+    "vm",
     "tools",
+    "tools/tools-dev",
+    "tools/tui",
+    "config",
+    "config/serde_wrapper",
     "prover",
     "network",
-    "supernova",
+    "nova",
     "spartan",
 ]
 default-members = [
     "riscv",
-    "riscv-circuit",
-    "nvm",
+    "vm",
     "tools",
     "prover",
     "network",
-    "supernova",
+    "nova",
     "spartan",
 ]
-exclude = ["supernova-benches"]
+exclude = ["nova-benches"]
 
 [workspace.package]
 edition = "2021"
@@ -68,13 +70,13 @@ ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitive
 
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
 
-ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
-ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "c92be0e" }
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
 
-ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "c724fa6" }
+ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "12f5529" }
 
 # note bls is using a different commit from the other curves
 ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }

@@ -1,0 +1,22 @@
+[package]
+name = "nexus-config"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_wrapper = { path = "./serde_wrapper" }
+config = { version = "0.13.4", default-features = false }
+
+url = { version = "2.5.0", features = ["serde"] }
+
+clap = { workspace = true, optional = true } 
+
+[features]
+clap_derive = ["clap"]

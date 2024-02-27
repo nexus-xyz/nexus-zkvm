@@ -2,103 +2,113 @@
   <p align="center">
    <img width="150" height="150" src="assets/logo.png" alt="Logo">
   </p>
-	<h1 align="center"><b>The Nexus zkVM</b></h1>
-	<p align="center">
-		The ultimate zero-knowledge virtual machine.
+ <h1 align="center"><b>The Nexus zkVM</b></h1>
+ <p align="center">
+  The zero-knowledge virtual machine.
     <br />
     <a href="https://nexus.xyz"><strong>nexus.xyz »</strong></a>
   </p>
 </p>
 
-<p align="center">
-  <a href="https://x.com/NexusLabsHQ">
-    <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white" />
-  </a>
-  <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB" />
-  <br />
-</p>
+<div align="center">
+    <a href="https://t.me/nexus_zkvm">
+        <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/>
+    </a>
+    <a href="https://twitter.com/NexusLabsHQ">
+        <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/>
+    </a>
+    <a href="https://nexus.xyz">
+        <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/>
+    </a>
+</div>
 
 # The Nexus zkVM
 
+The Nexus zkVM is a modular, extensible, open-source, and massively-parallelized zkVM, designed to run at *a trillion CPU cycles proved per second* given enough machine power.
+
+
 ## Quick Start
 
-Make sure you have a recent stable rust compiler with the RISC-V target.
-The RISC-V target can be installed using `rustup`:
+### 1. Install the Nexus zkVM
 
-```sh
+First, install Rust: https://www.rust-lang.org/tools/install.
+
+With the RISC-V target:
+
+```shell
 rustup target add riscv32i-unknown-none-elf
 ```
 
-Install the Nexus tools to get access to the `cargo nexus`,
-and the `nexus-run` commands.
+Then, install the Nexus zkVM:
 
-```sh
-cargo install --path tools
+```shell
+cargo install --git https://github.com/nexus-xyz/nexus-zkvm nexus-tools
 ```
 
-To start a new project use:
+Verify the installation:
 
-```sh
-cargo nexus new
+```shell
+cargo nexus --version
 ```
 
-Note, you may get an authentication error. The current new command
-will attempt to add a dependency on this git repo for `nexus-rt`.
-Since this repo is private, you may need to tell cargo to use the
-`git` command to fetch the repo rather than using the built-in
-git library.
-This can be done by setting a parameter in `.cargo/config`:
+### 2. Create a new Nexus project
 
-```toml
-net.git-fetch-with-cli = true
+```shell
+cargo nexus new nexus-project
 ```
 
-Alternatively, you can configure your SSH keys with cargo.
+This will create a new Rust project directory with the following structure:
 
-Also note that if your new project will live in this repo, it
-is best to change the `Cargo.toml` file to list a local path
-to `runtime` rather than the default git repo.
-
-If successful, you can run the new project binary with `cargo run`.
-
-Proving programs can be done with either locally or using the Nexus network.
-To prove using the nexus network, use the `prove` command.
-
-```
-cargo nexus prove -r    # prove release build
-cargo nexus prove       # prove debug build
+```shell
+./nexus-project
+├── Cargo.lock
+├── Cargo.toml
+└── src
+    └── main.rs
 ```
 
-If your project contains multiple binaries, you may need to
-specify the binary to use:
+As an example, you can change the content of `./src/main.rs` to:
 
-```
-cargo nexus prove --bin name
-```
-You can check on the status of your proof, and download the result
-using the `query` command:
+```rust
+#![no_std]
+#![no_main]
 
-```
-cargo nexus query --hash e087116c0b13fb1a66af46d572b78e98b76c0bf814bd4f5df781469a3755fd33
+fn fib(n: u32) -> u32 {
+    match n {
+        0 => 1,
+        1 => 1,
+        _ => fib(n - 1) + fib(n - 2),
+    }
+}
+
+#[nexus_rt::main]
+fn main() {
+    let n = 7;
+    let result = fib(n);
+    assert_eq!(result, 21);
+}
 ```
 
-If the proof is complete it will be saved to `nexus-proof.json`; this filename
-can be changed on the command line (see -h for help).
+### 3. Prove your program
 
-You can check a proof using the `verify` command:
+Generate a proof for your Rust program using the Nexus zkVM.
 
+```shell
+cargo nexus prove
 ```
+
+This command will save the proof to `./nexus-proof`.
+
+### 4. Verify your proof
+
+Finally, load and verify the proof:
+
+```shell
 cargo nexus verify
 ```
 
-You may need to specify the input files on the command line:
+## Learn More
 
-```
-cargo nexus verify --public-params nexus-public.zst -f nexus-proof.json
-```
+Run `cargo nexus --help` to see all the available commands.
 
-Local proofs can be done using the `local-prove` command:
-
-```
-cargo nexus local-prove --bin example
-```
+Also check out the documentation at [docs.nexus.xyz](https://docs.nexus.xyz), or join our [Telegram](https://t.me/nexus_zkvm) chat to discuss!

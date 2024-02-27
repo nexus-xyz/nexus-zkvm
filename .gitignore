@@ -1,7 +1,9 @@
 target
 
-### next line: for us Vim users ;-)
+# editors
 .*.swp
 
-### next line: for our public-parameters files
-*/nexus-public.zst
+.config.env
+
+# public parameter files
+*.zst

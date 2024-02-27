@@ -1,0 +1,18 @@
+[package]
+name = "serde_wrapper"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"

@@ -1,12 +1,12 @@
-use std::sync::Arc;
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use nexus_network::{
-    pcd::{
-        NexusMsg::{self, LeafReq, PCDRes, NodeReq},
-        encode,
-    },
     api::NexusAPI,
+    pcd::{
+        encode,
+        NexusMsg::{self, LeafReq, NodeReq, PCDRes},
+    },
     Result,
 };
 use nexus_prover::Proof;
@@ -15,21 +15,26 @@ use sha2::{Digest, Sha256};
 use hyper::{header, Body, Request, Response, StatusCode};
 use tokio::task::JoinHandle;
 
-use nexus_riscv::{nop_vm, vm, parse_elf, vm::eval::VM};
 use crate::{
-    api::NexusAPI::{NexusProof, Error, Program, Query},
-    WorkerState, request_work,
+    api::NexusAPI::{Error, NexusProof, Program, Query},
+    request_work, WorkerState,
 };
+use nexus_riscv::{nop_vm, parse_elf, vm, vm::eval::VM};
+use nexus_vm::{eval::NexusVM, riscv::translate_elf_bytes, trace::trace};
 
-pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<()> {
-    let trace = Arc::new(vm::trace::trace(&mut vm, 1, true)?);
+pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Result<()> {
+    let trace = Arc::new(trace(&mut vm, 1, true)?);
 
     let steps = trace.blocks.len() as u32;
     state.db.new_proof(hash.clone(), steps - 1);
     let hash = Arc::new(hash);
 
     let t = std::time::Instant::now();
-    println!("proving {} steps", trace.blocks.len());
+    tracing::debug!(
+        target: LOG_TARGET,
+        steps = trace.blocks.len(),
+        "starting computing the proof",
+    );
 
     let mut v: VecDeque<JoinHandle<NexusMsg>> = VecDeque::with_capacity(trace.blocks.len() / 2);
 
@@ -46,12 +51,19 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<
             tokio::spawn(async move {
                 let proof = v.pop_front().unwrap().await.unwrap();
                 state.db.update_complete(hash.to_string(), 1);
-                println!("proof complete {:?}", t.elapsed());
+                tracing::info!(
+                    target: LOG_TARGET,
+                    elapsed = ?t.elapsed(),
+                    "proof complete, verifying",
+                );
 
-                println!("verifying proof...");
                 let PCDRes(ref node) = proof else { panic!() };
                 node.verify(&state.pp).unwrap();
-                println!("proof OK");
+
+                tracing::info!(
+                    target: LOG_TARGET,
+                    "proof OK",
+                );
                 // at this point we store the proof so user
                 // can get it later
                 let proof: Vec<u8> = encode(&proof).unwrap();
@@ -69,15 +81,11 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<
             let r = v.pop_front().unwrap();
             let trace = trace.clone();
             v2.push_back(tokio::spawn(async move {
-                let PCDRes(l) = l.await.unwrap() else {
-                    panic!()
-                };
-                let PCDRes(r) = r.await.unwrap() else {
-                    panic!()
-                };
+                let PCDRes(l) = l.await.unwrap() else { panic!() };
+                let PCDRes(r) = r.await.unwrap() else { panic!() };
                 state.db.update_complete(hash.to_string(), 2);
-                let ltr = trace.get(l.j as usize);
-                let rtr = trace.get(r.j as usize);
+                let ltr = trace.get(l.j as usize).unwrap();
+                let rtr = trace.get(r.j as usize).unwrap();
                 let req = NodeReq(vec![(l, ltr), (r, rtr)]);
                 request_work(&ch, req).await.unwrap()
             }));
@@ -87,33 +95,23 @@ pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: VM) -> Result<
     Ok(())
 }
 
-pub async fn post_recv_file(state: WorkerState, req: Request<Body>) -> Result<Response<Body>> {
-    //let _whole_body = hyper::body::aggregate(req).await?;
-    let whole_body = hyper::body::to_bytes(req).await?;
-    let mut count: usize = std::str::from_utf8(&whole_body[2..])?.parse()?;
-    if count == 0 {
-        count = 1;
-    }
-    println!("running proof of {count} instructions...");
-    manage_proof(state, "nop".to_string(), nop_vm(count - 1))?;
-
-    let response = Response::builder()
-        .status(StatusCode::OK)
-        .body(Body::from("Running fake proof..."))?;
-    Ok(response)
-}
-
 fn api(mut state: WorkerState, msg: NexusAPI) -> Result<NexusAPI> {
     match msg {
         Program { elf, .. } => {
-            println!("GOT a program");
-            let vm = parse_elf(&elf, true)?;
+            tracing::info!(
+                target: LOG_TARGET,
+                "received prove-request",
+            );
+            let vm = translate_elf_bytes(&elf)?;
             let hash = hex::encode(Sha256::digest(&elf));
             manage_proof(state, hash.clone(), vm)?;
             Ok(NexusProof(Proof { hash, ..Proof::default() }))
         }
         Query { hash } => {
-            println!("GOT a query");
+            tracing::info!(
+                target: LOG_TARGET,
+                "received proof-query",
+            );
             let proof = state.db.query_proof(&hash);
             match proof {
                 None => Err("proof not found".into()),

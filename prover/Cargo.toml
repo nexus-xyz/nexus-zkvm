@@ -17,10 +17,13 @@ snmalloc-rs = { version = "0.3.4", optional = true }
 
 zstd = { version = "0.12", default-features = false }
 
-nexus-riscv = { path = "../riscv" }
-nexus-riscv-circuit = { path = "../riscv-circuit" }
+nexus-vm = { path = "../vm" }
+nexus-nova = { path = "../nova", features = ["spartan"] }
+nexus-tui = { path = "../tools/tui" }
 spartan = { path = "../spartan", package = "ark-spartan" }
-supernova = { path = "../supernova", features = ["spartan"] }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 ark-ff.workspace = true
 ark-ec.workspace = true
@@ -45,6 +48,6 @@ parallel = [
    "ark-std/parallel",
    "ark-crypto-primitives/parallel",
    "ark-r1cs-std/parallel",
-   "supernova/parallel",
+   "nexus-nova/parallel",
 ]
 snmalloc = ["snmalloc-rs"]

@@ -94,3 +94,6 @@ parallel = [
     "rayon",
 ]
 profile = []
+
+[lints.clippy]
+ptr_arg = { level = "allow", priority = 0 }

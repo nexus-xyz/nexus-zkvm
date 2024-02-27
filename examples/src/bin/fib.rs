@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::*;
+use nexus_rt::{println, Write};
 
 fn fib(n: u32) -> u32 {
     match n {
@@ -11,7 +11,7 @@ fn fib(n: u32) -> u32 {
     }
 }
 
-#[entry]
+#[nexus_rt::main]
 fn main() {
     for n in 0..10 {
         println!("fib({n}) = {}", fib(n));

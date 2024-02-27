@@ -8,22 +8,29 @@ repository = { workspace = true }
 publish = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
+default-run = "cargo-nexus"
 
 [[bin]]
 name = "cargo-nexus"
-path = "src/cargo-nexus.rs"
+path = "src/bin/cargo-nexus.rs"
 
 [[bin]]
 name = "nexus-run"
-path = "src/nexus-run.rs"
+path = "src/bin/nexus-run.rs"
 
 [dependencies]
+anyhow = "1.0"
+dotenvy = "0.15.7"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
 cargo_metadata = "0.18.1"
 clap.workspace = true
-serde_json.workspace = true
+
+nexus-tools-dev = { path = "./tools-dev", default-features = false }
+nexus-config = { path = "../config" }
 nexus-riscv = { path = "../riscv" }
 nexus-prover = { path = "../prover" }
-nexus-network = { path = "../network" }
-supernova = { path = "../supernova" , features = ["spartan"]}
+nexus-tui = { path = "./tui" }
+
 ark-spartan = { path = "../spartan" }
 ark-serialize.workspace = true
