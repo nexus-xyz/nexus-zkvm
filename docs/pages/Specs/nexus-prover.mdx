@@ -1,0 +1,70 @@
+---
+title: "Nexus Proof System"
+lang: en-US
+description: "A description of the Nexus Proof System."
+image: "/nexus-head.png"
+---
+
+# Nexus Proof System
+
+The second main component of the Nexus zkVM is the Nexus Proof System, which provides proofs of correctness for any computation being run on the Nexus VM. In order to realize this goal and be able to support arbitrarily large computations, the Nexus Proof System relies on modern recursive zero-knowledge proof systems such as folding and accumulation schemes [[KST22; KS22; BC23](#References)] to achieve a high level of parallelization.
+
+Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors.  The proof generation process for $P$ has four main steps: 
+1. Nexus zkVM initialization;
+2. Program execution;
+3. Proof accumulation; and
+4. Proof compression.
+
+The following subsections provide an overview of each of these  components.
+
+## Initialization
+
+Let $P$ be a program that which we execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x0000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
+
+In order to enforce the consistency of the memory throughout the execution of the program $P$, the Nexus zkVM currently uses Merkle Trees [[M87](#References)] for memory checking together with the Poseidon hash function [[GKR21](#References)]. In this method, we compute a Merkle root associated with the current contents of the memory and we update its value whenever the contents of the memory change.
+
+In the current version of Nexus VM, the memory size is set to $2^{22}$ bytes. Hence, we associate leafs to 256-bit-long strings (i.e., 32 bytes) and then use a Merkle binary tree with 17 levels to describe its contents. In order to compute the Merkle root for the initial memory, we compute a default value for each tree level starting from the leaves and ending with the Merkle root. To compute the default value for a given level, we simply compute the hash of the concatenation of two default values for the level below.
+
+Once the Merkle Root for the initial state is computed, the Nexus zkVM starts loading the program $P$ one instruction at a time, updating the Merkle Tree Root accordingly after each memory update. 
+
+Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for the current state of the memory as the public input to the execution step of the proof system.
+
+## Program execution
+
+After receiving a Merkle proof from the initialization step with a Merkle proof for the initial memory state with the program loaded at address $\mathtt{0x0000}$, the Nexus zkVM runs the program on the Nexus VM and generates a full execution trace for it. This execution trace is then passed to the proof accumulation step, as indicated in the following diagram, where each step $F$ denotes one step of the Nexus VM.
+
+![zkvm-architecture](/images/execution-sequence.svg)
+
+## Proof accumulation
+
+In order to enable a high-level of parallelization without impacting the efficiency of the scheme, the Nexus zkVM uses proof accumulation (without SNARKs), represented by the IVC step in the diagram above. The main advantage of using such schemes is that it realizes the notion of Proof-Carrying Data (PCD) [[CT10](#References)], a generalization of IVC to the distributed setting.
+
+In the current version of Nexus zkVM, this step makes use of  the Nova folding scheme [[KST22](#References)] over a cycle of elliptic curves.
+
+This is the most computationally expensive part of the proof generation, since each folding step requires computing a single multi-scalar multiplication (MSM). Nevertheless, this computation is highly parallelizable. 
+
+
+## Proof compression
+
+Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short.
+
+
+## References
+
+[[BC23](https://eprint.iacr.org/2023/620)] Benedikt Bünz and Binyi Chen. “Protostar: Generic efficient accumulation/folding for special sound protocols”. In: Cryptology ePrint Archive (2023)
+
+[[CT10](https://projects.csail.mit.edu/pcd/)] Alessandro Chiesa and Eran Tromer. “Proof-Carrying Data and Hearsay Arguments from Signature Cards.” In: ICS. Vol. 10. 2010, pp. 310–331
+
+[[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for Zero-Knowledge proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
+
+[[KS22](https://eprint.iacr.org/2022/1758)] Abhiram Kothapalli and Srinath Setty. “SuperNova: Proving universal machine executions without universal circuits”. In: Cryptology ePrint Archive (2022)
+
+[[KST22](https://eprint.iacr.org/2021/370)] Abhiram Kothapalli, Srinath Setty, and Ioanna Tzialla. “Nova: Recursive zero-knowledge arguments from folding schemes”. In CRYPTO 2022.
+
+[[M87](https://link.springer.com/chapter/10.1007/3-540-48184-2_32)] Ralph C Merkle. “A digital signature based on a conventional encryption function”. In CRYPTO 1987.
+
+
+[TinyRAM]: (https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)
+[RISCZero]: (https://www.risczero.com)
+[zkMISP]: (https://whitepaper.zkm.io/whitepaper1.2.pdf)
+
