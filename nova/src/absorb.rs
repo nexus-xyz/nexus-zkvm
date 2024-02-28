@@ -27,7 +27,6 @@ use super::{
 };
 use crate::ccs::{CCSInstance, LCCSInstance};
 use crate::r1cs::{R1CSInstance, RelaxedR1CSInstance};
-use crate::ccs::{CCSInstance, LCCSInstance};
 
 /// An interface to objects that can be absorbed by [`ark_sponge::CryptographicSponge`] defined
 /// over F1, but cannot be natively represented as an array of elements of F1.
