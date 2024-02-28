@@ -1,7 +1,7 @@
+use ark_crypto_primitives::sponge::Absorb;
 use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::{Field, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_crypto_primitives::sponge::Absorb;
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
 use ark_std::{ops::Neg, Zero};

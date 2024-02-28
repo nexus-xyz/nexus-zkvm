@@ -16,7 +16,9 @@ pub(crate) mod relaxed;
 
 pub use crate::folding::nova::nifs::{NIFSProof, SQUEEZE_ELEMENTS_BIT_SIZE};
 
-pub(crate) use crate::folding::cyclefold::{R1CSShape, R1CSInstance, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness};
+pub(crate) use crate::folding::cyclefold::{
+    R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness,
+};
 
 /// Non-interactive multi-folding scheme proof.
 #[derive(CanonicalSerialize)]
