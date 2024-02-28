@@ -30,7 +30,7 @@ There are three main ways to contribute:
 If you have reviewed this document and existing documentation and still have questions or are still having problems, but don't quite know enough to create a bug report, then 
 you can get help by **starting a discussion**. 
 
-You can do so either on the [dev Telegram][dev-tg] or on [Github][gh]. The Github page for this repository comes with a discussions board where you can also ask for help (look for the "Discussions" tab at the top).
+You can do so either on the [dev Telegram][dev-tg] or on [Github][gh]. The Github page for this repository comes with a discussion board where you can also ask for help (look for the "Discussions" tab at the top).
 
 #### Submitting a bug report
 
