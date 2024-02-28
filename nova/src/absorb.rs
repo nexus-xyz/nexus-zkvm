@@ -19,12 +19,14 @@ use ark_ec::{
     CurveGroup,
 };
 use ark_ff::PrimeField;
+use ark_spartan::polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait};
 
 use super::{
     commitment::{Commitment, CommitmentScheme},
     utils::cast_field_element_unique,
 };
 use crate::r1cs::{R1CSInstance, RelaxedR1CSInstance};
+use crate::ccs::{CCSInstance, LCCSInstance};
 
 /// An interface to objects that can be absorbed by [`ark_sponge::CryptographicSponge`] defined
 /// over F1, but cannot be natively represented as an array of elements of F1.
@@ -120,6 +122,52 @@ where
         for x in &self.X {
             let x_base = cast_field_element_unique::<G::ScalarField, G::BaseField>(x);
             Absorb::to_sponge_field_elements(&x_base, dest);
+        }
+    }
+}
+
+/// See the above comment for [`R1CSInstance`] non-native absorb implementation.
+impl<G, C> AbsorbNonNative<G::BaseField> for CCSInstance<G, C>
+where
+    G: CurveGroup,
+    G::BaseField: PrimeField + Absorb,
+    G::Affine: Absorb,
+    C: PolyCommitmentScheme<G>,
+{
+    fn to_non_native_field_elements(&self, dest: &mut Vec<G::BaseField>) {
+        self.commitment_W.into_affine().iter().for_each(|c| Absorb::to_sponge_field_elements(c, dest));
+
+        for x in &self.X[1..] {
+            let x_base = cast_field_element_unique::<G::ScalarField, G::BaseField>(x);
+            Absorb::to_sponge_field_elements(&x_base, dest);
+        }
+    }
+}
+
+/// See the above comment for [`R1CSInstance`] non-native absorb implementation.
+impl<G, C> AbsorbNonNative<G::BaseField> for LCCSInstance<G, C>
+where
+    G: CurveGroup,
+    G::BaseField: PrimeField + Absorb,
+    G::Affine: Absorb,
+    C: PolyCommitmentScheme<G>,
+{
+    fn to_non_native_field_elements(&self, dest: &mut Vec<G::BaseField>) {
+        self.commitment_W.into_affine().iter().for_each(|c| Absorb::to_sponge_field_elements(c, dest));
+
+        for x in &self.X {
+            let x_base = cast_field_element_unique::<G::ScalarField, G::BaseField>(x);
+            Absorb::to_sponge_field_elements(&x_base, dest);
+        }
+
+        for r in &self.rs {
+            let r_base = cast_field_element_unique::<G::ScalarField, G::BaseField>(r);
+            Absorb::to_sponge_field_elements(&r_base, dest);
+        }
+
+        for v in &self.vs {
+            let v_base = cast_field_element_unique::<G::ScalarField, G::BaseField>(v);
+            Absorb::to_sponge_field_elements(&v_base, dest);
         }
     }
 }

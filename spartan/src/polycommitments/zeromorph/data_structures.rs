@@ -214,4 +214,8 @@ impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
       commitment: KZGCommitment::empty(),
     }
   }
+
+  fn into_affine(&self) -> Vec<E::G1Affine> {
+    vec![self.commitment.0.into()]
+  }
 }

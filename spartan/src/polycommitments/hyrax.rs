@@ -110,7 +110,12 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
       },
     }
   }
+
+  fn into_affine(&self) -> Vec<G::Affine> {
+    self.C.C.iter().map(|c| c.into_affine()).collect()
+  }
 }
+
 impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_message(label, b"hyrax_commitment_begin");

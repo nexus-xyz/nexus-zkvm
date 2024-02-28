@@ -215,11 +215,11 @@ where
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
         <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
-            &self.commitment_W.into(),
+            &self.commitment_W.clone().into(),
             dest,
         );
 
-        self.X.to_sponge_field_elements(dest);
+        (&self.X[1..]).to_sponge_field_elements(dest);
     }
 }
 
@@ -257,13 +257,13 @@ where
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
         <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
-            &self.commitment_W.into(),
+            &self.commitment_W.clone().into(),
             dest,
         );
 
         self.X.to_sponge_field_elements(dest);
         self.rs.to_sponge_field_elements(dest);
-        self.xs.to_sponge_field_elements(dest);
+        self.vs.to_sponge_field_elements(dest);
     }
 }
 

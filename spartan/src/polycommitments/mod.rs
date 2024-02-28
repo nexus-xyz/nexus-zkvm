@@ -48,6 +48,8 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
 {
   // this should be the commitment to the zero vector of length n
   fn zero(n: usize) -> Self;
+
+  fn into_affine(&self) -> Vec<G::Affine>;
 }
 
 pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
