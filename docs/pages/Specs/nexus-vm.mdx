@@ -218,7 +218,7 @@ To deal with such scenarios, the Nexus Virtual Machine is being  designed with e
 
 Currently, the Nexus Virtual Machine uses universal circuits to simulate the whole CPU and this unfortunately increases the complexity of the Nexus Proof System with each additional instruction.
 
-Nevertheless, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#References)], [[BC23](#References)]), via the concept of *zkVM precompiles*. In the new model, the cost of proving custom precompile extensions of the NVM instruction set only occurs when that particular precompile is executed by the program.
+Nevertheless, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#references)], [[BC23](#references)]), via the concept of *zkVM precompiles*. In the new model, the cost of proving custom precompile extensions of the NVM instruction set only occurs when that particular precompile is executed by the program.
 
 <center>
 ![nvm-architecture-coprocessors](/images/nvm-coprocessors.svg)
@@ -226,7 +226,7 @@ Nevertheless, we will soon be switching to a *non-uniform* computation model bas
 
 The main advantage of using precompiles is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
-Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles written as as CCS circuits [[STW23](#References)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set. CCS circuits are a generalization of R1CS [[GGPR13](#References)], Plonkish [[GWC19; CBBZ23](#References)], and AIR [[BBHR19; Sta21; BCKL22](#References)].
+Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles written as as CCS circuits [[STW23](#references)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set. CCS circuits are a generalization of R1CS [[GGPR13](#references)], Plonkish [[GWC19; CBBZ23](#references)], and AIR [[BBHR19; Sta21; BCKL22](#references)].
 
 ## References
 
