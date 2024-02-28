@@ -5,8 +5,9 @@ use hyper::body::{Buf, HttpBody};
 use hyper::client::HttpConnector;
 use tokio::runtime;
 
+use nexus_prover::Proof;
+
 use crate::client::NexusAPI::{Error, NexusProof, Program, Query};
-use crate::Result;
 use crate::{api::NexusAPI, Result};
 
 pub const LOG_TARGET: &str = "nexus-network::client";

@@ -1,14 +1,17 @@
 use clap::Subcommand;
 
+pub mod compress;
 pub mod new;
 pub mod prove;
 pub mod public_params;
 pub mod request;
 pub mod run;
+pub mod spartan_key;
 pub mod verify;
 
 pub use self::{
-    new::NewArgs, prove::ProveArgs, request::RequestArgs, run::RunArgs, verify::VerifyArgs,
+    compress::CompressArgs, new::NewArgs, prove::ProveArgs, request::RequestArgs, run::RunArgs,
+    verify::VerifyArgs,
 };
 
 #[derive(Debug, Subcommand)]
@@ -26,6 +29,8 @@ pub enum Command {
     /// Nova public parameters management.
     #[clap(name = "pp")]
     PublicParams(public_params::PublicParamsArgs),
+    /// Compress a Nova proof
+    Compress(CompressArgs),
 }
 
 #[cfg(feature = "dev")]

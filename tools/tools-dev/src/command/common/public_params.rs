@@ -31,6 +31,10 @@ pub struct SetupArgs {
     /// Overwrite the file if it already exists.
     #[arg(long)]
     pub force: bool,
+
+    /// Path to the SRS file (only required for compressible PCD proofs).
+    #[arg(long("srs_file"))]
+    pub srs_file: Option<PathBuf>,
 }
 
 // TODO: make it accessible to all crates.

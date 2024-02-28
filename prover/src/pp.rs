@@ -74,7 +74,7 @@ pub fn gen_to_file(
     par: bool,
     com: bool,
     pp_file: &str,
-    srs_file: Option<&str>,
+    srs_file_opt: Option<&str>,
 ) -> Result<(), ProofError> {
     tracing::info!(
         target: LOG_TARGET,
@@ -89,19 +89,55 @@ pub fn gen_to_file(
 
     if par {
         if com {
-            let srs_file = srs_file.ok_or(ProofError::MissingSRS)?;
-            println!("Loading SRS from {srs_file}...");
+            let srs_file = match srs_file_opt {
+                Some(srs_file) => srs_file,
+                None => {
+                    tracing::error!(
+                        target: LOG_TARGET,
+                        "SRS file is not provided",
+                    );
+                    return Err(ProofError::MissingSRS)?;
+                }
+            };
+            tracing::info!(
+                target: LOG_TARGET,
+                path =?srs_file,
+                "Reading the SRS",
+            );
+
             let srs: SRS = load_srs(srs_file)?;
-            println!("Loaded SRS for {} variables", srs.max_num_vars);
+
+            tracing::info!(
+                target: LOG_TARGET,
+                path =?srs_file,
+                "SRS found for a maximum of {} variables",
+                srs.max_num_vars
+            );
+
+            tracing::info!(
+                target: LOG_TARGET,
+                "Generating compressible PCD public parameters",
+            );
+
             let pp: ComPP = gen_vm_pp(k, &srs)?;
             show_pp(&pp);
             save_pp(pp, pp_file)
         } else {
+            tracing::info!(
+                target: LOG_TARGET,
+                "Generating non-compressible PCD public parameters",
+            );
+
             let pp: ParPP = gen_vm_pp(k, &())?;
             show_pp(&pp);
             save_pp(pp, pp_file)
         }
     } else {
+        tracing::info!(
+            target: LOG_TARGET,
+            "Generating IVC public parameters",
+        );
+
         let pp: SeqPP = gen_vm_pp(k, &())?;
         show_pp(&pp);
         save_pp(pp, pp_file)
@@ -112,7 +148,7 @@ pub fn gen_or_load<C, SP>(
     gen: bool,
     k: usize,
     pp_file: &str,
-    aux: &C::SetupAux,
+    aux_opt: Option<&C::SetupAux>,
 ) -> Result<PP<C, SP>, ProofError>
 where
     SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,
@@ -130,6 +166,15 @@ where
             .on_step(|_step| "public parameters".into());
         let _guard = term_ctx.display_step();
 
+        let aux = if let Some(aux) = aux_opt {
+            aux
+        } else {
+            tracing::error!(
+                target: LOG_TARGET,
+                "Auxiliary setup parameters are not provided",
+            );
+            return Err(ProofError::MissingSRS);
+        };
         gen_vm_pp(k, aux)?
     } else {
         tracing::info!(

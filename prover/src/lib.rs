@@ -4,58 +4,89 @@ pub mod key;
 pub mod pp;
 pub mod srs;
 
-use std::fs::File;
 use std::time::Instant;
 pub mod types;
 
-use error::ProofError;
-use std::io::{self, Write};
-use zstd::stream::Encoder;
+use std::{
+    io::{self, Write},
+    path::Path,
+};
+
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use nexus_vm::{
     riscv::{load_nvm, VMOpts},
     trace::{trace, Trace},
 };
 
+use nexus_nova::nova::pcd::compression::SNARK;
+
 use crate::{
     circuit::Tr,
     error::ProofError,
-    types::{IVCProof, PCDNode, ParPP, SeqPP},
+    types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP, SpartanKey},
 };
 
-const LOG_TARGET: &str = "nexus-prover";
+pub const LOG_TARGET: &str = "nexus-prover";
 
-use serde::{Deserialize, Serialize};
-use supernova::nova::pcd::compression::SNARK;
-use types::{ComPP, ParPP, SeqPP, SpartanKey};
-
-use crate::circuit::Tr;
-use crate::types::{ComPCDNode, IVCProof, PCDNode};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Default, Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Proof {
     pub hash: String,
     pub total_nodes: u32,
     pub complete_nodes: u32,
+    pub par: bool,
+    pub com: bool,
     pub proof: Option<Vec<u8>>,
 }
 
-pub fn load_proof(file: &str) -> Result<Proof, ProofError> {
-    let file = std::fs::File::open(file)?;
+pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
+    tracing::info!(
+        target: LOG_TARGET,
+        path = %path.display(),
+        "Saving the proof",
+    );
+
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut context = term.context("Saving").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
+
+    let mut buf = Vec::new();
+
+    proof.serialize_compressed(&mut buf)?;
+    std::fs::write(path, buf)?;
+
+    Ok(())
+}
+
+pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError> {
+    let file = std::fs::File::open(path)?;
     let reader = std::io::BufReader::new(file);
-    let proof: Proof = serde_json::from_reader(reader).unwrap();
+    tracing::info!(
+        target: LOG_TARGET,
+        path = %path.display(),
+        "Loading the proof",
+    );
+
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut context = term.context("Loading").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
+
+    let proof: P = P::deserialize_compressed(reader)?;
 
     Ok(proof)
 }
 
 impl std::fmt::Display for Proof {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "{} {} {} ",
-            self.hash, self.total_nodes, self.complete_nodes
-        )?;
+        if self.par {
+            writeln!(f, "PCD Proof")?;
+            writeln!(f, "compressible: {}", self.com)?;
+            writeln!(
+                f,
+                "hash: {}, total nodes: {}, complete nodes: {}",
+                self.hash, self.total_nodes, self.complete_nodes
+            )?;
+        }
         match self.proof {
             None => writeln!(f, "incomplete")?,
             Some(ref p) => {
@@ -167,11 +198,9 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
     let mut vs = (0..num_steps)
         .step_by(2)
         .map(|i| {
-            print!("leaf step {i}... ");
-            io::stdout().flush().unwrap();
-            let t = Instant::now();
-            let v = PCDNode::prove_step(&pp, &tr, i, &tr.input(i))?;
-            println!("{:?}", t.elapsed());
+            let _guard = term_ctx.display_step();
+
+            let v = PCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
             Ok(v)
         })
         .collect::<Result<Vec<_>, ProofError>>()?;
@@ -183,57 +212,57 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
         vs = vs
             .chunks(2)
             .map(|ab| {
-                print!("vertex step ...  ");
-                io::stdout().flush().unwrap();
-                let t = Instant::now();
-                let c = PCDNode::prove_from(&pp, &tr, &ab[0], &ab[1])?;
-                println!("{:?}", t.elapsed());
+                let _guard = term_ctx.display_step();
+                let c = PCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
                 Ok(c)
             })
             .collect::<Result<Vec<_>, ProofError>>()?;
     }
 
-    println!(
-        "\nProof Complete: {:.2} instructions / second",
-        (k * tr.steps()) as f64 / start.elapsed().as_secs_f64()
-    );
-
-    print!("\nVerifying root...  ");
-    io::stdout().flush().unwrap();
-    let t = Instant::now();
-    vs[0].verify(&pp)?;
-    println!("{:?}", t.elapsed());
-
-    let mut proof_bytes = Vec::new();
-    vs[0].serialize_compressed(&mut proof_bytes)?;
-
-    let proof = Proof {
-        hash: "test".to_string(),
-        total_nodes: vs.len() as u32,
-        complete_nodes: vs.len() as u32,
-        proof: Some(proof_bytes),
-    };
-
-    Ok(proof)
+    Ok(vs.into_iter().next().unwrap())
 }
 
-pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<Proof, ProofError> {
+pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<ComPCDNode, ProofError> {
     let k = trace.k;
-    let tr = Tr::new(trace);
+    let tr = Tr(trace);
 
-    let steps = tr.steps();
-    println!("\nproving {steps} steps...");
+    let num_steps = tr.steps();
+    assert!((num_steps + 1).is_power_of_two());
 
-    let start = Instant::now();
+    let on_step = move |iter: usize| {
+        let b = (num_steps + 1).ilog2();
+        let a = b - 1 - (num_steps - iter).ilog2();
 
-    let mut vs = (0..steps)
+        let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
+        let step_type = if iter <= num_steps / 2 {
+            "leaf"
+        } else if iter == num_steps - 1 {
+            "root"
+        } else {
+            "node"
+        };
+        format!("{step_type} {step}")
+    };
+
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Computing")
+        .on_step(on_step)
+        .num_steps(num_steps)
+        .with_loading_bar("Proving")
+        .completion_header("Proved")
+        .completion_stats(move |elapsed| {
+            format!(
+                "tree root in {elapsed}; {:.2} instructions / second",
+                (k * num_steps) as f32 / elapsed.as_secs_f32()
+            )
+        });
+
+    let mut vs = (0..num_steps)
         .step_by(2)
         .map(|i| {
-            print!("leaf step {i}... ");
-            io::stdout().flush().unwrap();
-            let t = Instant::now();
-            let v = ComPCDNode::prove_step(&pp, &tr, i, &tr.input(i))?;
-            println!("{:?}", t.elapsed());
+            let _guard = term_ctx.display_step();
+            let v = ComPCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
             Ok(v)
         })
         .collect::<Result<Vec<_>, ProofError>>()?;
@@ -242,79 +271,42 @@ pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<Proof, ProofError> {
         if vs.len() == 1 {
             break;
         }
-        println!("proving {} vertex steps", vs.len() / 2);
         vs = vs
             .chunks(2)
             .map(|ab| {
-                print!("vertex step ...  ");
-                io::stdout().flush().unwrap();
-                let t = Instant::now();
-                let c = ComPCDNode::prove_from(&pp, &tr, &ab[0], &ab[1])?;
-                println!("{:?}", t.elapsed());
+                let _guard = term_ctx.display_step();
+                let c = ComPCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
                 Ok(c)
             })
             .collect::<Result<Vec<_>, ProofError>>()?;
     }
 
-    println!(
-        "\nProof Complete: {:.2} instructions / second",
-        (k * tr.steps()) as f64 / start.elapsed().as_secs_f64()
-    );
-
-    print!("\nVerifying root...  ");
-    io::stdout().flush().unwrap();
-    let t = Instant::now();
-    vs[0].verify(&pp)?;
-    println!("{:?}", t.elapsed());
-
-    let mut proof_bytes = Vec::new();
-    vs[0].serialize_compressed(&mut proof_bytes)?;
-
-    let proof = Proof {
-        hash: "test".to_string(),
-        total_nodes: vs.len() as u32,
-        complete_nodes: vs.len() as u32,
-        proof: Some(proof_bytes),
-    };
-
-    Ok(proof)
+    Ok(vs.into_iter().next().unwrap())
 }
 
 pub fn compress(
     compression_pp: &ComPP,
     key: &SpartanKey,
-    proof: Proof,
-    local: bool,
-    compressed_proof_file: &str,
+    node: ComPCDNode,
+) -> Result<ComProof, ProofError> {
+    tracing::info!(
+        target: LOG_TARGET,
+        "Compressing the proof",
+    );
+    let compressed_pcd_proof = SNARK::compress(compression_pp, key, node)?;
+
+    Ok(compressed_pcd_proof)
+}
+
+pub fn verify_compressed(
+    key: &SpartanKey,
+    params: &ComPP,
+    proof: &ComProof,
 ) -> Result<(), ProofError> {
-    let Some(vec) = proof.proof else {
-        todo!("handle error better")
-    };
-
-    let node: ComPCDNode;
-
-    if local {
-        println!("doing local verify");
-        let tmp = supernova::nova::pcd::PCDNode::deserialize_compressed(&*vec);
-        match tmp {
-            Ok(n) => node = n,
-            Err(e) => return Err(ProofError::SerError(e)),
-        };
-    } else {
-        unimplemented!()
-    };
-
-    let compressed_pcd_proof = SNARK::compress(compression_pp, key, node).unwrap();
-
-    // And check that the compressed proof verifies.
-    SNARK::verify(key, compression_pp, &compressed_pcd_proof).unwrap();
-
-    // Save compressed proof to file.
-    let f = File::create(compressed_proof_file)?;
-    let mut enc = Encoder::new(&f, 0)?;
-    compressed_pcd_proof.serialize_compressed(&mut enc)?;
-    enc.finish()?;
-    f.sync_all()?;
-
+    tracing::info!(
+        target: LOG_TARGET,
+        "Verifying the compressed proof",
+    );
+    SNARK::verify(key, params, proof)?;
     Ok(())
 }

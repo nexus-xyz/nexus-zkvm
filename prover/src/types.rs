@@ -19,7 +19,7 @@ pub use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 pub use nexus_nova::{
     commitment::CommitmentScheme,
     nova::pcd,
-    nova::pcd::compression::{self as com, PolyVectorCommitment},
+    nova::pcd::compression as com,
     nova::public_params::{PublicParams, SetupParams},
     nova::sequential as seq,
     pedersen::PedersenCommitment,
@@ -41,7 +41,7 @@ pub type C2 = PedersenCommitment<P2>;
 
 // polynomial commitment scheme and corresponding vector commmitment scheme
 pub type PC = Zeromorph<E>;
-pub type PVC1 = PolyVectorCommitment<P1, PC>;
+pub type PVC1 = com::PolyVectorCommitment<P1, PC>;
 
 // structured reference string for polynomial commitment scheme
 pub type SRS = <PC as PolyCommitmentScheme<P1>>::SRS;
@@ -55,8 +55,9 @@ pub type SeqPP = seq::PublicParams<G1, G2, C1, C2, RO, SC>;
 pub type ParPP = pcd::PublicParams<G1, G2, C1, C2, RO, SC>;
 pub type ComPP = pcd::PublicParams<G1, G2, PVC1, C2, RO, SC>;
 
-pub type SpartanKey = pcd::compression::SNARKKey<P1, PC>;
+pub type SpartanKey = com::SNARKKey<P1, PC>;
 
 pub type IVCProof = seq::IVCProof<G1, G2, C1, C2, RO, SC>;
 pub type PCDNode = pcd::PCDNode<G1, G2, C1, C2, RO, SC>;
 pub type ComPCDNode = pcd::PCDNode<G1, G2, PVC1, C2, RO, SC>;
+pub type ComProof = com::CompressedPCDProof<G1, G2, PC, C2, RO, SC>;

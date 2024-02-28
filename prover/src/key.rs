@@ -1,11 +1,14 @@
 use std::fs::File;
-use zstd::stream::{Encoder, Decoder};
+use zstd::stream::{Decoder, Encoder};
 
-pub use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
-use supernova::nova::pcd::compression::SNARK;
+pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use nexus_nova::nova::pcd::compression::SNARK;
 
-use crate::types::*;
 use crate::error::*;
+use crate::pp::load_pp;
+use crate::srs::load_srs;
+use crate::types::*;
+use crate::LOG_TARGET;
 
 pub fn gen_key(pp: &ComPP, srs: &SRS) -> Result<SpartanKey, ProofError> {
     //todo: handle error better
@@ -28,26 +31,98 @@ pub fn load_key(file: &str) -> Result<SpartanKey, ProofError> {
     Ok(key)
 }
 
-pub fn gen_key_to_file(pp: &ComPP, srs: &SRS, key_file: &str) -> Result<(), ProofError> {
-    println!("Generating Spartan key to {key_file}...");
-    let key: SpartanKey = gen_key(pp, srs)?;
+pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<(), ProofError> {
+    tracing::info!(
+        target: LOG_TARGET,
+        path =?srs_file,
+        "Reading the SRS",
+    );
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
+    let _guard = term_ctx.display_step();
+
+    let srs: SRS = load_srs(srs_file)?;
+    tracing::info!(
+        target: LOG_TARGET,
+        path =?srs_file,
+        "SRS found for a maximum of {} variables",
+        srs.max_num_vars
+    );
+
+    tracing::info!(
+        target: LOG_TARGET,
+        pp_file =?pp_file,
+        "Reading the Nova public parameters",
+    );
+
+    let pp: ComPP = load_pp(pp_file)?;
+
+    tracing::info!(
+        target: LOG_TARGET,
+        key_file =?key_file,
+        "Generating Spartan key parameters",
+    );
+
+    let key: SpartanKey = gen_key(&pp, &srs)?;
     save_key(key, key_file)
 }
 
 pub fn gen_or_load_key(
     gen: bool,
     key_file: &str,
-    pp: &ComPP,
-    srs: &SRS,
+    pp_file: Option<&str>,
+    srs_file: Option<&str>,
 ) -> Result<SpartanKey, ProofError> {
-    let t = std::time::Instant::now();
+    let mut term = nexus_tui::TerminalHandle::new();
     let key: SpartanKey = if gen {
-        println!("Generating Spartan key...");
-        gen_key(pp, srs)?
+        tracing::info!(
+            target: LOG_TARGET,
+            key_file =?key_file,
+            "Generating Spartan key parameters",
+        );
+        let mut term_ctx = term
+            .context("Setting up")
+            .on_step(|_step| "Spartan key".into());
+        let _guard = term_ctx.display_step();
+
+        let srs_file = srs_file.ok_or(ProofError::MissingSRS)?;
+        tracing::info!(
+            target: LOG_TARGET,
+            path =?srs_file,
+            "Reading the SRS",
+        );
+
+        let srs: SRS = load_srs(srs_file)?;
+
+        let pp_file = pp_file.ok_or(ProofError::InvalidPP)?;
+        tracing::info!(
+            target: LOG_TARGET,
+            path =?srs_file,
+            "SRS found for a maximum of {} variables",
+            srs.max_num_vars
+        );
+
+        tracing::info!(
+            target: LOG_TARGET,
+            path =?srs_file,
+            "Reading the Nova public parameters",
+        );
+
+        let pp: ComPP = load_pp(pp_file)?;
+
+        gen_key(&pp, &srs)?
     } else {
-        println!("Loading Spartan key from {key_file}...");
+        tracing::info!(
+            target: LOG_TARGET,
+            path = ?pp_file,
+            "Loading Spartan key",
+        );
+        let mut term_ctx = term
+            .context("Loading")
+            .on_step(|_step| "Spartan key".into());
+        let _guard = term_ctx.display_step();
+
         load_key(key_file)?
     };
-    println!("Got Spartan key in {:?}", t.elapsed());
     Ok(key)
 }

@@ -54,7 +54,7 @@ pub(crate) fn compile_to_env_from_bases(force: bool) -> anyhow::Result<()> {
     }
     // rust envs are parsed separately
     let config_path = Path::new(CONFIG_BASE_DIR).join(RUST_ENV_FILE);
-    let raw_file = fs::read_to_string(&config_path)?;
+    let raw_file = fs::read_to_string(config_path)?;
     parse_rust_env(&raw_file, &mut flat_config)?;
 
     let env_out = flat_config
