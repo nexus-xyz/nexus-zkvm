@@ -91,7 +91,7 @@ impl Node {
         }
     }
 
-    // constrct a new internal node with unpopulated children.
+    // construct a new internal node with unpopulated children.
     fn new_node() -> Self {
         Self {
             digest: Digest::default(),
