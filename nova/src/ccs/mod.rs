@@ -3,6 +3,7 @@ use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::{Field, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
+use ark_std::fmt;
 
 use ark_std::{ops::Neg, Zero};
 
@@ -180,7 +181,7 @@ impl<G: CurveGroup> CCSWitness<G> {
     }
 
     /// Commits to the witness as a polynomial using the supplied key
-    fn commit<C: PolyCommitmentScheme<G>>(&self, ck: &C::PolyCommitmentKey) -> C::Commitment {
+    pub fn commit<C: PolyCommitmentScheme<G>>(&self, ck: &C::PolyCommitmentKey) -> C::Commitment {
         C::commit(&vec_to_mle(&self.W), ck)
     }
 
@@ -335,7 +336,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
 }
 
 /// A type that holds an LCCS instance.
-#[derive(Clone, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
 pub struct LCCSInstance<G: CurveGroup, C: PolyCommitmentScheme<G>> {
     /// Commitment to MLE of witness.
     ///
@@ -348,6 +349,32 @@ pub struct LCCSInstance<G: CurveGroup, C: PolyCommitmentScheme<G>> {
     /// Evaluation targets
     pub vs: Vec<G::ScalarField>,
 }
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> fmt::Debug for LCCSInstance<G, C>
+where
+    C::Commitment: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("LCCSInstance")
+            .field("commitment_W", &self.commitment_W)
+            .field("X", &self.X)
+            .field("rs", &self.rs)
+            .field("vs", &self.vs)
+            .finish()
+    }
+}
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> PartialEq for LCCSInstance<G, C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.commitment_W == other.commitment_W
+            && self.X == other.X
+            && self.rs == other.rs
+            && self.vs == other.vs
+    }
+}
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Eq for LCCSInstance<G, C> where C::Commitment: Eq {}
+
 
 #[cfg(test)]
 mod tests {

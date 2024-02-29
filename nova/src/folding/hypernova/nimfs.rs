@@ -19,6 +19,25 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(127);
 
+#[derive(Debug)]
+pub enum Error {
+    CCS(ccs::Error),
+    SumCheck(ml_sumcheck::Error),
+    InconsistentSubclaim,
+}
+
+impl From<ccs::Error> for Error {
+    fn from(err: ccs::Error) -> Error {
+        Error::CCS(err)
+    }
+}
+
+impl From<ml_sumcheck::Error> for Error {
+    fn from(err: ml_sumcheck::Error) -> Error {
+        Error::SumCheck(err)
+    }
+}
+
 pub struct NIMFSProof<G: CurveGroup, RO> {
     pub(crate) sumcheck_proof: ml_sumcheck::Proof<G::ScalarField>,
     pub(crate) poly_info: ml_sumcheck::PolynomialInfo,
@@ -31,7 +50,7 @@ impl<G: CurveGroup, RO> Clone for NIMFSProof<G, RO> {
     fn clone(&self) -> Self {
         Self {
             sumcheck_proof: self.sumcheck_proof.clone(),
-            poly_info: self.poly_info.clone()
+            poly_info: self.poly_info.clone(),
             sigmas: self.sigmas.clone(),
             thetas: self.thetas.clone(),
             _random_oracle: self._random_oracle,
@@ -52,7 +71,7 @@ where
         shape: &CCSShape<G>,
         (U1, W1): (&LCCSInstance<G, C>, &CCSWitness<G>),
         (U2, W2): (&CCSInstance<G, C>, &CCSWitness<G>),
-    ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>), G::ScalarField), ccs::Error> {
+    ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>), G::ScalarField), Error> {
         random_oracle.absorb_non_native(&U1);
         random_oracle.absorb_non_native(&U2);
 
@@ -125,7 +144,7 @@ where
         Ok((
             Self {
                 sumcheck_proof,
-                g.info(),
+                poly_info: g.info(),
                 sigmas,
                 thetas,
                 _random_oracle: PhantomData,
@@ -139,29 +158,30 @@ where
     pub fn verify_as_subprotocol<C: PolyCommitmentScheme<G>>(
         &self,
         random_oracle: &mut RO,
+        shape: &CCSShape<G>,
         U1: &LCCSInstance<G, C>,
         U2: &CCSInstance<G, C>,
-    ) -> Result<LCCSInstance<G, C>, ccs::Error> {
+    ) -> Result<LCCSInstance<G, C>, Error> {
         random_oracle.absorb_non_native(&U1);
         random_oracle.absorb_non_native(&U2);
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 
-        let gamma =
+        let gamma: G::ScalarField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
         let beta = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
 
         let rs = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
 
         let claimed_sum = (1..=shape.num_matrices)
-            .map(|t| gamma.pow(&[j as u64]) * U1.vs[j - 1])
+            .map(|j| gamma.pow(&[j as u64]) * U1.vs[j - 1])
             .sum();
 
         let sumcheck_subclaim =
-            MLSumcheck::verify_as_subprotocol(random_oracle, self.poly_info, claimed_sum, self.sumcheck_proof)?;
+            MLSumcheck::verify_as_subprotocol(random_oracle, &self.poly_info, claimed_sum, &self.sumcheck_proof)?;
 
-        let eqrs = EqPolynomial::new(U1.rs);
+        let eqrs = EqPolynomial::new(U1.rs.clone());
         let e1 = eqrs.evaluate(rs.as_slice());
 
         let eqb = EqPolynomial::new(beta);
@@ -169,26 +189,111 @@ where
 
         let c = (1..=shape.num_matrices)
             .map(|j| {
-                let inner = (0..shape.num_multisets)
+                let inner: G::ScalarField = (0..shape.num_multisets)
                     .map(|i| {
                         shape.cSs[i]
                             .1
-                            .fold(shape.cSs[i].0, |acc, k| acc * self.thetas[k])
+                            .iter()
+                            .fold(shape.cSs[i].0, |acc, k| acc * self.thetas[*k])
                     })
                     .sum();
 
-                gamma.pow(j) * e1 * self.sigmas[j] + gamma.pow(j + 1) * e2 * inner
+                gamma.pow(&[j as u64]) * e1 * self.sigmas[j] + gamma.pow(&[(j + 1) as u64]) * e2 * inner
             })
             .sum();
 
-        if sumcheck_subclaim != c {
-            Err();
+        if sumcheck_subclaim.expected_evaluation != c {
+            return Err(Error::InconsistentSubclaim);
         }
 
         let rho = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
-        let U = U.fold(U2, &rho & rs, self.sigmas, self.thetas)?;
+        let U = U1.fold(U2, &rho, &rs, &self.sigmas, &self.thetas)?;
 
         Ok(U)
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+
+    use super::*;
+
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use ark_std::{UniformRand, test_rng};
+    use crate::poseidon_config;
+    use crate::{ccs::{CCSWitness, LCCSInstance}, r1cs::tests::to_field_elements, test_utils::setup_test_ccs};
+    use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+    use ark_ec::short_weierstrass::{SWCurveConfig, Projective};
+    use ark_test_curves::bls12_381::{Bls12_381 as E, g1::Config as G};
+
+    type Z = Zeromorph<E>;
+
+    #[test]
+    fn prove_verify() {
+        prove_verify_with_curve::<G, Z>().unwrap()
+    }
+
+    fn prove_verify_with_curve<G, C>() -> Result<(), Error>
+    where
+        G: SWCurveConfig,
+        G::BaseField: PrimeField + Absorb,
+        G::ScalarField: Absorb,
+        C: PolyCommitmentScheme<Projective<G>>,
+        C::PolyCommitmentKey: Clone,
+    {
+        let config = poseidon_config::<G::BaseField>();
+
+        let mut rng = test_rng();
+
+        let (shape, U2, W2, ck) = setup_test_ccs::<G, C>(3, None, Some(&mut rng));
+
+        let X  = to_field_elements::<Projective<G>>(&(vec![0; shape.num_io]).as_slice());
+        let W1 = CCSWitness::zero(&shape);
+
+        let commitment_W = W1.commit::<C>(&ck);
+
+        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<G::ScalarField> = (0..s).map(|_| G::ScalarField::rand(&mut rng)).collect();
+
+        let z = [X.as_slice(), W1.W.as_slice()].concat();
+        let vs: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
+            .map(|M| vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<Projective<G>>(rs.as_slice()))
+            .collect();
+
+        let U1 = LCCSInstance::<Projective<G>, C>::new(&shape, &commitment_W, &X, &rs.as_slice(), &vs.as_slice())?;
+
+        let mut random_oracle = PoseidonSponge::new(&config);
+
+        let (proof, (folded_U, folded_W), _rho) =
+            NIMFSProof::<Projective<G>, PoseidonSponge<G::BaseField>>::prove_as_subprotocol(
+                &mut random_oracle,
+                &shape,
+                (&U1, &W1),
+                (&U2, &W2),
+            )?;
+
+        let mut random_oracle = PoseidonSponge::new(&config);
+        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2)?;
+        assert_eq!(folded_U, v_folded_U);
+
+        shape.is_satisfied_linearized(&folded_U, &folded_W, &ck)?;
+
+        let U1 = folded_U;
+        let W1 = folded_W;
+
+        let (_, U2, W2, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
+
+        let mut random_oracle = PoseidonSponge::new(&config);
+        let (proof, (folded_U, folded_W), _rho) =
+            NIMFSProof::prove_as_subprotocol(&mut random_oracle, &shape, (&U1, &W1), (&U2, &W2))?;
+
+        let mut random_oracle = PoseidonSponge::new(&config);
+        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2)?;
+        assert_eq!(folded_U, v_folded_U);
+
+        shape.is_satisfied_linearized(&folded_U, &folded_W, &ck)?;
+
+        Ok(())
     }
 }
