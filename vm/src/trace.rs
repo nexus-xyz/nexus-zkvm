@@ -271,7 +271,6 @@ mod test {
 
     // basic check that tracing and iteration succeeds
     #[test]
-    #[ignore] // invalid due to NVM changes... will fix later
     fn trace_test_machines() {
         for (name, mut nvm) in test_machines() {
             println!("tracing machine {name}");

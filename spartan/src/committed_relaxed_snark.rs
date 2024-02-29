@@ -18,6 +18,7 @@ use crate::{
 };
 
 /// `SNARKGens` holds public parameters for producing and verifying proofs with the Spartan SNARK
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct CRSNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
   pub gens_r1cs_sat: CRR1CSKey<G, PC>,
   pub gens_r1cs_eval: R1CSCommitmentGens<G, PC>,

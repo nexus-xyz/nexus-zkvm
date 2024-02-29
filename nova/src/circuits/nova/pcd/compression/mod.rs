@@ -67,6 +67,7 @@ where
     _step_circuit: PhantomData<SC>,
 }
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     shape: CRR1CSShape<G::ScalarField>,
     computation_comm: ComputationCommitment<G, PC>,
@@ -278,7 +279,8 @@ mod tests {
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
     use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
-    use ark_std::{test_rng, One};
+    use ark_std::{fs::File, test_rng, One};
+    use zstd::stream::Encoder;
 
     use super::*;
     use crate::{
@@ -342,6 +344,44 @@ mod tests {
         (srs, params)
     }
 
+    fn spartan_encode_test_helper<G1, G2, PC, C2>()
+    where
+        G1: SWCurveConfig,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+        G1::BaseField: PrimeField + Absorb,
+        G2::BaseField: PrimeField + Absorb,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        PC: PolyCommitmentScheme<Projective<G1>>,
+        PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
+    {
+        // We set up the public parameters both for Nova and Spartan.
+        let (srs, params) = test_setup_helper::<G1, G2, PC, C2>();
+        let key = SNARK::<
+            G1,
+            G2,
+            PC,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+            CubicCircuit<G1::ScalarField>,
+        >::setup(&params, &srs)
+        .unwrap();
+
+        let f = File::create("spartan_key.zst").unwrap();
+        let mut enc = Encoder::new(&f, 0).unwrap();
+        key.serialize_compressed(&mut enc).unwrap();
+        enc.finish().unwrap();
+        f.sync_all().unwrap();
+    }
+    #[test]
+    #[ignore]
+    fn spartan_encode_test() {
+        spartan_encode_test_helper::<
+            Bn254Config,
+            GrumpkinConfig,
+            Zeromorph<Bn254>,
+            PedersenCommitment<GrumpkinProjective>,
+        >();
+    }
     fn compression_test_helper<G1, G2, PC, C2>()
     where
         G1: SWCurveConfig,

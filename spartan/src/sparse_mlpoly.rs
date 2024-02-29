@@ -35,7 +35,10 @@ pub struct SparseMatPolynomial<F: PrimeField> {
   M: Vec<SparseMatEntry<F>>,
 }
 
-pub struct Derefs<F> {
+pub struct Derefs<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   row_ops_val: Vec<DensePolynomial<F>>,
   col_ops_val: Vec<DensePolynomial<F>>,
   comb: DensePolynomial<F>,
@@ -224,7 +227,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> AppendToTranscript<G> for Deref
   }
 }
 
-struct AddrTimestamps<F> {
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
+struct AddrTimestamps<F>
+where
+  F: Sync + CanonicalSerialize + CanonicalDeserialize,
+{
   ops_addr_usize: Vec<Vec<usize>>,
   ops_addr: Vec<DensePolynomial<F>>,
   read_ts: Vec<DensePolynomial<F>>,
@@ -285,7 +292,11 @@ impl<F: PrimeField> AddrTimestamps<F> {
   }
 }
 
-pub struct MultiSparseMatPolynomialAsDense<F> {
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
+pub struct MultiSparseMatPolynomialAsDense<F>
+where
+  F: Sync + CanonicalSerialize + CanonicalDeserialize,
+{
   batch_size: usize,
   val: Vec<DensePolynomial<F>>,
   row: AddrTimestamps<F>,
@@ -294,6 +305,7 @@ pub struct MultiSparseMatPolynomialAsDense<F> {
   comb_mem: DensePolynomial<F>,
 }
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct SparseMatPolyCommitmentKey<G, PC>
 where
   G: CurveGroup,
@@ -560,7 +572,10 @@ impl<F: PrimeField> MultiSparseMatPolynomialAsDense<F> {
 }
 
 #[derive(Debug)]
-struct ProductLayer<F> {
+struct ProductLayer<F>
+where
+  F: Sync + CanonicalSerialize + CanonicalDeserialize,
+{
   init: ProductCircuit<F>,
   read_vec: Vec<ProductCircuit<F>>,
   write_vec: Vec<ProductCircuit<F>>,
@@ -568,7 +583,10 @@ struct ProductLayer<F> {
 }
 
 #[derive(Debug)]
-struct Layers<F> {
+struct Layers<F>
+where
+  F: Sync + CanonicalSerialize + CanonicalDeserialize,
+{
   prod_layer: ProductLayer<F>,
 }
 
@@ -699,7 +717,10 @@ impl<F: PrimeField> Layers<F> {
 }
 
 #[derive(Debug)]
-struct PolyEvalNetwork<F> {
+struct PolyEvalNetwork<F>
+where
+  F: Sync + CanonicalDeserialize + CanonicalSerialize,
+{
   row_layers: Layers<F>,
   col_layers: Layers<F>,
 }
