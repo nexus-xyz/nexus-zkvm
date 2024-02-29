@@ -20,7 +20,7 @@ const config: DocsThemeConfig = {
       </svg>
     ),
   },
-  docsRepositoryBase: "https://github.com/nexus-xyz/nexus-docs/tree/main",
+  docsRepositoryBase: "https://github.com/nexus-xyz/nexus-zkvm/tree/main/docs",
   sidebar: {
     toggleButton: true,
   },
