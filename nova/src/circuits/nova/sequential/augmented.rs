@@ -19,7 +19,7 @@ use ark_relations::{
 use ark_std::Zero;
 
 use crate::{
-    circuits::{NovaConstraintSynthesizer, StepCircuit},
+    circuits::nova::{NovaConstraintSynthesizer, StepCircuit},
     commitment::CommitmentScheme,
     folding::nova::cyclefold::{
         self,
