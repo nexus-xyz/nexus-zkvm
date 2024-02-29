@@ -3,6 +3,7 @@ use ark_r1cs_std::fields::fp::FpVar;
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
 pub mod nova;
+pub mod supernova;
 
 pub trait NovaConstraintSynthesizer<F: PrimeField> {
     fn generate_constraints(
