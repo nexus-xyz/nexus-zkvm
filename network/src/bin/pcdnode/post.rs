@@ -17,9 +17,8 @@ use tokio::task::JoinHandle;
 
 use crate::{
     api::NexusAPI::{Error, NexusProof, Program, Query},
-    request_work, WorkerState,
+    request_work, WorkerState, LOG_TARGET,
 };
-use nexus_riscv::{nop_vm, parse_elf, vm, vm::eval::VM};
 use nexus_vm::{eval::NexusVM, riscv::translate_elf_bytes, trace::trace};
 
 pub fn manage_proof(mut state: WorkerState, hash: String, mut vm: NexusVM) -> Result<()> {

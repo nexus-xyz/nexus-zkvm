@@ -13,6 +13,23 @@ pub struct PublicParamsArgs {
 pub enum PublicParamsAction {
     /// Generate public parameters to file.
     Setup(SetupArgs),
+    /// Sample SRS for testing to file: NOT SECURE, and memory-heavy operation.
+    SampleTestSRS(SRSSetupArgs),
+}
+
+#[derive(Debug, Default, Args)]
+pub struct SRSSetupArgs {
+    /// Number of variables
+    #[arg(short = 'n', long = "num-vars", default_value = "26")]
+    pub num_vars: usize,
+
+    /// File to save test SRS
+    #[arg(short, long)]
+    pub file: Option<PathBuf>,
+
+    /// Overwrite the file if it already exists.
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(Debug, Default, Args)]
@@ -41,3 +58,8 @@ pub struct SetupArgs {
 pub fn format_params_file(nova_impl: vm_config::NovaImpl, k: usize) -> String {
     format!("nexus-public-{nova_impl}-{k}.zst")
 }
+
+pub fn format_srs_file(num_vars: usize) -> String {
+    format!("nexus-srs-{num_vars}.zst")
+}
+

@@ -10,9 +10,10 @@ use nexus_config::{
     vm::{NovaImpl, VmConfig},
     Config,
 };
-use nexus_prover::types::{ComPCDNode, ComProof, IVCProof, PCDNode, ParPP, SeqPP};
+use nexus_prover::types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP};
 use nexus_tools_dev::command::common::{
-    prove::LocalProveArgs, public_params::format_params_file, VerifyArgs,
+    prove::LocalProveArgs, public_params::format_params_file, spartan_key::format_key_file,
+    VerifyArgs,
 };
 
 use crate::{command::cache_path, LOG_TARGET};
@@ -21,7 +22,7 @@ pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
     let VerifyArgs {
         file,
         compressed,
-        prover_args: LocalProveArgs { k, pp_file, nova_impl, srs_file },
+        prover_args: LocalProveArgs { k, pp_file, nova_impl, .. },
         key_file,
     } = args;
 
@@ -50,7 +51,7 @@ fn verify_proof_compressed(
     let pp_path = match pp_file {
         Some(path) => path,
         None => {
-            let pp_file_name = format_params_file(nova_impl, k);
+            let pp_file_name = format_params_file(NovaImpl::ParallelCompressible, k);
             let cache_path = cache_path()?;
 
             cache_path.join(pp_file_name)
@@ -73,7 +74,7 @@ fn verify_proof_compressed(
     .context("path is not utf-8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle(new);
+    let mut term = nexus_tui::TerminalHandle::new();
     let mut ctx = term
         .context("Verifying compressed")
         .on_step(move |_step| "proof".into());
@@ -82,7 +83,7 @@ fn verify_proof_compressed(
     let result = {
         let proof = ComProof::deserialize_compressed(reader)?;
         let params = nexus_prover::pp::gen_or_load(false, k, &pp_path, None)?;
-        let key = nexus_prover::key::gen_or_load_key(false, &key_path, &pp_path, None)?;
+        let key = nexus_prover::key::gen_or_load_key(false, &key_path, Some(&pp_path), None)?;
 
         _guard = ctx.display_step();
         nexus_prover::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
@@ -94,7 +95,7 @@ fn verify_proof_compressed(
 
             tracing::info!(
                 target: LOG_TARGET,
-                "Proof is valid",
+                "Compressed proof is valid",
             );
         }
         Err(err) => {
@@ -104,8 +105,7 @@ fn verify_proof_compressed(
                 target: LOG_TARGET,
                 err = ?err,
                 ?k,
-                %nova_impl,
-                "Proof is invalid",
+                "Compressed proof is invalid",
             );
             std::process::exit(1);
         }

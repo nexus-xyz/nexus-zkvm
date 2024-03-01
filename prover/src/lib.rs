@@ -13,6 +13,7 @@ use std::{
 };
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use serde::{Deserialize, Serialize};
 
 use nexus_vm::{
     riscv::{load_nvm, VMOpts},
@@ -29,7 +30,7 @@ use crate::{
 
 pub const LOG_TARGET: &str = "nexus-prover";
 
-#[derive(Default, Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(Default, Clone, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
 pub struct Proof {
     pub hash: String,
     pub total_nodes: u32,

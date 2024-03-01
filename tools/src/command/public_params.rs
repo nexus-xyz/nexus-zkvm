@@ -6,9 +6,10 @@ use std::{
 use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
-use nexus_prover::error::ProofError;
+use nexus_prover::{error::ProofError, srs::test_srs::gen_test_srs_to_file};
 use nexus_tools_dev::command::common::public_params::{
-    format_params_file, PublicParamsAction, PublicParamsArgs, SetupArgs,
+    format_params_file, format_srs_file, PublicParamsAction, PublicParamsArgs, SRSSetupArgs,
+    SetupArgs,
 };
 
 use crate::{command::cache_path, LOG_TARGET};
@@ -20,6 +21,9 @@ pub fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
     match action {
         PublicParamsAction::Setup(setup_args) => {
             let _ = setup_params(setup_args)?;
+        }
+        PublicParamsAction::SampleTestSRS(srs_setup_args) => {
+            let _ = sample_test_srs(srs_setup_args)?;
         }
     }
     Ok(())
@@ -65,9 +69,9 @@ fn setup_params_to_file(
     let path = path.to_str().context("path is not valid utf8")?;
     match nova_impl {
         vm_config::NovaImpl::Sequential => {
-            nexus_prover::pp::gen_to_file(k, false, false, path, None)
+            nexus_prover::pp::gen_to_file(k, false, false, path, None)?
         }
-        vm_config::NovaImpl::Parallel => nexus_prover::pp::gen_to_file(k, true, false, path, None),
+        vm_config::NovaImpl::Parallel => nexus_prover::pp::gen_to_file(k, true, false, path, None)?,
         vm_config::NovaImpl::ParallelCompressible => match srs_file {
             None => {
                 tracing::error!(
@@ -86,9 +90,37 @@ fn setup_params_to_file(
                     return Err(io::Error::from(io::ErrorKind::NotFound).into());
                 }
                 let srs_file_str = srs_file.to_str().context("path is not valid utf8")?;
-                nexus_prover::pp::gen_to_file(k, true, true, path, Some(srs_file_str))
+                nexus_prover::pp::gen_to_file(k, true, true, path, Some(srs_file_str))?
             }
         },
     };
     Ok(())
+}
+
+pub fn sample_test_srs(args: SRSSetupArgs) -> anyhow::Result<PathBuf> {
+    let num_vars = args.num_vars;
+    let force = args.force;
+    let path = match args.file {
+        Some(file) => file,
+        None => {
+            let srs_file_name = format_srs_file(num_vars);
+            let cache_path = cache_path()?;
+
+            cache_path.join(srs_file_name)
+        }
+    };
+
+    if !force && path.try_exists()? {
+        tracing::info!(
+            target: LOG_TARGET,
+            "path {} already exists, use `setup --force` to overwrite",
+            path.display(),
+        );
+        return Ok(path);
+    }
+
+    let path_str = path.to_str().context("path is not valid utf8")?;
+
+    gen_test_srs_to_file(num_vars, path_str)?;
+    Ok(path)
 }

@@ -6,7 +6,7 @@ use nexus_config::{vm as vm_config, Config};
 use crate::{
     command::{
         common::public_params::{
-            format_params_file, PublicParamsAction, PublicParamsArgs, SetupArgs,
+            format_params_file, PublicParamsAction, PublicParamsArgs, SRSSetupArgs, SetupArgs,
         },
         dev::{cache_path, compile_env_configs},
     },
@@ -21,6 +21,9 @@ pub(crate) fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
     match action {
         PublicParamsAction::Setup(setup_args) => {
             let _ = setup_params_from_env(setup_args)?;
+        }
+        PublicParamsAction::SampleTestSRS(srs_setup_args) => {
+            let _ = sample_test_srs(srs_setup_args)?;
         }
     }
     Ok(())
@@ -81,4 +84,9 @@ fn setup_params_to_file(
 
     // run from workspace
     cargo(cargo_manifest_dir_path!().into(), cargo_opts)
+}
+
+// TODO: fill this in
+fn sample_test_srs(_args: SRSSetupArgs) -> anyhow::Result<PathBuf> {
+    unimplemented!()
 }
