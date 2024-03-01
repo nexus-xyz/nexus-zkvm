@@ -58,7 +58,7 @@ fn setup_params_to_file(
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
     let par = matches!(nova_impl, vm_config::NovaImpl::Parallel);
-    nexus_prover::pp::gen_to_file(k, par, false, path, None)?;
+    nexus_prover::pp::gen_to_file(k, par, path, None)?;
 
     Ok(())
 }

@@ -158,7 +158,7 @@ mod test {
     #[test]
     #[ignore]
     fn test_gen_pp_with_srs() {
-        gen_to_file(1, true, Some("test_pp.zst"), Some("../test_srs.zst")).unwrap();
+        gen_to_file(1, true, "test_pp.zst", Some("../test_srs.zst")).unwrap();
     }
 
     fn test_srs_gen() {
