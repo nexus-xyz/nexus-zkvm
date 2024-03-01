@@ -75,7 +75,7 @@ fn setup_params_to_file(
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
                 None => {
-                    let srs_file_name = format_srs_file(26);
+                    let srs_file_name = format_srs_file(27);
                     let cache_path = cache_path()?;
 
                     cache_path.join(srs_file_name)
