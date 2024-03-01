@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
-use nexus_prover::{error::ProofError, srs::test_srs::gen_test_srs_to_file};
+use nexus_prover::srs::test_srs::gen_test_srs_to_file;
 use nexus_tools_dev::command::common::public_params::{
     format_params_file, format_srs_file, PublicParamsAction, PublicParamsArgs, SRSSetupArgs,
     SetupArgs,
@@ -35,7 +35,7 @@ pub(crate) fn setup_params(args: SetupArgs) -> anyhow::Result<PathBuf> {
     let force = args.force;
     let k = args.k.unwrap_or(vm_config.k);
     let nova_impl = args.nova_impl.unwrap_or(vm_config.nova_impl);
-    let srs_file = args.srs_file.as_deref();
+    let srs_file = args.srs_file;
 
     let path = match args.path {
         Some(path) => path,
@@ -64,7 +64,7 @@ fn setup_params_to_file(
     path: &Path,
     nova_impl: vm_config::NovaImpl,
     k: usize,
-    srs_file: Option<&Path>,
+    srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
     match nova_impl {
@@ -72,27 +72,28 @@ fn setup_params_to_file(
             nexus_prover::pp::gen_to_file(k, false, false, path, None)?
         }
         vm_config::NovaImpl::Parallel => nexus_prover::pp::gen_to_file(k, true, false, path, None)?,
-        vm_config::NovaImpl::ParallelCompressible => match srs_file {
-            None => {
-                tracing::error!(
-                    target: LOG_TARGET,
-                    "SRS file is required for parallel compressible proofs"
-                );
-                return Err(ProofError::MissingSRS.into());
-            }
-            Some(srs_file) => {
-                if !srs_file.try_exists()? {
-                    tracing::error!(
-                        target: LOG_TARGET,
-                        "path {} was not found",
-                        srs_file.display(),
-                    );
-                    return Err(io::Error::from(io::ErrorKind::NotFound).into());
+        vm_config::NovaImpl::ParallelCompressible => {
+            let srs_file = match srs_file {
+                None => {
+                    let srs_file_name = format_srs_file(26);
+                    let cache_path = cache_path()?;
+
+                    cache_path.join(srs_file_name)
                 }
-                let srs_file_str = srs_file.to_str().context("path is not valid utf8")?;
-                nexus_prover::pp::gen_to_file(k, true, true, path, Some(srs_file_str))?
+                Some(file) => file,
+            };
+
+            if !srs_file.try_exists()? {
+                tracing::error!(
+                target: LOG_TARGET,
+                "path {} was not found",
+                srs_file.display(),
+                );
+                return Err(io::Error::from(io::ErrorKind::NotFound).into());
             }
-        },
+            let srs_file_str = srs_file.to_str().context("path is not valid utf8")?;
+            nexus_prover::pp::gen_to_file(k, true, true, path, Some(srs_file_str))?
+        }
     };
     Ok(())
 }

@@ -27,7 +27,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         "Reading the Nova public parameters",
     );
 
-    let pp = nexus_prover::pp::load_pp(&pp_file_str)?;
+    let pp = nexus_prover::pp::load_pp(pp_file_str)?;
 
     let key_file = if let Some(path) = args.key_file {
         // return early if the path was explicitly specified and doesn't exist

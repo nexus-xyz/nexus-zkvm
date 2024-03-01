@@ -34,7 +34,7 @@ pub(crate) fn spartan_setup(args: SetupArgs) -> anyhow::Result<PathBuf> {
             "path {} was not found",
             args.pp_file.display(),
         );
-        return Err(io::Error::from(io::ErrorKind::NotFound).into());
+        Err(io::Error::from(io::ErrorKind::NotFound).into())
     } else if !args.srs_file.try_exists()? {
         tracing::error!(
             target: LOG_TARGET,

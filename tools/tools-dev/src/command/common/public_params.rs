@@ -62,4 +62,3 @@ pub fn format_params_file(nova_impl: vm_config::NovaImpl, k: usize) -> String {
 pub fn format_srs_file(num_vars: usize) -> String {
     format!("nexus-srs-{num_vars}.zst")
 }
-
