@@ -39,11 +39,7 @@ enum Command {
         )]
         pp_file: String,
 
-        /// whether public parameters are compatible with proof compression
-        #[arg(short = 'c', long = "compressible", default_value = "false")]
-        com: bool,
-
-        /// SRS file: required with `--compressible`, otherwise ignored
+        /// SRS file: if not provided, proofs will not be compressible.
         #[arg(short = 's', long = "srs")]
         srs_file: Option<String>,
     },
@@ -82,9 +78,7 @@ fn main() -> Result<(), ProofError> {
     let opts = Opts::parse();
 
     match opts.command {
-        Gen { k, par, pp_file, com, srs_file } => {
-            gen_to_file(k, par, com, &pp_file, srs_file.as_deref())
-        }
+        Gen { k, par, pp_file, srs_file } => gen_to_file(k, par, &pp_file, srs_file.as_deref()),
 
         Prove { gen, par, pp_file, vm } => {
             let trace = run(&vm, par)?;
