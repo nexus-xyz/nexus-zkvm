@@ -11,7 +11,7 @@ pub mod verify;
 
 pub use self::{
     compress::CompressArgs, new::NewArgs, prove::ProveArgs, request::RequestArgs, run::RunArgs,
-    verify::VerifyArgs,
+    spartan_key::SpartanSetupArgs, verify::VerifyArgs,
 };
 
 #[derive(Debug, Subcommand)]
@@ -29,7 +29,9 @@ pub enum Command {
     /// Nova public parameters management.
     #[clap(name = "pp")]
     PublicParams(public_params::PublicParamsArgs),
-    /// Compress a Nova proof
+    /// Spartan key management.
+    SpartanKey(spartan_key::SpartanSetupArgs),
+    /// Compress a Nova proof.
     Compress(CompressArgs),
 }
 

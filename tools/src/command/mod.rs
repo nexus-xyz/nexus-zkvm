@@ -32,6 +32,7 @@ pub fn handle_command(cmd: Command) -> anyhow::Result<()> {
         CommonCommand::Verify(args) => verify::handle_command(args),
         CommonCommand::PublicParams(args) => public_params::handle_command(args),
         CommonCommand::Compress(args) => compress::handle_command(args),
+        CommonCommand::SpartanKey(args) => spartan_key::handle_command(args),
     }
 }
 

@@ -9,7 +9,7 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub fn load_srs(file: &str) -> Result<SRS, ProofError> {
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
-    let srs = SRS::deserialize_compressed(&mut dec)?;
+    let srs = SRS::deserialize_compressed_unchecked(&mut dec)?;
     Ok(srs)
 }
 
