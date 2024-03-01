@@ -16,7 +16,7 @@ cargo nexus prove --profile=dev
 
 ### Switching Nova implementation
 
-`nexus-nova` provides two implementations of the prover: sequential and proof-carrying data. The second one is also aliased as parallel
+`nexus-nova` provides two major implementations of the prover: sequential and proof-carrying data. The second one is also aliased as parallel
 or distributed. It enables multiple provers to work on the same program in parallel, at the cost of bigger recursion overhead (see [module docs](https://github.com/nexus-xyz/nexus-zkvm/blob/main/nova/src/circuits/nova/pcd/mod.rs) for details). 
 The default one you have tried in the quick start is sequential, to switch to parallel you can either pass it as a cli argument:
 

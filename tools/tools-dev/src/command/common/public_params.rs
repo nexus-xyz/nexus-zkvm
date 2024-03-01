@@ -20,7 +20,7 @@ pub enum PublicParamsAction {
 #[derive(Debug, Default, Args)]
 pub struct SRSSetupArgs {
     /// Number of variables
-    #[arg(short = 'n', long = "num-vars", default_value = "27")]
+    #[arg(short = 'n', long = "num-vars", default_value = "20")]
     pub num_vars: usize,
 
     /// File to save test SRS

@@ -45,7 +45,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
             force: false,
             pp_file,
             srs_file,
-            path: None,
+            file: None,
         })?
     } else {
         tracing::error!(

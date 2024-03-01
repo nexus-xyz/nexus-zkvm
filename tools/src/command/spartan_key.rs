@@ -43,7 +43,7 @@ pub(crate) fn spartan_setup(args: SetupArgs) -> anyhow::Result<PathBuf> {
         );
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     } else {
-        let key_path = match args.path {
+        let key_path = match args.file {
             Some(path) => path,
             None => {
                 let key_file_name = format_key_file(vm_config.k);

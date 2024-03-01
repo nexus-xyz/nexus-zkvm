@@ -18,14 +18,14 @@ pub enum SpartanSetupAction {
 pub struct SetupArgs {
     /// Where to save the file.
     #[arg(short, long)]
-    pub path: Option<PathBuf>,
+    pub file: Option<PathBuf>,
 
     /// Overwrite the file if it already exists
     #[arg(long)]
     pub force: bool,
 
     /// Path to Nova public parameters file.
-    #[arg(short = 'p', long = "public_params")]
+    #[arg(short = 'p', long = "public-params")]
     pub pp_file: PathBuf,
 
     /// Path to the Zeromorph structured reference string.

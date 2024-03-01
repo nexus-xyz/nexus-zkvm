@@ -105,7 +105,7 @@ Open-source and fully-transparent science, cryptography and benchmarks are the c
 - **The Nexus Virtual Machine**: A minimal, general-purpose virtual machine designed to optimize prover performance. The NVM can run programs in any high-level language (e.g. Rust, C++, etc), or emulate with minimal overhead any Instruction Set Architecture (ISA) (e.g. RISC-V, EVM, Wasm).
 - **The Nexus Compiler**: A safe and correct compiler that compiles high-level languages and any other ISAs to the NVM, with compiler optimizations designed to maximize prover performance.
 - **The Nexus Precompile System**: Nexus precompiles are custom extensions on the NVM instruction set, like SHA-256, keccack256, etc, that developers can use to accelerate specific computations. Nexus precompiles are exactly like Ethereum precompiles, but in the context of zkVMs. Developers can extend the zkVM with custom precompiles, and import other developer's precompiles. This is only possible due to the non-uniform IVC system introduced by [SuperNova](https://eprint.iacr.org/2022/1758.pdf).
-- **The Nexus Proof Compression Mechanism**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, so they can be compressed through recursive applications of this system down to a few bytes.
+- **The Nexus Proof Compression Mechanism**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, so they can be compressed through recursive applications of this system down to a few hundred bytes.
 
 ## Architecture and Science
 
