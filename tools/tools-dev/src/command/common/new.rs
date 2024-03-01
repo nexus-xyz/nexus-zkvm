@@ -27,7 +27,7 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
         [
             "add",
             "--git",
-            "ssh://git@github.com:22/nexus-xyz/nexus-zkvm.git",
+            "https://github.com/nexus-xyz/nexus-zkvm.git",
             "nexus-rt",
         ],
     )?;

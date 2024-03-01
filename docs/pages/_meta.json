@@ -1,0 +1,14 @@
+{
+  "index": {
+    "theme": {
+      "breadcrumb": false
+    }
+  },
+  "network": {},
+  "zkVM": {},
+  "Specs": {},
+  "svg": {
+    "title": "SVG Images",
+    "display": "hidden"
+  }
+}

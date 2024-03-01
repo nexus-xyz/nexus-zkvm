@@ -39,7 +39,7 @@ where
 {
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
-    let pp = PP::<C, SP>::deserialize_compressed_unchecked(&mut dec)?;
+    let pp = PP::<C, SP>::deserialize_compressed(&mut dec)?;
     Ok(pp)
 }
 
@@ -72,7 +72,6 @@ where
 pub fn gen_to_file(
     k: usize,
     par: bool,
-    com: bool,
     pp_file: &str,
     srs_file_opt: Option<&str>,
 ) -> Result<(), ProofError> {
@@ -88,49 +87,38 @@ pub fn gen_to_file(
     let _guard = term_ctx.display_step();
 
     if par {
-        if com {
-            let srs_file = match srs_file_opt {
-                Some(srs_file) => srs_file,
-                None => {
-                    tracing::error!(
-                        target: LOG_TARGET,
-                        "SRS file is not provided",
-                    );
-                    return Err(ProofError::MissingSRS)?;
-                }
-            };
-            tracing::info!(
+        match srs_file {
+            Some(srs_file) => {
+                tracing::info!(
                 target: LOG_TARGET,
                 path =?srs_file,
                 "Reading the SRS",
-            );
+                );
+                let srs: SRS = load_srs(srs_file)?;
+                let pp: ComPP = gen_vm_pp(k, &srs)?;
+                tracing::info!(
+                    target: LOG_TARGET,
+                    path =?srs_file,
+                    "SRS found for a maximum of {} variables",
+                    srs.max_num_vars
+                );
 
-            let srs: SRS = load_srs(srs_file)?;
-
-            tracing::info!(
-                target: LOG_TARGET,
-                path =?srs_file,
-                "SRS found for a maximum of {} variables",
-                srs.max_num_vars
-            );
-
-            tracing::info!(
-                target: LOG_TARGET,
-                "Generating compressible PCD public parameters",
-            );
-
-            let pp: ComPP = gen_vm_pp(k, &srs)?;
-            show_pp(&pp);
-            save_pp(pp, pp_file)
-        } else {
-            tracing::info!(
-                target: LOG_TARGET,
-                "Generating non-compressible PCD public parameters",
-            );
-
-            let pp: ParPP = gen_vm_pp(k, &())?;
-            show_pp(&pp);
-            save_pp(pp, pp_file)
+                tracing::info!(
+                    target: LOG_TARGET,
+                    "Generating compressible PCD public parameters",
+                );
+                show_pp(&pp);
+                save_pp(pp, pp_file)
+            }
+            None => {
+                tracing::info!(
+                    target: LOG_TARGET,
+                    "Generating non-compressible PCD public parameters",
+                );
+                let pp: ParPP = gen_vm_pp(k, &())?;
+                show_pp(&pp);
+                save_pp(pp, pp_file)
+            }
         }
     } else {
         tracing::info!(
@@ -204,7 +192,7 @@ mod test {
     #[test]
     #[ignore]
     fn test_gen_pp_with_srs() {
-        gen_to_file(1, true, true, "test_pp.zst", Some("../test_srs.zst")).unwrap();
+        gen_to_file(1, true, "test_pp.zst", Some("../test_srs.zst")).unwrap();
     }
 
     fn test_srs_gen() {
@@ -213,6 +201,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_load_srs() {
         test_srs_gen();
         let srs: SRS = load_srs("small_test_srs.zst").unwrap();

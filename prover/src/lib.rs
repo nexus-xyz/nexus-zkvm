@@ -111,13 +111,10 @@ fn estimate_size(tr: &Trace) -> usize {
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     let mut vm = load_nvm(opts)?;
 
-    let start = Instant::now();
     println!("Executing program...");
-    println!("\n---vvv--- program output, if any ---vvv---");
-    io::stdout().flush().unwrap();
 
+    let start = Instant::now();
     let trace = trace(&mut vm, opts.k, pow)?;
-    println!("\n---^^^--- program output, if any ---^^^---\n");
 
     println!(
         "Executed {} instructions in {:?}. {} bytes used by trace.",

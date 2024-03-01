@@ -45,11 +45,7 @@ enum Command {
         )]
         pp_file: String,
 
-        /// whether public parameters are compatible with proof compression
-        #[arg(short = 'c', long = "compressible", default_value = "false")]
-        com: bool,
-
-        /// SRS file: required with `--compressible`, otherwise ignored
+        /// SRS file: if not provided, proofs will not be compressible.
         #[arg(short = 's', long = "srs")]
         srs_file: Option<String>,
     },
