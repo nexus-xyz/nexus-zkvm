@@ -7,10 +7,7 @@ pub mod srs;
 use std::time::Instant;
 pub mod types;
 
-use std::{
-    io::{self, Write},
-    path::Path,
-};
+use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};

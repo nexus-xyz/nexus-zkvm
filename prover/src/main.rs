@@ -157,8 +157,8 @@ fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
 
     match opts.command {
-        Gen { k, par, pp_file, com, srs_file } => {
-            gen_to_file(k, par, com, &pp_file, srs_file.as_deref())?;
+        Gen { k, par, pp_file, srs_file } => {
+            gen_to_file(k, par, &pp_file, srs_file.as_deref())?;
             Ok(())
         }
 

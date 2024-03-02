@@ -68,10 +68,8 @@ fn setup_params_to_file(
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
     match nova_impl {
-        vm_config::NovaImpl::Sequential => {
-            nexus_prover::pp::gen_to_file(k, false, false, path, None)?
-        }
-        vm_config::NovaImpl::Parallel => nexus_prover::pp::gen_to_file(k, true, false, path, None)?,
+        vm_config::NovaImpl::Sequential => nexus_prover::pp::gen_to_file(k, false, path, None)?,
+        vm_config::NovaImpl::Parallel => nexus_prover::pp::gen_to_file(k, true, path, None)?,
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
                 None => {
@@ -92,7 +90,7 @@ fn setup_params_to_file(
                 return Err(io::Error::from(io::ErrorKind::NotFound).into());
             }
             let srs_file_str = srs_file.to_str().context("path is not valid utf8")?;
-            nexus_prover::pp::gen_to_file(k, true, true, path, Some(srs_file_str))?
+            nexus_prover::pp::gen_to_file(k, true, path, Some(srs_file_str))?
         }
     };
     Ok(())

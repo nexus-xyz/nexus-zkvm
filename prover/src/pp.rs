@@ -87,7 +87,7 @@ pub fn gen_to_file(
     let _guard = term_ctx.display_step();
 
     if par {
-        match srs_file {
+        match srs_file_opt {
             Some(srs_file) => {
                 tracing::info!(
                 target: LOG_TARGET,
