@@ -14,11 +14,9 @@ use rayon::iter::{
 
 use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme};
 
-pub mod sparse;
-pub use sparse::SparseMatrix;
+pub use super::sparse::{MatrixRef, SparseMatrix};
 
 pub use ark_relations::r1cs::Matrix;
-pub type MatrixRef<'a, F> = &'a [Vec<(F, usize)>];
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Error {
@@ -617,7 +615,7 @@ pub fn commit_T_with_relaxed<G: CurveGroup, C: CommitmentScheme<G>>(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     #![allow(non_upper_case_globals)]
     #![allow(clippy::needless_range_loop)]
 
@@ -628,7 +626,7 @@ mod tests {
     use ark_relations::r1cs::Matrix;
     use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
 
-    fn to_field_sparse<G: CurveGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
+    pub(crate) fn to_field_sparse<G: CurveGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
         let mut coo_matrix = Matrix::new();
 
         for row in matrix {
@@ -645,7 +643,7 @@ mod tests {
         coo_matrix
     }
 
-    fn to_field_elements<G: CurveGroup>(x: &[u64]) -> Vec<G::ScalarField> {
+    pub(crate) fn to_field_elements<G: CurveGroup>(x: &[i64]) -> Vec<G::ScalarField> {
         x.iter().copied().map(G::ScalarField::from).collect()
     }
 
@@ -691,19 +689,19 @@ mod tests {
     //
     // Note that our implementation shuffles columns such that witness comes first.
 
-    const A: &[&[u64]] = &[
+    pub(crate) const A: &[&[u64]] = &[
         &[0, 0, 1, 0, 0, 0],
         &[0, 0, 0, 1, 0, 0],
         &[0, 0, 1, 0, 1, 0],
         &[5, 0, 0, 0, 0, 1],
     ];
-    const B: &[&[u64]] = &[
+    pub(crate) const B: &[&[u64]] = &[
         &[0, 0, 1, 0, 0, 0],
         &[0, 0, 1, 0, 0, 0],
         &[1, 0, 0, 0, 0, 0],
         &[1, 0, 0, 0, 0, 0],
     ];
-    const C: &[&[u64]] = &[
+    pub(crate) const C: &[&[u64]] = &[
         &[0, 0, 0, 1, 0, 0],
         &[0, 0, 0, 0, 1, 0],
         &[0, 0, 0, 0, 0, 1],

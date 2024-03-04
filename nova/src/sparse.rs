@@ -10,7 +10,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 #[cfg(feature = "parallel")]
 use rayon::{iter::ParallelIterator, slice::ParallelSlice};
 
-use super::MatrixRef;
+pub type MatrixRef<'a, F> = &'a [Vec<(F, usize)>];
 
 /// CSR format sparse matrix, We follow the names used by scipy.
 /// Detailed explanation here: https://stackoverflow.com/questions/52299420/scipy-csr-matrix-understand-indptr

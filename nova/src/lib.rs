@@ -6,6 +6,7 @@
 
 mod absorb;
 mod provider;
+mod sparse;
 mod utils;
 
 pub mod circuits;
@@ -15,6 +16,7 @@ mod gadgets;
 #[cfg(test)]
 mod test_utils;
 
+pub mod ccs;
 pub mod commitment;
 pub mod r1cs;
 
