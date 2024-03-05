@@ -182,6 +182,26 @@ where
     _step_circuit: PhantomData<SC>,
 }
 
+impl<G1, G2, C1, C2, RO, SC> Clone for NIVCProof<G1, G2, C1, C2, RO, SC>
+where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
+    RO: CryptographicSponge + Send + Sync,
+    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
+    SC: NonUniformCircuit<G1::ScalarField>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            z_0: self.z_0.clone(),
+            non_base: self.non_base.clone(),
+            _random_oracle: PhantomData,
+            _step_circuit: PhantomData,
+        }
+    }
+}
+
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 struct NIVCProofNonBase<G1, G2, C1, C2>
 where
@@ -201,6 +221,29 @@ where
     pc: u64,
     pc_next: u64,
     z_i: Vec<G1::ScalarField>,
+}
+
+impl<G1, G2, C1, C2> Clone for NIVCProofNonBase<G1, G2, C1, C2>
+where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            U: self.U.clone(),
+            W: self.W.clone(),
+            U_secondary: self.U_secondary.clone(),
+            W_secondary: self.W_secondary.clone(),
+            u: self.u.clone(),
+            w: self.w.clone(),
+            i: self.i,
+            pc: self.pc,
+            pc_next: self.pc_next,
+            z_i: self.z_i.clone(),
+        }
+    }
 }
 
 impl<G1, G2, C1, C2, RO, SC> NIVCProof<G1, G2, C1, C2, RO, SC>
