@@ -208,17 +208,18 @@ where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     G::ScalarField: Absorb,
     C: PolyCommitmentScheme<G>,
-    C::Commitment: Into<G>,
+    C::Commitment: Into<Vec<G>>,
 {
     fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
         unreachable!()
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
-            &self.commitment_W.clone().into(),
-            dest,
-        );
+        self.commitment_W
+            .clone()
+            .into()
+            .iter()
+            .for_each(|c| <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest));
 
         (&self.X[1..]).to_sponge_field_elements(dest);
     }
@@ -250,17 +251,18 @@ where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,
     G::ScalarField: Absorb,
     C: PolyCommitmentScheme<G>,
-    C::Commitment: Into<G>,
+    C::Commitment: Into<Vec<G>>,
 {
     fn to_sponge_bytes(&self, _: &mut Vec<u8>) {
         unreachable!()
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
-            &self.commitment_W.clone().into(),
-            dest,
-        );
+        self.commitment_W
+            .clone()
+            .into()
+            .iter()
+            .for_each(|c| <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest));
 
         self.X.to_sponge_field_elements(dest);
         self.rs.to_sponge_field_elements(dest);

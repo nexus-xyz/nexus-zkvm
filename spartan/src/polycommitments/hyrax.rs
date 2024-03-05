@@ -98,6 +98,26 @@ where
   }
 }
 
+impl<G> From<Vec<G>> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  fn from(C: Vec<G>) -> HyraxCommitment<G> {
+    Self {
+      C: PolyCommitment { C },
+    }
+  }
+}
+
+impl<G> Into<Vec<G>> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  fn into(self) -> Vec<G> {
+    self.C.C
+  }
+}
+
 impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
   fn zero(n: usize) -> Self {
     let ell = n.log_2();
@@ -109,10 +129,6 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
         C: vec![G::zero(); commitment_size],
       },
     }
-  }
-
-  fn into_affine(&self) -> Vec<G::Affine> {
-    self.C.C.iter().map(|c| c.into_affine()).collect()
   }
 }
 

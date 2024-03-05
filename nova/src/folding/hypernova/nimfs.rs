@@ -4,12 +4,14 @@ use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSiz
 use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField, ToConstraintField};
 use ark_spartan::{dense_mlpoly::EqPolynomial, polycommitments::PolyCommitmentScheme};
+use ark_poly::Polynomial;
+use ark_poly::MultilinearExtension;
 
 use ark_std::rc::Rc;
 
 use crate::{
-    absorb::{AbsorbNonNative, CryptographicSpongeExt},
-    ccs::{self, mle::vec_to_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
+    absorb::{AbsorbNonNative},
+    ccs::{self, mle::{vec_to_mle, vec_to_ark_mle}, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
 };
 
 use super::ml_sumcheck::{self, ListOfProductsOfPolynomials, MLSumcheck};
@@ -72,8 +74,8 @@ where
         (U1, W1): (&LCCSInstance<G, C>, &CCSWitness<G>),
         (U2, W2): (&CCSInstance<G, C>, &CCSWitness<G>),
     ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>), G::ScalarField), Error> {
-        random_oracle.absorb_non_native(&U1);
-        random_oracle.absorb_non_native(&U2);
+        random_oracle.absorb(&U1);
+        random_oracle.absorb(&U2);
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
@@ -90,38 +92,33 @@ where
         let mut g = ListOfProductsOfPolynomials::new(s);
 
         let eq1 = EqPolynomial::new(U1.rs.clone());
-        let eqrs = ark_poly::DenseMultilinearExtension::from_evaluations_vec(s, eq1.evals());
+        let eqrs = vec_to_ark_mle(eq1.evals().as_slice());
 
         (1..=shape.num_matrices).for_each(|j| {
             let mle = vec_to_mle(shape.Ms[j - 1].multiply_vec(&z1).as_slice());
-            let mut summand_Lj = vec![ark_poly::DenseMultilinearExtension::from_evaluations_vec(
-                s,
-                mle.vec().clone(),
-            )];
+            let mut summand_Lj = vec![vec_to_ark_mle(mle.vec().as_slice())];
 
             summand_Lj.push(eqrs.clone());
             g.add_product(
-                summand_Lj.iter().map(|s| Rc::new(s.clone())),
+                summand_Lj.iter().map(|L| Rc::new(L.clone())),
                 gamma.pow(&[j as u64]),
             );
         });
 
         let eq2 = EqPolynomial::new(beta);
-        let eqb = ark_poly::DenseMultilinearExtension::from_evaluations_vec(s, eq2.evals());
+        let eqb = vec_to_ark_mle(eq2.evals().as_slice());
 
         (0..shape.num_multisets).for_each(|i| {
             let mut summand_Q = shape.cSs[i]
                 .1
                 .iter()
-                .map(|j| vec_to_mle(shape.Ms[*j].multiply_vec(&z1).as_slice()))
-                .map(|mle| {
-                    ark_poly::DenseMultilinearExtension::from_evaluations_vec(s, mle.vec().clone())
-                })
+                .map(|j| vec_to_mle(shape.Ms[*j].multiply_vec(&z2).as_slice()))
+                .map(|mle| vec_to_ark_mle(mle.vec()))
                 .collect::<Vec<ark_poly::DenseMultilinearExtension<G::ScalarField>>>();
 
             summand_Q.push(eqb.clone());
             g.add_product(
-                summand_Q.iter().map(|s| Rc::new(s.clone())),
+                summand_Q.iter().map(|Qterm| Rc::new(Qterm.clone())),
                 shape.cSs[i].0 * gamma.pow(&[(shape.num_matrices + 1) as u64]),
             );
         });
@@ -162,8 +159,8 @@ where
         U1: &LCCSInstance<G, C>,
         U2: &CCSInstance<G, C>,
     ) -> Result<LCCSInstance<G, C>, Error> {
-        random_oracle.absorb_non_native(&U1);
-        random_oracle.absorb_non_native(&U2);
+        random_oracle.absorb(&U1);
+        random_oracle.absorb(&U2);
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
@@ -181,28 +178,30 @@ where
         let sumcheck_subclaim =
             MLSumcheck::verify_as_subprotocol(random_oracle, &self.poly_info, claimed_sum, &self.sumcheck_proof)?;
 
-        let eqrs = EqPolynomial::new(U1.rs.clone());
-        let e1 = eqrs.evaluate(rs.as_slice());
+        let eq1 = EqPolynomial::new(U1.rs.clone());
+        let eqrs = vec_to_ark_mle(eq1.evals().as_slice());
+        let e1 = eqrs.evaluate(&rs);
 
-        let eqb = EqPolynomial::new(beta);
-        let e2 = eqb.evaluate(rs.as_slice());
+        let eq2 = EqPolynomial::new(beta);
+        let eqb = vec_to_ark_mle(eq2.evals().as_slice());
+        let e2 = eqb.evaluate(&rs);
 
-        let c = (1..=shape.num_matrices)
-            .map(|j| {
-                let inner: G::ScalarField = (0..shape.num_multisets)
-                    .map(|i| {
-                        shape.cSs[i]
-                            .1
-                            .iter()
-                            .fold(shape.cSs[i].0, |acc, k| acc * self.thetas[*k])
-                    })
-                    .sum();
-
-                gamma.pow(&[j as u64]) * e1 * self.sigmas[j] + gamma.pow(&[(j + 1) as u64]) * e2 * inner
-            })
+        let cl: G::ScalarField = (1..=shape.num_matrices)
+            .map(|j| gamma.pow(&[j as u64]) * e1 * self.sigmas[j - 1])
             .sum();
 
-        if sumcheck_subclaim.expected_evaluation != c {
+        let cr: G::ScalarField = (0..shape.num_multisets)
+            .map(|i| {
+                shape.cSs[i]
+                    .1
+                    .iter()
+                    .fold(shape.cSs[i].0, |acc, j| acc * self.thetas[*j])
+            })
+            .sum::<G::ScalarField>() * gamma.pow(&[(shape.num_matrices + 1) as u64]) * e2;
+
+        println!("{}, {}, {}", cl, cr, sumcheck_subclaim.expected_evaluation);
+
+        if sumcheck_subclaim.expected_evaluation != cl + cr {
             return Err(Error::InconsistentSubclaim);
         }
 
@@ -225,9 +224,31 @@ pub(crate) mod tests {
     use crate::{ccs::{CCSWitness, LCCSInstance}, r1cs::tests::to_field_elements, test_utils::setup_test_ccs};
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::short_weierstrass::{SWCurveConfig, Projective};
-    use ark_test_curves::bls12_381::{Bls12_381 as E, g1::Config as G};
+    use ark_test_curves::bls12_381::{Bls12_381 as E, g1::Config as G, Fr as Scalar};
 
     type Z = Zeromorph<E>;
+
+    #[test]
+    fn test_compat_mles() {
+        let s: usize = 3;
+
+	let mut rng = test_rng();
+        let beta: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+        let rs: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+
+        let eq = EqPolynomial::new(beta.clone());
+        let e0 = eq.evaluate(&rs);
+
+        let mle1 = vec_to_mle(eq.evals().as_slice());
+        let e1 = mle1.evaluate::<Projective<G>>(rs.as_slice());
+
+	let mle2 = vec_to_ark_mle(eq.evals().as_slice());
+        let e2 = mle2.evaluate(&rs);
+
+        assert_eq!(e0, e1);
+        assert_eq!(e1, e2);
+        assert_eq!(e2, e0);
+    }
 
     #[test]
     fn prove_verify() {
@@ -242,7 +263,7 @@ pub(crate) mod tests {
         C: PolyCommitmentScheme<Projective<G>>,
         C::PolyCommitmentKey: Clone,
     {
-        let config = poseidon_config::<G::BaseField>();
+        let config = poseidon_config::<G::ScalarField>();
 
         let mut rng = test_rng();
 
@@ -266,7 +287,7 @@ pub(crate) mod tests {
         let mut random_oracle = PoseidonSponge::new(&config);
 
         let (proof, (folded_U, folded_W), _rho) =
-            NIMFSProof::<Projective<G>, PoseidonSponge<G::BaseField>>::prove_as_subprotocol(
+            NIMFSProof::<Projective<G>, PoseidonSponge<G::ScalarField>>::prove_as_subprotocol(
                 &mut random_oracle,
                 &shape,
                 (&U1, &W1),

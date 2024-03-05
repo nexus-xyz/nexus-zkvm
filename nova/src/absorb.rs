@@ -136,6 +136,7 @@ where
 {
     fn to_non_native_field_elements(&self, dest: &mut Vec<G::BaseField>) {
         self.commitment_W
+            .clone()
             .into_affine()
             .iter()
             .for_each(|c| Absorb::to_sponge_field_elements(c, dest));
@@ -157,6 +158,7 @@ where
 {
     fn to_non_native_field_elements(&self, dest: &mut Vec<G::BaseField>) {
         self.commitment_W
+            .clone()
             .into_affine()
             .iter()
             .for_each(|c| Absorb::to_sponge_field_elements(c, dest));

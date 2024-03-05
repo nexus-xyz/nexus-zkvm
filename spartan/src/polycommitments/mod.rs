@@ -41,6 +41,8 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   + AddAssign<Self>
   + MulAssign<G::ScalarField>
   + Mul<G::ScalarField, Output = Self>
+  + Into<Vec<G>>
+  + From<Vec<G>>
   + Default
   + Clone
   + Send
@@ -49,7 +51,9 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   // this should be the commitment to the zero vector of length n
   fn zero(n: usize) -> Self;
 
-  fn into_affine(&self) -> Vec<G::Affine>;
+  fn into_affine(self) -> Vec<G::Affine> {
+    self.into().iter().map(|c| c.into_affine()).collect()
+  }
 }
 
 pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {

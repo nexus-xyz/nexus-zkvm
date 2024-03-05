@@ -208,14 +208,25 @@ impl<E: Pairing> AddAssign<Self> for ZeromorphCommitment<E> {
   }
 }
 
+impl<E: Pairing> From<Vec<E::G1>> for ZeromorphCommitment<E> {
+  fn from(C: Vec<E::G1>) -> ZeromorphCommitment<E> {
+    assert!(C.len() == 1);
+    Self {
+      commitment: KZGCommitment(C[0].into()),
+    }
+  }
+}
+
+impl<E: Pairing> Into<Vec<E::G1>> for ZeromorphCommitment<E> {
+  fn into(self) -> Vec<E::G1> {
+    vec![self.commitment.0.into()]
+  }
+}
+
 impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
   fn zero(_n: usize) -> Self {
     Self {
       commitment: KZGCommitment::empty(),
     }
-  }
-
-  fn into_affine(&self) -> Vec<E::G1Affine> {
-    vec![self.commitment.0.into()]
   }
 }

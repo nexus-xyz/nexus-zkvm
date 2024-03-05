@@ -41,6 +41,38 @@ pub fn vec_to_mle<F: PrimeField>(z: &[F]) -> DenseMultilinearExtension<F> {
     DenseMultilinearExtension::<F>::new(z)
 }
 
+/// Converts a vector into a (dense) ark mle with the endianness fixed to align with the spartan types.
+pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExtension<F> {
+    let n = z.len();
+    assert!(n > 0);
+
+    let s = (n - 1).checked_ilog2().unwrap_or(0) + 1;
+
+    let mut z = z.to_owned();
+    z.resize(n.next_power_of_two(), F::zero());
+
+    // Explanation of reversing:
+    //
+    //   At present for polynomial commitments we use the ones from the spartan repo,
+    //   because they work nicely over its multilinear extension representation.
+    //
+    //   This is not true of the ark-poly-commit implementations, which expect for
+    //   the polynomials to be represented in coefficient (rather than evaluation)
+    //   form, and doing the conversion is expensive.
+    //
+    //   On the other hand, the spartan sumcheck implementation isn't suitable for
+    //   hypernova, so we want to use the arkworks one.
+    //
+    //   Annoyingly the arkworks and spartan types are reversed with respect to the
+    //   endianness that they use. As such, we reverse the evaluations here first.
+    let mut zp = vec![F::zero(); n.next_power_of_two()];
+    z.iter()
+        .enumerate()
+        .for_each(|(i, v)| zp[i.reverse_bits() >> (usize::BITS - s)] = *v);
+
+    ark_poly::DenseMultilinearExtension::<F>::from_evaluations_vec(s as usize, zp)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
