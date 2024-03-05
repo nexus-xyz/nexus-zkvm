@@ -5,7 +5,6 @@ use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField, ToConstraintField};
 use ark_spartan::{dense_mlpoly::EqPolynomial, polycommitments::PolyCommitmentScheme};
 use ark_poly::Polynomial;
-use ark_poly::MultilinearExtension;
 
 use ark_std::rc::Rc;
 
@@ -95,12 +94,11 @@ where
         let eqrs = vec_to_ark_mle(eq1.evals().as_slice());
 
         (1..=shape.num_matrices).for_each(|j| {
-            let mle = vec_to_mle(shape.Ms[j - 1].multiply_vec(&z1).as_slice());
-            let mut summand_Lj = vec![vec_to_ark_mle(mle.vec().as_slice())];
+            let mut summand_L = vec![vec_to_ark_mle(shape.Ms[j - 1].multiply_vec(&z1).as_slice())];
 
-            summand_Lj.push(eqrs.clone());
+            summand_L.push(eqrs.clone());
             g.add_product(
-                summand_Lj.iter().map(|L| Rc::new(L.clone())),
+                summand_L.iter().map(|Lj| Rc::new(Lj.clone())),
                 gamma.pow(&[j as u64]),
             );
         });
@@ -112,8 +110,7 @@ where
             let mut summand_Q = shape.cSs[i]
                 .1
                 .iter()
-                .map(|j| vec_to_mle(shape.Ms[*j].multiply_vec(&z2).as_slice()))
-                .map(|mle| vec_to_ark_mle(mle.vec()))
+                .map(|j| vec_to_ark_mle(shape.Ms[*j].multiply_vec(&z2).as_slice()))
                 .collect::<Vec<ark_poly::DenseMultilinearExtension<G::ScalarField>>>();
 
             summand_Q.push(eqb.clone());
@@ -199,7 +196,7 @@ where
             })
             .sum::<G::ScalarField>() * gamma.pow(&[(shape.num_matrices + 1) as u64]) * e2;
 
-        println!("{}, {}, {}", cl, cr, sumcheck_subclaim.expected_evaluation);
+        println!("{}, {}", sumcheck_subclaim.expected_evaluation, cr);
 
         if sumcheck_subclaim.expected_evaluation != cl + cr {
             return Err(Error::InconsistentSubclaim);
