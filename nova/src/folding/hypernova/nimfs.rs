@@ -99,7 +99,7 @@ where
             summand_L.push(eqrs.clone());
             g.add_product(
                 summand_L.iter().map(|Lj| Rc::new(Lj.clone())),
-                gamma.pow(&[j as u64]),
+                gamma.pow([j as u64]),
             );
         });
 
@@ -115,7 +115,7 @@ where
 
             summand_Q.push(eqb.clone());
             g.add_product(
-                summand_Q.iter().map(|Qterm| Rc::new(Qterm.clone())),
+                summand_Q.iter().map(|Qt| Rc::new(Qt.clone())),
                 shape.cSs[i].0 * gamma.pow(&[(shape.num_matrices + 1) as u64]),
             );
         });
@@ -125,11 +125,11 @@ where
         let rho = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let sigmas: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
-            .map(|M| vec_to_mle(M.multiply_vec(&z1).as_slice()).evaluate::<G>(rs.as_slice()))
+            .map(|M| vec_to_ark_mle(M.multiply_vec(&z1).as_slice()).evaluate(&rs))
             .collect();
 
         let thetas: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
-            .map(|M| vec_to_mle(M.multiply_vec(&z2).as_slice()).evaluate::<G>(rs.as_slice()))
+            .map(|M| vec_to_ark_mle(M.multiply_vec(&z2).as_slice()).evaluate(&rs))
             .collect();
 
         let U = U1.fold(U2, &rho, &rs, &sigmas, &thetas)?;
@@ -169,7 +169,7 @@ where
         let rs = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
 
         let claimed_sum = (1..=shape.num_matrices)
-            .map(|j| gamma.pow(&[j as u64]) * U1.vs[j - 1])
+            .map(|j| gamma.pow([j as u64]) * U1.vs[j - 1])
             .sum();
 
         let sumcheck_subclaim =
@@ -184,7 +184,7 @@ where
         let e2 = eqb.evaluate(&rs);
 
         let cl: G::ScalarField = (1..=shape.num_matrices)
-            .map(|j| gamma.pow(&[j as u64]) * e1 * self.sigmas[j - 1])
+            .map(|j| gamma.pow([j as u64]) * e1 * self.sigmas[j - 1])
             .sum();
 
         let cr: G::ScalarField = (0..shape.num_multisets)
@@ -195,8 +195,6 @@ where
                     .fold(shape.cSs[i].0, |acc, j| acc * self.thetas[*j])
             })
             .sum::<G::ScalarField>() * gamma.pow(&[(shape.num_matrices + 1) as u64]) * e2;
-
-        println!("{}, {}", sumcheck_subclaim.expected_evaluation, cr);
 
         if sumcheck_subclaim.expected_evaluation != cl + cr {
             return Err(Error::InconsistentSubclaim);
