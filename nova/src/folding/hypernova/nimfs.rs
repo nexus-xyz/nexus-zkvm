@@ -72,7 +72,8 @@ where
         shape: &CCSShape<G>,
         (U1, W1): (&LCCSInstance<G, C>, &CCSWitness<G>),
         (U2, W2): (&CCSInstance<G, C>, &CCSWitness<G>),
-    ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>), G::ScalarField), Error> {
+        rho: G::ScalarField,
+    ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>)), Error> {
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
 
@@ -121,7 +122,6 @@ where
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove_as_subprotocol(random_oracle, &g);
 
         let rs = sumcheck_state.randomness;
-        let rho = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let sigmas: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
             .map(|M| vec_to_ark_mle(M.multiply_vec(&z1).as_slice()).evaluate(&rs))
@@ -143,7 +143,6 @@ where
                 _random_oracle: PhantomData,
             },
             (U, W),
-            rho,
         ))
     }
 
@@ -154,6 +153,7 @@ where
         shape: &CCSShape<G>,
         U1: &LCCSInstance<G, C>,
         U2: &CCSInstance<G, C>,
+        rho: G::ScalarField,
     ) -> Result<LCCSInstance<G, C>, Error> {
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
@@ -204,8 +204,6 @@ where
         if sumcheck_subclaim.expected_evaluation != cl + cr {
             return Err(Error::InconsistentSubclaim);
         }
-
-        let rho = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let U = U1.fold(U2, &rho, &rs, &self.sigmas, &self.thetas)?;
 
@@ -274,7 +272,7 @@ pub(crate) mod tests {
             &vs.as_slice(),
         )?;
 
-        let mut random_oracle = PoseidonSponge::new(&config);
+        let rho = G::ScalarField::rand(&mut rng);
 
         let (proof, (folded_U, folded_W), _rho) =
             NIMFSProof::<Projective<G>, PoseidonSponge<G::ScalarField>>::prove_as_subprotocol(
@@ -282,10 +280,11 @@ pub(crate) mod tests {
                 &shape,
                 (&U1, &W1),
                 (&U2, &W2),
+                &rho,
             )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2)?;
+        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2, &rho)?;
         assert_eq!(folded_U, v_folded_U);
 
         shape.is_satisfied_linearized(&folded_U, &folded_W, &ck)?;
