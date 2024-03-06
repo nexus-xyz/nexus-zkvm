@@ -16,6 +16,11 @@ use crate::{
     types::{IVCProof, PCDNode, ParPP, SeqPP},
 };
 
+#[cfg(feature = "verbose")]
+const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
+#[cfg(not(feature = "verbose"))]
+const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
+
 const LOG_TARGET: &str = "nexus-prover";
 
 fn estimate_size(tr: &Trace) -> usize {
@@ -51,7 +56,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
 
     let num_steps = tr.steps();
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Computing")
         .on_step(|step| format!("step {step}"))
@@ -96,7 +101,7 @@ pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
         format!("{step_type} {step}")
     };
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Computing")
         .on_step(on_step)
