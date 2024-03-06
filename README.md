@@ -12,23 +12,17 @@
 
 <div align="center">
     <a href="https://t.me/nexus_zkvm">
-        <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/>
-    </a>
-    <a href="#contributors">
-        <img src="https://img.shields.io/github/all-contributors/nexus-xyz/nexus-zkvm?color=ee8449&style=flat-square">
-    </a>
+        <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/></a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/graphs/contributors">
+        <img src="https://img.shields.io/github/contributors/nexus-xyz/nexus-zkvm.svg"></a>
     <a href="https://twitter.com/NexusLabsHQ">
-        <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/>
-    </a>
+        <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/></a>
     <a href="https://nexus.xyz">
-        <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/>
-    </a>
+        <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/></a>
     <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-MIT">
-        <img src="https://img.shields.io/badge/license-MIT-blue"/>
-    </a>
+        <img src="https://img.shields.io/badge/license-MIT-blue"/></a>
     <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-APACHE">
-        <img src="https://img.shields.io/badge/license-APACHE-blue"/>
-    </a>
+        <img src="https://img.shields.io/badge/license-APACHE-blue"/></a>
 </div>
 
 # The Nexus zkVM
@@ -137,21 +131,3 @@ Run `cargo nexus --help` to see all the available commands.
 Also check out the documentation at [docs.nexus.xyz](https://docs.nexus.xyz), or join our [Telegram](https://t.me/nexus_zkvm) chat to discuss!
 
 Nexus is committed to open-source. All of our code is dual licensed under MIT and Apache licenses. We encourage and appreciate contributions.
-
-## Contributors
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="top" width="14.28%"><a href="https://nexus.xyz"><img src="https://avatars.githubusercontent.com/u/108383210?v=4?s=100" width="100px;" alt="Nexus"/><br /><sub><b>Nexus</b></sub></a><br /><a href="#code-nexus-xyz" title="Code">💻</a></td>
-    </tr>
-  </tbody>
-</table>
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
