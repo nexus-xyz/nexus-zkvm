@@ -14,6 +14,9 @@
     <a href="https://t.me/nexus_zkvm">
         <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/>
     </a>
+    <a href="#contributors">
+        <img src="https://img.shields.io/github/all-contributors/nexus-xyz/nexus-zkvm?color=ee8449&style=flat-square">
+    </a>
     <a href="https://twitter.com/NexusLabsHQ">
         <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/>
     </a>
