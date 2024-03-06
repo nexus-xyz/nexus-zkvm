@@ -80,6 +80,7 @@ impl<F: PrimeField + Absorb, RO: CryptographicSponge> MLSumcheck<F, RO> {
 
             verifier_msg = Some(next_verifier_msg);
         }
+        prover_state.randomness.push(verifier_msg.unwrap().randomness);
 
         (prover_msgs, prover_state)
     }

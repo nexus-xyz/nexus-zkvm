@@ -10,7 +10,7 @@ use ark_std::rc::Rc;
 
 use crate::{
     absorb::{AbsorbNonNative},
-    ccs::{self, mle::{vec_to_mle, vec_to_ark_mle}, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
+    ccs::{self, mle::vec_to_ark_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
 };
 
 use super::ml_sumcheck::{self, ListOfProductsOfPolynomials, MLSumcheck};
@@ -83,8 +83,6 @@ where
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
         let beta = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
 
-        let rs = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
-
         let z1 = [U1.X.as_slice(), W1.W.as_slice()].concat();
         let z2 = [U2.X.as_slice(), W2.W.as_slice()].concat();
 
@@ -120,8 +118,9 @@ where
             );
         });
 
-        let (sumcheck_proof, _sumcheck_state) = MLSumcheck::prove_as_subprotocol(random_oracle, &g);
+        let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove_as_subprotocol(random_oracle, &g);
 
+        let rs = sumcheck_state.randomness;
         let rho = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
         let sigmas: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
@@ -166,14 +165,15 @@ where
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
         let beta = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
 
-        let rs = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
-
         let claimed_sum = (1..=shape.num_matrices)
             .map(|j| gamma.pow([j as u64]) * U1.vs[j - 1])
             .sum();
 
         let sumcheck_subclaim =
             MLSumcheck::verify_as_subprotocol(random_oracle, &self.poly_info, claimed_sum, &self.sumcheck_proof)?;
+
+        let rs = sumcheck_subclaim.point;
+        println!("{}, {}", rs[0], rs[1]);
 
         let eq1 = EqPolynomial::new(U1.rs.clone());
         let eqrs = vec_to_ark_mle(eq1.evals().as_slice());
@@ -216,7 +216,7 @@ pub(crate) mod tests {
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{UniformRand, test_rng};
     use crate::poseidon_config;
-    use crate::{ccs::{CCSWitness, LCCSInstance}, r1cs::tests::to_field_elements, test_utils::setup_test_ccs};
+    use crate::{ccs::{CCSWitness, LCCSInstance, mle::vec_to_mle}, r1cs::tests::to_field_elements, test_utils::setup_test_ccs};
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::short_weierstrass::{SWCurveConfig, Projective};
     use ark_test_curves::bls12_381::{Bls12_381 as E, g1::Config as G, Fr as Scalar};
