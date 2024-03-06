@@ -388,7 +388,7 @@ mod tests {
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_spartan::polycommitments::PCSKeys;
     use ark_std::{test_rng, UniformRand};
-    use ark_test_curves::bls12_381::{Bls12_381 as E, Fr as Scalar, G1Projective as G};
+    use ark_test_curves::bls12_381::{Bls12_381 as E, Fr, G1Projective as G};
 
     type Z = Zeromorph<E>;
 
@@ -678,7 +678,7 @@ mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let rho: Scalar = Scalar::from(11);
+        let rho: Fr = Fr::from(11);
 
         let r1cs_shape: R1CSShape<G> =
             R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c).unwrap();
@@ -698,10 +698,10 @@ mod tests {
         let U2 = CCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X)?;
 
         let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
-        let rs1: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+        let rs1: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
 
         let z1 = [X.as_slice(), W.as_slice()].concat();
-        let vs1: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
+        let vs1: Vec<Fr> = ark_std::cfg_iter!(&ccs_shape.Ms)
             .map(|M| vec_to_mle(M.multiply_vec(&z1).as_slice()).evaluate::<G>(rs1.as_slice()))
             .collect();
 
@@ -709,13 +709,13 @@ mod tests {
         let W1 = W2.clone();
 
         let z2 = z1.clone();
-        let rs2: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
+        let rs2: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
 
-        let sigmas: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
+        let sigmas: Vec<Fr> = ark_std::cfg_iter!(&ccs_shape.Ms)
             .map(|M| vec_to_mle(M.multiply_vec(&z1).as_slice()).evaluate::<G>(rs2.as_slice()))
             .collect();
 
-        let thetas: Vec<Scalar> = ark_std::cfg_iter!(&ccs_shape.Ms)
+        let thetas: Vec<Fr> = ark_std::cfg_iter!(&ccs_shape.Ms)
             .map(|M| vec_to_mle(M.multiply_vec(&z2).as_slice()).evaluate::<G>(rs2.as_slice()))
             .collect();
 

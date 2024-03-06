@@ -173,7 +173,6 @@ where
             MLSumcheck::verify_as_subprotocol(random_oracle, &self.poly_info, claimed_sum, &self.sumcheck_proof)?;
 
         let rs = sumcheck_subclaim.point;
-        println!("{}, {}", rs[0], rs[1]);
 
         let eq1 = EqPolynomial::new(U1.rs.clone());
         let eqrs = vec_to_ark_mle(eq1.evals().as_slice());
