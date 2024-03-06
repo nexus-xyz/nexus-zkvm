@@ -215,11 +215,9 @@ where
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        self.commitment_W
-            .clone()
-            .into()
-            .iter()
-            .for_each(|c| <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest));
+        self.commitment_W.clone().into().iter().for_each(|c| {
+            <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest)
+        });
 
         (&self.X[1..]).to_sponge_field_elements(dest);
     }
@@ -258,11 +256,9 @@ where
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        self.commitment_W
-            .clone()
-            .into()
-            .iter()
-            .for_each(|c| <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest));
+        self.commitment_W.clone().into().iter().for_each(|c| {
+            <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest)
+        });
 
         self.X.to_sponge_field_elements(dest);
         self.rs.to_sponge_field_elements(dest);
@@ -376,7 +372,6 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> PartialEq for LCCSInstance<G, C>
 }
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Eq for LCCSInstance<G, C> where C::Commitment: Eq {}
-
 
 #[cfg(test)]
 mod tests {

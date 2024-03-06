@@ -3,13 +3,13 @@ use std::marker::PhantomData;
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
 use ark_ec::CurveGroup;
 use ark_ff::{Field, PrimeField, ToConstraintField};
-use ark_spartan::{dense_mlpoly::EqPolynomial, polycommitments::PolyCommitmentScheme};
 use ark_poly::Polynomial;
+use ark_spartan::{dense_mlpoly::EqPolynomial, polycommitments::PolyCommitmentScheme};
 
 use ark_std::rc::Rc;
 
 use crate::{
-    absorb::{AbsorbNonNative},
+    absorb::AbsorbNonNative,
     ccs::{self, mle::vec_to_ark_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
 };
 
@@ -169,8 +169,12 @@ where
             .map(|j| gamma.pow([j as u64]) * U1.vs[j - 1])
             .sum();
 
-        let sumcheck_subclaim =
-            MLSumcheck::verify_as_subprotocol(random_oracle, &self.poly_info, claimed_sum, &self.sumcheck_proof)?;
+        let sumcheck_subclaim = MLSumcheck::verify_as_subprotocol(
+            random_oracle,
+            &self.poly_info,
+            claimed_sum,
+            &self.sumcheck_proof,
+        )?;
 
         let rs = sumcheck_subclaim.point;
 
@@ -193,7 +197,9 @@ where
                     .iter()
                     .fold(shape.cSs[i].0, |acc, j| acc * self.thetas[*j])
             })
-            .sum::<G::ScalarField>() * gamma.pow(&[(shape.num_matrices + 1) as u64]) * e2;
+            .sum::<G::ScalarField>()
+            * gamma.pow(&[(shape.num_matrices + 1) as u64])
+            * e2;
 
         if sumcheck_subclaim.expected_evaluation != cl + cr {
             return Err(Error::InconsistentSubclaim);
@@ -212,13 +218,17 @@ pub(crate) mod tests {
 
     use super::*;
 
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
-    use ark_std::{UniformRand, test_rng};
     use crate::poseidon_config;
-    use crate::{ccs::{CCSWitness, LCCSInstance, mle::vec_to_mle}, r1cs::tests::to_field_elements, test_utils::setup_test_ccs};
+    use crate::{
+        ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
+        r1cs::tests::to_field_elements,
+        test_utils::setup_test_ccs,
+    };
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
-    use ark_ec::short_weierstrass::{SWCurveConfig, Projective};
-    use ark_test_curves::bls12_381::{Bls12_381 as E, g1::Config as G, Fr as Scalar};
+    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use ark_std::{test_rng, UniformRand};
+    use ark_test_curves::bls12_381::{g1::Config as G, Bls12_381 as E, Fr as Scalar};
 
     type Z = Zeromorph<E>;
 
@@ -226,7 +236,7 @@ pub(crate) mod tests {
     fn test_compat_mles() {
         let s: usize = 3;
 
-	let mut rng = test_rng();
+        let mut rng = test_rng();
         let beta: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
         let rs: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
 
@@ -236,7 +246,7 @@ pub(crate) mod tests {
         let mle1 = vec_to_mle(eq.evals().as_slice());
         let e1 = mle1.evaluate::<Projective<G>>(rs.as_slice());
 
-	let mle2 = vec_to_ark_mle(eq.evals().as_slice());
+        let mle2 = vec_to_ark_mle(eq.evals().as_slice());
         let e2 = mle2.evaluate(&rs);
 
         assert_eq!(e0, e1);
@@ -263,7 +273,7 @@ pub(crate) mod tests {
 
         let (shape, U2, W2, ck) = setup_test_ccs::<G, C>(3, None, Some(&mut rng));
 
-        let X  = to_field_elements::<Projective<G>>(&(vec![0; shape.num_io]).as_slice());
+        let X = to_field_elements::<Projective<G>>(&(vec![0; shape.num_io]).as_slice());
         let W1 = CCSWitness::zero(&shape);
 
         let commitment_W = W1.commit::<C>(&ck);
@@ -273,10 +283,18 @@ pub(crate) mod tests {
 
         let z = [X.as_slice(), W1.W.as_slice()].concat();
         let vs: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
-            .map(|M| vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<Projective<G>>(rs.as_slice()))
+            .map(|M| {
+                vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<Projective<G>>(rs.as_slice())
+            })
             .collect();
 
-        let U1 = LCCSInstance::<Projective<G>, C>::new(&shape, &commitment_W, &X, &rs.as_slice(), &vs.as_slice())?;
+        let U1 = LCCSInstance::<Projective<G>, C>::new(
+            &shape,
+            &commitment_W,
+            &X,
+            &rs.as_slice(),
+            &vs.as_slice(),
+        )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
 

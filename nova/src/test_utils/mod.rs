@@ -10,13 +10,13 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,
 };
-use ark_spartan::polycommitments::{PolyCommitmentScheme, PCSKeys};
+use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme};
 use ark_std::rand::RngCore;
 
 use super::{
+    ccs::{CCSInstance, CCSShape, CCSWitness},
     commitment::CommitmentScheme,
     r1cs::{R1CSInstance, R1CSShape, R1CSWitness},
-    ccs::{CCSInstance, CCSShape, CCSWitness},
 };
 
 /// Circuit with a single public input `y`, which enforces `x**3 + x + 5 == y`.
