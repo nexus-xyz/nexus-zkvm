@@ -10,7 +10,7 @@ use ark_crypto_primitives::sponge::{
     Absorb, CryptographicSponge,
 };
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
+use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::{fields::fp::FpVar, R1CSVar};
 use ark_relations::r1cs::{ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -50,26 +50,28 @@ pub trait NonUniformCircuit<F: PrimeField>: Send + Sync {
     /// Number of computable functions {F_0, ... , F_{l - 1}}.
     const NUM_CIRCUITS: usize;
 
-    /// Return program counter for the first step.
-    fn pc_init(&self) -> u64 {
-        0
-    }
+    /// Generate constraints of computing selector function (phi).
+    ///
+    /// Return the next value of the program counter pc_{i + 1}.
+    fn compute_selector(
+        &self,
+        cs: ConstraintSystemRef<F>,
+        i: &FpVar<F>,
+        z: &[FpVar<F>],
+    ) -> Result<FpVar<F>, SynthesisError>;
 
-    /// Generate constraints of computing `F_{pc}` and selector function (phi).
+    /// Generate constraints of computing `F_{pc}`.
     ///
-    /// `generate_constraints()` takes both `pc` and `pc_value` arguments: value of
-    /// the circuit variable `pc` may be missing during setup stage. `pc` is constrained
-    /// to be equal to `pc_value`, so the latter should be used for switching between `F_i`.
+    /// `generate_constraints()` takes `pc` argument to be used for switching between `F_i`.
     ///
-    /// Return the next value of the program counter along with output `z_{i + 1}`.
+    /// Return output `z_{i + 1}`.
     fn generate_constraints(
         &self,
         cs: ConstraintSystemRef<F>,
-        pc: &FpVar<F>,
-        pc_value: u64,
+        pc: u64,
         i: &FpVar<F>,
         z: &[FpVar<F>],
-    ) -> Result<(FpVar<F>, Vec<FpVar<F>>), SynthesisError>;
+    ) -> Result<Vec<FpVar<F>>, SynthesisError>;
 }
 
 const LOG_TARGET: &str = "nexus-nova::supernova";
@@ -110,10 +112,10 @@ where
             let input = SuperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
                 vk: G1::ScalarField::ZERO,
                 z_0,
-                pc: pc as u64,
                 num_augmented_circuits: SC::NUM_CIRCUITS,
             };
-            let circuit = SuperNovaAugmentedCircuit::new(&ro_config, step_circuit, input);
+            let circuit =
+                SuperNovaAugmentedCircuit::new(&ro_config, step_circuit, input, Some(pc as u64));
             let _ = SuperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
             cs.finalize();
@@ -219,7 +221,6 @@ where
     w: R1CSWitness<G1>,
     i: u64,
     pc: u64,
-    pc_next: u64,
     z_i: Vec<G1::ScalarField>,
 }
 
@@ -240,7 +241,6 @@ where
             w: self.w.clone(),
             i: self.i,
             pc: self.pc,
-            pc_next: self.pc_next,
             z_i: self.z_i.clone(),
         }
     }
@@ -295,7 +295,7 @@ where
         .entered();
         let NIVCProof { z_0, non_base, .. } = self;
 
-        let (i_next, pc, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
+        let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let NIVCProofNonBase {
                 mut U,
                 mut W,
@@ -305,7 +305,6 @@ where
                 w,
                 i,
                 pc,
-                pc_next,
                 z_i,
             } = non_base;
 
@@ -335,8 +334,7 @@ where
                 SuperNovaAugmentedCircuitInput::NonBase(SuperNovaAugmentedCircuitNonBaseInput {
                     vk: params.digest,
                     i: G1::ScalarField::from(i),
-                    pc_prev: pc,
-                    pc: pc_next,
+                    pc: G1::ScalarField::from(pc),
                     z_0: z_0.clone(),
                     z_i,
                     U: U.clone(),
@@ -356,9 +354,8 @@ where
 
             let i_next = i.saturating_add(1);
 
-            (i_next, pc_next, input, U, W, U_secondary, W_secondary)
+            (i_next, input, U, W, U_secondary, W_secondary)
         } else {
-            let pc = step_circuit.pc_init();
             let num_augmented_circuits = SC::NUM_CIRCUITS;
 
             let U = vec![None; num_augmented_circuits];
@@ -370,18 +367,17 @@ where
             let input = SuperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
                 vk: params.digest,
                 z_0: z_0.clone(),
-                pc,
                 num_augmented_circuits,
             };
             let i_next = 1;
 
-            (i_next, pc, input, U, W, U_secondary, W_secondary)
+            (i_next, input, U, W, U_secondary, W_secondary)
         };
 
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
-        let circuit = SuperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
+        let circuit = SuperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, input, None);
 
         let (pc_next, z_i) = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
             .in_scope(|| {
@@ -399,19 +395,10 @@ where
 
         let z_i = z_i.iter().map(R1CSVar::value).collect::<Result<_, _>>()?;
         let pc_next = {
-            let pc_fp = pc_next.value()?;
-            let pc_bytes = pc_fp.into_bigint().to_bytes_le();
-
-            let (pc_bytes, rem) = pc_bytes.split_at((u64::BITS / 8) as usize);
-            let pc = u64::from_le_bytes(pc_bytes.try_into().unwrap());
-
-            if rem.iter().any(|&byte| byte != 0) {
-                panic!("next pc is greater than u64::MAX: {pc_fp:?}");
-            }
+            let pc = augmented::field_to_u64(pc_next.value()?);
             if pc >= SC::NUM_CIRCUITS as u64 {
                 panic!("next pc is out of bounds: {} >= {}", pc, SC::NUM_CIRCUITS);
             }
-
             pc
         };
 
@@ -426,8 +413,7 @@ where
                 u,
                 w,
                 i: i_next,
-                pc,
-                pc_next,
+                pc: pc_next,
                 z_i,
             }),
             _random_oracle: PhantomData,
@@ -458,7 +444,6 @@ where
             w,
             i,
             pc,
-            pc_next,
             z_i,
         } = non_base;
 
@@ -477,7 +462,6 @@ where
         random_oracle.absorb(&params.digest);
         random_oracle.absorb(&G1::ScalarField::from(*i));
         random_oracle.absorb(&G1::ScalarField::from(*pc));
-        random_oracle.absorb(&G1::ScalarField::from(*pc_next));
         random_oracle.absorb(&self.z_0);
         random_oracle.absorb(&z_i);
         for (i, U) in U.iter().enumerate() {
@@ -544,33 +528,44 @@ pub(crate) mod tests {
     pub struct TestCircuit<F: Field>(PhantomData<F>);
 
     impl<F: PrimeField> NonUniformCircuit<F> for TestCircuit<F> {
-        const ARITY: usize = 1;
+        const ARITY: usize = 2;
 
         const NUM_CIRCUITS: usize = 2;
+
+        fn compute_selector(
+            &self,
+            _: ConstraintSystemRef<F>,
+            _: &FpVar<F>,
+            z: &[FpVar<F>],
+        ) -> Result<FpVar<F>, SynthesisError> {
+            // store selector in the first input var.
+            Ok(z[0].clone())
+        }
 
         fn generate_constraints(
             &self,
             _: ConstraintSystemRef<F>,
-            pc: &FpVar<F>,
-            pc_value: u64,
+            pc: u64,
             _: &FpVar<F>,
             z: &[FpVar<F>],
-        ) -> Result<(FpVar<F>, Vec<FpVar<F>>), SynthesisError> {
+        ) -> Result<Vec<FpVar<F>>, SynthesisError> {
             // alternate between + 2 and * 2
-            assert_eq!(z.len(), 1);
+            assert_eq!(z.len(), 2);
 
-            let pc_is_zero = pc.is_zero()?;
-            let pc_next = pc_is_zero.select(&FpVar::one(), &FpVar::zero())?;
+            let x = &z[1];
 
-            let x = &z[0];
-
-            let y = match pc_value {
+            let y = match pc {
                 0 => x + FpVar::constant(2u64.into()),
                 1 => x.double()?,
                 _ => unreachable!(),
             };
 
-            Ok((pc_next, vec![y]))
+            // update z[0]
+            let pc = &z[0];
+            let pc_is_zero = pc.is_zero()?;
+            let pc_next = pc_is_zero.select(&FpVar::one(), &FpVar::zero())?;
+
+            Ok(vec![pc_next, y])
         }
     }
 
@@ -597,7 +592,7 @@ pub(crate) mod tests {
         let ro_config = poseidon_config();
 
         let circuit = TestCircuit::<G1::ScalarField>(PhantomData);
-        let z_0 = vec![G1::ScalarField::ZERO];
+        let z_0 = vec![G1::ScalarField::ZERO, G1::ScalarField::ZERO];
         let num_steps = 1;
 
         let params = PublicParams::<
@@ -613,7 +608,7 @@ pub(crate) mod tests {
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
         recursive_snark.verify(&params, num_steps).unwrap();
 
-        assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(2));
+        assert_eq!(&recursive_snark.z_i()[1], &G1::ScalarField::from(2));
 
         Ok(())
     }
@@ -649,7 +644,7 @@ pub(crate) mod tests {
         let ro_config = poseidon_config();
 
         let circuit = TestCircuit::<G1::ScalarField>(PhantomData);
-        let z_0 = vec![G1::ScalarField::from(2u64)];
+        let z_0 = vec![G1::ScalarField::ZERO, G1::ScalarField::from(2u64)];
         let num_steps = 5;
 
         let params = PublicParams::<
@@ -668,7 +663,7 @@ pub(crate) mod tests {
         }
         recursive_snark.verify(&params, num_steps).unwrap();
 
-        assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(22));
+        assert_eq!(&recursive_snark.z_i()[1], &G1::ScalarField::from(22));
         Ok(())
     }
 }

@@ -5,7 +5,7 @@ use ark_crypto_primitives::sponge::{
     Absorb,
 };
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::{AdditiveGroup, Field, PrimeField};
+use ark_ff::{AdditiveGroup, BigInteger, Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     boolean::Boolean,
@@ -35,6 +35,22 @@ pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
 /// Leading `Variable::One` + 1 hash.
 pub const AUGMENTED_CIRCUIT_NUM_IO: usize = 2;
 
+/// Converts prime field element into u64.
+///
+/// Panics if it doesn't fit into 8 bytes.
+pub(super) fn field_to_u64<F: PrimeField>(f: F) -> u64 {
+    let bytes = f.into_bigint().to_bytes_le();
+
+    let (bytes, rem) = bytes.split_at((u64::BITS / 8) as usize);
+    let u = u64::from_le_bytes(bytes.try_into().unwrap());
+
+    if rem.iter().any(|&byte| byte != 0) {
+        panic!("field element is greater than u64::MAX: {f:?}");
+    }
+
+    u
+}
+
 pub enum SuperNovaAugmentedCircuitInput<G1, G2, C1, C2, RO>
 where
     G1: SWCurveConfig,
@@ -45,7 +61,6 @@ where
     Base {
         vk: G1::ScalarField,
         z_0: Vec<G1::ScalarField>,
-        pc: u64,
         num_augmented_circuits: usize,
     },
     NonBase(SuperNovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>),
@@ -60,8 +75,7 @@ where
 {
     pub vk: G1::ScalarField,
     pub i: G1::ScalarField,
-    pub pc_prev: u64,
-    pub pc: u64,
+    pub pc: G1::ScalarField,
     pub z_0: Vec<G1::ScalarField>,
     pub z_i: Vec<G1::ScalarField>,
     pub U: Vec<Option<RelaxedR1CSInstance<G1, C1>>>,
@@ -81,7 +95,6 @@ where
         Self {
             vk: self.vk,
             i: self.i,
-            pc_prev: self.pc_prev,
             pc: self.pc,
             z_0: self.z_0.clone(),
             z_i: self.z_i.clone(),
@@ -105,7 +118,6 @@ where
 {
     vk: FpVar<G1::ScalarField>,
     i: FpVar<G1::ScalarField>,
-    pc_prev: FpVar<G1::ScalarField>,
     pc: FpVar<G1::ScalarField>,
     z_0: Vec<FpVar<G1::ScalarField>>,
     z_i: Vec<FpVar<G1::ScalarField>>,
@@ -145,7 +157,7 @@ where
         let input = input.borrow();
 
         let input = match input {
-            SuperNovaAugmentedCircuitInput::Base { vk, z_0, pc, num_augmented_circuits } => {
+            SuperNovaAugmentedCircuitInput::Base { vk, z_0, num_augmented_circuits } => {
                 let U = vec![None; *num_augmented_circuits];
                 let U_secondary = vec![None; *num_augmented_circuits];
                 let u = R1CSInstance::<G1, C1> {
@@ -155,8 +167,7 @@ where
                 SuperNovaAugmentedCircuitNonBaseInput {
                     vk: *vk,
                     i: G1::ScalarField::ZERO,
-                    pc_prev: *pc,
-                    pc: *pc,
+                    pc: G1::ScalarField::ZERO,
                     z_0: z_0.clone(),
                     z_i: z_0.clone(),
                     U,
@@ -170,12 +181,7 @@ where
 
         let vk = FpVar::new_variable(cs.clone(), || Ok(input.vk), mode)?;
         let i = FpVar::new_variable(cs.clone(), || Ok(input.i), mode)?;
-        let pc_prev = FpVar::new_variable(
-            cs.clone(),
-            || Ok(G1::ScalarField::from(input.pc_prev)),
-            mode,
-        )?;
-        let pc = FpVar::new_variable(cs.clone(), || Ok(G1::ScalarField::from(input.pc)), mode)?;
+        let pc = FpVar::new_variable(cs.clone(), || Ok(input.pc), mode)?;
         let z_0 = input
             .z_0
             .iter()
@@ -239,7 +245,6 @@ where
         Ok(Self {
             vk,
             i,
-            pc_prev,
             pc,
             z_0,
             z_i,
@@ -265,7 +270,8 @@ where
     ro_config: &'a <RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     step_circuit: &'a SC,
     input: SuperNovaAugmentedCircuitInput<G1, G2, C1, C2, RO>,
-    pc_value: u64,
+    /// Hint value for the program counter -- computed value is not available during setup.
+    pc_hint: Option<u64>,
 }
 
 impl<'a, G1, G2, C1, C2, RO, SC> SuperNovaAugmentedCircuit<'a, G1, G2, C1, C2, RO, SC>
@@ -281,12 +287,9 @@ where
         ro_config: &'a <RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
         step_circuit: &'a SC,
         input: SuperNovaAugmentedCircuitInput<G1, G2, C1, C2, RO>,
+        pc_hint: Option<u64>,
     ) -> Self {
-        let pc_value = match &input {
-            SuperNovaAugmentedCircuitInput::Base { pc, .. } => *pc,
-            SuperNovaAugmentedCircuitInput::NonBase(non_base) => non_base.pc,
-        };
-        Self { ro_config, step_circuit, input, pc_value }
+        Self { ro_config, step_circuit, input, pc_hint }
     }
 }
 
@@ -367,6 +370,8 @@ where
         self,
         cs: ConstraintSystemRef<G1::ScalarField>,
     ) -> Result<(FpVar<G1::ScalarField>, Vec<FpVar<G1::ScalarField>>), SynthesisError> {
+        assert!(self.pc_hint.is_none() ^ cs.is_in_setup_mode());
+
         let input = SuperNovaAugmentedCircuitInputVar::<G1, G2, C1, C2, RO>::new_witness(
             cs.clone(),
             || Ok(&self.input),
@@ -397,18 +402,29 @@ where
         for (z_0, z_i) in input.z_0.iter().zip(&input.z_i) {
             z_0.conditional_enforce_equal(z_i, &is_base_case)?;
         }
-        input
-            .pc
-            .conditional_enforce_equal(&input.pc_prev, &is_base_case)?;
-        input
-            .pc
-            .enforce_equal(&FpVar::constant(self.pc_value.into()))?;
 
-        let (pc_next, z_next) = <SC as NonUniformCircuit<G1::ScalarField>>::generate_constraints(
+        let pc_next = <SC as NonUniformCircuit<G1::ScalarField>>::compute_selector(
             self.step_circuit,
             cs.clone(),
-            &input.pc,
-            self.pc_value,
+            &input.i,
+            &input.z_i,
+        )?;
+        let pc_value = self.pc_hint.unwrap_or_else(|| {
+            let pc_next = pc_next.value().expect("hint must be provided for cs setup");
+            let pc_value = field_to_u64(pc_next);
+            if pc_value >= SC::NUM_CIRCUITS as u64 {
+                panic!(
+                    "next pc is out of bounds: {} >= {}",
+                    pc_value,
+                    SC::NUM_CIRCUITS
+                );
+            }
+            pc_value
+        });
+        let z_next = <SC as NonUniformCircuit<G1::ScalarField>>::generate_constraints(
+            self.step_circuit,
+            cs.clone(),
+            pc_value,
             &input.i,
             &input.z_i,
         )?;
@@ -416,7 +432,6 @@ where
         let mut random_oracle = RO::Var::new(cs.clone(), self.ro_config);
         random_oracle.absorb(&input.vk)?;
         random_oracle.absorb(&input.i)?;
-        random_oracle.absorb(&input.pc_prev)?;
         random_oracle.absorb(&input.pc)?;
         random_oracle.absorb(&input.z_0)?;
         random_oracle.absorb(&input.z_i)?;
@@ -428,7 +443,7 @@ where
 
         let selector_bits = SelectorBits::<G1::ScalarField>::new(
             cs.clone(),
-            &input.pc_prev,
+            &input.pc,
             num_augmented_circuits as u64,
         )?;
         let U = selector_bits.select(&input.U)?;
@@ -460,7 +475,6 @@ where
         let mut random_oracle = RO::Var::new(cs.clone(), self.ro_config);
         random_oracle.absorb(&input.vk)?;
         random_oracle.absorb(&i_next)?;
-        random_oracle.absorb(&input.pc)?;
         random_oracle.absorb(&pc_next)?;
         random_oracle.absorb(&input.z_0)?;
         random_oracle.absorb(&z_next)?;
@@ -497,18 +511,23 @@ mod tests {
 
         const NUM_CIRCUITS: usize = 1;
 
+        fn compute_selector(
+            &self,
+            _: ConstraintSystemRef<F>,
+            _: &FpVar<F>,
+            _: &[FpVar<F>],
+        ) -> Result<FpVar<F>, SynthesisError> {
+            Ok(FpVar::zero())
+        }
+
         fn generate_constraints(
             &self,
             _: ConstraintSystemRef<F>,
-            pc: &FpVar<F>,
             _: u64,
             _: &FpVar<F>,
             z: &[FpVar<F>],
-        ) -> Result<(FpVar<F>, Vec<FpVar<F>>), SynthesisError> {
-            let pc_is_zero = pc.is_zero()?;
-            let pc_next = pc_is_zero.select(&FpVar::one(), &FpVar::zero())?;
-
-            Ok((pc_next, z.to_owned()))
+        ) -> Result<Vec<FpVar<F>>, SynthesisError> {
+            Ok(z.to_owned())
         }
     }
 
@@ -544,7 +563,6 @@ mod tests {
         >::Base {
             z_0: Vec::new(),
             vk: G1::ScalarField::ZERO,
-            pc: 0,
             num_augmented_circuits:
                 <TestCircuit as NonUniformCircuit<G1::ScalarField>>::NUM_CIRCUITS,
         };
@@ -553,7 +571,7 @@ mod tests {
             ro_config: &ro_config,
             step_circuit: &TestCircuit,
             input,
-            pc_value: 0,
+            pc_hint: None,
         };
         let cs = ConstraintSystem::new_ref();
 
