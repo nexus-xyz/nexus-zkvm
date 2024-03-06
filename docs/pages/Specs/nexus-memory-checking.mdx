@@ -1,0 +1,54 @@
+---
+title: "Nexus zkVM Memory Checking"
+lang: en-US
+description: "A description of the Nexus zkVM memory checking."
+image: "/nexus-head.png"
+---
+
+# Nexus zkVM Memory Checking 
+
+Since the external memory used by the Nexus Virtual Machine is assumed to be untrusted, the Nexus zkVM must ensure read-write consistency throughout the execution of a program. Informally, this requires that reading the contents of any cell of the memory should always return the value last written to that cell.
+
+In order to enforce the consistency of read-write operations into the memory, the Nexus zkVM currently uses Merkle Trees [[M87](#references)] together with the Poseidon hash function [[GKR21](#references)]. In this method, the contents of the memory are first associated with leaves of a Merkle tree and then Merkle-hashed into a Merkle root. The latter Merkle root serves as a binding commitment to the memory and needs to be updated whenever the contents of the memory change.
+
+## Merkle Tree Setup
+
+In the current version of Nexus VM, the memory size is set to $\mathbf{2^{22}}$ bytes. Hence, we associate leafs to 256-bit-long strings (i.e., 32 bytes) and then use a Merkle binary tree with 17 levels to describe its contents, as in the figure below.
+
+![merkle-hash-tree](/images/merkle-hash-tree.svg)
+
+Initially, each memory cell is assumed to be the $0$ string. Hence, in order to compute the Merkle root for the initial memory, we first compute the default hashes for each level of the tree, starting with the leaves and ending with the Merkle root. For the leaves, the default value is simply the hash of the $0$ string. For any subsequent level, their default values then become the hash of the concatenation of two of the default values for the level below it. 
+
+## Merkle Tree Updates and Proofs
+
+After setting up the initial Merkle root for the memory, this value will be used or updated with each memory access, depending on whether the operation is a read or write.
+
+### Read Operations
+
+For ease of illustration, let us assume the memory configuration $\textbf{M}$ shown in the figure below and consider the case of a *read operation* at address $64$. Let $m=\textbf{M}[64]$ be the value of the cell at memory address $64$, and let $\textbf{MS}=\textbf{M}[64 \ldots 95]$ be the 32-byte memory segment that contains $m$.
+
+![merkle-hash-tree-path](/images/merkle-hash-tree-path.svg)
+
+In order to prove that $m$ is the correct value at address $64$, the untrusted memory needs to provide not only $m$, but also a Merkle opening proof that attests to the authenticity of the value $m$. Let $\{h_{17}^{0,\ldots,1,0},\ldots, h_{1}^0, h_{0}\}$ denote the path (highlighted in red in the figure above) from the leaf $h_{17}^{0,\ldots,1,0}$ associated with $\textbf{MS}$ to the Merkle root $h_{0}$. Then the Merkle opening proof will consist of the memory segment $\textbf{MS}$ along with *all the siblings* of the nodes in the aforementioned leaf-to-root path (highlighted with red boxes in the figure above). Note that, given $\textbf{MS}$ and the nodes in the authentication path, one can easily recompute the value of the Merkle root in order to verify its correctness. Finally, given the segment $\textbf{MS}=\textbf{M}[64 \ldots 95]$, it is also possible to check that $m=\textbf{MS}[0]=\textbf{M}[64]=\mathtt{0x0F}$ is the correct return value for this read operation.
+
+
+### Write Operations
+
+Next, consider the case of a *write operation* at address $64$, where a new value $\mathtt{0xFF}$ should replace the old value $\mathtt{0x0F}$. In order to update the Merkle tree to match the new desired memory configuration, all the node values along the path from the leaf associated with $\textbf{MS}$ to the Merkle root $h_{0}$ need to be recomputed. We highlight these values in  blue in the figure below. To achieve this goal, the zkVM should proceed as follows:
+1. First perform a *read operation* to obtain $\textbf{M}[64]$ along with a Merkle opening proof for it (highlighted by red boxes in the figure below);
+2. Next, update the value at $\textbf{M}[64]$ to $\mathtt{0xFF}$ in the memory segment $\textbf{MS}=\textbf{M}[64 \ldots 95]$ as well as all the nodes in the path $\{h_{17}^{0,\ldots,1,0},\ldots, h_{1}^0, h_{0}\}$ starting from the leaf associated with $\textbf{MS}$; 
+3. Finally, keep the updated value $h_0$ as the new Merkle root.
+
+![merkle-hash-tree-path-update](/images/merkle-hash-tree-path-update.svg)
+
+## Cost Profile
+
+For a memory $\textbf{M}$ of size $2^{22}$, read and write operations will respectively cost $18$ and $18*2$ hash computations. Since each hash operation translates to about 240 constraints using the Poseidon hash function, read and write operations will result in about $4.3k$ and $8.6k$ constraints, respectively.
+
+
+## References
+
+[[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for Zero-Knowledge proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
+
+[[M87](https://link.springer.com/chapter/10.1007/3-540-48184-2_32)] Ralph C Merkle. “A digital signature based on a conventional encryption function”. In CRYPTO 1987.
+
