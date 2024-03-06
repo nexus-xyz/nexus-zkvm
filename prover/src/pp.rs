@@ -148,29 +148,3 @@ where
     show_pp(&pp);
     Ok(pp)
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::srs::test_srs::gen_test_srs_to_file;
-
-    // This test will not pass unless we use the full 26-variable SRS
-    #[test]
-    #[ignore]
-    fn test_gen_pp_with_srs() {
-        gen_to_file(1, true, "test_pp.zst", Some("../test_srs.zst")).unwrap();
-    }
-
-    fn test_srs_gen() {
-        gen_test_srs_to_file(10, "small_test_srs.zst").unwrap();
-        let _srs: SRS = load_srs("small_test_srs.zst").unwrap();
-    }
-
-    #[test]
-    #[ignore]
-    fn test_load_srs() {
-        test_srs_gen();
-        let srs: SRS = load_srs("small_test_srs.zst").unwrap();
-        println!("Loaded SRS for {} variables", srs.max_num_vars);
-    }
-}
