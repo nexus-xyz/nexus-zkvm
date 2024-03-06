@@ -78,6 +78,8 @@ mod tests {
     use super::*;
 
     use ark_std::{UniformRand, Zero};
+    use ark_poly::Polynomial;
+    use ark_spartan::{dense_mlpoly::EqPolynomial};
     use ark_test_curves::bls12_381::{Fr, G1Projective as G};
 
     use crate::r1cs::tests::to_field_sparse;
@@ -149,5 +151,27 @@ mod tests {
             let expected = if i < LEN { *entry } else { Fr::zero() };
             assert_eq!(eval, expected);
         }
+    }
+
+    #[test]
+    fn test_compat_mles() {
+        let s: usize = 3;
+
+        let mut rng = ark_std::test_rng();
+        let beta: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
+        let rs: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
+
+        let eq = EqPolynomial::new(beta.clone());
+        let e0 = eq.evaluate(&rs);
+
+        let mle1 = vec_to_mle(eq.evals().as_slice());
+        let e1 = mle1.evaluate::<G>(rs.as_slice());
+
+        let mle2 = vec_to_ark_mle(eq.evals().as_slice());
+        let e2 = mle2.evaluate(&rs);
+
+        assert_eq!(e0, e1);
+        assert_eq!(e1, e2);
+        assert_eq!(e2, e0);
     }
 }

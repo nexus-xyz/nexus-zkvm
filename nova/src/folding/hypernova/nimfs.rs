@@ -233,28 +233,6 @@ pub(crate) mod tests {
     type Z = Zeromorph<E>;
 
     #[test]
-    fn test_compat_mles() {
-        let s: usize = 3;
-
-        let mut rng = test_rng();
-        let beta: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
-        let rs: Vec<Scalar> = (0..s).map(|_| Scalar::rand(&mut rng)).collect();
-
-        let eq = EqPolynomial::new(beta.clone());
-        let e0 = eq.evaluate(&rs);
-
-        let mle1 = vec_to_mle(eq.evals().as_slice());
-        let e1 = mle1.evaluate::<Projective<G>>(rs.as_slice());
-
-        let mle2 = vec_to_ark_mle(eq.evals().as_slice());
-        let e2 = mle2.evaluate(&rs);
-
-        assert_eq!(e0, e1);
-        assert_eq!(e1, e2);
-        assert_eq!(e2, e0);
-    }
-
-    #[test]
     fn prove_verify() {
         prove_verify_with_curve::<G, Z>().unwrap()
     }
