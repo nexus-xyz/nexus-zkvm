@@ -126,7 +126,7 @@ impl TerminalContext<'_> {
 
     pub fn display_step(&mut self) -> Guard<'_> {
         let Some(term) = &mut self.term.0 else {
-            return Guard { sender: None }
+            return Guard { sender: None };
         };
 
         self.steps_left = self
