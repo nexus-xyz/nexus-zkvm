@@ -24,13 +24,17 @@ pub struct SetupArgs {
     #[arg(long)]
     pub force: bool,
 
+    /// Number of vm instructions per fold.
+    #[arg(short, name = "k")]
+    pub k: Option<usize>,
+
     /// Path to Nova public parameters file.
     #[arg(short = 'p', long = "public_params")]
-    pub pp_file: PathBuf,
+    pub pp_file: Option<PathBuf>,
 
     /// Path to the Zeromorph structured reference string.
     #[arg(short = 's', long = "srs")]
-    pub srs_file: PathBuf,
+    pub srs_file: Option<PathBuf>,
 }
 
 pub fn format_key_file(k: usize) -> String {

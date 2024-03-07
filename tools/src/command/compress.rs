@@ -1,16 +1,34 @@
 use anyhow::Context;
 use std::io;
 
-use crate::{command::spartan_key::spartan_setup, LOG_TARGET};
-use nexus_prover::error::ProofError;
-use nexus_tools_dev::command::common::{compress::CompressArgs, spartan_key::SetupArgs};
+use crate::{
+    command::{cache_path, spartan_key::spartan_setup},
+    LOG_TARGET,
+};
+use nexus_config::{vm as vm_config, Config};
+use nexus_tools_dev::command::common::{
+    compress::CompressArgs, public_params::format_params_file, spartan_key::SetupArgs,
+};
 
 pub fn handle_command(args: CompressArgs) -> anyhow::Result<()> {
     compress_proof(args)
 }
 
 pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
-    let pp_file = args.pp_file;
+    let vm_config = vm_config::VmConfig::from_env()?;
+    let k = args.k.unwrap_or(vm_config.k);
+
+    let pp_file = match args.pp_file {
+        None => {
+            let nova_impl = vm_config::NovaImpl::ParallelCompressible;
+
+            let pp_file_name = format_params_file(nova_impl, k);
+            let cache_path = cache_path()?;
+
+            cache_path.join(pp_file_name)
+        }
+        Some(path) => path,
+    };
     if !pp_file.try_exists()? {
         tracing::error!(
             target: LOG_TARGET,
@@ -19,13 +37,12 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         );
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     };
-    let pp_file_str = pp_file.to_str().context("path is not valid utf8")?;
-
     tracing::info!(
         target: LOG_TARGET,
         path =?pp_file,
         "Reading the Nova public parameters",
     );
+    let pp_file_str = pp_file.to_str().context("path is not valid utf8")?;
 
     let pp = nexus_prover::pp::load_pp(pp_file_str)?;
 
@@ -40,19 +57,14 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
             return Err(io::Error::from(io::ErrorKind::NotFound).into());
         }
         path
-    } else if let Some(srs_file) = args.srs_file {
-        spartan_setup(SetupArgs {
-            force: false,
-            pp_file,
-            srs_file,
-            path: None,
-        })?
     } else {
-        tracing::error!(
-            target: LOG_TARGET,
-            "SRS file must be provided to generate the Spartan key",
-        );
-        return Err(ProofError::MissingSRS.into());
+        spartan_setup(SetupArgs {
+            path: None,
+            force: false,
+            k: Some(k),
+            pp_file: Some(pp_file),
+            srs_file: args.srs_file,
+        })?
     };
     let key_file_str = key_file.to_str().context("path is not valid utf8")?;
     let key = nexus_prover::key::gen_or_load_key(false, key_file_str, None, None)?;

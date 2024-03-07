@@ -6,8 +6,9 @@ use std::{
 use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
-use nexus_tools_dev::command::common::spartan_key::{
-    format_key_file, SetupArgs, SpartanSetupAction, SpartanSetupArgs,
+use nexus_tools_dev::command::common::{
+    public_params::{format_params_file, format_srs_file},
+    spartan_key::{format_key_file, SetupArgs, SpartanSetupAction, SpartanSetupArgs},
 };
 
 use crate::{command::cache_path, LOG_TARGET};
@@ -28,40 +29,62 @@ pub(crate) fn spartan_setup(args: SetupArgs) -> anyhow::Result<PathBuf> {
     let vm_config = vm_config::VmConfig::from_env()?;
 
     let force = args.force;
-    if !args.pp_file.try_exists()? {
+    let k = args.k.unwrap_or(vm_config.k);
+    let nova_impl = vm_config::NovaImpl::ParallelCompressible;
+    let pp_file = match args.pp_file {
+        None => {
+            let pp_file = format_params_file(nova_impl, k);
+            let cache_path = cache_path()?;
+
+            cache_path.join(pp_file)
+        }
+        Some(path) => path,
+    };
+    if !pp_file.try_exists()? {
         tracing::error!(
             target: LOG_TARGET,
             "path {} was not found",
-            args.pp_file.display(),
-        );
-        Err(io::Error::from(io::ErrorKind::NotFound).into())
-    } else if !args.srs_file.try_exists()? {
-        tracing::error!(
-            target: LOG_TARGET,
-            "path {} was not found",
-            args.srs_file.display(),
+            pp_file.display(),
         );
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
-    } else {
-        let key_path = match args.path {
-            Some(path) => path,
-            None => {
-                let key_file_name = format_key_file(vm_config.k);
-                let cache_path = cache_path()?;
-                cache_path.join(key_file_name)
-            }
-        };
-        if !force && key_path.try_exists()? {
-            tracing::info!(
-                target: LOG_TARGET,
-                "path {} already exists, use `setup --force` to overwrite",
-                key_path.display(),
-            );
-            return Ok(key_path);
-        }
-        spartan_setup_to_file(&key_path, &args.pp_file, &args.srs_file)?;
-        Ok(key_path)
     }
+
+    let srs_file = match args.srs_file {
+        None => {
+            let srs_file_name = format_srs_file(27);
+            let cache_path = cache_path()?;
+
+            cache_path.join(srs_file_name)
+        }
+        Some(path) => path,
+    };
+    if !srs_file.try_exists()? {
+        tracing::error!(
+            target: LOG_TARGET,
+            "path {} was not found",
+            srs_file.display(),
+        );
+        return Err(io::Error::from(io::ErrorKind::NotFound).into());
+    }
+
+    let key_path = match args.path {
+        Some(path) => path,
+        None => {
+            let key_file_name = format_key_file(vm_config.k);
+            let cache_path = cache_path()?;
+            cache_path.join(key_file_name)
+        }
+    };
+    if !force && key_path.try_exists()? {
+        tracing::info!(
+            target: LOG_TARGET,
+            "path {} already exists, use `setup --force` to overwrite",
+            key_path.display(),
+        );
+        return Ok(key_path);
+    }
+    spartan_setup_to_file(&key_path, &pp_file, &srs_file)?;
+    Ok(key_path)
 }
 
 fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> anyhow::Result<()> {
