@@ -9,7 +9,10 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 pub fn load_srs(file: &str) -> Result<SRS, ProofError> {
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
-    let srs = SRS::deserialize_compressed_unchecked(&mut dec)?;
+    // we can use `deserialize_compressed` instead of `deserialize_compressed_unchecked` here since
+    // the expensive operation of checking that group elements are in the correct subgroup
+    // has been disabled for prime-order curve groups in https://github.com/arkworks-rs/algebra/pull/771.
+    let srs = SRS::deserialize_compressed(&mut dec)?;
     Ok(srs)
 }
 

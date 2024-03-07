@@ -2,14 +2,13 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use nexus_network::{
-    api::NexusAPI,
+    api::{NexusAPI, Proof},
     pcd::{
         encode,
         NexusMsg::{self, LeafReq, NodeReq, PCDRes},
     },
     Result,
 };
-use nexus_prover::Proof;
 use sha2::{Digest, Sha256};
 
 use hyper::{header, Body, Request, Response, StatusCode};

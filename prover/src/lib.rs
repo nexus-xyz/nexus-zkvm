@@ -10,7 +10,7 @@ pub mod types;
 use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use serde::{Deserialize, Serialize};
+//use serde::{Deserialize, Serialize};
 
 use nexus_vm::{
     riscv::{load_nvm, VMOpts},
@@ -26,16 +26,6 @@ use crate::{
 };
 
 pub const LOG_TARGET: &str = "nexus-prover";
-
-#[derive(Default, Clone, CanonicalSerialize, CanonicalDeserialize, Serialize, Deserialize)]
-pub struct Proof {
-    pub hash: String,
-    pub total_nodes: u32,
-    pub complete_nodes: u32,
-    pub par: bool,
-    pub com: bool,
-    pub proof: Option<Vec<u8>>,
-}
 
 pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
     tracing::info!(
@@ -74,29 +64,29 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
     Ok(proof)
 }
 
-impl std::fmt::Display for Proof {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        if self.par {
-            writeln!(f, "PCD Proof")?;
-            writeln!(f, "compressible: {}", self.com)?;
-            writeln!(
-                f,
-                "hash: {}, total nodes: {}, complete nodes: {}",
-                self.hash, self.total_nodes, self.complete_nodes
-            )?;
-        }
-        match self.proof {
-            None => writeln!(f, "incomplete")?,
-            Some(ref p) => {
-                for x in p.iter().take(10) {
-                    write!(f, "{:x} ", x)?;
-                }
-                writeln!(f)?;
-            }
-        }
-        Ok(())
-    }
-}
+// impl std::fmt::Display for Proof {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         if self.par {
+//             writeln!(f, "PCD Proof")?;
+//             writeln!(f, "compressible: {}", self.com)?;
+//             writeln!(
+//                 f,
+//                 "hash: {}, total nodes: {}, complete nodes: {}",
+//                 self.hash, self.total_nodes, self.complete_nodes
+//             )?;
+//         }
+//         match self.proof {
+//             None => writeln!(f, "incomplete")?,
+//             Some(ref p) => {
+//                 for x in p.iter().take(10) {
+//                     write!(f, "{:x} ", x)?;
+//                 }
+//                 writeln!(f)?;
+//             }
+//         }
+//         Ok(())
+//     }
+// }
 
 fn estimate_size(tr: &Trace) -> usize {
     use std::mem::size_of_val as sizeof;
@@ -154,130 +144,200 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     Ok(proof)
 }
 
-pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
-    let k = trace.k;
-    let tr = Tr(trace);
+macro_rules! prove_par_impl {
+    ( $pp_type:ty, $node_type:ty, $name:ident ) => {
+        pub fn $name(pp: $pp_type, trace: Trace) -> Result<$node_type, ProofError> {
+            let k = trace.k;
+            let tr = Tr(trace);
 
-    let num_steps = tr.steps();
-    assert!((num_steps + 1).is_power_of_two());
+            let num_steps = tr.steps();
+            assert!((num_steps + 1).is_power_of_two());
 
-    let on_step = move |iter: usize| {
-        let b = (num_steps + 1).ilog2();
-        let a = b - 1 - (num_steps - iter).ilog2();
+            let on_step = move |iter: usize| {
+                let b = (num_steps + 1).ilog2();
+                let a = b - 1 - (num_steps - iter).ilog2();
 
-        let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
-        let step_type = if iter <= num_steps / 2 {
-            "leaf"
-        } else if iter == num_steps - 1 {
-            "root"
-        } else {
-            "node"
-        };
-        format!("{step_type} {step}")
-    };
+                let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
+                let step_type = if iter <= num_steps / 2 {
+                    "leaf"
+                } else if iter == num_steps - 1 {
+                    "root"
+                } else {
+                    "node"
+                };
+                format!("{step_type} {step}")
+            };
 
-    let mut term = nexus_tui::TerminalHandle::new();
-    let mut term_ctx = term
-        .context("Computing")
-        .on_step(on_step)
-        .num_steps(num_steps)
-        .with_loading_bar("Proving")
-        .completion_header("Proved")
-        .completion_stats(move |elapsed| {
-            format!(
-                "tree root in {elapsed}; {:.2} instructions / second",
-                (k * num_steps) as f32 / elapsed.as_secs_f32()
-            )
-        });
+            let mut term = nexus_tui::TerminalHandle::new();
+            let mut term_ctx = term
+                .context("Computing")
+                .on_step(on_step)
+                .num_steps(num_steps)
+                .with_loading_bar("Proving")
+                .completion_header("Proved")
+                .completion_stats(move |elapsed| {
+                    format!(
+                        "tree root in {elapsed}; {:.2} instructions / second",
+                        (k * num_steps) as f32 / elapsed.as_secs_f32()
+                    )
+                });
 
-    let mut vs = (0..num_steps)
-        .step_by(2)
-        .map(|i| {
-            let _guard = term_ctx.display_step();
+            let mut vs = (0..num_steps)
+                .step_by(2)
+                .map(|i| {
+                    let _guard = term_ctx.display_step();
 
-            let v = PCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
-            Ok(v)
-        })
-        .collect::<Result<Vec<_>, ProofError>>()?;
+                    let v = <$node_type>::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
+                    Ok(v)
+                })
+                .collect::<Result<Vec<_>, ProofError>>()?;
 
-    loop {
-        if vs.len() == 1 {
-            break;
+            loop {
+                if vs.len() == 1 {
+                    break;
+                }
+                vs = vs
+                    .chunks(2)
+                    .map(|ab| {
+                        let _guard = term_ctx.display_step();
+                        let c = <$node_type>::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
+                        Ok(c)
+                    })
+                    .collect::<Result<Vec<_>, ProofError>>()?;
+            }
+
+            Ok(vs.into_iter().next().unwrap())
         }
-        vs = vs
-            .chunks(2)
-            .map(|ab| {
-                let _guard = term_ctx.display_step();
-                let c = PCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
-                Ok(c)
-            })
-            .collect::<Result<Vec<_>, ProofError>>()?;
-    }
-
-    Ok(vs.into_iter().next().unwrap())
+    };
 }
 
-pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<ComPCDNode, ProofError> {
-    let k = trace.k;
-    let tr = Tr(trace);
+prove_par_impl!(ParPP, PCDNode, prove_par);
+prove_par_impl!(ComPP, ComPCDNode, prove_par_com);
 
-    let num_steps = tr.steps();
-    assert!((num_steps + 1).is_power_of_two());
+// pub fn prove_par(pp: ParPP, trace: Trace) -> Result<PCDNode, ProofError> {
+//     let k = trace.k;
+//     let tr = Tr(trace);
 
-    let on_step = move |iter: usize| {
-        let b = (num_steps + 1).ilog2();
-        let a = b - 1 - (num_steps - iter).ilog2();
+//     let num_steps = tr.steps();
+//     assert!((num_steps + 1).is_power_of_two());
 
-        let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
-        let step_type = if iter <= num_steps / 2 {
-            "leaf"
-        } else if iter == num_steps - 1 {
-            "root"
-        } else {
-            "node"
-        };
-        format!("{step_type} {step}")
-    };
+//     let on_step = move |iter: usize| {
+//         let b = (num_steps + 1).ilog2();
+//         let a = b - 1 - (num_steps - iter).ilog2();
 
-    let mut term = nexus_tui::TerminalHandle::new();
-    let mut term_ctx = term
-        .context("Computing")
-        .on_step(on_step)
-        .num_steps(num_steps)
-        .with_loading_bar("Proving")
-        .completion_header("Proved")
-        .completion_stats(move |elapsed| {
-            format!(
-                "tree root in {elapsed}; {:.2} instructions / second",
-                (k * num_steps) as f32 / elapsed.as_secs_f32()
-            )
-        });
+//         let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
+//         let step_type = if iter <= num_steps / 2 {
+//             "leaf"
+//         } else if iter == num_steps - 1 {
+//             "root"
+//         } else {
+//             "node"
+//         };
+//         format!("{step_type} {step}")
+//     };
 
-    let mut vs = (0..num_steps)
-        .step_by(2)
-        .map(|i| {
-            let _guard = term_ctx.display_step();
-            let v = ComPCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
-            Ok(v)
-        })
-        .collect::<Result<Vec<_>, ProofError>>()?;
+//     let mut term = nexus_tui::TerminalHandle::new();
+//     let mut term_ctx = term
+//         .context("Computing")
+//         .on_step(on_step)
+//         .num_steps(num_steps)
+//         .with_loading_bar("Proving")
+//         .completion_header("Proved")
+//         .completion_stats(move |elapsed| {
+//             format!(
+//                 "tree root in {elapsed}; {:.2} instructions / second",
+//                 (k * num_steps) as f32 / elapsed.as_secs_f32()
+//             )
+//         });
 
-    loop {
-        if vs.len() == 1 {
-            break;
-        }
-        vs = vs
-            .chunks(2)
-            .map(|ab| {
-                let _guard = term_ctx.display_step();
-                let c = ComPCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
-                Ok(c)
-            })
-            .collect::<Result<Vec<_>, ProofError>>()?;
-    }
+//     let mut vs = (0..num_steps)
+//         .step_by(2)
+//         .map(|i| {
+//             let _guard = term_ctx.display_step();
 
-    Ok(vs.into_iter().next().unwrap())
-}
+//             let v = PCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
+//             Ok(v)
+//         })
+//         .collect::<Result<Vec<_>, ProofError>>()?;
+
+//     loop {
+//         if vs.len() == 1 {
+//             break;
+//         }
+//         vs = vs
+//             .chunks(2)
+//             .map(|ab| {
+//                 let _guard = term_ctx.display_step();
+//                 let c = PCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
+//                 Ok(c)
+//             })
+//             .collect::<Result<Vec<_>, ProofError>>()?;
+//     }
+
+//     Ok(vs.into_iter().next().unwrap())
+// }
+
+// pub fn prove_par_com(pp: ComPP, trace: Trace) -> Result<ComPCDNode, ProofError> {
+//     let k = trace.k;
+//     let tr = Tr(trace);
+
+//     let num_steps = tr.steps();
+//     assert!((num_steps + 1).is_power_of_two());
+
+//     let on_step = move |iter: usize| {
+//         let b = (num_steps + 1).ilog2();
+//         let a = b - 1 - (num_steps - iter).ilog2();
+
+//         let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
+//         let step_type = if iter <= num_steps / 2 {
+//             "leaf"
+//         } else if iter == num_steps - 1 {
+//             "root"
+//         } else {
+//             "node"
+//         };
+//         format!("{step_type} {step}")
+//     };``
+
+//     let mut term = nexus_tui::TerminalHandle::new();
+//     let mut term_ctx = term
+//         .context("Computing")
+//         .on_step(on_step)
+//         .num_steps(num_steps``
+//         .with_loading_bar("Proving")
+//         .completion_header("Proved")
+//         .completion_stats(move |elapsed| {
+//             format!(
+//                 "tree root in {elapsed}; {:.2} instructions / second",
+//                 (k * num_steps) as f32 / elapsed.as_secs_f32()
+//             )
+//         });
+
+//     let mut vs = (0..num_steps)
+//         .step_by(2)
+//         .map(|i| {
+//             let _guard = term_ctx.display_step();
+//             let v = ComPCDNode::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
+//             Ok(v)
+//         })
+//         .collect::<Result<Vec<_>, ProofError>>()?;
+
+//     loop {
+//         if vs.len() == 1 {
+//             break;
+//         }
+//         vs = vs
+//             .chunks(2)
+//             .map(|ab| {
+//                 let _guard = term_ctx.display_step();
+//                 let c = ComPCDNode::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
+//                 Ok(c)
+//             })
+//             .collect::<Result<Vec<_>, ProofError>>()?;
+//     }
+
+//     Ok(vs.into_iter().next().unwrap())
+// }
 
 pub fn compress(
     compression_pp: &ComPP,
@@ -288,6 +348,12 @@ pub fn compress(
         target: LOG_TARGET,
         "Compressing the proof",
     );
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Compressing")
+        .on_step(|_step| "the proof".into());
+    let _guard = term_ctx.display_step();
+
     let compressed_pcd_proof = SNARK::compress(compression_pp, key, node)?;
 
     Ok(compressed_pcd_proof)
@@ -302,6 +368,12 @@ pub fn verify_compressed(
         target: LOG_TARGET,
         "Verifying the compressed proof",
     );
+    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term_ctx = term
+        .context("Verifying")
+        .on_step(|_step| "compressed proof".into());
+    let _guard = term_ctx.display_step();
+
     SNARK::verify(key, params, proof)?;
     Ok(())
 }

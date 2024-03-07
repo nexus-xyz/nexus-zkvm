@@ -36,9 +36,6 @@ ark-serialize.workspace = true
 ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
-serde.workspace = true
-serde_json.workspace = true
-postcard = { version = "1.0", features = ["use-std"] }
 anyhow = "1.0.80"
 
 [features]
