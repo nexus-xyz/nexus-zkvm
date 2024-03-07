@@ -1,19 +1,69 @@
-use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
-use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::PrimeField;
-use ark_std::Zero;
+pub(crate) mod nimfs;
+pub(crate) use super::super::cyclefold::secondary;
 
-use super::{secondary, Error};
-use crate::{
-    absorb::CryptographicSpongeExt,
-    commitment::{Commitment, CommitmentScheme},
-    r1cs,
-    ccs,
-    utils::{cast_field_element, cast_field_element_unique},
-};
+use ark_std::fmt::Display;
 
-pub(crate) mod relaxed;
+use super::nimfs::Error as HNFoldingError;
+use crate::ccs::Error as CCSError;
+use crate::r1cs::Error as R1CSError;
 
-pub use crate::folding::nova::nifs::{NIFSProof, SQUEEZE_ELEMENTS_BIT_SIZE};
+#[derive(Debug, Clone, Copy)]
+pub enum Error {
+    R1CS(R1CSError),
+    CCS(CCSError),
+    HNFolding(HNFoldingError),
+    Synthesis(ark_relations::r1cs::SynthesisError),
 
-pub(crate) use crate::folding::cyclefold::{R1CSShape, R1CSInstance, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness};
+    #[cfg(any(test, feature = "spartan"))]
+    InvalidPublicInput,
+}
+
+impl From<R1CSError> for Error {
+    fn from(error: R1CSError) -> Self {
+        Self::R1CS(error)
+    }
+}
+
+impl From<CCSError> for Error {
+    fn from(error: CCSError) -> Self {
+        Self::CCS(error)
+    }
+}
+
+impl From<HNFoldingError> for Error {
+    fn from(error: HNFoldingError) -> Self {
+        Self::HNFolding(error)
+    }
+}
+
+impl From<ark_relations::r1cs::SynthesisError> for Error {
+    fn from(error: ark_relations::r1cs::SynthesisError) -> Self {
+        Self::Synthesis(error)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::R1CS(error) => write!(f, "{}", error),
+            Self::CCS(error) => write!(f, "{}", error),
+            Self::HNFolding(error) => write!(f, "{}", error),
+            Self::Synthesis(error) => write!(f, "{}", error),
+            #[cfg(any(test, feature = "spartan"))]
+            Self::InvalidPublicInput => write!(f, "invalid public input"),
+        }
+    }
+}
+
+impl ark_std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::R1CS(error) => error.source(),
+            Self::CCS(error) => error.source(),
+            Self::HNFolding(error) => error.source(),
+            Self::Synthesis(error) => error.source(),
+            #[cfg(any(test, feature = "spartan"))]
+            Self::InvalidPublicInput => None,
+        }
+    }
+}

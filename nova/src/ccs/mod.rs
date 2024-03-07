@@ -5,7 +5,7 @@ use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 use ark_std::fmt;
 
-use ark_std::{ops::Neg, Zero};
+use ark_std::{fmt::Display, ops::Neg, Zero};
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
@@ -28,6 +28,20 @@ pub enum Error {
     InvalidEvaluationPoint,
     InvalidTargets,
     NotSatisfied,
+}
+
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidWitnessLength => write!(f, "invalid witness length"),
+            Self::InvalidInputLength => write!(f, "invalid input length"),
+            Self::InvalidEvaluationPoint => write!(f, "invalid evaluation point"),
+            Self::InvalidTargets => write!(f, "invalid targets"),
+            Self::NotSatisfied => write!(f, "not satisfied"),
+        }
+    }
 }
 
 /// A type that holds the shape of the CCS matrices

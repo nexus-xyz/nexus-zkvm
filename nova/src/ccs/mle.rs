@@ -77,9 +77,9 @@ pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExten
 mod tests {
     use super::*;
 
-    use ark_std::{UniformRand, Zero};
     use ark_poly::Polynomial;
-    use ark_spartan::{dense_mlpoly::EqPolynomial};
+    use ark_spartan::dense_mlpoly::EqPolynomial;
+    use ark_std::{UniformRand, Zero};
     use ark_test_curves::bls12_381::{Fr, G1Projective as G};
 
     use crate::r1cs::tests::to_field_sparse;

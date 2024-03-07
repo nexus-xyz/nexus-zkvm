@@ -6,7 +6,7 @@ use ark_ff::{Field, PrimeField, ToConstraintField};
 use ark_poly::Polynomial;
 use ark_spartan::{dense_mlpoly::EqPolynomial, polycommitments::PolyCommitmentScheme};
 
-use ark_std::rc::Rc;
+use ark_std::{fmt::Display, rc::Rc};
 
 use crate::{
     absorb::AbsorbNonNative,
@@ -20,7 +20,7 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(127);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Error {
     CCS(ccs::Error),
     SumCheck(ml_sumcheck::Error),
@@ -36,6 +36,26 @@ impl From<ccs::Error> for Error {
 impl From<ml_sumcheck::Error> for Error {
     fn from(err: ml_sumcheck::Error) -> Error {
         Error::SumCheck(err)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::CCS(error) => write!(f, "{}", error),
+            Self::SumCheck(error) => write!(f, "{}", error),
+            Self::InconsistentSubclaim => write!(f, "inconsistent subclaim"),
+        }
+    }
+}
+
+impl ark_std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::CCS(error) => error.source(),
+            Self::SumCheck(error) => error.source(),
+            Self::InconsistentSubclaim => None,
+        }
     }
 }
 
@@ -72,7 +92,7 @@ where
         shape: &CCSShape<G>,
         (U1, W1): (&LCCSInstance<G, C>, &CCSWitness<G>),
         (U2, W2): (&CCSInstance<G, C>, &CCSWitness<G>),
-        rho: G::ScalarField,
+        rho: &G::ScalarField,
     ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>)), Error> {
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
@@ -146,14 +166,14 @@ where
         ))
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "spartan"))]
     pub fn verify_as_subprotocol<C: PolyCommitmentScheme<G>>(
         &self,
         random_oracle: &mut RO,
         shape: &CCSShape<G>,
         U1: &LCCSInstance<G, C>,
         U2: &CCSInstance<G, C>,
-        rho: G::ScalarField,
+        rho: &G::ScalarField,
     ) -> Result<LCCSInstance<G, C>, Error> {
         random_oracle.absorb(&U1);
         random_oracle.absorb(&U2);
@@ -226,7 +246,7 @@ pub(crate) mod tests {
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
-    use ark_test_curves::bls12_381::{g1::Config as G, Bls12_381 as E, Fr as Scalar};
+    use ark_test_curves::bls12_381::{g1::Config as G, Bls12_381 as E};
 
     type Z = Zeromorph<E>;
 
@@ -273,8 +293,9 @@ pub(crate) mod tests {
         )?;
 
         let rho = G::ScalarField::rand(&mut rng);
+        let mut random_oracle = PoseidonSponge::new(&config);
 
-        let (proof, (folded_U, folded_W), _rho) =
+        let (proof, (folded_U, folded_W)) =
             NIMFSProof::<Projective<G>, PoseidonSponge<G::ScalarField>>::prove_as_subprotocol(
                 &mut random_oracle,
                 &shape,
@@ -295,11 +316,16 @@ pub(crate) mod tests {
         let (_, U2, W2, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (proof, (folded_U, folded_W), _rho) =
-            NIMFSProof::prove_as_subprotocol(&mut random_oracle, &shape, (&U1, &W1), (&U2, &W2))?;
+        let (proof, (folded_U, folded_W)) = NIMFSProof::prove_as_subprotocol(
+            &mut random_oracle,
+            &shape,
+            (&U1, &W1),
+            (&U2, &W2),
+            &rho,
+        )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2)?;
+        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2, &rho)?;
         assert_eq!(folded_U, v_folded_U);
 
         shape.is_satisfied_linearized(&folded_U, &folded_W, &ck)?;

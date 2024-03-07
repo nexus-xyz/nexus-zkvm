@@ -8,7 +8,7 @@
 
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ff::PrimeField;
-use ark_std::marker::PhantomData;
+use ark_std::{fmt::Display, marker::PhantomData};
 
 mod data_structures;
 mod protocol;
@@ -23,10 +23,20 @@ use protocol::{
     IPForMLSumcheck,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Error {
     /// protocol rejects this proof
     Reject,
+}
+
+impl std::error::Error for Error {}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Reject => write!(f, "verifier rejected sumcheck proof"),
+        }
+    }
 }
 
 /// Sumcheck for products of multilinear polynomial

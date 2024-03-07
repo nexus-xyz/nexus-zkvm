@@ -1,22 +1,25 @@
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
-use ark_std::Zero;
+use ark_std::marker::PhantomData;
 
-use ark_spartan::polycommitments::{PolyCommitmentScheme, VectorCommitmentScheme};
+use ark_spartan::polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait};
 
-pub use crate::folding::hypernova::nimfs::{SQUEEZE_ELEMENTS_BIT_SIZE};
+use crate::commitment::{Commitment, CommitmentScheme};
+
+use crate::folding::hypernova::nimfs::NIMFSProof as HNProof;
+pub use crate::folding::hypernova::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE;
 
 use super::{secondary, Error};
 use crate::{
     absorb::CryptographicSpongeExt,
-    ccs,
     r1cs,
     utils::{cast_field_element, cast_field_element_unique},
 };
 
 pub(crate) use crate::folding::cyclefold::{
-    CCSShape, CCSInstance, CCSWitness, LCCSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness,
+    CCSInstance, CCSShape, CCSWitness, LCCSInstance, R1CSShape, RelaxedR1CSInstance,
+    RelaxedR1CSWitness,
 };
 
 /// Non-interactive multi-folding scheme proof.
@@ -28,8 +31,9 @@ pub struct NIMFSProof<
     RO,
 > {
     pub(crate) commitment_T: C2::Commitment,
-    pub(crate) commitment_W_proof: secondary::Proof<G2, VC2>,
-    pub(crate) hypernova_proof: hypernova::NIMFSProof<Projective<G1>, RO>,
+    pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
+    pub(crate) hypernova_proof: HNProof<Projective<G1>, RO>,
+    _poly_commitment: PhantomData<C1::Commitment>,
 }
 
 impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
@@ -43,7 +47,7 @@ where
     RO: CryptographicSponge,
 {
     pub fn prove(
-        ck: &C1::CK,
+        _ck: &C1::PolyCommitmentKey,
         pp_secondary: &C2::PP,
         config: &RO::Config,
         vk: &G1::ScalarField,
@@ -71,21 +75,30 @@ where
         let rho_scalar: G1::ScalarField =
             unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&rho) };
 
-        (hypernova_proof, (folded_U, folded_W), rho_scalar) = hypernova::NIMFSProof::prove_as_subprotocol(random_oracle, shape, (U, W), (u, w));
+        let (hypernova_proof, (folded_U, folded_W)) =
+            HNProof::prove_as_subprotocol(&mut random_oracle, shape, (U, W), (u, w), &rho_scalar)?;
 
-        let g_out = U.commitment_W + u.commitment_W * rho;
+        // The PolyCommitment trait only guarantees the commitment can be represented by a vector of field elements. However,
+        // it makes sense to implement HyperNova Cyclefold assuming the commitment is just a single field element, because we
+        // will be using such a scheme for now (Zeromorph) and it leads to a minimally-sized secondary circuit. We expect this
+        // conversion will panic as unimplemented!() for any incompatible such commitment scheme.
+
+        let s_U_commitment_W = U.commitment_W.into_single();
+        let s_u_commitment_W = u.commitment_W.into_single();
+
+        let g_out = s_U_commitment_W + s_u_commitment_W * rho_scalar;
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: U.commitment_W.into(),
-                g2: u.commitment_W.into(),
-                g_out: g_out.into(),
+                g1: s_U_commitment_W,
+                g2: s_u_commitment_W,
+                g_out,
                 r: rho,
             },
             pp_secondary,
         )?;
         debug_assert!(shape_secondary
-                      .is_satisfied(&W_comm_trace.0, &W_comm_trace.1, pp_secondary)
-                      .is_ok());
+            .is_satisfied(&W_comm_trace.0, &W_comm_trace.1, pp_secondary)
+            .is_ok());
 
         let (T, commitment_T) = r1cs::commit_T(
             shape_secondary,
@@ -97,7 +110,7 @@ where
         )?;
         random_oracle.absorb_non_native(&W_comm_trace.0);
         random_oracle.absorb(&commitment_T.into_affine());
-        random_oracle.absorb(&rho_scalar);
+        random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&rho));
 
         let rho_p: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
@@ -111,9 +124,10 @@ where
             commitment_T,
             commitment_W_proof,
             hypernova_proof,
+            _poly_commitment: PhantomData,
         };
 
-        Ok((proof, (folded_U folded_W), (U_secondary, W_secondary)))
+        Ok((proof, (folded_U, folded_W), (U_secondary, W_secondary)))
     }
 
     #[cfg(any(test, feature = "spartan"))]
@@ -121,6 +135,7 @@ where
         &self,
         config: &RO::Config,
         vk: &G1::ScalarField,
+        shape: &CCSShape<G1>,
         U: &LCCSInstance<G1, C1>,
         U_secondary: &RelaxedR1CSInstance<G2, C2>,
         u: &CCSInstance<G1, C1>,
@@ -131,39 +146,183 @@ where
         random_oracle.absorb(&U);
         random_oracle.absorb(&u);
         random_oracle.absorb_non_native(&U_secondary);
-        random_oracle.absorb_non_native(&self.commitment_T.into());
 
         let rho: G1::BaseField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
         let rho_scalar: G1::ScalarField =
-            unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&r_0) };
+            unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&rho) };
 
-        let folded_U = self.hypernova_proof.verify_as_subprotocol(&mut random_oracle, shape, U, u, &rho_scalar)?;
+        let folded_U = self.hypernova_proof.verify_as_subprotocol(
+            &mut random_oracle,
+            shape,
+            U,
+            u,
+            &rho_scalar,
+        )?;
 
-        let secondary::Proof {
-            U: comm_W_proof,
-            commitment_T: commitment_T,
-        } = &self.commitment_W_proof;
+        let secondary::Proof { U: comm_W_proof, commitment_T } = &self.commitment_W_proof;
         let pub_io = comm_W_proof
             .parse_secondary_io::<G1>()
             .ok_or(Error::InvalidPublicInput)?;
 
         if pub_io.r != rho
-            || pub_io.g1 != U.commitment_W.into()
-            || pub_io.g2 != u.commitment_W.into()
+            || pub_io.g1 != U.commitment_W.into_single()
+            || pub_io.g2 != u.commitment_W.into_single()
         {
             return Err(Error::InvalidPublicInput);
         }
 
-        let commitment_W = pub_io.g_out;
         random_oracle.absorb_non_native(&comm_W_proof);
-        random_oracle.absorb(&_commitment_T.into_affine());
+        random_oracle.absorb(&commitment_T.into_affine());
         random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(&rho));
 
-        let rho_p = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
+        let rho_p =
+            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
-        let U_secondary = U_secondary.fold(comm_W_proof, commitment_T, &rho_p)?;
+        let U_secondary = U_secondary.fold(comm_W_proof, &commitment_T, &rho_p)?;
 
         Ok((folded_U, U_secondary))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::poseidon_config;
+    use crate::{
+        ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
+        pedersen::PedersenCommitment,
+        r1cs::tests::to_field_elements,
+        test_utils::setup_test_ccs,
+    };
+    use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
+    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+    use ark_ff::Field;
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use ark_std::{test_rng, UniformRand};
+    use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
+    #[test]
+    fn prove_verify() {
+        prove_verify_with_cycle::<ark_bn254::g1::Config,
+                                  ark_grumpkin::GrumpkinConfig,
+                                  Zeromorph<ark_bn254::Bn254>,
+                                  PedersenCommitment<ark_grumpkin::Projective>>()
+            .unwrap();
+    }
+
+    fn prove_verify_with_cycle<G1, G2, C1, C2>() -> Result<(), Error>
+    where
+        G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
+        G2: SWCurveConfig,
+        C1: PolyCommitmentScheme<Projective<G1>>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        G1::BaseField: PrimeField + Absorb,
+        G2::BaseField: PrimeField + Absorb,
+        C1::PolyCommitmentKey: Clone,
+    {
+        let config = poseidon_config();
+
+        let vk = G1::ScalarField::ONE;
+
+        let mut rng = test_rng();
+        let (shape, u, w, ck) = setup_test_ccs::<G1, C1>(3, None, Some(&mut rng));
+
+        let shape_secondary = secondary::setup_shape::<G1, G2>()?;
+
+        let pp_secondary = C2::setup(
+            shape_secondary.num_vars + shape_secondary.num_constraints,
+            &(),
+        );
+
+        let X = to_field_elements::<Projective<G1>>(&(vec![0; shape.num_io]).as_slice());
+        let W = CCSWitness::zero(&shape);
+
+        let commitment_W = W.commit::<C1>(&ck);
+
+        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<G1::ScalarField> = (0..s).map(|_| G1::ScalarField::rand(&mut rng)).collect();
+
+        let z = [X.as_slice(), W.W.as_slice()].concat();
+        let vs: Vec<G1::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
+            .map(|M| {
+                vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<Projective<G1>>(rs.as_slice())
+            })
+            .collect();
+
+        let U = LCCSInstance::<Projective<G1>, C1>::new(
+            &shape,
+            &commitment_W,
+            &X,
+            &rs.as_slice(),
+            &vs.as_slice(),
+        )?;
+
+        let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
+        let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
+
+        let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
+                &ck,
+                &pp_secondary,
+                &config,
+                &vk,
+                (&shape, &shape_secondary),
+                (&U, &W),
+                (&U_secondary, &W_secondary),
+                (&u, &w),
+            )?;
+
+        shape
+            .is_satisfied_linearized(&folded_U, &folded_W, &ck)
+            .unwrap();
+
+        shape_secondary
+            .is_relaxed_satisfied(&folded_U_secondary, &folded_W_secondary, &pp_secondary)
+            .unwrap();
+
+        let (_U, _U_secondary) = proof.verify(&config, &vk, &shape, &U, &U_secondary, &u)?;
+
+        assert_eq!(_U, folded_U);
+        assert_eq!(_U_secondary, folded_U_secondary);
+        shape.is_satisfied_linearized(&_U, &folded_W, &ck).unwrap();
+        shape_secondary
+            .is_relaxed_satisfied(&_U_secondary, &folded_W_secondary, &pp_secondary)
+            .unwrap();
+
+        let (_, u, w, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
+
+        let (proof, (_folded_U, folded_W), (_folded_U_secondary, _folded_W_secondary)) =
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
+                &ck,
+                &pp_secondary,
+                &config,
+                &vk,
+                (&shape, &shape_secondary),
+                (&folded_U, &folded_W),
+                (&folded_U_secondary, &folded_W_secondary),
+                (&u, &w),
+            )?;
+
+        shape
+            .is_satisfied_linearized(&_folded_U, &folded_W, &ck)
+            .unwrap();
+
+        shape_secondary
+            .is_relaxed_satisfied(&_folded_U_secondary, &_folded_W_secondary, &pp_secondary)
+            .unwrap();
+
+        let (_U, _U_secondary) =
+            proof.verify(&config, &vk, &shape, &folded_U, &folded_U_secondary, &u)?;
+
+        assert_eq!(_U, _folded_U);
+        assert_eq!(_U_secondary, _folded_U_secondary);
+        shape.is_satisfied_linearized(&_U, &folded_W, &ck).unwrap();
+        shape_secondary
+            .is_relaxed_satisfied(&_U_secondary, &_folded_W_secondary, &pp_secondary)
+            .unwrap();
+
+        Ok(())
     }
 }

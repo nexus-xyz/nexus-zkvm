@@ -130,6 +130,10 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
       },
     }
   }
+
+  fn into_single(&self) -> G {
+    unimplemented!();
+  }
 }
 
 impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {

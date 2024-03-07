@@ -54,6 +54,8 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   fn into_affine(self) -> Vec<G::Affine> {
     self.into().iter().map(|c| c.into_affine()).collect()
   }
+
+  fn into_single(&self) -> G;
 }
 
 pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
