@@ -62,7 +62,7 @@ pub trait NonUniformCircuit<F: PrimeField>: Send + Sync {
 
     /// Generate constraints of computing `F_{pc}`.
     ///
-    /// `generate_constraints()` takes `pc` argument to be used for switching between `F_i`.
+    /// `generate_constraints()` takes `pc` argument to be used for switching between `F_j`.
     ///
     /// Return output `z_{i + 1}`.
     fn generate_constraints(
