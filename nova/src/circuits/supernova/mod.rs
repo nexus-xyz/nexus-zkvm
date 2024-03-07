@@ -308,7 +308,7 @@ where
                 z_i,
             } = non_base;
 
-            // instance `u` proofs execution of `F[pc]` and should be folded into `U[pc]`.
+            // instance `u` proves execution of `F[pc]` and should be folded into `U[pc]`.
             let idx = pc as usize;
             let U_i = U[idx]
                 .get_or_insert_with(|| RelaxedR1CSInstance::<G1, C1>::new(&params.shapes[idx]));
