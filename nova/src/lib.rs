@@ -20,7 +20,10 @@ pub mod ccs;
 pub mod commitment;
 pub mod r1cs;
 
-pub use circuits::{nova, StepCircuit};
+pub use circuits::{
+    nova::{self, StepCircuit},
+    supernova::{self, NonUniformCircuit},
+};
 pub use provider::{pedersen, poseidon::poseidon_config};
 
 pub(crate) const LOG_TARGET: &str = "nexus-nova";

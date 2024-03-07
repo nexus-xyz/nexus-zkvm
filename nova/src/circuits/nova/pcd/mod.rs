@@ -3,8 +3,8 @@
 //! Similar to [IVC](super::sequential::IVCProof) each [`PCDNode`] proves a range of computing F_i,
 //! with the difference of left index possibly being non-zero.
 //!
-//! A node proving range [i; k) can be folded with another node that proves range [k; j) to build a new
-//! node with range [i; j). These indices correspond to [`PCDNode::min_step`] and [`PCDNode::max_step`].
+//! A node proving range [i; k) can be folded with another node that proves range [k + 1; j) to build
+//! a new node with range [i; j). These indices correspond to [`PCDNode::min_step`] and [`PCDNode::max_step`].
 //! Therefore, this construction is often associated with binary tree, where the root proves the whole
 //! n steps in range [0; n).
 //!
@@ -29,12 +29,12 @@
 //!```
 //!
 //! To get to the root of the tree, a prover would start with proving even steps of F_i -- leaves.
-//! Folding leaf [i; i + 1) with [i + 1; i + 2) will require prover to execute step i + 1, the output
-//! will be a parent node proving [i; i + 2).
+//! Folding leaf [i; i + 1) with [i + 2; i + 3) will require prover to execute step i + 1, the output
+//! will be a parent node proving [i; i + 3).
 //!
 //! This algorithm is then applied recursively to each pair of nodes.
 //!
-//! Current implementation requires padding execution of F to next (2 ** n - 1).
+//! Current implementation requires padding execution of F to `next_power_of_two() - 1`.
 
 use std::marker::PhantomData;
 
@@ -222,7 +222,7 @@ where
     ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
-            "prove_step",
+            "prove_leaf",
             ?i,
             j = i + 1,
         )
@@ -297,7 +297,7 @@ where
     ) -> Result<Self, cyclefold::Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
-            "prove_from",
+            "prove_parent",
             i = left_node.i,
             j = right_node.j,
         )
