@@ -6,7 +6,7 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use crate::circuit::{nop_circuit, Tr};
 use crate::error::*;
 use crate::types::*;
-use crate::LOG_TARGET;
+use crate::{LOG_TARGET, TERMINAL_MODE};
 
 pub fn gen_pp<SP>(circuit: &SC) -> Result<PP<SP>, ProofError>
 where
@@ -69,7 +69,7 @@ pub fn gen_to_file(k: usize, par: bool, pp_file: &str) -> Result<(), ProofError>
         path = ?pp_file,
         "Generating public parameters",
     );
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Setting up")
         .on_step(|_step| "public parameters".into());
@@ -90,7 +90,7 @@ pub fn gen_or_load<SP>(gen: bool, k: usize, pp_file: &str) -> Result<PP<SP>, Pro
 where
     SP: SetupParams<G1, G2, C1, C2, RO, Tr> + Sync,
 {
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
     let pp: PP<SP> = if gen {
         tracing::info!(

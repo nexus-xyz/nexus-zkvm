@@ -4,4 +4,4 @@ mod component;
 mod thread;
 
 pub mod terminal;
-pub use terminal::TerminalHandle;
+pub use terminal::{Mode, TerminalHandle};

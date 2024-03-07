@@ -2,32 +2,62 @@ use std::sync::mpsc;
 
 use super::{action::Action, component::FmtDuration, thread as tui_thread};
 
-pub struct TerminalHandle {
+/// Terminal output mode.
+#[derive(Debug, Copy, Clone)]
+pub enum Mode {
+    /// Default mode with enabled terminal rendering.
+    Enabled,
+    /// No output mode.
+    Disabled,
+}
+
+pub struct TerminalHandle(Option<TerminalHandleInner>);
+
+struct TerminalHandleInner {
     thread: tui_thread::ThreadHandle,
     ctx_sender: Option<mpsc::Sender<()>>,
 }
 
-impl Default for TerminalHandle {
+impl Default for TerminalHandleInner {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TerminalHandle {
+impl TerminalHandleInner {
     pub fn new() -> Self {
         Self {
             thread: tui_thread::ThreadHandle::new(),
             ctx_sender: None,
         }
     }
+}
+
+impl TerminalHandle {
+    pub fn new(mode: Mode) -> Self {
+        match mode {
+            Mode::Enabled => Self::new_enabled(),
+            Mode::Disabled => Self(None),
+        }
+    }
+
+    pub fn new_enabled() -> Self {
+        if superconsole::SuperConsole::compatible() {
+            Self(TerminalHandleInner::new().into())
+        } else {
+            Self(None)
+        }
+    }
 
     pub fn context(&mut self, step_header: &'static str) -> TerminalContext<'_> {
-        let _ = self.ctx_sender.take();
-        TerminalContext {
-            term: self,
-            action: Some(Action { step_header, ..Default::default() }),
-            steps_left: 1,
-        }
+        let _ = self.0.as_mut().map(|handle| handle.ctx_sender.take());
+        let action = if self.0.is_some() {
+            Some(Action { step_header, ..Default::default() })
+        } else {
+            None
+        };
+
+        TerminalContext { term: self, action, steps_left: 1 }
     }
 }
 
@@ -95,16 +125,20 @@ impl TerminalContext<'_> {
     }
 
     pub fn display_step(&mut self) -> Guard<'_> {
+        let Some(term) = &mut self.term.0 else {
+            return Guard { sender: None };
+        };
+
         self.steps_left = self
             .steps_left
             .checked_sub(1)
             .expect("steps number overflow");
-        let ctx_sender = &mut self.term.ctx_sender;
+        let ctx_sender = &mut term.ctx_sender;
 
         let sender = if let Some(action) = self.action.take() {
             ctx_sender.get_or_insert_with(|| {
                 let (tx, rx) = mpsc::channel();
-                let _ = self.term.thread.sender().send((action, rx));
+                let _ = term.thread.sender().send((action, rx));
                 tx
             })
         } else {

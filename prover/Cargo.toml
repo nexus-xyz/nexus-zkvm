@@ -35,6 +35,10 @@ ark-serialize.workspace = true
 ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
+[dev-dependencies]
+anyhow = "1.0"
+nexus-config = { path = "../config" }
+
 [features]
 default = ["parallel", "snmalloc"]
 parallel = [
@@ -46,3 +50,5 @@ parallel = [
    "nexus-nova/parallel",
 ]
 snmalloc = ["snmalloc-rs"]
+# TODO: disable superconsole if not enabled
+verbose = []

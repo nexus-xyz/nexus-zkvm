@@ -132,7 +132,7 @@ fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()
         "Saving the proof",
     );
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
     let mut context = term.context("Saving").on_step(|_step| "proof".into());
     let _guard = context.display_step();
 
