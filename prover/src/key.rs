@@ -37,8 +37,8 @@ pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<
         path =?srs_file,
         "Reading the SRS",
     );
+    let mut term = nexus_tui::TerminalHandle::new();
     let srs = {
-        let mut term = nexus_tui::TerminalHandle::new();
         let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
         let _guard = term_ctx.display_step();
 
@@ -59,7 +59,6 @@ pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<
     );
 
     let pp: ComPP = {
-        let mut term = nexus_tui::TerminalHandle::new();
         let mut term_ctx = term
             .context("Loading")
             .on_step(|_step| "Nova public parameters".into());
@@ -74,7 +73,6 @@ pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<
         "Generating Spartan key parameters",
     );
 
-    let mut term = nexus_tui::TerminalHandle::new();
     let mut term_ctx = term
         .context("Generating")
         .on_step(|_step| "Spartan key".into());
@@ -105,7 +103,6 @@ pub fn gen_or_load_key(
             "Reading the SRS",
         );
         let srs = {
-            let mut term = nexus_tui::TerminalHandle::new();
             let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
             let _guard = term_ctx.display_step();
             load_srs(srs_file)?

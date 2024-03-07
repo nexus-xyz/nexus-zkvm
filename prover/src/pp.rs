@@ -80,6 +80,7 @@ pub fn gen_to_file(
         path = ?pp_file,
         "Generating public parameters",
     );
+    let mut term = nexus_tui::TerminalHandle::new();
 
     if par {
         match srs_file_opt {
@@ -90,7 +91,6 @@ pub fn gen_to_file(
                 "Reading the SRS",
                 );
                 let srs: SRS = {
-                    let mut term = nexus_tui::TerminalHandle::new();
                     let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
                     let _guard = term_ctx.display_step();
                     load_srs(srs_file)?
@@ -106,7 +106,6 @@ pub fn gen_to_file(
                         target: LOG_TARGET,
                         "Generating compressible PCD public parameters",
                     );
-                    let mut term = nexus_tui::TerminalHandle::new();
                     let mut term_ctx = term
                         .context("Setting up")
                         .on_step(|_step| "public parameters for PCD (compression enabled)".into());
@@ -123,7 +122,6 @@ pub fn gen_to_file(
                     "Generating non-compressible PCD public parameters",
                 );
                 let pp: ParPP = {
-                    let mut term = nexus_tui::TerminalHandle::new();
                     let mut term_ctx = term
                         .context("Setting up")
                         .on_step(|_step| "public parameters for PCD (compression disabled)".into());
@@ -142,7 +140,6 @@ pub fn gen_to_file(
         );
 
         let pp: SeqPP = {
-            let mut term = nexus_tui::TerminalHandle::new();
             let mut term_ctx = term
                 .context("Setting up")
                 .on_step(|_step| "public parameters for IVC".into());
@@ -164,6 +161,7 @@ where
     SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,
     C: CommitmentScheme<P1>,
 {
+    let mut term = nexus_tui::TerminalHandle::new();
     let pp: PP<C, SP> = if gen {
         tracing::info!(
             target: LOG_TARGET,
@@ -179,7 +177,6 @@ where
             );
             return Err(ProofError::MissingSRS);
         };
-        let mut term = nexus_tui::TerminalHandle::new();
         let mut term_ctx = term
             .context("Setting up")
             .on_step(|_step| "public parameters".into());
@@ -191,7 +188,6 @@ where
             path = ?pp_file,
             "Loading public parameters",
         );
-        let mut term = nexus_tui::TerminalHandle::new();
         let mut term_ctx = term
             .context("Loading")
             .on_step(|_step| "public parameters".into());
