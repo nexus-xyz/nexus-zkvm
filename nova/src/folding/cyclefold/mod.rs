@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::{ccs, r1cs};
 use ark_ec::short_weierstrass::Projective;
 

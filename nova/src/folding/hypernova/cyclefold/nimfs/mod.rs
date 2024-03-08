@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
@@ -83,8 +85,8 @@ where
         // will be using such a scheme for now (Zeromorph) and it leads to a minimally-sized secondary circuit. We expect this
         // conversion will panic as unimplemented!() for any incompatible such commitment scheme.
 
-        let s_U_commitment_W = U.commitment_W.into_single();
-        let s_u_commitment_W = u.commitment_W.into_single();
+        let s_U_commitment_W = U.commitment_W.clone().into_single();
+        let s_u_commitment_W = u.commitment_W.clone().into_single();
 
         let g_out = s_U_commitment_W + s_u_commitment_W * rho_scalar;
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
@@ -166,8 +168,8 @@ where
             .ok_or(Error::InvalidPublicInput)?;
 
         if pub_io.r != rho
-            || pub_io.g1 != U.commitment_W.into_single()
-            || pub_io.g2 != u.commitment_W.into_single()
+            || pub_io.g1 != U.commitment_W.clone().into_single()
+            || pub_io.g2 != u.commitment_W.clone().into_single()
         {
             return Err(Error::InvalidPublicInput);
         }
@@ -179,7 +181,7 @@ where
         let rho_p =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
 
-        let U_secondary = U_secondary.fold(comm_W_proof, &commitment_T, &rho_p)?;
+        let U_secondary = U_secondary.fold(comm_W_proof, commitment_T, &rho_p)?;
 
         Ok((folded_U, U_secondary))
     }
@@ -236,7 +238,7 @@ mod tests {
             &(),
         );
 
-        let X = to_field_elements::<Projective<G1>>(&(vec![0; shape.num_io]).as_slice());
+        let X = to_field_elements::<Projective<G1>>((vec![0; shape.num_io]).as_slice());
         let W = CCSWitness::zero(&shape);
 
         let commitment_W = W.commit::<C1>(&ck);
@@ -255,8 +257,8 @@ mod tests {
             &shape,
             &commitment_W,
             &X,
-            &rs.as_slice(),
-            &vs.as_slice(),
+            rs.as_slice(),
+            vs.as_slice(),
         )?;
 
         let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);

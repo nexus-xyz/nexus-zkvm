@@ -109,12 +109,12 @@ where
   }
 }
 
-impl<G> Into<Vec<G>> for HyraxCommitment<G>
+impl<G> From<HyraxCommitment<G>> for Vec<G> 
 where
   G: CurveGroup,
 {
-  fn into(self) -> Vec<G> {
-    self.C.C
+  fn from(c: HyraxCommitment<G>) -> Vec<G> {
+    c.C.C
   }
 }
 
@@ -131,7 +131,7 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
     }
   }
 
-  fn into_single(&self) -> G {
+  fn into_single(self) -> G {
     unimplemented!();
   }
 }

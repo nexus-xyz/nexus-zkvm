@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::marker::PhantomData;
 
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
@@ -22,14 +24,14 @@ pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Trunca
 
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
-    CCS(ccs::Error),
+    Ccs(ccs::Error),
     SumCheck(ml_sumcheck::Error),
     InconsistentSubclaim,
 }
 
 impl From<ccs::Error> for Error {
     fn from(err: ccs::Error) -> Error {
-        Error::CCS(err)
+        Error::Ccs(err)
     }
 }
 
@@ -42,7 +44,7 @@ impl From<ml_sumcheck::Error> for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::CCS(error) => write!(f, "{}", error),
+            Self::Ccs(error) => write!(f, "{}", error),
             Self::SumCheck(error) => write!(f, "{}", error),
             Self::InconsistentSubclaim => write!(f, "inconsistent subclaim"),
         }
@@ -52,7 +54,7 @@ impl Display for Error {
 impl ark_std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::CCS(error) => error.source(),
+            Self::Ccs(error) => error.source(),
             Self::SumCheck(error) => error.source(),
             Self::InconsistentSubclaim => None,
         }
@@ -102,7 +104,7 @@ where
 
         let gamma: G::ScalarField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let beta = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
+        let beta = random_oracle.squeeze_field_elements_with_sizes(rvec_shape.as_slice());
 
         let z1 = [U1.X.as_slice(), W1.W.as_slice()].concat();
         let z2 = [U2.X.as_slice(), W2.W.as_slice()].concat();
@@ -135,7 +137,7 @@ where
             summand_Q.push(eqb.clone());
             g.add_product(
                 summand_Q.iter().map(|Qt| Rc::new(Qt.clone())),
-                shape.cSs[i].0 * gamma.pow(&[(shape.num_matrices + 1) as u64]),
+                shape.cSs[i].0 * gamma.pow([(shape.num_matrices + 1) as u64]),
             );
         });
 
@@ -151,8 +153,8 @@ where
             .map(|M| vec_to_ark_mle(M.multiply_vec(&z2).as_slice()).evaluate(&rs))
             .collect();
 
-        let U = U1.fold(U2, &rho, &rs, &sigmas, &thetas)?;
-        let W = W1.fold(W2, &rho)?;
+        let U = U1.fold(U2, rho, &rs, &sigmas, &thetas)?;
+        let W = W1.fold(W2, rho)?;
 
         Ok((
             Self {
@@ -183,7 +185,7 @@ where
 
         let gamma: G::ScalarField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let beta = random_oracle.squeeze_field_elements_with_sizes(&rvec_shape.as_slice());
+        let beta = random_oracle.squeeze_field_elements_with_sizes(rvec_shape.as_slice());
 
         let claimed_sum = (1..=shape.num_matrices)
             .map(|j| gamma.pow([j as u64]) * U1.vs[j - 1])
@@ -218,14 +220,14 @@ where
                     .fold(shape.cSs[i].0, |acc, j| acc * self.thetas[*j])
             })
             .sum::<G::ScalarField>()
-            * gamma.pow(&[(shape.num_matrices + 1) as u64])
+            * gamma.pow([(shape.num_matrices + 1) as u64])
             * e2;
 
         if sumcheck_subclaim.expected_evaluation != cl + cr {
             return Err(Error::InconsistentSubclaim);
         }
 
-        let U = U1.fold(U2, &rho, &rs, &self.sigmas, &self.thetas)?;
+        let U = U1.fold(U2, rho, &rs, &self.sigmas, &self.thetas)?;
 
         Ok(U)
     }
@@ -269,7 +271,7 @@ pub(crate) mod tests {
 
         let (shape, U2, W2, ck) = setup_test_ccs::<G, C>(3, None, Some(&mut rng));
 
-        let X = to_field_elements::<Projective<G>>(&(vec![0; shape.num_io]).as_slice());
+        let X = to_field_elements::<Projective<G>>((vec![0; shape.num_io]).as_slice());
         let W1 = CCSWitness::zero(&shape);
 
         let commitment_W = W1.commit::<C>(&ck);
@@ -288,8 +290,8 @@ pub(crate) mod tests {
             &shape,
             &commitment_W,
             &X,
-            &rs.as_slice(),
-            &vs.as_slice(),
+            rs.as_slice(),
+            vs.as_slice(),
         )?;
 
         let rho = G::ScalarField::rand(&mut rng);

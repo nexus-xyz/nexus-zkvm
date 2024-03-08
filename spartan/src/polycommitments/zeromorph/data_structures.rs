@@ -217,9 +217,9 @@ impl<E: Pairing> From<Vec<E::G1>> for ZeromorphCommitment<E> {
   }
 }
 
-impl<E: Pairing> Into<Vec<E::G1>> for ZeromorphCommitment<E> {
-  fn into(self) -> Vec<E::G1> {
-    vec![self.commitment.0.into()]
+impl<E: Pairing> From<ZeromorphCommitment<E>> for Vec<E::G1> {
+  fn from(c: ZeromorphCommitment<E>) -> Vec<E::G1> {
+    vec![c.commitment.0.into()]
   }
 }
 
@@ -230,7 +230,7 @@ impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
     }
   }
 
-  fn into_single(&self) -> E::G1 {
+  fn into_single(self) -> E::G1 {
     self.commitment.0.into()
   }
 }
