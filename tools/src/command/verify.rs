@@ -136,7 +136,7 @@ fn verify_proof(
     .context("path is not utf8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
     let mut ctx = term.context("Verifying").on_step(move |_step| {
         match nova_impl {
             NovaImpl::Parallel => "root",

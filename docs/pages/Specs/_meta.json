@@ -2,5 +2,6 @@
   "zkvm-overview": "Nexus zkVM Overview",
   "nexus-vm": "Nexus Virtual Machine",
   "nexus-prover": "Nexus Proof System",
+  "nexus-memory-checking": "Nexus zkVM Memory Checking",
   "nexus-costs": "Nexus zkVM Costs"
 }

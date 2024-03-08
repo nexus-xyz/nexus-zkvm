@@ -134,3 +134,22 @@ fn local_prove(
 
     Ok(())
 }
+
+fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
+    tracing::info!(
+        target: LOG_TARGET,
+        path = %path.display(),
+        "Saving the proof",
+    );
+
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut context = term.context("Saving").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
+
+    let mut buf = Vec::new();
+
+    proof.serialize_compressed(&mut buf)?;
+    std::fs::write(path, buf)?;
+
+    Ok(())
+}

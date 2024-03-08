@@ -23,8 +23,6 @@ Let $P$ be a program that which we execute in a verifiable manner. As described 
 
 In order to enforce the consistency of the memory throughout the execution of the program $P$, the Nexus zkVM currently uses Merkle Trees [[M87](#references)] for memory checking together with the Poseidon hash function [[GKR21](#references)]. In this method, we compute a Merkle root associated with the current contents of the memory and we update its value whenever the contents of the memory change.
 
-In the current version of Nexus VM, the memory size is set to $2^{22}$ bytes. Hence, we associate leafs to 256-bit-long strings (i.e., 32 bytes) and then use a Merkle binary tree with 17 levels to describe its contents. In order to compute the Merkle root for the initial memory, we compute a default value for each tree level starting from the leaves and ending with the Merkle root. To compute the default value for a given level, we simply compute the hash of the concatenation of two default values for the level below.
-
 Once the Merkle Root for the initial state is computed, the Nexus zkVM starts loading the program $P$ one instruction at a time, updating the Merkle Tree Root accordingly after each memory update. 
 
 Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for the current state of the memory as the public input to the execution step of the proof system.

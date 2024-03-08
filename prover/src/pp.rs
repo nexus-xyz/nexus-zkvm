@@ -7,7 +7,7 @@ use super::srs::load_srs;
 use crate::circuit::{nop_circuit, Tr};
 use crate::error::*;
 use crate::types::*;
-use crate::LOG_TARGET;
+use crate::{LOG_TARGET, TERMINAL_MODE};
 
 pub fn gen_pp<C, SP>(circuit: &SC, aux: &C::SetupAux) -> Result<PP<C, SP>, ProofError>
 where
@@ -80,7 +80,7 @@ pub fn gen_to_file(
         path = ?pp_file,
         "Generating public parameters",
     );
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
     if par {
         match srs_file_opt {
@@ -161,8 +161,9 @@ where
     SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,
     C: CommitmentScheme<P1>,
 {
-    let mut term = nexus_tui::TerminalHandle::new();
-    let pp: PP<C, SP> = if gen {
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+
+    let pp: PP<SP> = if gen {
         tracing::info!(
             target: LOG_TARGET,
             "Generating public parameters",

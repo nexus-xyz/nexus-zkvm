@@ -24,6 +24,16 @@ use crate::{
     types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP, SpartanKey},
 };
 
+#[cfg(feature = "verbose")]
+const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
+#[cfg(not(feature = "verbose"))]
+const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
+
+#[cfg(feature = "verbose")]
+const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
+#[cfg(not(feature = "verbose"))]
+const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
+
 pub const LOG_TARGET: &str = "nexus-prover";
 
 pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
@@ -33,7 +43,7 @@ pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Resul
         "Saving the proof",
     );
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut context = term.context("Saving").on_step(|_step| "proof".into());
     let _guard = context.display_step();
 
@@ -54,7 +64,7 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
         "Loading the proof",
     );
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut context = term.context("Loading").on_step(|_step| "proof".into());
     let _guard = context.display_step();
 
@@ -96,7 +106,7 @@ pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
 
     let num_steps = tr.steps();
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Computing")
         .on_step(|step| format!("step {step}"))
@@ -143,7 +153,7 @@ macro_rules! prove_par_impl {
                 format!("{step_type} {step}")
             };
 
-            let mut term = nexus_tui::TerminalHandle::new();
+            let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
             let mut term_ctx = term
                 .context("Computing")
                 .on_step(on_step)

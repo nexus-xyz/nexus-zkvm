@@ -50,7 +50,7 @@ pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
 
 /// A structure describing a VM to load.
 /// This structure can be used with clap.
-#[derive(Debug, Args)]
+#[derive(Default, Debug, Args)]
 pub struct VMOpts {
     /// Instructions per step
     #[arg(short, name = "k", default_value = "1")]

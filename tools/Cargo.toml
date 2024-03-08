@@ -29,7 +29,7 @@ clap.workspace = true
 nexus-tools-dev = { path = "./tools-dev", default-features = false }
 nexus-config = { path = "../config" }
 nexus-riscv = { path = "../riscv" }
-nexus-prover = { path = "../prover" }
+nexus-prover = { path = "../prover", features = ["verbose"] }
 nexus-tui = { path = "./tui" }
 
 ark-spartan = { path = "../spartan" }
