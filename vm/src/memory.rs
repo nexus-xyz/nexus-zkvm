@@ -1,6 +1,7 @@
 //! Virtual Machine Memory
 
 pub mod cacheline;
+pub mod paged;
 pub mod path;
 pub mod trie;
 
@@ -83,13 +84,17 @@ pub trait Memory: Default {
 
 #[cfg(test)]
 mod test {
-    use super::trie::MerkleTrie;
-    use super::*;
+    use super::{paged::Paged, trie::MerkleTrie, *};
     use Width::*;
 
     #[test]
     fn test_mem_merkle() {
         test_mem(MerkleTrie::default());
+    }
+
+    #[test]
+    fn test_mem_paged() {
+        test_mem(Paged::default());
     }
 
     fn test_mem(mut mem: impl Memory) {
