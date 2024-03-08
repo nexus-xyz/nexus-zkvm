@@ -29,11 +29,6 @@ const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
 #[cfg(not(feature = "verbose"))]
 const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
 
-#[cfg(feature = "verbose")]
-const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
-#[cfg(not(feature = "verbose"))]
-const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
-
 pub const LOG_TARGET: &str = "nexus-prover";
 
 pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
@@ -208,7 +203,7 @@ pub fn compress(
         target: LOG_TARGET,
         "Compressing the proof",
     );
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Compressing")
         .on_step(|_step| "the proof".into());
@@ -228,7 +223,7 @@ pub fn verify_compressed(
         target: LOG_TARGET,
         "Verifying the compressed proof",
     );
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Verifying")
         .on_step(|_step| "compressed proof".into());

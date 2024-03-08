@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!("Setting up public parameters...");
-    let public_params = nexus_prover::pp::gen_vm_pp(CONFIG.k)?;
+    let public_params = nexus_prover::pp::gen_vm_pp(CONFIG.k, &())?;
 
     // Run the program.
     let vm_opts = VMOpts {

@@ -74,7 +74,7 @@ fn verify_proof_compressed(
     .context("path is not utf-8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
     let mut ctx = term
         .context("Verifying compressed")
         .on_step(move |_step| "proof".into());

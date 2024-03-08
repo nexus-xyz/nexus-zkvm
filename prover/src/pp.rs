@@ -163,7 +163,7 @@ where
 {
     let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
-    let pp: PP<SP> = if gen {
+    let pp: PP<C, SP> = if gen {
         tracing::info!(
             target: LOG_TARGET,
             "Generating public parameters",

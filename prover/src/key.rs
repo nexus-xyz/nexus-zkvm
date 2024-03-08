@@ -8,7 +8,7 @@ use crate::error::*;
 use crate::pp::load_pp;
 use crate::srs::load_srs;
 use crate::types::*;
-use crate::LOG_TARGET;
+use crate::{LOG_TARGET, TERMINAL_MODE};
 
 pub fn gen_key(pp: &ComPP, srs: &SRS) -> Result<SpartanKey, ProofError> {
     let key = SNARK::setup(pp, srs)?;
@@ -37,7 +37,7 @@ pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<
         path =?srs_file,
         "Reading the SRS",
     );
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let srs = {
         let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
         let _guard = term_ctx.display_step();
@@ -88,7 +88,7 @@ pub fn gen_or_load_key(
     pp_file: Option<&str>,
     srs_file: Option<&str>,
 ) -> Result<SpartanKey, ProofError> {
-    let mut term = nexus_tui::TerminalHandle::new();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let key: SpartanKey = if gen {
         tracing::info!(
             target: LOG_TARGET,
