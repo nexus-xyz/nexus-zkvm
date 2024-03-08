@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
-use nexus_prover::srs::test_srs::gen_test_srs_to_file;
+use nexus_prover::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
 use nexus_tools_dev::command::common::public_params::{
     format_params_file, format_srs_file, PublicParamsAction, PublicParamsArgs, SRSSetupArgs,
     SetupArgs,
@@ -73,7 +73,7 @@ fn setup_params_to_file(
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
                 None => {
-                    let srs_file_name = format_srs_file(27);
+                    let srs_file_name = format_srs_file(get_min_srs_size(k)?);
                     let cache_path = cache_path()?;
 
                     cache_path.join(srs_file_name)
@@ -97,7 +97,14 @@ fn setup_params_to_file(
 }
 
 pub fn sample_test_srs(args: SRSSetupArgs) -> anyhow::Result<PathBuf> {
-    let num_vars = args.num_vars;
+    let num_vars = match args.num_vars {
+        None => {
+            let vm_config = vm_config::VmConfig::from_env()?;
+            let k = args.k.unwrap_or(vm_config.k);
+            get_min_srs_size(k)?
+        }
+        Some(num_vars) => num_vars,
+    };
     let force = args.force;
     let path = match args.file {
         Some(file) => file,

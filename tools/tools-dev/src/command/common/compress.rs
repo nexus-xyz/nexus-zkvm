@@ -8,7 +8,7 @@ pub struct CompressArgs {
     pub k: Option<usize>,
 
     /// Spartan key file
-    #[arg(short = 'k', long = "key")]
+    #[arg(long = "key")]
     pub key_file: Option<PathBuf>,
 
     /// public parameters file; only needed if generating a new Spartan key

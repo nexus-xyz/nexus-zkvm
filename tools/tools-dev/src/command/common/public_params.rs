@@ -19,9 +19,13 @@ pub enum PublicParamsAction {
 
 #[derive(Debug, Default, Args)]
 pub struct SRSSetupArgs {
-    /// Number of variables
-    #[arg(short = 'n', long = "num-vars", default_value = "27")]
-    pub num_vars: usize,
+    /// Number of vm instructions per fold; defaults to reading value from vm config.
+    #[arg(short, name = "k")]
+    pub k: Option<usize>,
+
+    /// Number of variables: defaults to minimum needed for compression for the given `k`.
+    #[arg(short = 'n', long = "num-vars")]
+    pub num_vars: Option<usize>,
 
     /// File to save test SRS
     #[arg(short, long)]

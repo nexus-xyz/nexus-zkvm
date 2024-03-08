@@ -6,6 +6,7 @@ use std::{
 use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
+use nexus_prover::srs::get_min_srs_size;
 use nexus_tools_dev::command::common::{
     public_params::{format_params_file, format_srs_file},
     spartan_key::{format_key_file, SetupArgs, SpartanSetupAction, SpartanSetupArgs},
@@ -51,7 +52,7 @@ pub(crate) fn spartan_setup(args: SetupArgs) -> anyhow::Result<PathBuf> {
 
     let srs_file = match args.srs_file {
         None => {
-            let srs_file_name = format_srs_file(27);
+            let srs_file_name = format_srs_file(get_min_srs_size(k)?);
             let cache_path = cache_path()?;
 
             cache_path.join(srs_file_name)
