@@ -3,11 +3,13 @@ use std::path::PathBuf;
 use nexus_config::{Config, MiscConfig};
 use nexus_tools_dev::{command::common::Command as CommonCommand, Command};
 
+pub mod compress;
 pub mod new;
 pub mod prove;
 pub mod public_params;
 pub mod request;
 pub mod run;
+pub mod spartan_key;
 pub mod verify;
 
 /// Default environment variables for prover configuration.
@@ -29,6 +31,8 @@ pub fn handle_command(cmd: Command) -> anyhow::Result<()> {
         CommonCommand::Request(args) => request::handle_command(args),
         CommonCommand::Verify(args) => verify::handle_command(args),
         CommonCommand::PublicParams(args) => public_params::handle_command(args),
+        CommonCommand::Compress(args) => compress::handle_command(args),
+        CommonCommand::SpartanKey(args) => spartan_key::handle_command(args),
     }
 }
 

@@ -5,6 +5,6 @@ pub mod pcd;
 pub mod ws;
 
 pub type DynError = Box<dyn std::error::Error + Send + Sync>;
-pub type Result<T> = std::result::Result<T, DynError>;
+pub type Result<T, E = DynError> = std::result::Result<T, E>;
 
 pub const LOG_TARGET: &str = "nexus-network";

@@ -36,6 +36,8 @@ ark-serialize.workspace = true
 ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
+anyhow = "1.0.80"
+
 [features]
 default = ["parallel", "snmalloc"]
 parallel = [

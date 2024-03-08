@@ -3,6 +3,7 @@ use std::marker::PhantomData;
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
 use ark_ec::CurveGroup;
 use ark_ff::{PrimeField, ToConstraintField};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError, Valid};
 
 use crate::{
     absorb::{AbsorbNonNative, CryptographicSpongeExt},
@@ -12,9 +13,30 @@ use crate::{
 
 pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Truncated(127);
 
+#[derive(CanonicalSerialize)]
 pub struct NIFSProof<G: CurveGroup, C: CommitmentScheme<G>, RO> {
     pub(crate) commitment_T: C::Commitment,
     _random_oracle: PhantomData<RO>,
+}
+
+impl<G: CurveGroup, C: CommitmentScheme<G>, RO: Sync> Valid for NIFSProof<G, C, RO> {
+    fn check(&self) -> Result<(), SerializationError> {
+        self.commitment_T.check()
+    }
+}
+
+impl<G: CurveGroup, C: CommitmentScheme<G>, RO: Sync> CanonicalDeserialize for NIFSProof<G, C, RO> {
+    fn deserialize_with_mode<R: ark_serialize::Read>(
+        mut reader: R,
+        compress: ark_serialize::Compress,
+        validate: ark_serialize::Validate,
+    ) -> Result<Self, SerializationError> {
+        let commitment_T = C::Commitment::deserialize_with_mode(&mut reader, compress, validate)?;
+        Ok(Self {
+            commitment_T,
+            _random_oracle: PhantomData,
+        })
+    }
 }
 
 impl<G: CurveGroup, C: CommitmentScheme<G>, RO> Default for NIFSProof<G, C, RO> {

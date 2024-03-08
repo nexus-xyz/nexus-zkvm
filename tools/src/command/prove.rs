@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::Context;
-use ark_serialize::CanonicalSerialize;
 
 use nexus_config::{vm as vm_config, Config};
 use nexus_tools_dev::{
@@ -42,10 +41,10 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         // build artifact if needed
         cargo(None, ["build", "--profile", &profile])?;
 
-        let LocalProveArgs { k, pp_file, nova_impl } = local_args;
+        let LocalProveArgs { k, pp_file, nova_impl, srs_file } = local_args;
         let k = k.unwrap_or(vm_config.k);
         let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);
-        local_prove(&path, k, nova_impl, pp_file)
+        local_prove(&path, k, nova_impl, pp_file, srs_file)
     }
 }
 
@@ -75,6 +74,7 @@ fn local_prove(
     k: usize,
     nova_impl: vm_config::NovaImpl,
     pp_file: Option<PathBuf>,
+    srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     // setup if necessary
     let pp_file = if let Some(path) = pp_file {
@@ -94,6 +94,7 @@ fn local_prove(
             nova_impl: Some(nova_impl),
             path: None,
             force: false,
+            srs_file,
         })?
     };
     let path_str = pp_file.to_str().context("path is not valid utf8")?;
@@ -110,36 +111,26 @@ fn local_prove(
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
-    if nova_impl == vm_config::NovaImpl::Parallel {
-        let state = nexus_prover::pp::gen_or_load(false, k, path_str, &())?;
-        let root = nexus_prover::prove_par(state, trace)?;
+    match nova_impl {
+        vm_config::NovaImpl::Parallel => {
+            let state = nexus_prover::pp::gen_or_load(false, k, path_str, None)?;
+            let root = nexus_prover::prove_par(state, trace)?;
 
-        save_proof(root, &proof_path)?;
-    } else {
-        let state = nexus_prover::pp::gen_or_load(false, k, path_str, &())?;
-        let proof = nexus_prover::prove_seq(&state, trace)?;
+            nexus_prover::save_proof(root, &proof_path)?;
+        }
+        vm_config::NovaImpl::ParallelCompressible => {
+            let state = nexus_prover::pp::gen_or_load(false, k, path_str, None)?;
+            let root = nexus_prover::prove_par_com(state, trace)?;
 
-        save_proof(proof, &proof_path)?;
+            nexus_prover::save_proof(root, &proof_path)?;
+        }
+        vm_config::NovaImpl::Sequential => {
+            let state = nexus_prover::pp::gen_or_load(false, k, path_str, None)?;
+            let proof = nexus_prover::prove_seq(&state, trace)?;
+
+            nexus_prover::save_proof(proof, &proof_path)?;
+        }
     }
-
-    Ok(())
-}
-
-fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
-    tracing::info!(
-        target: LOG_TARGET,
-        path = %path.display(),
-        "Saving the proof",
-    );
-
-    let mut term = nexus_tui::TerminalHandle::new();
-    let mut context = term.context("Saving").on_step(|_step| "proof".into());
-    let _guard = context.display_step();
-
-    let mut buf = Vec::new();
-
-    proof.serialize_compressed(&mut buf)?;
-    std::fs::write(path, buf)?;
 
     Ok(())
 }

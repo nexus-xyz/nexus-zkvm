@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use nexus_network::api::Proof;
+use crate::api::Proof;
 
 #[derive(Clone, Default)]
 pub struct DB(Arc<Mutex<DBase>>);

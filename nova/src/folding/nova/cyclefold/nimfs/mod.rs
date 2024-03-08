@@ -1,6 +1,7 @@
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, Valid};
 use ark_std::Zero;
 
 use super::{secondary, Error};
@@ -22,6 +23,7 @@ pub(crate) type RelaxedR1CSInstance<G, C> = r1cs::RelaxedR1CSInstance<Projective
 pub(crate) type RelaxedR1CSWitness<G> = r1cs::RelaxedR1CSWitness<Projective<G>>;
 
 /// Non-interactive multi-folding scheme proof.
+#[derive(CanonicalSerialize)]
 pub struct NIMFSProof<
     G1: SWCurveConfig,
     G2: SWCurveConfig,
@@ -33,6 +35,57 @@ pub struct NIMFSProof<
     pub(crate) commitment_E_proof: [secondary::Proof<G2, C2>; 2],
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
     pub(crate) proof_secondary: NIFSProof<Projective<G2>, C2, RO>,
+}
+
+impl<G1, G2, C1, C2, RO> Valid for NIMFSProof<G1, G2, C1, C2, RO>
+where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
+    RO: Sync,
+{
+    fn check(&self) -> Result<(), ark_serialize::SerializationError> {
+        self.commitment_T.check()?;
+        self.commitment_E_proof[0].check()?;
+        self.commitment_E_proof[1].check()?;
+        self.commitment_W_proof.check()?;
+        self.proof_secondary.check()
+    }
+}
+
+impl<G1, G2, C1, C2, RO> CanonicalDeserialize for NIMFSProof<G1, G2, C1, C2, RO>
+where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig,
+    C1: CommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
+    RO: Sync,
+{
+    fn deserialize_with_mode<R: ark_serialize::Read>(
+        mut reader: R,
+        compress: ark_serialize::Compress,
+        validate: ark_serialize::Validate,
+    ) -> Result<Self, ark_serialize::SerializationError> {
+        let commitment_T = C1::Commitment::deserialize_with_mode(&mut reader, compress, validate)?;
+        let commitment_E_proof = [
+            secondary::Proof::<G2, C2>::deserialize_with_mode(&mut reader, compress, validate)?,
+            secondary::Proof::<G2, C2>::deserialize_with_mode(&mut reader, compress, validate)?,
+        ];
+        let commitment_W_proof =
+            secondary::Proof::<G2, C2>::deserialize_with_mode(&mut reader, compress, validate)?;
+        let proof_secondary = NIFSProof::<Projective<G2>, C2, RO>::deserialize_with_mode(
+            &mut reader,
+            compress,
+            validate,
+        )?;
+        Ok(Self {
+            commitment_T,
+            commitment_E_proof,
+            commitment_W_proof,
+            proof_secondary,
+        })
+    }
 }
 
 impl<G1, G2, C1, C2, RO> Clone for NIMFSProof<G1, G2, C1, C2, RO>

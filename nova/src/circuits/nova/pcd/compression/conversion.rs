@@ -5,6 +5,7 @@ use ark_spartan::{
     polycommitments::PolyCommitmentScheme,
     Assignment, Instance,
 };
+use ark_std::{error::Error, fmt::Display};
 
 use super::PolyVectorCommitment;
 use crate::{
@@ -20,6 +21,22 @@ pub enum ConversionError {
 impl From<R1CSError> for ConversionError {
     fn from(error: R1CSError) -> Self {
         Self::ConversionError(error)
+    }
+}
+
+impl Error for ConversionError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            ConversionError::ConversionError(e) => Some(e),
+        }
+    }
+}
+
+impl Display for ConversionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::ConversionError(e) => write!(f, "Conversion error: {e}"),
+        }
     }
 }
 

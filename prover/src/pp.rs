@@ -73,7 +73,7 @@ pub fn gen_to_file(
     k: usize,
     par: bool,
     pp_file: &str,
-    srs_file: Option<&str>,
+    srs_file_opt: Option<&str>,
 ) -> Result<(), ProofError> {
     tracing::info!(
         target: LOG_TARGET,
@@ -81,27 +81,71 @@ pub fn gen_to_file(
         "Generating public parameters",
     );
     let mut term = nexus_tui::TerminalHandle::new();
-    let mut term_ctx = term
-        .context("Setting up")
-        .on_step(|_step| "public parameters".into());
-    let _guard = term_ctx.display_step();
 
     if par {
-        match srs_file {
+        match srs_file_opt {
             Some(srs_file) => {
-                let srs: SRS = load_srs(srs_file)?;
-                let pp: ComPP = gen_vm_pp(k, &srs)?;
+                tracing::info!(
+                target: LOG_TARGET,
+                path =?srs_file,
+                "Reading the SRS",
+                );
+                let srs: SRS = {
+                    let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
+                    let _guard = term_ctx.display_step();
+                    load_srs(srs_file)?
+                };
+                tracing::info!(
+                    target: LOG_TARGET,
+                    path =?srs_file,
+                    "SRS found for a maximum of {} variables",
+                    srs.max_num_vars
+                );
+                let pp: ComPP = {
+                    tracing::info!(
+                        target: LOG_TARGET,
+                        "Generating compressible PCD public parameters",
+                    );
+                    let mut term_ctx = term
+                        .context("Setting up")
+                        .on_step(|_step| "public parameters for PCD (compression enabled)".into());
+                    let _guard = term_ctx.display_step();
+                    gen_vm_pp(k, &srs)?
+                };
+
                 show_pp(&pp);
                 save_pp(pp, pp_file)
             }
             None => {
-                let pp: ParPP = gen_vm_pp(k, &())?;
+                tracing::info!(
+                    target: LOG_TARGET,
+                    "Generating non-compressible PCD public parameters",
+                );
+                let pp: ParPP = {
+                    let mut term_ctx = term
+                        .context("Setting up")
+                        .on_step(|_step| "public parameters for PCD (compression disabled)".into());
+                    let _guard = term_ctx.display_step();
+
+                    gen_vm_pp(k, &())?
+                };
                 show_pp(&pp);
                 save_pp(pp, pp_file)
             }
         }
     } else {
-        let pp: SeqPP = gen_vm_pp(k, &())?;
+        tracing::info!(
+            target: LOG_TARGET,
+            "Generating IVC public parameters",
+        );
+
+        let pp: SeqPP = {
+            let mut term_ctx = term
+                .context("Setting up")
+                .on_step(|_step| "public parameters for IVC".into());
+            let _guard = term_ctx.display_step();
+            gen_vm_pp(k, &())?
+        };
         show_pp(&pp);
         save_pp(pp, pp_file)
     }
@@ -111,24 +155,32 @@ pub fn gen_or_load<C, SP>(
     gen: bool,
     k: usize,
     pp_file: &str,
-    aux: &C::SetupAux,
+    aux_opt: Option<&C::SetupAux>,
 ) -> Result<PP<C, SP>, ProofError>
 where
     SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,
     C: CommitmentScheme<P1>,
 {
     let mut term = nexus_tui::TerminalHandle::new();
-
     let pp: PP<C, SP> = if gen {
         tracing::info!(
             target: LOG_TARGET,
             "Generating public parameters",
         );
+
+        let aux = if let Some(aux) = aux_opt {
+            aux
+        } else {
+            tracing::error!(
+                target: LOG_TARGET,
+                "Auxiliary setup parameters are not provided",
+            );
+            return Err(ProofError::MissingSRS);
+        };
         let mut term_ctx = term
             .context("Setting up")
             .on_step(|_step| "public parameters".into());
         let _guard = term_ctx.display_step();
-
         gen_vm_pp(k, aux)?
     } else {
         tracing::info!(
@@ -143,7 +195,6 @@ where
 
         load_pp(pp_file)?
     };
-    drop(term);
 
     show_pp(&pp);
     Ok(pp)

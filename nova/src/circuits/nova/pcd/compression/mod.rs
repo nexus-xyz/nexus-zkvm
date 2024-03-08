@@ -24,6 +24,7 @@ use crate::{
         NIMFSProof, R1CSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness,
     },
     nova::pcd::{augmented::SQUEEZE_NATIVE_ELEMENTS_NUM, PCDNode},
+    r1cs::R1CSShape,
     StepCircuit, LOG_TARGET,
 };
 
@@ -38,6 +39,7 @@ pub use error::{ProofError, SpartanError};
 
 pub type PVC<G, PC> = PolyVectorCommitment<Projective<G>, PC>;
 
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct CompressedPCDProof<G1, G2, PC, C2, RO, SC>
 where
     G1: SWCurveConfig,
@@ -75,6 +77,29 @@ pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     snark_gens: SNARKGens<G, PC>,
 }
 
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKKey<G, PC> {
+    /// convenience function to derive the minimum log size of the SRS
+    /// needed to support compession for a given `shape`.
+    pub fn get_min_srs_size(shape: &R1CSShape<G>) -> usize {
+        let R1CSShape {
+            num_constraints,
+            num_vars,
+            num_io,
+            A,
+            B,
+            C,
+        } = shape;
+        // spartan uses the convention that num_inputs does not include the leading `u`.
+        let num_inputs = num_io - 1;
+        let num_nz_entries = max(A.len(), max(B.len(), C.len()));
+        SNARKGens::<G, PC>::get_min_num_vars(
+            *num_constraints,
+            *num_vars,
+            num_inputs,
+            num_nz_entries,
+        )
+    }
+}
 pub struct SNARK<G1, G2, PC, C2, RO, SC>
 where
     G1: SWCurveConfig,
@@ -115,7 +140,6 @@ where
         let PublicParams { shape: _shape, .. } = pp;
         // converts the R1CSShape from this crate into a CRR1CSShape from the Spartan crate
         let shape: CRR1CSShape<G1::ScalarField> = _shape.clone().try_into()?;
-        // the `try_into()` call above pads the number of constraints, variables, and inputs
         let (num_cons, num_vars, num_inputs) = (
             shape.get_num_cons(),
             shape.get_num_vars(),

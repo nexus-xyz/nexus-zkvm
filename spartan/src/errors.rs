@@ -1,5 +1,6 @@
 use super::polycommitments::error::PCSError;
 use ark_serialize::SerializationError;
+use ark_std::{error::Error, fmt::Display};
 use core::fmt::Debug;
 use thiserror::Error;
 
@@ -35,6 +36,34 @@ pub enum R1CSError {
 impl From<SerializationError> for R1CSError {
   fn from(e: SerializationError) -> Self {
     Self::ArkSerializationError(e)
+  }
+}
+
+impl Error for R1CSError {
+  fn source(&self) -> Option<&(dyn Error + 'static)> {
+    match self {
+      Self::NonPowerOfTwoCons => None,
+      Self::NonPowerOfTwoVars => None,
+      Self::InvalidNumberOfInputs => None,
+      Self::InvalidNumberOfVars => None,
+      Self::InvalidScalar => None,
+      Self::InvalidIndex => None,
+      Self::ArkSerializationError(e) => Some(e),
+    }
+  }
+}
+
+impl Display for R1CSError {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::NonPowerOfTwoCons => write!(f, "Non power of two constraints"),
+      Self::NonPowerOfTwoVars => write!(f, "Non power of two variables"),
+      Self::InvalidNumberOfInputs => write!(f, "Invalid number of inputs"),
+      Self::InvalidNumberOfVars => write!(f, "Invalid number of variables"),
+      Self::InvalidScalar => write!(f, "Invalid scalar"),
+      Self::InvalidIndex => write!(f, "Invalid index"),
+      Self::ArkSerializationError(e) => write!(f, "{e}"),
+    }
   }
 }
 

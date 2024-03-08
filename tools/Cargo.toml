@@ -32,4 +32,5 @@ nexus-riscv = { path = "../riscv" }
 nexus-prover = { path = "../prover" }
 nexus-tui = { path = "./tui" }
 
+ark-spartan = { path = "../spartan" }
 ark-serialize.workspace = true
