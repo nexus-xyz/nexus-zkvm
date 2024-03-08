@@ -109,7 +109,7 @@ where
   }
 }
 
-impl<G> From<HyraxCommitment<G>> for Vec<G> 
+impl<G> From<HyraxCommitment<G>> for Vec<G>
 where
   G: CurveGroup,
 {
