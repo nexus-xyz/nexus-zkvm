@@ -14,3 +14,35 @@ configured as the default for cargo in this crate:
 ```sh
 cargo run -r --bin example
 ```
+
+## Proving program execution
+
+### Using CLI
+
+Similar to the quick guide, make sure to have the CLI tooling installed:
+```sh
+# from the root of the workspace
+cargo install --path tools
+```
+And prove any example program from this crate
+```sh
+cd examples
+cargo nexus prove --bin=fact
+cargo nexus verify
+```
+
+### Using the prover API
+
+An example script can be found [here](../prover/examples/prove.rs). Before running it, compile the program
+```sh
+cd examples
+cargo build --release --bin=fact # if you change it, don't forget to update prove.rs as well
+```
+
+Prove and verify with the script:
+```sh
+cd prover
+cargo run --release --example prove
+```
+
+> NOTE: the prover API is not stable and will very likely change in the future.
