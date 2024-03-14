@@ -13,9 +13,7 @@ use rayon::iter::{
     IntoParallelRefMutIterator, ParallelIterator,
 };
 
-use super::absorb::AbsorbNonNative;
-
-use super::r1cs::R1CSShape;
+use super::{absorb::AbsorbNonNative, r1cs::R1CSShape}
 pub use super::sparse::{MatrixRef, SparseMatrix};
 use mle::vec_to_mle;
 
