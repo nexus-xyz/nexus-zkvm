@@ -11,8 +11,8 @@ use rayon::iter::{
     IntoParallelRefMutIterator, ParallelIterator,
 };
 
-use super::{absorb::AbsorbNonNative, r1cs::R1CSShape};
 pub use super::sparse::{MatrixRef, SparseMatrix};
+use super::{absorb::AbsorbNonNative, r1cs::R1CSShape};
 use mle::vec_to_mle;
 
 pub mod mle;
@@ -312,7 +312,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         thetas: &[G::ScalarField],
     ) -> Result<Self, Error> {
         let (uX1, comm_W1) = (&self.X, self.commitment_W.clone()); // (u, x)
-        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());     // (1, x)
+        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone()); // (1, x)
 
         if self.rs.len() != rs.len() {
             return Err(Error::InvalidEvaluationPoint);
