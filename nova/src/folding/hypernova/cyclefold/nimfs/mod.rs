@@ -82,18 +82,13 @@ where
 
         // The PolyCommitment trait only guarantees the commitment can be represented by a vector of field elements. However,
         // it makes sense to implement HyperNova Cyclefold assuming the commitment is just a single field element, because we
-        // will be using such a scheme for now (Zeromorph) and it leads to a minimally-sized secondary circuit. We expect this
-        // conversion will panic as unimplemented!() for any incompatible such commitment scheme.
-
-        let s_U_commitment_W = U.commitment_W.clone().into_single();
-        let s_u_commitment_W = u.commitment_W.clone().into_single();
-
-        let g_out = s_U_commitment_W + s_u_commitment_W * rho_scalar;
+        // will be using such a scheme for now (Zeromorph) and it leads to a minimally-sized secondary circuit. We expect these
+        // conversions will panic as unimplemented!() for any incompatible such commitment scheme.
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: s_U_commitment_W,
-                g2: s_u_commitment_W,
-                g_out,
+                g1: U.commitment_W.clone().into_single(),
+                g2: u.commitment_W.clone().into_single(),
+                g_out: folded_U.clone().into_single(),
                 r: rho,
             },
             pp_secondary,

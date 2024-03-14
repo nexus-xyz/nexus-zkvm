@@ -48,9 +48,6 @@ pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExten
 
     let s = (n - 1).checked_ilog2().unwrap_or(0) + 1;
 
-    let mut z = z.to_owned();
-    z.resize(n.next_power_of_two(), F::zero());
-
     // Explanation of reversing:
     //
     //   At present for polynomial commitments we use the ones from the spartan repo,

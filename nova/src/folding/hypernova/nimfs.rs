@@ -96,9 +96,6 @@ where
         (U2, W2): (&CCSInstance<G, C>, &CCSWitness<G>),
         rho: &G::ScalarField,
     ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>)), Error> {
-        random_oracle.absorb(&U1);
-        random_oracle.absorb(&U2);
-
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 
@@ -177,9 +174,6 @@ where
         U2: &CCSInstance<G, C>,
         rho: &G::ScalarField,
     ) -> Result<LCCSInstance<G, C>, Error> {
-        random_oracle.absorb(&U1);
-        random_oracle.absorb(&U2);
-
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 

@@ -55,6 +55,8 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
     self.into().iter().map(|c| c.into_affine()).collect()
   }
 
+  // for commitments in the form of a single field element (e.g., Zeromorph) this should return it
+  // for commitments unable to be representated as such (e.g., Hyrax) it should panic unimplemented!()
   fn into_single(self) -> G;
 }
 

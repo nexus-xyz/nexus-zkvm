@@ -3,9 +3,7 @@ use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::{Field, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
-use ark_std::fmt;
-
-use ark_std::{fmt::Display, ops::Neg, Zero};
+use ark_std::{fmt, fmt::Display, ops::Neg, Zero};
 
 #[cfg(feature = "parallel")]
 use rayon::iter::{
@@ -13,7 +11,7 @@ use rayon::iter::{
     IntoParallelRefMutIterator, ParallelIterator,
 };
 
-use super::{absorb::AbsorbNonNative, r1cs::R1CSShape}
+use super::{absorb::AbsorbNonNative, r1cs::R1CSShape};
 pub use super::sparse::{MatrixRef, SparseMatrix};
 use mle::vec_to_mle;
 
@@ -313,8 +311,12 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         sigmas: &[G::ScalarField],
         thetas: &[G::ScalarField],
     ) -> Result<Self, Error> {
-        let (uX1, comm_W1) = (&self.X, self.commitment_W.clone());
-        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());
+        let (uX1, comm_W1) = (&self.X, self.commitment_W.clone()); // (u, x)
+        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());     // (1, x)
+
+        if self.rs.len() != rs.len() {
+            return Err(Error::InvalidEvaluationPoint);
+        }
 
         if sigmas.len() != thetas.len() {
             return Err(Error::InvalidTargets);
@@ -475,8 +477,8 @@ mod tests {
         let ccs_shape = CCSShape::from(r1cs_shape);
 
         let mut rng = test_rng();
-        let SRS = Z::setup(8, b"test", &mut rng).unwrap();
-        let PCSKeys { ck, .. } = Z::trim(&SRS, 8);
+        let SRS = Z::setup(3, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 3);
 
         let X = to_field_elements::<G>(&[0, 0]);
         let W = to_field_elements::<G>(&[0]);
@@ -510,8 +512,8 @@ mod tests {
         let ccs_shape = CCSShape::from(r1cs_shape);
 
         let mut rng = test_rng();
-        let SRS = Z::setup(8, b"test", &mut rng).unwrap();
-        let PCSKeys { ck, .. } = Z::trim(&SRS, 8);
+        let SRS = Z::setup(3, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 3);
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
@@ -574,8 +576,8 @@ mod tests {
         let ccs_shape = CCSShape::from(r1cs_shape);
 
         let mut rng = test_rng();
-        let SRS = Z::setup(4, b"test", &mut rng).unwrap();
-        let PCSKeys { ck, .. } = Z::trim(&SRS, 4);
+        let SRS = Z::setup(2, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 2);
 
         let X = to_field_elements::<G>(&[0, 0]);
         let W = to_field_elements::<G>(&[0]);
@@ -618,8 +620,8 @@ mod tests {
         let ccs_shape = CCSShape::from(r1cs_shape);
 
         let mut rng = test_rng();
-        let SRS = Z::setup(8, b"test", &mut rng).unwrap();
-        let PCSKeys { ck, .. } = Z::trim(&SRS, 8);
+        let SRS = Z::setup(3, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 3);
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
@@ -693,8 +695,8 @@ mod tests {
         let ccs_shape = CCSShape::from(r1cs_shape);
 
         let mut rng = test_rng();
-        let SRS = Z::setup(8, b"test", &mut rng).unwrap();
-        let PCSKeys { ck, .. } = Z::trim(&SRS, 8);
+        let SRS = Z::setup(3, b"test", &mut rng).unwrap();
+        let PCSKeys { ck, .. } = Z::trim(&SRS, 3);
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
