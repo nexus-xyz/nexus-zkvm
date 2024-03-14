@@ -13,6 +13,7 @@ use ark_std::{fmt::Display, rc::Rc};
 use crate::{
     absorb::AbsorbNonNative,
     ccs::{self, mle::vec_to_ark_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
+    utils::cast_field_element,
 };
 
 use super::ml_sumcheck::{self, ListOfProductsOfPolynomials, MLSumcheck};
@@ -91,11 +92,20 @@ where
 {
     pub fn prove_as_subprotocol<C: PolyCommitmentScheme<G>>(
         random_oracle: &mut RO,
+        vk: &G::ScalarField,
         shape: &CCSShape<G>,
         (U1, W1): (&LCCSInstance<G, C>, &CCSWitness<G>),
         (U2, W2): (&CCSInstance<G, C>, &CCSWitness<G>),
-        rho: &G::ScalarField,
-    ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>)), Error> {
+    ) -> Result<(Self, (LCCSInstance<G, C>, CCSWitness<G>), G::BaseField), Error> {
+        random_oracle.absorb(&vk);
+        random_oracle.absorb(&U1);
+        random_oracle.absorb(&U2);
+
+        let rho: G::BaseField =
+            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
+        let rho_scalar: G::ScalarField =
+            unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
+
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 
@@ -150,8 +160,8 @@ where
             .map(|M| vec_to_ark_mle(M.multiply_vec(&z2).as_slice()).evaluate(&rs))
             .collect();
 
-        let U = U1.fold(U2, rho, &rs, &sigmas, &thetas)?;
-        let W = W1.fold(W2, rho)?;
+        let U = U1.fold(U2, &rho_scalar, &rs, &sigmas, &thetas)?;
+        let W = W1.fold(W2, &rho_scalar)?;
 
         Ok((
             Self {
@@ -162,6 +172,7 @@ where
                 _random_oracle: PhantomData,
             },
             (U, W),
+            rho,
         ))
     }
 
@@ -169,11 +180,20 @@ where
     pub fn verify_as_subprotocol<C: PolyCommitmentScheme<G>>(
         &self,
         random_oracle: &mut RO,
+        vk: &G::ScalarField,
         shape: &CCSShape<G>,
         U1: &LCCSInstance<G, C>,
         U2: &CCSInstance<G, C>,
-        rho: &G::ScalarField,
-    ) -> Result<LCCSInstance<G, C>, Error> {
+    ) -> Result<(LCCSInstance<G, C>, G::BaseField), Error> {
+        random_oracle.absorb(&vk);
+        random_oracle.absorb(&U1);
+        random_oracle.absorb(&U2);
+
+        let rho: G::BaseField =
+            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
+        let rho_scalar: G::ScalarField =
+            unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
+
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 
@@ -221,9 +241,9 @@ where
             return Err(Error::InconsistentSubclaim);
         }
 
-        let U = U1.fold(U2, rho, &rs, &self.sigmas, &self.thetas)?;
+        let U = U1.fold(U2, &rho_scalar, &rs, &self.sigmas, &self.thetas)?;
 
-        Ok(U)
+        Ok((U, rho))
     }
 }
 
@@ -239,7 +259,10 @@ pub(crate) mod tests {
         test_utils::setup_test_ccs,
     };
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
-    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+    use ark_ec::{
+        short_weierstrass::{Projective, SWCurveConfig},
+        AdditiveGroup,
+    };
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::{g1::Config as G, Bls12_381 as E};
@@ -247,11 +270,11 @@ pub(crate) mod tests {
     type Z = Zeromorph<E>;
 
     #[test]
-    fn prove_verify() {
-        prove_verify_with_curve::<G, Z>().unwrap()
+    fn prove_verify_as_subprotocol() {
+        prove_verify_as_subprotocol_with_curve::<G, Z>().unwrap()
     }
 
-    fn prove_verify_with_curve<G, C>() -> Result<(), Error>
+    fn prove_verify_as_subprotocol_with_curve<G, C>() -> Result<(), Error>
     where
         G: SWCurveConfig,
         G::BaseField: PrimeField + Absorb,
@@ -288,20 +311,21 @@ pub(crate) mod tests {
             vs.as_slice(),
         )?;
 
-        let rho = G::ScalarField::rand(&mut rng);
+        let vk = G::ScalarField::ZERO;
         let mut random_oracle = PoseidonSponge::new(&config);
 
-        let (proof, (folded_U, folded_W)) =
+        let (proof, (folded_U, folded_W), rho) =
             NIMFSProof::<Projective<G>, PoseidonSponge<G::ScalarField>>::prove_as_subprotocol(
                 &mut random_oracle,
+                &vk,
                 &shape,
                 (&U1, &W1),
                 (&U2, &W2),
-                &rho,
             )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2, &rho)?;
+        let (v_folded_U, rho) =
+            proof.verify_as_subprotocol(&mut random_oracle, &vk, &shape, &U1, &U2)?;
         assert_eq!(folded_U, v_folded_U);
 
         shape.is_satisfied_linearized(&folded_U, &folded_W, &ck)?;
@@ -312,16 +336,17 @@ pub(crate) mod tests {
         let (_, U2, W2, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (proof, (folded_U, folded_W)) = NIMFSProof::prove_as_subprotocol(
+        let (proof, (folded_U, folded_W), rho) = NIMFSProof::prove_as_subprotocol(
             &mut random_oracle,
+            &vk,
             &shape,
             (&U1, &W1),
             (&U2, &W2),
-            &rho,
         )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let v_folded_U = proof.verify_as_subprotocol(&mut random_oracle, &shape, &U1, &U2, &rho)?;
+        let (v_folded_U, rho) =
+            proof.verify_as_subprotocol(&mut random_oracle, &vk, &shape, &U1, &U2)?;
         assert_eq!(folded_U, v_folded_U);
 
         shape.is_satisfied_linearized(&folded_U, &folded_W, &ck)?;

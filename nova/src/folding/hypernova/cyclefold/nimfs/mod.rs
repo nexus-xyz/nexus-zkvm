@@ -13,11 +13,7 @@ use crate::folding::hypernova::nimfs::NIMFSProof as HNProof;
 pub use crate::folding::hypernova::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE;
 
 use super::{secondary, Error};
-use crate::{
-    absorb::CryptographicSpongeExt,
-    r1cs,
-    utils::{cast_field_element, cast_field_element_unique},
-};
+use crate::{absorb::CryptographicSpongeExt, r1cs, utils::cast_field_element_unique};
 
 pub(crate) use crate::folding::cyclefold::{
     CCSInstance, CCSShape, CCSWitness, LCCSInstance, R1CSShape, RelaxedR1CSInstance,
@@ -67,18 +63,11 @@ where
     > {
         let mut random_oracle = RO::new(config);
 
-        random_oracle.absorb(&vk);
-        random_oracle.absorb(&U);
-        random_oracle.absorb(&u);
+        // it is important we absorb this **before** squeezing from the random oracle within the HyperNova subprotocol
         random_oracle.absorb_non_native(&U_secondary);
 
-        let rho: G1::BaseField =
-            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let rho_scalar: G1::ScalarField =
-            unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&rho) };
-
-        let (hypernova_proof, (folded_U, folded_W)) =
-            HNProof::prove_as_subprotocol(&mut random_oracle, shape, (U, W), (u, w), &rho_scalar)?;
+        let (hypernova_proof, (folded_U, folded_W), rho) =
+            HNProof::prove_as_subprotocol(&mut random_oracle, vk, shape, (U, W), (u, w))?;
 
         // The PolyCommitment trait only guarantees the commitment can be represented by a vector of field elements. However,
         // it makes sense to implement HyperNova Cyclefold assuming the commitment is just a single field element, because we
@@ -88,7 +77,7 @@ where
             secondary::Circuit {
                 g1: U.commitment_W.clone().into_single(),
                 g2: u.commitment_W.clone().into_single(),
-                g_out: folded_U.clone().into_single(),
+                g_out: folded_U.commitment_W.clone().into_single(),
                 r: rho,
             },
             pp_secondary,
@@ -139,23 +128,11 @@ where
     ) -> Result<(LCCSInstance<G1, C1>, RelaxedR1CSInstance<G2, C2>), Error> {
         let mut random_oracle = RO::new(config);
 
-        random_oracle.absorb(&vk);
-        random_oracle.absorb(&U);
-        random_oracle.absorb(&u);
         random_oracle.absorb_non_native(&U_secondary);
 
-        let rho: G1::BaseField =
-            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let rho_scalar: G1::ScalarField =
-            unsafe { cast_field_element::<G1::BaseField, G1::ScalarField>(&rho) };
-
-        let folded_U = self.hypernova_proof.verify_as_subprotocol(
-            &mut random_oracle,
-            shape,
-            U,
-            u,
-            &rho_scalar,
-        )?;
+        let (folded_U, rho) =
+            self.hypernova_proof
+                .verify_as_subprotocol(&mut random_oracle, vk, shape, U, u)?;
 
         let secondary::Proof { U: comm_W_proof, commitment_T } = &self.commitment_W_proof;
         let pub_io = comm_W_proof
@@ -202,11 +179,13 @@ mod tests {
 
     #[test]
     fn prove_verify() {
-        prove_verify_with_cycle::<ark_bn254::g1::Config,
-                                  ark_grumpkin::GrumpkinConfig,
-                                  Zeromorph<ark_bn254::Bn254>,
-                                  PedersenCommitment<ark_grumpkin::Projective>>()
-            .unwrap();
+        prove_verify_with_cycle::<
+            ark_bn254::g1::Config,
+            ark_grumpkin::GrumpkinConfig,
+            Zeromorph<ark_bn254::Bn254>,
+            PedersenCommitment<ark_grumpkin::Projective>,
+        >()
+        .unwrap();
     }
 
     fn prove_verify_with_cycle<G1, G2, C1, C2>() -> Result<(), Error>

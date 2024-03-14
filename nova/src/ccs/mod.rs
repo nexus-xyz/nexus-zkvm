@@ -311,8 +311,9 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         sigmas: &[G::ScalarField],
         thetas: &[G::ScalarField],
     ) -> Result<Self, Error> {
-        let (uX1, comm_W1) = (&self.X, self.commitment_W.clone()); // (u, x)
-        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone()); // (1, x)
+        // uX1 = (u, X_1), oX2 = (1, x_2)
+        let (uX1, comm_W1) = (&self.X, self.commitment_W.clone());
+        let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());
 
         if self.rs.len() != rs.len() {
             return Err(Error::InvalidEvaluationPoint);
