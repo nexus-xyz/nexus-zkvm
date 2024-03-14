@@ -9,7 +9,7 @@ use ark_ec::{
 use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::{
-    committed_relaxed_snark as ark_spartan_snark, committed_relaxed_snark::CRSNARKKey as SNARKGens,
+    committed_relaxed_snark as spartan_snark, committed_relaxed_snark::CRSNARKKey as SNARKGens,
     crr1csproof::CRR1CSShape, polycommitments::PolyCommitmentScheme, ComputationCommitment,
     ComputationDecommitment,
 };
@@ -24,6 +24,7 @@ use crate::{
         NIMFSProof, R1CSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness,
     },
     nova::pcd::{augmented::SQUEEZE_NATIVE_ELEMENTS_NUM, PCDNode},
+    r1cs::R1CSShape,
     StepCircuit, LOG_TARGET,
 };
 
@@ -38,6 +39,7 @@ pub use error::{ProofError, SpartanError};
 
 pub type PVC<G, PC> = PolyVectorCommitment<Projective<G>, PC>;
 
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct CompressedPCDProof<G1, G2, PC, C2, RO, SC>
 where
     G1: SWCurveConfig,
@@ -60,7 +62,7 @@ where
 
     pub W_secondary_prime: RelaxedR1CSWitness<G2>,
 
-    pub spartan_proof: ark_spartan_snark::SNARK<Projective<G1>, PC>,
+    pub spartan_proof: spartan_snark::SNARK<Projective<G1>, PC>,
     pub folding_proof: NIMFSProof<G1, G2, PVC<G1, PC>, C2, RO>,
 
     _random_oracle: PhantomData<RO>,
@@ -75,6 +77,29 @@ pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     snark_gens: SNARKGens<G, PC>,
 }
 
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKKey<G, PC> {
+    /// convenience function to derive the minimum log size of the SRS
+    /// needed to support compession for a given `shape`.
+    pub fn get_min_srs_size(shape: &R1CSShape<G>) -> usize {
+        let R1CSShape {
+            num_constraints,
+            num_vars,
+            num_io,
+            A,
+            B,
+            C,
+        } = shape;
+        // spartan uses the convention that num_inputs does not include the leading `u`.
+        let num_inputs = num_io - 1;
+        let num_nz_entries = max(A.len(), max(B.len(), C.len()));
+        SNARKGens::<G, PC>::get_min_num_vars(
+            *num_constraints,
+            *num_vars,
+            num_inputs,
+            num_nz_entries,
+        )
+    }
+}
 pub struct SNARK<G1, G2, PC, C2, RO, SC>
 where
     G1: SWCurveConfig,
@@ -115,7 +140,6 @@ where
         let PublicParams { shape: _shape, .. } = pp;
         // converts the R1CSShape from this crate into a CRR1CSShape from the Spartan crate
         let shape: CRR1CSShape<G1::ScalarField> = _shape.clone().try_into()?;
-        // the `try_into()` call above pads the number of constraints, variables, and inputs
         let (num_cons, num_vars, num_inputs) = (
             shape.get_num_cons(),
             shape.get_num_vars(),
@@ -125,7 +149,7 @@ where
         let num_nz_entries = max(_shape.A.len(), max(_shape.B.len(), _shape.C.len()));
         let snark_gens = SNARKGens::new(srs, num_cons, num_vars, num_inputs, num_nz_entries);
         let (computation_comm, computation_decomm) =
-            ark_spartan_snark::SNARK::<Projective<G1>, PC>::encode(&shape.inst, &snark_gens);
+            spartan_snark::SNARK::<Projective<G1>, PC>::encode(&shape.inst, &snark_gens);
         Ok(SNARKKey {
             shape,
             computation_comm,
@@ -174,7 +198,7 @@ where
         let mut transcript = Transcript::new(b"spartan_snark");
         // Now, we use Spartan to prove knowledge of the witness `W_prime`
         // for the committed relaxed r1cs instance `U_prime`
-        let spartan_proof = ark_spartan_snark::SNARK::<Projective<G1>, PC>::prove(
+        let spartan_proof = spartan_snark::SNARK::<Projective<G1>, PC>::prove(
             shape,
             &U_prime.try_into()?,
             W_prime.try_into()?,
@@ -259,7 +283,7 @@ where
         // Finally, we verify the Spartan proof for the committed relaxed r1cs instance `U_prime`.
 
         let mut transcript = Transcript::new(b"spartan_snark");
-        ark_spartan_snark::SNARK::<Projective<G1>, PC>::verify(
+        spartan_snark::SNARK::<Projective<G1>, PC>::verify(
             spartan_proof,
             &key.computation_comm,
             &U_prime.try_into()?,

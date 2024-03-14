@@ -15,11 +15,14 @@ clap.workspace = true
 #rayon = "1.8"
 snmalloc-rs = { version = "0.3.4", optional = true }
 
+anyhow = "1.0"
+
 zstd = { version = "0.12", default-features = false }
 
 nexus-vm = { path = "../vm" }
 nexus-nova = { path = "../nova", features = ["spartan"] }
 nexus-tui = { path = "../tools/tui" }
+spartan = { path = "../spartan", package = "ark-spartan" }
 
 tracing = "0.1"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
@@ -36,7 +39,6 @@ ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
 [dev-dependencies]
-anyhow = "1.0"
 nexus-config = { path = "../config" }
 
 [features]

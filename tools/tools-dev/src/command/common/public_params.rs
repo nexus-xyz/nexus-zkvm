@@ -13,6 +13,27 @@ pub struct PublicParamsArgs {
 pub enum PublicParamsAction {
     /// Generate public parameters to file.
     Setup(SetupArgs),
+    /// Sample SRS for testing to file: NOT SECURE, and memory-heavy operation.
+    SampleTestSRS(SRSSetupArgs),
+}
+
+#[derive(Debug, Default, Args)]
+pub struct SRSSetupArgs {
+    /// Number of vm instructions per fold; defaults to reading value from vm config.
+    #[arg(short, name = "k")]
+    pub k: Option<usize>,
+
+    /// Number of variables: defaults to minimum needed for compression for the given `k`.
+    #[arg(short = 'n', long = "num-vars")]
+    pub num_vars: Option<usize>,
+
+    /// File to save test SRS
+    #[arg(short, long)]
+    pub file: Option<PathBuf>,
+
+    /// Overwrite the file if it already exists.
+    #[arg(long)]
+    pub force: bool,
 }
 
 #[derive(Debug, Default, Args)]
@@ -31,9 +52,17 @@ pub struct SetupArgs {
     /// Overwrite the file if it already exists.
     #[arg(long)]
     pub force: bool,
+
+    /// Path to the SRS file (only required for compressible PCD proofs).
+    #[arg(long("srs_file"))]
+    pub srs_file: Option<PathBuf>,
 }
 
 // TODO: make it accessible to all crates.
 pub fn format_params_file(nova_impl: vm_config::NovaImpl, k: usize) -> String {
     format!("nexus-public-{nova_impl}-{k}.zst")
+}
+
+pub fn format_srs_file(num_vars: usize) -> String {
+    format!("nexus-srs-{num_vars}.zst")
 }

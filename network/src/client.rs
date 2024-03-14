@@ -5,8 +5,11 @@ use hyper::body::{Buf, HttpBody};
 use hyper::client::HttpConnector;
 use tokio::runtime;
 
-use crate::api::*;
-use crate::Result;
+use crate::client::NexusAPI::{Error, NexusProof, Program, Query};
+use crate::{
+    api::{NexusAPI, Proof},
+    Result,
+};
 
 pub const LOG_TARGET: &str = "nexus-network::client";
 
@@ -56,7 +59,7 @@ impl Client {
         .map_err(|_err| "request failed".to_owned())??;
 
         match response {
-            Proof(p) => Ok(p),
+            NexusProof(p) => Ok(p),
             Error(m) => Err(m.into()),
             _ => Err("unexpected response".into()),
         }

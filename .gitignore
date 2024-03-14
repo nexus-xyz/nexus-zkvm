@@ -5,3 +5,6 @@ Cargo.lock
 .*.swp
 
 .config.env
+
+# public parameter files
+*.zst

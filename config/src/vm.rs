@@ -18,6 +18,10 @@ pub enum NovaImpl {
     #[serde(rename = "par")]
     #[cfg_attr(feature = "clap_derive", clap(name = "par"))]
     Parallel,
+
+    #[serde(rename = "par-com")]
+    #[cfg_attr(feature = "clap_derive", clap(name = "par-com"))]
+    ParallelCompressible,
 }
 
 impl fmt::Display for NovaImpl {
@@ -25,6 +29,7 @@ impl fmt::Display for NovaImpl {
         match self {
             NovaImpl::Sequential => write!(f, "seq"),
             NovaImpl::Parallel => write!(f, "par"),
+            NovaImpl::ParallelCompressible => write!(f, "par-com"),
         }
     }
 }

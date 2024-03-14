@@ -9,7 +9,7 @@ mod provider;
 mod sparse;
 mod utils;
 
-mod circuits;
+pub mod circuits;
 mod folding;
 mod gadgets;
 
