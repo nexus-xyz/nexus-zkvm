@@ -45,7 +45,6 @@ where
     RO: CryptographicSponge,
 {
     pub fn prove(
-        _ck: &C1::PolyCommitmentKey,
         pp_secondary: &C2::PP,
         config: &RO::Config,
         vk: &G1::ScalarField,
@@ -240,7 +239,6 @@ mod tests {
 
         let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
             NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
-                &ck,
                 &pp_secondary,
                 &config,
                 &vk,
@@ -271,7 +269,6 @@ mod tests {
 
         let (proof, (_folded_U, folded_W), (_folded_U_secondary, _folded_W_secondary)) =
             NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
-                &ck,
                 &pp_secondary,
                 &config,
                 &vk,
