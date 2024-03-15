@@ -51,9 +51,12 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   // this should be the commitment to the zero vector of length n
   fn zero(n: usize) -> Self;
 
-  // for commitments in the form of a single field element (e.g., Zeromorph) this should return Some(x)
-  // for commitments unable to be represented in that way (e.g., Hyrax) it should instead return None()
-  fn into_field_element(self) -> Option<G>;
+  /// Convert the commitment into a single affine point.
+  ///
+  /// This default implementation should only be overwritten if the scheme uses commitments in the form of a single curve point (e.g., Zeromorph, but not Hyrax).
+  fn try_into_affine_point(self) -> Option<G::Affine> {
+    None
+  }
 }
 
 pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {

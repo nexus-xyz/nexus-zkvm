@@ -130,10 +130,6 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
       },
     }
   }
-
-  fn into_field_element(self) -> Option<G> {
-    None
-  }
 }
 
 impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {

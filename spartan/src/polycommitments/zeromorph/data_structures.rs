@@ -230,7 +230,7 @@ impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
     }
   }
 
-  fn into_field_element(self) -> Option<E::G1> {
+  fn try_into_affine_point(self) -> Option<E::G1Affine> {
     Some(self.commitment.0.into())
   }
 }

@@ -74,9 +74,9 @@ where
         // these .unwrap() calls to panic with any attempt to use an incompatible poly commitment scheme.
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: U.commitment_W.clone().into_field_element().unwrap(),
-                g2: u.commitment_W.clone().into_field_element().unwrap(),
-                g_out: folded_U.commitment_W.clone().into_field_element().unwrap(),
+                g1: U.commitment_W.clone().try_into_affine_point().unwrap().into(),
+                g2: u.commitment_W.clone().try_into_affine_point().unwrap().into(),
+                g_out: folded_U.commitment_W.clone().try_into_affine_point().unwrap().into(),
                 r: rho,
             },
             pp_secondary,
@@ -139,8 +139,8 @@ where
             .ok_or(Error::InvalidPublicInput)?;
 
         if pub_io.r != rho
-            || pub_io.g1 != U.commitment_W.clone().into_field_element().unwrap()
-            || pub_io.g2 != u.commitment_W.clone().into_field_element().unwrap()
+            || pub_io.g1 != Into::<Projective<G1>>::into(U.commitment_W.clone().try_into_affine_point().unwrap())
+            || pub_io.g2 != Into::<Projective<G1>>::into(u.commitment_W.clone().try_into_affine_point().unwrap())
         {
             return Err(Error::InvalidPublicInput);
         }
