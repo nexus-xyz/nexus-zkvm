@@ -131,8 +131,8 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
     }
   }
 
-  fn into_single(self) -> G {
-    unimplemented!();
+  fn into_field_element(self) -> Option<G> {
+    None
   }
 }
 

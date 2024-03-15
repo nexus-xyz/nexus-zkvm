@@ -70,13 +70,13 @@ where
 
         // The PolyCommitment trait only guarantees the commitment can be represented by a vector of field elements. However,
         // it makes sense to implement HyperNova Cyclefold assuming the commitment is just a single field element, because we
-        // will be using such a scheme for now (Zeromorph) and it leads to a minimally-sized secondary circuit. We expect these
-        // conversions will panic as unimplemented!() for any incompatible such commitment scheme.
+        // will be using such a scheme for now (Zeromorph) and it leads to a minimally-sized secondary circuit. We expect for
+        // these .unwrap() calls to panic with any attempt to use an incompatible poly commitment scheme.
         let W_comm_trace = secondary::synthesize::<G1, G2, C2>(
             secondary::Circuit {
-                g1: U.commitment_W.clone().into_single(),
-                g2: u.commitment_W.clone().into_single(),
-                g_out: folded_U.commitment_W.clone().into_single(),
+                g1: U.commitment_W.clone().into_field_element().unwrap(),
+                g2: u.commitment_W.clone().into_field_element().unwrap(),
+                g_out: folded_U.commitment_W.clone().into_field_element().unwrap(),
                 r: rho,
             },
             pp_secondary,
@@ -139,8 +139,8 @@ where
             .ok_or(Error::InvalidPublicInput)?;
 
         if pub_io.r != rho
-            || pub_io.g1 != U.commitment_W.clone().into_single()
-            || pub_io.g2 != u.commitment_W.clone().into_single()
+            || pub_io.g1 != U.commitment_W.clone().into_field_element().unwrap()
+            || pub_io.g2 != u.commitment_W.clone().into_field_element().unwrap()
         {
             return Err(Error::InvalidPublicInput);
         }

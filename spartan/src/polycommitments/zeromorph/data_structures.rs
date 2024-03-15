@@ -230,7 +230,7 @@ impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
     }
   }
 
-  fn into_single(self) -> E::G1 {
-    self.commitment.0.into()
+  fn into_field_element(self) -> Option<E::G1> {
+    Some(self.commitment.0.into())
   }
 }

@@ -51,13 +51,9 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   // this should be the commitment to the zero vector of length n
   fn zero(n: usize) -> Self;
 
-  fn into_affine(self) -> Vec<G::Affine> {
-    self.into().iter().map(|c| c.into_affine()).collect()
-  }
-
-  // for commitments in the form of a single field element (e.g., Zeromorph) this should return it
-  // for commitments unable to be representated as such (e.g., Hyrax) it should panic unimplemented!()
-  fn into_single(self) -> G;
+  // for commitments in the form of a single field element (e.g., Zeromorph) this should return Some(x)
+  // for commitments unable to be represented in that way (e.g., Hyrax) it should instead return None()
+  fn into_field_element(self) -> Option<G>;
 }
 
 pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
