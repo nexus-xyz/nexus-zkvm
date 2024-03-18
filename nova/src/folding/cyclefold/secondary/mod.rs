@@ -21,7 +21,7 @@ use ark_std::Zero;
 
 use crate::commitment::CommitmentScheme;
 
-use super::nimfs::{R1CSInstance, R1CSShape, R1CSWitness};
+use super::{R1CSInstance, R1CSShape, R1CSWitness};
 
 /// Leading `Variable::One` + 3 curve points + 1 scalar.
 const SECONDARY_NUM_IO: usize = 11;
