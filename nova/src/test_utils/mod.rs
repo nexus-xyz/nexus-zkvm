@@ -10,8 +10,11 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,
 };
+use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme};
+use ark_std::rand::RngCore;
 
 use super::{
+    ccs::{CCSInstance, CCSShape, CCSWitness},
     commitment::CommitmentScheme,
     r1cs::{R1CSInstance, R1CSShape, R1CSWitness},
 };
@@ -83,4 +86,50 @@ where
 
     assert!(shape.is_satisfied(&u, &w, &pp).is_ok());
     (shape, u, w, pp)
+}
+
+pub fn setup_test_ccs<G, C>(
+    x: u64,
+    ck: Option<&C::PolyCommitmentKey>,
+    rng: Option<&mut impl RngCore>,
+) -> (
+    CCSShape<Projective<G>>,
+    CCSInstance<Projective<G>, C>,
+    CCSWitness<Projective<G>>,
+    C::PolyCommitmentKey,
+)
+where
+    G: SWCurveConfig,
+    G::BaseField: PrimeField,
+    C: PolyCommitmentScheme<Projective<G>>,
+    C::PolyCommitmentKey: Clone,
+{
+    let circuit = CubicCircuit { x };
+
+    let cs = ConstraintSystem::<G::ScalarField>::new_ref();
+    cs.set_mode(SynthesisMode::Prove { construct_matrices: true });
+
+    circuit.generate_constraints(cs.clone()).unwrap();
+    assert!(cs.is_satisfied().unwrap());
+
+    cs.finalize();
+    let shape = CCSShape::from(R1CSShape::<Projective<G>>::from(cs.clone()));
+
+    let cs_borrow = cs.borrow().unwrap();
+    let W = cs_borrow.witness_assignment.clone();
+    let X = cs_borrow.instance_assignment.clone();
+
+    let num_vars = (W.len() + X.len()).next_power_of_two();
+    let ck = ck.cloned().unwrap_or_else(|| {
+        let SRS = C::setup(num_vars, b"test", rng.unwrap()).unwrap();
+        let PCSKeys { ck, .. } = C::trim(&SRS, num_vars);
+        ck
+    });
+    let w = CCSWitness::<Projective<G>> { W };
+
+    let commitment_W = w.commit::<C>(&ck);
+    let u = CCSInstance { commitment_W, X };
+
+    assert!(shape.is_satisfied(&u, &w, &ck).is_ok());
+    (shape, u, w, ck)
 }

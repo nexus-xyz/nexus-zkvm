@@ -16,11 +16,9 @@ pub(crate) mod relaxed;
 
 pub use crate::folding::nova::nifs::{NIFSProof, SQUEEZE_ELEMENTS_BIT_SIZE};
 
-pub(crate) type R1CSShape<G> = r1cs::R1CSShape<Projective<G>>;
-pub(crate) type R1CSInstance<G, C> = r1cs::R1CSInstance<Projective<G>, C>;
-pub(crate) type R1CSWitness<G> = r1cs::R1CSWitness<Projective<G>>;
-pub(crate) type RelaxedR1CSInstance<G, C> = r1cs::RelaxedR1CSInstance<Projective<G>, C>;
-pub(crate) type RelaxedR1CSWitness<G> = r1cs::RelaxedR1CSWitness<Projective<G>>;
+pub(crate) use crate::folding::cyclefold::{
+    R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance, RelaxedR1CSWitness,
+};
 
 /// Non-interactive multi-folding scheme proof.
 #[derive(CanonicalSerialize)]
