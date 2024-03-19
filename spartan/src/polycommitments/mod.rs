@@ -41,6 +41,8 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   + AddAssign<Self>
   + MulAssign<G::ScalarField>
   + Mul<G::ScalarField, Output = Self>
+  + Into<Vec<G>>
+  + From<Vec<G>>
   + Default
   + Clone
   + Send
@@ -48,6 +50,13 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
 {
   // this should be the commitment to the zero vector of length n
   fn zero(n: usize) -> Self;
+
+  /// Convert the commitment into a single affine point.
+  ///
+  /// This default implementation should only be overwritten if the scheme uses commitments in the form of a single curve point (e.g., Zeromorph, but not Hyrax).
+  fn try_into_affine_point(self) -> Option<G::Affine> {
+    None
+  }
 }
 
 pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {

@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
     let trace = nexus_prover::run(&vm_opts, matches!(CONFIG.nova_impl, NovaImpl::Parallel))?;
 
     tracing::info!("Setting up public parameters...");
-    let public_params = nexus_prover::pp::gen_vm_pp(CONFIG.k)?;
+    let public_params = nexus_prover::pp::gen_vm_pp(CONFIG.k, &())?;
 
     tracing::info!("Proving execution trace...");
     let proof = nexus_prover::prove_seq(&public_params, trace)?;

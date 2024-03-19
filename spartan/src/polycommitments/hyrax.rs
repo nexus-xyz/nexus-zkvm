@@ -98,6 +98,26 @@ where
   }
 }
 
+impl<G> From<Vec<G>> for HyraxCommitment<G>
+where
+  G: CurveGroup,
+{
+  fn from(C: Vec<G>) -> HyraxCommitment<G> {
+    Self {
+      C: PolyCommitment { C },
+    }
+  }
+}
+
+impl<G> From<HyraxCommitment<G>> for Vec<G>
+where
+  G: CurveGroup,
+{
+  fn from(c: HyraxCommitment<G>) -> Vec<G> {
+    c.C.C
+  }
+}
+
 impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
   fn zero(n: usize) -> Self {
     let ell = n.log_2();
@@ -111,6 +131,7 @@ impl<G: CurveGroup> PolyCommitmentTrait<G> for HyraxCommitment<G> {
     }
   }
 }
+
 impl<G: CurveGroup> AppendToTranscript<G> for HyraxCommitment<G> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_message(label, b"hyrax_commitment_begin");

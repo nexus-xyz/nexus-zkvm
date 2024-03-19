@@ -1,14 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
-pub enum NexusAPI {
-    Program { account: String, elf: Vec<u8> },
-    Query { hash: String },
-    Proof(Proof),
-    Error(String),
-}
-pub use NexusAPI::*;
-
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Proof {
     pub hash: String,
@@ -35,4 +26,12 @@ impl std::fmt::Display for Proof {
         }
         Ok(())
     }
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum NexusAPI {
+    Program { account: String, elf: Vec<u8> },
+    Query { hash: String },
+    NexusProof(Proof),
+    Error(String),
 }

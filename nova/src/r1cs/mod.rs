@@ -24,7 +24,6 @@ pub enum Error {
     InputLengthMismatch,
     InvalidWitnessLength,
     InvalidInputLength,
-
     NotSatisfied,
 }
 

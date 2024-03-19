@@ -27,6 +27,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSKey<G, PC> {
     n.log_2()
   }
 }
+
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct CRR1CSShape<F: PrimeField> {
   pub inst: Instance<F>,

@@ -52,10 +52,10 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         // build artifact if needed
         cargo(None, ["build", "--profile", &profile])?;
 
-        let LocalProveArgs { k, pp_file, nova_impl } = local_args;
+        let LocalProveArgs { k, pp_file, nova_impl, srs_file } = local_args;
         let k = k.unwrap_or(vm_config.k);
         let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);
-        local_prove(&path, k, nova_impl, pp_file)
+        local_prove(&path, k, nova_impl, pp_file, srs_file)
     }
 }
 
@@ -80,6 +80,7 @@ fn local_prove(
     k: usize,
     nova_impl: NovaImpl,
     pp_file: Option<PathBuf>,
+    srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     // setup if necessary
     let pp_file = if let Some(path) = pp_file {
@@ -99,6 +100,7 @@ fn local_prove(
             nova_impl: Some(nova_impl),
             path: None,
             force: false,
+            srs_file,
         })?
     };
 

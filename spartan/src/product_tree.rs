@@ -289,8 +289,8 @@ impl<F: PrimeField> ProductCircuitEvalProof<F> {
 
 impl<F: PrimeField> ProductCircuitEvalProofBatched<F> {
   pub fn prove<G>(
-    prod_circuit_vec: &mut Vec<&mut ProductCircuit<F>>,
-    dotp_circuit_vec: &mut Vec<&mut DotProductCircuit<F>>,
+    prod_circuit_vec: &mut [&mut ProductCircuit<F>],
+    dotp_circuit_vec: &mut [&mut DotProductCircuit<F>],
     transcript: &mut Transcript,
   ) -> (Self, Vec<F>)
   where

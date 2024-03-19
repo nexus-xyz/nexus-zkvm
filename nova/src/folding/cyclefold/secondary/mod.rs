@@ -16,11 +16,12 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,
 };
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_std::Zero;
 
 use crate::commitment::CommitmentScheme;
 
-use super::nimfs::{R1CSInstance, R1CSShape, R1CSWitness};
+use super::{R1CSInstance, R1CSShape, R1CSWitness};
 
 /// Leading `Variable::One` + 3 curve points + 1 scalar.
 const SECONDARY_NUM_IO: usize = 11;
@@ -123,6 +124,7 @@ where
 }
 
 /// Folding scheme proof for a secondary circuit.
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct Proof<G2: SWCurveConfig, C2: CommitmentScheme<Projective<G2>>> {
     pub(crate) U: R1CSInstance<G2, C2>,
     pub(crate) commitment_T: C2::Commitment,

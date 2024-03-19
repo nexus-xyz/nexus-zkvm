@@ -1,5 +1,4 @@
 use crate::{
-  math::Math,
   polycommitments::{PolyCommitmentTrait, SRSTrait},
   transcript::{AppendToTranscript, ProofTranscript},
 };
@@ -57,7 +56,7 @@ where
 
 impl<E: Pairing> SRSTrait for ZeromorphSRS<E> {
   fn max_num_vars(&self) -> usize {
-    self.powers_of_tau_g.len().log_2()
+    self.max_num_vars
   }
 }
 
@@ -209,10 +208,29 @@ impl<E: Pairing> AddAssign<Self> for ZeromorphCommitment<E> {
   }
 }
 
+impl<E: Pairing> From<Vec<E::G1>> for ZeromorphCommitment<E> {
+  fn from(C: Vec<E::G1>) -> ZeromorphCommitment<E> {
+    assert!(C.len() == 1);
+    Self {
+      commitment: KZGCommitment(C[0].into()),
+    }
+  }
+}
+
+impl<E: Pairing> From<ZeromorphCommitment<E>> for Vec<E::G1> {
+  fn from(c: ZeromorphCommitment<E>) -> Vec<E::G1> {
+    vec![c.commitment.0.into()]
+  }
+}
+
 impl<E: Pairing> PolyCommitmentTrait<E::G1> for ZeromorphCommitment<E> {
   fn zero(_n: usize) -> Self {
     Self {
       commitment: KZGCommitment::empty(),
     }
+  }
+
+  fn try_into_affine_point(self) -> Option<E::G1Affine> {
+    Some(self.commitment.0)
   }
 }

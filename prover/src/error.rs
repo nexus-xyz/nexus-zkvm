@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 pub use ark_relations::r1cs::SynthesisError;
 pub use ark_serialize::SerializationError;
-pub use nexus_nova::nova::Error as NovaError;
+pub use nexus_nova::nova::{pcd::compression::SpartanError, Error as NovaError};
 pub use nexus_nova::r1cs::Error as R1CSError;
 pub use nexus_vm::error::NexusVMError;
 
@@ -33,6 +33,18 @@ pub enum ProofError {
 
     /// The Nova prover produced an invalid proof
     NovaProofError,
+
+    /// SRS for polynomial commitment scheme is missing
+    MissingSRS,
+
+    /// An error occured while sampling the test SRS
+    SRSSamplingError,
+
+    /// An error occured while running the Spartan compression prover
+    CompressionError(SpartanError),
+
+    /// A proof has been read from a file that does not match the expected format
+    InvalidProofFormat,
 }
 use ProofError::*;
 
@@ -70,6 +82,12 @@ impl From<SerializationError> for ProofError {
     }
 }
 
+impl From<SpartanError> for ProofError {
+    fn from(x: SpartanError) -> ProofError {
+        CompressionError(x)
+    }
+}
+
 impl Error for ProofError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
@@ -81,6 +99,10 @@ impl Error for ProofError {
             InvalidPP => None,
             InvalidIndex(_) => None,
             NovaProofError => None,
+            MissingSRS => None,
+            SRSSamplingError => None,
+            CompressionError(e) => Some(e),
+            InvalidProofFormat => None,
         }
     }
 }
@@ -96,6 +118,10 @@ impl Display for ProofError {
             InvalidPP => write!(f, "invalid public parameters"),
             InvalidIndex(i) => write!(f, "invalid step index {i}"),
             NovaProofError => write!(f, "invalid Nova proof"),
+            MissingSRS => write!(f, "missing SRS"),
+            SRSSamplingError => write!(f, "error sampling test SRS"),
+            CompressionError(e) => write!(f, "{e}"),
+            InvalidProofFormat => write!(f, "invalid proof format"),
         }
     }
 }
