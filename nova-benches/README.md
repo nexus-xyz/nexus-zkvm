@@ -20,7 +20,7 @@ cargo bench --bench=recursive-snark
 ```
 
 Flamegraphs are generated with
-```
+```sh
 cargo bench --bench=recursive-snark -- --profile-time=10
 # saves to nova-benches/target/criterion/RecursiveSNARK-StepCircuitSize-*/[Prove/Verify]/profile/flamegraph.svg
 ```
