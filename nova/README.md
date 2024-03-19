@@ -14,7 +14,7 @@ Compared to original implementation of Nova by Microsoft research – https://gi
 ├── circuits      # implementation of augmented circuits along with IVC (private with re-exports)
 ├── folding       # folding schemes implementation
 ├── gadgets       # primitives for the verifier circuits -- mirrors the "folding" module
-├── absorb.rs     # hash sponge interface extension
+├── absorb.rs     # cryptographic sponge interface extension
 ├── commitment.rs # commitment scheme interface
 ├── provider      # internal traits implementors -- commitment schemes, hashers, etc.
 ├── ccs           # customizable constraint system primitives
