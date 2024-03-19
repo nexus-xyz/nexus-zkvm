@@ -1,0 +1,140 @@
+    Finished bench [optimized] target(s) in 0.06s
+     Running benches/recursive-snark.rs (target/release/deps/recursive_snark-19572ec4c76ec4c0)
+Gnuplot not found, using plotters backend
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Prove: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Prove: Collecting 10 samples in estimated 7.1938 s (165 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-0/Prove
+                        time:   [43.708 ms 44.201 ms 44.444 ms] in performance detected.
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Verify: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Verify: Collecting 10 samples in estimated 6.1162 s (165 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-0/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-0/Verify
+                        time:   [36.725 ms 36.907 ms 37.088 ms] in performance detected.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Prove: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Prove: Collecting 10 samples in estimated 5.8358 s (110 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-6399/Prove
+                        time:   [53.204 ms 53.304 ms 53.409 ms] in performance detected.
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Verify: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Verify: Collecting 10 samples in estimated 5.0731 s (110 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-6399/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-6399/Verify
+                        time:   [46.131 ms 46.401 ms 46.600 ms] in performance detected.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Prove: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Prove: Collecting 10 samples in estimated 8.2454 s (110 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-22783/Prove
+                        time:   [74.311 ms 74.887 ms 75.631 ms] in performance detected.
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Verify: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Verify: Collecting 10 samples in estimated 7.6178 s (110 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-22783/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-22783/Verify
+                        time:   [68.843 ms 69.095 ms 69.405 ms] in performance detected.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) low mild
+
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Prove: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 5.0s. You may wish to increase target time to 6.5s or enable flat sampling.
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Prove: Collecting 10 samples in estimated 6.5071 s (55 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-55551/Prove
+                        time:   [118.77 ms 120.05 ms 122.01 ms] in performance detected.
+Found 2 outliers among 10 measurements (20.00%)
+  2 (20.00%) high mild
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Verify: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 5.0s. You may wish to increase target time to 6.4s or enable flat sampling.
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Verify: Collecting 10 samples in estimated 6.3933 s (55 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-55551/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-55551/Verify
+                        time:   [115.37 ms 116.09 ms 116.71 ms] in performance detected.
+
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Prove: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Prove: Collecting 10 samples in estimated 5.8625 s (30 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-121087/Prove
+                        time:   [194.74 ms 196.03 ms 197.40 ms] in performance detected.
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Verify: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Verify: Collecting 10 samples in estimated 5.5629 s (30 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-121087/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-121087/Verify
+                        time:   [185.13 ms 186.52 ms 188.15 ms] in performance detected.
+
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Prove: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Prove: Collecting 10 samples in estimated 6.7144 s (20 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-252159/Prove
+                        time:   [333.91 ms 335.71 ms 338.37 ms] in performance detected.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Verify: Warming up for 3.0000 s
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Verify: Collecting 10 samples in estimated 6.3375 s (20 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-252159/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-252159/Verify
+                        time:   [316.81 ms 319.76 ms 324.65 ms] in performance detected.
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high severe
+
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Prove: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 5.0s. You may wish to increase target time to 6.3s.
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Prove: Collecting 10 samples in estimated 6.3002 s (10 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-514303/Prove
+                        time:   [627.81 ms 630.94 ms 634.56 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Verify: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 5.0s. You may wish to increase target time to 6.0s.
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Verify: Collecting 10 samples in estimated 5.9591 s (10 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-514303/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-514303/Verify
+                        time:   [594.16 ms 596.13 ms 598.41 ms]
+Found 1 outliers among 10 measurements (10.00%)
+  1 (10.00%) high mild
+
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Prove
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Prove: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 5.0s. You may wish to increase target time to 11.7s.
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Prove: Collecting 10 samples in estimated 11.685 s (10 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Prove: Analyzing
+RecursiveSNARK-StepCircuitSize-1038591/Prove
+                        time:   [1.1791 s 1.1913 s 1.2024 s]
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Verify
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Verify: Warming up for 3.0000 s
+
+Warning: Unable to complete 10 samples in 5.0s. You may wish to increase target time to 11.3s.
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Verify: Collecting 10 samples in estimated 11.261 s (10 iterations)
+Benchmarking RecursiveSNARK-StepCircuitSize-1038591/Verify: Analyzing
+RecursiveSNARK-StepCircuitSize-1038591/Verify
+                        time:   [1.1199 s 1.1284 s 1.1368 s]
+Found 2 outliers among 10 measurements (20.00%)
+  1 (10.00%) low mild
+  1 (10.00%) high mild
+
