@@ -49,7 +49,6 @@ fn bench_recursive_snark(c: &mut Criterion) {
             "RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
         ));
         group.sample_size(10);
-        group.measurement_time(Duration::from_secs(20));
 
         let step_circuit = NonTrivialTestCircuit::new(num_cons_in_step_circuit);
 
