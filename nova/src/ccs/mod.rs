@@ -342,8 +342,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         sigmas: &[G::ScalarField],
         thetas: &[G::ScalarField],
     ) -> Result<Self, Error> {
-        // in concept, uX1 = (u_1, x_1), oX2 = (1, x_2)
-        // however, we don't guarantee oX2[0] = 1 during construction, so elide it during folding
+        // uX1 = (u_1, x_1), oX2 = (1, x_2)
         let (uX1, comm_W1) = (&self.X, self.commitment_W.clone());
         let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());
 
