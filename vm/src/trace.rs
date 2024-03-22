@@ -266,21 +266,23 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::riscv::test::test_machines;
+    use crate::{eval::halt_vm, memory::paged::Paged, memory::trie::MerkleTrie};
 
     // basic check that tracing and iteration succeeds
+    fn trace_test_machine(mut nvm: NexusVM<impl Memory>) {
+        let tr = trace(&mut nvm, 1, false).unwrap();
+        let mut pc = 0u32;
+        for b in tr.blocks {
+            for w in b.iter() {
+                pc = w.pc;
+            }
+        }
+        assert_eq!(nvm.pc, pc);
+    }
+
     #[test]
     fn trace_test_machines() {
-        for (name, mut nvm) in test_machines() {
-            println!("tracing machine {name}");
-            let tr = trace(&mut nvm, 1, false).unwrap();
-            let mut pc = 0u32;
-            for b in tr.blocks {
-                for w in b.iter() {
-                    pc = w.pc;
-                }
-            }
-            assert_eq!(nvm.pc, pc);
-        }
+        trace_test_machine(halt_vm::<Paged>());
+        trace_test_machine(halt_vm::<MerkleTrie>());
     }
 }

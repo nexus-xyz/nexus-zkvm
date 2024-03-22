@@ -5,7 +5,6 @@ use crate::{
     error::Result,
     eval::{halt_vm, NexusVM},
     memory::{trie::MerkleTrie, Memory},
-    riscv::test::test_machines,
     trace::trace,
 };
 
@@ -41,11 +40,6 @@ fn nvm_check_steps(mut vm: NexusVM<impl Memory>) -> Result<()> {
 fn nvm_step() {
     let vm = halt_vm::<MerkleTrie>();
     nvm_check_steps(vm).unwrap();
-
-    for (name, vm) in test_machines() {
-        println!("Checking {name}");
-        nvm_check_steps(vm).unwrap();
-    }
 }
 
 fn ark_check(mut vm: NexusVM<impl Memory>, k: usize) -> Result<()> {
@@ -69,11 +63,6 @@ fn ark_check(mut vm: NexusVM<impl Memory>, k: usize) -> Result<()> {
 fn ark_check_steps(k: usize) {
     let vm = halt_vm::<MerkleTrie>();
     ark_check(vm, k).unwrap();
-
-    for (name, vm) in test_machines() {
-        println!("Checking {name}");
-        ark_check(vm, k).unwrap();
-    }
 }
 
 #[test]

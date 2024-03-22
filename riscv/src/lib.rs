@@ -1,11 +1,13 @@
 //! A RISC-V virtual machine designed for verified computing
 
 #![allow(non_snake_case)]
+#![allow(clippy::field_reassign_with_default)]
 
-mod error;
+pub mod error;
+pub mod eval;
 pub mod machines;
+pub mod nvm;
 pub mod rv32;
-pub mod vm;
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
@@ -13,8 +15,8 @@ use std::fs::read;
 use std::path::PathBuf;
 
 pub use error::*;
+use eval::*;
 use rv32::*;
-use vm::eval::*;
 
 // don't break API
 pub use machines::{loop_vm, nop_vm};
