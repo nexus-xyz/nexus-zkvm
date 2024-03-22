@@ -13,3 +13,6 @@ categories = { workspace = true }
 clap.workspace = true
 elf.workspace = true
 thiserror = "1.0"
+num-traits = "0.2"
+
+nexus-vm = { path = "../vm" }

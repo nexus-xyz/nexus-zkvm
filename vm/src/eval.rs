@@ -31,11 +31,12 @@ pub struct NexusVM<M: Memory> {
     pub write_proof: Option<M::Proof>,
 }
 
-/// Generate a trivial VM with a single HALT instruction.
+/// Generate a trivial VM with a single NOP and a single HALT instruction.
 pub fn halt_vm<M: Memory>() -> NexusVM<M> {
     let mut vm = NexusVM::<M>::default();
-    let inst = Inst { opcode: HALT, ..Inst::default() };
+    let inst = Inst { opcode: NOP, ..Inst::default() };
     vm.memory.write_inst(vm.pc, inst.into()).unwrap();
+    let inst = Inst { opcode: HALT, ..Inst::default() };
     vm.memory.write_inst(vm.pc + 8, inst.into()).unwrap();
     vm
 }

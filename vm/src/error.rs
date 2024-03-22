@@ -26,18 +26,6 @@ pub enum NexusVMError {
     /// An error occurred reading file system
     #[error(transparent)]
     IOError(#[from] std::io::Error),
-
-    /// An error occurred while parsing the ELF headers
-    #[error(transparent)]
-    ELFError(#[from] elf::ParseError),
-
-    /// ELF format not supported
-    #[error("ELF format not supported: {0}")]
-    ELFFormat(&'static str),
-
-    /// RiscV parsing failed
-    #[error(transparent)]
-    RVError(#[from] nexus_riscv::VMError),
 }
 
 pub(crate) type Result<T, E = NexusVMError> = std::result::Result<T, E>;

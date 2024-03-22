@@ -4,6 +4,7 @@
 #![allow(clippy::identity_op)]
 
 use crate::{Regs, VM};
+use nexus_vm::{instructions::Width, memory::Memory};
 
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]
@@ -37,7 +38,7 @@ pub fn lookup_test_code(name: &str) -> Option<Vec<u32>> {
 fn assemble(words: &[u32]) -> VM {
     let mut vm = VM::new(0);
     for (i, w) in words.iter().enumerate() {
-        vm.mem.sw(i as u32 * 4, *w);
+        vm.mem.store(Width::W, i as u32 * 4, *w).unwrap();
     }
     vm
 }

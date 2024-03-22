@@ -11,26 +11,22 @@ use elf::{
     ElfBytes,
 };
 
-pub use nexus_riscv::VMOpts;
-use nexus_riscv::{
-    machines::{lookup_test_code, loop_code, nop_code},
-    rv32::{parse::parse_inst, Inst as RVInst, AOP, RV32},
-    VMError,
+use nexus_vm::{
+    eval::NexusVM,
+    instructions::{Inst, Opcode, Opcode::*, Width::BU},
+    memory::Memory,
 };
 
-use crate::error::{NexusVMError::ELFFormat, Result};
-use crate::eval::NexusVM;
-use crate::instructions::{Inst, Opcode, Opcode::*, Width::BU};
-use crate::memory::Memory;
+use crate::{
+    error::{Result, VMError::ELFFormat},
+    machines::{lookup_test_code, loop_code, nop_code},
+    rv32::{parse::parse_inst, Inst as RVInst, AOP, RV32},
+    VMError, VMOpts,
+};
 
 #[inline]
 fn add32(a: u32, b: u32) -> u32 {
     a.overflowing_add(b).0
-}
-
-#[inline]
-fn sub32(a: u32, b: u32) -> u32 {
-    a.overflowing_sub(b).0
 }
 
 #[inline]
@@ -269,7 +265,7 @@ pub fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
         if let Some(vm) = lookup_test_code(m) {
             translate_test_machine(&vm)
         } else {
-            Err(VMError::UnknownMachine(m.clone()).into())
+            Err(VMError::UnknownMachine(m.clone()))
         }
     } else {
         translate_elf(opts.file.as_ref().unwrap())
@@ -277,14 +273,14 @@ pub fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
 }
 
 #[cfg(test)]
-pub mod test {
+mod test {
     use super::*;
-    use crate::eval::eval;
-    use crate::memory::trie::MerkleTrie;
-    use nexus_riscv::machines::MACHINES;
-    use nexus_riscv::rv32::{AOP, BOP, LOP, SOP};
+    use crate::machines::MACHINES;
+    use crate::rv32::{AOP, BOP, LOP, SOP};
+    use nexus_vm::eval::eval;
+    use nexus_vm::memory::trie::MerkleTrie;
 
-    // this function is used by other test crates
+    // Generate a list of NVM test machines
     pub fn test_machines() -> Vec<(&'static str, NexusVM<MerkleTrie>)> {
         MACHINES
             .iter()
