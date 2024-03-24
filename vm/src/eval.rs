@@ -1,14 +1,11 @@
 //! Evaluation for Nexus VM programs.
 
 use num_traits::FromPrimitive;
-use std::io::Write;
 
-use crate::error::{
-    NexusVMError::{InvalidInstruction, UnknownSyscall},
-    Result,
-};
+use crate::error::{NexusVMError::InvalidInstruction, Result};
 use crate::instructions::{Inst, Opcode, Opcode::*, Width};
 use crate::memory::Memory;
+use crate::syscalls::Syscalls;
 
 /// State of a running Nexus VM program.
 #[derive(Default)]
@@ -21,6 +18,8 @@ pub struct NexusVM<M: Memory> {
     pub inst: Inst,
     /// Result of most recent instruction.
     pub Z: u32,
+    /// Syscall implementation
+    pub syscalls: Syscalls,
     /// Machine memory.
     pub memory: M,
     /// Memory proof for current instruction at pc
@@ -100,22 +99,7 @@ pub fn eval_step(vm: &mut NexusVM<impl Memory>) -> Result<()> {
         HALT => {
             PC = vm.pc;
         }
-        SYS => {
-            let num = vm.regs[18]; // s2 = x18  syscall number
-            let a0 = vm.regs[10]; // a0 = x10
-            let a1 = vm.regs[11]; // a1 = x11
-            if num == 1 {
-                // write_log
-                let mut stdout = std::io::stdout();
-                for addr in a0..a0 + a1 {
-                    let b = vm.memory.load(Width::BU, addr)?.0;
-                    stdout.write_all(&[b as u8])?;
-                }
-                let _ = stdout.flush();
-            } else {
-                return Err(UnknownSyscall(vm.pc, num));
-            }
-        }
+        SYS => vm.syscalls.syscall(vm.pc, vm.regs, &vm.memory)?,
 
         JAL => {
             vm.Z = add32(vm.pc, 8);

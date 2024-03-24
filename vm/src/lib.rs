@@ -10,6 +10,7 @@ compile_error!("Host must be little-endian");
 pub mod error;
 pub mod eval;
 pub mod instructions;
+pub mod syscalls;
 pub mod trace;
 
 mod ark_serde;

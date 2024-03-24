@@ -3,20 +3,19 @@
 use nexus_vm::{
     instructions::Width,
     memory::{paged::Paged, Memory},
+    syscalls::Syscalls,
 };
 
 use crate::error::*;
 use crate::rv32::{parse::*, *};
-use VMError::*;
-
-// for ecall
-use std::io::Write;
 
 /// virtual machine state
 #[derive(Default)]
 pub struct VM {
     /// ISA registers
     pub regs: Regs,
+    /// Syscall implementation
+    pub syscalls: Syscalls,
     /// machine memory
     pub mem: Paged,
     /// current instruction
@@ -177,21 +176,7 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
         }
         FENCE | EBREAK => {}
         ECALL => {
-            let num = vm.regs.x[18]; // s2 = x8  syscall number
-            let a0 = vm.regs.x[10]; // a0 = x10
-            let a1 = vm.regs.x[11]; // a1 = x11
-
-            // write_log
-            if num == 1 {
-                let mut stdout = std::io::stdout();
-                for addr in a0..a0 + a1 {
-                    let b = vm.mem.load(Width::B, addr)?.0;
-                    stdout.write_all(&[b as u8])?;
-                }
-                let _ = stdout.flush();
-            } else {
-                return Err(UnknownECall(vm.regs.pc, num));
-            }
+            vm.syscalls.syscall(vm.regs.pc, vm.regs.x, &vm.mem)?;
         }
         UNIMP => {
             PC = vm.inst.pc;
