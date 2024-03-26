@@ -107,11 +107,10 @@ where
             unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
-        let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 
         let gamma: G::ScalarField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let beta = random_oracle.squeeze_field_elements_with_sizes(rvec_shape.as_slice());
+        let beta = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE; s]);
 
         let z1 = [U1.X.as_slice(), W1.W.as_slice()].concat();
         let z2 = [U2.X.as_slice(), W2.W.as_slice()].concat();
@@ -195,11 +194,10 @@ where
             unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
-        let rvec_shape = vec![SQUEEZE_ELEMENTS_BIT_SIZE; s];
 
         let gamma: G::ScalarField =
             random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let beta = random_oracle.squeeze_field_elements_with_sizes(rvec_shape.as_slice());
+        let beta = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE; s]);
 
         let claimed_sum = (1..=shape.num_matrices)
             .map(|j| gamma.pow([j as u64]) * U1.vs[j - 1])
