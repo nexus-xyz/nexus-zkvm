@@ -101,9 +101,9 @@ where
     i: FpVar<G1::ScalarField>,
     z_0: Vec<FpVar<G1::ScalarField>>,
     z_i: Vec<FpVar<G1::ScalarField>>,
-    U: primary::LCCSInstanceVar<G1, C1>,
+    U: primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: secondary::RelaxedR1CSInstanceVar<G2, C2>,
-    u: primary::CCSInstanceVar<G1, C1>,
+    u: primary::CCSInstanceFromR1CSVar<G1, C1>,
 
     // proof
     commitment_T: NonNativeAffineVar<G1>,
@@ -175,13 +175,13 @@ where
             .iter()
             .map(|z| FpVar::new_variable(cs.clone(), || Ok(z), mode))
             .collect::<Result<_, _>>()?;
-        let U = primary::LCCSInstanceVar::new_variable(cs.clone(), || Ok(&input.U), mode)?;
+        let U = primary::LCCSInstanceFromR1CSVar::new_variable(cs.clone(), || Ok(&input.U), mode)?;
         let U_secondary = secondary::RelaxedR1CSInstanceVar::new_variable(
             cs.clone(),
             || Ok(&input.U_secondary),
             mode,
         )?;
-        let u = primary::CCSInstanceVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
+        let u = primary::CCSInstanceFromR1CSVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
 
         let commitment_T = NonNativeAffineVar::new_variable(
             cs.clone(),
@@ -271,7 +271,7 @@ where
 
         let s = (cs.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
 
-        let U_base = primary::LCCSInstanceVar::<G1, C1>::new_constant(
+        let U_base = primary::LCCSInstanceFromR1CSVar::<G1, C1>::new_constant(
             cs.clone(),
             LCCSInstance {
                 commitment_W: Projective::zero().into(),
