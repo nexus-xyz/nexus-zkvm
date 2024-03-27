@@ -166,7 +166,7 @@ pub struct CCSWitness<G: CurveGroup> {
 }
 
 /// A type that holds an CCS instance.
-#[derive(Clone, Eq, PartialEq, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct CCSInstance<G: CurveGroup, C: PolyCommitmentScheme<G>> {
     /// Commitment to witness.
     pub commitment_W: C::Commitment,
@@ -240,6 +240,8 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
         commitment_W: &C::Commitment,
         X: &[G::ScalarField],
     ) -> Result<Self, Error> {
+        assert_eq!(X[0], G::ScalarField::ONE);
+
         if X.is_empty() {
             return Err(Error::InvalidInputLength);
         }
@@ -253,6 +255,37 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
         }
     }
 }
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> fmt::Debug for CCSInstance<G, C>
+where
+    C::Commitment: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CCSInstance")
+            .field("commitment_W", &self.commitment_W)
+            .field("X", &self.X)
+            .finish()
+    }
+}
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Clone for CCSInstance<G, C> {
+    fn clone(&self) -> Self {
+        Self {
+            commitment_W: self.commitment_W.clone(),
+            X: self.X.clone(),
+        }
+    }
+}
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> PartialEq for CCSInstance<G, C> {
+    fn eq(&self, other: &Self) -> bool {
+        self.commitment_W == other.commitment_W
+            && self.X == other.X
+    }
+}
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Eq for CCSInstance<G, C> where C::Commitment: Eq {}
+
 
 impl<G, C> Absorb for LCCSInstance<G, C>
 where
@@ -304,7 +337,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
 
     /// A method to create a default instance object with an appropriate shape for the base case of IVC.
     pub fn base(shape: &CCSShape<G>) -> Self {
-        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         Self {
             commitment_W: C::Commitment::default(),
             X: vec![G::ScalarField::ZERO; shape.num_io],
@@ -324,7 +357,8 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         sigmas: &[G::ScalarField],
         thetas: &[G::ScalarField],
     ) -> Result<Self, Error> {
-        // uX1 = (u_1, x_1), oX2 = (1, x_2)
+        // in concept, uX1 = (u_1, x_1), oX2 = (1, x_2)
+        // however, we don't guarantee oX2[0] = 1 during construction, so elide it during folding
         let (uX1, comm_W1) = (&self.X, self.commitment_W.clone());
         let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());
 
@@ -362,7 +396,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
 }
 
 /// A type that holds an LCCS instance.
-#[derive(Clone, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(CanonicalSerialize, CanonicalDeserialize)]
 pub struct LCCSInstance<G: CurveGroup, C: PolyCommitmentScheme<G>> {
     /// Commitment to MLE of witness.
     ///
@@ -387,6 +421,18 @@ where
             .field("rs", &self.rs)
             .field("vs", &self.vs)
             .finish()
+    }
+}
+
+
+impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Clone for LCCSInstance<G, C> {
+    fn clone(&self) -> Self {
+        Self {
+            commitment_W: self.commitment_W.clone(),
+            X: self.X.clone(),
+            rs: self.rs.clone(),
+            vs: self.vs.clone(),
+        }
     }
 }
 

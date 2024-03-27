@@ -27,7 +27,10 @@ use crate::{
         nimfs::{NIMFSProof, R1CSInstance, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
     },
-    gadgets::cyclefold::{nova::{multifold, primary}, secondary},
+    gadgets::cyclefold::{
+        nova::{multifold, primary},
+        secondary,
+    },
     gadgets::nonnative::short_weierstrass::NonNativeAffineVar,
 };
 
