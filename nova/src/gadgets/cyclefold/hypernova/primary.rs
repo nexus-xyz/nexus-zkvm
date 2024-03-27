@@ -10,16 +10,13 @@ use ark_r1cs_std::{
     select::CondSelectGadget,
     uint8::UInt8,
     R1CSVar,
-
 };
-use ark_spartan::polycommitments::PolyCommitmentScheme;
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
+use ark_spartan::polycommitments::PolyCommitmentScheme;
 use ark_std::fmt::Debug;
 
 use super::NonNativeAffineVar;
-use crate::{
-    folding::hypernova::cyclefold::nimfs::{CCSInstance, LCCSInstance},
-};
+use crate::folding::hypernova::cyclefold::nimfs::{CCSInstance, LCCSInstance};
 
 #[must_use]
 #[derive(Debug)]
@@ -51,10 +48,20 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct CCSInstanceFromR1CSVar<G1, C1> (CCSInstanceVar<G1, C1>)
+pub struct CCSInstanceFromR1CSVar<G1, C1>(CCSInstanceVar<G1, C1>)
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField;
+
+impl<G1, C1> CCSInstanceFromR1CSVar<G1, C1>
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField
+{
+    fn var(&self) -> &CCSInstanceVar<G1, C1> {
+        &self.0
+    }
+}
 
 impl<G1, C1> R1CSVar<G1::ScalarField> for CCSInstanceFromR1CSVar<G1, C1>
 where
@@ -65,16 +72,17 @@ where
     type Value = CCSInstance<G1, C1>;
 
     fn cs(&self) -> ConstraintSystemRef<G1::ScalarField> {
-        self.X
+        self.var()
+            .X
             .iter()
             .fold(ConstraintSystemRef::None, |cs, x| cs.or(x.cs()))
-            .or(self.commitment_W.cs())
+            .or(self.var().commitment_W.cs())
     }
 
     fn value(&self) -> Result<Self::Value, SynthesisError> {
-        let commitment_W = self.commitment_W.value()?;
-        let X = self.X.value()?;
-        Ok(CCSInstance { commitment_W: commitment_W.into(), X })
+        let commitment_W = self.var().commitment_W.value()?;
+        let X = self.var().X.value()?;
+        Ok(CCSInstance { commitment_W: vec![commitment_W].into(), X })
     }
 }
 
@@ -109,11 +117,11 @@ where
             .chain(alloc_X)
             .collect::<Result<_, _>>()?;
 
-        Ok(Self {
+        Ok(Self(CCSInstanceVar {
             commitment_W,
             X,
             _commitment_scheme: PhantomData,
-        })
+        }))
     }
 }
 
@@ -129,8 +137,8 @@ where
 
     fn to_sponge_field_elements(&self) -> Result<Vec<FpVar<G1::ScalarField>>, SynthesisError> {
         Ok([
-            self.commitment_W.to_sponge_field_elements()?,
-            (&self.X[1..]).to_sponge_field_elements()?,
+            self.var().commitment_W.to_sponge_field_elements()?,
+            (&self.var().X[1..]).to_sponge_field_elements()?,
         ]
         .concat())
     }
@@ -188,13 +196,17 @@ where
         rs: Vec<FpVar<G1::ScalarField>>,
         vs: Vec<FpVar<G1::ScalarField>>,
     ) -> Self {
-        Self {
+        Self(LCCSInstanceVar{
             commitment_W,
             X,
             rs,
             vs,
             _commitment_scheme: PhantomData,
-        }
+        })
+    }
+
+    fn var(&self) -> &LCCSInstanceVar<G1, C1> {
+        &self.0
     }
 }
 
@@ -207,20 +219,21 @@ where
     type Value = LCCSInstance<G1, C1>;
 
     fn cs(&self) -> ConstraintSystemRef<G1::ScalarField> {
-        self.X
+        self.var()
+            .X
             .iter()
             .fold(ConstraintSystemRef::None, |cs, x| cs.or(x.cs()))
-            .or(self.commitment_W.cs())
+            .or(self.var().commitment_W.cs())
     }
 
     fn value(&self) -> Result<Self::Value, SynthesisError> {
-        let commitment_W = self.commitment_W.value()?;
+        let commitment_W = self.var().commitment_W.value()?;
 
-        let X = self.X.value()?;
-        let rs = self.rs.value()?;
-        let vs = self.vs.value()?;
+        let X = self.var().X.value()?;
+        let rs = self.var().rs.value()?;
+        let vs = self.var().vs.value()?;
         Ok(LCCSInstance {
-            commitment_W: commitment_W.into(),
+            commitment_W: vec![commitment_W].into(),
             X,
             rs,
             vs,
@@ -228,8 +241,7 @@ where
     }
 }
 
-impl<G1, C1> AllocVar<LCCSInstance<G1, C1>, G1::ScalarField>
-    for LCCSInstanceFromR1CSVar<G1, C1>
+impl<G1, C1> AllocVar<LCCSInstance<G1, C1>, G1::ScalarField> for LCCSInstanceFromR1CSVar<G1, C1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -269,13 +281,13 @@ where
             .map(|v| FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(v), mode))
             .collect::<Result<_, _>>()?;
 
-        Ok(Self {
+        Ok(Self(LCCSInstanceVar {
             commitment_W,
             X,
             rs,
             vs,
             _commitment_scheme: PhantomData,
-        })
+        }))
     }
 }
 

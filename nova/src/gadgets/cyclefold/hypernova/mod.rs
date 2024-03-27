@@ -2,7 +2,7 @@
 
 use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-use ark_ff::PrimeField;
+use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     boolean::Boolean,
     eq::EqGadget,
@@ -66,29 +66,24 @@ where
     let rho_scalar = Boolean::le_bits_to_fp_var(rho_bits)?;
 
     // HyperNova Verification
-    // assumes CCS constraints are of R1CS origin
+    const NUM_MATRICES: usize = 3;
+    const NUM_MULTISETS: usize = 2;
 
-    const NUM_MATRICES = 3;
-    const NUM_MULTISETS = 2;
-
-    let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
-    let cSs: vec![
+    let s: usize = ((cs.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+    let cSs = vec![
         (FpVar::constant(G1::ScalarField::ONE), vec![0, 1]),
         (FpVar::constant(G1::ScalarField::ONE.neg()), vec![2]),
     ];
 
-    let gamma: G::ScalarField =
+    let _gamma: G1::ScalarField =
         random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-    let gamma_var = FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(gamma))?;
+    let gamma = FpVar::<G1::ScalarField>::new_constant(_gamma)?;
 
-    let beta = random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE; s]);
-    let beta_vars = beta
-        .iter()
-        .map(|b| FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(b))?)
-        .collect();
+    let beta = random_oracle
+        .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
 
     let claimed_sum = (1..=NUM_MATRICES)
-        .map(|j| gamma_var.pow_le(Boolean::constant_vec_from_bytes(j.to_le_bytes())) * U.vs[j - 1])
+        .map(|j| gamma.pow_le(Boolean::constant_vec_from_bytes(&j.to_le_bytes())) * U.vs[j - 1])
         .sum();
 
     // verify sumcheck
@@ -96,18 +91,19 @@ where
     // compute e1 and e2
 
     let cl = (1..=NUM_MATRICES)
-        .map(|j| gamma_var.pow_le(Boolean::constant_vec_from_bytes(j.to_le_bytes())) * e1 * sigmas[j - 1])
+        .map(|j| {
+            gamma.pow_le(Boolean::constant_vec_from_bytes(&j.to_le_bytes()))
+                * e1
+                * sigmas[j - 1]
+        })
         .sum();
 
-    let cr: G::ScalarField = (0..NUM_MULTISETS)
-        .map(|i| {
-            shape.cSs[i]
-                .1
-                .iter()
-                .fold(shape.cSs[i].0, |acc, j| acc * thetas[*j])
-        })
+    let cr = (0..NUM_MULTISETS)
+        .map(|i| cSs[i].1.iter().fold(cSs[i].0, |acc, j| acc * thetas[*j]))
         .sum()
-        * gamma_var.pow_le(Boolean::constant_vec_from_bytes((NUM_MATRICES + 1).to_le_bytes()))
+        * gamma.pow_le(Boolean::constant_vec_from_bytes(
+            &(NUM_MATRICES + 1).to_le_bytes(),
+        ))
         * e2;
 
     // abort if bad
@@ -143,14 +139,13 @@ where
 
     let folded_U = primary::LCCSInstanceFromR1CSVar::new(
         commitment_W,
-        [U.X[0] + rho_scalar,
-         U.X[1..].iter()
-         .zip(&u.X[1..])
-         .map(|(a, b)| a + &rho_scalar * b)
-         .collect(),
-        ].concat(),
+        U.X.iter()
+            .zip(&u.X) // by assertion, u.X[0] = 1
+            .map(|(a, b)| a + &rho_scalar * b)
+            .collect(),
         rs,
-        sigmas.iter()
+        sigmas
+            .iter()
             .zip(&thetas)
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),

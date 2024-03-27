@@ -240,6 +240,8 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
         commitment_W: &C::Commitment,
         X: &[G::ScalarField],
     ) -> Result<Self, Error> {
+        assert_eq!(X[0], G::ScalarField::ONE);
+
         if X.is_empty() {
             return Err(Error::InvalidInputLength);
         }
@@ -277,11 +279,13 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Clone for CCSInstance<G, C> {
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> PartialEq for CCSInstance<G, C> {
     fn eq(&self, other: &Self) -> bool {
-        self.commitment_W == other.commitment_W && self.X == other.X
+        self.commitment_W == other.commitment_W
+            && self.X == other.X
     }
 }
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Eq for CCSInstance<G, C> where C::Commitment: Eq {}
+
 
 impl<G, C> Absorb for LCCSInstance<G, C>
 where
@@ -333,7 +337,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
 
     /// A method to create a default instance object with an appropriate shape for the base case of IVC.
     pub fn base(shape: &CCSShape<G>) -> Self {
-        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
         Self {
             commitment_W: C::Commitment::default(),
             X: vec![G::ScalarField::ZERO; shape.num_io],
@@ -353,7 +357,8 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         sigmas: &[G::ScalarField],
         thetas: &[G::ScalarField],
     ) -> Result<Self, Error> {
-        // uX1 = (u_1, x_1), oX2 = (1, x_2)
+        // in concept, uX1 = (u_1, x_1), oX2 = (1, x_2)
+        // however, we don't guarantee oX2[0] = 1 during construction, so elide it during folding
         let (uX1, comm_W1) = (&self.X, self.commitment_W.clone());
         let (oX2, comm_W2) = (&U2.X, U2.commitment_W.clone());
 
@@ -418,6 +423,7 @@ where
             .finish()
     }
 }
+
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Clone for LCCSInstance<G, C> {
     fn clone(&self) -> Self {
