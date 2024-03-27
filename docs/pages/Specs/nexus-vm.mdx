@@ -28,6 +28,8 @@ The current implementation of the Nexus VM does not yet support public and auxil
 
 At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The input and auxiliary tapes, once supported, should contain the public and input auxiliary inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
 
+The program counter $pc$ is always advanced by 8 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 8-byte-memory alignment for the program counter by checking that $pc$ is a multiple of 8 when reading an instruction.     
+
 ## Nexus Virtual Machine Instruction Set
 
 The Nexus VM instruction set contains 30 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and takes three arguments, two register selectors and a full 32-bit immediate value. The exact format $(\textbf{opcode}\;rd\;\;rs_1\;rs_2\;i)$ of each instruction is defined as follows: 
@@ -71,8 +73,9 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{halt}$ | $rs_1$ $i$ | halts execution with a return value $(R[rs_1] + i)$, $pc$ is not updated| 
 | $\textbf{sys}$ |  | system call| 
 
+The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words. In particular, one cannot read or write half-words and words to addresses which are not a multiple of $2$ and $4$, respectively.       
 
-Each instruction is encoded as a 64-bits long string, starting with 8-bit-long $\textbf{opcode}$ string, followed by a 9-bit-long zero string, three 5-bit-long register selectors for $rd$, $rs_1$, and $rs_1$, and a 32-bit immediate value. 
+Each instruction is encoded as a 64-bit-long string, starting with 8-bit-long $\textbf{opcode}$ string, followed by a 9-bit-long zero string, three 5-bit-long register selectors for $rd$, $rs_1$, and $rs_1$, and a 32-bit immediate value. 
 
 Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$, and $\langle i \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$, and the 32-bit-long immediate value $i$. 
 
@@ -205,7 +208,7 @@ $\textbf{unimp}$ is mapped to $\textbf{halt}\;x_0\;1$ to indicate a failure cond
 
 ## Nexus Virtual Machine Initialization
 
-Initially, the memory is assumed to only contain undefined values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link). 
+Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link). 
 
 In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next, each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x0000}$.
 
