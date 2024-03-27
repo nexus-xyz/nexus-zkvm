@@ -201,8 +201,14 @@ where
         let beta = random_oracle
             .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
 
-        let claimed_sum = (1..=shape.num_matrices)
-            .map(|j| gamma.pow([j as u64]) * U1.vs[j - 1])
+        let gamma_powers: Vec<G::ScalarField> = (1..=shape.num_matrices)
+            .map(|j| gamma.pow([j as u64]))
+            .collect();
+
+        let claimed_sum = gamma_powers
+            .iter()
+            .zip(U1.vs.iter())
+            .map(|(a, b)| *a * b)
             .sum();
 
         let sumcheck_subclaim = MLSumcheck::verify_as_subprotocol(
@@ -222,9 +228,11 @@ where
         let eqb = vec_to_ark_mle(eq2.evals().as_slice());
         let e2 = eqb.evaluate(&rs);
 
-        let cl: G::ScalarField = (1..=shape.num_matrices)
-            .map(|j| gamma.pow([j as u64]) * e1 * self.sigmas[j - 1])
-            .sum();
+        let cl: G::ScalarField = gamma_powers
+            .iter()
+            .zip(self.sigmas.iter())
+            .map(|(a, b)| *a * b)
+            .sum::<G::ScalarField>() * e1;
 
         let cr: G::ScalarField = (0..shape.num_multisets)
             .map(|i| {

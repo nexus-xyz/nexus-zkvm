@@ -4,12 +4,14 @@ use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeW
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
+    alloc::{AllocVar},
     boolean::Boolean,
     eq::EqGadget,
     fields::{fp::FpVar, FieldVar},
     groups::curves::short_weierstrass::ProjectiveVar,
     R1CSVar, ToBitsGadget,
 };
+use std::ops::Neg;
 use ark_relations::r1cs::SynthesisError;
 
 pub(crate) mod primary;
@@ -26,9 +28,9 @@ use crate::{
 pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
-    U: &primary::LCCSInstanceVar<G1, C1>,
+    U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
-    u: &primary::CCSInstanceVar<G1, C1>,
+    u: &primary::CCSInstanceFromR1CSVar<G1, C1>,
     commitment_T: &NonNativeAffineVar<G2>,
     commitment_W_proof: &secondary::ProofVar<G2, C2>,
     should_enforce: &Boolean<G1::ScalarField>,
@@ -70,40 +72,43 @@ where
     const NUM_MULTISETS: usize = 2;
 
     let s: usize = ((cs.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
-    let cSs = vec![
-        (FpVar::constant(G1::ScalarField::ONE), vec![0, 1]),
-        (FpVar::constant(G1::ScalarField::ONE.neg()), vec![2]),
+    let cSs = [
+        (FpVar::Constant(G1::ScalarField::ONE), [0, 1]),
+        (FpVar::Constant(G1::ScalarField::ONE.neg()), [2]),
     ];
 
     let _gamma: G1::ScalarField =
         random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-    let gamma = FpVar::<G1::ScalarField>::new_constant(_gamma)?;
+    let gamma = FpVar::<G1::ScalarField>::Constant(_gamma);
 
     let beta = random_oracle
         .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
 
-    let claimed_sum = (1..=NUM_MATRICES)
-        .map(|j| gamma.pow_le(Boolean::constant_vec_from_bytes(&j.to_le_bytes())) * U.vs[j - 1])
+    let gamma_powers = (1..=NUM_MATRICES)
+        .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
+        .collect()?;
+
+    let claimed_sum = gamma_powers
+        .zip(U.var().vs.iter())
+        .map(|(a, b)| a * b)
         .sum();
 
     // verify sumcheck
 
     // compute e1 and e2
 
-    let cl = (1..=NUM_MATRICES)
-        .map(|j| {
-            gamma.pow_le(Boolean::constant_vec_from_bytes(&j.to_le_bytes()))
-                * e1
-                * sigmas[j - 1]
-        })
-        .sum();
+    let cl = gamma_powers
+        .iter()
+        .zip(sigmas.iter())
+        .map(|a, b| a * b)
+        .sum::<FpVar::<G1::ScalarField>>() * e1;
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| cSs[i].1.iter().fold(cSs[i].0, |acc, j| acc * thetas[*j]))
         .sum()
-        * gamma.pow_le(Boolean::constant_vec_from_bytes(
+        * gamma.pow_le(&Boolean::constant_vec_from_bytes(
             &(NUM_MATRICES + 1).to_le_bytes(),
-        ))
+        ))?
         * e2;
 
     // abort if bad
@@ -118,7 +123,7 @@ where
     // The rest of the secondary public input is reconstructed from primary instances.
     let comm_W_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
         comm_W_secondary_instance,
-        &U.commitment_W,
+        &U.var().commitment_W,
         commitment_T,
     )?;
     let (r_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
@@ -139,8 +144,8 @@ where
 
     let folded_U = primary::LCCSInstanceFromR1CSVar::new(
         commitment_W,
-        U.X.iter()
-            .zip(&u.X) // by assertion, u.X[0] = 1
+        U.var().X.iter()
+            .zip(&u.var().X) // by assertion, u.X[0] = 1
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),
         rs,
@@ -151,12 +156,12 @@ where
             .collect(),
     );
 
-    let U_secondary = U_secondary.fold(&[
+    let U_secondary = U_secondary.fold(&[(
         (&comm_W_secondary_instance, None),
         commitment_T,
         rho_p,
         rho_p_bits,
-    ])?;
+    )])?;
 
     Ok((folded_U, U_secondary))
 }
