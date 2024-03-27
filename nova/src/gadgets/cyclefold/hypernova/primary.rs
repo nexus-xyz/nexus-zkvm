@@ -12,7 +12,7 @@ use ark_r1cs_std::{
     R1CSVar,
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
-use ark_spartan::polycommitments::PolyCommitmentScheme;
+use ark_spartan::polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait};
 use ark_std::fmt::Debug;
 
 use super::NonNativeAffineVar;
@@ -58,7 +58,7 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField
 {
-    fn var(&self) -> &CCSInstanceVar<G1, C1> {
+    pub(super) fn var(&self) -> &CCSInstanceVar<G1, C1> {
         &self.0
     }
 }
@@ -107,7 +107,7 @@ where
 
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_W.into()),
+            || Ok(r1cs.borrow().commitment_W.try_into_affine_point().unwrap().into()),
             mode,
         )?;
         let alloc_X = X[1..]
@@ -205,7 +205,7 @@ where
         })
     }
 
-    fn var(&self) -> &LCCSInstanceVar<G1, C1> {
+    pub(super) fn var(&self) -> &LCCSInstanceVar<G1, C1> {
         &self.0
     }
 }
@@ -262,7 +262,7 @@ where
 
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_W.into()),
+            || Ok(r1cs.borrow().commitment_W.try_into_affine_point().unwrap().into()),
             mode,
         )?;
 

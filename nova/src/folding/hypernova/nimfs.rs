@@ -232,8 +232,7 @@ where
             .iter()
             .zip(self.sigmas.iter())
             .map(|(a, b)| *a * b)
-            .sum::<G::ScalarField>()
-            * e1;
+            .sum::<G::ScalarField>() * e1;
 
         let cr: G::ScalarField = (0..shape.num_multisets)
             .map(|i| {
