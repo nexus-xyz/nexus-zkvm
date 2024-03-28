@@ -57,18 +57,28 @@ Thus, one consequence of using Nova over a cycles of curves is that the proof sy
 
 In order to be able to produce proofs that can be cheaply verified on Ethereum, the Nexus zkVM currently implements the Nova folding scheme using the pairing-friendly [`bn254`](https://neuromancer.sk/std/bn/bn254) as the primary curve, since the latter has precompile support on Ethereum. Moreover, since `bn254` forms a $2$-cycle along with the [`grumpkin`](https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations) curve, `grumpkin` is used as the secondary curve.
 
-Interestingly, choosing `bn254` as the primary curve by itself is not enough to achieve cheap verification on Ethereum. For that, it is also important that later phases of the proof system, such as the compression phase, only require elliptic-curve operations on `bn254`. Unfortunately, this means that the IVC verifier on the second curve will need to be emulated using non-native elliptic-curve arithmetic operations over the primary curve. 
+Interestingly, choosing `bn254` as the primary curve by itself is not enough to achieve cheap verification on Ethereum. For that, it is also important that later phases of the proof system, such as the compression phase, only require elliptic-curve operations on `bn254`. Unfortunately, this means that the IVC verifier for the secondary circuit will need to be implemented as a circuit over the `bn254` scalar field using non-native arithmetic.
 
 Hence, unlike Microsoft's reference implementation, the Nexus zkVM follows the approach proposed by CycleFold [[KS23](#references)] in its implementation of Nova to address concerns about non-native elliptic-curve arithmetic operations in later phases of the proof system. In this approach, instead of duplicating the IVC chain in both curves, the circuit implemented over the second curve is only used to perform a single group scalar multiplication over the base field of the first curve. Moreover, this is done in a way that allows the verifier in the first curve to avoid non-native arithmetic operations by verifiably delegating its group scalar multiplications to the second curve.
 
 Besides not having to reason about the 2-cycle of elliptic curves in the security proof of Nova [[KS23](#references)], one important advantage of CycleFold's approach over the one used in Microsoft's reference implementation is that the circuit size over the secondary curve becomes significantly smaller. More concretely, the size of the IVC verifier of the Nexus zkVM on the secondary curve is in the order of $3{,}000$ constraints.
 
-The reduction in circuit complexity over the secondary curve has, however, implications on the size of the IVC verifier over the primary curve since the latter circuit now needs to keep track of additional witnesses and to perform several additional small multi-scalar multiplications and hashing operations related to these witnesses. More concretely, the recursion overhead over the primary curve is in the order of $70{,}000$ constraints when used to realize an IVC scheme and $200{,}000$ constraints when used to realize an PCD scheme.
+The reduction in circuit complexity over the secondary curve has, however, implications on the size of the IVC verifier over the primary curve since the latter circuit now needs to keep track of additional witnesses and to perform several additional small multi-scalar multiplications and hashing operations related to these witnesses. More concretely, the recursion overhead over the primary curve is in the order of $70{,}000$ constraints when used to realize an IVC scheme and $340{,}000$ constraints when used to realize a PCD scheme.
 
 ## Proof compression
 
-Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short.
+Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short. 
 
+In the current design of the Nexus zkVM, the final compression step is split into two phases. In the first phase, accumulated proofs generated in the IVC phase are turned into proofs of knowledge of valid IVC proofs, whose sizes are logarithmic in the size of the underlying Nova IVC proofs. Then, in the second phase, these proofs are converted into succinct proofs of constant size which can be cheaply verified on systems, such as Ethereum.
+
+To implement the first phase of the compression step, the current design uses two different proof systems, one for each curve in the`bn254`-`grumpkin` elliptic-curve cycle.
+
+For IVC proofs associated with the primary `bn254` curve, the Nexus zkVM uses the Nova-friendly Spartan SNARK [[Set20](#references)] together with the Zeromorph [[KT23](#references)] polynomial commitment scheme. This combination not only allows the Nexus zkVM to produce proofs which are logarithmic in the size of the underlying Nova IVC proofs, but it also avoids the need for the SNARK prover to compute multiscalar multiplications within the R1CS circuit. This is because, as described in [[KST22](#references)], Spartan can be easily turned into a proof system for committed relaxed R1CS instead of ordinary R1CS, which helps avoid the need to include commitment checks as part of the circuit to be proved.
+
+For IVC proofs associated with the secondary `grumpkin` curve, the same combination used for the primary curve is not possible as `grumpkin` is not a pairing-friendly elliptic curve. As a result, the current design of the Nexus zkVM uses a variant of [Halo2](https://zcash.github.io/halo2/) by the Ethereum's Privacy-Scaling-Explorations team based on the Kate-Zaverucha-Goldberg (KZG) polynomial commitment scheme [[KZG10](#references)]. Though this part of the proof system is required to perform in-circuit multiscalar multiplications, the blowup in the circuit size is manageable due to the smaller size of the secondary IVC circuit. We remark, however, that this part of the 
+design is currently under active development and may change.
+
+To implement the second part of the compression phase, the current plan is for the Nexus zkVM to use Groth16 proofs [[Gro16](#references)].
 
 ## References
 
@@ -80,13 +90,21 @@ Despite being highly parallelizable, the accumulated proof generated in the IVC 
 
 [[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for Zero-Knowledge proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
 
+[[Gro16](https://doi.org/10.1007/978-3-662-49896-5_11)] Jens Groth. “On the Size of Pairing-Based Non-interactive Arguments”. In EUROCRYPT 2016.
+
 [[KS22](https://eprint.iacr.org/2022/1758)] Abhiram Kothapalli and Srinath Setty. “SuperNova: Proving universal machine executions without universal circuits”. In: Cryptology ePrint Archive (2022)
 
 [[KS23](https://eprint.iacr.org/2023/1192)] Abhiram Kothapalli and Srinath Setty. “CycleFold: Folding-scheme-based recursive arguments over a cycle of elliptic curves”. In: Cryptology ePrint Archive (2023)
 
 [[KST22](https://eprint.iacr.org/2021/370)] Abhiram Kothapalli, Srinath Setty, and Ioanna Tzialla. “Nova: Recursive zero-knowledge arguments from folding schemes”. In CRYPTO 2022.
 
+[[KT23](https://eprint.iacr.org/2023/917)] Tohru Kohrita and Patrick Towa. “Zeromorph: Zero-Knowledge Multilinear-Evaluation Proofs from Homomorphic Univariate Commitments”. In: Cryptology ePrint Archive (2023).
+
+[[KZG10](https://doi.org/10.1007/978-3-642-17373-8_11)] Aniket Kate, Gregory M. Zaverucha, and Ian Goldberg. “Constant-Size Commitments to Polynomials and Their Applications”. In ASIACRYPT 2010.
+
 [[M87](https://link.springer.com/chapter/10.1007/3-540-48184-2_32)] Ralph C Merkle. “A digital signature based on a conventional encryption function”. In CRYPTO 1987.
+
+[[Set20](https://eprint.iacr.org/2019/550)] Srinath Setty. “Spartan: Efficient and general-purpose zkSNARKs without trusted setup”. In CRYPTO 2020.
 
 [[Val08](https://doi.org/10.1007/978-3-540-78524-8_1)] Paul Valiant. “Incrementally verifiable computation or proofs of knowledge imply time/space efficiency”. In TCC 2008.
 
