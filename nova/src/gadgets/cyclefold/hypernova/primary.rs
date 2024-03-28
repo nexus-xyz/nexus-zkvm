@@ -56,7 +56,7 @@ where
 impl<G1, C1> CCSInstanceFromR1CSVar<G1, C1>
 where
     G1: SWCurveConfig,
-    G1::BaseField: PrimeField
+    G1::BaseField: PrimeField,
 {
     pub(super) fn var(&self) -> &CCSInstanceVar<G1, C1> {
         &self.0
@@ -82,7 +82,10 @@ where
     fn value(&self) -> Result<Self::Value, SynthesisError> {
         let commitment_W = self.var().commitment_W.value()?;
         let X = self.var().X.value()?;
-        Ok(CCSInstance { commitment_W: vec![commitment_W].into(), X })
+        Ok(CCSInstance {
+            commitment_W: vec![commitment_W].into(),
+            X,
+        })
     }
 }
 
@@ -107,7 +110,14 @@ where
 
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_W.try_into_affine_point().unwrap().into()),
+            || {
+                Ok(r1cs
+                    .borrow()
+                    .commitment_W
+                    .try_into_affine_point()
+                    .unwrap()
+                    .into())
+            },
             mode,
         )?;
         let alloc_X = X[1..]
@@ -196,7 +206,7 @@ where
         rs: Vec<FpVar<G1::ScalarField>>,
         vs: Vec<FpVar<G1::ScalarField>>,
     ) -> Self {
-        Self(LCCSInstanceVar{
+        Self(LCCSInstanceVar {
             commitment_W,
             X,
             rs,
@@ -262,7 +272,14 @@ where
 
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
-            || Ok(r1cs.borrow().commitment_W.try_into_affine_point().unwrap().into()),
+            || {
+                Ok(r1cs
+                    .borrow()
+                    .commitment_W
+                    .try_into_affine_point()
+                    .unwrap()
+                    .into())
+            },
             mode,
         )?;
 
