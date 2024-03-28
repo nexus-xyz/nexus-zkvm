@@ -1,4 +1,4 @@
 pub mod cyclefold;
 pub mod nimfs;
 
-mod ml_sumcheck;
+pub(crate) mod ml_sumcheck;
