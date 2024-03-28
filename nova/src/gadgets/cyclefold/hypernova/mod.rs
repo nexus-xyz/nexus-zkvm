@@ -4,15 +4,15 @@ use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeW
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
-    alloc::{AllocVar},
+    alloc::AllocVar,
     boolean::Boolean,
     eq::EqGadget,
     fields::{fp::FpVar, FieldVar},
     groups::curves::short_weierstrass::ProjectiveVar,
     R1CSVar, ToBitsGadget,
 };
-use std::ops::Neg;
 use ark_relations::r1cs::SynthesisError;
+use std::ops::Neg;
 
 pub(crate) mod primary;
 
@@ -33,6 +33,7 @@ pub fn multifold<G1, G2, C1, C2, RO>(
     u: &primary::CCSInstanceFromR1CSVar<G1, C1>,
     commitment_T: &NonNativeAffineVar<G2>,
     commitment_W_proof: &secondary::ProofVar<G2, C2>,
+    hypernova_proof: &primary::ProofVar<G1, C1>,
     should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
     (
@@ -67,7 +68,8 @@ where
     let rho_bits = &rho_bits[0];
     let rho_scalar = Boolean::le_bits_to_fp_var(rho_bits)?;
 
-    // HyperNova Verification
+    // HyperNova Verification Circuit
+
     const NUM_MATRICES: usize = 3;
     const NUM_MULTISETS: usize = 2;
 
@@ -88,12 +90,44 @@ where
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
         .collect()?;
 
-    let claimed_sum = gamma_powers
+    let mut expected = gamma_powers
         .zip(U.var().vs.iter())
         .map(|(a, b)| a * b)
         .sum();
 
-    // verify sumcheck
+    let denom = [
+        FpVar::Constant(G1::ScalarField::from(-6)), // (0 - 1)(0 - 2)(0 - 3) = -6
+        FpVar::Constant(G1::ScalarField::from(2)),  // (1 - 0)(1 - 2)(1 - 3) =  2
+        FpVar::Constant(G1::ScalarField::from(-2)), // (2 - 0)(2 - 1)(2 - 3) = -2
+        FpVar::Constant(G1::ScalarField::from(6)),  // (3 - 0)(3 - 1)(3 - 2) =  6
+    ];
+
+    let mut rs: Vec<FpVar<G1::ScalarField>> = vec![];
+    for round in 0.. {
+        random_oracle.absorb(hypernova_proof.sumcheck_proof.prover_msgs[round]);
+
+        rs.push(FpVar::<G1::ScalarField>::Constant(
+            random_oracle.squeeze_field_elements(SQUEEZE_NATIVE_ELEMENTS_NUM)[0],
+        ));
+
+        let evals = hypernova_proof.sumcheck_proof.prover_msgs[round];
+        expected.conditional_enforce_equal(evals[0] + evals[1], should_enforce)?;
+
+        // interpolate and evaluate polynomial
+
+        let prod = (0..)
+            .map(|i| rs[round] - i)
+            .product();
+
+        expected = (0..)
+            .map(|i| (prod * evals[i]) / (denom[i] * (rs[round] - i)))
+            .sum();
+    }
+
+    // eq evaluation
+    //(0..rx.len())
+    //  .map(|i| self.r[i] * rx[i] + (F::one() - self.r[i]) * (F::one() - rx[i]))
+    //  .product()
 
     // compute e1 and e2
 
@@ -101,7 +135,8 @@ where
         .iter()
         .zip(sigmas.iter())
         .map(|a, b| a * b)
-        .sum::<FpVar::<G1::ScalarField>>() * e1;
+        .sum::<FpVar<G1::ScalarField>>()
+        * e1;
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| cSs[i].1.iter().fold(cSs[i].0, |acc, j| acc * thetas[*j]))
@@ -111,9 +146,9 @@ where
         ))?
         * e2;
 
-    // abort if bad
+    expected.conditional_enforce_equal(cl + cr, should_enforce)?;
 
-    // End HyperNova Verification
+    // End HyperNova Verification Circuit
 
     let secondary::ProofVar {
         U: comm_W_secondary_instance,
@@ -144,7 +179,9 @@ where
 
     let folded_U = primary::LCCSInstanceFromR1CSVar::new(
         commitment_W,
-        U.var().X.iter()
+        U.var()
+            .X
+            .iter()
             .zip(&u.var().X) // by assertion, u.X[0] = 1
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),

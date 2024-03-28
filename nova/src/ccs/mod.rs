@@ -279,13 +279,11 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Clone for CCSInstance<G, C> {
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> PartialEq for CCSInstance<G, C> {
     fn eq(&self, other: &Self) -> bool {
-        self.commitment_W == other.commitment_W
-            && self.X == other.X
+        self.commitment_W == other.commitment_W && self.X == other.X
     }
 }
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Eq for CCSInstance<G, C> where C::Commitment: Eq {}
-
 
 impl<G, C> Absorb for LCCSInstance<G, C>
 where
@@ -423,7 +421,6 @@ where
             .finish()
     }
 }
-
 
 impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Clone for LCCSInstance<G, C> {
     fn clone(&self) -> Self {
