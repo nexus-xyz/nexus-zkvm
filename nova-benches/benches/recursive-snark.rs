@@ -43,7 +43,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
     let ro_config = poseidon_config();
 
     // we vary the number of constraints in the step circuit
-    for &num_cons_in_step_circuit in [0, 6565, 22949, 55717, 121253, 252325, 514469, 1038757].iter()
+    for &num_cons_in_step_circuit in [0, 6399, 22783, 55551, 121087, 252159, 514303, 1038591].iter()
     {
         let mut group = c.benchmark_group(format!(
             "RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
@@ -68,22 +68,21 @@ fn bench_recursive_snark(c: &mut Criterion) {
         // a lot of zeros in the satisfying assignment
         let num_warmup_steps = 10;
         let mut recursive_snark: IVCProof<G1, G2, C1, C2, PoseidonSponge<CF>, _> =
-            IVCProof::new(&pp, &[CF::from(2u64)]);
+            IVCProof::new(&[CF::from(2u64)]);
 
         for i in 0..num_warmup_steps {
-            recursive_snark = recursive_snark.prove_step(&step_circuit).unwrap();
+            recursive_snark = recursive_snark.prove_step(&pp, &step_circuit).unwrap();
 
             // verify the recursive snark at each step of recursion
-            let res = recursive_snark.verify(i + 1);
+            let res = recursive_snark.verify(&pp, i + 1);
             assert!(res.is_ok());
         }
 
-        let _recursive_snark = recursive_snark.clone();
-        group.bench_function("Prove", move |b| {
+        group.bench_function("Prove", |b| {
             b.iter(|| {
                 // produce a recursive SNARK for a step of the recursion
-                black_box(_recursive_snark.clone())
-                    .prove_step(black_box(&step_circuit))
+                black_box(recursive_snark.clone())
+                    .prove_step(black_box(&pp), black_box(&step_circuit))
                     .unwrap();
             })
         });
@@ -92,7 +91,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
         group.bench_function("Verify", |b| {
             b.iter(|| {
                 black_box(&recursive_snark)
-                    .verify(black_box(num_warmup_steps))
+                    .verify(black_box(&pp), black_box(num_warmup_steps))
                     .unwrap();
             });
         });
@@ -110,10 +109,7 @@ where
     F: PrimeField,
 {
     pub fn new(num_constraints: usize) -> Self {
-        Self {
-            num_constraints,
-            _p: PhantomData,
-        }
+        Self { num_constraints, _p: PhantomData }
     }
 }
 

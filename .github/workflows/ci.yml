@@ -15,6 +15,7 @@ jobs:
         with:
           toolchain: stable
       - run: cargo fmt --all --check
+      - run: cd nova-benches && cargo fmt --check
 
   build:
     runs-on: ubuntu-latest
@@ -24,6 +25,7 @@ jobs:
         with:
           toolchain: stable
       - run: cargo build --all-features
+      - run: cd nova-benches && cargo bench --no-run
 
   cargo-clippy:
     runs-on: ubuntu-latest
