@@ -18,7 +18,7 @@ pub(crate) mod primary;
 
 use crate::{
     commitment::CommitmentScheme,
-    folding::nova::cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
+    folding::hypernova::{cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE, ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM},
     gadgets::{
         cyclefold::{nova, secondary},
         nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
@@ -57,7 +57,7 @@ where
     random_oracle.absorb(&U_secondary)?;
 
     random_oracle.absorb(&vk)?;
-    random_oracle.absorb(&U)?;
+    random_oracle.absorb(&U.var())?;
     random_oracle.absorb(&u)?;
 
     let (rho, rho_bits) = random_oracle
@@ -68,7 +68,7 @@ where
     let rho_bits = &rho_bits[0];
     let rho_scalar = Boolean::le_bits_to_fp_var(rho_bits)?;
 
-    // HyperNova Verification Circuit -> Specific to R1CS origin for constraints
+    // HyperNova Verification Circuit - implementation is specific to R1CS origin for constraints
 
     const NUM_MATRICES: usize = 3;
     const NUM_MULTISETS: usize = 2;
