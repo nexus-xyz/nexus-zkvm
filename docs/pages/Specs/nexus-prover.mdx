@@ -15,7 +15,7 @@ Let $P$ be a program that has been compiled to the Nexus VM, possibly with acces
 3. Proof accumulation; and
 4. Proof compression.
 
-The following subsections provide an overview of each of these  components.
+The following subsections provide an overview of each of these components.
 
 ## Initialization
 
@@ -69,16 +69,59 @@ The reduction in circuit complexity over the secondary curve has, however, impli
 
 Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short. 
 
-In the current design of the Nexus zkVM, the final compression step is split into two phases. In the first phase, accumulated proofs generated in the IVC phase are turned into proofs of knowledge of valid IVC proofs, whose sizes are logarithmic in the size of the underlying Nova IVC proofs. Then, in the second phase, these proofs are converted into succinct proofs of constant size which can be cheaply verified on systems, such as Ethereum.
+In the current design of the Nexus zkVM, the final compression step is split into two phases. In the first phase, accumulated proofs generated in the IVC phase are turned into proofs of knowledge of valid IVC proofs, whose sizes are logarithmic in the size of the underlying Nova IVC proofs. Then, in the second phase, these proofs are converted into succinct proofs of constant size which can be cheaply verified on systems such as Ethereum.
 
 To implement the first phase of the compression step, the current design uses two different proof systems, one for each curve in the`bn254`-`grumpkin` elliptic-curve cycle.
 
 For IVC proofs associated with the primary `bn254` curve, the Nexus zkVM uses the Nova-friendly Spartan SNARK [[Set20](#references)] together with the Zeromorph [[KT23](#references)] polynomial commitment scheme. This combination not only allows the Nexus zkVM to produce proofs which are logarithmic in the size of the underlying Nova IVC proofs, but it also avoids the need for the SNARK prover to compute multiscalar multiplications within the R1CS circuit. This is because, as described in [[KST22](#references)], Spartan can be easily turned into a proof system for committed relaxed R1CS instead of ordinary R1CS, which helps avoid the need to include commitment checks as part of the circuit to be proved.
 
-For IVC proofs associated with the secondary `grumpkin` curve, the same combination used for the primary curve is not possible as `grumpkin` is not a pairing-friendly elliptic curve. As a result, the current design of the Nexus zkVM uses a variant of [Halo2](https://zcash.github.io/halo2/) by the Ethereum's Privacy-Scaling-Explorations team based on the Kate-Zaverucha-Goldberg (KZG) polynomial commitment scheme [[KZG10](#references)]. Though this part of the proof system is required to perform in-circuit multiscalar multiplications, the blowup in the circuit size is manageable due to the smaller size of the secondary IVC circuit. We remark, however, that this part of the 
-design is currently under active development and may change.
+For IVC proofs associated with the secondary `grumpkin` curve, the same combination used for the primary curve is not possible as `grumpkin` is not a pairing-friendly elliptic curve. As a result, the current design of the Nexus zkVM uses a variant of [Halo2](https://zcash.github.io/halo2/) by the Ethereum's Privacy-Scaling-Explorations team based on the Kate-Zaverucha-Goldberg (KZG) polynomial commitment scheme [[KZG10](#references)]. Though this part of the proof system is required to perform in-circuit multiscalar multiplications, the blowup in the circuit size is manageable due to the smaller size of the secondary IVC circuit. We remark, however, that this part of the design is currently under active development and may change.
 
-To implement the second part of the compression phase, the current plan is for the Nexus zkVM to use Groth16 proofs [[Gro16](#references)].
+To implement the second part of the compression phase, the current plan is for the Nexus zkVM to use Groth16 proofs [[Gro16](#references)]. This final stage of compression will recursively verify the Spartan proofs from the first stage, reducing the log-sized proofs to a constant size.
+
+## Nexus zkVM parameters
+
+In order to run the Nexus zkVM, certain values used by the proof system as well as the public parameters shared between the prover and the verifier need to be configured.
+
+Two of the main configuration parameters for the Nexus zkVM are:
+- Configuration parameters for the Poseidon hash function; and
+- The number $k$ of Nexus VM instructions per folding step.
+
+As for the public parameters, these consist essentially of the following:
+- Parameters for the Pedersen commitment used by Nova in the proof accumulation phase for each curve in the cycle; 
+- Parameters for the Zeromorph commitment used by Spartan in the compression phase; and
+- Parameters for the remaining SNARKs in the compression phase.
+
+### Hash function configuration 
+
+In order to configure the Poseidon hash function, we currently use the parameters proposed in the Poseidon paper [[GKR21](#references)] to achieve a 128-bit level of security. More precisely, we use the following parameters:
+
+```rust
+const FULL_ROUNDS: usize = 8;
+const PARTIAL_ROUNDS: usize = 57;
+const ALPHA: u64 = 5;
+const RATE: usize = 2;
+const CAPACITY: usize = 1;
+const MODULUS_BITS: u64 = 254;
+```
+
+### Instructions per folding step
+
+The Nexus zkVM's approach based on Nova provides a proof system with a recursion overhead which is independent of the total number of computation steps and of the step function itself. However, in our current implementation, the recursion overhead  remains quite high (in the order of $70{,}000$ and $340{,}000$ constraints in the IVC and PCD settings) compared the cost of a single step of the Nexus VM (around $15{,}000$ constraints). 
+
+Hence, in order to offset the current recursion overhead, the Nexus zkVM includes a configuration parameter $k$ which allows the prover to combine several steps of the Nexus VM into a single folding step. Even though a higher value of $k$ will increase the overall complexity of the prover, the value $k$ has no impact on the recursion overhead. As a result, one can improve the overall performance of the Nexus zkVM by increasing the value $k$. For instance, by choosing $k=5$ in the IVC setting, the cost of each folding step will approximately double while the total number of folding steps will be reduced by a factor $5$.
+
+The current default value for $k$ is 16, which seems to avoid large RAM requirements for the prover while providing a reasonable offset for the recursion overhead. This value can, however, be set by the user of the Nexus zkVM. 
+
+### Public parameters
+
+As mentioned above, the public parameters for the Nexus zkVM consist of those needed by the Pedersen commitment scheme during the accumulation phase and by the Zeromorph commitment scheme during the compression phase. Other public parameters will also be needed for the remaining SNARKs of the compression, but these are currently under development and hence omitted for now.
+
+Regarding the public parameters for the Pedersen commitment scheme used in Nova, these consist of a vector of random group elements of sufficient size in the respective curve in the cycle. In the PCD setting with $k=1$, Nova circuits for the primary curve are represented by three sparse matrices $(A,B,C)$ each containing about $2^{19}$ rows and columns and about 8 non-zero entries per row. As a result, the size of the public parameters for the Pedersen commitment scheme contains about $2^{19}$ `bn254` elliptic curve elements. Since larger values of $k$ would increase the witness size, the size of the vector would need to increase accordingly.  For the secondary curve, the size of the vector depends on the size of the witness for the secondary circuit, containing about $3{,}000$ `grumpkin` elliptic curve elements.
+
+As for the public parameters for the Zeromorph commitment scheme used in Spartan, these consist of a sufficiently large vector of group elements of the form $\tau^i g$, where $g$ is a generator for the group and $\tau$ is the “toxic waste” secret used to generate the vector. These public parameters are exactly the same as those used for the KZG polynomial commitment scheme [[KZG10](#references)], requiring a trusted setup phase as well. As in the case of systems such as Plonk-KZG [[GWC19](#references)], the trusted setup is universal and only depends on a global bound on the size of committed vectors. Regarding the actual size of this vector, the current implementation requires committing to a single vector of size $2^{26}$ when $k=1$ since the pre-processing phase of Spartan needs to commit to a specialized sparse matrix representation of $(A, B, C)$ used in Nova (see [[Set20, Sections 6-7](#references)] for details). As for Pedersen commitments, larger values of $k$ would also result in larger parameters for Zeromorph. 
+
+Finally, since the parameters for the Pedersen and Zeromorph commitment schemes consist of a vector of group elements and need to be compatible in order to make Spartan a proof system for committed relaxed R1CS, the Nexus zkVM currently generates the parameters for the Pedersen commitment scheme by truncating the parameters used for Zeromorph, instead of randomly sampling a vector of fresh group elements. Note that this is cryptographically indistinguishable from a random vector,  unless one knows the toxic waste secret.
 
 ## References
 
@@ -91,6 +134,8 @@ To implement the second part of the compression phase, the current plan is for t
 [[GKR21](https://www.usenix.org/system/files/sec21-grassi.pdf)] Lorenzo Grassi, Dmitry Khovratovich, Christian Rechberger, Arnab Roy, and Markus Schofnegger. “Poseidon: A new hash function for Zero-Knowledge proof systems”. In: 30th USENIX Security Symposium (USENIX Security 21). 2021, pp. 519–535
 
 [[Gro16](https://doi.org/10.1007/978-3-662-49896-5_11)] Jens Groth. “On the Size of Pairing-Based Non-interactive Arguments”. In EUROCRYPT 2016.
+
+[[GWC19](https://eprint.iacr.org/2019/953)] Ariel Gabizon, Zachary J. Williamson, and Oana Ciobotaru. “PLONK: Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge”. In: Cryptology ePrint Archive (2019)
 
 [[KS22](https://eprint.iacr.org/2022/1758)] Abhiram Kothapalli and Srinath Setty. “SuperNova: Proving universal machine executions without universal circuits”. In: Cryptology ePrint Archive (2022)
 
