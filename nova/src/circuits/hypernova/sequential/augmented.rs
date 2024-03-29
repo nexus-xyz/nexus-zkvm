@@ -124,7 +124,7 @@ where
     RO: SpongeWithGadget<G1::ScalarField>,
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
 {
-    fn new_variable_from_r1cs<T: Borrow<HyperNovaAugmentedCircuitInput<G1, G2, C1, C2, RO>>>(
+    fn new_variable<T: Borrow<HyperNovaAugmentedCircuitInput<G1, G2, C1, C2, RO>>>(
         cs: impl Into<Namespace<G1::ScalarField>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
         mode: AllocationMode,
