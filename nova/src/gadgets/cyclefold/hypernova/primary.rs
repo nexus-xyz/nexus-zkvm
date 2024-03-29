@@ -16,7 +16,7 @@ use ark_spartan::polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait};
 use ark_std::fmt::Debug;
 
 use super::NonNativeAffineVar;
-use crate::folding::hypernova::cyclefold::{HNProof, CCSInstance, LCCSInstance};
+use crate::folding::hypernova::cyclefold::{CCSInstance, HNProof, LCCSInstance};
 use crate::folding::hypernova::ml_sumcheck::PolynomialInfo;
 
 #[must_use]
@@ -398,9 +398,15 @@ where
         let cs = ns.cs();
 
         let r1cs = f()?;
-        let max_multiplicands = FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(&r1cs.borrow().max_multiplicands), mode)?;
-        let num_variables = FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(&r1cs.borrow().num_variables), mode)?;
-        let num_terms = FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(&r1cs.borrow().num_terms), mode)?;
+        let max_multiplicands = r1cs.borrow().max_multiplicands as u32;
+        let num_variables = r1cs.borrow().num_variables as u32;
+        let num_terms = r1cs.borrow().num_terms as u32;
+
+        let max_multiplicands =
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(max_multiplicands));
+        let num_variables =
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_variables));
+        let num_terms = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_terms));
 
         Ok(Self {
             max_multiplicands,
@@ -464,10 +470,18 @@ where
 
         let sumcheck_proof = sumcheck_proof
             .iter()
-            .map(|msg| msg.evaluations.iter().map(|eval| FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(eval), mode)).collect())
+            .map(|msg| {
+                msg.evaluations
+                    .iter()
+                    .map(|eval| {
+                        FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(eval), mode)
+                    })
+                    .collect()
+            })
             .collect::<Result<_, _>>()?;
 
-        let poly_info = PolynomialInfoVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(poly_info), mode);
+        let poly_info =
+            PolynomialInfoVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
 
         let sigmas = sigmas
             .iter()
@@ -484,6 +498,7 @@ where
             poly_info,
             sigmas,
             thetas,
+            _random_oracle: PhantomData,
         })
     }
 }

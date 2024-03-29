@@ -11,6 +11,7 @@ use ark_r1cs_std::{
     groups::curves::short_weierstrass::ProjectiveVar,
     R1CSVar, ToBitsGadget,
 };
+use ark_spartan::polycommitments::PolyCommitmentScheme;
 use ark_relations::r1cs::SynthesisError;
 use std::ops::Neg;
 
@@ -18,7 +19,10 @@ pub(crate) mod primary;
 
 use crate::{
     commitment::CommitmentScheme,
-    folding::hypernova::{cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE, ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM},
+    folding::hypernova::{
+        cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
+        ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
+    },
     gadgets::{
         cyclefold::{nova, secondary},
         nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
@@ -45,7 +49,7 @@ pub fn multifold<G1, G2, C1, C2, RO>(
 where
     G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     G2: SWCurveConfig,
-    C1: CommitmentScheme<Projective<G1>>,
+    C1: PolyCommitmentScheme<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
     G1::BaseField: PrimeField,
     G2::BaseField: PrimeField,
@@ -73,13 +77,13 @@ where
     const NUM_MATRICES: usize = 3;
     const NUM_MULTISETS: usize = 2;
 
-    let s: usize = ((cs.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+    let s: usize = ((cs.num_constraints() - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
 
     let _gamma: G1::ScalarField =
         random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
     let gamma = FpVar::<G1::ScalarField>::Constant(_gamma);
 
-    let beta = random_oracle
+    let beta: Vec<G1::ScalarField> = random_oracle
         .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
 
     let gamma_powers = (1..=NUM_MATRICES)
@@ -91,12 +95,15 @@ where
         .map(|(a, b)| a * b)
         .sum();
 
-    const MAX_DEGREE: usize = 3; // d + 1 in HyperNova/Cyclefold papers
-    let interpolation_constants = [ // (i, \prod_{j != i} (i - j))
+    // d + 1 in HyperNova/Cyclefold papers
+    const MAX_DEGREE: usize = 3;
+
+    // (i, \prod_{j != i} (i - j))
+    let interpolation_constants = [
         (G1::ScalarField::from(0), G1::ScalarField::from(-6)), // (0 - 1)(0 - 2)(0 - 3) = -6
-        (G1::ScalarField::from(1), G1::ScalarField::from( 2)), // (1 - 0)(1 - 2)(1 - 3) =  2
+        (G1::ScalarField::from(1), G1::ScalarField::from(2)),  // (1 - 0)(1 - 2)(1 - 3) =  2
         (G1::ScalarField::from(2), G1::ScalarField::from(-2)), // (2 - 0)(2 - 1)(2 - 3) = -2
-        (G1::ScalarField::from(3), G1::ScalarField::from( 6)), // (3 - 0)(3 - 1)(3 - 2) =  6
+        (G1::ScalarField::from(3), G1::ScalarField::from(6)),  // (3 - 0)(3 - 1)(3 - 2) =  6
     ];
 
     random_oracle.absorb(&hypernova_proof.poly_info);
@@ -104,29 +111,31 @@ where
     let mut rs: Vec<FpVar<G1::ScalarField>> = vec![];
     for round in 0..s {
         random_oracle.absorb(&hypernova_proof.sumcheck_proof[round]);
-
-        rs.push(FpVar::<G1::ScalarField>::Constant(
-            random_oracle.squeeze_field_elements(SQUEEZE_NATIVE_ELEMENTS_NUM)[0],
-        ));
-
+        rs.push(random_oracle.squeeze_field_elements(SQUEEZE_NATIVE_ELEMENTS_NUM)?[0]);
         random_oracle.absorb(&rs[round]);
 
         let evals = hypernova_proof.sumcheck_proof[round];
         expected.conditional_enforce_equal(evals[0] + evals[1], should_enforce)?;
 
-        // interpolate and evaluate polynomial
+        // lagrange interpolate and evaluate polynomial
 
         let prod = (0..(MAX_DEGREE + 1))
             .map(|i| rs[round] - interpolation_constants[i].0)
             .product();
 
         expected = (0..(MAX_DEGREE + 1))
-            .map(|i| (prod * evals[i]) / (interpolation_constants[i].1 * (rs[round] - interpolation_constants[i].0)))
+            .map(|i| {
+                (prod * evals[i])
+                    / ((rs[round] - interpolation_constants[i].0) * interpolation_constants[i].1)
+            })
             .sum();
     }
 
+    let p_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE);
+    let n_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE.neg());
+
     let e1 = (0..U.var().rs.len())
-        .map(|i| U.var().rs[i] * rs[i] + (G1::ScalarField::ONE - U.var().rs[i]) * (G1::ScalarField::ONE - rs[i]))
+        .map(|i| U.var().rs[i] * rs[i] + (p_one - U.var().rs[i]) * (p_one - rs[i]))
         .product();
 
     let cl = gamma_powers
@@ -137,16 +146,18 @@ where
         * e1;
 
     let e2 = (0..beta.len())
-        .map(|i| beta[i] * rs[i] + (G1::ScalarField::ONE - beta[i]) * (G1::ScalarField::ONE - rs[i]))
+        .map(|i| beta[i] * rs[i] + (p_one - beta[i]) * (p_one - rs[i]))
         .product();
 
-    let cSs = [
-        (G1::ScalarField::ONE, [0, 1]),
-        (G1::ScalarField::ONE.neg(), [2]),
-    ];
+    let cSs = vec![(p_one, vec![0, 1]), (n_one, vec![2])];
 
     let cr = (0..NUM_MULTISETS)
-        .map(|i| cSs[i].1.iter().fold(cSs[i].0, |acc, j| acc * hypernova_proof.thetas[*j]))
+        .map(|i| {
+            cSs[i]
+                .1
+                .iter()
+                .fold(cSs[i].0, |acc, j| acc * hypernova_proof.thetas[*j])
+        })
         .sum()
         * gamma.pow_le(&Boolean::constant_vec_from_bytes(
             &(NUM_MATRICES + 1).to_le_bytes(),
@@ -166,7 +177,7 @@ where
     let comm_W_secondary_instance = secondary::R1CSInstanceVar::from_allocated_input(
         comm_W_secondary_instance,
         &U.var().commitment_W,
-        commitment_T,
+        &u.var().commitment_W,
     )?;
     let (r_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
     r_secondary.conditional_enforce_equal(rho, should_enforce)?;
@@ -193,7 +204,8 @@ where
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),
         rs,
-        hypernova_proof.sigmas
+        hypernova_proof
+            .sigmas
             .iter()
             .zip(hypernova_proof.thetas.iter())
             .map(|(a, b)| a + &rho_scalar * b)
