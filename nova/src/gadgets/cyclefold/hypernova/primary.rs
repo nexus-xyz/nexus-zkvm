@@ -16,9 +16,8 @@ use ark_spartan::polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait};
 use ark_std::fmt::Debug;
 
 use super::NonNativeAffineVar;
-use crate::folding::hypernova::cyclefold::nimfs::{CCSInstance, LCCSInstance};
+use crate::folding::hypernova::cyclefold::{HNProof, CCSInstance, LCCSInstance};
 use crate::folding::hypernova::ml_sumcheck::PolynomialInfo;
-use crate::folding::hypernova::nimfs::{NIMFSProof as HNProof};
 
 #[must_use]
 #[derive(Debug)]
@@ -449,7 +448,7 @@ where
     G1::BaseField: PrimeField,
     RO: SpongeWithGadget<G1::ScalarField>,
 {
-    fn new_variable<T: Borrow<PolynomialInfo>>(
+    fn new_variable<T: Borrow<HNProof<G1, RO>>>(
         cs: impl Into<Namespace<G1::ScalarField>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
         mode: AllocationMode,
@@ -465,7 +464,7 @@ where
 
         let sumcheck_proof = sumcheck_proof
             .iter()
-            .map(|msg| msg.iter().map(|eval| FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(eval), mode)).collect())
+            .map(|msg| msg.evaluations.iter().map(|eval| FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(eval), mode)).collect())
             .collect::<Result<_, _>>()?;
 
         let poly_info = PolynomialInfoVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(poly_info), mode);
