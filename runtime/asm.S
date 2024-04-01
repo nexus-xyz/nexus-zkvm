@@ -35,6 +35,7 @@ alloc_:
     lw s0, _heap
     add a0, a0, s0
     bgeu a0, sp, abort
-    la s0, _heap
-    sw a0, 0(s0)
+    la s1, _heap
+    sw a0, 0(s1)
+    mv a0, s0
     ret
