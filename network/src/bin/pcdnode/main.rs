@@ -18,7 +18,7 @@ use hyper::{
 };
 use tracing_subscriber::EnvFilter;
 
-use nexus_prover::pp::gen_or_load;
+use nexus_prover::pp::{default_setup_fn, gen_or_load};
 
 use nexus_network::*;
 use post::*;
@@ -86,7 +86,7 @@ async fn main() -> Result<()> {
 
     let opts = Opts::parse();
 
-    let pp = gen_or_load(false, 0, &opts.pp_file, None)?;
+    let pp = gen_or_load(false, 0, &opts.pp_file, default_setup_fn())?;
     let state = WorkerState::new(pp);
 
     start_local_workers(state.clone())?;

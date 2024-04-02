@@ -13,7 +13,7 @@ use nexus_prover::{
     pp::{gen_or_load, gen_to_file, load_pp},
     prove_par, prove_par_com, prove_seq, run, save_proof,
     srs::load_srs,
-    types::{ComPCDNode, ComPP},
+    types::{pedersen_setup, setup_by_value_fn, ComPCDNode, ComPP},
     LOG_TARGET,
 };
 use nexus_vm::riscv::VMOpts;
@@ -180,15 +180,23 @@ fn main() -> anyhow::Result<()> {
             if par {
                 if srs_file.is_some() {
                     let srs = load_srs(&srs_file.unwrap())?;
-                    let proof =
-                        prove_par_com(gen_or_load(gen, vm.k, &pp_file, Some(&(srs)))?, trace)?;
+                    let proof = prove_par_com(
+                        gen_or_load(gen, vm.k, &pp_file, Some(setup_by_value_fn(srs)))?,
+                        trace,
+                    )?;
                     save_proof(proof, path)
                 } else {
-                    let proof = prove_par(gen_or_load(gen, vm.k, &pp_file, Some(&()))?, trace)?;
+                    let proof = prove_par(
+                        gen_or_load(gen, vm.k, &pp_file, Some(pedersen_setup))?,
+                        trace,
+                    )?;
                     save_proof(proof, path)
                 }
             } else {
-                let proof = prove_seq(&gen_or_load(gen, vm.k, &pp_file, Some(&()))?, trace)?;
+                let proof = prove_seq(
+                    &gen_or_load(gen, vm.k, &pp_file, Some(pedersen_setup))?,
+                    trace,
+                )?;
                 save_proof(proof, path)
             }
         }

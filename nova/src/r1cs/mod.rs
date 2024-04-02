@@ -621,9 +621,10 @@ pub(crate) mod tests {
     use super::*;
     use crate::pedersen::PedersenCommitment;
 
+    use ark_bn254::{g1::Config, Fr as Scalar, G1Projective as G};
     use ark_ff::Field;
     use ark_relations::r1cs::Matrix;
-    use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
+    // use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
 
     pub(crate) fn to_field_sparse<G: CurveGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
         let mut coo_matrix = Matrix::new();
@@ -674,10 +675,10 @@ pub(crate) mod tests {
         const NUM_WITNESS: usize = 1;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<Config>::setup(NUM_WITNESS, &[]);
 
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &a, &a)?;
-        let instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
+        let instance = RelaxedR1CSInstance::<G, PedersenCommitment<Config>>::new(&shape);
         let witness = RelaxedR1CSWitness::<G>::zero(&shape);
 
         shape.is_relaxed_satisfied(&instance, &witness, &pp)?;
@@ -721,13 +722,14 @@ pub(crate) mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<Config>::setup(NUM_WITNESS, &[]);
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<Config>::commit(&pp, &W);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
+        let instance =
+            R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &commitment_W, &X)?;
         let witness = R1CSWitness::<G>::new(&shape, &W)?;
 
         shape.is_satisfied(&instance, &witness, &pp)?;
@@ -735,7 +737,7 @@ pub(crate) mod tests {
         // Change commitment.
         let invalid_commitment = commitment_W.double();
         let instance =
-            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &invalid_commitment, &X)?;
+            R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &invalid_commitment, &X)?;
         assert_eq!(
             shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
@@ -743,9 +745,9 @@ pub(crate) mod tests {
 
         // Provide invalid witness.
         let invalid_W = to_field_elements::<G>(&[4, 9, 27, 30]);
-        let commitment_invalid_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_invalid_W = PedersenCommitment::<Config>::commit(&pp, &W);
         let instance =
-            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_invalid_W, &X)?;
+            R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &commitment_invalid_W, &X)?;
         let invalid_witness = R1CSWitness::<G>::new(&shape, &invalid_W)?;
         assert_eq!(
             shape.is_satisfied(&instance, &invalid_witness, &pp),
@@ -755,7 +757,7 @@ pub(crate) mod tests {
         // Provide invalid public input.
         let invalid_X = to_field_elements::<G>(&[1, 36]);
         let instance =
-            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &invalid_X)?;
+            R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &commitment_W, &invalid_X)?;
         assert_eq!(
             shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
@@ -779,17 +781,19 @@ pub(crate) mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<Config>::setup(NUM_WITNESS, &[]);
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<Config>::commit(&pp, &W);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
+        let instance =
+            R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &commitment_W, &X)?;
         let witness = R1CSWitness::<G>::new(&shape, &W)?;
 
-        let relaxed_instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&instance);
+        let relaxed_instance =
+            RelaxedR1CSInstance::<G, PedersenCommitment<Config>>::from(&instance);
         let relaxed_witness = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &witness);
 
         shape.is_relaxed_satisfied(&relaxed_instance, &relaxed_witness, &pp)?;
@@ -813,17 +817,17 @@ pub(crate) mod tests {
         const NUM_PUBLIC: usize = 2;
         const r: Scalar = Scalar::ONE;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<Config>::setup(NUM_WITNESS, &[]);
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<Config>::commit(&pp, &W);
 
-        let U2 = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
+        let U2 = R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &commitment_W, &X)?;
         let W2 = R1CSWitness::<G>::new(&shape, &W)?;
 
-        let U1 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&U2);
+        let U1 = RelaxedR1CSInstance::<G, PedersenCommitment<Config>>::from(&U2);
         let W1 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &W2);
 
         let (T, commitment_T) = commit_T(&shape, &pp, &U1, &W1, &U2, &W2)?;
@@ -858,17 +862,17 @@ pub(crate) mod tests {
         const NUM_PUBLIC: usize = 2;
         const r: Scalar = Scalar::ONE;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<Config>::setup(NUM_WITNESS, &[]);
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<Config>::commit(&pp, &W);
 
-        let u = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
+        let u = R1CSInstance::<G, PedersenCommitment<Config>>::new(&shape, &commitment_W, &X)?;
         let w = R1CSWitness::<G>::new(&shape, &W)?;
 
-        let mut U1 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&u);
+        let mut U1 = RelaxedR1CSInstance::<G, PedersenCommitment<Config>>::from(&u);
         let mut W1 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &w);
 
         for _ in 0..3 {

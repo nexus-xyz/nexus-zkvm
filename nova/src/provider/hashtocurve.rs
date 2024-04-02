@@ -4,12 +4,8 @@
 // TODO: introduce isogeny for grumpkin and pasta cycles to arkworks and replace this implementation
 // with [`ark_ec::hashing::curve_maps::wb::WBMap`].
 
-use ark_ec::{
-    short_weierstrass::{Affine, SWCurveConfig},
-    ScalarMul,
-};
-use ark_ff::{field_hashers::hash_to_field, BigInteger, Field, PrimeField, Zero};
-use sha3::digest::{ExtendableOutput, Update};
+use ark_ec::short_weierstrass::{Affine, SWCurveConfig};
+use ark_ff::{BigInteger, Field, PrimeField, Zero};
 
 fn svdw_map_to_curve<C: SWCurveConfig>(
     u: C::BaseField,
@@ -132,36 +128,6 @@ where
     fn map_to_curve(u: Self::BaseField) -> Affine<Self> {
         svdw_map_to_curve(u, Self::C, Self::Z)
     }
-
-    fn batch_map_to_curve(domain: &[u8], bytes: &[u8], len: usize) -> Vec<Affine<Self>> {
-        const SEC_PARAM: usize = 128;
-
-        let mut hasher = sha3::Shake256::default();
-        hasher.update(domain);
-        hasher.update(bytes);
-        let mut reader = hasher.finalize_xof();
-
-        let mut points = Vec::with_capacity(len);
-
-        for _ in 0..len {
-            let u1 = hash_to_field::<
-                Self::BaseField,
-                <sha3::Shake256 as ExtendableOutput>::Reader,
-                SEC_PARAM,
-            >(&mut reader);
-            let u2 = hash_to_field::<
-                Self::BaseField,
-                <sha3::Shake256 as ExtendableOutput>::Reader,
-                SEC_PARAM,
-            >(&mut reader);
-            let p1 = Self::map_to_curve(u1);
-            let p2 = Self::map_to_curve(u2);
-
-            points.push(p1 + p2);
-        }
-
-        ScalarMul::batch_convert_to_mul_base(&points)
-    }
 }
 
 // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.html#name-the-sgn0-function-2
@@ -177,6 +143,7 @@ fn sgn0<F: PrimeField>(x: F) -> u8 {
     x.into_bigint().is_odd() as u8
 }
 
+#[allow(unused)]
 fn svdw_precomputed_constants<C: SWCurveConfig>(z: C::BaseField) -> [C::BaseField; 4]
 where
     C::BaseField: PrimeField,

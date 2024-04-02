@@ -203,7 +203,7 @@ mod tests {
             ark_bn254::g1::Config,
             ark_grumpkin::GrumpkinConfig,
             Zeromorph<ark_bn254::Bn254>,
-            PedersenCommitment<ark_grumpkin::Projective>,
+            PedersenCommitment<ark_grumpkin::GrumpkinConfig>,
         >()
         .unwrap();
     }
@@ -213,7 +213,7 @@ mod tests {
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
         C1: PolyCommitmentScheme<Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PolyCommitmentKey: Clone,
@@ -229,7 +229,7 @@ mod tests {
 
         let pp_secondary = C2::setup(
             shape_secondary.num_vars + shape_secondary.num_constraints,
-            &(),
+            &[],
         );
 
         let X = to_field_elements::<Projective<G1>>((vec![0; shape.num_io]).as_slice());

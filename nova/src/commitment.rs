@@ -68,7 +68,7 @@ pub trait CommitmentScheme<G: CurveGroup>: Send + Sync {
     type PP: CanonicalSerialize + CanonicalDeserialize + Sync;
 
     /// Auxiliary data used for setup (such as an SRS)
-    type SetupAux;
+    type SetupAux: ?Sized;
 
     /// Commitment type.
     type Commitment: Commitment<G>;
