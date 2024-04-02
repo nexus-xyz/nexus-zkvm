@@ -18,11 +18,13 @@ use crate::{command::public_params::setup_params, LOG_TARGET};
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
-        common_args: CommonProveArgs { profile, bin },
+        common_args: CommonProveArgs { release, profile, bin },
         network,
         url,
         local_args,
     } = args;
+
+    let profile = if release { "release".to_string() } else { profile };
 
     let path = path_to_artifact(bin, &profile)?;
     let vm_config = vm_config::VmConfig::from_env()?;
