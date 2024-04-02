@@ -2,15 +2,20 @@
 #![no_main]
 
 extern crate alloc;
+use alloc::collections::BTreeSet;
+use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
-use alloc::string::ToString;
-use alloc::collections::BTreeSet;
 
 use nexus_rt::{print, println, Write};
 
-fn stable_matching(n: usize, mut employers: BTreeSet<usize>, mut candidates: BTreeSet<usize>, employer_prefs: Vec<Vec<usize>>, candidate_prefs: Vec<Vec<usize>>) -> Vec<Option<usize>> {
-
+fn stable_matching(
+    n: usize,
+    mut employers: BTreeSet<usize>,
+    mut candidates: BTreeSet<usize>,
+    employer_prefs: Vec<Vec<usize>>,
+    candidate_prefs: Vec<Vec<usize>>,
+) -> Vec<Option<usize>> {
     let mut hires: Vec<Option<usize>> = vec![None; n];
 
     while !employers.is_empty() {
@@ -24,8 +29,13 @@ fn stable_matching(n: usize, mut employers: BTreeSet<usize>, mut candidates: BTr
 
                 break;
             } else {
-                let current = hires.iter().position(|&x| x.is_some() && *c == x.unwrap()).unwrap();
-                if candidate_prefs[*c].iter().position(|&x| next == x) < candidate_prefs[*c].iter().position(|&x| current == x) {
+                let current = hires
+                    .iter()
+                    .position(|&x| x.is_some() && *c == x.unwrap())
+                    .unwrap();
+                if candidate_prefs[*c].iter().position(|&x| next == x)
+                    < candidate_prefs[*c].iter().position(|&x| current == x)
+                {
                     assert!(employers.insert(current));
 
                     hires[next] = Some(*c);
@@ -42,7 +52,6 @@ fn stable_matching(n: usize, mut employers: BTreeSet<usize>, mut candidates: BTr
 
 #[nexus_rt::main]
 fn main() {
-
     let n = 10;
     let m = 8;
     assert!(m < n);
@@ -89,8 +98,18 @@ fn main() {
 
     print!("Found matching (employer, candidate): ");
     for i in 0..n {
-        if i > 0 { print!(", ") }
-        print!("({}, {})", i, if hires[i].is_some() { hires[i].unwrap().to_string() } else { "None".to_string() });
+        if i > 0 {
+            print!(", ")
+        }
+        print!(
+            "({}, {})",
+            i,
+            if hires[i].is_some() {
+                hires[i].unwrap().to_string()
+            } else {
+                "None".to_string()
+            }
+        );
     }
     println!("\n");
 }
