@@ -6,9 +6,9 @@ pub struct RunArgs {
     #[arg(short)]
     pub verbose: bool,
 
-    /// Build artifacts in release mode, with optimizations.
-    #[arg(short, long)]
-    pub release: bool,
+    /// Build artifacts with the specified profile. "release-unoptimized" is default.
+    #[arg(long, default_value = "release-unoptimized")]
+    pub profile: String,
 
     /// Name of the bin target to run.
     #[arg(long)]

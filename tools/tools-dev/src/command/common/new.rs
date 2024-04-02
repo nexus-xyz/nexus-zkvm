@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{fs, path::PathBuf, io::Write};
 
 use anyhow::Context;
 use clap::Args;
@@ -30,6 +30,16 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
             "https://github.com/nexus-xyz/nexus-zkvm.git",
             "nexus-rt",
         ],
+    )?;
+
+    let mut fp = fs::OpenOptions::new()
+        .append(true)
+        .open(path.join("Cargo.toml"))?;
+
+    writeln!(fp, concat!("\n",
+                         "[profile.release-unoptimized]",
+                         "inherits = \"release\"",
+                         "opt-level = 0")
     )?;
 
     // .cargo/config
