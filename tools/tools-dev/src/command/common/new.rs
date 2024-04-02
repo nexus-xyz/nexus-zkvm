@@ -37,9 +37,9 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
         .open(path.join("Cargo.toml"))?;
 
     writeln!(fp, concat!("\n",
-                         "[profile.release-unoptimized]",
-                         "inherits = \"release\"",
-                         "opt-level = 0")
+                         "[profile.release-unoptimized]\n",
+                         "inherits = \"release\"\n",
+                         "opt-level = 0\n")
     )?;
 
     // .cargo/config
