@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf, io::Write};
+use std::{fs, io::Write, path::PathBuf};
 
 use anyhow::Context;
 use clap::Args;
@@ -36,10 +36,14 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
         .append(true)
         .open(path.join("Cargo.toml"))?;
 
-    writeln!(fp, concat!("\n",
-                         "[profile.release-unoptimized]\n",
-                         "inherits = \"release\"\n",
-                         "opt-level = 0\n")
+    writeln!(
+        fp,
+        concat!(
+            "\n",
+            "[profile.release-unoptimized]\n",
+            "inherits = \"release\"\n",
+            "opt-level = 0\n"
+        )
     )?;
 
     // .cargo/config

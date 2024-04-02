@@ -7,7 +7,11 @@ use crate::{
 
 pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
     let RunArgs { verbose, release, profile, bin } = args;
-    let profile = if release { "release".to_string() } else { profile };
+    let profile = if release {
+        "release".to_string()
+    } else {
+        profile
+    };
 
     run_vm(bin, verbose, &profile)
 }

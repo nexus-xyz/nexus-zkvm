@@ -27,7 +27,11 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         local_args,
     } = args;
 
-    let profile = if release { "release".to_string() } else { profile };
+    let profile = if release {
+        "release".to_string()
+    } else {
+        profile
+    };
 
     // make sure configs are compiled
     compile_env_configs(false)?;

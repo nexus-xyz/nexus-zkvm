@@ -24,7 +24,11 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         local_args,
     } = args;
 
-    let profile = if release { "release".to_string() } else { profile };
+    let profile = if release {
+        "release".to_string()
+    } else {
+        profile
+    };
 
     let path = path_to_artifact(bin, &profile)?;
     let vm_config = vm_config::VmConfig::from_env()?;
