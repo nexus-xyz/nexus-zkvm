@@ -1,4 +1,4 @@
-**NOTE:** 
+**NOTE:**
 This crate is a fork from the [Spartan implementation in
 arkworks](https://github.com/arkworks-rs/spartan), which
 is itself a fork of
@@ -7,16 +7,16 @@ Arkworks backend. The primary changes are:
 - implementation of the "modified Spartan for committed relaxed r1cs"
   construction from the [Nova paper](https://eprint.iacr.org/2021/370). Compare
   to [Microsoft's Nova
-  implementation](https://github.com/microsoft/Nova/tree/main/src/spartan). 
+  implementation](https://github.com/microsoft/Nova/tree/main/src/spartan).
 - introduction of a generic interface for
   [multilinear polynomial
   commitments](https://github.com/nexus-xyz/nexus-zkvm/tree/main/spartan/src/polycommitments)
   and modification of the Spartan code to be generic over this interface.
   - this is adapted from the [Arkworks `poly-commit`
     crate](https://github.com/arkworks-rs/poly-commit), but simplified and
-    specialized to our context. 
+    specialized to our context.
 - implementation of the [Zeromorph multilinear polynomial commitment
-  scheme](https://eprint.iacr.org/2023/917). 
+  scheme](https://eprint.iacr.org/2023/917).
 
 ----------------------------------------------------------------
 # Spartan: High-speed zkSNARKs without trusted setup
