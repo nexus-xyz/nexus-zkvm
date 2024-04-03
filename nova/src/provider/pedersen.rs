@@ -72,6 +72,7 @@ where
 
     let mut points = Vec::with_capacity(len);
 
+    // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.html#section-3-6.1.1
     for _ in 0..len {
         let u1 =
             hash_to_field::<G::BaseField, <sha3::Shake256 as ExtendableOutput>::Reader, SEC_PARAM>(
