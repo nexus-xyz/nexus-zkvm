@@ -172,6 +172,8 @@ where
 }
 
 mod curves {
+    //! Constants generated with sage scripts from https://github.com/cfrg/draft-irtf-cfrg-hash-to-curve.
+
     use super::SVDWMap;
     use ark_ff::{Field, MontFp};
 
