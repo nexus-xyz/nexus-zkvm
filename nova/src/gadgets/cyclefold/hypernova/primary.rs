@@ -112,12 +112,14 @@ where
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
             || {
-                Ok(r1cs
-                    .borrow()
-                    .commitment_W
-                    .try_into_affine_point()
-                    .unwrap()
-                    .into())
+                Ok::<Projective<G1>, SynthesisError>(
+                    r1cs.borrow()
+                        .commitment_W
+                        .clone()
+                        .try_into_affine_point()
+                        .unwrap()
+                        .into(),
+                )
             },
             mode,
         )?;
@@ -274,12 +276,14 @@ where
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
             || {
-                Ok(r1cs
-                    .borrow()
-                    .commitment_W
-                    .try_into_affine_point()
-                    .unwrap()
-                    .into())
+                Ok::<Projective<G1>, SynthesisError>(
+                    r1cs.borrow()
+                        .commitment_W
+                        .clone()
+                        .try_into_affine_point()
+                        .unwrap()
+                        .into(),
+                )
             },
             mode,
         )?;
@@ -480,8 +484,7 @@ where
             })
             .collect::<Result<_, _>>()?;
 
-        let poly_info =
-            PolynomialInfoVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
+        let poly_info = PolynomialInfoVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
 
         let sigmas = sigmas
             .iter()

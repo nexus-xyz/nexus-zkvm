@@ -1,7 +1,10 @@
 #![deny(unsafe_code)]
 
 use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
-use ark_ec::{AdditiveGroup, short_weierstrass::{Projective, SWCurveConfig}};
+use ark_ec::{
+    short_weierstrass::{Projective, SWCurveConfig},
+    AdditiveGroup,
+};
 use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::AllocVar,
@@ -11,8 +14,8 @@ use ark_r1cs_std::{
     groups::curves::short_weierstrass::ProjectiveVar,
     R1CSVar, ToBitsGadget,
 };
-use ark_spartan::polycommitments::PolyCommitmentScheme;
 use ark_relations::r1cs::SynthesisError;
+use ark_spartan::polycommitments::PolyCommitmentScheme;
 use std::ops::Neg;
 
 pub(crate) mod primary;
@@ -79,14 +82,14 @@ where
 
     let s: usize = ((cs.num_constraints() - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
 
-    let gamma: FpVar::<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0];
-    let beta: Vec<FpVar::<G1::ScalarField>> = random_oracle.squeeze_field_elements(s)?;
+    let gamma: FpVar<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0];
+    let beta: Vec<FpVar<G1::ScalarField>> = random_oracle.squeeze_field_elements(s)?;
 
-    let gamma_powers: Vec<FpVar::<G1::ScalarField>> = (1..=NUM_MATRICES)
+    let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=NUM_MATRICES)
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
-        .collect::<Result<Vec<FpVar::<G1::ScalarField>>, SynthesisError>>()?;
+        .collect::<Result<Vec<FpVar<G1::ScalarField>>, SynthesisError>>()?;
 
-    let mut expected: FpVar::<G1::ScalarField> = gamma_powers
+    let mut expected: FpVar<G1::ScalarField> = gamma_powers
         .iter()
         .zip(U.var().vs.iter())
         .map(|(a, b)| &(a * b))
@@ -105,24 +108,22 @@ where
 
     random_oracle.absorb(&hypernova_proof.poly_info);
 
-    let zero = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO);
-    let p_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE);
-    let n_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE.neg());
-
     let mut rs: Vec<FpVar<G1::ScalarField>> = vec![];
     for round in 0..s {
         random_oracle.absorb(&hypernova_proof.sumcheck_proof[round]);
         rs.push(random_oracle.squeeze_field_elements(SQUEEZE_NATIVE_ELEMENTS_NUM)?[0]);
         random_oracle.absorb(&rs[round]);
 
-        let evals = hypernova_proof.sumcheck_proof[round];
+        let evals = &hypernova_proof.sumcheck_proof[round];
         expected.conditional_enforce_equal(&(evals[0] + evals[1]), should_enforce)?;
 
         // lagrange interpolate and evaluate polynomial
 
         // \prod_{j} x - j
-        let prod: FpVar::<G1::ScalarField> = (0..(MAX_DEGREE + 1))
-            .fold(p_one, |acc, i| acc * (rs[round] - interpolation_constants[i].0));
+        let prod: FpVar<G1::ScalarField> = (0..(MAX_DEGREE + 1)).fold(
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
+            |acc, i| acc * (rs[round] - interpolation_constants[i].0),
+        );
 
         // p(x) = \sum_{i} (\prod_{j} x - j) * y[i] / (x - i) * (\prod_{j != i} (i - j))
         //      = \sum_{i} y[i] * (\prod_{j != i} x - j) / (\prod_{j != i} i - j)
@@ -130,17 +131,25 @@ where
         expected = (0..(MAX_DEGREE + 1))
             .map(|i| {
                 let num = prod * evals[i];
-                let denom = (rs[round] - interpolation_constants[i].0) * interpolation_constants[i].1;
+                let denom =
+                    (rs[round] - interpolation_constants[i].0) * interpolation_constants[i].1;
                 num.mul_by_inverse(&denom)
             })
-            .collect::<Result<Vec<FpVar::<G1::ScalarField>>, SynthesisError>>()?
+            .collect::<Result<Vec<FpVar<G1::ScalarField>>, SynthesisError>>()?
             .iter()
             .sum();
     }
 
     let e1 = (0..U.var().rs.len())
-        .map(|i| U.var().rs[i] * rs[i] + (p_one - U.var().rs[i]) * (p_one - rs[i]))
-        .fold(p_one, |acc, x| acc * x);
+        .map(|i| {
+            U.var().rs[i] * rs[i]
+                + (FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE) - U.var().rs[i])
+                    * (FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE) - rs[i])
+        })
+        .fold(
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
+            |acc, x| acc * x,
+        );
 
     let cl = gamma_powers
         .iter()
@@ -150,10 +159,26 @@ where
         * e1;
 
     let e2 = (0..beta.len())
-        .map(|i| beta[i] * rs[i] + (p_one - beta[i]) * (p_one - rs[i]))
-        .fold(p_one, |acc, x| acc * x);
+        .map(|i| {
+            beta[i] * rs[i]
+                + (FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE) - beta[i])
+                    * (FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE) - rs[i])
+        })
+        .fold(
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
+            |acc, x| acc * x,
+        );
 
-    let cSs = vec![(p_one, vec![0, 1]), (n_one, vec![2])];
+    let cSs = vec![
+        (
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
+            vec![0, 1],
+        ),
+        (
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE.neg()),
+            vec![2],
+        ),
+    ];
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| {
