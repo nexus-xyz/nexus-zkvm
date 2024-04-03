@@ -1,7 +1,7 @@
 #![deny(unsafe_code)]
 
 use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
-use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
+use ark_ec::{AdditiveGroup, short_weierstrass::{Projective, SWCurveConfig}};
 use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::AllocVar,
@@ -79,20 +79,17 @@ where
 
     let s: usize = ((cs.num_constraints() - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
 
-    let _gamma: G1::ScalarField =
-        random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-    let gamma = FpVar::<G1::ScalarField>::Constant(_gamma);
+    let gamma: FpVar::<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0];
+    let beta: Vec<FpVar::<G1::ScalarField>> = random_oracle.squeeze_field_elements(s)?;
 
-    let beta: Vec<G1::ScalarField> = random_oracle
-        .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
-
-    let gamma_powers = (1..=NUM_MATRICES)
+    let gamma_powers: Vec<FpVar::<G1::ScalarField>> = (1..=NUM_MATRICES)
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
-        .collect()?;
+        .collect::<Result<Vec<FpVar::<G1::ScalarField>>, SynthesisError>>()?;
 
-    let mut expected = gamma_powers
+    let mut expected: FpVar::<G1::ScalarField> = gamma_powers
+        .iter()
         .zip(U.var().vs.iter())
-        .map(|(a, b)| a * b)
+        .map(|(a, b)| &(a * b))
         .sum();
 
     // d + 1 in HyperNova/Cyclefold papers
@@ -108,6 +105,10 @@ where
 
     random_oracle.absorb(&hypernova_proof.poly_info);
 
+    let zero = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO);
+    let p_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE);
+    let n_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE.neg());
+
     let mut rs: Vec<FpVar<G1::ScalarField>> = vec![];
     for round in 0..s {
         random_oracle.absorb(&hypernova_proof.sumcheck_proof[round]);
@@ -115,56 +116,59 @@ where
         random_oracle.absorb(&rs[round]);
 
         let evals = hypernova_proof.sumcheck_proof[round];
-        expected.conditional_enforce_equal(evals[0] + evals[1], should_enforce)?;
+        expected.conditional_enforce_equal(&(evals[0] + evals[1]), should_enforce)?;
 
         // lagrange interpolate and evaluate polynomial
 
-        let prod = (0..(MAX_DEGREE + 1))
-            .map(|i| rs[round] - interpolation_constants[i].0)
-            .product();
+        // \prod_{j} x - j
+        let prod: FpVar::<G1::ScalarField> = (0..(MAX_DEGREE + 1))
+            .fold(p_one, |acc, i| acc * (rs[round] - interpolation_constants[i].0));
 
+        // p(x) = \sum_{i} (\prod_{j} x - j) * y[i] / (x - i) * (\prod_{j != i} (i - j))
+        //      = \sum_{i} y[i] * (\prod_{j != i} x - j) / (\prod_{j != i} i - j)
+        //      = \sum_{i} y[i] * (\prod_{j != i} (x - j) / (j - i))
         expected = (0..(MAX_DEGREE + 1))
             .map(|i| {
-                (prod * evals[i])
-                    / ((rs[round] - interpolation_constants[i].0) * interpolation_constants[i].1)
+                let num = prod * evals[i];
+                let denom = (rs[round] - interpolation_constants[i].0) * interpolation_constants[i].1;
+                num.mul_by_inverse(&denom)
             })
+            .collect::<Result<Vec<FpVar::<G1::ScalarField>>, SynthesisError>>()?
+            .iter()
             .sum();
     }
 
-    let p_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE);
-    let n_one = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE.neg());
-
     let e1 = (0..U.var().rs.len())
         .map(|i| U.var().rs[i] * rs[i] + (p_one - U.var().rs[i]) * (p_one - rs[i]))
-        .product();
+        .fold(p_one, |acc, x| acc * x);
 
     let cl = gamma_powers
         .iter()
         .zip(hypernova_proof.sigmas.iter())
-        .map(|a, b| a * b)
+        .map(|(a, b)| &(a * b))
         .sum::<FpVar<G1::ScalarField>>()
         * e1;
 
     let e2 = (0..beta.len())
         .map(|i| beta[i] * rs[i] + (p_one - beta[i]) * (p_one - rs[i]))
-        .product();
+        .fold(p_one, |acc, x| acc * x);
 
     let cSs = vec![(p_one, vec![0, 1]), (n_one, vec![2])];
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| {
-            cSs[i]
+            &cSs[i]
                 .1
                 .iter()
                 .fold(cSs[i].0, |acc, j| acc * hypernova_proof.thetas[*j])
         })
-        .sum()
+        .sum::<FpVar<G1::ScalarField>>()
         * gamma.pow_le(&Boolean::constant_vec_from_bytes(
             &(NUM_MATRICES + 1).to_le_bytes(),
         ))?
         * e2;
 
-    expected.conditional_enforce_equal(cl + cr, should_enforce)?;
+    expected.conditional_enforce_equal(&(cl + cr), should_enforce)?;
 
     // End HyperNova Verification Circuit
 
