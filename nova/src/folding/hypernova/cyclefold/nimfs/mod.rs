@@ -24,7 +24,6 @@ pub struct NIMFSProof<
     C2: CommitmentScheme<Projective<G2>>,
     RO,
 > {
-    pub(crate) commitment_T: C2::Commitment,
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
     pub(crate) hypernova_proof: HNProof<Projective<G1>, RO>,
     _poly_commitment: PhantomData<C1::Commitment>,
@@ -117,7 +116,6 @@ where
         let commitment_W_proof = secondary::Proof { commitment_T, U: W_comm_trace.0 };
 
         let proof = Self {
-            commitment_T,
             commitment_W_proof,
             hypernova_proof,
             _poly_commitment: PhantomData,

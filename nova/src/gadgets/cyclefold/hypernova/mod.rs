@@ -1,3 +1,4 @@
+#![allow(unused)]
 #![deny(unsafe_code)]
 
 use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
@@ -7,16 +8,13 @@ use ark_ec::{
 };
 use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
-    alloc::AllocVar,
     boolean::Boolean,
     eq::EqGadget,
     fields::{fp::FpVar, FieldVar},
-    groups::curves::short_weierstrass::ProjectiveVar,
-    R1CSVar, ToBitsGadget,
+    R1CSVar,
 };
 use ark_relations::r1cs::SynthesisError;
 use ark_spartan::polycommitments::PolyCommitmentScheme;
-use std::ops::Neg;
 
 pub(crate) mod primary;
 
@@ -27,8 +25,8 @@ use crate::{
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
     gadgets::{
-        cyclefold::{nova, secondary},
-        nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+        cyclefold::secondary,
+        nonnative::short_weierstrass::NonNativeAffineVar,
     },
 };
 
@@ -38,9 +36,8 @@ pub fn multifold<G1, G2, C1, C2, RO>(
     U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: &primary::CCSInstanceFromR1CSVar<G1, C1>,
-    commitment_T: &NonNativeAffineVar<G2>,
     commitment_W_proof: &secondary::ProofVar<G2, C2>,
-    hypernova_proof: &primary::ProofVar<G1, RO>,
+    hypernova_proof: &primary::ProofFromR1CSVar<G1, RO>,
     should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
     (
@@ -65,7 +62,7 @@ where
 
     random_oracle.absorb(&vk)?;
     random_oracle.absorb(&U.var())?;
-    random_oracle.absorb(&u)?;
+    random_oracle.absorb(&u.var())?;
 
     let (rho, rho_bits) = random_oracle
         .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
@@ -94,13 +91,10 @@ where
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
         .collect::<Result<Vec<FpVar<G1::ScalarField>>, SynthesisError>>()?;
 
-    let mut expected: FpVar<G1::ScalarField> = gamma_powers
-        .iter()
-        .zip(U.var().vs.iter())
-        .fold(
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
-            |acc, (a, b)| acc + (a * b),
-        );
+    let mut expected: FpVar<G1::ScalarField> = gamma_powers.iter().zip(U.var().vs.iter()).fold(
+        FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
+        |acc, (a, b)| acc + (a * b),
+    );
 
     // (i, \prod_{j != i} (i - j))
     let interpolation_constants = [
@@ -110,15 +104,15 @@ where
         (G1::ScalarField::from(3), G1::ScalarField::from(6)),  // (3 - 0)(3 - 1)(3 - 2) =  6
     ];
 
-    random_oracle.absorb(&hypernova_proof.poly_info)?;
+    random_oracle.absorb(&hypernova_proof.var().poly_info.var())?;
 
     let mut rs_p: Vec<FpVar<G1::ScalarField>> = vec![];
     for round in 0..s {
-        random_oracle.absorb(&hypernova_proof.sumcheck_proof[round])?;
+        random_oracle.absorb(&hypernova_proof.var().sumcheck_proof[round])?;
         let r = random_oracle.squeeze_field_elements(SQUEEZE_NATIVE_ELEMENTS_NUM)?[0].clone();
         random_oracle.absorb(&r)?;
 
-        let evals = &hypernova_proof.sumcheck_proof[round];
+        let evals = &hypernova_proof.var().sumcheck_proof[round];
         expected.conditional_enforce_equal(&(&evals[0] + &evals[1]), should_enforce)?;
 
         // lagrange interpolate and evaluate polynomial
@@ -135,8 +129,7 @@ where
         expected = (0..(MAX_DEGREE + 1))
             .map(|i| {
                 let num = &prod * &evals[i];
-                let denom =
-                    (&r - interpolation_constants[i].0) * interpolation_constants[i].1;
+                let denom = (&r - interpolation_constants[i].0) * interpolation_constants[i].1;
                 num.mul_by_inverse(&denom)
             })
             .collect::<Result<Vec<FpVar<G1::ScalarField>>, SynthesisError>>()?
@@ -181,27 +174,26 @@ where
     ];
      */
 
-    let cl = gamma_powers
-        .iter()
-        .zip(hypernova_proof.sigmas.iter())
-        .fold(
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
-            |acc, (a, b)| acc + (a * b),
-        ) * e1;
+    let cl = gamma_powers.iter().zip(hypernova_proof.var().sigmas.iter()).fold(
+        FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
+        |acc, (a, b)| acc + (a * b),
+    ) * e1;
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| {
-            cSs[i]
-                .1
-                .iter()
-                .fold(FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(cSs[i].0)), |acc, j| acc * &hypernova_proof.thetas[*j])
+            cSs[i].1.iter().fold(
+                FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(cSs[i].0)),
+                |acc, j| acc * &hypernova_proof.var().thetas[*j],
+            )
         })
         .fold(
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
             |acc, x| acc + x,
-        ) * gamma.pow_le(&Boolean::constant_vec_from_bytes(
+        )
+        * gamma.pow_le(&Boolean::constant_vec_from_bytes(
             &(NUM_MATRICES + 1).to_le_bytes(),
-        ))? * e2;
+        ))?
+        * e2;
 
     expected.conditional_enforce_equal(&(cl + cr), should_enforce)?;
 
@@ -209,7 +201,7 @@ where
 
     let secondary::ProofVar {
         U: comm_W_secondary_instance,
-        commitment_T: commitment_T,
+        commitment_T,
     } = &commitment_W_proof;
 
     // The rest of the secondary public input is reconstructed from primary instances.
@@ -243,10 +235,10 @@ where
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),
         rs_p,
-        hypernova_proof
+        hypernova_proof.var()
             .sigmas
             .iter()
-            .zip(hypernova_proof.thetas.iter())
+            .zip(hypernova_proof.var().thetas.iter())
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),
     );
