@@ -27,7 +27,7 @@ use crate::{
     gadgets::{cyclefold::secondary, nonnative::short_weierstrass::NonNativeAffineVar},
 };
 
-pub fn multifoldFromR1CS<G1, G2, C1, C2, RO>(
+pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
     U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
@@ -248,8 +248,10 @@ mod tests {
 
     use crate::poseidon_config;
     use crate::{
-        folding::cyclefold::{RelaxedR1CSInstance, RelaxedR1CSWitness},
-        folding::hypernova::cyclefold::{HNProof, CCSWitness, CCSInstance, LCCSInstance},
+        folding::hypernova::cyclefold::{
+            nimfs::{NIMFSProof, CCSWitness, CCSInstance, LCCSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness},
+            secondary as multifold_secondary,
+        },
         pedersen::PedersenCommitment,
         ccs::mle::vec_to_mle,
         r1cs::tests::to_field_elements,
@@ -257,12 +259,13 @@ mod tests {
     };
     use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, Absorb};
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
-
     use ark_ff::Field;
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
     use ark_r1cs_std::{fields::fp::FpVar, prelude::AllocVar, R1CSVar};
     use ark_relations::r1cs::ConstraintSystem;
+
+    use rayon::iter::{ParallelIterator, IntoParallelRefIterator};
 
     #[test]
     fn verify_in_circuit() {
@@ -279,11 +282,10 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C1: PolyCommitmentScheme<Projective<G1>>,
         C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1::PP: Clone,
     {
         let config = poseidon_config();
 
@@ -314,19 +316,19 @@ mod tests {
             })
             .collect();
 
-        let U = LCCSInstance::<Projective<G1>, C1>::new(
+        let U = LCCSInstance::<G1, C1>::new(
             &shape,
             &commitment_W,
             &X,
             rs.as_slice(),
             vs.as_slice(),
-        )?;
+        ).unwrap();
 
         let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
 
         let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
-            HNProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp_secondary,
                 &config,
                 &vk,
@@ -358,14 +360,14 @@ mod tests {
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
         let (_U_cs, _U_secondary_cs) =
-            multifoldFromR1CS::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
+            multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
                 &config,
                 &vk_cs,
                 &U_cs,
                 &U_secondary_cs,
                 &u_cs,
+                &comm_W_proof,
                 &hypernova_proof,
-                comm_W_proof,
                 &Boolean::TRUE,
             )?;
 
@@ -386,8 +388,7 @@ mod tests {
         let (_, u, w, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
 
         let (proof, (folded_U_2, folded_W_2), (folded_U_secondary_2, folded_W_secondary_2)) =
-            HNProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
-                &pp,
+            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp_secondary,
                 &config,
                 &vk,
@@ -420,14 +421,14 @@ mod tests {
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
         let (_U_cs, _U_secondary_cs) =
-            multifoldFromR1CS::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
+            multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
                 &config,
                 &vk_cs,
                 &U_cs,
                 &U_secondary_cs,
                 &u_cs,
+                &comm_W_proof,
                 &hypernova_proof,
-                comm_W_proof,
                 &Boolean::TRUE,
             )?;
 
