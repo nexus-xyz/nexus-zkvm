@@ -485,7 +485,6 @@ where
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct ProofFromR1CSVar<G1, RO>(ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO>)
 where
@@ -536,7 +535,8 @@ where
             })
             .collect::<Result<_, _>>()?;
 
-        let poly_info = PolynomialInfoFromR1CSVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
+        let poly_info =
+            PolynomialInfoFromR1CSVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
 
         let sigmas = sigmas
             .iter()

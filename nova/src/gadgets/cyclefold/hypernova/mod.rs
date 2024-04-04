@@ -24,13 +24,10 @@ use crate::{
         cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
-    gadgets::{
-        cyclefold::secondary,
-        nonnative::short_weierstrass::NonNativeAffineVar,
-    },
+    gadgets::{cyclefold::secondary, nonnative::short_weierstrass::NonNativeAffineVar},
 };
 
-pub fn multifold<G1, G2, C1, C2, RO>(
+pub fn multifoldFromR1CS<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
     U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
@@ -161,23 +158,14 @@ where
             |acc, x| acc * x,
         );
 
-    /*
-    let cSs = vec![
-        (
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
-            vec![0, 1],
-        ),
-        (
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE.neg()),
-            vec![2],
-        ),
-    ];
-     */
-
-    let cl = gamma_powers.iter().zip(hypernova_proof.var().sigmas.iter()).fold(
-        FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
-        |acc, (a, b)| acc + (a * b),
-    ) * e1;
+    let cl = gamma_powers
+        .iter()
+        .zip(hypernova_proof.var().sigmas.iter())
+        .fold(
+            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
+            |acc, (a, b)| acc + (a * b),
+        )
+        * e1;
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| {
@@ -235,7 +223,8 @@ where
             .map(|(a, b)| a + &rho_scalar * b)
             .collect(),
         rs_p,
-        hypernova_proof.var()
+        hypernova_proof
+            .var()
             .sigmas
             .iter()
             .zip(hypernova_proof.var().thetas.iter())
@@ -256,28 +245,32 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::poseidon_config;
     use crate::{
-        folding::nova::cyclefold::{
-            nimfs::{NIMFSProof, RelaxedR1CSInstance, RelaxedR1CSWitness},
-            secondary as multifold_secondary,
-        },
+        folding::cyclefold::{RelaxedR1CSInstance, RelaxedR1CSWitness},
+        folding::hypernova::cyclefold::{HNProof, CCSWitness, CCSInstance, LCCSInstance},
         pedersen::PedersenCommitment,
-        poseidon_config,
-        test_utils::setup_test_r1cs,
+        ccs::mle::vec_to_mle,
+        r1cs::tests::to_field_elements,
+        test_utils::setup_test_ccs,
     };
     use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, Absorb};
+    use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 
     use ark_ff::Field;
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use ark_std::{test_rng, UniformRand};
     use ark_r1cs_std::{fields::fp::FpVar, prelude::AllocVar, R1CSVar};
     use ark_relations::r1cs::ConstraintSystem;
 
     #[test]
     fn verify_in_circuit() {
         verify_in_circuit_with_cycle::<
-            ark_pallas::PallasConfig,
-            ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::Projective>,
-            PedersenCommitment<ark_vesta::Projective>,
+            ark_bn254::g1::Config,
+            ark_grumpkin::GrumpkinConfig,
+            Zeromorph<ark_bn254::Bn254>,
+            PedersenCommitment<ark_grumpkin::Projective>,
         >()
         .unwrap();
     }
@@ -296,7 +289,9 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None, &());
+        let mut rng = test_rng();
+        let (shape, u, w, ck) = setup_test_ccs::<G1, C1>(3, None, Some(&mut rng));
+
         let shape_secondary = multifold_secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(
@@ -304,15 +299,34 @@ mod tests {
             &(),
         );
 
-        let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
-        let W = RelaxedR1CSWitness::<G1>::zero(&shape);
+        let X = to_field_elements::<Projective<G1>>((vec![0; shape.num_io]).as_slice());
+        let W = CCSWitness::zero(&shape);
+
+        let commitment_W = W.commit::<C1>(&ck);
+
+        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let rs: Vec<G1::ScalarField> = (0..s).map(|_| G1::ScalarField::rand(&mut rng)).collect();
+
+        let z = [X.as_slice(), W.W.as_slice()].concat();
+        let vs: Vec<G1::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
+            .map(|M| {
+                vec_to_mle(M.multiply_vec(&z).as_slice()).evaluate::<Projective<G1>>(rs.as_slice())
+            })
+            .collect();
+
+        let U = LCCSInstance::<Projective<G1>, C1>::new(
+            &shape,
+            &commitment_W,
+            &X,
+            rs.as_slice(),
+            vs.as_slice(),
+        )?;
 
         let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
 
         let (proof, (folded_U, folded_W), (folded_U_secondary, folded_W_secondary)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
-                &pp,
+            HNProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp_secondary,
                 &config,
                 &vk,
@@ -324,42 +338,42 @@ mod tests {
             .unwrap();
 
         let cs = ConstraintSystem::<G1::ScalarField>::new_ref();
-        let U_cs = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&U))?;
+        let U_cs = primary::LCCSInstanceFromR1CSVar::<G1, C1>::new_input(cs.clone(), || Ok(&U))?;
         let U_secondary_cs =
             secondary::RelaxedR1CSInstanceVar::<G2, C2>::new_input(cs.clone(), || {
                 Ok(&U_secondary)
             })?;
-        let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
+        let u_cs = primary::CCSInstanceFromR1CSVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
-        let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
-
-        let comm_E_proof = &proof.commitment_E_proof;
+        let hypernova_proof = &proof.hypernova_proof;
         let comm_W_proof = &proof.commitment_W_proof;
 
         let vk_cs = FpVar::new_input(cs.clone(), || Ok(vk))?;
-        let comm_E_proof =
-            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(&comm_E_proof[0]))?;
+        let hypernova_proof =
+            primary::ProofFromR1CSVar::<G1, PoseidonSponge<G1::ScalarField>>::new_input(
+                cs.clone(),
+                || Ok(hypernova_proof),
+            )?;
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
-        let proof_cs = (&comm_E_proof, &comm_W_proof);
 
-        let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
-            &config,
-            &vk_cs,
-            &U_cs,
-            &U_secondary_cs,
-            &u_cs,
-            &commitment_T_cs,
-            proof_cs,
-            &Boolean::TRUE,
-        )?;
+        let (_U_cs, _U_secondary_cs) =
+            multifoldFromR1CS::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
+                &config,
+                &vk_cs,
+                &U_cs,
+                &U_secondary_cs,
+                &u_cs,
+                &hypernova_proof,
+                comm_W_proof,
+                &Boolean::TRUE,
+            )?;
 
         let _U = _U_cs.value()?;
         let _U_secondary = _U_secondary_cs.value()?;
 
         assert_eq!(_U, folded_U);
-        shape.is_relaxed_satisfied(&_U, &folded_W, &pp).unwrap();
+        shape.is_satisfied_linearized(&_U, &folded_W, &ck).unwrap();
 
         assert_eq!(_U_secondary, folded_U_secondary);
         shape_secondary
@@ -369,10 +383,10 @@ mod tests {
         assert!(cs.is_satisfied().unwrap());
 
         // another round.
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp), &());
+        let (_, u, w, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
 
         let (proof, (folded_U_2, folded_W_2), (folded_U_secondary_2, folded_W_secondary_2)) =
-            NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
+            HNProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(
                 &pp,
                 &pp_secondary,
                 &config,
@@ -386,42 +400,44 @@ mod tests {
 
         let cs = ConstraintSystem::<G1::ScalarField>::new_ref();
         let U_cs =
-            primary::RelaxedR1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&folded_U))?;
+            primary::LCCSInstanceFromR1CSVar::<G1, C1>::new_input(cs.clone(), || Ok(&folded_U))?;
         let U_secondary_cs =
             secondary::RelaxedR1CSInstanceVar::<G2, C2>::new_input(cs.clone(), || {
-                Ok(&folded_U_secondary)
+                Ok(&U_secondary)
             })?;
-        let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
+        let u_cs = primary::CCSInstanceFromR1CSVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
-        let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
-
-        let comm_E_proof = &proof.commitment_E_proof;
+        let hypernova_proof = &proof.hypernova_proof;
         let comm_W_proof = &proof.commitment_W_proof;
 
         let vk_cs = FpVar::new_input(cs.clone(), || Ok(vk))?;
-        let comm_E_proof =
-            secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(&comm_E_proof[0]))?;
+        let hypernova_proof =
+            primary::ProofFromR1CSVar::<G1, PoseidonSponge<G1::ScalarField>>::new_input(
+                cs.clone(),
+                || Ok(hypernova_proof),
+            )?;
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
-        let proof_cs = (&comm_E_proof, &comm_W_proof);
 
-        let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
-            &config,
-            &vk_cs,
-            &U_cs,
-            &U_secondary_cs,
-            &u_cs,
-            &commitment_T_cs,
-            proof_cs,
-            &Boolean::TRUE,
-        )?;
+        let (_U_cs, _U_secondary_cs) =
+            multifoldFromR1CS::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
+                &config,
+                &vk_cs,
+                &U_cs,
+                &U_secondary_cs,
+                &u_cs,
+                &hypernova_proof,
+                comm_W_proof,
+                &Boolean::TRUE,
+            )?;
 
         let _U = _U_cs.value()?;
         let _U_secondary = _U_secondary_cs.value()?;
 
         assert_eq!(_U, folded_U_2);
-        shape.is_relaxed_satisfied(&_U, &folded_W_2, &pp).unwrap();
+        shape
+            .is_satisfied_linearized(&_U, &folded_W_2, &ck)
+            .unwrap();
 
         assert_eq!(_U_secondary, folded_U_secondary_2);
         shape_secondary
