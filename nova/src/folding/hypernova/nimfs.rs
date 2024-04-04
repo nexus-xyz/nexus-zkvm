@@ -150,17 +150,17 @@ where
 
         let (sumcheck_proof, sumcheck_state) = MLSumcheck::prove_as_subprotocol(random_oracle, &g);
 
-        let rs = sumcheck_state.randomness;
+        let rs_p = sumcheck_state.randomness;
 
         let sigmas: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
-            .map(|M| vec_to_ark_mle(M.multiply_vec(&z1).as_slice()).evaluate(&rs))
+            .map(|M| vec_to_ark_mle(M.multiply_vec(&z1).as_slice()).evaluate(&rs_p))
             .collect();
 
         let thetas: Vec<G::ScalarField> = ark_std::cfg_iter!(&shape.Ms)
-            .map(|M| vec_to_ark_mle(M.multiply_vec(&z2).as_slice()).evaluate(&rs))
+            .map(|M| vec_to_ark_mle(M.multiply_vec(&z2).as_slice()).evaluate(&rs_p))
             .collect();
 
-        let U = U1.fold(U2, &rho_scalar, &rs, &sigmas, &thetas)?;
+        let U = U1.fold(U2, &rho_scalar, &rs_p, &sigmas, &thetas)?;
         let W = W1.fold(W2, &rho_scalar)?;
 
         Ok((
@@ -218,15 +218,15 @@ where
             &self.sumcheck_proof,
         )?;
 
-        let rs = sumcheck_subclaim.point;
+        let rs_p = sumcheck_subclaim.point;
 
         let eq1 = EqPolynomial::new(U1.rs.clone());
         let eqrs = vec_to_ark_mle(eq1.evals().as_slice());
-        let e1 = eqrs.evaluate(&rs);
+        let e1 = eqrs.evaluate(&rs_p);
 
         let eq2 = EqPolynomial::new(beta);
         let eqb = vec_to_ark_mle(eq2.evals().as_slice());
-        let e2 = eqb.evaluate(&rs);
+        let e2 = eqb.evaluate(&rs_p);
 
         let cl: G::ScalarField = gamma_powers
             .iter()
@@ -250,7 +250,7 @@ where
             return Err(Error::InconsistentSubclaim);
         }
 
-        let U = U1.fold(U2, &rho_scalar, &rs, &self.sigmas, &self.thetas)?;
+        let U = U1.fold(U2, &rho_scalar, &rs_p, &self.sigmas, &self.thetas)?;
 
         Ok((U, rho))
     }
