@@ -6,12 +6,7 @@ use nexus_tools_dev::{
 };
 
 pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
-    let RunArgs { verbose, release, profile, bin } = args;
-    let profile = if release {
-        "release".to_string()
-    } else {
-        profile
-    };
+    let RunArgs { verbose, profile, bin } = args;
 
     run_vm(bin, verbose, &profile)
 }

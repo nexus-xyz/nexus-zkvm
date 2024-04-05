@@ -21,17 +21,11 @@ use crate::{
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
-        common_args: CommonProveArgs { release, profile, bin },
+        common_args: CommonProveArgs { profile, bin },
         network,
         url,
         local_args,
     } = args;
-
-    let profile = if release {
-        "release".to_string()
-    } else {
-        profile
-    };
 
     // make sure configs are compiled
     compile_env_configs(false)?;

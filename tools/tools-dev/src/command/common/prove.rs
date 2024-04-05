@@ -39,10 +39,6 @@ pub struct LocalProveArgs {
 
 #[derive(Debug, Args)]
 pub struct CommonProveArgs {
-    /// Build artifacts with the release profile. Equivalent to "--profile release".
-    #[arg(short, name = "r", conflicts_with = "profile")]
-    pub release: bool,
-
     /// Build artifacts with the specified profile. "release-unoptimized" is default.
     #[arg(long, default_value = "release-unoptimized")]
     pub profile: String,

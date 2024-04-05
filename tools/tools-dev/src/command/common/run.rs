@@ -6,10 +6,6 @@ pub struct RunArgs {
     #[arg(short)]
     pub verbose: bool,
 
-    /// Build artifacts with the release profile. Equivalent to "--profile release".
-    #[arg(short, name = "r", conflicts_with = "profile")]
-    pub release: bool,
-
     /// Build artifacts with the specified profile. "dev" is default.
     #[arg(long, default_value = "dev")]
     pub profile: String,
