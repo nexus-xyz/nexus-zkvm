@@ -380,8 +380,6 @@ mod tests {
             .is_relaxed_satisfied(&_U_secondary, &folded_W_secondary, &pp_secondary)
             .unwrap();
 
-        let _ = proof.verify(&config, &vk, &shape, &U, &U_secondary, &u);
-
         assert!(cs.is_satisfied().unwrap());
 
         // another round.
