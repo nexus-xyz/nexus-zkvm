@@ -24,7 +24,9 @@ use crate::{
         cyclefold::{CCSShape, nimfs::SQUEEZE_ELEMENTS_BIT_SIZE},
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
-    gadgets::{cyclefold::secondary, nonnative::short_weierstrass::NonNativeAffineVar},
+    gadgets::{cyclefold::secondary,
+              nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+    },
 };
 
 pub fn multifold<G1, G2, C1, C2, RO>(
@@ -166,10 +168,13 @@ where
 
     let cr = (0..shape.num_multisets)
         .map(|i| {
-            shape.cSs[i].1.iter().fold(
-                FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(shape.cSs[i].0)),
-                |acc, j| acc * &hypernova_proof.var().thetas[*j],
-            )
+            shape.cSs[i]
+                .1
+                .iter()
+                .fold(
+                    FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(shape.cSs[i].0)),
+                    |acc, j| acc * &hypernova_proof.var().thetas[*j],
+                )
         })
         .fold(
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
@@ -201,7 +206,7 @@ where
     let commitment_W = g_out;
     random_oracle.absorb(&comm_W_secondary_instance)?;
     random_oracle.absorb(&commitment_T)?;
-    random_oracle.absorb(&rho_scalar)?;
+    random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(rho)?)?;
 
     let (rho_p, rho_p_bits) = random_oracle
         .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
@@ -379,6 +384,8 @@ mod tests {
             .is_relaxed_satisfied(&_U_secondary, &folded_W_secondary, &pp_secondary)
             .unwrap();
 
+        let _ = proof.verify(&config, &vk, &shape, &U, &U_secondary, &u);
+
         assert!(cs.is_satisfied().unwrap());
 
         // another round.
@@ -401,7 +408,7 @@ mod tests {
             primary::LCCSInstanceFromR1CSVar::<G1, C1>::new_input(cs.clone(), || Ok(&folded_U))?;
         let U_secondary_cs =
             secondary::RelaxedR1CSInstanceVar::<G2, C2>::new_input(cs.clone(), || {
-                Ok(&U_secondary)
+                Ok(&folded_U_secondary)
             })?;
         let u_cs = primary::CCSInstanceFromR1CSVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 

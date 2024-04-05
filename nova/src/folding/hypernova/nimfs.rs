@@ -108,10 +108,8 @@ where
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
 
-        let gamma: G::ScalarField =
-            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let beta = random_oracle
-            .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
+        let gamma: G::ScalarField = random_oracle.squeeze_field_elements(1)[0];
+        let beta = random_oracle.squeeze_field_elements(s);
 
         let z1 = [U1.X.as_slice(), W1.W.as_slice()].concat();
         let z2 = [U2.X.as_slice(), W2.W.as_slice()].concat();
@@ -196,10 +194,8 @@ where
 
         let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
 
-        let gamma: G::ScalarField =
-            random_oracle.squeeze_field_elements_with_sizes(&[SQUEEZE_ELEMENTS_BIT_SIZE])[0];
-        let beta = random_oracle
-            .squeeze_field_elements_with_sizes(vec![SQUEEZE_ELEMENTS_BIT_SIZE; s].as_slice());
+        let gamma: G::ScalarField = random_oracle.squeeze_field_elements(1)[0];
+        let beta = random_oracle.squeeze_field_elements(s);
 
         let gamma_powers: Vec<G::ScalarField> = (1..=shape.num_matrices)
             .map(|j| gamma.pow([j as u64]))
