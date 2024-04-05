@@ -237,6 +237,8 @@ where
             .iter()
             .fold(ConstraintSystemRef::None, |cs, x| cs.or(x.cs()))
             .or(self.var().commitment_W.cs())
+            .or(self.var().rs.cs())
+            .or(self.var().vs.cs())
     }
 
     fn value(&self) -> Result<Self::Value, SynthesisError> {

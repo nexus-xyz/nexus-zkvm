@@ -21,7 +21,7 @@ pub(crate) mod primary;
 use crate::{
     commitment::CommitmentScheme,
     folding::hypernova::{
-        cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
+        cyclefold::{CCSShape, nimfs::SQUEEZE_ELEMENTS_BIT_SIZE},
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
     gadgets::{cyclefold::secondary, nonnative::short_weierstrass::NonNativeAffineVar},
@@ -30,6 +30,7 @@ use crate::{
 pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
+    shape: &CCSShape<G1>,
     U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: &primary::CCSInstanceFromR1CSVar<G1, C1>,
@@ -71,20 +72,16 @@ where
 
     // HyperNova Verification Circuit - implementation is specific to R1CS origin for constraints
 
-    const NUM_MATRICES: usize = 3;
-    const NUM_MULTISETS: usize = 2;
+    debug_assert!(shape.num_matrices == 3);
+    debug_assert!(shape.num_multisets == 2);
+    debug_assert!(shape.max_cardinality == 2);
 
-    // d + 1 in HyperNova/Cyclefold papers
-    const MAX_DEGREE: usize = 3;
-
-    let cSs: [(i32, Vec<usize>); 2] = [(1, vec![0, 1]), (-1, vec![2])];
-
-    let s: usize = ((cs.num_constraints() - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+    let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
 
     let gamma: FpVar<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0].clone();
     let beta: Vec<FpVar<G1::ScalarField>> = random_oracle.squeeze_field_elements(s)?;
 
-    let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=NUM_MATRICES)
+    let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=shape.num_matrices)
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
         .collect::<Result<Vec<FpVar<G1::ScalarField>>, SynthesisError>>()?;
 
@@ -115,7 +112,7 @@ where
         // lagrange interpolate and evaluate polynomial
 
         // \prod_{j} x - j
-        let prod: FpVar<G1::ScalarField> = (0..(MAX_DEGREE + 1)).fold(
+        let prod: FpVar<G1::ScalarField> = (0..(shape.max_cardinality + 2)).fold(
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
             |acc, i| acc * (&r - interpolation_constants[i].0),
         );
@@ -123,7 +120,7 @@ where
         // p(x) = \sum_{i} (\prod_{j} x - j) * y[i] / (x - i) * (\prod_{j != i} (i - j))
         //      = \sum_{i} y[i] * (\prod_{j != i} x - j) / (\prod_{j != i} i - j)
         //      = \sum_{i} y[i] * (\prod_{j != i} (x - j) / (j - i))
-        expected = (0..(MAX_DEGREE + 1))
+        expected = (0..(shape.max_cardinality + 2))
             .map(|i| {
                 let num = &prod * &evals[i];
                 let denom = (&r - interpolation_constants[i].0) * interpolation_constants[i].1;
@@ -167,10 +164,10 @@ where
         )
         * e1;
 
-    let cr = (0..NUM_MULTISETS)
+    let cr = (0..shape.num_multisets)
         .map(|i| {
-            cSs[i].1.iter().fold(
-                FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(cSs[i].0)),
+            shape.cSs[i].1.iter().fold(
+                FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(shape.cSs[i].0)),
                 |acc, j| acc * &hypernova_proof.var().thetas[*j],
             )
         })
@@ -179,7 +176,7 @@ where
             |acc, x| acc + x,
         )
         * gamma.pow_le(&Boolean::constant_vec_from_bytes(
-            &(NUM_MATRICES + 1).to_le_bytes(),
+            &(shape.num_matrices + 1).to_le_bytes(),
         ))?
         * e2;
 
@@ -198,11 +195,10 @@ where
         &U.var().commitment_W,
         &u.var().commitment_W,
     )?;
-    let (r_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
-    r_secondary.conditional_enforce_equal(rho, should_enforce)?;
+    let (rho_secondary, g_out) = comm_W_secondary_instance.parse_secondary_io::<G1>()?;
+    rho_secondary.conditional_enforce_equal(rho, should_enforce)?;
 
     let commitment_W = g_out;
-
     random_oracle.absorb(&comm_W_secondary_instance)?;
     random_oracle.absorb(&commitment_T)?;
     random_oracle.absorb(&rho_scalar)?;
@@ -363,6 +359,7 @@ mod tests {
             multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
                 &config,
                 &vk_cs,
+                &shape,
                 &U_cs,
                 &U_secondary_cs,
                 &u_cs,
@@ -424,6 +421,7 @@ mod tests {
             multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
                 &config,
                 &vk_cs,
+                &shape,
                 &U_cs,
                 &U_secondary_cs,
                 &u_cs,
