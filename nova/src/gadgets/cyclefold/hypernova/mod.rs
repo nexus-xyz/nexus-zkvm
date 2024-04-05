@@ -21,11 +21,12 @@ pub(crate) mod primary;
 use crate::{
     commitment::CommitmentScheme,
     folding::hypernova::{
-        cyclefold::{CCSShape, nimfs::SQUEEZE_ELEMENTS_BIT_SIZE},
+        cyclefold::{nimfs::SQUEEZE_ELEMENTS_BIT_SIZE, CCSShape},
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
-    gadgets::{cyclefold::secondary,
-              nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+    gadgets::{
+        cyclefold::secondary,
+        nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
     },
 };
 
@@ -168,13 +169,10 @@ where
 
     let cr = (0..shape.num_multisets)
         .map(|i| {
-            shape.cSs[i]
-                .1
-                .iter()
-                .fold(
-                    FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(shape.cSs[i].0)),
-                    |acc, j| acc * &hypernova_proof.var().thetas[*j],
-                )
+            shape.cSs[i].1.iter().fold(
+                FpVar::<G1::ScalarField>::Constant(shape.cSs[i].0),
+                |acc, j| acc * &hypernova_proof.var().thetas[*j],
+            )
         })
         .fold(
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),
@@ -249,24 +247,27 @@ mod tests {
 
     use crate::poseidon_config;
     use crate::{
+        ccs::mle::vec_to_mle,
         folding::hypernova::cyclefold::{
-            nimfs::{NIMFSProof, CCSWitness, CCSInstance, LCCSInstance, RelaxedR1CSInstance, RelaxedR1CSWitness},
+            nimfs::{
+                CCSInstance, CCSWitness, LCCSInstance, NIMFSProof, RelaxedR1CSInstance,
+                RelaxedR1CSWitness,
+            },
             secondary as multifold_secondary,
         },
         pedersen::PedersenCommitment,
-        ccs::mle::vec_to_mle,
         r1cs::tests::to_field_elements,
         test_utils::setup_test_ccs,
     };
     use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, Absorb};
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::Field;
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
-    use ark_std::{test_rng, UniformRand};
     use ark_r1cs_std::{fields::fp::FpVar, prelude::AllocVar, R1CSVar};
     use ark_relations::r1cs::ConstraintSystem;
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use ark_std::{test_rng, UniformRand};
 
-    use rayon::iter::{ParallelIterator, IntoParallelRefIterator};
+    use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
     #[test]
     fn verify_in_circuit() {
@@ -317,13 +318,9 @@ mod tests {
             })
             .collect();
 
-        let U = LCCSInstance::<G1, C1>::new(
-            &shape,
-            &commitment_W,
-            &X,
-            rs.as_slice(),
-            vs.as_slice(),
-        ).unwrap();
+        let U =
+            LCCSInstance::<G1, C1>::new(&shape, &commitment_W, &X, rs.as_slice(), vs.as_slice())
+                .unwrap();
 
         let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&shape_secondary);
         let W_secondary = RelaxedR1CSWitness::<G2>::zero(&shape_secondary);
@@ -360,18 +357,17 @@ mod tests {
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
-        let (_U_cs, _U_secondary_cs) =
-            multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
-                &config,
-                &vk_cs,
-                &shape,
-                &U_cs,
-                &U_secondary_cs,
-                &u_cs,
-                &comm_W_proof,
-                &hypernova_proof,
-                &Boolean::TRUE,
-            )?;
+        let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
+            &config,
+            &vk_cs,
+            &shape,
+            &U_cs,
+            &U_secondary_cs,
+            &u_cs,
+            &comm_W_proof,
+            &hypernova_proof,
+            &Boolean::TRUE,
+        )?;
 
         let _U = _U_cs.value()?;
         let _U_secondary = _U_secondary_cs.value()?;
@@ -424,18 +420,17 @@ mod tests {
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
-        let (_U_cs, _U_secondary_cs) =
-            multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
-                &config,
-                &vk_cs,
-                &shape,
-                &U_cs,
-                &U_secondary_cs,
-                &u_cs,
-                &comm_W_proof,
-                &hypernova_proof,
-                &Boolean::TRUE,
-            )?;
+        let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
+            &config,
+            &vk_cs,
+            &shape,
+            &U_cs,
+            &U_secondary_cs,
+            &u_cs,
+            &comm_W_proof,
+            &hypernova_proof,
+            &Boolean::TRUE,
+        )?;
 
         let _U = _U_cs.value()?;
         let _U_secondary = _U_secondary_cs.value()?;
