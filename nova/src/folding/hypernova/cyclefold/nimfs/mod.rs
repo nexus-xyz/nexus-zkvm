@@ -12,8 +12,8 @@ use crate::commitment::{Commitment, CommitmentScheme};
 pub(crate) use crate::folding::hypernova::nimfs::NIMFSProof as HNProof;
 pub use crate::folding::hypernova::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE;
 
-use super::{secondary, CCSInstance, CCSShape, CCSWitness, Error, LCCSInstance};
-use crate::folding::cyclefold::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness};
+pub(crate) use super::{secondary, CCSInstance, CCSShape, CCSWitness, Error, LCCSInstance};
+pub(crate) use crate::folding::cyclefold::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness};
 use crate::{absorb::CryptographicSpongeExt, r1cs, utils::cast_field_element_unique};
 
 /// Non-interactive multi-folding scheme proof.

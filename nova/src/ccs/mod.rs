@@ -240,8 +240,6 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> CCSInstance<G, C> {
         commitment_W: &C::Commitment,
         X: &[G::ScalarField],
     ) -> Result<Self, Error> {
-        assert_eq!(X[0], G::ScalarField::ONE);
-
         if X.is_empty() {
             return Err(Error::InvalidInputLength);
         }

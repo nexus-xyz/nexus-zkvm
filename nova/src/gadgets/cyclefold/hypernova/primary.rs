@@ -112,12 +112,14 @@ where
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
             || {
-                Ok(r1cs
-                    .borrow()
-                    .commitment_W
-                    .try_into_affine_point()
-                    .unwrap()
-                    .into())
+                Ok::<Projective<G1>, SynthesisError>(
+                    r1cs.borrow()
+                        .commitment_W
+                        .clone()
+                        .try_into_affine_point()
+                        .unwrap()
+                        .into(),
+                )
             },
             mode,
         )?;
@@ -136,7 +138,7 @@ where
     }
 }
 
-impl<G1, C1> AbsorbGadget<G1::ScalarField> for CCSInstanceFromR1CSVar<G1, C1>
+impl<G1, C1> AbsorbGadget<G1::ScalarField> for CCSInstanceVar<G1, C1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -148,8 +150,8 @@ where
 
     fn to_sponge_field_elements(&self) -> Result<Vec<FpVar<G1::ScalarField>>, SynthesisError> {
         Ok([
-            self.var().commitment_W.to_sponge_field_elements()?,
-            (&self.var().X[1..]).to_sponge_field_elements()?,
+            self.commitment_W.to_sponge_field_elements()?,
+            (&self.X[1..]).to_sponge_field_elements()?,
         ]
         .concat())
     }
@@ -235,6 +237,8 @@ where
             .iter()
             .fold(ConstraintSystemRef::None, |cs, x| cs.or(x.cs()))
             .or(self.var().commitment_W.cs())
+            .or(self.var().rs.cs())
+            .or(self.var().vs.cs())
     }
 
     fn value(&self) -> Result<Self::Value, SynthesisError> {
@@ -274,12 +278,14 @@ where
         let commitment_W = NonNativeAffineVar::new_variable(
             cs.clone(),
             || {
-                Ok(r1cs
-                    .borrow()
-                    .commitment_W
-                    .try_into_affine_point()
-                    .unwrap()
-                    .into())
+                Ok::<Projective<G1>, SynthesisError>(
+                    r1cs.borrow()
+                        .commitment_W
+                        .clone()
+                        .try_into_affine_point()
+                        .unwrap()
+                        .into(),
+                )
             },
             mode,
         )?;
@@ -374,6 +380,7 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PolynomialInfoVar<G1>
 where
     G1: SWCurveConfig,
@@ -384,19 +391,32 @@ where
     pub(crate) num_terms: FpVar<G1::ScalarField>,
 }
 
-impl<G1> AllocVar<PolynomialInfo, G1::ScalarField> for PolynomialInfoVar<G1>
+#[derive(Debug, Clone)]
+pub struct PolynomialInfoFromR1CSVar<G1>(PolynomialInfoVar<G1>)
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField;
+
+impl<G1> PolynomialInfoFromR1CSVar<G1>
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField,
+{
+    pub(super) fn var(&self) -> &PolynomialInfoVar<G1> {
+        &self.0
+    }
+}
+
+impl<G1> AllocVar<PolynomialInfo, G1::ScalarField> for PolynomialInfoFromR1CSVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
 {
     fn new_variable<T: Borrow<PolynomialInfo>>(
-        cs: impl Into<Namespace<G1::ScalarField>>,
+        _cs: impl Into<Namespace<G1::ScalarField>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
-        mode: AllocationMode,
+        _mode: AllocationMode,
     ) -> Result<Self, SynthesisError> {
-        let ns = cs.into();
-        let cs = ns.cs();
-
         let r1cs = f()?;
         let max_multiplicands = r1cs.borrow().max_multiplicands as u32;
         let num_variables = r1cs.borrow().num_variables as u32;
@@ -408,11 +428,11 @@ where
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_variables));
         let num_terms = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_terms));
 
-        Ok(Self {
+        Ok(Self(PolynomialInfoVar {
             max_multiplicands,
             num_variables,
             num_terms,
-        })
+        }))
     }
 }
 
@@ -435,20 +455,57 @@ where
     }
 }
 
-pub struct ProofVar<G1, RO>
+#[derive(Debug)]
+pub struct ProofVar<G1, PI, RO>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
     RO: SpongeWithGadget<G1::ScalarField>,
 {
     pub(crate) sumcheck_proof: Vec<Vec<FpVar<G1::ScalarField>>>,
-    pub(crate) poly_info: PolynomialInfoVar<G1>,
+    pub(crate) poly_info: PI,
     pub(crate) sigmas: Vec<FpVar<G1::ScalarField>>,
     pub(crate) thetas: Vec<FpVar<G1::ScalarField>>,
     _random_oracle: PhantomData<RO>,
 }
 
-impl<G1, RO> AllocVar<HNProof<G1, RO>, G1::ScalarField> for ProofVar<G1, RO>
+impl<G1, PI, RO> Clone for ProofVar<G1, PI, RO>
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField,
+    PI: Clone,
+    RO: SpongeWithGadget<G1::ScalarField>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            sumcheck_proof: self.sumcheck_proof.clone(),
+            poly_info: self.poly_info.clone(),
+            sigmas: self.sigmas.clone(),
+            thetas: self.thetas.clone(),
+            _random_oracle: self._random_oracle,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ProofFromR1CSVar<G1, RO>(ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO>)
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField,
+    RO: SpongeWithGadget<G1::ScalarField>;
+
+impl<G1, RO> ProofFromR1CSVar<G1, RO>
+where
+    G1: SWCurveConfig,
+    G1::BaseField: PrimeField,
+    RO: SpongeWithGadget<G1::ScalarField>,
+{
+    pub(super) fn var(&self) -> &ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO> {
+        &self.0
+    }
+}
+
+impl<G1, RO> AllocVar<HNProof<G1, RO>, G1::ScalarField> for ProofFromR1CSVar<G1, RO>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -481,7 +538,7 @@ where
             .collect::<Result<_, _>>()?;
 
         let poly_info =
-            PolynomialInfoVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
+            PolynomialInfoFromR1CSVar::<G1>::new_variable(cs.clone(), || Ok(poly_info), mode)?;
 
         let sigmas = sigmas
             .iter()
@@ -493,12 +550,12 @@ where
             .map(|theta| FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(theta), mode))
             .collect::<Result<_, _>>()?;
 
-        Ok(Self {
+        Ok(Self(ProofVar {
             sumcheck_proof,
             poly_info,
             sigmas,
             thetas,
             _random_oracle: PhantomData,
-        })
+        }))
     }
 }
