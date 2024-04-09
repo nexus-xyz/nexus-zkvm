@@ -11,7 +11,7 @@ use ark_ff::PrimeField;
 use ark_std::{fmt::Display, marker::PhantomData};
 
 mod data_structures;
-mod protocol;
+pub(crate) mod protocol;
 
 #[cfg(test)]
 mod tests;

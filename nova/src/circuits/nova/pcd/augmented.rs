@@ -28,8 +28,10 @@ use crate::{
         secondary::Circuit as SecondaryCircuit,
     },
     gadgets::cyclefold::{
-        multifold, multifold_with_relaxed, primary, secondary, NonNativeAffineVar,
+        nova::{multifold, multifold_with_relaxed, primary},
+        secondary,
     },
+    gadgets::nonnative::short_weierstrass::NonNativeAffineVar,
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
