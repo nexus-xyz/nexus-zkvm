@@ -3,11 +3,20 @@
 pub(crate) mod nimfs;
 pub(crate) use super::super::cyclefold::secondary;
 
+use crate::ccs;
+use ark_ec::short_weierstrass::Projective;
 use ark_std::fmt::Display;
 
 use super::nimfs::Error as HNFoldingError;
 use crate::ccs::Error as CCSError;
 use crate::r1cs::Error as R1CSError;
+
+pub(crate) type HNProof<G, RO> = super::nimfs::NIMFSProof<Projective<G>, RO>;
+
+pub(crate) type CCSShape<G> = ccs::CCSShape<Projective<G>>;
+pub(crate) type CCSInstance<G, C> = ccs::CCSInstance<Projective<G>, C>;
+pub(crate) type CCSWitness<G> = ccs::CCSWitness<Projective<G>>;
+pub(crate) type LCCSInstance<G, C> = ccs::LCCSInstance<Projective<G>, C>;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Error {

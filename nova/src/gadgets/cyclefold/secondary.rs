@@ -21,13 +21,13 @@ use ark_r1cs_std::{
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 
-use super::{cast_field_element_unique, NonNativeAffineVar};
 use crate::{
     commitment::CommitmentScheme,
     folding::nova::cyclefold::{
         nimfs::{R1CSInstance, RelaxedR1CSInstance},
         secondary::{Circuit as SecondaryCircuit, Proof},
     },
+    gadgets::nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
 };
 
 #[must_use]

@@ -3,7 +3,7 @@
 
 use nexus_config::{vm::NovaImpl, VmConfig};
 use nexus_prover::types::pedersen_setup;
-use nexus_vm::riscv::VMOpts;
+use nexus_riscv::VMOpts;
 
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;

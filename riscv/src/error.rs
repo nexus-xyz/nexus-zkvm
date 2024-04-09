@@ -30,6 +30,14 @@ pub enum VMError {
     /// An error occurred while parsing the ELF headers
     #[error(transparent)]
     ELFError(#[from] elf::ParseError),
+
+    /// ELF format not supported
+    #[error("ELF format not supported: {0}")]
+    ELFFormat(&'static str),
+
+    /// Nexus VM Error
+    #[error(transparent)]
+    NVMError(#[from] nexus_vm::error::NexusVMError),
 }
 
 /// Result type for VM functions that can produce errors

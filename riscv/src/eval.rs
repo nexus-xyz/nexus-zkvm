@@ -1,20 +1,23 @@
 //! A Virtual Machine for RISC-V
 
-use super::memory::*;
+use nexus_vm::{
+    instructions::Width,
+    memory::{paged::Paged, Memory},
+    syscalls::Syscalls,
+};
+
 use crate::error::*;
 use crate::rv32::{parse::*, *};
-use VMError::*;
-
-// for ecall
-use std::io::Write;
 
 /// virtual machine state
 #[derive(Default)]
 pub struct VM {
     /// ISA registers
     pub regs: Regs,
+    /// Syscall implementation
+    pub syscalls: Syscalls,
     /// machine memory
-    pub mem: Memory,
+    pub mem: Paged,
     /// current instruction
     pub inst: Inst,
     /// internal result register
@@ -32,8 +35,7 @@ pub struct Regs {
 
 impl VM {
     pub fn new(pc: u32) -> Self {
-        let mem = Memory::default();
-        let mut vm = VM { mem, ..Self::default() };
+        let mut vm = Self::default();
         vm.regs.pc = pc;
         vm
     }
@@ -58,7 +60,7 @@ impl VM {
     pub fn init_memory(&mut self, addr: u32, bytes: &[u8]) -> Result<()> {
         // slow, but simple
         for (i, b) in bytes.iter().enumerate() {
-            self.mem.sb(addr + (i as u32), *b as u32);
+            self.mem.store(Width::B, addr + (i as u32), *b as u32)?;
         }
         Ok(())
     }
@@ -101,8 +103,8 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut VM) -> Result<()> {
-    let slice = vm.mem.rd_page(vm.regs.pc);
-    vm.inst = parse_inst(vm.regs.pc, slice)?;
+    let slice = vm.mem.load(Width::W, vm.regs.pc)?.0.to_le_bytes();
+    vm.inst = parse_inst(vm.regs.pc, &slice)?;
 
     // initialize micro-architecture state
     vm.Z = 0;
@@ -143,11 +145,11 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
 
             let addr = add32(X, imm);
             match lop {
-                LB => vm.Z = vm.mem.lb(addr),
-                LH => vm.Z = vm.mem.lh(addr),
-                LW => vm.Z = vm.mem.lw(addr),
-                LBU => vm.Z = vm.mem.lbu(addr),
-                LHU => vm.Z = vm.mem.lhu(addr),
+                LB => vm.Z = vm.mem.load(Width::B, addr)?.0,
+                LH => vm.Z = vm.mem.load(Width::H, addr)?.0,
+                LW => vm.Z = vm.mem.load(Width::W, addr)?.0,
+                LBU => vm.Z = vm.mem.load(Width::BU, addr)?.0,
+                LHU => vm.Z = vm.mem.load(Width::HU, addr)?.0,
             }
         }
         STORE { sop, rs1, rs2, imm } => {
@@ -156,10 +158,10 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
 
             let addr = add32(X, imm);
             match sop {
-                SB => vm.mem.sb(addr, Y),
-                SH => vm.mem.sh(addr, Y),
-                SW => vm.mem.sw(addr, Y),
-            }
+                SB => vm.mem.store(Width::B, addr, Y)?,
+                SH => vm.mem.store(Width::H, addr, Y)?,
+                SW => vm.mem.store(Width::W, addr, Y)?,
+            };
         }
         ALUI { aop, rd, rs1, imm } => {
             RD = rd;
@@ -174,21 +176,7 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
         }
         FENCE | EBREAK => {}
         ECALL => {
-            let num = vm.regs.x[18]; // s2 = x8  syscall number
-            let a0 = vm.regs.x[10]; // a0 = x10
-            let a1 = vm.regs.x[11]; // a1 = x11
-
-            // write_log
-            if num == 1 {
-                let mut stdout = std::io::stdout();
-                for addr in a0..a0 + a1 {
-                    let b = vm.mem.lb(addr);
-                    stdout.write_all(&[b as u8])?;
-                }
-                let _ = stdout.flush();
-            } else {
-                return Err(UnknownECall(vm.regs.pc, num));
-            }
+            vm.syscalls.syscall(vm.regs.pc, vm.regs.x, &vm.mem)?;
         }
         UNIMP => {
             PC = vm.inst.pc;

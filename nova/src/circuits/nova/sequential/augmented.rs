@@ -26,7 +26,11 @@ use crate::{
         nimfs::{NIMFSProof, R1CSInstance, R1CSShape, RelaxedR1CSInstance},
         secondary::Circuit as SecondaryCircuit,
     },
-    gadgets::cyclefold::{multifold, primary, secondary, NonNativeAffineVar},
+    gadgets::cyclefold::{
+        nova::{multifold, primary},
+        secondary,
+    },
+    gadgets::nonnative::short_weierstrass::NonNativeAffineVar,
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;

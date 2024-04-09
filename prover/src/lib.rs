@@ -11,11 +11,8 @@ use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use nexus_vm::{
-    memory::trie::MerkleTrie,
-    riscv::{load_nvm, VMOpts},
-    trace::trace,
-};
+use nexus_riscv::{nvm::load_nvm, VMOpts};
+use nexus_vm::{memory::trie::MerkleTrie, trace::trace};
 
 use nexus_nova::nova::pcd::compression::SNARK;
 

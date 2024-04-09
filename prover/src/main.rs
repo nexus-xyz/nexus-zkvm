@@ -16,7 +16,7 @@ use nexus_prover::{
     types::{pedersen_setup, setup_by_value_fn, ComPCDNode, ComPP},
     LOG_TARGET,
 };
-use nexus_vm::riscv::VMOpts;
+use nexus_riscv::VMOpts;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
