@@ -24,10 +24,26 @@ pub fn save_key(key: SpartanKey, file: &str) -> Result<(), ProofError> {
     Ok(())
 }
 
+pub fn save_vkey(key: SpartanVKey, file: &str) -> Result<(), ProofError> {
+    let f = File::create(file)?;
+    let mut enc = Encoder::new(&f, 0)?;
+    key.serialize_compressed(&mut enc)?;
+    enc.finish()?;
+    f.sync_all()?;
+    Ok(())
+}
+
 pub fn load_key(file: &str) -> Result<SpartanKey, ProofError> {
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
     let key = SpartanKey::deserialize_compressed_unchecked(&mut dec)?;
+    Ok(key)
+}
+
+pub fn load_vkey(key_file: &str) -> Result<SpartanVKey, ProofError> {
+    let f = File::open(key_file)?;
+    let mut dec = Decoder::new(&f)?;
+    let key = SpartanVKey::deserialize_compressed_unchecked(&mut dec)?;
     Ok(key)
 }
 
@@ -79,6 +95,11 @@ pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<
     let _guard = term_ctx.display_step();
 
     let key: SpartanKey = gen_key(&pp, &srs)?;
+    let vkey = SpartanVKey::new(&key);
+
+    let vkey_file = format!("vk-{}", key_file);
+
+    save_vkey(vkey, &vkey_file).unwrap(); //todo: better error handling
     save_key(key, key_file)
 }
 

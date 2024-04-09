@@ -15,6 +15,7 @@ use nexus_riscv::{nvm::load_nvm, VMOpts};
 use nexus_vm::{memory::trie::MerkleTrie, trace::trace};
 
 use nexus_nova::nova::pcd::compression::SNARK;
+use types::SpartanVKey;
 
 use crate::{
     circuit::Tr,
@@ -215,7 +216,7 @@ pub fn compress(
 }
 
 pub fn verify_compressed(
-    key: &SpartanKey,
+    key: &SpartanVKey,
     params: &ComPP,
     proof: &ComProof,
 ) -> Result<(), ProofError> {

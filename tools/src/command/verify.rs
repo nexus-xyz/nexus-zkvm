@@ -83,10 +83,10 @@ fn verify_proof_compressed(
     let result = {
         let proof = ComProof::deserialize_compressed(reader)?;
         let params = nexus_prover::pp::gen_or_load(false, k, &pp_path, None)?;
-        let key = nexus_prover::key::gen_or_load_key(false, &key_path, Some(&pp_path), None)?;
+        let vkey = nexus_prover::key::load_vkey(&key_path)?;
 
         _guard = ctx.display_step();
-        nexus_prover::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
+        nexus_prover::verify_compressed(&vkey, &params, &proof).map_err(anyhow::Error::from)
     };
 
     match result {

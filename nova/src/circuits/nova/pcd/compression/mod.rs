@@ -77,6 +77,32 @@ pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     snark_gens: SNARKGens<G, PC>,
 }
 
+#[derive(CanonicalDeserialize, CanonicalSerialize)]
+pub struct SNARKVKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
+    computation_comm: ComputationCommitment<G, PC>,
+    snark_gens: SNARKGens<G, PC>,
+}
+
+impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKVKey<G, PC> {
+    pub fn new(key: &SNARKKey<G, PC>) -> Self {
+        let mut comm_bytes = Vec::new();
+        key.computation_comm
+            .serialize_compressed(&mut comm_bytes)
+            .unwrap();
+
+        let mut gens_bytes = Vec::new();
+        key.snark_gens
+            .serialize_compressed(&mut gens_bytes)
+            .unwrap();
+
+        let computation_comm =
+            ComputationCommitment::<G, PC>::deserialize_compressed(&*comm_bytes).unwrap();
+        let snark_gens = SNARKGens::<G, PC>::deserialize_compressed(&*gens_bytes).unwrap();
+
+        Self { computation_comm, snark_gens }
+    }
+}
+
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKKey<G, PC> {
     /// convenience function to derive the minimum log size of the SRS
     /// needed to support compession for a given `shape`.
@@ -225,7 +251,7 @@ where
     }
 
     pub fn verify(
-        key: &SNARKKey<Projective<G1>, PC>,
+        key: &SNARKVKey<Projective<G1>, PC>,
         params: &PublicParams<G1, G2, PVC<G1, PC>, C2, RO, SC>,
         proof: &CompressedPCDProof<G1, G2, PC, C2, RO, SC>,
     ) -> Result<(), SpartanError> {
@@ -433,6 +459,7 @@ mod tests {
         >::setup(&params, &srs)
         .unwrap();
 
+        let vkey = SNARKVKey::<Projective<G1>, PC>::new(&key);
         // Now, we perform a PCD proof step and check that the resulting proof verifies.
         let nova_proof = PCDNode::prove_leaf(&params, &circuit, 0, &z_0).unwrap();
         nova_proof.verify(&params).unwrap();
@@ -458,7 +485,7 @@ mod tests {
                  C2,
                  PoseidonSponge<G1::ScalarField>,
                  CubicCircuit<G1::ScalarField>,
-             >::verify(&key, &params, &compressed_pcd_proof)
+             >::verify(&vkey, &params, &compressed_pcd_proof)
              .unwrap();
     }
 

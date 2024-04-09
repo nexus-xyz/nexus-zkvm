@@ -56,6 +56,7 @@ pub type ParPP = pcd::PublicParams<G1, G2, C1, C2, RO, SC>;
 pub type ComPP = pcd::PublicParams<G1, G2, PVC1, C2, RO, SC>;
 
 pub type SpartanKey = com::SNARKKey<P1, PC>;
+pub type SpartanVKey = com::SNARKVKey<P1, PC>;
 
 pub type IVCProof = seq::IVCProof<G1, G2, C1, C2, RO, SC>;
 pub type PCDNode = pcd::PCDNode<G1, G2, C1, C2, RO, SC>;
