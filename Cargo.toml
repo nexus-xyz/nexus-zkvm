@@ -89,6 +89,12 @@ ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f
 codegen-units = 1
 lto = true
 
+[profile.release-unoptimized]
+inherits = "release"
+
+[profile.release-unoptimized.package.example]
+opt-level = 0
+
 [profile.bench]
 inherits = "release"
 debug = true

@@ -6,20 +6,14 @@ use nexus_tools_dev::{
 };
 
 pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
-    let RunArgs { verbose, release, bin } = args;
+    let RunArgs { verbose, profile, bin } = args;
 
-    run_vm(bin, verbose, release)
+    run_vm(bin, verbose, &profile)
 }
 
-fn run_vm(bin: Option<String>, verbose: bool, release: bool) -> anyhow::Result<()> {
-    // build the artifact
-    let profile = if release {
-        cargo(None, ["build", "--release"])?;
-        "release"
-    } else {
-        cargo(None, ["build"])?;
-        "debug"
-    };
+fn run_vm(bin: Option<String>, verbose: bool, profile: &str) -> anyhow::Result<()> {
+    // build artifact
+    cargo(None, ["build", "--profile", profile])?;
 
     let path = path_to_artifact(bin, profile)?;
 
