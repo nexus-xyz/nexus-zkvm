@@ -5,7 +5,9 @@ pub use std::marker::PhantomData;
 pub use ark_ff::{Field, PrimeField};
 
 // concrete fields used
-pub use ark_bn254::{g1::Config as G1, Bn254 as E, Fr as F1, G1Affine as A1, G1Projective as P1};
+pub use ark_bn254::{g1::Config as G1, Bn254 as E, Fr as F1, G1Affine as A1};
+pub type P1 = ark_ec::short_weierstrass::Projective<ark_bn254::g1::Config>;
+
 pub use ark_grumpkin::{Affine as A2, Fr as F2, GrumpkinConfig as G2, Projective as P2};
 
 // concrete sponge used
@@ -20,7 +22,9 @@ pub use nexus_nova::{
     commitment::CommitmentScheme,
     nova::pcd,
     nova::pcd::compression as com,
-    nova::public_params::{PublicParams, SetupParams},
+    nova::public_params::{
+        pedersen_setup, setup_by_value_fn, CKSetupFn, PublicParams, SetupParams,
+    },
     nova::sequential as seq,
     pedersen::PedersenCommitment,
     r1cs::{R1CSShape, R1CSWitness},
@@ -36,8 +40,8 @@ pub type RO = PoseidonSponge<F1>;
 pub use nexus_nova::poseidon_config as ro_config;
 
 // commitment scheme
-pub type C1 = PedersenCommitment<P1>;
-pub type C2 = PedersenCommitment<P2>;
+pub type C1 = PedersenCommitment<G1>;
+pub type C2 = PedersenCommitment<G2>;
 
 // polynomial commitment scheme and corresponding vector commmitment scheme
 pub type PC = Zeromorph<E>;

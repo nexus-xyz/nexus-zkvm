@@ -381,8 +381,8 @@ mod tests {
         step_circuit_base_step_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::Projective>,
-            PedersenCommitment<ark_vesta::Projective>,
+            PedersenCommitment<ark_pallas::PallasConfig>,
+            PedersenCommitment<ark_vesta::VestaConfig>,
         >()
         .unwrap()
     }

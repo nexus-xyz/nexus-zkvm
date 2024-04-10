@@ -9,12 +9,12 @@ use crate::error::*;
 use crate::types::*;
 use crate::{LOG_TARGET, TERMINAL_MODE};
 
-pub fn gen_pp<C, SP>(circuit: &SC, aux: &C::SetupAux) -> Result<PP<C, SP>, ProofError>
+pub fn gen_pp<C, SP>(circuit: &SC, aux: impl CKSetupFn<G1, C>) -> Result<PP<C, SP>, ProofError>
 where
     C: CommitmentScheme<P1>,
     SP: SetupParams<G1, G2, C, C2, RO, SC>,
 {
-    Ok(SP::setup(ro_config(), circuit, aux, &())?)
+    Ok(SP::setup(ro_config(), circuit, aux, pedersen_setup)?)
 }
 
 pub fn save_pp<C, SP>(pp: PP<C, SP>, file: &str) -> Result<(), ProofError>
@@ -43,7 +43,7 @@ where
     Ok(pp)
 }
 
-pub fn gen_vm_pp<C, SP>(k: usize, aux: &C::SetupAux) -> Result<PP<C, SP>, ProofError>
+pub fn gen_vm_pp<C, SP>(k: usize, aux: impl CKSetupFn<G1, C>) -> Result<PP<C, SP>, ProofError>
 where
     SP: SetupParams<G1, G2, C, C2, RO, Tr>,
     C: CommitmentScheme<P1>,
@@ -110,7 +110,7 @@ pub fn gen_to_file(
                         .context("Setting up")
                         .on_step(|_step| "public parameters for PCD (compression enabled)".into());
                     let _guard = term_ctx.display_step();
-                    gen_vm_pp(k, &srs)?
+                    gen_vm_pp(k, setup_by_value_fn(srs))?
                 };
 
                 show_pp(&pp);
@@ -127,7 +127,7 @@ pub fn gen_to_file(
                         .on_step(|_step| "public parameters for PCD (compression disabled)".into());
                     let _guard = term_ctx.display_step();
 
-                    gen_vm_pp(k, &())?
+                    gen_vm_pp(k, pedersen_setup)?
                 };
                 show_pp(&pp);
                 save_pp(pp, pp_file)
@@ -144,18 +144,24 @@ pub fn gen_to_file(
                 .context("Setting up")
                 .on_step(|_step| "public parameters for IVC".into());
             let _guard = term_ctx.display_step();
-            gen_vm_pp(k, &())?
+            gen_vm_pp(k, pedersen_setup)?
         };
         show_pp(&pp);
         save_pp(pp, pp_file)
     }
 }
 
+// TODO: refactor `gen_or_load` to avoid specifying type parameters when `aux_opt`
+// is not needed.
+pub fn default_setup_fn<C: CommitmentScheme<P1>>() -> Option<impl CKSetupFn<G1, C>> {
+    None::<fn(&R1CSShape<P1>) -> Box<C::SetupAux>>
+}
+
 pub fn gen_or_load<C, SP>(
     gen: bool,
     k: usize,
     pp_file: &str,
-    aux_opt: Option<&C::SetupAux>,
+    aux_opt: Option<impl CKSetupFn<G1, C>>,
 ) -> Result<PP<C, SP>, ProofError>
 where
     SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,

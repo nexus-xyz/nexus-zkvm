@@ -92,8 +92,8 @@ where
     fn setup(
         ro_config: <RO as CryptographicSponge>::Config,
         step_circuit: &SC,
-        aux1: &C1::SetupAux,
-        aux2: &C2::SetupAux,
+        aux1: impl public_params::CKSetupFn<G1, C1>,
+        aux2: impl public_params::CKSetupFn<G2, C2>,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
@@ -116,12 +116,15 @@ where
         let shape = R1CSShape::from(cs);
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        let pp = C1::setup(shape.num_vars.max(shape.num_constraints), aux1);
+        let pp = C1::setup(
+            shape.num_vars.max(shape.num_constraints),
+            aux1(&shape).as_ref(),
+        );
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
-            aux2,
+            aux2(&shape_secondary).as_ref(),
         );
 
         let mut params = public_params::PublicParams {
@@ -462,7 +465,8 @@ where
 mod tests {
     use super::*;
     use crate::{
-        circuits::nova::sequential::tests::CubicCircuit, pedersen::PedersenCommitment,
+        circuits::nova::sequential::tests::CubicCircuit,
+        pedersen::{PedersenCommitment, SVDWMap},
         poseidon_config, LOG_TARGET as NOVA_TARGET,
     };
 
@@ -478,20 +482,20 @@ mod tests {
         ivc_base_step_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::Projective>,
-            PedersenCommitment<ark_vesta::Projective>,
+            PedersenCommitment<ark_pallas::PallasConfig>,
+            PedersenCommitment<ark_vesta::VestaConfig>,
         >()
         .unwrap()
     }
 
     fn ivc_base_step_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
-        G1: SWCurveConfig,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+        G1: SWCurveConfig + SVDWMap,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
     {
         let ro_config = poseidon_config();
 
@@ -506,7 +510,12 @@ mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &(), &())?;
+        >::setup(
+            ro_config,
+            &circuit,
+            public_params::pedersen_setup,
+            public_params::pedersen_setup,
+        )?;
 
         let recursive_snark = PCDNode::prove_leaf(&params, &circuit, 0, &z_0)?;
         recursive_snark.verify(&params)?;
@@ -521,20 +530,20 @@ mod tests {
         ivc_multiple_steps_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::Projective>,
-            PedersenCommitment<ark_vesta::Projective>,
+            PedersenCommitment<ark_pallas::PallasConfig>,
+            PedersenCommitment<ark_vesta::VestaConfig>,
         >()
         .unwrap()
     }
 
     fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
-        G1: SWCurveConfig,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+        G1: SWCurveConfig + SVDWMap,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
     {
         let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()
@@ -561,7 +570,12 @@ mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &(), &())?;
+        >::setup(
+            ro_config,
+            &circuit,
+            public_params::pedersen_setup,
+            public_params::pedersen_setup,
+        )?;
 
         let node_0 = PCDNode::prove_leaf(&params, &circuit, 0, z[0])?;
         let node_1 = PCDNode::prove_leaf(&params, &circuit, 2, z[2])?;
