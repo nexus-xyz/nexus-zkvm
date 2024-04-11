@@ -126,7 +126,7 @@ pub(crate) mod tests {
     fn prove_verify() {
         prove_verify_with_curve::<
             ark_pallas::PallasConfig,
-            PedersenCommitment<ark_pallas::PallasConfig>,
+            PedersenCommitment<ark_pallas::Projective>,
         >()
         .unwrap()
     }
@@ -136,12 +136,12 @@ pub(crate) mod tests {
         G: SWCurveConfig,
         G::BaseField: PrimeField + Absorb,
         G::ScalarField: Absorb,
-        C: CommitmentScheme<Projective<G>, SetupAux = [u8]>,
+        C: CommitmentScheme<Projective<G>, SetupAux = ()>,
         C::PP: Clone,
     {
         let config = poseidon_config::<G::BaseField>();
 
-        let (shape, U2, W2, pp) = setup_test_r1cs::<G, C>(3, None, &[]);
+        let (shape, U2, W2, pp) = setup_test_r1cs::<G, C>(3, None, &());
 
         let U1 = RelaxedR1CSInstance::<Projective<G>, C>::new(&shape);
         let W1 = RelaxedR1CSWitness::zero(&shape);
@@ -169,7 +169,7 @@ pub(crate) mod tests {
         let U1 = folded_U;
         let W1 = folded_W;
 
-        let (_, U2, W2, _) = setup_test_r1cs(5, Some(&pp), [].as_slice());
+        let (_, U2, W2, _) = setup_test_r1cs(5, Some(&pp), &());
         let U2 = RelaxedR1CSInstance::from(&U2);
         let W2 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &W2);
 

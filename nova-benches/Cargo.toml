@@ -41,5 +41,4 @@ ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "
 
 ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }

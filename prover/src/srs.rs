@@ -4,7 +4,7 @@ use zstd::stream::Decoder;
 use crate::{
     error::ProofError,
     pp::gen_vm_pp,
-    types::{pedersen_setup, ParPP, SpartanKey, SRS},
+    types::{ParPP, SpartanKey, SRS},
 };
 
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -23,7 +23,7 @@ pub fn load_srs(file: &str) -> Result<SRS, ProofError> {
 /// given `k`.
 pub fn get_min_srs_size(k: usize) -> Result<usize, ProofError> {
     // these are only used to get the size of the r1cs matrices for a given k.
-    let dummy_pp: ParPP = gen_vm_pp(k, pedersen_setup)?;
+    let dummy_pp: ParPP = gen_vm_pp(k, &())?;
     let ParPP { shape, .. } = dummy_pp;
 
     Ok(SpartanKey::get_min_srs_size(&shape))

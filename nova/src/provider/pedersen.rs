@@ -1,51 +1,55 @@
 use std::marker::PhantomData;
 
-use crate::{commitment::CommitmentScheme, LOG_TARGET};
-use ark_ec::{
-    short_weierstrass::{Affine, Projective, SWCurveConfig},
-    ScalarMul, VariableBaseMSM,
-};
-use ark_ff::{field_hashers::hash_to_field, PrimeField};
-use sha3::digest::{ExtendableOutput, Update};
+use ark_ec::{CurveGroup, ScalarMul, VariableBaseMSM};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_std::rand::SeedableRng;
+use sha3::digest::{ExtendableOutput, Update, XofReader};
 
-pub use crate::provider::hashtocurve::SVDWMap;
+use crate::{commitment::CommitmentScheme, LOG_TARGET};
 
 #[derive(Debug)]
 pub struct PedersenCommitment<G>(PhantomData<G>);
 
-impl<G> CommitmentScheme<Projective<G>> for PedersenCommitment<G>
+impl<G> CommitmentScheme<G> for PedersenCommitment<G>
 where
-    G: SWCurveConfig + SVDWMap,
-    G::BaseField: PrimeField,
+    G: CurveGroup,
+    G::MulBase: CanonicalSerialize + CanonicalDeserialize,
 {
-    type PP = Vec<Affine<G>>;
-    type SetupAux = [u8];
+    type PP = Vec<G::MulBase>;
+    type SetupAux = ();
 
-    type Commitment = Projective<G>;
+    type Commitment = G;
 
-    fn setup(n: usize, _bytes: &Self::SetupAux) -> Self::PP {
+    fn setup(n: usize, label: &[u8], _aux: &Self::SetupAux) -> Self::PP {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "pedersen::setup",
-            %n,
+            ?n,
         )
         .entered();
 
-        #[cfg(not(test))]
-        let bases = batch_map_to_curve(b"from_uniform_bytes", _bytes, n);
-        #[cfg(test)]
-        let bases = {
-            let mut rng = ark_std::test_rng();
-            let ps: Vec<Projective<G>> = (0..n)
-                .map(|_| <Projective<G> as ark_std::UniformRand>::rand(&mut rng))
-                .collect();
-            ark_ec::ScalarMul::batch_convert_to_mul_base(&ps)
-        };
+        // from a16z/jolt
+        //
+        // https://github.com/a16z/jolt/blob/a665343662c7082c33be4766298324db798cfaa9/jolt-core/src/poly/pedersen.rs#L18-L36
+        let mut shake = sha3::Shake256::default();
+        shake.update(label);
+        let mut buf = vec![];
+        G::generator().serialize_compressed(&mut buf).unwrap();
+        shake.update(&buf);
 
-        bases
+        let mut reader = shake.finalize_xof();
+        let mut seed = [0u8; 32];
+        reader.read(&mut seed);
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
+
+        let mut gens = Vec::with_capacity(n);
+        for _ in 0..n {
+            gens.push(G::rand(&mut rng));
+        }
+        ScalarMul::batch_convert_to_mul_base(&gens)
     }
 
-    fn commit(bases: &Self::PP, scalars: &[G::ScalarField]) -> Self::Commitment {
+    fn commit(bases: &Self::PP, scalars: &[G::ScalarField]) -> G {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
             "pedersen::commit",
@@ -55,38 +59,4 @@ where
 
         VariableBaseMSM::msm_unchecked(bases, scalars)
     }
-}
-
-#[doc(hidden)]
-pub fn batch_map_to_curve<G>(domain: &[u8], bytes: &[u8], len: usize) -> Vec<Affine<G>>
-where
-    G: SWCurveConfig + SVDWMap,
-    G::BaseField: PrimeField,
-{
-    const SEC_PARAM: usize = 128;
-
-    let mut hasher = sha3::Shake256::default();
-    hasher.update(domain);
-    hasher.update(bytes);
-    let mut reader = hasher.finalize_xof();
-
-    let mut points = Vec::with_capacity(len);
-
-    // https://www.ietf.org/archive/id/draft-irtf-cfrg-hash-to-curve-10.html#section-3-6.1.1
-    for _ in 0..len {
-        let u1 =
-            hash_to_field::<G::BaseField, <sha3::Shake256 as ExtendableOutput>::Reader, SEC_PARAM>(
-                &mut reader,
-            );
-        let u2 =
-            hash_to_field::<G::BaseField, <sha3::Shake256 as ExtendableOutput>::Reader, SEC_PARAM>(
-                &mut reader,
-            );
-        let p1 = G::map_to_curve(u1);
-        let p2 = G::map_to_curve(u2);
-
-        points.push(p1 + p2);
-    }
-
-    ScalarMul::batch_convert_to_mul_base(&points)
 }

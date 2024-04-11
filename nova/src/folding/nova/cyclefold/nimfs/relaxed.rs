@@ -320,8 +320,8 @@ mod tests {
         prove_verify_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::PallasConfig>,
-            PedersenCommitment<ark_vesta::VestaConfig>,
+            PedersenCommitment<ark_pallas::Projective>,
+            PedersenCommitment<ark_vesta::Projective>,
         >()
         .unwrap();
     }
@@ -330,8 +330,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -339,11 +339,12 @@ mod tests {
         let config = poseidon_config();
 
         let vk = G1::ScalarField::ONE;
-        let (shape, _, _, pp) = setup_test_r1cs::<G1, C1>(2, None, &[]);
+        let (shape, _, _, pp) = setup_test_r1cs::<G1, C1>(2, None, &());
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
         let pp_secondary = C2::setup(
             shape_secondary.num_vars + shape_secondary.num_constraints,
-            &[],
+            b"test",
+            &(),
         );
 
         let mut rng = ark_std::test_rng();
@@ -396,7 +397,7 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
         C2: CommitmentScheme<Projective<G2>>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
@@ -406,7 +407,7 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp), &[]);
+        let (shape, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp), &());
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
@@ -426,7 +427,7 @@ mod tests {
                 (&u, &w),
             )?;
 
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp), &[]);
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(UniformRand::rand(rng), Some(pp), &());
         let U1 = RelaxedR1CSInstance::from(&u);
         let W1 = RelaxedR1CSWitness::from_r1cs_witness(&shape, &w);
 

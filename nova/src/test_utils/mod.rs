@@ -76,6 +76,7 @@ where
     let pp = pp.cloned().unwrap_or_else(|| {
         C::setup(
             cs_borrow.num_witness_variables + cs_borrow.num_constraints,
+            b"test",
             aux,
         )
     });

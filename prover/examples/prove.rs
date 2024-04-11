@@ -2,7 +2,6 @@
 //! Run with `cargo run --release --example prove`.
 
 use nexus_config::{vm::NovaImpl, VmConfig};
-use nexus_prover::types::pedersen_setup;
 use nexus_riscv::VMOpts;
 
 use tracing::level_filters::LevelFilter;
@@ -22,7 +21,7 @@ fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!("Setting up public parameters...");
-    let public_params = nexus_prover::pp::gen_vm_pp(CONFIG.k, pedersen_setup)?;
+    let public_params = nexus_prover::pp::gen_vm_pp(CONFIG.k, &())?;
 
     // Run the program.
     let vm_opts = VMOpts {

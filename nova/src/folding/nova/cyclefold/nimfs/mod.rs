@@ -336,8 +336,8 @@ mod tests {
         prove_verify_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::PallasConfig>,
-            PedersenCommitment<ark_vesta::VestaConfig>,
+            PedersenCommitment<ark_pallas::Projective>,
+            PedersenCommitment<ark_vesta::Projective>,
         >()
         .unwrap();
     }
@@ -346,8 +346,8 @@ mod tests {
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
         G2: SWCurveConfig,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1::PP: Clone,
@@ -356,12 +356,13 @@ mod tests {
 
         let vk = G1::ScalarField::ONE;
 
-        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None, &[]);
+        let (shape, u, w, pp) = setup_test_r1cs::<G1, C1>(3, None, &());
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
 
         let pp_secondary = C2::setup(
             shape_secondary.num_vars + shape_secondary.num_constraints,
-            &[],
+            b"test",
+            &(),
         );
 
         let U = RelaxedR1CSInstance::<G1, C1>::new(&shape);
@@ -392,7 +393,7 @@ mod tests {
         assert_eq!(_U_secondary, folded_U_secondary);
         shape.is_relaxed_satisfied(&_U, &folded_W, &pp).unwrap();
 
-        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp), &[]);
+        let (_, u, w, _) = setup_test_r1cs::<G1, C1>(5, Some(&pp), &());
 
         let (proof, (_folded_U, folded_W), (_folded_U_secondary, _folded_W_secondary)) =
             NIMFSProof::<_, _, _, _, PoseidonSponge<G1::ScalarField>>::prove(

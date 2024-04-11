@@ -17,18 +17,15 @@ use criterion::*;
 use pprof::criterion::{Output, PProfProfiler};
 
 use nexus_nova::{
-    nova::{
-        public_params::pedersen_setup,
-        sequential::{IVCProof, PublicParams},
-    },
+    nova::sequential::{IVCProof, PublicParams},
     pedersen::PedersenCommitment,
     poseidon_config, StepCircuit,
 };
 
 type G1 = ark_pallas::PallasConfig;
 type G2 = ark_vesta::VestaConfig;
-type C1 = PedersenCommitment<ark_pallas::PallasConfig>;
-type C2 = PedersenCommitment<ark_vesta::VestaConfig>;
+type C1 = PedersenCommitment<ark_pallas::Projective>;
+type C2 = PedersenCommitment<ark_vesta::Projective>;
 
 type CF = ark_pallas::Fr;
 
@@ -60,8 +57,8 @@ fn bench_recursive_snark(c: &mut Criterion) {
             PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::setup(
                 ro_config.clone(),
                 &step_circuit,
-                pedersen_setup,
-                pedersen_setup,
+                &(),
+                &(),
             )
             .unwrap();
 
