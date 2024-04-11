@@ -73,11 +73,16 @@ where
         let shape = R1CSShape::from(cs);
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        let pp = C1::setup(shape.num_vars.max(shape.num_constraints), aux1);
+        let pp = C1::setup(
+            shape.num_vars.max(shape.num_constraints),
+            b"nova_seq_primary_curve",
+            aux1,
+        );
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
+            b"nova_seq_secondary_curve",
             aux2,
         );
 

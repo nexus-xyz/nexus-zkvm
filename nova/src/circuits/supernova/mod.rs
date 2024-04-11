@@ -128,11 +128,12 @@ where
 
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        let pp = C1::setup(comm_key_len, aux1);
+        let pp = C1::setup(comm_key_len, b"supernova_primary_curve", aux1);
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
+            b"supernova_secondary_curve",
             aux2,
         );
 

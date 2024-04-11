@@ -343,6 +343,7 @@ mod tests {
         let shape_secondary = secondary::setup_shape::<G1, G2>()?;
         let pp_secondary = C2::setup(
             shape_secondary.num_vars + shape_secondary.num_constraints,
+            b"test",
             &(),
         );
 

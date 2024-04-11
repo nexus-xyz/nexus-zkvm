@@ -24,6 +24,7 @@ ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
 
 merlin = { version = "3.0.0", optional = true }
 sha3 = { version = "0.10", default-features = false }
+rand_chacha = "0.3.1"
 
 tracing = { version = "0.1", default-features = false }
 rayon = { version = "1.8.0", optional = true }

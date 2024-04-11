@@ -27,7 +27,7 @@ where
 
     /// This function is just for testing purposes: in practice, we will need to
     /// load PC's SRS from a file.
-    fn setup(n: usize, srs: &PC::SRS) -> Self::PP {
+    fn setup(n: usize, _label: &[u8], srs: &PC::SRS) -> Self::PP {
         PC::trim(srs, n.log_2())
     }
 

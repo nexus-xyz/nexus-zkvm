@@ -74,7 +74,7 @@ pub trait CommitmentScheme<G: CurveGroup>: Send + Sync {
     type Commitment: Commitment<G>;
 
     /// Samples new public parameters of a specified size.
-    fn setup(n: usize, aux: &Self::SetupAux) -> Self::PP;
+    fn setup(n: usize, label: &[u8], aux: &Self::SetupAux) -> Self::PP;
 
     /// Commits to the given vector using provided public parameters.
     fn commit(pp: &Self::PP, x: &[G::ScalarField]) -> Self::Commitment;

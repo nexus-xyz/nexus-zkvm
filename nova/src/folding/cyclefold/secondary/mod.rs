@@ -277,7 +277,7 @@ mod tests {
         let r_scalar = unsafe { cast_field_element::<Fq, Fr>(&r) };
         let g_out = g1 + g2 * r_scalar;
 
-        let pp = PedersenCommitment::<ark_vesta::Projective>::setup(shape.num_vars, &());
+        let pp = PedersenCommitment::<ark_vesta::Projective>::setup(shape.num_vars, b"test", &());
         let (U, _) = synthesize::<
             PallasConfig,
             VestaConfig,

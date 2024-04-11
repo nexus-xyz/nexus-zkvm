@@ -674,7 +674,7 @@ pub(crate) mod tests {
         const NUM_WITNESS: usize = 1;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
 
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &a, &a)?;
         let instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::new(&shape);
@@ -721,7 +721,7 @@ pub(crate) mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
@@ -779,7 +779,7 @@ pub(crate) mod tests {
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
@@ -813,7 +813,7 @@ pub(crate) mod tests {
         const NUM_PUBLIC: usize = 2;
         const r: Scalar = Scalar::ONE;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
@@ -858,7 +858,7 @@ pub(crate) mod tests {
         const NUM_PUBLIC: usize = 2;
         const r: Scalar = Scalar::ONE;
 
-        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, &());
+        let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
 
         let X = to_field_elements::<G>(&[1, 35]);
