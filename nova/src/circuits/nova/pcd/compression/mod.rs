@@ -301,7 +301,7 @@ mod tests {
     use ark_crypto_primitives::sponge::{poseidon::PoseidonSponge, Absorb};
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::PrimeField;
-    use ark_grumpkin::GrumpkinConfig;
+    use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
     use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
     use ark_std::{fs::File, test_rng, One};
     use zstd::stream::Encoder;
@@ -310,11 +310,8 @@ mod tests {
     use crate::{
         circuits::nova::sequential::tests::CubicCircuit,
         commitment::CommitmentScheme,
-        nova::{
-            pcd::{compression::SNARK, PCDNode, PublicParams},
-            public_params,
-        },
-        pedersen::{PedersenCommitment, SVDWMap},
+        nova::pcd::{compression::SNARK, PCDNode, PublicParams},
+        pedersen::PedersenCommitment,
         poseidon_config,
     };
 
@@ -331,12 +328,12 @@ mod tests {
     )
     where
         G1: SWCurveConfig,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         PC: PolyCommitmentScheme<Projective<G1>>,
         PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         // we hardcode the minimum SRS size here for simplicity. If we need to derive it, we can do:
         // let shape = setup_shape(ro_config, step_circuit).unwrap();
@@ -366,12 +363,7 @@ mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(
-            ro_config,
-            &step_circuit,
-            public_params::setup_by_value_fn(srs.clone()),
-            public_params::pedersen_setup,
-        )
+        >::setup(ro_config, &step_circuit, &srs, &())
         .expect("setup should not fail");
         (srs, params)
     }
@@ -379,10 +371,10 @@ mod tests {
     fn spartan_encode_test_helper<G1, G2, PC, C2>()
     where
         G1: SWCurveConfig,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         PC: PolyCommitmentScheme<Projective<G1>>,
         PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
     {
@@ -404,7 +396,6 @@ mod tests {
         enc.finish().unwrap();
         f.sync_all().unwrap();
     }
-
     #[test]
     #[ignore]
     fn spartan_encode_test() {
@@ -412,17 +403,16 @@ mod tests {
             Bn254Config,
             GrumpkinConfig,
             Zeromorph<Bn254>,
-            PedersenCommitment<GrumpkinConfig>,
+            PedersenCommitment<GrumpkinProjective>,
         >();
     }
-
     fn compression_test_helper<G1, G2, PC, C2>()
     where
         G1: SWCurveConfig,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
         PC: PolyCommitmentScheme<Projective<G1>>,
         PC::Commitment: Copy + Into<Projective<G1>> + From<Projective<G1>>,
     {
@@ -479,7 +469,7 @@ mod tests {
             Bn254Config,
             GrumpkinConfig,
             Zeromorph<Bn254>,
-            PedersenCommitment<GrumpkinConfig>,
+            PedersenCommitment<GrumpkinProjective>,
         >();
     }
 }

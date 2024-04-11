@@ -51,8 +51,8 @@ where
     fn setup(
         ro_config: <RO as CryptographicSponge>::Config,
         step_circuit: &SC,
-        aux1: impl public_params::CKSetupFn<G1, C1>,
-        aux2: impl public_params::CKSetupFn<G2, C2>,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
@@ -73,15 +73,12 @@ where
         let shape = R1CSShape::from(cs);
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        let pp = C1::setup(
-            shape.num_vars.max(shape.num_constraints),
-            aux1(&shape).as_ref(),
-        );
+        let pp = C1::setup(shape.num_vars.max(shape.num_constraints), aux1);
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
-            aux2(&shape_secondary).as_ref(),
+            aux2,
         );
 
         let mut params = public_params::PublicParams {
@@ -392,10 +389,7 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{
-        pedersen::{PedersenCommitment, SVDWMap},
-        poseidon_config, LOG_TARGET as NOVA_TARGET,
-    };
+    use crate::{pedersen::PedersenCommitment, poseidon_config, LOG_TARGET as NOVA_TARGET};
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
@@ -436,20 +430,20 @@ pub(crate) mod tests {
         ivc_base_step_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::PallasConfig>,
-            PedersenCommitment<ark_vesta::VestaConfig>,
+            PedersenCommitment<ark_pallas::Projective>,
+            PedersenCommitment<ark_vesta::Projective>,
         >()
         .unwrap()
     }
 
     fn ivc_base_step_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
-        G1: SWCurveConfig + SVDWMap,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
+        G1: SWCurveConfig,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let ro_config = poseidon_config();
 
@@ -464,12 +458,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(
-            ro_config,
-            &circuit,
-            public_params::pedersen_setup,
-            public_params::pedersen_setup,
-        )?;
+        >::setup(ro_config, &circuit, &(), &())?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
@@ -485,20 +474,20 @@ pub(crate) mod tests {
         ivc_multiple_steps_with_cycle::<
             ark_pallas::PallasConfig,
             ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::PallasConfig>,
-            PedersenCommitment<ark_vesta::VestaConfig>,
+            PedersenCommitment<ark_pallas::Projective>,
+            PedersenCommitment<ark_vesta::Projective>,
         >()
         .unwrap()
     }
 
     fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
     where
-        G1: SWCurveConfig + SVDWMap,
-        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField> + SVDWMap,
+        G1: SWCurveConfig,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = [u8]>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()
@@ -521,12 +510,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(
-            ro_config,
-            &circuit,
-            public_params::pedersen_setup,
-            public_params::pedersen_setup,
-        )?;
+        >::setup(ro_config, &circuit, &(), &())?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
 

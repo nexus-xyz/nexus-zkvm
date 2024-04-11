@@ -9,7 +9,6 @@ use super::{Error, NonUniformCircuit};
 use crate::{
     commitment::CommitmentScheme,
     folding::nova::cyclefold::nimfs::{R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
-    provider::pedersen::{PedersenCommitment, SVDWMap},
     utils,
 };
 
@@ -47,8 +46,13 @@ where
     SC: NonUniformCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
-    pub fn setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
-        SP::setup(ro_config, step_circuit)
+    pub fn setup(
+        ro_config: RO::Config,
+        step_circuit: &SC,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
+    ) -> Result<Self, Error> {
+        SP::setup(ro_config, step_circuit, aux1, aux2)
     }
 
     /// Returns first [`SQUEEZE_ELEMENTS_BIT_SIZE`] bits of public parameters sha3 hash reinterpreted
@@ -80,22 +84,7 @@ where
     fn setup(
         ro_config: RO::Config,
         step_circuit: &SC,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
-}
-
-pub fn pedersen_setup<G>(
-    shapes: &[R1CSShape<G>],
-) -> Box<<PedersenCommitment<G> as CommitmentScheme<Projective<G>>>::SetupAux>
-where
-    G: SWCurveConfig + SVDWMap,
-    G::BaseField: PrimeField,
-{
-    let mut buf = vec![];
-    shapes.iter().for_each(|shape| {
-        shape
-            .serialize_compressed(&mut buf)
-            .expect("serialize failed")
-    });
-
-    buf.into_boxed_slice()
 }

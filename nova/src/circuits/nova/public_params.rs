@@ -9,7 +9,6 @@ use super::{Error, StepCircuit};
 use crate::{
     commitment::CommitmentScheme,
     folding::nova::cyclefold::nimfs::{R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
-    pedersen::{PedersenCommitment, SVDWMap},
     utils,
 };
 
@@ -50,8 +49,8 @@ where
     pub fn setup(
         ro_config: RO::Config,
         step_circuit: &SC,
-        aux1: impl CKSetupFn<G1, C1>,
-        aux2: impl CKSetupFn<G2, C2>,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<Self, Error> {
         SP::setup(ro_config, step_circuit, aux1, aux2)
     }
@@ -85,43 +84,7 @@ where
     fn setup(
         ro_config: RO::Config,
         step_circuit: &SC,
-        aux1: impl CKSetupFn<G1, C1>,
-        aux2: impl CKSetupFn<G2, C2>,
+        aux1: &C1::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
-}
-
-/// Fn object used to compute auxiliary params for the commitment scheme from R1CS matrices.
-pub trait CKSetupFn<G: SWCurveConfig, C: CommitmentScheme<Projective<G>>>:
-    FnOnce(&R1CSShape<G>) -> Box<C::SetupAux>
-{
-}
-
-impl<T, G: SWCurveConfig, C: CommitmentScheme<Projective<G>>> CKSetupFn<G, C> for T where
-    T: FnOnce(&R1CSShape<G>) -> Box<C::SetupAux>
-{
-}
-
-/// Serialize R1CS matrices and use it as input for xof hasher.
-pub fn pedersen_setup<G>(
-    shape: &R1CSShape<G>,
-) -> Box<<PedersenCommitment<G> as CommitmentScheme<Projective<G>>>::SetupAux>
-where
-    G: SWCurveConfig + SVDWMap,
-    G::BaseField: PrimeField,
-{
-    let mut buf = vec![];
-    shape
-        .serialize_compressed(&mut buf)
-        .expect("serialize failed");
-
-    buf.into_boxed_slice()
-}
-
-/// Explicitly provide ck params by value.
-pub fn setup_by_value_fn<G, C, T>(aux: T) -> impl CKSetupFn<G, C>
-where
-    G: SWCurveConfig,
-    C: CommitmentScheme<Projective<G>, SetupAux = T>,
-{
-    move |_shape: &R1CSShape<G>| Box::new(aux)
 }

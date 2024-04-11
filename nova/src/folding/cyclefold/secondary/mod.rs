@@ -236,7 +236,7 @@ mod tests {
             unsafe { cast_field_element(&r) },
         ];
         assert_eq!(X.len(), SECONDARY_NUM_IO);
-        let r1cs = R1CSInstance::<VestaConfig, PedersenCommitment<ark_vesta::VestaConfig>> {
+        let r1cs = R1CSInstance::<VestaConfig, PedersenCommitment<ark_vesta::Projective>> {
             commitment_W: Default::default(),
             X: X.into(),
         };
@@ -249,7 +249,7 @@ mod tests {
 
         // incorrect length
         let _X = &X[..10];
-        let r1cs = R1CSInstance::<VestaConfig, PedersenCommitment<ark_vesta::VestaConfig>> {
+        let r1cs = R1CSInstance::<VestaConfig, PedersenCommitment<ark_vesta::Projective>> {
             commitment_W: Default::default(),
             X: _X.into(),
         };
@@ -258,7 +258,7 @@ mod tests {
         // not on curve
         let mut _X = X.to_vec();
         _X[1] -= Fq::ONE;
-        let r1cs = R1CSInstance::<VestaConfig, PedersenCommitment<ark_vesta::VestaConfig>> {
+        let r1cs = R1CSInstance::<VestaConfig, PedersenCommitment<ark_vesta::Projective>> {
             commitment_W: Default::default(),
             X: _X,
         };
@@ -277,11 +277,11 @@ mod tests {
         let r_scalar = unsafe { cast_field_element::<Fq, Fr>(&r) };
         let g_out = g1 + g2 * r_scalar;
 
-        let pp = PedersenCommitment::<ark_vesta::VestaConfig>::setup(shape.num_vars, &[]);
+        let pp = PedersenCommitment::<ark_vesta::Projective>::setup(shape.num_vars, &());
         let (U, _) = synthesize::<
             PallasConfig,
             VestaConfig,
-            PedersenCommitment<ark_vesta::VestaConfig>,
+            PedersenCommitment<ark_vesta::Projective>,
         >(Circuit { g1, g2, g_out, r }, &pp)
         .unwrap();
 

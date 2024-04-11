@@ -59,7 +59,7 @@ pub trait PolyCommitmentTrait<G: CurveGroup>:
   }
 }
 
-pub trait SRSTrait: Clone + CanonicalSerialize + CanonicalDeserialize {
+pub trait SRSTrait: CanonicalSerialize + CanonicalDeserialize {
   fn max_num_vars(&self) -> usize;
 }
 
