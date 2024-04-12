@@ -52,8 +52,7 @@ where
     fn setup(
         ro_config: <RO as CryptographicSponge>::Config,
         step_circuit: &SC,
-        srs: &C1::SRS,
-        aux: &C2::SetupAux,
+        aux2: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
@@ -104,16 +103,24 @@ where
         // NOTE: Review `project_augmented_circuit_size` for context.
         //debug_assert!(shape.num_constraints == project_augmented_circuit_size(&step_circuit));
 
+        let mut rng = ark_std::test_rng();
+        let srs = C1::setup(
+            shape.num_vars.max(shape.num_constraints),
+            b"hypernova_seq_primary_curve",
+            &mut rng,
+        ).map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
+
         // NOTE: We could try to use the EvalVerifierKey here, which should then make the
         //       public params smaller. However, that would make the interfaces uglier as
         //       well as potentially introduce concerns as we'd absorb it rather than the
         //       full key used for committing. So, for now we will just use the full key.
-        let PCSKeys { ck, .. } = C1::trim(srs, shape.num_vars.max(shape.num_constraints));
+        let PCSKeys { ck, .. } = C1::trim(&srs, shape.num_vars.max(shape.num_constraints));
+
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
-            b"nova_seq_secondary_curve",
+            b"hypernova_seq_secondary_curve",
             aux2,
         );
 
@@ -480,7 +487,7 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: PolyCommitmentScheme<Projective<G1>, SRS = ()>,
+        C1: PolyCommitmentScheme<Projective<G1>>,
         C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let ro_config = poseidon_config();
@@ -499,7 +506,6 @@ pub(crate) mod tests {
         >::setup(
             ro_config,
             &circuit,
-            &(),
             &(),
         )?;
 
@@ -529,7 +535,7 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: PolyCommitmentScheme<Projective<G1>, SRS = ()>,
+        C1: PolyCommitmentScheme<Projective<G1>>,
         C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
@@ -555,7 +561,6 @@ pub(crate) mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config,
                  &circuit,
-                 &(),
                  &(),
         )?;
 

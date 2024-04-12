@@ -27,6 +27,7 @@ pub enum Error {
 
     #[cfg(any(test, feature = "spartan"))]
     InvalidPublicInput,
+    PolyCommitmentSetup,
 }
 
 impl From<R1CSError> for Error {
@@ -62,6 +63,7 @@ impl Display for Error {
             Self::Synthesis(error) => write!(f, "{}", error),
             #[cfg(any(test, feature = "spartan"))]
             Self::InvalidPublicInput => write!(f, "invalid public input"),
+            Self::PolyCommitmentSetup => write!(f, "error during polycommitment setup"),
         }
     }
 }
@@ -75,6 +77,7 @@ impl ark_std::error::Error for Error {
             Self::Synthesis(error) => error.source(),
             #[cfg(any(test, feature = "spartan"))]
             Self::InvalidPublicInput => None,
+            Self::PolyCommitmentSetup => None,
         }
     }
 }
