@@ -113,7 +113,8 @@ where
             shape_secondary
                 .num_vars
                 .max(shape_secondary.num_constraints),
-            aux,
+            b"nova_seq_secondary_curve",
+            aux2,
         );
 
         let mut params = public_params::PublicParams {
@@ -480,7 +481,7 @@ pub(crate) mod tests {
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1: PolyCommitmentScheme<Projective<G1>, SRS = ()>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let ro_config = poseidon_config();
 
@@ -498,8 +499,8 @@ pub(crate) mod tests {
         >::setup(
             ro_config,
             &circuit,
-            public_params::polycommit_setup,
-            public_params::pedersen_setup
+            &(),
+            &(),
         )?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
@@ -529,7 +530,7 @@ pub(crate) mod tests {
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
         C1: PolyCommitmentScheme<Projective<G1>, SRS = ()>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
         let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()
@@ -554,8 +555,8 @@ pub(crate) mod tests {
             CubicCircuit<G1::ScalarField>,
         >::setup(ro_config,
                  &circuit,
-                 public_params::polycommit_setup,
-                 public_params::pedersen_setup
+                 &(),
+                 &(),
         )?;
 
         let mut recursive_snark = IVCProof::new(&z_0);

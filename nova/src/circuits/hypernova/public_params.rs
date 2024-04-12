@@ -6,8 +6,6 @@ use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
-pub use crate::nova::public_params::pedersen_setup;
-
 use super::{Error, StepCircuit};
 use crate::{
     commitment::CommitmentScheme,

@@ -12,23 +12,34 @@ use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
 use ark_ff::PrimeField;
 use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
+use ark_spartan::polycommitments::zeromorph::Zeromorph;
 
 use criterion::*;
 use pprof::criterion::{Output, PProfProfiler};
 
 use nexus_nova::{
-    nova::sequential::{IVCProof, PublicParams},
+    nova::sequential::{IVCProof as NovaIVC, PublicParams as NovaPP},
+    //hypernova::{
+    //    sequential::{IVCProof as HyperNovaIVC, PublicParams as HyperNovaPP},
+    //},
     pedersen::PedersenCommitment,
     poseidon_config, StepCircuit,
 };
 
-type G1 = ark_pallas::PallasConfig;
-type G2 = ark_vesta::VestaConfig;
-type C1 = PedersenCommitment<ark_pallas::Projective>;
-type C2 = PedersenCommitment<ark_vesta::Projective>;
+type NG1 = ark_pallas::PallasConfig;
+type NG2 = ark_vesta::VestaConfig;
+type NC1 = PedersenCommitment<ark_pallas::PallasConfig>;
+type NC2 = PedersenCommitment<ark_vesta::VestaConfig>;
 
-type CF = ark_pallas::Fr;
+type NCF = ark_pallas::Fr;
+/*
+type HNG1 = ark_bn254::g1::Config;
+type HNG2 = ark_grumpkin::GrumpkinConfig;
+type HNC1 = Zeromorph<ark_bn254::Bn254>;
+type HNC2 = PedersenCommitment<ark_grumpkin::GrumpkinConfig>;
 
+type HNCF = ark_bn254::g1::Fr;
+*/
 criterion_group! {
     name = recursive_snark;
     config = Criterion::default()
@@ -46,7 +57,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
     for &num_cons_in_step_circuit in [0, 6399, 22783, 55551, 121087, 252159, 514303, 1038591].iter()
     {
         let mut group = c.benchmark_group(format!(
-            "RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
+            "RecursiveSNARK-Nova-StepCircuitSize-{num_cons_in_step_circuit}"
         ));
         group.sample_size(10);
 
@@ -54,7 +65,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
 
         // Produce public parameters
         let pp =
-            PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::setup(
+            PublicParams::<NG1, NG2, NC1, NC2, PoseidonSponge<NCF>, NonTrivialTestCircuit<NCF>>::setup(
                 ro_config.clone(),
                 &step_circuit,
                 &(),
@@ -67,8 +78,8 @@ fn bench_recursive_snark(c: &mut Criterion) {
         // the first step is cheaper than other steps owing to the presence of
         // a lot of zeros in the satisfying assignment
         let num_warmup_steps = 10;
-        let mut recursive_snark: IVCProof<G1, G2, C1, C2, PoseidonSponge<CF>, _> =
-            IVCProof::new(&[CF::from(2u64)]);
+        let mut recursive_snark: IVCProof<NG1, NG2, NC1, NC2, PoseidonSponge<NCF>, _> =
+            IVCProof::new(&[NCF::from(2u64)]);
 
         for i in 0..num_warmup_steps {
             recursive_snark = recursive_snark.prove_step(&pp, &step_circuit).unwrap();
