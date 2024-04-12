@@ -1,3 +1,9 @@
+// !!! Please review the contents of `project_augmented_circuit_size` in
+// !!!
+// !!!    .../src/circuits/hypernova/sequential/util.rs
+// !!!
+// !!! before modifying this circuit.
+
 use std::{borrow::Borrow, marker::PhantomData};
 
 use ark_crypto_primitives::sponge::constraints::{AbsorbGadget, SpongeWithGadget};
@@ -59,7 +65,7 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
 {
-    pub(super) fn var(&self) -> &CCSInstanceVar<G1, C1> {
+    pub fn var(&self) -> &CCSInstanceVar<G1, C1> {
         &self.0
     }
 }
@@ -218,7 +224,7 @@ where
         })
     }
 
-    pub(super) fn var(&self) -> &LCCSInstanceVar<G1, C1> {
+    pub fn var(&self) -> &LCCSInstanceVar<G1, C1> {
         &self.0
     }
 }
@@ -500,7 +506,7 @@ where
     G1::BaseField: PrimeField,
     RO: SpongeWithGadget<G1::ScalarField>,
 {
-    pub(super) fn var(&self) -> &ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO> {
+    pub fn var(&self) -> &ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO> {
         &self.0
     }
 }

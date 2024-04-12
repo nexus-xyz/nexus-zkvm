@@ -48,7 +48,7 @@ impl<F: Field> ListOfProductsOfPolynomials<F> {
 
 /// Stores the number of variables and max number of multiplicands of the added polynomial used by the prover.
 /// This data structures will is used as the verifier key.
-#[derive(CanonicalSerialize, CanonicalDeserialize, Clone)]
+#[derive(CanonicalSerialize, CanonicalDeserialize, Clone, Default)]
 pub struct PolynomialInfo {
     /// max number of multiplicands in each product
     pub max_multiplicands: usize,

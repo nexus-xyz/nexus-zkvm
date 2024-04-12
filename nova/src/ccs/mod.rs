@@ -72,6 +72,21 @@ pub struct CCSShape<G: CurveGroup> {
     pub cSs: Vec<(G::ScalarField, Vec<usize>)>,
 }
 
+impl<G: CurveGroup> fmt::Display for CCSShape<G> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "CCSShape {{ num_constraints: {}, num_vars: {}, num_io: {}, num_matrices: {}, num_multisets: {}, max_cardinality: {}, Ms: [_, {}], cSs: [_, {}] }}",
+               self.num_constraints,
+               self.num_vars,
+               self.num_io,
+               self.num_matrices,
+               self.num_multisets,
+               self.max_cardinality,
+               self.Ms.len(),
+               self.cSs.len(),
+        )
+    }
+}
+
 impl<G: CurveGroup> CCSShape<G> {
     /// Checks if the CCS instance together with the witness `W` satisfies the CCS constraints determined by `shape`.
     pub fn is_satisfied<C: PolyCommitmentScheme<G>>(

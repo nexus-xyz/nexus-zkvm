@@ -82,6 +82,18 @@ impl<G: CurveGroup, RO> Clone for NIMFSProof<G, RO> {
     }
 }
 
+impl<G: CurveGroup, RO> Default for NIMFSProof<G, RO> {
+    fn default() -> Self {
+        Self {
+            sumcheck_proof: ml_sumcheck::Proof::<G::ScalarField>::default(),
+            poly_info: ml_sumcheck::PolynomialInfo::default(),
+            sigmas: Vec::default(),
+            thetas: Vec::default(),
+            _random_oracle: PhantomData,
+        }
+    }
+}
+
 impl<G, RO> NIMFSProof<G, RO>
 where
     G: CurveGroup + AbsorbNonNative<G::ScalarField>,

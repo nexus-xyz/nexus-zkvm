@@ -6,10 +6,12 @@ use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
+pub use crate::nova::public_params::pedersen_setup;
+
 use super::{Error, StepCircuit};
 use crate::{
     commitment::CommitmentScheme,
-    folding::nova::cyclefold::nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
+    folding::hypernova::cyclefold::nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
     utils,
 };
 
@@ -28,7 +30,7 @@ where
     pub ro_config: RO::Config,
     pub shape: CCSShape<G1>,
     pub shape_secondary: R1CSShape<G2>,
-    pub ck: C1::CK,
+    pub ck: C1::PolyCommitmentKey,
     pub pp_secondary: C2::PP,
     pub digest: G1::ScalarField,
 

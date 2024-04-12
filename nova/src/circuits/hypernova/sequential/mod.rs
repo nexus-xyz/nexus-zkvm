@@ -9,6 +9,7 @@ use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::R1CSVar;
 use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_spartan::polycommitments::{PolyCommitmentScheme, PCSKeys};
 
 use crate::{
     absorb::CryptographicSpongeExt,
@@ -16,8 +17,8 @@ use crate::{
     folding::hypernova::cyclefold::{
         self,
         nimfs::{
-            NIMFSProof, R1CSInstance, R1CSShape, R1CSWitness, RelaxedR1CSInstance,
-            RelaxedR1CSWitness, CCSShape, CCSInstance, CCSWitness, LCCSInstance,
+            NIMFSProof, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness,
+            CCSShape, CCSInstance, CCSWitness, LCCSInstance,
         },
     },
 };
@@ -29,7 +30,7 @@ use augmented::{
     HyperNovaAugmentedCircuit, HyperNovaAugmentedCircuitInput, HyperNovaAugmentedCircuitNonBaseInput,
 };
 
-const LOG_TARGET: &str = "nexus-hypenova::sequential";
+const LOG_TARGET: &str = "nexus-hypernova::sequential";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
@@ -56,24 +57,58 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
+        // NOTE: Review `project_augmented_circuit_size` for context.
+        #[cfg(debug_assertions)]
+        {
+            for i in 0..=1 {
+                let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
-        let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Setup);
+                let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
+                    vk: G1::ScalarField::ZERO,
+                    z_0,
+                };
+
+                let cs = ConstraintSystem::new_ref();
+                cs.set_mode(SynthesisMode::Setup);
+
+                println!("re Augmented Circuit Constraint Projection: Begin test for {} sumcheck rounds...", i);
+                let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, i, input);
+                let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+
+                cs.finalize();
+                println!("re Augmented Circuit Constraint Projection: {} constraints total\n", cs.num_constraints());
+            }
+        }
+
+        //let s: usize = project_augmented_circuit_size(&step_circuit);
+        let s: usize = 0;
+
+        let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
             vk: G1::ScalarField::ZERO,
             z_0,
         };
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, input);
-        let _ = HyperNovaConstraintSynthesizer::generate_constraints_from_r1cs(circuit, cs.clone())?;
+
+        let cs = ConstraintSystem::new_ref();
+        cs.set_mode(SynthesisMode::Setup);
+
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, s, input);
+        let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         cs.finalize();
 
         let shape = CCSShape::from(R1CSShape::from(cs));
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        let ck = C1::trim(srs, shape.num_vars.max(shape.num_constraints));
+        // NOTE: Review `project_augmented_circuit_size` for context.
+        //debug_assert!(shape.num_constraints == project_augmented_circuit_size(&step_circuit));
+
+        // NOTE: We could try to use the EvalVerifierKey here, which should then make the
+        //       public params smaller. However, that would make the interfaces uglier as
+        //       well as potentially introduce concerns as we'd absorb it rather than the
+        //       full key used for committing. So, for now we will just use the full key.
+        let PCSKeys { ck, .. } = C1::trim(srs, shape.num_vars.max(shape.num_constraints));
         let pp_secondary = C2::setup(
             shape_secondary
                 .num_vars
@@ -293,10 +328,12 @@ where
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
-        let circuit = HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, input);
+        let s: usize = ((params.shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+
+        let circuit = HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, s, input);
 
         let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
-            .in_scope(|| HyperNovaConstraintSynthesizer::generate_constraints_from_r1cs(circuit, cs.clone()))?;
+            .in_scope(|| HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
 
         let cs_borrow = cs.borrow().unwrap();
         let witness = cs_borrow.witness_assignment.clone();
@@ -373,7 +410,7 @@ where
             return Err(NOT_SATISFIED_ERROR);
         }
 
-        params.shape.is_relaxed_satisfied(U, W, &params.ck)?;
+        params.shape.is_satisfied_linearized(U, W, &params.ck)?;
         params.shape_secondary.is_relaxed_satisfied(
             U_secondary,
             W_secondary,
@@ -394,6 +431,7 @@ pub(crate) mod tests {
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
     use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
+    use ark_spartan::polycommitments::zeromorph::Zeromorph;
 
     use tracing_subscriber::{
         filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
@@ -427,10 +465,10 @@ pub(crate) mod tests {
     #[test]
     fn ivc_base_step() {
         ivc_base_step_with_cycle::<
-            ark_pallas::PallasConfig,
-            ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::Projective>,
-            PedersenCommitment<ark_vesta::Projective>,
+            ark_bn254::g1::Config,
+            ark_grumpkin::GrumpkinConfig,
+            Zeromorph<ark_bn254::Bn254>,
+            PedersenCommitment<ark_grumpkin::Projective>,
         >()
         .unwrap()
     }
@@ -441,8 +479,8 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        C1: PolyCommitmentScheme<Projective<G1>, SRS = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
     {
         let ro_config = poseidon_config();
 
@@ -457,7 +495,12 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &(), &())?;
+        >::setup(
+            ro_config,
+            &circuit,
+            public_params::polycommit_setup,
+            public_params::pedersen_setup
+        )?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
@@ -471,12 +514,12 @@ pub(crate) mod tests {
     #[test]
     fn ivc_multiple_steps() {
         ivc_multiple_steps_with_cycle::<
-            ark_pallas::PallasConfig,
-            ark_vesta::VestaConfig,
-            PedersenCommitment<ark_pallas::Projective>,
-            PedersenCommitment<ark_vesta::Projective>,
-        >()
-        .unwrap()
+            ark_bn254::g1::Config,
+            ark_grumpkin::GrumpkinConfig,
+            Zeromorph<ark_bn254::Bn254>,
+            PedersenCommitment<ark_grumpkin::Projective>,
+         >()
+         .unwrap()
     }
 
     fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
@@ -485,8 +528,8 @@ pub(crate) mod tests {
         G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
         G1::BaseField: PrimeField + Absorb,
         G2::BaseField: PrimeField + Absorb,
-        C1: CommitmentScheme<Projective<G1>, SetupAux = ()>,
-        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        C1: PolyCommitmentScheme<Projective<G1>, SRS = ()>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = [u8]>,
     {
         let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
         let _guard = tracing_subscriber::registry()
@@ -509,7 +552,11 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &(), &())?;
+        >::setup(ro_config,
+                 &circuit,
+                 public_params::polycommit_setup,
+                 public_params::pedersen_setup
+        )?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
 

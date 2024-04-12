@@ -1,3 +1,9 @@
+// !!! Please review the contents of `project_augmented_circuit_size` in
+// !!!
+// !!!    .../src/circuits/hypernova/sequential/util.rs
+// !!!
+// !!! before modifying this circuit.
+
 #![allow(unused)]
 #![deny(unsafe_code)]
 
@@ -13,6 +19,7 @@ use ark_r1cs_std::{
     fields::{fp::FpVar, FieldVar},
     R1CSVar,
 };
+use ark_std::ops::Neg;
 use ark_relations::r1cs::SynthesisError;
 use ark_spartan::polycommitments::PolyCommitmentScheme;
 
@@ -33,7 +40,7 @@ use crate::{
 pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
-    shape: &CCSShape<G1>,
+    s: usize,
     U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: &primary::CCSInstanceFromR1CSVar<G1, C1>,
@@ -75,16 +82,14 @@ where
 
     // HyperNova Verification Circuit - implementation is specific to R1CS origin for constraints
 
-    debug_assert!(shape.num_matrices == 3);
-    debug_assert!(shape.num_multisets == 2);
-    debug_assert!(shape.max_cardinality == 2);
-
-    let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+    const NUM_MATRICES: usize = 3;
+    const NUM_MULTISETS: usize = 2;
+    const MAX_CARDINALITY: usize = 2;
 
     let gamma: FpVar<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0].clone();
     let beta: Vec<FpVar<G1::ScalarField>> = random_oracle.squeeze_field_elements(s)?;
 
-    let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=shape.num_matrices)
+    let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=NUM_MATRICES)
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
         .collect::<Result<Vec<FpVar<G1::ScalarField>>, SynthesisError>>()?;
 
@@ -103,6 +108,10 @@ where
 
     random_oracle.absorb(&hypernova_proof.var().poly_info.var())?;
 
+    // NOTE: Review `project_augmented_circuit_size` for context.
+    #[cfg(debug_assertions)]
+    println!("re Augmented Circuit Constraint Projection: {} constraints before sumcheck", cs.num_constraints());
+
     let mut rs_p: Vec<FpVar<G1::ScalarField>> = vec![];
     for round in 0..s {
         random_oracle.absorb(&hypernova_proof.var().sumcheck_proof[round])?;
@@ -115,7 +124,7 @@ where
         // lagrange interpolate and evaluate polynomial
 
         // \prod_{j} x - j
-        let prod: FpVar<G1::ScalarField> = (0..(shape.max_cardinality + 2)).fold(
+        let prod: FpVar<G1::ScalarField> = (0..(MAX_CARDINALITY + 2)).fold(
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ONE),
             |acc, i| acc * (&r - interpolation_constants[i].0),
         );
@@ -123,7 +132,7 @@ where
         // p(x) = \sum_{i} (\prod_{j} x - j) * y[i] / (x - i) * (\prod_{j != i} (i - j))
         //      = \sum_{i} y[i] * (\prod_{j != i} x - j) / (\prod_{j != i} i - j)
         //      = \sum_{i} y[i] * (\prod_{j != i} (x - j) / (j - i))
-        expected = (0..(shape.max_cardinality + 2))
+        expected = (0..(MAX_CARDINALITY + 2))
             .map(|i| {
                 let num = &prod * &evals[i];
                 let denom = (&r - interpolation_constants[i].0) * interpolation_constants[i].1;
@@ -135,6 +144,10 @@ where
 
         rs_p.push(r);
     }
+
+    // NOTE: Review `project_augmented_circuit_size` for context.
+    #[cfg(debug_assertions)]
+    println!("re Augmented Circuit Constraint Projection: {} constraints after sumcheck", cs.num_constraints());
 
     let e1 = (0..U.var().rs.len())
         .map(|i| {
@@ -167,10 +180,15 @@ where
         )
         * e1;
 
-    let cr = (0..shape.num_multisets)
+    let cSs = vec![
+        (G1::ScalarField::ONE, vec![0, 1]),
+        (G1::ScalarField::ONE.neg(), vec![2]),
+    ];
+
+    let cr = (0..NUM_MULTISETS)
         .map(|i| {
-            shape.cSs[i].1.iter().fold(
-                FpVar::<G1::ScalarField>::Constant(shape.cSs[i].0),
+            cSs[i].1.iter().fold(
+                FpVar::<G1::ScalarField>::Constant(cSs[i].0),
                 |acc, j| acc * &hypernova_proof.var().thetas[*j],
             )
         })
@@ -179,7 +197,7 @@ where
             |acc, x| acc + x,
         )
         * gamma.pow_le(&Boolean::constant_vec_from_bytes(
-            &(shape.num_matrices + 1).to_le_bytes(),
+            &(NUM_MATRICES + 1).to_le_bytes(),
         ))?
         * e2;
 
@@ -358,10 +376,12 @@ mod tests {
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
+        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+
         let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
             &config,
             &vk_cs,
-            &shape,
+            s,
             &U_cs,
             &U_secondary_cs,
             &u_cs,
@@ -419,10 +439,12 @@ mod tests {
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
+        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+
         let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
             &config,
             &vk_cs,
-            &shape,
+            s,
             &U_cs,
             &U_secondary_cs,
             &u_cs,

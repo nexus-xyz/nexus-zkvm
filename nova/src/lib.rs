@@ -22,6 +22,7 @@ pub mod r1cs;
 
 pub use circuits::{
     nova::{self, StepCircuit},
+    hypernova::{self}, // uses same StepCircuit trait as Nova
     supernova::{self, NonUniformCircuit},
 };
 pub use provider::{pedersen, poseidon::poseidon_config};
