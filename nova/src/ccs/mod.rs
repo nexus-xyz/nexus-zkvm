@@ -346,17 +346,6 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         }
     }
 
-    /// A method to create a default instance object with an appropriate shape for the base case of IVC.
-    pub fn base(shape: &CCSShape<G>) -> Self {
-        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
-        Self {
-            commitment_W: C::Commitment::default(),
-            X: vec![G::ScalarField::ZERO; shape.num_io],
-            rs: vec![G::ScalarField::ZERO; s],
-            vs: vec![G::ScalarField::ZERO; shape.num_matrices],
-        }
-    }
-
     /// Folds an incoming **non-linearized** [`CCSInstance`] into the current one. Its auxillary inputs include a partial
     /// evaluation point `rs` and the sum of the evaluations at that point extended over the hypercube for both the current
     /// (`sigmas`) and incoming (`thetas`) instances.

@@ -56,43 +56,30 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        // NOTE: Review `project_augmented_circuit_size` for context.
-        #[cfg(debug_assertions)]
-        {
-            for i in 0..=1 {
-                let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
+        //let base = CCSShape {
+        //    commitment_W: C::Commitment::default(),
+        //    X: vec![G::ScalarField::ZERO; shape.num_io],
+        //    rs: vec![G::ScalarField::ZERO; s],
+        //    vec![G::ScalarField::ZERO; shape.num_matrices],
+        //}
 
-                let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
-                    vk: G1::ScalarField::ZERO,
-                    z_0,
-                };
+        let sumcheck_rounds = 0;
+        //let sumcheck_rounds: usize = project_augmented_circuit_size(&step_circuit);
 
-                let cs = ConstraintSystem::new_ref();
-                cs.set_mode(SynthesisMode::Setup);
-
-                println!("re Augmented Circuit Constraint Projection: Begin test for {} sumcheck rounds...", i);
-                let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, i, input);
-                let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
-
-                cs.finalize();
-                println!("re Augmented Circuit Constraint Projection: {} constraints total\n", cs.num_constraints());
-            }
-        }
-
-        //let s: usize = project_augmented_circuit_size(&step_circuit);
-        let s: usize = 0;
+        let U_base = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base_instance(sumcheck_rounds);
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
             vk: G1::ScalarField::ZERO,
             z_0,
+            U_base,
         };
 
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Setup);
 
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, s, input);
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, sumcheck_rounds, input);
         let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         cs.finalize();
@@ -100,7 +87,6 @@ where
         let shape = CCSShape::from(R1CSShape::from(cs));
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        // NOTE: Review `project_augmented_circuit_size` for context.
         //debug_assert!(shape.num_constraints == project_augmented_circuit_size(&step_circuit));
 
         let mut rng = ark_std::test_rng();
@@ -279,6 +265,8 @@ where
         .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
+        let sumcheck_rounds: usize = ((params.shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {
                 U,
@@ -318,7 +306,7 @@ where
 
             (i_next, input, U, W, U_secondary, W_secondary)
         } else {
-            let U = LCCSInstance::<G1, C1>::base(&params.shape);
+            let U = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base_instance(sumcheck_rounds);
             let W = CCSWitness::zero(&params.shape);
 
             let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&params.shape_secondary);
@@ -327,6 +315,7 @@ where
             let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
                 vk: params.digest,
                 z_0: z_0.clone(),
+                U_base: U.clone(),
             };
             let i_next = 1;
 
@@ -336,9 +325,7 @@ where
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
-        let s: usize = ((params.shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
-
-        let circuit = HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, s, input);
+        let circuit = HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
 
         let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
             .in_scope(|| HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;

@@ -40,7 +40,7 @@ use crate::{
 pub fn multifold<G1, G2, C1, C2, RO>(
     config: &<RO::Var as CryptographicSpongeVar<G1::ScalarField, RO>>::Parameters,
     vk: &FpVar<G1::ScalarField>,
-    s: usize,
+    sumcheck_rounds: usize,
     U: &primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: &primary::CCSInstanceFromR1CSVar<G1, C1>,
@@ -87,7 +87,7 @@ where
     const MAX_CARDINALITY: usize = 2;
 
     let gamma: FpVar<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0].clone();
-    let beta: Vec<FpVar<G1::ScalarField>> = random_oracle.squeeze_field_elements(s)?;
+    let beta: Vec<FpVar<G1::ScalarField>> = random_oracle.squeeze_field_elements(sumcheck_rounds)?;
 
     let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=NUM_MATRICES)
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
@@ -108,12 +108,8 @@ where
 
     random_oracle.absorb(&hypernova_proof.var().poly_info.var())?;
 
-    // NOTE: Review `project_augmented_circuit_size` for context.
-    #[cfg(debug_assertions)]
-    println!("re Augmented Circuit Constraint Projection: {} constraints before sumcheck", cs.num_constraints());
-
     let mut rs_p: Vec<FpVar<G1::ScalarField>> = vec![];
-    for round in 0..s {
+    for round in 0..sumcheck_rounds {
         random_oracle.absorb(&hypernova_proof.var().sumcheck_proof[round])?;
         let r = random_oracle.squeeze_field_elements(SQUEEZE_NATIVE_ELEMENTS_NUM)?[0].clone();
         random_oracle.absorb(&r)?;
@@ -144,10 +140,6 @@ where
 
         rs_p.push(r);
     }
-
-    // NOTE: Review `project_augmented_circuit_size` for context.
-    #[cfg(debug_assertions)]
-    println!("re Augmented Circuit Constraint Projection: {} constraints after sumcheck", cs.num_constraints());
 
     let e1 = (0..U.var().rs.len())
         .map(|i| {

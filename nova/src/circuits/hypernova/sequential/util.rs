@@ -1,10 +1,9 @@
-
 pub fn project_augmented_circuit_size(sc: &StepCircuit<G1::ScalarField>) -> usize {
 
     // The direct construction from the HyperNova paper has a circular definition: the size
     // of the augmented circuit is dependent on the number of rounds of the sumcheck (`s`),
-    // but the number of rounds of the sumcheck is dependent (logarithmically) on the size
-    // of the augmented circuit.
+    // but the number of sumcheck rounds is also dependent (logarithmically) on the size of
+    // the augmented circuit.
     //
     // Luckily, since the dependency is logarithmic we should pretty easily find a fixpoint
     // where this circularity stabilizes. This function does that projection so that we can
