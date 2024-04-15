@@ -29,11 +29,11 @@ pub fn main() {
     let num_inputs = 10;
 
     // produce a synthetic R1CSInstance
-    let (shape, instance, witness, gens) =
+    let (shape, instance, witness, key) =
       produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
 
     // create a commitment to R1CSInstance
-    let (comm, decomm) = SNARK::encode(&shape.inst, &gens);
+    let (comm, decomm) = SNARK::encode(&shape.inst, &key);
 
     // produce a proof of satisfiability
     let mut prover_transcript = Transcript::new(b"snark_example");
@@ -43,7 +43,7 @@ pub fn main() {
       witness,
       &comm,
       &decomm,
-      &gens,
+      &key,
       &mut prover_transcript,
     );
 
@@ -56,7 +56,15 @@ pub fn main() {
     // verify the proof of satisfiability
     let mut verifier_transcript = Transcript::new(b"snark_example");
     assert!(proof
-      .verify(&comm, &instance, &mut verifier_transcript, &gens)
+      .verify(
+        &comm,
+        &instance,
+        &mut verifier_transcript,
+        &key.gens_r1cs_sat.keys.vk,
+        &key.gens_r1cs_eval.gens.gens_ops.vk,
+        &key.gens_r1cs_eval.gens.gens_mem.vk,
+        &key.gens_r1cs_eval.gens.gens_derefs.vk,
+      )
       .is_ok());
 
     println!();

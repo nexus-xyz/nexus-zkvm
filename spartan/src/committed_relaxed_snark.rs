@@ -201,7 +201,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
     comm: &ComputationCommitment<G, PC>,
     instance: &CRR1CSInstance<G, PC>,
     transcript: &mut Transcript,
-    key: &CRSNARKKey<G, PC>,
+    // key: &CRSNARKKey<G, PC>,
+    sat_vk: &PC::EvalVerifierKey,
+    eval_ops_vk: &PC::EvalVerifierKey,
+    eval_mem_vk: &PC::EvalVerifierKey,
+    eval_derefs_vk: &PC::EvalVerifierKey,
   ) -> Result<(), ProofVerifyError> {
     let timer_verify = Timer::new("SNARK::verify");
     <Transcript as ProofTranscript<G>>::append_protocol_name(
@@ -222,7 +226,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
       instance,
       &self.inst_evals,
       transcript,
-      &key.gens_r1cs_sat.keys.vk,
+      &sat_vk,
     )?;
     timer_sat_proof.stop();
 
@@ -236,7 +240,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
       &rx,
       &ry,
       &self.inst_evals,
-      &key.gens_r1cs_eval,
+      &eval_ops_vk,
+      &eval_mem_vk,
+      &eval_derefs_vk,
       transcript,
     )?;
     timer_eval_proof.stop();
@@ -285,7 +291,15 @@ mod tests {
     // verify the proof
     let mut verifier_transcript = Transcript::new(b"example");
     assert!(proof
-      .verify(&comm, &instance, &mut verifier_transcript, &key)
+      .verify(
+        &comm,
+        &instance,
+        &mut verifier_transcript,
+        &key.gens_r1cs_sat.keys.vk,
+        &key.gens_r1cs_eval.gens.gens_ops.vk,
+        &key.gens_r1cs_eval.gens.gens_mem.vk,
+        &key.gens_r1cs_eval.gens.gens_derefs.vk,
+      )
       .is_ok());
   }
 }

@@ -58,7 +58,15 @@ pub fn main() {
     // verify the proof of satisfiability
     let mut verifier_transcript = Transcript::new(b"snark_example");
     assert!(proof
-      .verify(&comm, &instance, &mut verifier_transcript, &gens)
+      .verify(
+        &comm,
+        &instance,
+        &mut verifier_transcript,
+        &gens.gens_r1cs_sat.keys.vk,
+        &gens.gens_r1cs_eval.gens.gens_ops.vk,
+        &gens.gens_r1cs_eval.gens.gens_mem.vk,
+        &gens.gens_r1cs_eval.gens.gens_derefs.vk,
+      )
       .is_ok());
 
     println!();

@@ -311,9 +311,9 @@ where
   G: CurveGroup,
   PC: PolyCommitmentScheme<G>,
 {
-  gens_ops: PCSKeys<G, PC>,
-  gens_mem: PCSKeys<G, PC>,
-  gens_derefs: PCSKeys<G, PC>,
+  pub gens_ops: PCSKeys<G, PC>,
+  pub gens_mem: PCSKeys<G, PC>,
+  pub gens_derefs: PCSKeys<G, PC>,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyCommitmentKey<G, PC> {
@@ -992,7 +992,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> HashLayerProof<G, PC> {
     ),
     claims_dotp: &[G::ScalarField],
     comm: &SparseMatPolyCommitment<G, PC>,
-    gens: &SparseMatPolyCommitmentKey<G, PC>,
+    // gens: &SparseMatPolyCommitmentKey<G, PC>,
+    eval_ops_vk: &PC::EvalVerifierKey,
+    eval_mem_vk: &PC::EvalVerifierKey,
+    eval_derefs_vk: &PC::EvalVerifierKey,
     comm_derefs: &DerefsCommitment<G, PC>,
     rx: &[G::ScalarField],
     ry: &[G::ScalarField],
@@ -1015,7 +1018,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> HashLayerProof<G, PC> {
       rand_ops,
       eval_row_ops_val,
       eval_col_ops_val,
-      &gens.gens_derefs.vk,
+      // &gens.gens_derefs.vk,
+      eval_derefs_vk,
       comm_derefs,
       transcript,
     )?;
@@ -1069,7 +1073,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> HashLayerProof<G, PC> {
     PC::verify(
       &comm.comm_comb_ops,
       &self.proof_ops,
-      &gens.gens_ops.vk,
+      // &gens.gens_ops.vk,
+      &eval_ops_vk,
       transcript,
       &r_joint_ops,
       &joint_claim_eval_ops,
@@ -1101,7 +1106,8 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> HashLayerProof<G, PC> {
     PC::verify(
       &comm.comm_comb_mem,
       &self.proof_mem,
-      &gens.gens_mem.vk,
+      // &gens.gens_mem.vk,
+      &eval_mem_vk,
       transcript,
       &r_joint_mem,
       &joint_claim_eval_mem,
@@ -1568,7 +1574,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> PolyEvalNetworkProof<G, PC> {
     comm: &SparseMatPolyCommitment<G, PC>,
     comm_derefs: &DerefsCommitment<G, PC>,
     evals: &[G::ScalarField],
-    gens: &SparseMatPolyCommitmentKey<G, PC>,
+    // gens: &SparseMatPolyCommitmentKey<G, PC>,
+    eval_ops_vk: &PC::EvalVerifierKey,
+    eval_mem_vk: &PC::EvalVerifierKey,
+    eval_derefs_vk: &PC::EvalVerifierKey,
     rx: &[G::ScalarField],
     ry: &[G::ScalarField],
     r_mem_check: &(G::ScalarField, G::ScalarField),
@@ -1616,7 +1625,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> PolyEvalNetworkProof<G, PC> {
       ),
       &claims_dotp,
       comm,
-      gens,
+      // gens,
+      eval_ops_vk,
+      eval_mem_vk,
+      eval_derefs_vk,
       comm_derefs,
       rx,
       ry,
@@ -1733,7 +1745,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyEvalProof<G, PC> {
     rx: &[G::ScalarField], // point at which the polynomial is evaluated
     ry: &[G::ScalarField],
     evals: &[G::ScalarField], // evaluation of \widetilde{M}(r = (rx,ry))
-    gens: &SparseMatPolyCommitmentKey<G, PC>,
+    // gens: &SparseMatPolyCommitmentKey<G, PC>,
+    eval_ops_vk: &PC::EvalVerifierKey,
+    eval_mem_vk: &PC::EvalVerifierKey,
+    eval_derefs_vk: &PC::EvalVerifierKey,
     transcript: &mut Transcript,
   ) -> Result<(), ProofVerifyError> {
     <Transcript as ProofTranscript<G>>::append_protocol_name(
@@ -1760,7 +1775,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SparseMatPolyEvalProof<G, PC> {
       comm,
       &self.comm_derefs,
       evals,
-      gens,
+      // gens,
+      eval_ops_vk,
+      eval_mem_vk,
+      eval_derefs_vk,
       &rx_ext,
       &ry_ext,
       &(r_mem_check[0], r_mem_check[1]),
@@ -1892,7 +1910,9 @@ mod tests {
         &rx,
         &ry,
         &evals,
-        &gens,
+        &gens.gens_ops.vk,
+        &gens.gens_mem.vk,
+        &gens.gens_derefs.vk,
         &mut verifier_transcript,
       )
       .is_ok());

@@ -39,7 +39,7 @@ where
   G: CurveGroup,
   PC: PolyCommitmentScheme<G>,
 {
-  gens: SparseMatPolyCommitmentKey<G, PC>,
+  pub gens: SparseMatPolyCommitmentKey<G, PC>,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSCommitmentGens<G, PC> {
@@ -379,7 +379,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSEvalProof<G, PC> {
     rx: &[G::ScalarField], // point at which the R1CS matrix polynomials are evaluated
     ry: &[G::ScalarField],
     evals: &(G::ScalarField, G::ScalarField, G::ScalarField),
-    gens: &R1CSCommitmentGens<G, PC>,
+    // gens: &R1CSCommitmentGens<G, PC>,
+    eval_ops_vk: &PC::EvalVerifierKey,
+    eval_mem_vk: &PC::EvalVerifierKey,
+    eval_derefs_vk: &PC::EvalVerifierKey,
     transcript: &mut Transcript,
   ) -> Result<(), ProofVerifyError> {
     self.proof.verify(
@@ -387,7 +390,10 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> R1CSEvalProof<G, PC> {
       rx,
       ry,
       &[evals.0, evals.1, evals.2],
-      &gens.gens,
+      // &gens.gens,
+      eval_ops_vk,
+      eval_mem_vk,
+      eval_derefs_vk,
       transcript,
     )
   }

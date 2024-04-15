@@ -80,7 +80,10 @@ pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
 #[derive(CanonicalDeserialize, CanonicalSerialize)]
 pub struct SNARKVKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
     computation_comm: ComputationCommitment<G, PC>,
-    snark_gens: SNARKGens<G, PC>,
+    sat_vk: PC::EvalVerifierKey,
+    eval_ops_vk: PC::EvalVerifierKey,
+    eval_mem_vk: PC::EvalVerifierKey,
+    eval_derefs_vk: PC::EvalVerifierKey,
 }
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKVKey<G, PC> {
@@ -90,16 +93,56 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKVKey<G, PC> {
             .serialize_compressed(&mut comm_bytes)
             .unwrap();
 
-        let mut gens_bytes = Vec::new();
+        let mut sat_vk_bytes = Vec::new();
         key.snark_gens
-            .serialize_compressed(&mut gens_bytes)
+            .gens_r1cs_sat
+            .keys
+            .vk
+            .serialize_compressed(&mut sat_vk_bytes)
+            .unwrap();
+
+        let mut eval_ops_vk_bytes = Vec::new();
+        key.snark_gens
+            .gens_r1cs_eval
+            .gens
+            .gens_ops
+            .vk
+            .serialize_compressed(&mut eval_ops_vk_bytes)
+            .unwrap();
+
+        let mut eval_mem_vk_bytes = Vec::new();
+        key.snark_gens
+            .gens_r1cs_eval
+            .gens
+            .gens_mem
+            .vk
+            .serialize_compressed(&mut eval_mem_vk_bytes)
+            .unwrap();
+
+        let mut eval_derefs_vk_bytes = Vec::new();
+        key.snark_gens
+            .gens_r1cs_eval
+            .gens
+            .gens_derefs
+            .vk
+            .serialize_compressed(&mut eval_derefs_vk_bytes)
             .unwrap();
 
         let computation_comm =
             ComputationCommitment::<G, PC>::deserialize_compressed(&*comm_bytes).unwrap();
-        let snark_gens = SNARKGens::<G, PC>::deserialize_compressed(&*gens_bytes).unwrap();
+        let sat_vk = PC::EvalVerifierKey::deserialize_compressed(&*sat_vk_bytes).unwrap();
+        let eval_ops_vk = PC::EvalVerifierKey::deserialize_compressed(&*eval_ops_vk_bytes).unwrap();
+        let eval_mem_vk = PC::EvalVerifierKey::deserialize_compressed(&*eval_mem_vk_bytes).unwrap();
+        let eval_derefs_vk =
+            PC::EvalVerifierKey::deserialize_compressed(&*eval_derefs_vk_bytes).unwrap();
 
-        Self { computation_comm, snark_gens }
+        Self {
+            computation_comm,
+            sat_vk,
+            eval_ops_vk,
+            eval_mem_vk,
+            eval_derefs_vk,
+        }
     }
 }
 
@@ -314,7 +357,10 @@ where
             &key.computation_comm,
             &U_prime.try_into()?,
             &mut transcript,
-            &key.snark_gens,
+            &key.sat_vk,
+            &key.eval_ops_vk,
+            &key.eval_mem_vk,
+            &key.eval_derefs_vk,
         )?;
 
         Ok(())

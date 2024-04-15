@@ -467,7 +467,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARK<G, PC> {
       &rx,
       &ry,
       &self.inst_evals,
-      &gens.gens_r1cs_eval,
+      &gens.gens_r1cs_eval.gens.gens_ops.vk,
+      &gens.gens_r1cs_eval.gens.gens_mem.vk,
+      &gens.gens_r1cs_eval.gens.gens_derefs.vk,
       transcript,
     )?;
     timer_eval_proof.stop();

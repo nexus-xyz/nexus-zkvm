@@ -110,7 +110,10 @@ fn snark_verify_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cr
             black_box(&comm),
             black_box(&instance),
             black_box(&mut verifier_transcript),
-            black_box(&gens)
+            black_box(&gens.gens_r1cs_sat.keys.vk),
+            black_box(&gens.gens_r1cs_eval.gens.gens_ops.vk),
+            black_box(&gens.gens_r1cs_eval.gens.gens_mem.vk),
+            black_box(&gens.gens_r1cs_eval.gens.gens_derefs.vk)
           )
           .is_ok());
       });
