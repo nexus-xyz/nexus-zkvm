@@ -56,24 +56,18 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        //let base = CCSShape {
-        //    commitment_W: C::Commitment::default(),
-        //    X: vec![G::ScalarField::ZERO; shape.num_io],
-        //    rs: vec![G::ScalarField::ZERO; s],
-        //    vec![G::ScalarField::ZERO; shape.num_matrices],
-        //}
-
         let sumcheck_rounds = 0;
         //let sumcheck_rounds: usize = project_augmented_circuit_size(&step_circuit);
 
-        let U_base = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base_instance(sumcheck_rounds);
+        let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(sumcheck_rounds);
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
             vk: G1::ScalarField::ZERO,
             z_0,
-            U_base,
+            U,
+            proof,
         };
 
         let cs = ConstraintSystem::new_ref();
@@ -306,7 +300,7 @@ where
 
             (i_next, input, U, W, U_secondary, W_secondary)
         } else {
-            let U = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base_instance(sumcheck_rounds);
+            let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(sumcheck_rounds);
             let W = CCSWitness::zero(&params.shape);
 
             let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&params.shape_secondary);
@@ -315,7 +309,8 @@ where
             let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
                 vk: params.digest,
                 z_0: z_0.clone(),
-                U_base: U.clone(),
+                U: U.clone(),
+                proof: proof.clone(),
             };
             let i_next = 1;
 

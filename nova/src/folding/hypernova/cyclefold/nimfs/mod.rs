@@ -26,7 +26,7 @@ pub struct NIMFSProof<
 > {
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
     pub(crate) hypernova_proof: HNProof<Projective<G1>, RO>,
-    _poly_commitment: PhantomData<C1::Commitment>,
+    pub(crate) _poly_commitment: PhantomData<C1::Commitment>,
 }
 
 impl<G1, G2, C1, C2, RO> Clone for NIMFSProof<G1, G2, C1, C2, RO>
@@ -41,23 +41,6 @@ where
             commitment_W_proof: self.commitment_W_proof.clone(),
             hypernova_proof: self.hypernova_proof.clone(),
             _poly_commitment: self._poly_commitment,
-        }
-    }
-}
-
-impl<G1, G2, C1, C2, RO> Default for NIMFSProof<G1, G2, C1, C2, RO>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig,
-    C1: PolyCommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>>,
-    G1::BaseField: PrimeField,
-{
-    fn default() -> Self {
-        Self {
-            commitment_W_proof: secondary::Proof::default(),
-            hypernova_proof: HNProof::default(),
-            _poly_commitment: PhantomData,
         }
     }
 }

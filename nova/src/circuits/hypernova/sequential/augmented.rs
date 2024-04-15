@@ -28,9 +28,10 @@ use ark_spartan::polycommitments::PolyCommitmentScheme;
 use crate::{
     circuits::hypernova::{HyperNovaConstraintSynthesizer, StepCircuit},
     commitment::CommitmentScheme,
+    folding::hypernova::ml_sumcheck::{PolynomialInfo, protocol::prover::ProverMsg},
     folding::hypernova::cyclefold::{
         self,
-        nimfs::{NIMFSProof, R1CSShape, RelaxedR1CSInstance,
+        nimfs::{NIMFSProof, HNProof, R1CSShape, RelaxedR1CSInstance,
                 CCSShape, CCSInstance, CCSWitness, LCCSInstance},
         secondary::Circuit as SecondaryCircuit,
     },
@@ -53,7 +54,8 @@ where
     Base {
         vk: G1::ScalarField,
         z_0: Vec<G1::ScalarField>,
-        U_base: LCCSInstance<G1, C1>,
+        U: LCCSInstance<G1, C1>,
+        proof: NIMFSProof<G1, G2, C1, C2, RO>,
     },
     NonBase(HyperNovaAugmentedCircuitNonBaseInput<G1, G2, C1, C2, RO>),
 }
@@ -142,7 +144,7 @@ where
         let input = input.borrow();
 
         let input = match input {
-            HyperNovaAugmentedCircuitInput::Base { vk, z_0, U_base } => {
+            HyperNovaAugmentedCircuitInput::Base { vk, z_0, U, proof } => {
                 let shape =
                     CCSShape::from(R1CSShape::<G1>::new(0, 0, AUGMENTED_CIRCUIT_NUM_IO, &[], &[], &[]).unwrap());
                 let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
@@ -159,10 +161,10 @@ where
                     i: G1::ScalarField::ZERO,
                     z_0: z_0.clone(),
                     z_i: z_0.clone(),
-                    U: U_base.clone(),
+                    U: U.clone(),
                     U_secondary,
                     u,
-                    proof: NIMFSProof::default(),
+                    proof: proof.clone(),
                 }
             }
             HyperNovaAugmentedCircuitInput::NonBase(non_base) => non_base.clone(),
@@ -249,13 +251,23 @@ where
 
     pub fn base_instance_from_r1cs(
         sumcheck_rounds: usize
-    ) -> LCCSInstance<G1, C1> {
-        LCCSInstance {
+    ) -> (LCCSInstance<G1, C1>, NIMFSProof<G1, G2, C1, C2, RO>) {
+        (LCCSInstance {
             commitment_W: C1::Commitment::default(),
             X: vec![G1::ScalarField::ZERO; AUGMENTED_CIRCUIT_NUM_IO],
             rs: vec![G1::ScalarField::ZERO; sumcheck_rounds],
             vs: vec![G1::ScalarField::ZERO; 3],
-        }
+        }, NIMFSProof {
+            commitment_W_proof: cyclefold::secondary::Proof::<G2, C2>::default(),
+            hypernova_proof: HNProof {
+                sumcheck_proof: vec![ProverMsg{ evaluations: vec![<G1::ScalarField>::ZERO; 4] }; sumcheck_rounds],
+                poly_info: PolynomialInfo::default(),
+                sigmas: vec![G1::ScalarField::ZERO; 3],
+                thetas: vec![G1::ScalarField::ZERO; 3],
+                _random_oracle: PhantomData,
+            },
+            _poly_commitment: PhantomData,
+        })
     }
 
     fn generate_constraints_from_r1cs(
@@ -353,7 +365,7 @@ where
     }
 }
 
-impl<G1, G2, C1, C2, RO, SC> HyperNovaConstraintSynthesizer<G1, C1>
+impl<G1, G2, C1, C2, RO, SC> HyperNovaConstraintSynthesizer<G1, G2, C1, C2, RO>
     for HyperNovaAugmentedCircuit<'_, G1, G2, C1, C2, RO, SC>
 where
     G1: SWCurveConfig,
@@ -366,9 +378,9 @@ where
     RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
     SC: StepCircuit<G1::ScalarField>,
 {
-    fn base_instance(
+    fn base(
         sumcheck_rounds: usize
-    ) -> LCCSInstance<G1, C1> {
+    ) -> (LCCSInstance<G1, C1>, NIMFSProof<G1, G2, C1, C2, RO>) {
         HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::base_instance_from_r1cs(sumcheck_rounds)
     }
 
@@ -436,12 +448,13 @@ mod tests {
 
         let cs = ConstraintSystem::new_ref();
 
-        let U_base = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base_instance(0);
+        let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(1);
 
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>::Base {
             vk: G1::ScalarField::ZERO,
             z_0: z_0.clone(),
-            U_base,
+            U,
+            proof,
         };
 
         let input =
@@ -462,15 +475,16 @@ mod tests {
 
         let cs = ConstraintSystem::new_ref();
 
-        let U_base = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base_instance(0);
+        let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(1);
 
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>::Base {
             vk: G1::ScalarField::ZERO,
             z_0: z_0.clone(),
-            U_base,
+            U,
+            proof,
         };
 
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit, 0, input);
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit, 1, input);
         let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         cs.finalize();
@@ -481,15 +495,16 @@ mod tests {
 
         let cs = ConstraintSystem::new_ref();
 
-        let U_base = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base_instance(1);
+        let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(2);
 
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>::Base {
             vk: G1::ScalarField::ZERO,
             z_0: z_0.clone(),
-            U_base,
+            U,
+            proof,
         };
 
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit, 1, input);
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit, 2, input);
         let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         cs.finalize();
@@ -498,8 +513,8 @@ mod tests {
 
         let o = format!(
             r#"Size Parameters for Augmented Circuit:
-                        -- Base Constraints (no sumcheck, no step circuit):  {}
-                        -- Constrains per Sumcheck Round:                    {}"#,
+                    -- Base Constraints (no sumcheck, no step circuit):  {}
+                    -- Constrains per Sumcheck Round:                    {}"#,
             base_circuit_constraints, sumcheck_round_constraints
         );
 
@@ -534,13 +549,14 @@ mod tests {
         //let s = project_augmented_circuit_size(&TestCircuit);
         let s: usize = 0;
 
-        let U_base = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base_instance(0);
+        let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(0);
 
         let input =
             HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>::Base {
                 z_0: Vec::new(),
                 vk: G1::ScalarField::ZERO,
-                U_base,
+                U,
+                proof,
             };
 
         let circuit = HyperNovaAugmentedCircuit {
