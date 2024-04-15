@@ -249,7 +249,7 @@ where
         Self { ro_config, step_circuit, sumcheck_rounds, input }
     }
 
-    pub fn base_instance_from_r1cs(
+    pub fn base_from_r1cs(
         sumcheck_rounds: usize
     ) -> (LCCSInstance<G1, C1>, NIMFSProof<G1, G2, C1, C2, RO>) {
         (LCCSInstance {
@@ -381,7 +381,7 @@ where
     fn base(
         sumcheck_rounds: usize
     ) -> (LCCSInstance<G1, C1>, NIMFSProof<G1, G2, C1, C2, RO>) {
-        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::base_instance_from_r1cs(sumcheck_rounds)
+        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::base_from_r1cs(sumcheck_rounds)
     }
 
     fn generate_constraints(
@@ -418,7 +418,7 @@ mod tests {
 
     type SC = TestCircuit;
 
-    //#[ignore]
+    #[ignore]
     #[test]
     fn calculate_circuit_constants() {
         calculate_circuit_constants_with_cycle::<

@@ -22,11 +22,21 @@ pub fn project_augmented_circuit_size(sc: &StepCircuit<G1::ScalarField>) -> usiz
     //
     //     2^6 < 72 < 2^7 --> 7
     //
-    // sumcheck rounds. So that gives an augmented circuit with size 92, which is a fixpoint
+    // sumcheck rounds. That gives an augmented circuit with size 92 -- which is a fixpoint
     // as 7 sumcheck rounds remains sufficient.
+    //
+    // In order to regenerate the parameters, there is a test
+    //
+    //     `calculate_circuit_constants`
+    //
+    // in
+    //
+    //     .../src/circuits/hypernova/sequential/augmented.rs
+    //
+    // which can further be used if the circuits are modified to calculate updated params.
 
-    const BASE_CONSTRAINTS: usize; // number of constraints in augmented circuit, not including sumcheck
-    const SUMCHECK_ROUND_CONSTRAINTS: usize; // number of constraints per sumcheck round
+    const BASE_CONSTRAINTS: usize = 82023; // number of constraints in augmented circuit, not including sumcheck
+    const SUMCHECK_ROUND_CONSTRAINTS: usize = 1238; // number of constraints per sumcheck round
 
     // compute step circuit size
 
