@@ -1,6 +1,6 @@
 // !!! Please review the contents of `project_augmented_circuit_size` in
 // !!!
-// !!!    .../src/circuits/hypernova/sequential/util.rs
+// !!!    .../src/circuits/hypernova/mod.rs
 // !!!
 // !!! before modifying this circuit.
 
@@ -19,9 +19,9 @@ use ark_r1cs_std::{
     fields::{fp::FpVar, FieldVar},
     R1CSVar,
 };
-use ark_std::ops::Neg;
 use ark_relations::r1cs::SynthesisError;
 use ark_spartan::polycommitments::PolyCommitmentScheme;
+use ark_std::ops::Neg;
 
 pub(crate) mod primary;
 
@@ -87,7 +87,8 @@ where
     const MAX_CARDINALITY: usize = 2;
 
     let gamma: FpVar<G1::ScalarField> = random_oracle.squeeze_field_elements(1)?[0].clone();
-    let beta: Vec<FpVar<G1::ScalarField>> = random_oracle.squeeze_field_elements(sumcheck_rounds)?;
+    let beta: Vec<FpVar<G1::ScalarField>> =
+        random_oracle.squeeze_field_elements(sumcheck_rounds)?;
 
     let gamma_powers: Vec<FpVar<G1::ScalarField>> = (1..=NUM_MATRICES)
         .map(|j| gamma.pow_le(&Boolean::constant_vec_from_bytes(&j.to_le_bytes())))
@@ -179,10 +180,12 @@ where
 
     let cr = (0..NUM_MULTISETS)
         .map(|i| {
-            cSs[i].1.iter().fold(
-                FpVar::<G1::ScalarField>::Constant(cSs[i].0),
-                |acc, j| acc * &hypernova_proof.var().thetas[*j],
-            )
+            cSs[i]
+                .1
+                .iter()
+                .fold(FpVar::<G1::ScalarField>::Constant(cSs[i].0), |acc, j| {
+                    acc * &hypernova_proof.var().thetas[*j]
+                })
         })
         .fold(
             FpVar::<G1::ScalarField>::Constant(G1::ScalarField::ZERO),

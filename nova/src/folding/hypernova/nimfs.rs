@@ -67,7 +67,7 @@ pub struct NIMFSProof<G: CurveGroup, RO> {
     pub(crate) poly_info: ml_sumcheck::PolynomialInfo,
     pub(crate) sigmas: Vec<G::ScalarField>,
     pub(crate) thetas: Vec<G::ScalarField>,
-    pub(crate)_random_oracle: PhantomData<RO>,
+    pub(crate) _random_oracle: PhantomData<RO>,
 }
 
 impl<G: CurveGroup, RO> Clone for NIMFSProof<G, RO> {

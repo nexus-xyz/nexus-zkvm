@@ -1,6 +1,6 @@
 // !!! Please review the contents of `project_augmented_circuit_size` in
 // !!!
-// !!!    .../src/circuits/hypernova/sequential/util.rs
+// !!!    .../src/circuits/hypernova/mod.rs
 // !!!
 // !!! before modifying this circuit.
 

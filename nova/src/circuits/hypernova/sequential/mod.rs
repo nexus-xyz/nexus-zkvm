@@ -9,7 +9,7 @@ use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::R1CSVar;
 use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_spartan::polycommitments::{PolyCommitmentScheme, PCSKeys};
+use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme};
 
 use crate::{
     absorb::CryptographicSpongeExt,
@@ -17,8 +17,8 @@ use crate::{
     folding::hypernova::cyclefold::{
         self,
         nimfs::{
-            NIMFSProof, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness,
-            CCSShape, CCSInstance, CCSWitness, LCCSInstance,
+            CCSInstance, CCSShape, CCSWitness, LCCSInstance, NIMFSProof, R1CSShape,
+            RelaxedR1CSInstance, RelaxedR1CSWitness,
         },
     },
 };
@@ -27,7 +27,8 @@ use super::{public_params, HyperNovaConstraintSynthesizer, StepCircuit};
 
 mod augmented;
 use augmented::{
-    HyperNovaAugmentedCircuit, HyperNovaAugmentedCircuitInput, HyperNovaAugmentedCircuitNonBaseInput,
+    HyperNovaAugmentedCircuit, HyperNovaAugmentedCircuitInput,
+    HyperNovaAugmentedCircuitNonBaseInput,
 };
 
 const LOG_TARGET: &str = "nexus-hypernova::sequential";
@@ -56,8 +57,11 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        let sumcheck_rounds = 0;
-        //let sumcheck_rounds: usize = project_augmented_circuit_size(&step_circuit);
+        let sumcheck_rounds =
+            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
+                step_circuit,
+            )?
+            .0;
 
         let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(sumcheck_rounds);
 
@@ -73,7 +77,8 @@ where
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Setup);
 
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, sumcheck_rounds, input);
+        let circuit =
+            HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, sumcheck_rounds, input);
         let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         cs.finalize();
@@ -81,14 +86,18 @@ where
         let shape = CCSShape::from(R1CSShape::from(cs));
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        //debug_assert!(shape.num_constraints == project_augmented_circuit_size(&step_circuit));
+        debug_assert!(
+            shape.num_constraints
+                == HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(step_circuit)?.1
+        );
 
         let mut rng = ark_std::test_rng();
         let srs = C1::setup(
             shape.num_vars.max(shape.num_constraints),
             b"hypernova_seq_primary_curve",
             &mut rng,
-        ).map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
+        )
+        .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
 
         // NOTE: We could try to use the EvalVerifierKey here, which should then make the
         //       public params smaller. However, that would make the interfaces uglier as
@@ -259,7 +268,10 @@ where
         .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
-        let sumcheck_rounds: usize = ((params.shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+        let sumcheck_rounds: usize = ((params.shape.num_constraints - 1)
+            .checked_ilog2()
+            .unwrap_or(0)
+            + 1) as usize;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {
@@ -283,16 +295,17 @@ where
                 (&u, &w),
             )?;
 
-            let input = HyperNovaAugmentedCircuitInput::NonBase(HyperNovaAugmentedCircuitNonBaseInput {
-                vk: params.digest,
-                i: G1::ScalarField::from(i),
-                z_0: z_0.clone(),
-                z_i,
-                U: U.clone(),
-                U_secondary: U_secondary.clone(),
-                u,
-                proof: proof.0,
-            });
+            let input =
+                HyperNovaAugmentedCircuitInput::NonBase(HyperNovaAugmentedCircuitNonBaseInput {
+                    vk: params.digest,
+                    i: G1::ScalarField::from(i),
+                    z_0: z_0.clone(),
+                    z_i,
+                    U: U.clone(),
+                    U_secondary: U_secondary.clone(),
+                    u,
+                    proof: proof.0,
+                });
 
             let (U, W) = proof.1;
             let (U_secondary, W_secondary) = proof.2;
@@ -300,7 +313,8 @@ where
 
             (i_next, input, U, W, U_secondary, W_secondary)
         } else {
-            let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(sumcheck_rounds);
+            let (U, proof) =
+                HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(sumcheck_rounds);
             let W = CCSWitness::zero(&params.shape);
 
             let U_secondary = RelaxedR1CSInstance::<G2, C2>::new(&params.shape_secondary);
@@ -320,10 +334,13 @@ where
         let cs = ConstraintSystem::new_ref();
         cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
-        let circuit = HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
+        let circuit =
+            HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
 
-        let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
-            .in_scope(|| HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
+        let z_i =
+            tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment").in_scope(|| {
+                HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())
+            })?;
 
         let cs_borrow = cs.borrow().unwrap();
         let witness = cs_borrow.witness_assignment.clone();
@@ -485,11 +502,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(
-            ro_config,
-            &circuit,
-            &(),
-        )?;
+        >::setup(ro_config, &circuit, &())?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
@@ -507,8 +520,8 @@ pub(crate) mod tests {
             ark_grumpkin::GrumpkinConfig,
             Zeromorph<ark_bn254::Bn254>,
             PedersenCommitment<ark_grumpkin::Projective>,
-         >()
-         .unwrap()
+        >()
+        .unwrap()
     }
 
     fn ivc_multiple_steps_with_cycle<G1, G2, C1, C2>() -> Result<(), cyclefold::Error>
@@ -541,10 +554,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config,
-                 &circuit,
-                 &(),
-        )?;
+        >::setup(ro_config, &circuit, &())?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
 
