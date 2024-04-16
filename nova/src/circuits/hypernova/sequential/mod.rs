@@ -33,7 +33,7 @@ use augmented::{
     HyperNovaAugmentedCircuitNonBaseInput,
 };
 
-const LOG_TARGET: &str = "nexus-hypernova::sequential";
+const LOG_TARGET: &str = "nexus-nova::sequential";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
@@ -448,17 +448,13 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, poseidon_config, LOG_TARGET as NOVA_TARGET};
+    use crate::{pedersen::PedersenCommitment, poseidon_config};
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
     use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
-
-    use tracing_subscriber::{
-        filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
-    };
 
     #[derive(Debug, Default)]
     pub struct CubicCircuit<F: Field>(PhantomData<F>);
@@ -549,14 +545,6 @@ pub(crate) mod tests {
         C1: PolyCommitmentScheme<Projective<G1>>,
         C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
-        let filter = filter::Targets::new().with_target(NOVA_TARGET, tracing::Level::DEBUG);
-        let _guard = tracing_subscriber::registry()
-            .with(
-                tracing_subscriber::fmt::layer().with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE),
-            )
-            .with(filter)
-            .set_default();
-
         let ro_config = poseidon_config();
 
         let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);

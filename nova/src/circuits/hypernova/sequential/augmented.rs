@@ -119,8 +119,11 @@ where
     U: primary::LCCSInstanceFromR1CSVar<G1, C1>,
     U_secondary: secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: primary::CCSInstanceFromR1CSVar<G1, C1>,
+
+    // proof
     commitment_W_proof: secondary::ProofVar<G2, C2>,
     hypernova_proof: primary::ProofFromR1CSVar<G1, RO>,
+
     _random_oracle: PhantomData<RO>,
 }
 
@@ -386,7 +389,6 @@ where
         for (z_0, z_i) in input.z_0.iter().zip(&input.z_i) {
             z_0.conditional_enforce_equal(z_i, &is_base_case)?;
         }
-
         let z_next = <SC as StepCircuit<G1::ScalarField>>::generate_constraints(
             self.step_circuit,
             cs.clone(),
@@ -417,8 +419,7 @@ where
             &should_enforce,
         )?;
 
-        let U = is_base_case.select(U_base.var(), U.var())?; // returns an LCCSInstanceVar, not an LCCSInstanceFromR1CSVar
-
+        let U = is_base_case.select(U_base.var(), U.var())?;
         let U_secondary = is_base_case.select(&U_secondary_base, &U_secondary)?;
         let i_next = &input.i + FpVar::one();
 
@@ -543,6 +544,8 @@ mod tests {
         let ro_config = poseidon_config();
 
         let z_0 = vec![G1::ScalarField::ZERO; <TestCircuit as StepCircuit<G1::ScalarField>>::ARITY];
+        let z_0_alt =
+            vec![G1::ScalarField::ZERO; <TestCircuitAlt as StepCircuit<G1::ScalarField>>::ARITY];
 
         // Constraint Generation #1: The Step Circuit
 
@@ -608,9 +611,6 @@ mod tests {
         let base_circuit_constraints = cs.num_constraints() - step_circuit_constraints;
 
         // Constraint Generation #3: The Augmented Circuit with one sumcheck round and one step circuit input
-
-        let z_0_alt =
-            vec![G1::ScalarField::ZERO; <TestCircuitAlt as StepCircuit<G1::ScalarField>>::ARITY];
 
         let cs = ConstraintSystem::new_ref();
 
