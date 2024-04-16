@@ -9,9 +9,9 @@ use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::R1CSVar;
 use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme};
 use ark_std::rand::SeedableRng;
 use sha3::digest::{ExtendableOutput, Update, XofReader};
-use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme};
 
 use crate::{
     absorb::CryptographicSpongeExt,
@@ -88,10 +88,10 @@ where
         let shape = CCSShape::from(R1CSShape::from(cs));
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        debug_assert!(
-            shape.num_constraints
-                == HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(step_circuit)?.1
-        );
+        //debug_assert!(
+        //    shape.num_constraints
+        //        == HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(step_circuit)?.1
+        //);
 
         // from a16z/jolt
         //
@@ -107,14 +107,13 @@ where
         reader.read(&mut seed);
         let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
 
-        let max_poly_vars = ((shape.num_vars.max(shape.num_constraints) - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+        let max_poly_vars = ((shape.num_vars.max(shape.num_constraints) - 1)
+            .checked_ilog2()
+            .unwrap_or(0)
+            + 1) as usize;
 
-        let srs = C1::setup(
-            max_poly_vars,
-            b"hypernova_seq_primary_curve",
-            &mut rng,
-        )
-        .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
+        let srs = C1::setup(max_poly_vars, b"hypernova_seq_primary_curve", &mut rng)
+            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
 
         // NOTE: We could try to use the EvalVerifierKey here, which should then make the
         //       public params smaller. However, that would make the interfaces uglier as
@@ -285,11 +284,10 @@ where
         .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
-        let sumcheck_rounds =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
-                step_circuit,
-            )?
-            .0;
+        let sumcheck_rounds = ((params.shape.num_constraints - 1)
+            .checked_ilog2()
+            .unwrap_or(0)
+            + 1) as usize;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {

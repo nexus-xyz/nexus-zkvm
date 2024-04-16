@@ -196,12 +196,16 @@ where
         )?;
         let u = primary::CCSInstanceFromR1CSVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
 
-        let hypernova_proof = primary::ProofFromR1CSVar::<G1, RO>::new_input(cs.clone(), || {
-            Ok(&input.proof.hypernova_proof)
-        })?;
-        let commitment_W_proof = secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || {
-            Ok(&input.proof.commitment_W_proof)
-        })?;
+        let hypernova_proof = primary::ProofFromR1CSVar::<G1, RO>::new_variable(
+            cs.clone(),
+            || Ok(&input.proof.hypernova_proof),
+            mode,
+        )?;
+        let commitment_W_proof = secondary::ProofVar::<G2, C2>::new_variable(
+            cs.clone(),
+            || Ok(&input.proof.commitment_W_proof),
+            mode,
+        )?;
 
         Ok(Self {
             vk,
@@ -262,7 +266,7 @@ where
     pub fn project_augmented_circuit_size_from_r1cs(
         step_circuit: &'a SC,
     ) -> Result<(usize, usize), SynthesisError> {
-        // In order to regenerate the parameters, enable the (ignored) test `calculate_circuit_constants`
+        // In order to regenerate these parameters, enable the (ignored) test `calculate_circuit_constants`
 
         const BASE_CONSTRAINTS: u32 = 82023; // number of constraints in augmented circuit, not including step circuit or sumcheck
         const PER_SC_INPUT_CONSTRAINTS: u32 = 487; // number of additional constraints per step circuit input
@@ -296,7 +300,9 @@ where
 
         let step_circuit_constraints = cs.num_constraints() as u32;
 
-        let mut constraints = BASE_CONSTRAINTS + step_circuit_constraints + (SC::ARITY as u32 * PER_SC_INPUT_CONSTRAINTS);
+        let mut constraints = BASE_CONSTRAINTS
+            + step_circuit_constraints
+            + (SC::ARITY as u32 * PER_SC_INPUT_CONSTRAINTS);
 
         let mut low = 0;
         let mut high = (constraints - 1).checked_ilog2().unwrap_or(0) + 1;
@@ -316,25 +322,28 @@ where
     pub fn base_from_r1cs(
         sumcheck_rounds: usize,
     ) -> (LCCSInstance<G1, C1>, NIMFSProof<G1, G2, C1, C2, RO>) {
+        const NUM_MATRICES: usize = 3;
+        const MAX_CARDINALITY: usize = 2;
+
         (
             LCCSInstance {
                 commitment_W: C1::Commitment::default(),
                 X: vec![G1::ScalarField::ZERO; AUGMENTED_CIRCUIT_NUM_IO],
                 rs: vec![G1::ScalarField::ZERO; sumcheck_rounds],
-                vs: vec![G1::ScalarField::ZERO; 3],
+                vs: vec![G1::ScalarField::ZERO; NUM_MATRICES],
             },
             NIMFSProof {
                 commitment_W_proof: cyclefold::secondary::Proof::<G2, C2>::default(),
                 hypernova_proof: HNProof {
                     sumcheck_proof: vec![
                         ProverMsg {
-                            evaluations: vec![<G1::ScalarField>::ZERO; 4]
+                            evaluations: vec![<G1::ScalarField>::ZERO; MAX_CARDINALITY + 2]
                         };
                         sumcheck_rounds
                     ],
                     poly_info: PolynomialInfo::default(),
-                    sigmas: vec![G1::ScalarField::ZERO; 3],
-                    thetas: vec![G1::ScalarField::ZERO; 3],
+                    sigmas: vec![G1::ScalarField::ZERO; NUM_MATRICES],
+                    thetas: vec![G1::ScalarField::ZERO; NUM_MATRICES],
                     _random_oracle: PhantomData,
                 },
                 _poly_commitment: PhantomData,
@@ -600,14 +609,19 @@ mod tests {
 
         // Constraint Generation #3: The Augmented Circuit with one sumcheck round and one step circuit input
 
-        let z_0_alt = vec![G1::ScalarField::ZERO; <TestCircuitAlt as StepCircuit<G1::ScalarField>>::ARITY];
+        let z_0_alt =
+            vec![G1::ScalarField::ZERO; <TestCircuitAlt as StepCircuit<G1::ScalarField>>::ARITY];
 
         let cs = ConstraintSystem::new_ref();
 
-        let (U, proof) =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SCAlt>::base(
-                1,
-            );
+        let (U, proof) = HyperNovaAugmentedCircuit::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+            SCAlt,
+        >::base(1);
 
         let input = HyperNovaAugmentedCircuitInput::<
             G1,
@@ -627,7 +641,8 @@ mod tests {
 
         cs.finalize();
 
-        let per_sc_input_constraints = (cs.num_constraints() - step_circuit_constraints) - base_circuit_constraints;
+        let per_sc_input_constraints =
+            (cs.num_constraints() - step_circuit_constraints) - base_circuit_constraints;
 
         // Constraint Generation #4: The Augmented Circuit with two sumcheck rounds and no step circuit inputs
 
