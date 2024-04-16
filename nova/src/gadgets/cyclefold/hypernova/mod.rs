@@ -4,7 +4,6 @@
 // !!!
 // !!! before modifying this circuit.
 
-#![allow(unused)]
 #![deny(unsafe_code)]
 
 use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
@@ -28,7 +27,7 @@ pub(crate) mod primary;
 use crate::{
     commitment::CommitmentScheme,
     folding::hypernova::{
-        cyclefold::{nimfs::SQUEEZE_ELEMENTS_BIT_SIZE, CCSShape},
+        cyclefold::{nimfs::SQUEEZE_ELEMENTS_BIT_SIZE},
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
     gadgets::{
@@ -263,7 +262,7 @@ mod tests {
         ccs::mle::vec_to_mle,
         folding::hypernova::cyclefold::{
             nimfs::{
-                CCSInstance, CCSWitness, LCCSInstance, NIMFSProof, RelaxedR1CSInstance,
+                CCSWitness, LCCSInstance, NIMFSProof, RelaxedR1CSInstance,
                 RelaxedR1CSWitness,
             },
             secondary as multifold_secondary,

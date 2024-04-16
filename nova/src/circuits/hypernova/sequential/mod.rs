@@ -33,8 +33,6 @@ use augmented::{
     HyperNovaAugmentedCircuitNonBaseInput,
 };
 
-const LOG_TARGET: &str = "nexus-nova::sequential";
-
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
 
@@ -57,7 +55,6 @@ where
         step_circuit: &SC,
         aux2: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
-        let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
         let sumcheck_rounds =
             HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
@@ -143,12 +140,6 @@ where
         let digest = params.hash();
         params.digest = digest;
 
-        tracing::debug!(
-            target: LOG_TARGET,
-            "public params setup done; augmented circuit: {}, secondary circuit: {}",
-            params.shape,
-            params.shape_secondary,
-        );
         Ok(params)
     }
 }
@@ -276,12 +267,6 @@ where
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         step_circuit: &SC,
     ) -> Result<Self, cyclefold::Error> {
-        let _span = tracing::debug_span!(
-            target: LOG_TARGET,
-            "prove_step",
-            step_num = %self.step_num(),
-        )
-        .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
         let sumcheck_rounds = ((params.shape.num_constraints - 1)
@@ -353,10 +338,7 @@ where
         let circuit =
             HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
 
-        let z_i =
-            tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment").in_scope(|| {
-                HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())
-            })?;
+        let z_i = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         let cs_borrow = cs.borrow().unwrap();
         let witness = cs_borrow.witness_assignment.clone();
@@ -392,8 +374,6 @@ where
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         num_steps: usize,
     ) -> Result<(), cyclefold::Error> {
-        let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
-
         const NOT_SATISFIED_ERROR: cyclefold::Error =
             cyclefold::Error::Ccs(crate::ccs::Error::NotSatisfied);
 
