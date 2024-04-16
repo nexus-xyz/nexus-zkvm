@@ -264,8 +264,9 @@ where
     ) -> Result<(usize, usize), SynthesisError> {
         // In order to regenerate the parameters, enable the (ignored) test `calculate_circuit_constants`
 
-        const BASE_CONSTRAINTS: u32 = 82023; // number of constraints in augmented circuit, not including sumcheck
-        const SUMCHECK_ROUND_CONSTRAINTS: u32 = 1238; // number of constraints per sumcheck round
+        const BASE_CONSTRAINTS: u32 = 82023; // number of constraints in augmented circuit, not including step circuit or sumcheck
+        const PER_SC_INPUT_CONSTRAINTS: u32 = 487; // number of additional constraints per step circuit input
+        const SUMCHECK_ROUND_CONSTRAINTS: u32 = 1238; // number of additional constraints per sumcheck round
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
@@ -295,7 +296,7 @@ where
 
         let step_circuit_constraints = cs.num_constraints() as u32;
 
-        let mut constraints = BASE_CONSTRAINTS + step_circuit_constraints;
+        let mut constraints = BASE_CONSTRAINTS + step_circuit_constraints + (SC::ARITY as u32 * PER_SC_INPUT_CONSTRAINTS);
 
         let mut low = 0;
         let mut high = (constraints - 1).checked_ilog2().unwrap_or(0) + 1;
@@ -477,6 +478,7 @@ mod tests {
     use ark_spartan::polycommitments::zeromorph::Zeromorph;
 
     struct TestCircuit;
+    struct TestCircuitAlt;
 
     impl<F: PrimeField> StepCircuit<F> for TestCircuit {
         const ARITY: usize = 0;
@@ -491,7 +493,21 @@ mod tests {
         }
     }
 
+    impl<F: PrimeField> StepCircuit<F> for TestCircuitAlt {
+        const ARITY: usize = 1;
+
+        fn generate_constraints(
+            &self,
+            _: ConstraintSystemRef<F>,
+            _: &FpVar<F>,
+            z: &[FpVar<F>],
+        ) -> Result<Vec<FpVar<F>>, SynthesisError> {
+            Ok(z.to_owned())
+        }
+    }
+
     type SC = TestCircuit;
+    type SCAlt = TestCircuitAlt;
 
     #[ignore]
     #[test]
@@ -553,7 +569,7 @@ mod tests {
 
         let step_circuit_constraints = cs.num_constraints();
 
-        // Constraint Generation #2: The Augmented Circuit with no sumcheck rounds
+        // Constraint Generation #2: The Augmented Circuit with one sumcheck round and no step circuit inputs
 
         let cs = ConstraintSystem::new_ref();
 
@@ -582,7 +598,38 @@ mod tests {
 
         let base_circuit_constraints = cs.num_constraints() - step_circuit_constraints;
 
-        // Constraint Generation #3: The Augmented Circuit with one sumcheck round
+        // Constraint Generation #3: The Augmented Circuit with one sumcheck round and one step circuit input
+
+        let z_0_alt = vec![G1::ScalarField::ZERO; <TestCircuitAlt as StepCircuit<G1::ScalarField>>::ARITY];
+
+        let cs = ConstraintSystem::new_ref();
+
+        let (U, proof) =
+            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SCAlt>::base(
+                1,
+            );
+
+        let input = HyperNovaAugmentedCircuitInput::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+        >::Base {
+            vk: G1::ScalarField::ZERO,
+            z_0: z_0_alt.clone(),
+            U,
+            proof,
+        };
+
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuitAlt, 1, input);
+        let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+
+        cs.finalize();
+
+        let per_sc_input_constraints = (cs.num_constraints() - step_circuit_constraints) - base_circuit_constraints;
+
+        // Constraint Generation #4: The Augmented Circuit with two sumcheck rounds and no step circuit inputs
 
         let cs = ConstraintSystem::new_ref();
 
@@ -615,8 +662,9 @@ mod tests {
         let o = format!(
             r#"Size Parameters for Augmented Circuit:
                     -- Base Constraints (no sumcheck, no step circuit):  {}
+                    -- Per Step Circuit Input Constraints:               {}
                     -- Constrains per Sumcheck Round:                    {}"#,
-            base_circuit_constraints, sumcheck_round_constraints
+            base_circuit_constraints, per_sc_input_constraints, sumcheck_round_constraints
         );
 
         println!("{}", o);
