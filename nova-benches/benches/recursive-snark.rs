@@ -29,14 +29,14 @@ type NG2 = ark_vesta::VestaConfig;
 type NC1 = PedersenCommitment<ark_pallas::Projective>;
 type NC2 = PedersenCommitment<ark_vesta::Projective>;
 
-type NCF = ark_pallas::Fr;
+type Ncf = ark_pallas::Fr;
 
 type HNG1 = ark_bn254::g1::Config;
 type HNG2 = ark_grumpkin::GrumpkinConfig;
 type HNC1 = Zeromorph<ark_bn254::Bn254>;
 type HNC2 = PedersenCommitment<ark_grumpkin::Projective>;
 
-type HNCF = ark_bn254::Fr;
+type HNcf = ark_bn254::Fr;
 
 criterion_group! {
     name = recursive_snark;
@@ -50,7 +50,7 @@ criterion_main!(recursive_snark);
 
 const NUM_WARMUP_STEPS: usize = 10;
 
-fn nova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
+fn nova(c: &mut Criterion, num_cons_in_step_circuit: usize) {
     let ro_config = poseidon_config();
 
     let mut group = c.benchmark_group(format!(
@@ -61,7 +61,7 @@ fn nova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
     let step_circuit = NonTrivialTestCircuit::new(num_cons_in_step_circuit);
 
     // Produce public parameters
-    let pp = NovaPP::<NG1, NG2, NC1, NC2, PoseidonSponge<NCF>, NonTrivialTestCircuit<NCF>>::setup(
+    let pp = NovaPP::<NG1, NG2, NC1, NC2, PoseidonSponge<Ncf>, NonTrivialTestCircuit<Ncf>>::setup(
         ro_config.clone(),
         &step_circuit,
         &(),
@@ -73,8 +73,8 @@ fn nova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
     // we execute a certain number of warm-up steps since executing
     // the first step is cheaper than other steps owing to the presence of
     // a lot of zeros in the satisfying assignment
-    let mut recursive_snark: NovaIVC<NG1, NG2, NC1, NC2, PoseidonSponge<NCF>, _> =
-        NovaIVC::new(&[NCF::from(2u64)]);
+    let mut recursive_snark: NovaIVC<NG1, NG2, NC1, NC2, PoseidonSponge<Ncf>, _> =
+        NovaIVC::new(&[Ncf::from(2u64)]);
 
     for i in 0..NUM_WARMUP_STEPS {
         recursive_snark = recursive_snark.prove_step(&pp, &step_circuit).unwrap();
@@ -106,7 +106,7 @@ fn nova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
 }
 
 #[cfg(feature = "spartan")]
-fn hypernova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
+fn hypernova(c: &mut Criterion, num_cons_in_step_circuit: usize) {
     let ro_config = poseidon_config();
 
     let mut group = c.benchmark_group(format!(
@@ -118,7 +118,7 @@ fn hypernova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
 
     // Produce public parameters
     let pp =
-        HyperNovaPP::<HNG1, HNG2, HNC1, HNC2, PoseidonSponge<HNCF>, NonTrivialTestCircuit<HNCF>>::setup(
+        HyperNovaPP::<HNG1, HNG2, HNC1, HNC2, PoseidonSponge<HNcf>, NonTrivialTestCircuit<HNcf>>::setup(
             ro_config.clone(),
             &step_circuit,
             &(),
@@ -129,8 +129,8 @@ fn hypernova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
     // we execute a certain number of warm-up steps since executing
     // the first step is cheaper than other steps owing to the presence of
     // a lot of zeros in the satisfying assignment
-    let mut recursive_snark: HyperNovaIVC<HNG1, HNG2, HNC1, HNC2, PoseidonSponge<HNCF>, _> =
-        HyperNovaIVC::new(&[HNCF::from(2u64)]);
+    let mut recursive_snark: HyperNovaIVC<HNG1, HNG2, HNC1, HNC2, PoseidonSponge<HNcf>, _> =
+        HyperNovaIVC::new(&[HNcf::from(2u64)]);
 
     for i in 0..NUM_WARMUP_STEPS {
         recursive_snark = recursive_snark.prove_step(&pp, &step_circuit).unwrap();
