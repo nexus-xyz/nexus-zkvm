@@ -11,12 +11,14 @@ extern crate proc_macro2;
 extern crate syn;
 
 use proc_macro2::Span;
-use syn::{parse, spanned::Spanned, FnArg, ItemFn, PathArguments, ReturnType, Type, Visibility};
+use syn::{parse, spanned::Spanned, FnArg, ItemFn, ItemStruct, Lit, NestedMeta, Meta, PathArguments, ReturnType, Type, Visibility};
 
 use proc_macro::TokenStream;
 
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
+    let alt = input.clone();
+
     let f = parse_macro_input!(input as ItemFn);
 
     // check the function arguments
@@ -67,11 +69,43 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
         .into();
     }
 
+    let mut memset: Option<usize> = None;
+    let e = parse::Error::new(Span::call_site(), "Invalid main macro arguments, the only supported argument is of the form main(memset(N))");
+
     if !args.is_empty() {
-        return parse::Error::new(Span::call_site(), "This attribute accepts no arguments")
-            .to_compile_error()
-            .into();
-    }
+        let c = parse_macro_input!(alt as ItemStruct);
+
+        for attr in &c.attrs {
+            if attr.path.is_ident("main") {
+                let meta = attr.parse_meta();
+
+                if meta.is_err() {
+                    return e.to_compile_error().into();
+                }
+
+                let meta = meta.unwrap();
+
+                if meta.path().is_ident("memset") {
+                    if let Meta::List(list) = meta {
+                        let val = list.nested.first();
+
+                        if val.is_some() {
+                            if let NestedMeta::Lit(Lit::Int(lit)) = val.unwrap() {
+                                let n = lit.base10_parse();
+
+                                if n.is_ok() {
+                                    memset = Some(n.unwrap());
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return e.to_compile_error().into();
+        }
+    };
 
     // XXX should we blacklist other attributes?
     let attrs = f.attrs;
