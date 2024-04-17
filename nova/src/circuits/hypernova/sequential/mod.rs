@@ -55,7 +55,6 @@ where
         step_circuit: &SC,
         aux2: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
-
         let sumcheck_rounds =
             HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
                 step_circuit,
@@ -269,9 +268,9 @@ where
         let IVCProof { z_0, non_base, .. } = self;
 
         let sumcheck_rounds = ((params.shape.num_constraints - 1)
-                               .checked_ilog2()
-                               .unwrap_or(0)
-                               + 1) as usize;
+            .checked_ilog2()
+            .unwrap_or(0)
+            + 1) as usize;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {

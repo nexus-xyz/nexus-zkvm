@@ -431,12 +431,21 @@ where
         let num_variables = r1cs.borrow().num_variables as u32;
         let num_terms = r1cs.borrow().num_terms as u32;
 
-        let max_multiplicands =
-            FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(G1::ScalarField::from(max_multiplicands)), mode)?;
-        let num_variables =
-            FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(G1::ScalarField::from(num_variables)), mode)?;
-        let num_terms =
-            FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(G1::ScalarField::from(num_terms)), mode)?;
+        let max_multiplicands = FpVar::<G1::ScalarField>::new_variable(
+            cs.clone(),
+            || Ok(G1::ScalarField::from(max_multiplicands)),
+            mode,
+        )?;
+        let num_variables = FpVar::<G1::ScalarField>::new_variable(
+            cs.clone(),
+            || Ok(G1::ScalarField::from(num_variables)),
+            mode,
+        )?;
+        let num_terms = FpVar::<G1::ScalarField>::new_variable(
+            cs.clone(),
+            || Ok(G1::ScalarField::from(num_terms)),
+            mode,
+        )?;
 
         Ok(Self(PolynomialInfoVar {
             max_multiplicands,

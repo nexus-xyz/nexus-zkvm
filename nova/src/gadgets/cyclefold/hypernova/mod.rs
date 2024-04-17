@@ -27,7 +27,7 @@ pub(crate) mod primary;
 use crate::{
     commitment::CommitmentScheme,
     folding::hypernova::{
-        cyclefold::{nimfs::SQUEEZE_ELEMENTS_BIT_SIZE},
+        cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
         ml_sumcheck::protocol::verifier::SQUEEZE_NATIVE_ELEMENTS_NUM,
     },
     gadgets::{
@@ -262,8 +262,7 @@ mod tests {
         ccs::mle::vec_to_mle,
         folding::hypernova::cyclefold::{
             nimfs::{
-                CCSWitness, LCCSInstance, NIMFSProof, RelaxedR1CSInstance,
-                RelaxedR1CSWitness,
+                CCSWitness, LCCSInstance, NIMFSProof, RelaxedR1CSInstance, RelaxedR1CSWitness,
             },
             secondary as multifold_secondary,
         },
