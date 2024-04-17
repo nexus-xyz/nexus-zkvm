@@ -419,20 +419,24 @@ where
     G1::BaseField: PrimeField,
 {
     fn new_variable<T: Borrow<PolynomialInfo>>(
-        _cs: impl Into<Namespace<G1::ScalarField>>,
+        cs: impl Into<Namespace<G1::ScalarField>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
-        _mode: AllocationMode,
+        mode: AllocationMode,
     ) -> Result<Self, SynthesisError> {
+        let ns = cs.into();
+        let cs = ns.cs();
+
         let r1cs = f()?;
         let max_multiplicands = r1cs.borrow().max_multiplicands as u32;
         let num_variables = r1cs.borrow().num_variables as u32;
         let num_terms = r1cs.borrow().num_terms as u32;
 
         let max_multiplicands =
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(max_multiplicands));
+            FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(G1::ScalarField::from(max_multiplicands)), mode)?;
         let num_variables =
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_variables));
-        let num_terms = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_terms));
+            FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(G1::ScalarField::from(num_variables)), mode)?;
+        let num_terms =
+            FpVar::<G1::ScalarField>::new_variable(cs.clone(), || Ok(G1::ScalarField::from(num_terms)), mode)?;
 
         Ok(Self(PolynomialInfoVar {
             max_multiplicands,

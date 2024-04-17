@@ -66,16 +66,15 @@ where
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
+        let cs = ConstraintSystem::new_ref();
+        cs.set_mode(SynthesisMode::Setup);
+
         let input = HyperNovaAugmentedCircuitInput::<G1, G2, C1, C2, RO>::Base {
             vk: G1::ScalarField::ZERO,
             z_0,
             U,
             proof,
         };
-
-        let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Setup);
-
         let circuit =
             HyperNovaAugmentedCircuit::new(&ro_config, step_circuit, sumcheck_rounds, input);
         let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
@@ -270,9 +269,9 @@ where
         let IVCProof { z_0, non_base, .. } = self;
 
         let sumcheck_rounds = ((params.shape.num_constraints - 1)
-            .checked_ilog2()
-            .unwrap_or(0)
-            + 1) as usize;
+                               .checked_ilog2()
+                               .unwrap_or(0)
+                               + 1) as usize;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {
@@ -333,7 +332,7 @@ where
         };
 
         let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
+        cs.set_mode(SynthesisMode::Prove { construct_matrices: true });
 
         let circuit =
             HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
@@ -349,7 +348,7 @@ where
         let commitment_W = w.commit::<C1>(&params.ck);
         let u = CCSInstance::<G1, C1> { commitment_W, X: pub_io };
 
-        let z_i = z_i.iter().map(R1CSVar::value).collect::<Result<_, _>>()?;
+        let z_i = z_i.iter().map(|z| z.value()).collect::<Result<_, _>>()?;
 
         Ok(Self {
             z_0,

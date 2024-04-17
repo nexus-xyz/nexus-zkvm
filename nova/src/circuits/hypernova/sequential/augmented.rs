@@ -199,14 +199,14 @@ where
         )?;
         let u = primary::CCSInstanceFromR1CSVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
 
-        let hypernova_proof = primary::ProofFromR1CSVar::<G1, RO>::new_variable(
-            cs.clone(),
-            || Ok(&input.proof.hypernova_proof),
-            mode,
-        )?;
         let commitment_W_proof = secondary::ProofVar::<G2, C2>::new_variable(
             cs.clone(),
             || Ok(&input.proof.commitment_W_proof),
+            mode,
+        )?;
+        let hypernova_proof = primary::ProofFromR1CSVar::<G1, RO>::new_variable(
+            cs.clone(),
+            || Ok(&input.proof.hypernova_proof),
             mode,
         )?;
 
@@ -747,7 +747,7 @@ mod tests {
         };
         let cs = ConstraintSystem::new_ref();
 
-        circuit.generate_constraints_from_r1cs(cs.clone())?;
+        circuit.generate_constraints(cs.clone())?;
 
         assert!(cs.is_satisfied()?);
 
