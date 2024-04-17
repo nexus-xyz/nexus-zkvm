@@ -1,7 +1,7 @@
-// An example of loading and running a RISC-V VM.
+// An example of loading and running the NVM.
 
 use nexus_api::{
-    riscv::{VMOpts, nvm::load_nvm},
+    riscv::VMOpts,
     nvm::{
         eval::{NexusVM, eval},
         memory::trie::MerkleTrie,
@@ -23,3 +23,4 @@ fn main() {
     eval(&mut vm, true).expect("error running program");
 }
 
+fn main() {}

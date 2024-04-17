@@ -12,6 +12,6 @@ fn main() {
         machine: None,
         file: None,
     };
+
     run_vm(&opts, true).expect("error running RISC-V VM");
 }
-
