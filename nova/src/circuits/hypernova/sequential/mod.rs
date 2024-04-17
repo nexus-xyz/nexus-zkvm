@@ -331,7 +331,7 @@ where
         };
 
         let cs = ConstraintSystem::new_ref();
-        cs.set_mode(SynthesisMode::Prove { construct_matrices: true });
+        cs.set_mode(SynthesisMode::Prove { construct_matrices: false });
 
         let circuit =
             HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
