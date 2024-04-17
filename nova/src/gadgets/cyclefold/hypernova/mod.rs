@@ -172,7 +172,7 @@ where
         )
         * e1;
 
-    let cSs = vec![
+    let cSs = [
         (G1::ScalarField::ONE, vec![0, 1]),
         (G1::ScalarField::ONE.neg(), vec![2]),
     ];
