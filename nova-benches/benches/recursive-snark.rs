@@ -18,10 +18,8 @@ use criterion::*;
 use pprof::criterion::{Output, PProfProfiler};
 
 use nexus_nova::{
+    hypernova::sequential::{IVCProof as HyperNovaIVC, PublicParams as HyperNovaPP},
     nova::sequential::{IVCProof as NovaIVC, PublicParams as NovaPP},
-    hypernova::{
-        sequential::{IVCProof as HyperNovaIVC, PublicParams as HyperNovaPP},
-    },
     pedersen::PedersenCommitment,
     poseidon_config, StepCircuit,
 };
@@ -63,14 +61,13 @@ fn nova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
     let step_circuit = NonTrivialTestCircuit::new(num_cons_in_step_circuit);
 
     // Produce public parameters
-    let pp =
-        NovaPP::<NG1, NG2, NC1, NC2, PoseidonSponge<NCF>, NonTrivialTestCircuit<NCF>>::setup(
-            ro_config.clone(),
-            &step_circuit,
-            &(),
-            &(),
-        )
-        .unwrap();
+    let pp = NovaPP::<NG1, NG2, NC1, NC2, PoseidonSponge<NCF>, NonTrivialTestCircuit<NCF>>::setup(
+        ro_config.clone(),
+        &step_circuit,
+        &(),
+        &(),
+    )
+    .unwrap();
 
     // Bench time to produce a recursive SNARK;
     // we execute a certain number of warm-up steps since executing
@@ -165,7 +162,6 @@ fn hypernova(c: &mut Criterion, num_cons_in_step_circuit: usize) -> () {
 }
 
 fn bench_recursive_snark(c: &mut Criterion) {
-
     // we vary the number of constraints in the step circuit
     for &num_cons_in_step_circuit in [0, 6399, 22783, 55551, 121087, 252159, 514303, 1038591].iter()
     {
@@ -177,7 +173,6 @@ fn bench_recursive_snark(c: &mut Criterion) {
     {
         hypernova(c, num_cons_in_step_circuit);
     }
-
 }
 
 struct NonTrivialTestCircuit<F> {
