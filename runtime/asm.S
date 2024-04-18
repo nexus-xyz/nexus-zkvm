@@ -22,9 +22,9 @@ _start:
     mv fp, sp
 
     jal ra, _get_stack_size
-    blez a0, run /* if returned stack size is lte to zero, ignore */
+    blez x10, run /* if returned stack size is lte to zero, ignore */
 
-    addi a0, a0, -4
+    addi x10, x10, -4
     mv sp, a0
     mv fp, sp
 
