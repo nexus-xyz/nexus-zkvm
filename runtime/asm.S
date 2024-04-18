@@ -25,7 +25,7 @@ _start:
     blez x10, run /* if returned stack size is lte to zero, ignore */
 
     addi x10, x10, -4
-    mv sp, a0
+    mv sp, x10
     mv fp, sp
 
     j run
