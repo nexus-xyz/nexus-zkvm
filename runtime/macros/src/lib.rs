@@ -71,13 +71,13 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
         .into();
     }
 
-    let mut memset: i32 = -1;
-    let e = parse::Error::new(Span::call_site(), "Invalid macro argument: the only supported argument is of the form main(memset(N)) for N > 0");
+    let mut memlimit: i32 = -1;
+    let e = parse::Error::new(Span::call_site(), "Invalid macro argument: the only supported argument is of the form main(memlimit(N)) for N > 0");
 
     if let Some(e) = (|| -> Result<(), parse::Error> {
         if !a.is_empty() {
             for arg in a {
-                if arg.path().is_ident("memset") {
+                if arg.path().is_ident("memlimit") {
                     if let Meta::List(list) = arg {
                         let val = list.nested.first();
 
@@ -85,8 +85,8 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
                             if let NestedMeta::Lit(Lit::Int(lit)) = val.unwrap() {
                                 let n = lit.base10_parse::<i32>();
                                 if n.is_ok() {
-                                    memset = n.unwrap() * 0x100000;
-                                    if memset <= 0 {
+                                    memlimit = n.unwrap() * 0x100000;
+                                    if memlimit <= 0 {
                                         return Err(e);
                                     }
 
@@ -121,7 +121,7 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
         }
         #[export_name = "get_stack_size"]
         pub fn __risc_v_rt__get_stack_size() -> i32 {
-            #memset
+            #memlimit
         }
     )
     .into()
