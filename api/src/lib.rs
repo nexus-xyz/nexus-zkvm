@@ -34,6 +34,7 @@ pub mod nvm {
     pub use nexus_vm::{
         run_nvm,
         error,
+        trace::trace,
     };
     pub mod memory {
         pub use nexus_vm::memory::{
@@ -45,5 +46,20 @@ pub mod nvm {
 
 /// Nova-based provers
 pub mod prover {
-    pub use nexus_prover::*;
+    pub mod prove {
+        pub use nexus_prover::{
+            estimate_size,
+            prove_seq,
+            prove_par,
+            prove_par_com,
+            compress,
+            save_proof,
+            load_proof
+        };
+    }
+    pub mod verify {
+        pub use nexus_prover::{
+            verify_compressed,
+        };
+    }
 }
