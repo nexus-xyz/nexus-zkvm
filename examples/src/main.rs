@@ -3,7 +3,7 @@
 
 use nexus_rt::write_log;
 
-#[nexus_rt::main(memset(8000))]
+#[nexus_rt::main]
 fn main() {
     write_log("Hello, World!\n");
 }

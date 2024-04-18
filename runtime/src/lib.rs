@@ -50,7 +50,7 @@ unsafe impl GlobalAlloc for Heap {
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
 }
 
-/// Stack size steup (_get_stack_size)
+/// Stack size setup (_get_stack_size)
 #[doc(hidden)]
 #[link_section = ".init.rust"]
 #[export_name = "_get_stack_size"]

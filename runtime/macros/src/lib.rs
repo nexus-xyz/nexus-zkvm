@@ -11,13 +11,14 @@ extern crate proc_macro2;
 extern crate syn;
 
 use proc_macro2::Span;
-use syn::{parse, spanned::Spanned, FnArg, ItemFn, Lit, NestedMeta, Meta, PathArguments, ReturnType, Type, Visibility};
+use syn::{parse, spanned::Spanned, FnArg, ItemFn, Lit, NestedMeta, Meta, punctuated::Punctuated, PathArguments, ReturnType, Type, Visibility};
 
 use proc_macro::TokenStream;
 
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
     let f = parse_macro_input!(input as ItemFn);
+    let a = parse_macro_input!(args with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
 
     // check the function arguments
     if f.sig.inputs.len() > 3 {
@@ -68,40 +69,37 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
     }
 
     let mut memset: i32 = -1;
-    let e = parse::Error::new(Span::call_site(), "Invalid macro argument: the only supported argument is of the form main(memset(N))");
+    let e = parse::Error::new(Span::call_site(), "Invalid macro argument: the only supported argument is of the form main(memset(N)) for N > 0");
 
-    if !args.is_empty() {
-        for attr in &f.attrs {
-            if attr.path.is_ident("main") {
-                let meta = attr.parse_meta();
-
-                if meta.is_err() {
-                    return e.to_compile_error().into();
-                }
-
-                let meta = meta.unwrap();
-
-                if meta.path().is_ident("memset") {
-                    if let Meta::List(list) = meta {
+    if let Some(e) = (|| -> Result<(), parse::Error> {
+        if !a.is_empty() {
+            for arg in a {
+                if arg.path().is_ident("memset") {
+                    if let Meta::List(list) = arg {
                         let val = list.nested.first();
 
                         if val.is_some() {
                             if let NestedMeta::Lit(Lit::Int(lit)) = val.unwrap() {
-                                let n = lit.base10_parse();
-
+                                let n = lit.base10_parse::<i32>();
                                 if n.is_ok() {
-                                    memset = n.unwrap();
-                                    break;
+                                    memset = n.unwrap() * 0x100000;
+                                    if memset <= 0 {
+                                        return Err(e);
+                                    }
+
+                                    return Ok(());
                                 }
                             }
                         }
                     }
                 }
             }
-
-            return e.to_compile_error().into();
+            return Err(e);
         }
-    };
+        Ok(())
+    })().err() {
+        return e.to_compile_error().into();
+    }
 
     // XXX should we blacklist other attributes?
     let attrs = f.attrs;
