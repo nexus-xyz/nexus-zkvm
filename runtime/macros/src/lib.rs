@@ -11,7 +11,10 @@ extern crate proc_macro2;
 extern crate syn;
 
 use proc_macro2::Span;
-use syn::{parse, spanned::Spanned, FnArg, ItemFn, Lit, NestedMeta, Meta, punctuated::Punctuated, PathArguments, ReturnType, Type, Visibility};
+use syn::{
+    parse, punctuated::Punctuated, spanned::Spanned, FnArg, ItemFn, Lit, Meta, NestedMeta,
+    PathArguments, ReturnType, Type, Visibility,
+};
 
 use proc_macro::TokenStream;
 
@@ -97,7 +100,9 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
             return Err(e);
         }
         Ok(())
-    })().err() {
+    })()
+    .err()
+    {
         return e.to_compile_error().into();
     }
 
