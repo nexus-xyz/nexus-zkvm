@@ -3,6 +3,7 @@
 
 extern crate alloc;
 use alloc::vec;
+use core::hint::black_box;
 
 use nexus_rt::{println, Write};
 
@@ -11,9 +12,7 @@ use nexus_rt::{println, Write};
 #[nexus_rt::main(memlimit(16))]
 fn main() {
     let vec = vec![0 as u32; 1500000];
-    println!(
-        "Arbitrary vector entry so that it does not get optimized away: vec[42] = {}",
-        vec[42]
-    );
+    black_box(vec);
+
     println!("Success!!!");
 }
