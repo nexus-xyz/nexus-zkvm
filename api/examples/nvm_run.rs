@@ -19,8 +19,22 @@ fn main() {
         file: None,
     };
 
-    let mut vm: NexusVM<MerkleTrie> = load_nvm(&opts).expect("error loading RISC-V");
+    let mut vm: NexusVM<MerkleTrie> = load_nvm::<MerkleTrie>::(&opts).expect("error loading RISC-V");
     eval(&mut vm, true).expect("error running program");
-}
 
-fn main() {}
+    // For this example we are using an ELF file, accessed through the single-entry interface.
+    let opts = VMOpts {
+        k: 1,
+        nop: Some(10),
+        loopk: None,
+        machine: None,
+        file: None,
+    };
+
+    let mut vm: NexusVM<MerkleTrie> = load_nvm::<MerkleTrie>::(&opts).expect("error loading RISC-V");
+    eval(&mut vm, true).expect("error running program");
+
+    // For this example we are using an ELF file, accessed through the interactive interface.
+    let vm  = interactive::translate_elf().expect("error loading RISC-V VM");
+    let res = interactive::eval(vm, true).expect("error running RISC-V VM");
+}

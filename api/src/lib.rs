@@ -8,34 +8,27 @@ pub mod riscv {
         pub use nexus_riscv::{
             load_elf,
             parse_elf,
-            load_vm,
+            nvm::translate_elf,
             eval,
         };
     }
     pub use nexus_riscv::{
         VMOpts,
         run_vm,
-        error,
+        nvm::run_as_nvm,
+        error::VMError,
     };
 }
 
 /// Nexus VM
 pub mod nvm {
     pub mod interactive {
-        pub use nexus_riscv::nvm::{
-            translate_elf,
-            load_nvm,
-        };
         pub use nexus_vm::eval::{
             NexusVM,
             eval,
         };
     }
-    pub use nexus_vm::{
-        run_nvm,
-        error,
-        trace::trace,
-    };
+    pub use nexus_vm::error::NexusVMError;
     pub mod memory {
         pub use nexus_vm::memory::{
             trie::MerkleTrie,
@@ -46,15 +39,15 @@ pub mod nvm {
 
 /// Nova-based provers
 pub mod prover {
+    pub use nexus_prover::error::ProofError;
     pub mod prove {
         pub use nexus_prover::{
-            estimate_size,
             prove_seq,
             prove_par,
             prove_par_com,
             compress,
             save_proof,
-            load_proof
+            load_proof,
         };
     }
     pub mod verify {
