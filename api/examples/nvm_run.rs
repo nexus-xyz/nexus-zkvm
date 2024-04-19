@@ -1,11 +1,9 @@
 // An example of loading and running the NVM.
 
+use std::path::PathBuf;
 use nexus_api::{
-    riscv::VMOpts,
-    nvm::{
-        eval::{NexusVM, eval},
-        memory::trie::MerkleTrie,
-    },
+    riscv::{self, VMOpts, run_as_nvm},
+    nvm::{self, NexusVM,  memory::{MerkleTrie, Paged}},
 };
 
 fn main() {
@@ -19,22 +17,25 @@ fn main() {
         file: None,
     };
 
-    let mut vm: NexusVM<MerkleTrie> = load_nvm::<MerkleTrie>::(&opts).expect("error loading RISC-V");
-    eval(&mut vm, true).expect("error running program");
+    run_as_nvm::<MerkleTrie>(&opts, true).expect("error running Nexus VM");
+
+    // For this example we are using a built-in test VM, but using paged memory.
+    run_as_nvm::<Paged>(&opts, true).expect("error running Nexus VM");
+
+    let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/debug/fib");
 
     // For this example we are using an ELF file, accessed through the single-entry interface.
     let opts = VMOpts {
         k: 1,
-        nop: Some(10),
+        nop: None,
         loopk: None,
         machine: None,
-        file: None,
+        file: Some(pb.clone()),
     };
 
-    let mut vm: NexusVM<MerkleTrie> = load_nvm::<MerkleTrie>::(&opts).expect("error loading RISC-V");
-    eval(&mut vm, true).expect("error running program");
+    run_as_nvm::<MerkleTrie>(&opts, true).expect("error running Nexus VM");
 
     // For this example we are using an ELF file, accessed through the interactive interface.
-    let vm  = interactive::translate_elf().expect("error loading RISC-V VM");
-    let res = interactive::eval(vm, true).expect("error running RISC-V VM");
+    let mut vm: NexusVM<MerkleTrie> = riscv::interactive::translate_elf(&pb).expect("error loading and translating RISC-V VM");
+    nvm::interactive::eval(&mut vm, true).expect("error running Nexus VM");
 }

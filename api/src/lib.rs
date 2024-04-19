@@ -23,12 +23,12 @@ pub mod riscv {
 /// Nexus VM
 pub mod nvm {
     pub mod interactive {
-        pub use nexus_vm::eval::{
-            NexusVM,
-            eval,
-        };
+        pub use nexus_vm::eval::eval;
     }
-    pub use nexus_vm::error::NexusVMError;
+    pub use nexus_vm::{
+        eval::NexusVM,
+        error::NexusVMError,
+    };
     pub mod memory {
         pub use nexus_vm::memory::{
             trie::MerkleTrie,
