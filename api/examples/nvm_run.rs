@@ -17,10 +17,10 @@ fn main() {
         file: None,
     };
 
-    run_as_nvm::<MerkleTrie>(&opts, true).expect("error running Nexus VM");
+    run_as_nvm::<MerkleTrie>(&opts, true, true).expect("error running Nexus VM");
 
     // For this example we are using a built-in test VM, but using paged memory.
-    run_as_nvm::<Paged>(&opts, true).expect("error running Nexus VM");
+    run_as_nvm::<Paged>(&opts, true, true).expect("error running Nexus VM");
 
     let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/debug/fib");
 
@@ -33,7 +33,7 @@ fn main() {
         file: Some(pb.clone()),
     };
 
-    run_as_nvm::<MerkleTrie>(&opts, true).expect("error running Nexus VM");
+    run_as_nvm::<MerkleTrie>(&opts, true, true).expect("error running Nexus VM");
 
     // For this example we are using an ELF file, accessed through the interactive interface.
     let mut vm: NexusVM<MerkleTrie> = riscv::interactive::translate_elf(&pb).expect("error loading and translating RISC-V VM");

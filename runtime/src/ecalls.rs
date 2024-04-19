@@ -3,8 +3,18 @@ pub use core::fmt::Write;
 // To simplify calling out to the environment, we keep the
 // argument registers intact, and place the function number
 // in s2 (rust will not allow us to use s0 or s1).
+//
+// todo: with some fancy variadics these could probably be combined
 
-macro_rules! ecall {
+macro_rules! ecall_in {
+    ($n:literal,$a0:expr) => {
+        unsafe {
+            core::arch::asm!("ecall", in("s2") $n, out("a0") $a0)
+        }
+    }
+}
+
+macro_rules! ecall_out {
     ($n:literal,$a0:expr,$a1:expr) => {
         unsafe {
             core::arch::asm!("ecall", in("s2") $n, in("a0") $a0, in("a1") $a1)
@@ -14,7 +24,14 @@ macro_rules! ecall {
 
 /// Write a string to the output console (if any).
 pub fn write_log(s: &str) {
-    ecall!(1, s.as_ptr(), s.len());
+    ecall_out!(1, s.as_ptr(), s.len());
+}
+
+pub fn read_private_input() -> Option<u8> {
+    let val: u32;
+    ecall_in!(2, val);
+
+    if val == u32::MAX { None } else { Some(val.to_be_bytes()[0]) } // u32::MAX is used a sentinel value that there is nothing left on the input tape
 }
 
 /// An empty type representing the VM terminal

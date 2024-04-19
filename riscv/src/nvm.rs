@@ -290,20 +290,25 @@ fn estimate_size<M: Memory>(tr: &Trace<M::Proof>) -> usize {
 }
 
 /// Load and run as a NexusVM according to the `opts`.
-pub fn run_as_nvm<M: Memory>(opts: &VMOpts, pow: bool) -> Result<Trace<M::Proof>, VMError> {
+pub fn run_as_nvm<M: Memory>(opts: &VMOpts, pow: bool, show: bool) -> Result<Trace<M::Proof>, VMError> {
     let mut vm = load_nvm::<M>(opts)?;
 
-    println!("Executing program...");
+    if show {
+        println!("Executing program...");
+    }
 
     let start = Instant::now();
     let trace = trace::<M>(&mut vm, opts.k, pow)?;
 
-    println!(
-        "Executed {} instructions in {:?}. {} bytes used by trace.",
-        trace.k * trace.blocks.len(),
-        start.elapsed(),
-        estimate_size::<M>(&trace)
-    );
+    if show {
+        println!(
+            "Executed {} instructions in {:?}. {} bytes used by trace.",
+            trace.k * trace.blocks.len(),
+            start.elapsed(),
+            estimate_size::<M>(&trace)
+        );
+    }
+
     Ok(trace)
 }
 
@@ -317,7 +322,7 @@ mod test {
 
     // Generate a list of NVM test machines
     pub fn test_machines() -> Vec<(&'static str, NexusVM<MerkleTrie>)> {
-        MACHINES 
+        MACHINES
             .iter()
             .map(|(name, f_vm, _)| {
                 let rvm = f_vm();
