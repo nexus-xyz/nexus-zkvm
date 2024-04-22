@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::{Write, println, read_from_private_input};
+use nexus_rt::{println, read_from_private_input, Write};
 
 #[nexus_rt::main]
 fn main() {

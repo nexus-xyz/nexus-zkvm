@@ -286,7 +286,11 @@ fn estimate_size<M: Memory>(tr: &Trace<M::Proof>) -> usize {
 }
 
 /// Load and run as a NexusVM according to the `opts`.
-pub fn run_as_nvm<M: Memory>(opts: &VMOpts, pow: bool, show: bool) -> Result<Trace<M::Proof>, VMError> {
+pub fn run_as_nvm<M: Memory>(
+    opts: &VMOpts,
+    pow: bool,
+    show: bool,
+) -> Result<Trace<M::Proof>, VMError> {
     let mut vm = load_nvm::<M>(opts)?;
 
     if show {

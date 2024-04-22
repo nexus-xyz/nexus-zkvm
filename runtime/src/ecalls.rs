@@ -32,7 +32,11 @@ pub fn read_from_private_input() -> Option<u8> {
     let mut val: u32;
     ecall_in!(2, val);
 
-    if val == u32::MAX { None } else { Some(val.to_le_bytes()[0]) } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
+    if val == u32::MAX {
+        None
+    } else {
+        Some(val.to_le_bytes()[0])
+    } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
 }
 
 /// An empty type representing the VM terminal

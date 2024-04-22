@@ -1,7 +1,7 @@
 // An example of loading and running a RISC-V VM.
 
+use nexus_api::riscv::{interactive, run_vm, VMOpts};
 use std::path::PathBuf;
-use nexus_api::riscv::{VMOpts, run_vm, interactive};
 
 fn main() {
     // For this example we are using a built-in test VM.
