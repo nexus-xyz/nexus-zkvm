@@ -10,6 +10,7 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
+nexus-config = { path = "../config" }
 nexus-riscv = { path = "../riscv" }
 nexus-vm = { path = "../vm" }
 nexus-prover = { path = "../prover" }

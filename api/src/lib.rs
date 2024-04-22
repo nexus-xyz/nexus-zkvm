@@ -2,6 +2,11 @@
 
 #![doc = include_str!("../README.md")]
 
+/// Configurations
+pub mod config {
+    pub use nexus_config::*;
+}
+
 /// RISC-V processing
 pub mod riscv {
     pub mod interactive {
@@ -23,7 +28,10 @@ pub mod riscv {
 /// Nexus VM
 pub mod nvm {
     pub mod interactive {
-        pub use nexus_vm::eval::eval;
+        pub use nexus_vm::{
+            eval::eval,
+            trace::trace,
+        };
     }
     pub use nexus_vm::{
         eval::NexusVM,
@@ -40,8 +48,12 @@ pub mod nvm {
 /// Nova-based provers
 pub mod prover {
     pub use nexus_prover::error::ProofError;
+    pub mod setup {
+        pub use nexus_prover::pp::gen_vm_pp;
+    }
     pub mod prove {
         pub use nexus_prover::{
+            run,
             prove_seq,
             prove_par,
             prove_par_com,

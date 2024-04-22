@@ -1,11 +1,11 @@
 #![no_std]
 #![no_main]
 
-use nexus_rt::{println, read_private_input, Write};
+use nexus_rt::{Write, println, read_from_private_input};
 
 #[nexus_rt::main]
 fn main() {
-    let inp: Option<u8> = read_private_input();
+    let inp: Option<u8> = read_from_private_input();
 
     if let Some(v) = inp {
         println!("Read private input: {}", v);
