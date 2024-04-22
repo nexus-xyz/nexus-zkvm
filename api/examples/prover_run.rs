@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 use nexus_api::{
-    config::{VmConfig, vm::NovaImpl},
+    config::vm::{VmConfig, NovaImpl},
     riscv::{self},
     nvm::{self, NexusVM, memory::MerkleTrie},
     prover::{self},

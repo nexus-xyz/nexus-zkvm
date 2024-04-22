@@ -4,7 +4,9 @@
 
 /// Configurations
 pub mod config {
-    pub use nexus_config::*;
+    pub mod vm {
+        pub use nexus_config::vm::*;
+    }
 }
 
 /// RISC-V processing
