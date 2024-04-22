@@ -11,9 +11,7 @@ fn main() {
     // To use an ELF file, set the `file` field.
     let opts = VMOpts {
         k: 1,
-        nop: Some(10),
-        loopk: None,
-        machine: None,
+        machine: "nop10",
         file: None,
     };
 
@@ -21,14 +19,11 @@ fn main() {
 
     // For this example we are using a built-in test VM, but using paged memory.
     run_as_nvm::<Paged>(&opts, true, true).expect("error running Nexus VM");
-
     let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/debug/fib");
 
     // For this example we are using an ELF file, accessed through the single-entry interface.
     let opts = VMOpts {
         k: 1,
-        nop: None,
-        loopk: None,
         machine: None,
         file: Some(pb.clone()),
     };

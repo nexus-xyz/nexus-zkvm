@@ -49,7 +49,14 @@ pub mod nvm {
 pub mod prover {
     pub use nexus_prover::error::ProofError;
     pub mod setup {
-        pub use nexus_prover::pp::gen_vm_pp;
+        pub use nexus_prover::pp::{
+            gen_pp,
+            gen_vm_pp,
+            save_pp,
+            load_pp,
+            gen_to_file,
+            gen_or_load,
+        };
     }
     pub mod prove {
         pub use nexus_prover::{

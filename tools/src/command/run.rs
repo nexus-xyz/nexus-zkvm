@@ -23,8 +23,6 @@ fn run_vm(bin: Option<String>, verbose: bool, profile: &str) -> anyhow::Result<(
 pub fn run_vm_with_elf_file(path: &Path, verbose: bool) -> anyhow::Result<()> {
     let opts = nexus_riscv::VMOpts {
         k: 1,
-        nop: None,
-        loopk: None,
         machine: None,
         file: Some(path.into()),
     };

@@ -21,7 +21,7 @@ use nexus_vm::{
 
 use crate::{
     error::{Result, VMError::ELFFormat},
-    machines::{lookup_test_code, loop_code, nop_code},
+    machines::lookup_test_code,
     rv32::{parse::parse_inst, Inst as RVInst, AOP, RV32},
     VMError, VMOpts,
 };
@@ -267,11 +267,7 @@ fn translate_test_machine<M: Memory>(rv_code: &[u32]) -> Result<NexusVM<M>> {
 
 /// Load as a NexusVM according the `opts`.
 fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
-    if let Some(k) = opts.nop {
-        translate_test_machine(&nop_code(k))
-    } else if let Some(k) = opts.loopk {
-        translate_test_machine(&loop_code(k))
-    } else if let Some(m) = &opts.machine {
+    if let Some(m) = &opts.machine {
         if let Some(vm) = lookup_test_code(m) {
             translate_test_machine(&vm)
         } else {
