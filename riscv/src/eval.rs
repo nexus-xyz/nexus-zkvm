@@ -176,7 +176,7 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
         }
         FENCE | EBREAK => {}
         ECALL => {
-            vm.syscalls.syscall(vm.regs.pc, vm.regs.x, &vm.mem)?;
+            vm.syscalls.syscall(vm.regs.pc, &mut vm.regs.x, &vm.mem)?;
         }
         UNIMP => {
             PC = vm.inst.pc;

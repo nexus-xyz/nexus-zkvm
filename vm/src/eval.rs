@@ -99,7 +99,7 @@ pub fn eval_step(vm: &mut NexusVM<impl Memory>) -> Result<()> {
         HALT => {
             PC = vm.pc;
         }
-        SYS => vm.syscalls.syscall(vm.pc, vm.regs, &vm.memory)?,
+        SYS => vm.syscalls.syscall(vm.pc, &mut vm.regs, &vm.memory)?,
 
         JAL => {
             vm.Z = add32(vm.pc, 8);
