@@ -11,7 +11,7 @@ fn main() {
     // To use an ELF file, set the `file` field.
     let opts = VMOpts {
         k: 1,
-        machine: "nop10",
+        machine: Some(String::from("nop10")),
         file: None,
     };
 
