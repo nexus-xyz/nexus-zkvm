@@ -37,7 +37,7 @@ fn main() {
     println!("Verifying execution...");
     proof
         .verify(&public_params, proof.step_num() as _)
-        .expect("error verifying execution")
+        .expect("error verifying execution");
 
     println!("Succeeded...");
 }
