@@ -34,7 +34,7 @@ fn main() {
     println!("Proving execution...");
     let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
 
-    println!("Verifying execution...");
+    println!("Verifying execution... (at present, this should fail, as proof support for the private input tape is still pending...)");
     proof
         .verify(&public_params, proof.step_num() as _)
         .expect("error verifying execution");
