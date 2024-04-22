@@ -20,6 +20,7 @@ fn main() {
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
         riscv::interactive::translate_elf(&pb).expect("error loading and translating RISC-V VM");
+
     vm.syscalls.set_input(&[0x06]);
 
     println!("Generating execution trace of vm...");
@@ -37,4 +38,6 @@ fn main() {
     proof
         .verify(&public_params, proof.step_num() as _)
         .expect("error verifying execution")
+
+    println!("Succeeded...");
 }
