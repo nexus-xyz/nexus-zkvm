@@ -37,7 +37,7 @@ impl Syscalls {
         self.input = slice.to_owned().into();
     }
 
-    pub fn syscall(&mut self, pc: u32, mut regs: [u32; 32], memory: &impl Memory) -> Result<u32> {
+    pub fn syscall(&mut self, pc: u32, regs: [u32; 32], memory: &impl Memory) -> Result<u32> {
         let num = regs[18]; // s2 = x18  syscall number
         let inp1 = regs[10]; // a0 = x10
         let inp2 = regs[11]; // a1 = x11
