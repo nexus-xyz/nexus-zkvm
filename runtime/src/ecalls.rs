@@ -3,8 +3,6 @@ pub use core::fmt::Write;
 // To simplify calling out to the environment, we keep the
 // argument registers intact, and place the function number
 // in s2 (rust will not allow us to use s0 or s1).
-//
-// todo: with some fancy variadics these could probably be combined
 
 macro_rules! ecall {
     ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
