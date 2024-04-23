@@ -39,8 +39,8 @@ impl Syscalls {
 
     pub fn syscall(&mut self, pc: u32, regs: [u32; 32], memory: &impl Memory) -> Result<u32> {
         let num = regs[18]; // s2 = x18  syscall number
-        let inp1 = regs[10]; // a0 = x10
-        let inp2 = regs[11]; // a1 = x11
+        let inp1 = regs[11]; // a1 = x11
+        let inp2 = regs[12]; // a2 = x12
 
         let mut out = 0x0;
 
@@ -53,6 +53,7 @@ impl Syscalls {
             }
             let _ = stdout.flush();
         } else if num == 2 {
+            // read_from_private_input
             match self.input.pop_front() {
                 Some(b) => out = b as u32,
                 None => out = u32::MAX,

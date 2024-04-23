@@ -9,7 +9,7 @@ pub use core::fmt::Write;
 macro_rules! ecall {
     ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
         unsafe {
-            core::arch::asm!("ecall", in("s2") $n, in("a0") $inp1, in("a1") $inp2, out("a0") $out)
+            core::arch::asm!("ecall", in("s2") $n, in("a1") $inp1, in("a2") $inp2, out("a0") $out)
         }
     }
 }

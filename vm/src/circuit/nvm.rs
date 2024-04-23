@@ -870,10 +870,6 @@ fn misc(cs: &mut R1CS) {
     let J = HALT as u8;
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc");
-
-    let J = SYS as u8;
-    cs.set_var(&format!("Z{J}"), 0);
-    cs.set_eq(&format!("PC{J}"), "pc+8");
 }
 
 #[cfg(test)]
