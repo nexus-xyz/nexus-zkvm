@@ -481,12 +481,11 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, poseidon_config};
+    use crate::{pedersen::PedersenCommitment, zeromorph::Zeromorph, poseidon_config};
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_relations::r1cs::ConstraintSystem;
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
-
+    
     struct TestCircuit;
     struct TestCircuitAlt;
 

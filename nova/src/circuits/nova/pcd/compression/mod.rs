@@ -302,13 +302,14 @@ mod tests {
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
-    use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
+    use ark_spartan::polycommitments::PolyCommitmentScheme;
     use ark_std::{fs::File, test_rng, One};
     use zstd::stream::Encoder;
 
     use super::*;
     use crate::{
         circuits::nova::sequential::tests::CubicCircuit,
+        zeromorph::Zeromorph,
         commitment::CommitmentScheme,
         nova::pcd::{compression::SNARK, PCDNode, PublicParams},
         pedersen::PedersenCommitment,

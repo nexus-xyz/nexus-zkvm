@@ -266,6 +266,7 @@ mod tests {
             },
             secondary as multifold_secondary,
         },
+        zeromorph::Zeromorph,
         pedersen::PedersenCommitment,
         r1cs::tests::to_field_elements,
         test_utils::setup_test_ccs,
@@ -275,8 +276,7 @@ mod tests {
     use ark_ff::Field;
     use ark_r1cs_std::{fields::fp::FpVar, prelude::AllocVar, R1CSVar};
     use ark_relations::r1cs::ConstraintSystem;
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
-    use ark_std::{test_rng, UniformRand};
+        use ark_std::{test_rng, UniformRand};
 
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 

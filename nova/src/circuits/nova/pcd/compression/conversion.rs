@@ -120,12 +120,12 @@ mod tests {
     use ark_ff::PrimeField;
     use ark_spartan::{
         crr1csproof::{is_sat, CRR1CSKey},
-        polycommitments::zeromorph::Zeromorph,
     };
     use ark_std::{test_rng, One};
 
     use super::*;
     use crate::{
+        zeromorph::Zeromorph,
         nova::pcd::compression::PVC,
         r1cs::{commit_T, Error},
         test_utils::setup_test_r1cs,

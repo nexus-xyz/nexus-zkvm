@@ -33,6 +33,8 @@ use augmented::{
     HyperNovaAugmentedCircuitNonBaseInput,
 };
 
+const LOG_TARGET: &str = "nexus-nova::hypernova::sequential";
+
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);
 
@@ -55,6 +57,8 @@ where
         step_circuit: &SC,
         aux2: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
+        let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
+
         let sumcheck_rounds =
             HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
                 step_circuit,
@@ -138,6 +142,12 @@ where
         let digest = params.hash();
         params.digest = digest;
 
+        tracing::debug!(
+            target: LOG_TARGET,
+            "public params setup done; augmented circuit: {}, secondary circuit: {}",
+            params.shape,
+            params.shape_secondary,
+        );
         Ok(params)
     }
 }
@@ -265,6 +275,12 @@ where
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         step_circuit: &SC,
     ) -> Result<Self, cyclefold::Error> {
+        let _span = tracing::debug_span!(
+            target: LOG_TARGET,
+            "prove_step",
+            step_num = %self.step_num(),
+        )
+        .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
         let sumcheck_rounds = ((params.shape.num_constraints - 1)
@@ -336,7 +352,8 @@ where
         let circuit =
             HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
 
-        let z_i = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+        let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
+            .in_scope(|| HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
 
         let cs_borrow = cs.borrow().unwrap();
         let witness = cs_borrow.witness_assignment.clone();
@@ -372,6 +389,8 @@ where
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         num_steps: usize,
     ) -> Result<(), cyclefold::Error> {
+        let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
+
         const NOT_SATISFIED_ERROR: cyclefold::Error =
             cyclefold::Error::Ccs(crate::ccs::Error::NotSatisfied);
 
@@ -426,13 +445,16 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, poseidon_config};
+    use crate::{pedersen::PedersenCommitment, zeromorph::Zeromorph, poseidon_config, LOG_TARGET as HYPERNOVA_TARGET};
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
     use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+
+    use tracing_subscriber::{
+        filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    };
 
     #[derive(Debug, Default)]
     pub struct CubicCircuit<F: Field>(PhantomData<F>);
@@ -523,6 +545,14 @@ pub(crate) mod tests {
         C1: PolyCommitmentScheme<Projective<G1>>,
         C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
     {
+        let filter = filter::Targets::new().with_target(HYPERNOVA_TARGET, tracing::Level::DEBUG);
+        let _guard = tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::fmt::layer().with_span_events(FmtSpan::ENTER | FmtSpan::CLOSE),
+            )
+            .with(filter)
+            .set_default();
+
         let ro_config = poseidon_config();
 
         let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);

@@ -453,7 +453,7 @@ mod tests {
 
     use super::*;
 
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
+    use crate::zeromorph::Zeromorph;
     use ark_spartan::polycommitments::PCSKeys;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::{Bls12_381 as E, Fr, G1Projective as G};

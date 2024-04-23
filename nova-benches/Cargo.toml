@@ -9,8 +9,6 @@ ark-relations = { version = "0.4.0" }
 ark-r1cs-std = { version = "0.4.0" }
 ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
 
-ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
-
 ark-pallas = "0.4.0"
 ark-vesta = "0.4.0"
 ark-bn254 = "0.4.0"

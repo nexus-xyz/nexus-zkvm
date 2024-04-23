@@ -9,7 +9,6 @@
 use std::time::Duration;
 
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
-use ark_spartan::polycommitments::zeromorph::Zeromorph;
 
 use criterion::*;
 use pprof::criterion::{Output, PProfProfiler};
@@ -20,6 +19,7 @@ use shared::{NonTrivialTestCircuit, NUM_WARMUP_STEPS};
 use nexus_nova::{
     hypernova::sequential::{IVCProof, PublicParams},
     pedersen::PedersenCommitment,
+    zeromorph::ZeromorphCommitment,
     poseidon_config,
 };
 

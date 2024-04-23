@@ -259,6 +259,7 @@ pub(crate) mod tests {
 
     use crate::poseidon_config;
     use crate::{
+        zeromorph::Zeromorph,
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
         r1cs::tests::to_field_elements,
         test_utils::setup_test_ccs,
@@ -268,7 +269,6 @@ pub(crate) mod tests {
         short_weierstrass::{Projective, SWCurveConfig},
         AdditiveGroup,
     };
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::{g1::Config as G, Bls12_381 as E};
 

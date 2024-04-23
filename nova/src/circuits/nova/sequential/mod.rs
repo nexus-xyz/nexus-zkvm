@@ -29,7 +29,7 @@ use augmented::{
     NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput,
 };
 
-const LOG_TARGET: &str = "nexus-nova::sequential";
+const LOG_TARGET: &str = "nexus-nova::nova::sequential";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);

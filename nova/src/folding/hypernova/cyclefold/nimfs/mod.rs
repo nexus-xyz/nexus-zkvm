@@ -196,6 +196,7 @@ mod tests {
     use crate::poseidon_config;
     use crate::{
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
+        zeromorph::Zeromorph,
         pedersen::PedersenCommitment,
         r1cs::tests::to_field_elements,
         test_utils::setup_test_ccs,
@@ -203,7 +204,6 @@ mod tests {
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::Field;
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
