@@ -21,13 +21,23 @@ _start:
     la sp, __memory_top - 4
     mv fp, sp
 
+    jal ra, _get_stack_size
+    blez x10, run /* if returned stack size is lte to zero, ignore */
+
+    addi x10, x10, -4
+    mv sp, x10
+    mv fp, sp
+
+    j run
+
+run:
     jal ra, _start_rust
     /* halt with result of main in a0 */
     unimp
 
 .globl abort
 abort:
-    li a0, 1    /* indicate error */
+    li a0, 1     /* indicate error */
     unimp
 
 .globl alloc_

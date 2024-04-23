@@ -11,13 +11,17 @@ extern crate proc_macro2;
 extern crate syn;
 
 use proc_macro2::Span;
-use syn::{parse, spanned::Spanned, FnArg, ItemFn, PathArguments, ReturnType, Type, Visibility};
+use syn::{
+    parse, punctuated::Punctuated, spanned::Spanned, FnArg, ItemFn, Lit, Meta, NestedMeta,
+    PathArguments, ReturnType, Type, Visibility,
+};
 
 use proc_macro::TokenStream;
 
 #[proc_macro_attribute]
 pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
     let f = parse_macro_input!(input as ItemFn);
+    let a = parse_macro_input!(args with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
 
     // check the function arguments
     if f.sig.inputs.len() > 3 {
@@ -67,10 +71,39 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
         .into();
     }
 
-    if !args.is_empty() {
-        return parse::Error::new(Span::call_site(), "This attribute accepts no arguments")
-            .to_compile_error()
-            .into();
+    let mut memlimit: i32 = -1;
+    let e = parse::Error::new(Span::call_site(), "Invalid macro argument: the only supported argument is of the form main(memlimit(N)) for N > 0");
+
+    if let Some(e) = (|| -> Result<(), parse::Error> {
+        if !a.is_empty() {
+            for arg in a {
+                if arg.path().is_ident("memlimit") {
+                    if let Meta::List(list) = arg {
+                        let val = list.nested.first();
+
+                        if val.is_some() {
+                            if let NestedMeta::Lit(Lit::Int(lit)) = val.unwrap() {
+                                let n = lit.base10_parse::<i32>();
+                                if n.is_ok() {
+                                    memlimit = n.unwrap() * 0x100000;
+                                    if memlimit <= 0 {
+                                        return Err(e);
+                                    }
+
+                                    return Ok(());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return Err(e);
+        }
+        Ok(())
+    })()
+    .err()
+    {
+        return e.to_compile_error().into();
     }
 
     // XXX should we blacklist other attributes?
@@ -85,6 +118,10 @@ pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
         #(#attrs)*
         pub #unsafety fn __risc_v_rt__main(#args) #res {
             #(#stmts)*
+        }
+        #[export_name = "get_stack_size"]
+        pub fn __risc_v_rt__get_stack_size() -> i32 {
+            #memlimit
         }
     )
     .into()
