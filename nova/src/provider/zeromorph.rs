@@ -33,7 +33,7 @@ where
     ) -> Self::Commitment {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
-            "zeromorph::setup",
+            "zeromorph::commit",
             poly_size = poly.len(),
         )
         .entered();
