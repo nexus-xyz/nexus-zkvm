@@ -8,10 +8,14 @@ use nexus_api::{
 };
 use std::path::PathBuf;
 
+use nexus_prover::circuit::Tr;
+use nexus_prover::types::IVCProof;
+
 const CONFIG: VmConfig = VmConfig { k: 1, nova_impl: NovaImpl::Sequential };
 
 fn main() {
-    let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/debug/private_input");
+    // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
+    let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/private_input");
 
     println!("Setting up public parameters...");
     let public_params =
@@ -24,20 +28,36 @@ fn main() {
     vm.syscalls.set_input(&[0x06]);
 
     println!("Generating execution trace of vm...");
+    println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
     let trace = nvm::interactive::trace(
         &mut vm,
         CONFIG.k,
         matches!(CONFIG.nova_impl, NovaImpl::Parallel),
     )
     .expect("error generating execution trace");
+    println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Proving execution...");
-    let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
+    //let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
 
-    println!("Verifying execution... (at present, this should fail, as proof support for the private input tape is still pending...)");
+    let tr = Tr(trace);
+    let z_0 = tr.input(0).unwrap();
+    let mut proof = IVCProof::new(&z_0);
+
+    let num_steps = tr.steps();
+
+    for i in 0..num_steps {
+        println!("\t\tproving step {}", i);
+        proof = IVCProof::prove_step(proof, &public_params, &tr).unwrap();
+        proof
+            .verify(&public_params, proof.step_num() as _)
+            .expect("error verifying execution");
+    }
+
+    print!("Verifying execution...");
     proof
         .verify(&public_params, proof.step_num() as _)
         .expect("error verifying execution");
 
-    println!("Succeeded...");
+    println!("  Succeeded!");
 }

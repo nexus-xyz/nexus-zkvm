@@ -107,6 +107,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     br(&mut cs, vm);
     load(&mut cs, vm);
     store(&mut cs, vm);
+    sys(&mut cs, vm);
     misc(&mut cs);
 
     #[rustfmt::skip]
@@ -153,7 +154,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     });
 
     // x[rd] = Z
-    select_Z(&mut cs, vm.inst.rd as u32);
+    select_Z(&mut cs, if vm.inst.opcode == SYS { 10 } else { vm.inst.rd as u32 });
     cs
 }
 
@@ -853,6 +854,12 @@ fn bitops(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     // xor
     let J = XOR as u8;
     bitop(cs, &format!("Z{J}"), "Y+I", vm.X ^ YI, F::from(-2));
+}
+
+fn sys(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
+    let J = SYS as u8;
+    cs.set_var(&format!("Z{J}"), vm.Z);
+    cs.set_eq(&format!("PC{J}"), "pc+8");
 }
 
 fn misc(cs: &mut R1CS) {
