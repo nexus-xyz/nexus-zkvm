@@ -6,36 +6,30 @@ pub use core::fmt::Write;
 //
 // todo: with some fancy variadics these could probably be combined
 
-macro_rules! ecall_in {
-    ($n:literal,$a0:expr) => {
+macro_rules! ecall {
+    ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
         unsafe {
-            core::arch::asm!("ecall", in("s2") $n, out("a0") $a0)
-        }
-    }
-}
-
-macro_rules! ecall_out {
-    ($n:literal,$a0:expr,$a1:expr) => {
-        unsafe {
-            core::arch::asm!("ecall", in("s2") $n, in("a0") $a0, in("a1") $a1)
+            core::arch::asm!("ecall", in("s2") $n, in("a0") $inp1, in("a1") $inp2, out("a0") $out)
         }
     }
 }
 
 /// Write a string to the output console (if any).
 pub fn write_log(s: &str) {
-    ecall_out!(1, s.as_ptr(), s.len());
+    let mut _out: u32;
+    ecall!(1, s.as_ptr(), s.len(), _out);
 }
 
 /// Read a byte from the private input tape
 pub fn read_from_private_input() -> Option<u8> {
-    let mut val: u32;
-    ecall_in!(2, val);
+    let inp: u32 = 0;
+    let mut out: u32;
+    ecall!(2, inp, inp, out);
 
-    if val == u32::MAX {
+    if out == u32::MAX {
         None
     } else {
-        Some(val.to_le_bytes()[0])
+        Some(out.to_le_bytes()[0])
     } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
 }
 
