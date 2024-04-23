@@ -154,7 +154,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     });
 
     // x[rd] = Z
-    select_Z(&mut cs, if vm.inst.opcode == SYS { 10 } else { vm.inst.rd as u32 });
+    select_Z(&mut cs, vm.inst.rd as u32);
     cs
 }
 
