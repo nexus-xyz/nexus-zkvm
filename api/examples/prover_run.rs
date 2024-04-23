@@ -38,21 +38,7 @@ fn main() {
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Proving execution...");
-    //let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
-
-    let tr = Tr(trace);
-    let z_0 = tr.input(0).unwrap();
-    let mut proof = IVCProof::new(&z_0);
-
-    let num_steps = tr.steps();
-
-    for i in 0..num_steps {
-        println!("\t\tproving step {}", i);
-        proof = IVCProof::prove_step(proof, &public_params, &tr).unwrap();
-        proof
-            .verify(&public_params, proof.step_num() as _)
-            .expect("error verifying execution");
-    }
+    let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
     proof
