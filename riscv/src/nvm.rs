@@ -157,6 +157,14 @@ fn translate_inst(rv: RVInst) -> (u32, Inst) {
         }
         RV32::ECALL => {
             inst.opcode = SYS;
+            // Per the RISC-V spec, for an ecall `rd = 0` and the system determines
+            // how to return a value, e.g. by modifying register `x10` (aka `a0`).
+            //
+            // For the NVM, we formalize this by setting `rd = 10` and having each
+            // ecall modify `x10`, even if to just write zero. By doing so, we know
+            // that `rd` points to the modified register, and so we will always
+            // generate the R1CS circuit constraints correctly.
+            inst.rd = 10;
         }
         RV32::FENCE | RV32::EBREAK => {
             inst.opcode = NOP;

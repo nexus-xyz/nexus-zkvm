@@ -37,26 +37,30 @@ impl Syscalls {
         self.input = slice.to_owned().into();
     }
 
-    pub fn syscall(&mut self, pc: u32, mut regs: [u32; 32], memory: &impl Memory) -> Result<()> {
+    pub fn syscall(&mut self, pc: u32, mut regs: [u32; 32], memory: &impl Memory) -> Result<u32> {
         let num = regs[18]; // s2 = x18  syscall number
-        let a0 = regs[10]; // a0 = x10
-        let a1 = regs[11]; // a1 = x11
+        let inp1 = regs[10]; // a0 = x10
+        let inp2 = regs[11]; // a1 = x11
+
+        let mut out = 0x0;
+
         if num == 1 {
             // write_log
             let mut stdout = std::io::stdout();
-            for addr in a0..a0 + a1 {
+            for addr in inp1..inp1 + inp2 {
                 let b = memory.load(Width::BU, addr)?.0;
                 stdout.write_all(&[b as u8])?;
             }
             let _ = stdout.flush();
         } else if num == 2 {
             match self.input.pop_front() {
-                Some(b) => regs[10] = b as u32,
-                None => regs[10] = u32::MAX,
+                Some(b) => out = b as u32,
+                None => out = u32::MAX,
             }
         } else {
             return Err(UnknownSyscall(pc, num));
         }
-        Ok(())
+
+        Ok(out)
     }
 }
