@@ -8,9 +8,6 @@ use nexus_api::{
 };
 use std::path::PathBuf;
 
-use nexus_prover::circuit::Tr;
-use nexus_prover::types::IVCProof;
-
 const CONFIG: VmConfig = VmConfig { k: 1, nova_impl: NovaImpl::Sequential };
 
 fn main() {
