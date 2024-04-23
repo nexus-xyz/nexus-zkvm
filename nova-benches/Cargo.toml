@@ -29,7 +29,11 @@ parallel = ["nexus-nova/parallel"]
 spartan = ["ark_spartan"]
 
 [[bench]]
-name = "recursive-snark"
+name = "nova"
+harness = false
+
+[[bench]]
+name = "hypernova"
 harness = false
 
 [patch.crates-io]
