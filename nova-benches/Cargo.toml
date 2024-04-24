@@ -22,9 +22,8 @@ nexus-nova = { path = "../nova", default-features = false, features = [
 ] }
 
 [features]
-default = ["parallel", "spartan"]
+default = ["parallel"]
 parallel = ["nexus-nova/parallel"]
-spartan = ["ark_spartan"]
 
 [[bench]]
 name = "nova"

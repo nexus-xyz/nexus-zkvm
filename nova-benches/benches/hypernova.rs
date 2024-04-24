@@ -19,7 +19,7 @@ use shared::{NonTrivialTestCircuit, NUM_WARMUP_STEPS};
 use nexus_nova::{
     hypernova::sequential::{IVCProof, PublicParams},
     pedersen::PedersenCommitment,
-    zeromorph::ZeromorphCommitment,
+    zeromorph::Zeromorph,
     poseidon_config,
 };
 
@@ -40,7 +40,6 @@ criterion_group! {
 
 criterion_main!(recursive_snark);
 
-#[cfg(feature = "spartan")]
 fn bench_recursive_snark(c: &mut Criterion) {
     let ro_config = poseidon_config();
 
