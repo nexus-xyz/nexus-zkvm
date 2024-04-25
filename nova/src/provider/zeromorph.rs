@@ -1,10 +1,10 @@
 use std::marker::PhantomData;
 
 use ark_ec::pairing::Pairing;
+use ark_poly_commit::error::Error;
 use ark_spartan::dense_mlpoly::DensePolynomial;
 use ark_spartan::polycommitments::zeromorph::Zeromorph as SpartanZM;
-use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme, error};
-use ark_poly_commit::error::Error;
+use ark_spartan::polycommitments::{error, PCSKeys, PolyCommitmentScheme};
 use ark_std::rand::RngCore;
 
 use merlin::Transcript;
@@ -15,7 +15,7 @@ pub struct Zeromorph<E>(PhantomData<E>);
 
 impl<E> PolyCommitmentScheme<E::G1> for Zeromorph<E>
 where
-    E: Pairing
+    E: Pairing,
 {
     type PolyCommitmentKey = <ark_spartan::polycommitments::zeromorph::Zeromorph<E> as PolyCommitmentScheme<E::G1>>::PolyCommitmentKey;
 
@@ -23,7 +23,8 @@ where
 
     type Commitment = <ark_spartan::polycommitments::zeromorph::Zeromorph<E> as PolyCommitmentScheme<E::G1>>::Commitment;
 
-    type SRS = <ark_spartan::polycommitments::zeromorph::Zeromorph<E> as PolyCommitmentScheme<E::G1>>::SRS;
+    type SRS =
+        <ark_spartan::polycommitments::zeromorph::Zeromorph<E> as PolyCommitmentScheme<E::G1>>::SRS;
 
     type PolyCommitmentProof = <ark_spartan::polycommitments::zeromorph::Zeromorph<E> as PolyCommitmentScheme<E::G1>>::PolyCommitmentProof;
 
@@ -91,7 +92,6 @@ where
         .entered();
 
         SpartanZM::setup(max_poly_vars, label, rng)
-
     }
 
     fn trim(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<E::G1, Self> {

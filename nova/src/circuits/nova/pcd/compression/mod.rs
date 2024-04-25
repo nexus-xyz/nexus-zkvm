@@ -309,11 +309,11 @@ mod tests {
     use super::*;
     use crate::{
         circuits::nova::sequential::tests::CubicCircuit,
-        zeromorph::Zeromorph,
         commitment::CommitmentScheme,
         nova::pcd::{compression::SNARK, PCDNode, PublicParams},
         pedersen::PedersenCommitment,
         poseidon_config,
+        zeromorph::Zeromorph,
     };
 
     fn test_setup_helper<G1, G2, PC, C2>() -> (

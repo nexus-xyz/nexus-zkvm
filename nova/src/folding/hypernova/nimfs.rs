@@ -259,10 +259,10 @@ pub(crate) mod tests {
 
     use crate::poseidon_config;
     use crate::{
-        zeromorph::Zeromorph,
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
         r1cs::tests::to_field_elements,
         test_utils::setup_test_ccs,
+        zeromorph::Zeromorph,
     };
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::{

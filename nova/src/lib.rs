@@ -25,6 +25,6 @@ pub use circuits::{
     nova::{self, StepCircuit},
     supernova::{self, NonUniformCircuit},
 };
-pub use provider::{pedersen, zeromorph, poseidon::poseidon_config};
+pub use provider::{pedersen, poseidon::poseidon_config, zeromorph};
 
 pub(crate) const LOG_TARGET: &str = "nexus-nova";

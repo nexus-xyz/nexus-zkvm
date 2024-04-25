@@ -118,17 +118,15 @@ mod tests {
     use ark_bn254::{g1::Config as Bn254Config, Bn254};
     use ark_ec::short_weierstrass::Projective;
     use ark_ff::PrimeField;
-    use ark_spartan::{
-        crr1csproof::{is_sat, CRR1CSKey},
-    };
+    use ark_spartan::crr1csproof::{is_sat, CRR1CSKey};
     use ark_std::{test_rng, One};
 
     use super::*;
     use crate::{
-        zeromorph::Zeromorph,
         nova::pcd::compression::PVC,
         r1cs::{commit_T, Error},
         test_utils::setup_test_r1cs,
+        zeromorph::Zeromorph,
     };
 
     fn test_conversion_helper<G, PC>() -> Result<(), Error>

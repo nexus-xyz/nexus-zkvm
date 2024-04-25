@@ -271,9 +271,9 @@ where
     ) -> Result<(usize, usize), SynthesisError> {
         // In order to regenerate these parameters, enable the (ignored) test `calculate_circuit_constants`
 
-        const BASE_CONSTRAINTS: u32 = 82023; // number of constraints in augmented circuit, not including step circuit or sumcheck
-        const PER_SC_INPUT_CONSTRAINTS: u32 = 487; // number of additional constraints per step circuit input
-        const SUMCHECK_ROUND_CONSTRAINTS: u32 = 1238; // number of additional constraints per sumcheck round
+        const BASE_CONSTRAINTS: u32 = 82852; // number of constraints in augmented circuit, not including step circuit or sumcheck
+        const SC_INPUT_CONSTRAINTS: u32 = 487; // number of additional constraints per step circuit input
+        const SUMCHECK_ROUND_CONSTRAINTS: u32 = 1481; // number of additional constraints per sumcheck round
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
@@ -305,7 +305,7 @@ where
 
         let mut constraints = BASE_CONSTRAINTS
             + step_circuit_constraints
-            + (SC::ARITY as u32 * PER_SC_INPUT_CONSTRAINTS);
+            + (SC::ARITY as u32 - 1) * SC_INPUT_CONSTRAINTS;
 
         let mut low = 0;
         let mut high = (constraints - 1).checked_ilog2().unwrap_or(0) + 1;
@@ -481,28 +481,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, zeromorph::Zeromorph, poseidon_config};
+    use crate::{pedersen::PedersenCommitment, poseidon_config, zeromorph::Zeromorph};
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_relations::r1cs::ConstraintSystem;
-    
-    struct TestCircuit;
-    struct TestCircuitAlt;
 
-    impl<F: PrimeField> StepCircuit<F> for TestCircuit {
-        const ARITY: usize = 0;
+    struct TestCircuit1;
+    struct TestCircuit2;
 
-        fn generate_constraints(
-            &self,
-            _: ConstraintSystemRef<F>,
-            _: &FpVar<F>,
-            z: &[FpVar<F>],
-        ) -> Result<Vec<FpVar<F>>, SynthesisError> {
-            Ok(z.to_owned())
-        }
-    }
-
-    impl<F: PrimeField> StepCircuit<F> for TestCircuitAlt {
+    impl<F: PrimeField> StepCircuit<F> for TestCircuit1 {
         const ARITY: usize = 1;
 
         fn generate_constraints(
@@ -511,12 +498,43 @@ mod tests {
             _: &FpVar<F>,
             z: &[FpVar<F>],
         ) -> Result<Vec<FpVar<F>>, SynthesisError> {
-            Ok(z.to_owned())
+            let mut zp = z.to_owned();
+
+            let x = &zp[0];
+
+            let x_square = x.square()?;
+            let x_cube = x_square * x;
+
+            zp[0] = x + x_cube + &FpVar::Constant(5u64.into());
+
+            Ok(zp)
         }
     }
 
-    type SC = TestCircuit;
-    type SCAlt = TestCircuitAlt;
+    impl<F: PrimeField> StepCircuit<F> for TestCircuit2 {
+        const ARITY: usize = 2;
+
+        fn generate_constraints(
+            &self,
+            _: ConstraintSystemRef<F>,
+            _: &FpVar<F>,
+            z: &[FpVar<F>],
+        ) -> Result<Vec<FpVar<F>>, SynthesisError> {
+            let mut zp = z.to_owned();
+
+            let x = &zp[0];
+
+            let x_square = x.square()?;
+            let x_cube = x_square * x;
+
+            zp[0] = x + x_cube + &FpVar::Constant(5u64.into());
+
+            Ok(zp)
+        }
+    }
+
+    type SC1 = TestCircuit1;
+    type SC2 = TestCircuit2;
 
     #[ignore]
     #[test]
@@ -542,18 +560,23 @@ mod tests {
     {
         let ro_config = poseidon_config();
 
-        let z_0 = vec![G1::ScalarField::ZERO; <TestCircuit as StepCircuit<G1::ScalarField>>::ARITY];
-        let z_0_alt =
-            vec![G1::ScalarField::ZERO; <TestCircuitAlt as StepCircuit<G1::ScalarField>>::ARITY];
+        let z_0_1 =
+            vec![G1::ScalarField::ZERO; <TestCircuit1 as StepCircuit<G1::ScalarField>>::ARITY];
+        let z_0_2 =
+            vec![G1::ScalarField::ZERO; <TestCircuit2 as StepCircuit<G1::ScalarField>>::ARITY];
 
         // Constraint Generation #1: The Step Circuit
 
         let cs = ConstraintSystem::new_ref();
 
-        let (U, proof) =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(
-                1,
-            );
+        let (U, proof) = HyperNovaAugmentedCircuit::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+            SC1,
+        >::base(0);
 
         let input = HyperNovaAugmentedCircuitInput::<
             G1,
@@ -563,7 +586,7 @@ mod tests {
             PoseidonSponge<G1::ScalarField>,
         >::Base {
             vk: G1::ScalarField::ZERO,
-            z_0: z_0.clone(),
+            z_0: z_0_1.clone(),
             U,
             proof,
         };
@@ -576,40 +599,12 @@ mod tests {
             PoseidonSponge<G1::ScalarField>,
         >::new_witness(cs.clone(), || Ok(&input))?;
 
-        let _ = SC::generate_constraints(&TestCircuit, cs.clone(), &input.i, &input.z_i)?;
-
-        let step_circuit_constraints = cs.num_constraints();
-
-        // Constraint Generation #2: The Augmented Circuit with one sumcheck round and no step circuit inputs
-
-        let cs = ConstraintSystem::new_ref();
-
-        let (U, proof) =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(
-                1,
-            );
-
-        let input = HyperNovaAugmentedCircuitInput::<
-            G1,
-            G2,
-            C1,
-            C2,
-            PoseidonSponge<G1::ScalarField>,
-        >::Base {
-            vk: G1::ScalarField::ZERO,
-            z_0: z_0.clone(),
-            U,
-            proof,
-        };
-
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit, 1, input);
-        let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+        let _ = SC1::generate_constraints(&TestCircuit1, cs.clone(), &input.i, &input.z_i)?;
 
         cs.finalize();
+        let step_circuit_constraints = cs.num_constraints();
 
-        let base_circuit_constraints = cs.num_constraints() - step_circuit_constraints;
-
-        // Constraint Generation #3: The Augmented Circuit with one sumcheck round and one step circuit input
+        // Constraint Generation #2: The Augmented Circuit with no sumcheck rounds and one step circuit input
 
         let cs = ConstraintSystem::new_ref();
 
@@ -619,7 +614,74 @@ mod tests {
             C1,
             C2,
             PoseidonSponge<G1::ScalarField>,
-            SCAlt,
+            SC1,
+        >::base(0);
+
+        let input = HyperNovaAugmentedCircuitInput::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+        >::Base {
+            vk: G1::ScalarField::ZERO,
+            z_0: z_0_1.clone(),
+            U,
+            proof,
+        };
+
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit1, 0, input);
+        let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+
+        cs.finalize();
+
+        let base_circuit_constraints = cs.num_constraints() - step_circuit_constraints;
+
+        // Constraint Generation #3: The Augmented Circuit with no sumcheck rounds and two step circuit inputs
+
+        let cs = ConstraintSystem::new_ref();
+
+        let (U, proof) = HyperNovaAugmentedCircuit::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+            SC2,
+        >::base(0);
+
+        let input = HyperNovaAugmentedCircuitInput::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+        >::Base {
+            vk: G1::ScalarField::ZERO,
+            z_0: z_0_2.clone(),
+            U,
+            proof,
+        };
+
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit2, 0, input);
+        let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
+
+        cs.finalize();
+
+        let sc_input_constraints =
+            (cs.num_constraints() - step_circuit_constraints) - base_circuit_constraints;
+
+        // Constraint Generation #4: The Augmented Circuit with one sumcheck round and one step circuit input
+
+        let cs = ConstraintSystem::new_ref();
+
+        let (U, proof) = HyperNovaAugmentedCircuit::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+            SC1,
         >::base(1);
 
         let input = HyperNovaAugmentedCircuitInput::<
@@ -630,42 +692,12 @@ mod tests {
             PoseidonSponge<G1::ScalarField>,
         >::Base {
             vk: G1::ScalarField::ZERO,
-            z_0: z_0_alt.clone(),
+            z_0: z_0_1.clone(),
             U,
             proof,
         };
 
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuitAlt, 1, input);
-        let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
-
-        cs.finalize();
-
-        let per_sc_input_constraints =
-            (cs.num_constraints() - step_circuit_constraints) - base_circuit_constraints;
-
-        // Constraint Generation #4: The Augmented Circuit with two sumcheck rounds and no step circuit inputs
-
-        let cs = ConstraintSystem::new_ref();
-
-        let (U, proof) =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(
-                2,
-            );
-
-        let input = HyperNovaAugmentedCircuitInput::<
-            G1,
-            G2,
-            C1,
-            C2,
-            PoseidonSponge<G1::ScalarField>,
-        >::Base {
-            vk: G1::ScalarField::ZERO,
-            z_0: z_0.clone(),
-            U,
-            proof,
-        };
-
-        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit, 2, input);
+        let circuit = HyperNovaAugmentedCircuit::new(&ro_config, &TestCircuit1, 1, input);
         let _ = HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())?;
 
         cs.finalize();
@@ -676,9 +708,9 @@ mod tests {
         let o = format!(
             r#"Size Parameters for Augmented Circuit:
                     -- Base Constraints (no sumcheck, no step circuit):  {}
-                    -- Per Step Circuit Input Constraints:               {}
-                    -- Constrains per Sumcheck Round:                    {}"#,
-            base_circuit_constraints, per_sc_input_constraints, sumcheck_round_constraints
+                    -- Odd-to-Even Step Circuit Input Constraints:       {}
+                    -- Constraints per Sumcheck Round:                   {}"#,
+            base_circuit_constraints, sc_input_constraints, sumcheck_round_constraints
         );
 
         println!("{}", o);
@@ -715,15 +747,19 @@ mod tests {
             C1,
             C2,
             PoseidonSponge<G1::ScalarField>,
-            SC,
-        >::project_augmented_circuit_size(&TestCircuit)
+            SC1,
+        >::project_augmented_circuit_size(&TestCircuit1)
         .unwrap()
         .0;
 
-        let (U, proof) =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>, SC>::base(
-                sumcheck_rounds,
-            );
+        let (U, proof) = HyperNovaAugmentedCircuit::<
+            G1,
+            G2,
+            C1,
+            C2,
+            PoseidonSponge<G1::ScalarField>,
+            SC1,
+        >::base(sumcheck_rounds);
 
         let input = HyperNovaAugmentedCircuitInput::<
             G1,
@@ -732,7 +768,7 @@ mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
         >::Base {
-            z_0: Vec::new(),
+            z_0: vec![G1::ScalarField::ZERO],
             vk: G1::ScalarField::ZERO,
             U,
             proof,
@@ -740,7 +776,7 @@ mod tests {
 
         let circuit = HyperNovaAugmentedCircuit {
             ro_config: &ro_config,
-            step_circuit: &TestCircuit,
+            step_circuit: &TestCircuit1,
             sumcheck_rounds,
             input,
         };

@@ -59,11 +59,10 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        let sumcheck_rounds =
+        let (sumcheck_rounds, projected_circuit_size) =
             HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
                 step_circuit,
-            )?
-            .0;
+            )?;
 
         let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(sumcheck_rounds);
 
@@ -87,10 +86,8 @@ where
         let shape = CCSShape::from(R1CSShape::from(cs));
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        //debug_assert!(
-        //    shape.num_constraints
-        //        == HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(step_circuit)?.1
-        //);
+        assert!(shape.num_constraints == projected_circuit_size,
+                "shape does not match projected circuit size, aborting to prevent invalid verification procedure");
 
         // from a16z/jolt
         //
@@ -352,8 +349,10 @@ where
         let circuit =
             HyperNovaAugmentedCircuit::new(&params.ro_config, step_circuit, sumcheck_rounds, input);
 
-        let z_i = tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment")
-            .in_scope(|| HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone()))?;
+        let z_i =
+            tracing::debug_span!(target: LOG_TARGET, "satisfying_assignment").in_scope(|| {
+                HyperNovaConstraintSynthesizer::generate_constraints(circuit, cs.clone())
+            })?;
 
         let cs_borrow = cs.borrow().unwrap();
         let witness = cs_borrow.witness_assignment.clone();
@@ -445,7 +444,10 @@ where
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{pedersen::PedersenCommitment, zeromorph::Zeromorph, poseidon_config, LOG_TARGET as HYPERNOVA_TARGET};
+    use crate::{
+        pedersen::PedersenCommitment, poseidon_config, zeromorph::Zeromorph,
+        LOG_TARGET as HYPERNOVA_TARGET,
+    };
 
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
@@ -460,7 +462,7 @@ pub(crate) mod tests {
     pub struct CubicCircuit<F: Field>(PhantomData<F>);
 
     impl<F: PrimeField> StepCircuit<F> for CubicCircuit<F> {
-        const ARITY: usize = 1;
+        const ARITY: usize = 5;
 
         fn generate_constraints(
             &self,
@@ -468,16 +470,17 @@ pub(crate) mod tests {
             _: &FpVar<F>,
             z: &[FpVar<F>],
         ) -> Result<Vec<FpVar<F>>, SynthesisError> {
-            assert_eq!(z.len(), 1);
+            assert_eq!(z.len(), 5);
+            let mut zp = z.to_owned();
 
-            let x = &z[0];
+            let x = &zp[0];
 
             let x_square = x.square()?;
             let x_cube = x_square * x;
 
-            let y: FpVar<F> = x + x_cube + &FpVar::Constant(5u64.into());
+            zp[0] = x + x_cube + &FpVar::Constant(5u64.into());
 
-            Ok(vec![y])
+            Ok(zp)
         }
     }
 
@@ -504,7 +507,7 @@ pub(crate) mod tests {
         let ro_config = poseidon_config();
 
         let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);
-        let z_0 = vec![G1::ScalarField::ONE];
+        let z_0 = vec![G1::ScalarField::ONE; 5];
         let num_steps = 1;
 
         let params = PublicParams::<
@@ -556,7 +559,7 @@ pub(crate) mod tests {
         let ro_config = poseidon_config();
 
         let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);
-        let z_0 = vec![G1::ScalarField::ONE];
+        let z_0 = vec![G1::ScalarField::ONE; 5];
         let num_steps = 3;
 
         let params = PublicParams::<
