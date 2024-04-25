@@ -6,6 +6,9 @@ use ark_spartan::sparse_mlpoly::{
     SparsePolyEntry as MultilinearEvaluation, SparsePolynomial as SparseMultilinearExtension,
 };
 
+#[cfg(feature = "parallel")]
+use rayon::iter::{IndexedParallelIterator, ParallelIterator, IntoParallelRefMutIterator};
+
 use super::super::sparse::SparseMatrix;
 
 /// Converts a matrix into a (sparse) mle.
@@ -62,10 +65,15 @@ pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExten
     //
     //   Annoyingly the arkworks and spartan types are reversed with respect to the
     //   endianness that they use. As such, we reverse the evaluations here first.
-    let mut zp = vec![F::zero(); n.next_power_of_two()];
-    z.iter()
+    let n_p = n.next_power_of_two();
+    let mut zp = vec![F::zero(); n_p];
+
+    ark_std::cfg_iter_mut!(zp)
         .enumerate()
-        .for_each(|(i, v)| zp[i.reverse_bits() >> (usize::BITS - s)] = *v);
+        .for_each(|(i, v)| {
+            let mark = i.reverse_bits() >> (usize::BITS - s);
+            if mark < n { *v = z[mark] };
+        });
 
     ark_poly::DenseMultilinearExtension::<F>::from_evaluations_vec(s as usize, zp)
 }
