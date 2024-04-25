@@ -1,9 +1,8 @@
-use std::marker::PhantomData;
 use ark_ff::PrimeField;
 use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
 use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use nexus_nova::StepCircuit;
-
+use std::marker::PhantomData;
 
 pub const NUM_WARMUP_STEPS: usize = 10;
 

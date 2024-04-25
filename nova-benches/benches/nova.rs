@@ -45,7 +45,6 @@ fn bench_recursive_snark(c: &mut Criterion) {
     // we vary the number of constraints in the step circuit
     for &num_cons_in_step_circuit in [0, 6399, 22783, 55551, 121087, 252159, 514303, 1038591].iter()
     {
-
         let mut group = c.benchmark_group(format!(
             "Nova-RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
         ));
@@ -54,13 +53,14 @@ fn bench_recursive_snark(c: &mut Criterion) {
         let step_circuit = NonTrivialTestCircuit::new(num_cons_in_step_circuit);
 
         // Produce public parameters
-        let pp = PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::setup(
-            ro_config.clone(),
-            &step_circuit,
-            &(),
-            &(),
-        )
-        .unwrap();
+        let pp =
+            PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::setup(
+                ro_config.clone(),
+                &step_circuit,
+                &(),
+                &(),
+            )
+            .unwrap();
 
         // Bench time to produce a recursive SNARK;
         // we execute a certain number of warm-up steps since executing
