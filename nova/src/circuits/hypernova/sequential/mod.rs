@@ -59,8 +59,8 @@ where
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
-        let (sumcheck_rounds, projected_circuit_size) =
-            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size(
+        let (sumcheck_rounds, projected_augmented_circuit_size_upper_bound) =
+            HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_upper_bound(
                 step_circuit,
             )?;
 
@@ -86,8 +86,14 @@ where
         let shape = CCSShape::from(R1CSShape::from(cs));
         let shape_secondary = cyclefold::secondary::setup_shape::<G1, G2>()?;
 
-        assert!(shape.num_constraints == projected_circuit_size,
-                "shape does not match projected circuit size, aborting to prevent invalid verification procedure");
+        tracing::debug!(
+            target: LOG_TARGET,
+            "circuit generation done; augmented circuit size: {}, projected upper bound: {}",
+            shape.num_constraints,
+            projected_augmented_circuit_size_upper_bound,
+        );
+        assert!(shape.num_constraints <= projected_augmented_circuit_size_upper_bound,
+                "shape does not conform to projected upper bound on circuit size, aborting to prevent invalid recursion");
 
         // from a16z/jolt
         //

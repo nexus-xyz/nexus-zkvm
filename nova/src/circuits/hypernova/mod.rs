@@ -37,10 +37,12 @@ where
     // the augmented circuit.
     //
     // Luckily, since the dependency is logarithmic we should pretty easily find a fixpoint
-    // where this circularity stabilizes. This function does that projection so that we can
-    // use the correct augmented circuit size everywhere from the start. But, a tradeoff is
-    // that if any alterations are made to the augmented circuit then the constants in this
-    // function will need to be recomputed and updated.
+    // where this circularity stabilizes. In an ideal world, we would project the augmented
+    // circuit size exactly. Unfortunately this may not be possible -- for example, at time
+    // of writing we use poseidon as our hash function, which does not have a fixed circuit
+    // size of its own. However, an upper bound will be good enough, with a small chance of
+    // incorporating an unnecessary sumcheck round. A further tradeoff is that if we change
+    // the augmented circuit then function may need to be updated.
     //
     // For an example of how this computation should work, imagine that the number of base
     // constraints (those neither in the step circuit or in sumcheck) is 20, each sumcheck
@@ -55,7 +57,7 @@ where
     //
     // sumcheck rounds. That gives an augmented circuit with size 92 -- which is a fixpoint
     // as 7 sumcheck rounds remains sufficient.
-    fn project_augmented_circuit_size(
+    fn project_augmented_circuit_size_upper_bound(
         step_circuit: &'_ SC,
     ) -> Result<(usize, usize), SynthesisError>;
 

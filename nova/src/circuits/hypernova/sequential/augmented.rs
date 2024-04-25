@@ -266,14 +266,17 @@ where
         }
     }
 
-    pub fn project_augmented_circuit_size_from_r1cs(
+    pub fn project_augmented_circuit_size_upper_bound_from_r1cs(
         step_circuit: &'a SC,
     ) -> Result<(usize, usize), SynthesisError> {
-        // In order to regenerate these parameters, enable the (ignored) test `calculate_circuit_constants`
+        // in order to regenerate these parameters, enable the (ignored) test `calculate_circuit_constants`
+        //
+        // how many constraints are needed by poseidon to absorb the input is dependent on its size, see:
+        //     https://github.com/arkworks-rs/crypto-primitives/blob/main/crypto-primitives/src/sponge/poseidon/constraints.rs#L111-L143
 
         const BASE_CONSTRAINTS: u32 = 82852; // number of constraints in augmented circuit, not including step circuit or sumcheck
-        const SC_INPUT_CONSTRAINTS: u32 = 487; // number of additional constraints per step circuit input
-        const SUMCHECK_ROUND_CONSTRAINTS: u32 = 1481; // number of additional constraints per sumcheck round
+        const MAX_PER_SC_INPUT_CONSTRAINTS: u32 = 487; // max number of additional constraints per step circuit input
+        const MAX_SUMCHECK_ROUND_CONSTRAINTS: u32 = 1481; // max number of additional constraints per sumcheck round
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
 
@@ -303,23 +306,23 @@ where
 
         let step_circuit_constraints = cs.num_constraints() as u32;
 
-        let mut constraints = BASE_CONSTRAINTS
+        let mut max_constraints = BASE_CONSTRAINTS
             + step_circuit_constraints
-            + (SC::ARITY as u32 - 1) * SC_INPUT_CONSTRAINTS;
+            + (SC::ARITY as u32 - 1) * MAX_PER_SC_INPUT_CONSTRAINTS;
 
         let mut low = 0;
-        let mut high = (constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let mut high = (max_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
 
         let mut eq = false;
         while !eq {
-            constraints += (high - low) * SUMCHECK_ROUND_CONSTRAINTS;
+            max_constraints += (high - low) * MAX_SUMCHECK_ROUND_CONSTRAINTS;
             low = high;
-            high = (constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+            high = (max_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
 
             eq = low == high;
         }
 
-        Ok((high as usize, constraints as usize))
+        Ok((high as usize, max_constraints as usize))
     }
 
     pub fn base_from_r1cs(
@@ -464,10 +467,10 @@ where
         HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::base_from_r1cs(sumcheck_rounds)
     }
 
-    fn project_augmented_circuit_size(
+    fn project_augmented_circuit_size_upper_bound(
         step_circuit: &'_ SC,
     ) -> Result<(usize, usize), SynthesisError> {
-        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_from_r1cs(step_circuit)
+        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_upper_bound_from_r1cs(step_circuit)
     }
 
     fn generate_constraints(
@@ -488,6 +491,13 @@ mod tests {
 
     struct TestCircuit1;
     struct TestCircuit2;
+
+    // these circuits produce the largest
+    //
+    //   -- constraints per step circuit input
+    //   -- constraints per sumcheck round
+    //
+    // step sizes observed in testing
 
     impl<F: PrimeField> StepCircuit<F> for TestCircuit1 {
         const ARITY: usize = 1;
@@ -708,8 +718,8 @@ mod tests {
         let o = format!(
             r#"Size Parameters for Augmented Circuit:
                     -- Base Constraints (no sumcheck, no step circuit):  {}
-                    -- Odd-to-Even Step Circuit Input Constraints:       {}
-                    -- Constraints per Sumcheck Round:                   {}"#,
+                    -- (Max) Constraints per Step Circuit Input:         {}
+                    -- (Max) Constraints per Sumcheck Round:             {}"#,
             base_circuit_constraints, sc_input_constraints, sumcheck_round_constraints
         );
 
@@ -748,7 +758,7 @@ mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             SC1,
-        >::project_augmented_circuit_size(&TestCircuit1)
+        >::project_augmented_circuit_size_upper_bound(&TestCircuit1)
         .unwrap()
         .0;
 
