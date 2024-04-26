@@ -1,0 +1,7 @@
+# Nexus API
+
+This is a **low-level, unstable** API for programmatically accessing the Nexus VM and provers.
+
+The roadmap is for it to be supplanted by a more strategically designed and consistent Nexus SDK. The API will likely shift as part of the SDK development effort.
+
+The API is relatively self-documenting, see `./src/lib.rs`. Examples of using the API are given in `./examples`.

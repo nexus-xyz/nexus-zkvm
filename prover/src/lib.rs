@@ -4,15 +4,14 @@ pub mod key;
 pub mod pp;
 pub mod srs;
 
-use std::time::Instant;
 pub mod types;
 
 use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use nexus_riscv::{nvm::load_nvm, VMOpts};
-use nexus_vm::{memory::trie::MerkleTrie, trace::trace};
+use nexus_riscv::VMOpts;
+use nexus_vm::memory::trie::MerkleTrie;
 
 use nexus_nova::nova::pcd::compression::SNARK;
 
@@ -68,28 +67,10 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
 
 type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
 
-fn estimate_size(tr: &Trace) -> usize {
-    use std::mem::size_of_val as sizeof;
-    sizeof(tr)
-        + tr.blocks.len()
-            * (sizeof(&tr.blocks[0]) + tr.blocks[0].steps.len() * sizeof(&tr.blocks[0].steps[0]))
-}
-
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    let mut vm = load_nvm::<MerkleTrie>(opts)?;
-
-    println!("Executing program...");
-
-    let start = Instant::now();
-    let trace = trace(&mut vm, opts.k, pow)?;
-
-    println!(
-        "Executed {} instructions in {:?}. {} bytes used by trace.",
-        trace.k * trace.blocks.len(),
-        start.elapsed(),
-        estimate_size(&trace)
-    );
-    Ok(trace)
+    Ok(nexus_riscv::nvm::run_as_nvm::<MerkleTrie>(
+        opts, pow, false,
+    )?)
 }
 
 pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {

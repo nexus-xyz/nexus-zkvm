@@ -58,14 +58,6 @@ pub struct VMOpts {
     #[arg(short, name = "k", default_value = "1")]
     pub k: usize,
 
-    /// Use a no-op machine of size n
-    #[arg(group = "vm", short, long, name = "n")]
-    pub nop: Option<usize>,
-
-    /// Use a looping machine with l iterations
-    #[arg(group = "vm", short, long, name = "l")]
-    pub loopk: Option<usize>,
-
     /// Use a named test machine
     #[arg(group = "vm", long, long_help(list_machines()))]
     pub machine: Option<String>,
@@ -86,11 +78,7 @@ fn list_machines() -> String {
 
 /// Load the VM described by `opts`
 pub fn load_vm(opts: &VMOpts) -> Result<VM> {
-    if let Some(k) = opts.nop {
-        Ok(nop_vm(k))
-    } else if let Some(k) = opts.loopk {
-        Ok(loop_vm(k))
-    } else if let Some(m) = &opts.machine {
+    if let Some(m) = &opts.machine {
         if let Some(vm) = machines::lookup_test_machine(m) {
             Ok(vm)
         } else {

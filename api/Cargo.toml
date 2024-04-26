@@ -1,0 +1,16 @@
+[package]
+name = "nexus-api"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+nexus-config = { path = "../config" }
+nexus-riscv = { path = "../riscv" }
+nexus-vm = { path = "../vm" }
+nexus-prover = { path = "../prover" }

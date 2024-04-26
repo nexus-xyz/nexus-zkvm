@@ -3,6 +3,7 @@
 use num_traits::FromPrimitive;
 use std::fs::read;
 use std::path::Path;
+use std::time::Instant;
 
 use elf::{
     abi::{PF_X, PT_LOAD},
@@ -15,11 +16,12 @@ use nexus_vm::{
     eval::NexusVM,
     instructions::{Inst, Opcode, Opcode::*, Width::BU},
     memory::Memory,
+    trace::{trace, Trace},
 };
 
 use crate::{
     error::{Result, VMError::ELFFormat},
-    machines::{lookup_test_code, loop_code, nop_code},
+    machines::lookup_test_code,
     rv32::{parse::parse_inst, Inst as RVInst, AOP, RV32},
     VMError, VMOpts,
 };
@@ -263,13 +265,9 @@ fn translate_test_machine<M: Memory>(rv_code: &[u32]) -> Result<NexusVM<M>> {
     Ok(nvm)
 }
 
-/// Load a NexusVM according the `opts`.
-pub fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
-    if let Some(k) = opts.nop {
-        translate_test_machine(&nop_code(k))
-    } else if let Some(k) = opts.loopk {
-        translate_test_machine(&loop_code(k))
-    } else if let Some(m) = &opts.machine {
+/// Load as a NexusVM according the `opts`.
+fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
+    if let Some(m) = &opts.machine {
         if let Some(vm) = lookup_test_code(m) {
             translate_test_machine(&vm)
         } else {
@@ -278,6 +276,40 @@ pub fn load_nvm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
     } else {
         translate_elf(opts.file.as_ref().unwrap())
     }
+}
+
+fn estimate_size<M: Memory>(tr: &Trace<M::Proof>) -> usize {
+    use std::mem::size_of_val as sizeof;
+    sizeof(tr)
+        + tr.blocks.len()
+            * (sizeof(&tr.blocks[0]) + tr.blocks[0].steps.len() * sizeof(&tr.blocks[0].steps[0]))
+}
+
+/// Load and run as a NexusVM according to the `opts`.
+pub fn run_as_nvm<M: Memory>(
+    opts: &VMOpts,
+    pow: bool,
+    show: bool,
+) -> Result<Trace<M::Proof>, VMError> {
+    let mut vm = load_nvm::<M>(opts)?;
+
+    if show {
+        println!("Executing program...");
+    }
+
+    let start = Instant::now();
+    let trace = trace::<M>(&mut vm, opts.k, pow)?;
+
+    if show {
+        println!(
+            "Executed {} instructions in {:?}. {} bytes used by trace.",
+            trace.k * trace.blocks.len(),
+            start.elapsed(),
+            estimate_size::<M>(&trace)
+        );
+    }
+
+    Ok(trace)
 }
 
 #[cfg(test)]

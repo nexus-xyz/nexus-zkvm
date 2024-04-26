@@ -5,16 +5,30 @@ pub use core::fmt::Write;
 // in s2 (rust will not allow us to use s0 or s1).
 
 macro_rules! ecall {
-    ($n:literal,$a0:expr,$a1:expr) => {
+    ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
         unsafe {
-            core::arch::asm!("ecall", in("s2") $n, in("a0") $a0, in("a1") $a1)
+            core::arch::asm!("ecall", in("s2") $n, in("a1") $inp1, in("a2") $inp2, out("a0") $out)
         }
     }
 }
 
 /// Write a string to the output console (if any).
 pub fn write_log(s: &str) {
-    ecall!(1, s.as_ptr(), s.len());
+    let mut _out: u32;
+    ecall!(1, s.as_ptr(), s.len(), _out);
+}
+
+/// Read a byte from the private input tape
+pub fn read_from_private_input() -> Option<u8> {
+    let inp: u32 = 0;
+    let mut out: u32;
+    ecall!(2, inp, inp, out);
+
+    if out == u32::MAX {
+        None
+    } else {
+        Some(out.to_le_bytes()[0])
+    } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
 }
 
 /// An empty type representing the VM terminal

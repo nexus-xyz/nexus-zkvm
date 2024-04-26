@@ -14,6 +14,7 @@ members = [
     "network",
     "nova",
     "spartan",
+    "api",
 ]
 default-members = [
     "riscv",
@@ -23,6 +24,7 @@ default-members = [
     "network",
     "nova",
     "spartan",
+    "api",
 ]
 exclude = ["nova-benches"]
 

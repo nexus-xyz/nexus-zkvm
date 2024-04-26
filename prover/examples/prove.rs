@@ -26,7 +26,7 @@ fn main() -> anyhow::Result<()> {
     // Run the program.
     let vm_opts = VMOpts {
         k: CONFIG.k,
-        nop: Some(10),
+        machine: Some(String::from("nop10")),
         ..Default::default()
     };
     let trace = nexus_prover::run(&vm_opts, matches!(CONFIG.nova_impl, NovaImpl::Parallel))?;

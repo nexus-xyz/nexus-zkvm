@@ -101,8 +101,6 @@ fn local_prove(
 
     let opts = nexus_riscv::VMOpts {
         k,
-        nop: None,
-        loopk: None,
         machine: None,
         file: Some(path.into()),
     };
