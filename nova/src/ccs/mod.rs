@@ -76,15 +76,15 @@ pub struct CCSShape<G: CurveGroup> {
 
 impl<G: CurveGroup> fmt::Display for CCSShape<G> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "CCSShape {{ num_constraints: {}, num_vars: {}, num_io: {}, num_matrices: {}, num_multisets: {}, max_cardinality: {}, Ms: [_, {}], cSs: [_, {}] }}",
+        write!(f, "CCSShape {{ num_constraints: {}, num_vars: {}, num_io: {}, num_matrices: {}, num_multisets: {}, max_cardinality: {}, Ms: [{}], cSs: [{}] }}",
                self.num_constraints,
                self.num_vars,
                self.num_io,
                self.num_matrices,
                self.num_multisets,
                self.max_cardinality,
-               self.Ms.len(),
-               self.cSs.len(),
+               self.Ms.iter().map(|M| format!("[_, {}]", M.len())).collect::<Vec<_>>().join(", "),
+               self.cSs.iter().map(|cS| format!("({}, [_, {}])", cS.0, cS.1.len())).collect::<Vec<_>>().join(", "),
         )
     }
 }
