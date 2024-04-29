@@ -309,7 +309,7 @@ where
 
         let mut max_constraints = BASE_CONSTRAINTS
             + step_circuit_constraints
-            + (SC::ARITY as u32 - 1) * MAX_PER_SC_INPUT_CONSTRAINTS;
+            + (SC::ARITY as u32).saturating_sub(1) * MAX_PER_SC_INPUT_CONSTRAINTS;
 
         let mut low = 0;
         let mut high = safe_log!(max_constraints);
