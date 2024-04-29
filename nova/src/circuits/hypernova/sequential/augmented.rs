@@ -41,6 +41,7 @@ use crate::{
         hypernova::{multifold, primary},
         secondary,
     },
+    safe_log,
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
@@ -311,13 +312,13 @@ where
             + (SC::ARITY as u32 - 1) * MAX_PER_SC_INPUT_CONSTRAINTS;
 
         let mut low = 0;
-        let mut high = (max_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let mut high = safe_log!(max_constraints);
 
         let mut eq = false;
         while !eq {
             max_constraints += (high - low) * MAX_SUMCHECK_ROUND_CONSTRAINTS;
             low = high;
-            high = (max_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+            high = safe_log!(max_constraints);
 
             eq = low == high;
         }

@@ -11,6 +11,8 @@ use rayon::iter::{
     IntoParallelRefMutIterator, ParallelIterator,
 };
 
+use crate::safe_log;
+
 pub use super::sparse::{MatrixRef, SparseMatrix};
 use super::{absorb::AbsorbNonNative, r1cs::R1CSShape};
 use mle::vec_to_mle;
@@ -331,8 +333,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
     ) -> Result<Self, Error> {
         if X.is_empty() || shape.num_io != X.len() {
             Err(Error::InvalidInputLength)
-        } else if ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) != rs.len() as u32
-        {
+        } else if safe_log!(shape.num_constraints) != rs.len() as u32 {
             Err(Error::InvalidEvaluationPoint)
         } else if shape.num_matrices != vs.len() {
             Err(Error::InvalidTargets)
@@ -644,7 +645,7 @@ mod tests {
 
         let commitment_W = witness.commit::<Z>(&ck);
 
-        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_log!(NUM_CONSTRAINTS);
         let rs: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W.as_slice()].concat();
@@ -688,7 +689,7 @@ mod tests {
 
         let commitment_W = witness.commit::<Z>(&ck);
 
-        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_log!(NUM_CONSTRAINTS);
         let rs: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W.as_slice()].concat();
@@ -765,7 +766,7 @@ mod tests {
 
         let U2 = CCSInstance::<G, Z>::new(&ccs_shape, &commitment_W, &X)?;
 
-        let s = (NUM_CONSTRAINTS - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_log!(NUM_CONSTRAINTS);
         let rs1: Vec<Fr> = (0..s).map(|_| Fr::rand(&mut rng)).collect();
 
         let z1 = [X.as_slice(), W.as_slice()].concat();

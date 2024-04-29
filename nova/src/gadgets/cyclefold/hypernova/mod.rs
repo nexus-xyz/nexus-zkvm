@@ -268,6 +268,7 @@ mod tests {
         },
         pedersen::PedersenCommitment,
         r1cs::tests::to_field_elements,
+        safe_log,
         test_utils::setup_test_ccs,
         zeromorph::Zeromorph,
     };
@@ -320,7 +321,7 @@ mod tests {
 
         let commitment_W = W.commit::<C1>(&ck);
 
-        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_log!(shape.num_constraints);
         let rs: Vec<G1::ScalarField> = (0..s).map(|_| G1::ScalarField::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W.W.as_slice()].concat();
@@ -369,7 +370,7 @@ mod tests {
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
-        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+        let s: usize = safe_log!(shape.num_constraints) as usize;
 
         let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
             &config,
@@ -432,7 +433,7 @@ mod tests {
         let comm_W_proof =
             secondary::ProofVar::<G2, C2>::new_input(cs.clone(), || Ok(comm_W_proof))?;
 
-        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+        let s: usize = safe_log!(shape.num_constraints) as usize;
 
         let (_U_cs, _U_secondary_cs) = multifold::<G1, G2, C1, C2, PoseidonSponge<G1::ScalarField>>(
             &config,

@@ -35,6 +35,13 @@ pub fn iter_bits_le(bytes: &[u8]) -> impl Iterator<Item = bool> + '_ {
         .flat_map(|byte| (0..8).map(move |bit| ((1 << bit) & byte) != 0))
 }
 
+#[macro_export]
+macro_rules! safe_log {
+    ($x:expr) => {
+        ($x - 1).checked_ilog2().unwrap_or(0) + 1
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use ark_ff::{BigInteger, PrimeField};

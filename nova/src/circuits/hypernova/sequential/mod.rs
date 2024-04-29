@@ -23,6 +23,7 @@ use crate::{
             RelaxedR1CSInstance, RelaxedR1CSWitness,
         },
     },
+    safe_log,
 };
 
 use super::{public_params, HyperNovaConstraintSynthesizer, StepCircuit};
@@ -109,10 +110,7 @@ where
         reader.read(&mut seed);
         let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
 
-        let max_poly_vars = ((shape.num_vars.max(shape.num_constraints) - 1)
-            .checked_ilog2()
-            .unwrap_or(0)
-            + 1) as usize;
+        let max_poly_vars: usize = safe_log!(shape.num_vars.max(shape.num_constraints)) as usize;
 
         let srs = C1::setup(max_poly_vars, b"hypernova_seq_primary_curve", &mut rng)
             .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
@@ -286,10 +284,7 @@ where
         .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
-        let sumcheck_rounds = ((params.shape.num_constraints - 1)
-            .checked_ilog2()
-            .unwrap_or(0)
-            + 1) as usize;
+        let sumcheck_rounds: usize = safe_log!(params.shape.num_constraints) as usize;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {

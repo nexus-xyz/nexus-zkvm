@@ -14,7 +14,7 @@ pub use crate::folding::hypernova::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE;
 
 pub(crate) use super::{secondary, CCSInstance, CCSShape, CCSWitness, Error, LCCSInstance};
 pub(crate) use crate::folding::cyclefold::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness};
-use crate::{absorb::CryptographicSpongeExt, r1cs, utils::cast_field_element_unique};
+use crate::{absorb::CryptographicSpongeExt, r1cs, safe_log, utils::cast_field_element_unique};
 
 /// Non-interactive multi-folding scheme proof.
 pub struct NIMFSProof<
@@ -248,7 +248,7 @@ mod tests {
 
         let commitment_W = W.commit::<C1>(&ck);
 
-        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_log!(shape.num_constraints);
         let rs: Vec<G1::ScalarField> = (0..s).map(|_| G1::ScalarField::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W.W.as_slice()].concat();
