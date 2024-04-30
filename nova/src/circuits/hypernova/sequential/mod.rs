@@ -10,8 +10,6 @@ use ark_r1cs_std::R1CSVar;
 use ark_relations::r1cs::{ConstraintSystem, SynthesisMode};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use ark_spartan::polycommitments::{PCSKeys, PolyCommitmentScheme};
-use ark_std::rand::SeedableRng;
-use sha3::digest::{ExtendableOutput, Update, XofReader};
 
 use crate::{
     absorb::CryptographicSpongeExt,
@@ -56,7 +54,8 @@ where
     fn setup(
         ro_config: <RO as CryptographicSponge>::Config,
         step_circuit: &SC,
-        aux2: &C2::SetupAux,
+        srs: &C1::SRS,
+        aux: &C2::SetupAux,
     ) -> Result<public_params::PublicParams<G1, G2, C1, C2, RO, SC, Self>, cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "setup").entered();
 
@@ -96,29 +95,7 @@ where
         assert!(shape.num_constraints <= projected_augmented_circuit_size_upper_bound,
                 "shape does not conform to projected upper bound on circuit size, aborting to prevent invalid recursion");
 
-        // from a16z/jolt
-        //
-        // https://github.com/a16z/jolt/blob/a665343662c7082c33be4766298324db798cfaa9/jolt-core/src/poly/pedersen.rs#L18-L36
-        let mut shake = sha3::Shake256::default();
-        shake.update(b"hypernova_seq_primary_curve");
-        let mut buf = vec![];
-        G1::GENERATOR.serialize_compressed(&mut buf).unwrap();
-        shake.update(&buf);
-
-        let mut reader = shake.finalize_xof();
-        let mut seed = [0u8; 32];
-        reader.read(&mut seed);
-        let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
-
         let max_poly_vars: usize = safe_log!(shape.num_vars.max(shape.num_constraints)) as usize;
-
-        let srs = C1::setup(max_poly_vars, b"hypernova_seq_primary_curve", &mut rng)
-            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
-
-        // NOTE: We could try to use the EvalVerifierKey here, which should then make the
-        //       public params smaller. However, that would make the interfaces uglier as
-        //       well as potentially introduce concerns as we'd absorb it rather than the
-        //       full key used for committing. So, for now we will just use the full key.
         let PCSKeys { ck, .. } = C1::trim(&srs, max_poly_vars);
 
         let pp_secondary = C2::setup(
@@ -126,7 +103,7 @@ where
                 .num_vars
                 .max(shape_secondary.num_constraints),
             b"hypernova_seq_secondary_curve",
-            aux2,
+            aux,
         );
 
         let mut params = public_params::PublicParams {
@@ -450,6 +427,7 @@ pub(crate) mod tests {
         LOG_TARGET as HYPERNOVA_TARGET,
     };
 
+    use ark_std::test_rng;
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
@@ -511,6 +489,22 @@ pub(crate) mod tests {
         let z_0 = vec![G1::ScalarField::ONE; 5];
         let num_steps = 1;
 
+        let (_, projected_augmented_circuit_size_upper_bound) =
+            HyperNovaAugmentedCircuit::<
+                G1,
+                G2,
+                C1,
+                C2,
+                PoseidonSponge<G1::ScalarField>,
+                CubicCircuit<G1::ScalarField>
+            >::project_augmented_circuit_size_upper_bound(&circuit)?;
+
+        let mut rng = test_rng();
+        let max_poly_vars: usize = safe_log!(projected_augmented_circuit_size_upper_bound) as usize;
+
+        let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
+            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
+
         let params = PublicParams::<
             G1,
             G2,
@@ -518,7 +512,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &())?;
+        >::setup(ro_config, &circuit, &srs, &())?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
@@ -563,6 +557,22 @@ pub(crate) mod tests {
         let z_0 = vec![G1::ScalarField::ONE; 5];
         let num_steps = 3;
 
+        let (_, projected_augmented_circuit_size_upper_bound) =
+            HyperNovaAugmentedCircuit::<
+                G1,
+                G2,
+                C1,
+                C2,
+                PoseidonSponge<G1::ScalarField>,
+                CubicCircuit<G1::ScalarField>
+            >::project_augmented_circuit_size_upper_bound(&circuit)?;
+
+        let mut rng = test_rng();
+        let max_poly_vars: usize = safe_log!(projected_augmented_circuit_size_upper_bound) as usize;
+
+        let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
+            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
+
         let params = PublicParams::<
             G1,
             G2,
@@ -570,7 +580,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &())?;
+        >::setup(ro_config, &circuit, &srs, &())?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
 

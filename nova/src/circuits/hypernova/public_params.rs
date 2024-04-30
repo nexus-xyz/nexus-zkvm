@@ -50,9 +50,10 @@ where
     pub fn setup(
         ro_config: RO::Config,
         step_circuit: &SC,
-        aux2: &C2::SetupAux,
+        srs: &C1::SRS,
+        aux: &C2::SetupAux,
     ) -> Result<Self, Error> {
-        SP::setup(ro_config, step_circuit, aux2)
+        SP::setup(ro_config, step_circuit, srs, aux)
     }
 
     /// Returns first [`SQUEEZE_ELEMENTS_BIT_SIZE`] bits of public parameters sha3 hash reinterpreted
@@ -84,6 +85,7 @@ where
     fn setup(
         ro_config: RO::Config,
         step_circuit: &SC,
-        aux2: &C2::SetupAux,
+        srs: &C1::SRS,
+        aux: &C2::SetupAux,
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
 }

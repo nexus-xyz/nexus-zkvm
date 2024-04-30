@@ -1,11 +1,13 @@
 use std::marker::PhantomData;
 
-use ark_ec::pairing::Pairing;
+use ark_ec::{pairing::Pairing, short_weierstrass::SWCurveConfig, CurveGroup};
 use ark_poly_commit::error::Error;
 use ark_spartan::dense_mlpoly::DensePolynomial;
 use ark_spartan::polycommitments::zeromorph::Zeromorph as SpartanZM;
 use ark_spartan::polycommitments::{error, PCSKeys, PolyCommitmentScheme};
-use ark_std::rand::RngCore;
+use ark_serialize::CanonicalSerialize;
+use ark_std::rand::{RngCore, SeedableRng};
+use sha3::digest::{ExtendableOutput, Update, XofReader};
 
 use merlin::Transcript;
 
@@ -16,6 +18,7 @@ pub struct Zeromorph<E>(PhantomData<E>);
 impl<E> PolyCommitmentScheme<E::G1> for Zeromorph<E>
 where
     E: Pairing,
+    <<E as Pairing>::G1 as CurveGroup>::Config: SWCurveConfig,
 {
     type PolyCommitmentKey = <ark_spartan::polycommitments::zeromorph::Zeromorph<E> as PolyCommitmentScheme<E::G1>>::PolyCommitmentKey;
 
@@ -82,7 +85,7 @@ where
     fn setup(
         max_poly_vars: usize,
         label: &'static [u8],
-        rng: &mut impl RngCore,
+        _rng: &mut impl RngCore,
     ) -> Result<Self::SRS, Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
@@ -91,7 +94,21 @@ where
         )
         .entered();
 
-        SpartanZM::setup(max_poly_vars, label, rng)
+        // from a16z/jolt
+        //
+        // https://github.com/a16z/jolt/blob/a665343662c7082c33be4766298324db798cfaa9/jolt-core/src/poly/pedersen.rs#L18-L36
+        let mut shake = sha3::Shake256::default();
+        shake.update(label);
+        let mut buf = vec![];
+        <<E as Pairing>::G1 as CurveGroup>::Config::GENERATOR.serialize_compressed(&mut buf).unwrap();
+        shake.update(&buf);
+
+        let mut reader = shake.finalize_xof();
+        let mut seed = [0u8; 32];
+        reader.read(&mut seed);
+        let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
+
+        SpartanZM::setup(max_poly_vars, label, &mut rng)
     }
 
     fn trim(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<E::G1, Self> {
