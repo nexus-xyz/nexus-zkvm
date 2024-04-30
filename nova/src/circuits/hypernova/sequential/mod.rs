@@ -427,11 +427,11 @@ pub(crate) mod tests {
         LOG_TARGET as HYPERNOVA_TARGET,
     };
 
-    use ark_std::test_rng;
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
     use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
+    use ark_std::test_rng;
 
     use tracing_subscriber::{
         filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
@@ -496,7 +496,7 @@ pub(crate) mod tests {
                 C1,
                 C2,
                 PoseidonSponge<G1::ScalarField>,
-                CubicCircuit<G1::ScalarField>
+                CubicCircuit<G1::ScalarField>,
             >::project_augmented_circuit_size_upper_bound(&circuit)?;
 
         let mut rng = test_rng();
@@ -564,7 +564,7 @@ pub(crate) mod tests {
                 C1,
                 C2,
                 PoseidonSponge<G1::ScalarField>,
-                CubicCircuit<G1::ScalarField>
+                CubicCircuit<G1::ScalarField>,
             >::project_augmented_circuit_size_upper_bound(&circuit)?;
 
         let mut rng = test_rng();

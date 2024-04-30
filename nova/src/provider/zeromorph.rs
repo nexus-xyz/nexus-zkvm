@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 
 use ark_ec::{pairing::Pairing, short_weierstrass::SWCurveConfig, CurveGroup};
 use ark_poly_commit::error::Error;
+use ark_serialize::CanonicalSerialize;
 use ark_spartan::dense_mlpoly::DensePolynomial;
 use ark_spartan::polycommitments::zeromorph::Zeromorph as SpartanZM;
 use ark_spartan::polycommitments::{error, PCSKeys, PolyCommitmentScheme};
-use ark_serialize::CanonicalSerialize;
 use ark_std::rand::{RngCore, SeedableRng};
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 
@@ -100,7 +100,9 @@ where
         let mut shake = sha3::Shake256::default();
         shake.update(label);
         let mut buf = vec![];
-        <<E as Pairing>::G1 as CurveGroup>::Config::GENERATOR.serialize_compressed(&mut buf).unwrap();
+        <<E as Pairing>::G1 as CurveGroup>::Config::GENERATOR
+            .serialize_compressed(&mut buf)
+            .unwrap();
         shake.update(&buf);
 
         let mut reader = shake.finalize_xof();
