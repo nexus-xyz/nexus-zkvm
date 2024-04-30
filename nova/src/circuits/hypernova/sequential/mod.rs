@@ -96,7 +96,7 @@ where
                 "shape does not conform to projected upper bound on circuit size, aborting to prevent invalid recursion");
 
         let max_poly_vars: usize = safe_log!(shape.num_vars.max(shape.num_constraints)) as usize;
-        let PCSKeys { ck, .. } = C1::trim(&srs, max_poly_vars);
+        let PCSKeys { ck, .. } = C1::trim(srs, max_poly_vars);
 
         let pp_secondary = C2::setup(
             shape_secondary
