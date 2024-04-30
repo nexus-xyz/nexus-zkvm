@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
+use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
-use ark_crypto_primitives::sponge::constraints::{SpongeWithGadget, CryptographicSpongeVar};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
@@ -10,11 +10,15 @@ use ark_std::test_rng;
 
 use super::{Error, StepCircuit};
 use crate::{
+    circuits::hypernova::{
+        sequential::augmented::HyperNovaAugmentedCircuit, HyperNovaConstraintSynthesizer,
+    },
     commitment::CommitmentScheme,
-    circuits::hypernova::{HyperNovaConstraintSynthesizer, sequential::augmented::HyperNovaAugmentedCircuit},
-    folding::hypernova::cyclefold::{self, nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE}},
-    safe_log,
-    utils,
+    folding::hypernova::cyclefold::{
+        self,
+        nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
+    },
+    safe_log, utils,
 };
 
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
@@ -90,10 +94,7 @@ where
     SC: StepCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
-    pub fn test_setup(
-        ro_config: RO::Config,
-        step_circuit: &SC,
-    ) -> Result<Self, Error> {
+    pub fn test_setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
         let (_, projected_augmented_circuit_size_upper_bound) =
             HyperNovaAugmentedCircuit::<
                 G1,
