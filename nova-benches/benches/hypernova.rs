@@ -55,10 +55,9 @@ fn bench_recursive_snark(c: &mut Criterion) {
 
         // Produce public parameters
         let pp =
-            PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::setup(
+            PublicParams::<G1, G2, C1, C2, PoseidonSponge<CF>, NonTrivialTestCircuit<CF>>::test_setup(
                 ro_config.clone(),
                 &step_circuit,
-                &(),
             )
             .unwrap();
 

@@ -26,7 +26,7 @@ use crate::{
 
 use super::{public_params, HyperNovaConstraintSynthesizer, StepCircuit};
 
-mod augmented;
+pub(crate) mod augmented;
 use augmented::{
     HyperNovaAugmentedCircuit, HyperNovaAugmentedCircuitInput,
     HyperNovaAugmentedCircuitNonBaseInput,
@@ -431,7 +431,6 @@ pub(crate) mod tests {
     use ark_ff::Field;
     use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
     use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
-    use ark_std::test_rng;
 
     use tracing_subscriber::{
         filter, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
@@ -489,22 +488,6 @@ pub(crate) mod tests {
         let z_0 = vec![G1::ScalarField::ONE; 5];
         let num_steps = 1;
 
-        let (_, projected_augmented_circuit_size_upper_bound) =
-            HyperNovaAugmentedCircuit::<
-                G1,
-                G2,
-                C1,
-                C2,
-                PoseidonSponge<G1::ScalarField>,
-                CubicCircuit<G1::ScalarField>,
-            >::project_augmented_circuit_size_upper_bound(&circuit)?;
-
-        let mut rng = test_rng();
-        let max_poly_vars: usize = safe_log!(projected_augmented_circuit_size_upper_bound) as usize;
-
-        let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
-            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
-
         let params = PublicParams::<
             G1,
             G2,
@@ -512,7 +495,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &srs, &())?;
+        >::test_setup(ro_config, &circuit)?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
@@ -557,22 +540,6 @@ pub(crate) mod tests {
         let z_0 = vec![G1::ScalarField::ONE; 5];
         let num_steps = 3;
 
-        let (_, projected_augmented_circuit_size_upper_bound) =
-            HyperNovaAugmentedCircuit::<
-                G1,
-                G2,
-                C1,
-                C2,
-                PoseidonSponge<G1::ScalarField>,
-                CubicCircuit<G1::ScalarField>,
-            >::project_augmented_circuit_size_upper_bound(&circuit)?;
-
-        let mut rng = test_rng();
-        let max_poly_vars: usize = safe_log!(projected_augmented_circuit_size_upper_bound) as usize;
-
-        let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
-            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
-
         let params = PublicParams::<
             G1,
             G2,
@@ -580,7 +547,7 @@ pub(crate) mod tests {
             C2,
             PoseidonSponge<G1::ScalarField>,
             CubicCircuit<G1::ScalarField>,
-        >::setup(ro_config, &circuit, &srs, &())?;
+        >::test_setup(ro_config, &circuit)?;
 
         let mut recursive_snark = IVCProof::new(&z_0);
 
