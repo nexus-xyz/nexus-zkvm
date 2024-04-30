@@ -2,13 +2,10 @@ use std::marker::PhantomData;
 
 use ark_ec::{pairing::Pairing, short_weierstrass::SWCurveConfig, CurveGroup};
 use ark_poly_commit::error::Error;
-use ark_serialize::CanonicalSerialize;
 use ark_spartan::dense_mlpoly::DensePolynomial;
 use ark_spartan::polycommitments::zeromorph::Zeromorph as SpartanZM;
 use ark_spartan::polycommitments::{error, PCSKeys, PolyCommitmentScheme};
-use ark_std::rand::{RngCore, SeedableRng};
-use sha3::digest::{ExtendableOutput, Update, XofReader};
-
+use ark_std::rand::RngCore;
 use merlin::Transcript;
 
 use crate::LOG_TARGET;
@@ -84,8 +81,8 @@ where
     // we need to perform a trusted setup ceremony and then read the SRS from a file.
     fn setup(
         max_poly_vars: usize,
-        label: &'static [u8],
-        _rng: &mut impl RngCore,
+        _label: &'static [u8],
+        rng: &mut impl RngCore,
     ) -> Result<Self::SRS, Error> {
         let _span = tracing::debug_span!(
             target: LOG_TARGET,
@@ -94,23 +91,7 @@ where
         )
         .entered();
 
-        // from a16z/jolt
-        //
-        // https://github.com/a16z/jolt/blob/a665343662c7082c33be4766298324db798cfaa9/jolt-core/src/poly/pedersen.rs#L18-L36
-        let mut shake = sha3::Shake256::default();
-        shake.update(label);
-        let mut buf = vec![];
-        <<E as Pairing>::G1 as CurveGroup>::Config::GENERATOR
-            .serialize_compressed(&mut buf)
-            .unwrap();
-        shake.update(&buf);
-
-        let mut reader = shake.finalize_xof();
-        let mut seed = [0u8; 32];
-        reader.read(&mut seed);
-        let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
-
-        SpartanZM::setup(max_poly_vars, label, &mut rng)
+        SpartanZM::setup(max_poly_vars, _label, rng)
     }
 
     fn trim(srs: &Self::SRS, supported_num_vars: usize) -> PCSKeys<E::G1, Self> {
