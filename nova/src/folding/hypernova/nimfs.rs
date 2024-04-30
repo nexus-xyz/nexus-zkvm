@@ -1,4 +1,4 @@
-#![allow(unused)]
+#![allow(clippy::upper_case_acronyms)]
 
 use std::marker::PhantomData;
 
@@ -26,14 +26,14 @@ pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Trunca
 
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
-    Ccs(ccs::Error),
+    CCS(ccs::Error),
     SumCheck(ml_sumcheck::Error),
     InconsistentSubclaim,
 }
 
 impl From<ccs::Error> for Error {
     fn from(err: ccs::Error) -> Error {
-        Error::Ccs(err)
+        Error::CCS(err)
     }
 }
 
@@ -46,7 +46,7 @@ impl From<ml_sumcheck::Error> for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Ccs(error) => write!(f, "{}", error),
+            Self::CCS(error) => write!(f, "{}", error),
             Self::SumCheck(error) => write!(f, "{}", error),
             Self::InconsistentSubclaim => write!(f, "inconsistent subclaim"),
         }
@@ -56,7 +56,7 @@ impl Display for Error {
 impl ark_std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Ccs(error) => error.source(),
+            Self::CCS(error) => error.source(),
             Self::SumCheck(error) => error.source(),
             Self::InconsistentSubclaim => None,
         }
@@ -320,7 +320,7 @@ pub(crate) mod tests {
         let vk = G::ScalarField::ZERO;
         let mut random_oracle = PoseidonSponge::new(&config);
 
-        let (proof, (folded_U, folded_W), rho) =
+        let (proof, (folded_U, folded_W), _rho) =
             NIMFSProof::<Projective<G>, PoseidonSponge<G::ScalarField>>::prove_as_subprotocol(
                 &mut random_oracle,
                 &vk,
@@ -330,7 +330,7 @@ pub(crate) mod tests {
             )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (v_folded_U, rho) =
+        let (v_folded_U, _rho) =
             proof.verify_as_subprotocol(&mut random_oracle, &vk, &shape, &U1, &U2)?;
         assert_eq!(folded_U, v_folded_U);
 
@@ -342,7 +342,7 @@ pub(crate) mod tests {
         let (_, U2, W2, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (proof, (folded_U, folded_W), rho) = NIMFSProof::prove_as_subprotocol(
+        let (proof, (folded_U, folded_W), _rho) = NIMFSProof::prove_as_subprotocol(
             &mut random_oracle,
             &vk,
             &shape,
@@ -351,7 +351,7 @@ pub(crate) mod tests {
         )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (v_folded_U, rho) =
+        let (v_folded_U, _rho) =
             proof.verify_as_subprotocol(&mut random_oracle, &vk, &shape, &U1, &U2)?;
         assert_eq!(folded_U, v_folded_U);
 

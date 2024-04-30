@@ -392,7 +392,7 @@ where
         let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();
 
         const NOT_SATISFIED_ERROR: cyclefold::Error =
-            cyclefold::Error::Ccs(crate::ccs::Error::NotSatisfied);
+            cyclefold::Error::CCS(crate::ccs::Error::NotSatisfied);
 
         let Some(non_base) = &self.non_base else {
             return Err(NOT_SATISFIED_ERROR);

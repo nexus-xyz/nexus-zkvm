@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 pub(crate) mod nimfs;
 pub(crate) use super::super::cyclefold::secondary;
 
@@ -21,7 +19,7 @@ pub(crate) type LCCSInstance<G, C> = ccs::LCCSInstance<Projective<G>, C>;
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
     R1CS(R1CSError),
-    Ccs(CCSError),
+    CCS(CCSError),
     HNFolding(HNFoldingError),
     Synthesis(ark_relations::r1cs::SynthesisError),
 
@@ -38,7 +36,7 @@ impl From<R1CSError> for Error {
 
 impl From<CCSError> for Error {
     fn from(error: CCSError) -> Self {
-        Self::Ccs(error)
+        Self::CCS(error)
     }
 }
 
@@ -58,7 +56,7 @@ impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::R1CS(error) => write!(f, "{}", error),
-            Self::Ccs(error) => write!(f, "{}", error),
+            Self::CCS(error) => write!(f, "{}", error),
             Self::HNFolding(error) => write!(f, "{}", error),
             Self::Synthesis(error) => write!(f, "{}", error),
             #[cfg(any(test, feature = "spartan"))]
@@ -72,7 +70,7 @@ impl ark_std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::R1CS(error) => error.source(),
-            Self::Ccs(error) => error.source(),
+            Self::CCS(error) => error.source(),
             Self::HNFolding(error) => error.source(),
             Self::Synthesis(error) => error.source(),
             #[cfg(any(test, feature = "spartan"))]

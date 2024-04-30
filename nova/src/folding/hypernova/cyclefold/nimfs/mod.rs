@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
@@ -14,7 +12,7 @@ pub use crate::folding::hypernova::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE;
 
 pub(crate) use super::{secondary, CCSInstance, CCSShape, CCSWitness, Error, LCCSInstance};
 pub(crate) use crate::folding::cyclefold::{R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness};
-use crate::{absorb::CryptographicSpongeExt, r1cs, safe_log, utils::cast_field_element_unique};
+use crate::{absorb::CryptographicSpongeExt, r1cs, utils::cast_field_element_unique};
 
 /// Non-interactive multi-folding scheme proof.
 pub struct NIMFSProof<
@@ -198,6 +196,7 @@ mod tests {
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
         pedersen::PedersenCommitment,
         r1cs::tests::to_field_elements,
+        safe_log,
         test_utils::setup_test_ccs,
         zeromorph::Zeromorph,
     };
