@@ -6,8 +6,7 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
-use ark_std::rand::SeedableRng;
-use sha3::digest::{ExtendableOutput, Update, XofReader};
+use ark_std::test_rng;
 
 use super::{Error, StepCircuit};
 use crate::{
@@ -106,21 +105,8 @@ where
                 SC,
              >::project_augmented_circuit_size_upper_bound(step_circuit)?;
 
+        let mut rng = test_rng();
         let max_poly_vars: usize = safe_log!(projected_augmented_circuit_size_upper_bound) as usize;
-
-        // from a16z/jolt
-        //
-        // https://github.com/a16z/jolt/blob/a665343662c7082c33be4766298324db798cfaa9/jolt-core/src/poly/pedersen.rs#L18-L36
-        let mut shake = sha3::Shake256::default();
-        shake.update(b"test_hypernova_seq_primary_curve");
-        let mut buf = vec![];
-        G1::GENERATOR.serialize_compressed(&mut buf).unwrap();
-        shake.update(&buf);
-
-        let mut reader = shake.finalize_xof();
-        let mut seed = [0u8; 32];
-        reader.read(&mut seed);
-        let mut rng = rand_chacha::ChaCha20Rng::from_seed(seed);
 
         let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
             .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
