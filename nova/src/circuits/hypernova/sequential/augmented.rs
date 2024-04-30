@@ -268,20 +268,14 @@ where
     }
 
     pub fn project_augmented_circuit_size_upper_bound_from_r1cs(
+        base_constraints: u32,
+        max_constraints_per_step_circuit_input: u32,
+        max_constraints_per_sumcheck_round: u32,
         step_circuit: &'a SC,
     ) -> Result<(usize, usize), SynthesisError> {
-        // in order to regenerate these parameters, enable the (ignored) test `calculate_circuit_constants`
-        //
-        // how many constraints are needed by poseidon to absorb the input is dependent on its size, see:
-        //     https://github.com/arkworks-rs/crypto-primitives/blob/main/crypto-primitives/src/sponge/poseidon/constraints.rs#L111-L143
-
-        const BASE_CONSTRAINTS: u32 = 82852; // number of constraints in augmented circuit, not including step circuit or sumcheck
-        const MAX_PER_SC_INPUT_CONSTRAINTS: u32 = 487; // max number of additional constraints per step circuit input
-        const MAX_SUMCHECK_ROUND_CONSTRAINTS: u32 = 1481; // max number of additional constraints per sumcheck round
+        let cs = ConstraintSystem::new_ref();
 
         let z_0 = vec![G1::ScalarField::ZERO; SC::ARITY];
-
-        let cs = ConstraintSystem::new_ref();
 
         // step circuit size does not depend on number of sumcheck rounds, so we can just use 0 here
         let (U, proof) = HyperNovaAugmentedCircuit::<G1, G2, C1, C2, RO, SC>::base(0);
@@ -307,16 +301,16 @@ where
 
         let step_circuit_constraints = cs.num_constraints() as u32;
 
-        let mut max_constraints = BASE_CONSTRAINTS
+        let mut max_constraints = base_constraints
             + step_circuit_constraints
-            + (SC::ARITY as u32).saturating_sub(1) * MAX_PER_SC_INPUT_CONSTRAINTS;
+            + (SC::ARITY as u32).saturating_sub(1) * max_constraints_per_step_circuit_input;
 
         let mut low = 0;
         let mut high = safe_log!(max_constraints);
 
         let mut eq = false;
         while !eq {
-            max_constraints += (high - low) * MAX_SUMCHECK_ROUND_CONSTRAINTS;
+            max_constraints += (high - low) * max_constraints_per_sumcheck_round;
             low = high;
             high = safe_log!(max_constraints);
 
@@ -451,6 +445,36 @@ where
     }
 }
 
+impl<'a, G1, G2, C1, C2, RO, SC> HyperNovaAugmentedCircuit<'a, G1, G2, C1, C2, RO, SC>
+where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+    G1::BaseField: PrimeField + Absorb,
+    G2::BaseField: PrimeField + Absorb,
+    C1: PolyCommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
+    RO: SpongeWithGadget<G1::ScalarField>,
+    RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
+    SC: StepCircuit<G1::ScalarField>,
+{
+    pub fn project_augmented_circuit_size_upper_bound_bn254(
+        step_circuit: &'a SC,
+    ) -> Result<(usize, usize), SynthesisError> {
+        // in order to regenerate these parameters, enable the (ignored) test `calculate_circuit_constants_bn254`
+        const BASE_CONSTRAINTS: u32 = 82852;
+        const MAX_CONSTRAINTS_PER_STEP_CIRCUIT_INPUT: u32 = 487;
+        const MAX_CONSTRAINTS_PER_SUMCHECK_ROUND: u32 = 1481;
+
+        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_upper_bound_from_r1cs(
+            BASE_CONSTRAINTS,
+            MAX_CONSTRAINTS_PER_STEP_CIRCUIT_INPUT,
+            MAX_CONSTRAINTS_PER_SUMCHECK_ROUND,
+            step_circuit,
+        )
+    }
+}
+
+
 impl<G1, G2, C1, C2, RO, SC> HyperNovaConstraintSynthesizer<G1, G2, C1, C2, RO, SC>
     for HyperNovaAugmentedCircuit<'_, G1, G2, C1, C2, RO, SC>
 where
@@ -471,7 +495,11 @@ where
     fn project_augmented_circuit_size_upper_bound(
         step_circuit: &'_ SC,
     ) -> Result<(usize, usize), SynthesisError> {
-        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_upper_bound_from_r1cs(step_circuit)
+        // todo: make more robust
+        assert_eq!(std::any::type_name::<G1>(), "ark_bn254::curves::g1::Config");
+        assert_eq!(std::any::type_name::<G2>(), "ark_grumpkin::curves::GrumpkinConfig");
+
+        HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_upper_bound_bn254(step_circuit)
     }
 
     fn generate_constraints(
@@ -549,7 +577,7 @@ mod tests {
 
     #[ignore]
     #[test]
-    fn calculate_circuit_constants() {
+    fn calculate_circuit_constants_bn254() {
         calculate_circuit_constants_with_cycle::<
             ark_bn254::g1::Config,
             ark_grumpkin::GrumpkinConfig,
