@@ -474,7 +474,6 @@ where
     }
 }
 
-
 impl<G1, G2, C1, C2, RO, SC> HyperNovaConstraintSynthesizer<G1, G2, C1, C2, RO, SC>
     for HyperNovaAugmentedCircuit<'_, G1, G2, C1, C2, RO, SC>
 where
@@ -497,7 +496,10 @@ where
     ) -> Result<(usize, usize), SynthesisError> {
         // todo: make more robust
         assert_eq!(std::any::type_name::<G1>(), "ark_bn254::curves::g1::Config");
-        assert_eq!(std::any::type_name::<G2>(), "ark_grumpkin::curves::GrumpkinConfig");
+        assert_eq!(
+            std::any::type_name::<G2>(),
+            "ark_grumpkin::curves::GrumpkinConfig"
+        );
 
         HyperNovaAugmentedCircuit::<'_, G1, G2, C1, C2, RO, SC>::project_augmented_circuit_size_upper_bound_bn254(step_circuit)
     }
