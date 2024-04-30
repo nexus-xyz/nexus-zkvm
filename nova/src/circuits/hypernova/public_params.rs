@@ -6,7 +6,7 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
-use ark_std::rand::{SeedableRng};
+use ark_std::rand::SeedableRng;
 use sha3::digest::{ExtendableOutput, Update, XofReader};
 
 use super::{Error, StepCircuit};
@@ -114,9 +114,7 @@ where
         let mut shake = sha3::Shake256::default();
         shake.update(b"test_hypernova_seq_primary_curve");
         let mut buf = vec![];
-        G1::GENERATOR
-            .serialize_compressed(&mut buf)
-            .unwrap();
+        G1::GENERATOR.serialize_compressed(&mut buf).unwrap();
         shake.update(&buf);
 
         let mut reader = shake.finalize_xof();
