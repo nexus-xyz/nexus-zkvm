@@ -35,10 +35,17 @@ pub fn iter_bits_le(bytes: &[u8]) -> impl Iterator<Item = bool> + '_ {
         .flat_map(|byte| (0..8).map(move |bit| ((1 << bit) & byte) != 0))
 }
 
+/// An implementation of base_2 log that will never fail, instead returning 0 for all values smaller than 1.
+/// It is 'safe' in the sense that it will not panic, unlike just calling `.unwrap()` on a `.checked_ilog2`.
+/// Usually used to compute the number of bits needed to index a set or a vector.
 #[macro_export]
 macro_rules! safe_log {
     ($x:expr) => {
-        ($x - 1).checked_ilog2().unwrap_or(0) + 1
+        match $x {
+            x if x <= 1 => 0,
+            x if x >= 1 => $x.saturating_sub(1).checked_ilog2().unwrap_or(0) + 1,
+            _ => unreachable!()
+        }
     };
 }
 
