@@ -21,7 +21,7 @@ use crate::{
             RelaxedR1CSInstance, RelaxedR1CSWitness,
         },
     },
-    safe_log,
+    safe_loglike,
 };
 
 use super::{public_params, HyperNovaConstraintSynthesizer, StepCircuit};
@@ -95,7 +95,7 @@ where
         assert!(shape.num_constraints <= projected_augmented_circuit_size_upper_bound,
                 "shape does not conform to projected upper bound on circuit size, aborting to prevent invalid recursion");
 
-        let max_poly_vars: usize = safe_log!(shape.num_vars.max(shape.num_constraints)) as usize;
+        let max_poly_vars: usize = safe_loglike!(shape.num_vars.max(shape.num_constraints)) as usize;
         let PCSKeys { ck, .. } = C1::trim(srs, max_poly_vars);
 
         let pp_secondary = C2::setup(
@@ -261,7 +261,7 @@ where
         .entered();
         let IVCProof { z_0, non_base, .. } = self;
 
-        let sumcheck_rounds: usize = safe_log!(params.shape.num_constraints) as usize;
+        let sumcheck_rounds: usize = safe_loglike!(params.shape.num_constraints) as usize;
 
         let (i_next, input, U, W, U_secondary, W_secondary) = if let Some(non_base) = non_base {
             let IVCProofNonBase {

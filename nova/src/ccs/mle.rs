@@ -9,7 +9,7 @@ use ark_spartan::sparse_mlpoly::{
 #[cfg(feature = "parallel")]
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
 
-use super::super::{safe_log, sparse::SparseMatrix};
+use super::super::{safe_loglike, sparse::SparseMatrix};
 
 /// Converts a matrix into a (sparse) mle.
 pub fn matrix_to_mle<F: PrimeField>(
@@ -20,8 +20,8 @@ pub fn matrix_to_mle<F: PrimeField>(
     assert!(m > 0 && n > 0);
 
     // compute s and s'
-    let s1 = safe_log!(m);
-    let s2 = safe_log!(n);
+    let s1 = safe_loglike!(m);
+    let s2 = safe_loglike!(n);
 
     let s = 1 << s1;
 
@@ -49,7 +49,7 @@ pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExten
     let n = z.len();
     assert!(n > 0);
 
-    let s = safe_log!(n);
+    let s = safe_loglike!(n);
 
     // Explanation of reversing:
     //

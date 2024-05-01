@@ -13,7 +13,7 @@ use ark_std::{fmt::Display, rc::Rc};
 use crate::{
     absorb::AbsorbNonNative,
     ccs::{self, mle::vec_to_ark_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
-    safe_log,
+    safe_loglike,
     utils::cast_field_element,
 };
 
@@ -107,7 +107,7 @@ where
         let rho_scalar: G::ScalarField =
             unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
 
-        let s: usize = safe_log!(shape.num_constraints) as usize;
+        let s: usize = safe_loglike!(shape.num_constraints) as usize;
 
         let gamma: G::ScalarField = random_oracle.squeeze_field_elements(1)[0];
         let beta = random_oracle.squeeze_field_elements(s);
@@ -193,7 +193,7 @@ where
         let rho_scalar: G::ScalarField =
             unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
 
-        let s: usize = safe_log!(shape.num_constraints) as usize;
+        let s: usize = safe_loglike!(shape.num_constraints) as usize;
 
         let gamma: G::ScalarField = random_oracle.squeeze_field_elements(1)[0];
         let beta = random_oracle.squeeze_field_elements(s);
@@ -299,7 +299,7 @@ pub(crate) mod tests {
 
         let commitment_W = W1.commit::<C>(&ck);
 
-        let s = safe_log!(shape.num_constraints);
+        let s = safe_loglike!(shape.num_constraints);
         let rs: Vec<G::ScalarField> = (0..s).map(|_| G::ScalarField::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W1.W.as_slice()].concat();

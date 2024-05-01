@@ -196,7 +196,7 @@ mod tests {
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
         pedersen::PedersenCommitment,
         r1cs::tests::to_field_elements,
-        safe_log,
+        safe_loglike,
         test_utils::setup_test_ccs,
         zeromorph::Zeromorph,
     };
@@ -247,7 +247,7 @@ mod tests {
 
         let commitment_W = W.commit::<C1>(&ck);
 
-        let s = safe_log!(shape.num_constraints);
+        let s = safe_loglike!(shape.num_constraints);
         let rs: Vec<G1::ScalarField> = (0..s).map(|_| G1::ScalarField::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W.W.as_slice()].concat();
