@@ -69,4 +69,15 @@ mod tests {
             assert_eq!(BigInt::from_bits_le(&bits), big_int);
         }
     }
+
+    #[test]
+    fn safe_log() {
+        assert_eq!(safe_log!(i32::MIN), 0);
+        assert_eq!(safe_log!(-8i32), 0);
+        assert_eq!(safe_log!(-1i32), 0);
+        assert_eq!(safe_log!(0u32), 0);
+        assert_eq!(safe_log!(1u32), 0);
+        assert_eq!(safe_log!(8u32), 3);
+        assert_eq!(safe_log!(u32::MAX), 32);
+    }
 }
