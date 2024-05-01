@@ -23,7 +23,7 @@ impl Display for DeBruijnIndex {
 }
 
 #[derive(Clone, Debug)]
-enum Term<R> { 
+enum Term<R> {
     Var(DeBruijnIndex),
     Lambda(R),
     Apply(R, R),
@@ -39,7 +39,7 @@ impl<R: Display> Display for Term<R> {
                 write!(f, "(\\")?;
                 write!(f, "{t}")?;
                 write!(f, ")")
-            },
+            }
             Term::Apply(t1, t2) => {
                 write!(f, "(")?;
                 write!(f, "{t1}")?;
@@ -97,16 +97,17 @@ impl Expr {
     pub fn step(&self) -> Self {
         fn subst(body: Expr, arg: Expr, depth: usize) -> Expr {
             match body.0 {
-                Term::Var(i) => if i.0 == depth {
-                    arg
-                } else {
-                    Expr::var(i)
-                },
+                Term::Var(i) => {
+                    if i.0 == depth {
+                        arg
+                    } else {
+                        Expr::var(i)
+                    }
+                }
                 Term::Lambda(e) => subst(*e, arg, depth + 1),
-                Term::Apply(e1, e2) => Expr::apply(
-                    subst(*e1, arg.clone(), depth),
-                    subst(*e2, arg, depth)
-                ),
+                Term::Apply(e1, e2) => {
+                    Expr::apply(subst(*e1, arg.clone(), depth), subst(*e2, arg, depth))
+                }
             }
         }
 
@@ -124,10 +125,9 @@ impl Expr {
         match (&self.0, &other.0) {
             (Term::Var(i), Term::Var(j)) => *i == *j,
             (Term::Lambda(e), Term::Lambda(f)) => e.structural_eq(f),
-            (
-                Term::Apply(e1, e2),
-                Term::Apply(f1, f2)
-            ) => e1.structural_eq(f1) && e2.structural_eq(f2),
+            (Term::Apply(e1, e2), Term::Apply(f1, f2)) => {
+                e1.structural_eq(f1) && e2.structural_eq(f2)
+            }
             _ => false,
         }
     }
@@ -145,14 +145,16 @@ impl Expr {
     }
 }
 
-
 #[nexus_rt::main]
 fn main() {
     assert_eq!(Expr::identity().to_string(), r#"(\0)"#);
     assert_eq!(Expr::omega().to_string(), r#"((\(0 0)) (\(0 0)))"#);
     assert_eq!(Expr::var(0).eval(), Expr::var(0));
 
-    assert_eq!(Expr::apply(Expr::identity(), Expr::var(42)).step(), Expr::var(42));
+    assert_eq!(
+        Expr::apply(Expr::identity(), Expr::var(42)).step(),
+        Expr::var(42)
+    );
 
     assert_eq!(Expr::omega().step(), Expr::omega());
 }
