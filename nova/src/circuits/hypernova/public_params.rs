@@ -106,7 +106,8 @@ where
              >::project_augmented_circuit_size_upper_bound(step_circuit)?;
 
         let mut rng = test_rng();
-        let max_poly_vars: usize = safe_loglike!(projected_augmented_circuit_size_upper_bound) as usize;
+        let max_poly_vars: usize =
+            safe_loglike!(projected_augmented_circuit_size_upper_bound) as usize;
 
         let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
             .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
