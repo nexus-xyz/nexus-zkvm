@@ -44,7 +44,7 @@ macro_rules! safe_log {
         match $x {
             x if x <= 1 => 0,
             x if x >= 1 => $x.saturating_sub(1).checked_ilog2().unwrap_or(0) + 1,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     };
 }
