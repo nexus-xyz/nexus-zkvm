@@ -35,6 +35,26 @@ pub fn iter_bits_le(bytes: &[u8]) -> impl Iterator<Item = bool> + '_ {
         .flat_map(|byte| (0..8).map(move |bit| ((1 << bit) & byte) != 0))
 }
 
+/// An implementation of (almost) base_2 integer log that will never fail.
+///
+/// Returns:
+///   log_2(x) = y for x > 1
+///              1 for x = 1
+///              0 otherwise
+///
+/// It is 'safe' in the sense that it will not panic, unlike just calling `.unwrap()` on a `.checked_ilog2`.
+/// Used to compute the number of bits needed to index a set or a vector.
+#[macro_export]
+macro_rules! safe_loglike {
+    ($x:expr) => {
+        match $x {
+            x if x < 1 => 0,
+            x if x >= 1 => $x.saturating_sub(1).checked_ilog2().unwrap_or(0) + 1,
+            _ => unreachable!(),
+        }
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use ark_ff::{BigInteger, PrimeField};
@@ -54,5 +74,16 @@ mod tests {
 
             assert_eq!(BigInt::from_bits_le(&bits), big_int);
         }
+    }
+
+    #[test]
+    fn safe_loglike() {
+        assert_eq!(safe_loglike!(i32::MIN), 0);
+        assert_eq!(safe_loglike!(-8i32), 0);
+        assert_eq!(safe_loglike!(-1i32), 0);
+        assert_eq!(safe_loglike!(0u32), 0);
+        assert_eq!(safe_loglike!(1u32), 1);
+        assert_eq!(safe_loglike!(8u32), 3);
+        assert_eq!(safe_loglike!(u32::MAX), 32);
     }
 }

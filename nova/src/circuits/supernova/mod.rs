@@ -74,7 +74,7 @@ pub trait NonUniformCircuit<F: PrimeField>: Send + Sync {
     ) -> Result<Vec<FpVar<F>>, SynthesisError>;
 }
 
-const LOG_TARGET: &str = "nexus-nova::supernova";
+const LOG_TARGET: &str = "nexus-nova::supernova::sequential";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);

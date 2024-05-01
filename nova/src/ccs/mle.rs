@@ -6,7 +6,10 @@ use ark_spartan::sparse_mlpoly::{
     SparsePolyEntry as MultilinearEvaluation, SparsePolynomial as SparseMultilinearExtension,
 };
 
-use super::super::sparse::SparseMatrix;
+#[cfg(feature = "parallel")]
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+
+use super::super::{safe_loglike, sparse::SparseMatrix};
 
 /// Converts a matrix into a (sparse) mle.
 pub fn matrix_to_mle<F: PrimeField>(
@@ -17,8 +20,8 @@ pub fn matrix_to_mle<F: PrimeField>(
     assert!(m > 0 && n > 0);
 
     // compute s and s'
-    let s1 = (m - 1).checked_ilog2().unwrap_or(0) + 1;
-    let s2 = (n - 1).checked_ilog2().unwrap_or(0) + 1;
+    let s1 = safe_loglike!(m);
+    let s2 = safe_loglike!(n);
 
     let s = 1 << s1;
 
@@ -46,7 +49,7 @@ pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExten
     let n = z.len();
     assert!(n > 0);
 
-    let s = (n - 1).checked_ilog2().unwrap_or(0) + 1;
+    let s = safe_loglike!(n);
 
     // Explanation of reversing:
     //
@@ -62,10 +65,15 @@ pub fn vec_to_ark_mle<F: PrimeField>(z: &[F]) -> ark_poly::DenseMultilinearExten
     //
     //   Annoyingly the arkworks and spartan types are reversed with respect to the
     //   endianness that they use. As such, we reverse the evaluations here first.
-    let mut zp = vec![F::zero(); n.next_power_of_two()];
-    z.iter()
-        .enumerate()
-        .for_each(|(i, v)| zp[i.reverse_bits() >> (usize::BITS - s)] = *v);
+    let n_p = n.next_power_of_two();
+    let mut zp = vec![F::zero(); n_p];
+
+    ark_std::cfg_iter_mut!(zp).enumerate().for_each(|(i, v)| {
+        let mark = i.reverse_bits() >> (usize::BITS - s);
+        if mark < n {
+            *v = z[mark]
+        };
+    });
 
     ark_poly::DenseMultilinearExtension::<F>::from_evaluations_vec(s as usize, zp)
 }

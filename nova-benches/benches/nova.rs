@@ -6,20 +6,20 @@
 //!     - on linux, you may want to configure `kernel.perf_event_paranoid`.
 //!     - currently doesn't work on mac, see https://github.com/tikv/pprof-rs/issues/210.
 
-use std::{marker::PhantomData, time::Duration};
+use std::time::Duration;
 
 use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
-use ark_ff::PrimeField;
-use ark_r1cs_std::fields::{fp::FpVar, FieldVar};
-use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 
 use criterion::*;
 use pprof::criterion::{Output, PProfProfiler};
 
+mod shared;
+use shared::{NonTrivialTestCircuit, NUM_WARMUP_STEPS};
+
 use nexus_nova::{
     nova::sequential::{IVCProof, PublicParams},
     pedersen::PedersenCommitment,
-    poseidon_config, StepCircuit,
+    poseidon_config,
 };
 
 type G1 = ark_pallas::PallasConfig;
@@ -46,7 +46,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
     for &num_cons_in_step_circuit in [0, 6399, 22783, 55551, 121087, 252159, 514303, 1038591].iter()
     {
         let mut group = c.benchmark_group(format!(
-            "RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
+            "Nova-RecursiveSNARK-StepCircuitSize-{num_cons_in_step_circuit}"
         ));
         group.sample_size(10);
 
@@ -66,11 +66,10 @@ fn bench_recursive_snark(c: &mut Criterion) {
         // we execute a certain number of warm-up steps since executing
         // the first step is cheaper than other steps owing to the presence of
         // a lot of zeros in the satisfying assignment
-        let num_warmup_steps = 10;
         let mut recursive_snark: IVCProof<G1, G2, C1, C2, PoseidonSponge<CF>, _> =
             IVCProof::new(&[CF::from(2u64)]);
 
-        for i in 0..num_warmup_steps {
+        for i in 0..NUM_WARMUP_STEPS {
             recursive_snark = recursive_snark.prove_step(&pp, &step_circuit).unwrap();
 
             // verify the recursive snark at each step of recursion
@@ -91,47 +90,11 @@ fn bench_recursive_snark(c: &mut Criterion) {
         group.bench_function("Verify", |b| {
             b.iter(|| {
                 black_box(&recursive_snark)
-                    .verify(black_box(&pp), black_box(num_warmup_steps))
+                    .verify(black_box(&pp), black_box(NUM_WARMUP_STEPS))
                     .unwrap();
             });
         });
+
         group.finish();
-    }
-}
-
-struct NonTrivialTestCircuit<F> {
-    num_constraints: usize,
-    _p: PhantomData<F>,
-}
-
-impl<F> NonTrivialTestCircuit<F>
-where
-    F: PrimeField,
-{
-    pub fn new(num_constraints: usize) -> Self {
-        Self { num_constraints, _p: PhantomData }
-    }
-}
-
-impl<F> StepCircuit<F> for NonTrivialTestCircuit<F>
-where
-    F: PrimeField,
-{
-    const ARITY: usize = 1;
-
-    fn generate_constraints(
-        &self,
-        _: ConstraintSystemRef<F>,
-        _: &FpVar<F>,
-        z: &[FpVar<F>],
-    ) -> Result<Vec<FpVar<F>>, SynthesisError> {
-        // Consider an equation: `x^2 = y`, where `x` and `y` are respectively the input and output.
-        let mut x = z[0].clone();
-        let mut y = x.clone();
-        for _ in 0..self.num_constraints {
-            y = x.square()?;
-            x = y.clone();
-        }
-        Ok(vec![y])
     }
 }

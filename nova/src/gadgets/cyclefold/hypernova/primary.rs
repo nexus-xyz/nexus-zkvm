@@ -1,3 +1,9 @@
+// !!! Please review the contents of `project_augmented_circuit_size` in
+// !!!
+// !!!    .../src/circuits/hypernova/mod.rs
+// !!!
+// !!! before modifying this circuit.
+
 use std::{borrow::Borrow, marker::PhantomData};
 
 use ark_crypto_primitives::sponge::constraints::{AbsorbGadget, SpongeWithGadget};
@@ -59,7 +65,7 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
 {
-    pub(super) fn var(&self) -> &CCSInstanceVar<G1, C1> {
+    pub fn var(&self) -> &CCSInstanceVar<G1, C1> {
         &self.0
     }
 }
@@ -218,7 +224,7 @@ where
         })
     }
 
-    pub(super) fn var(&self) -> &LCCSInstanceVar<G1, C1> {
+    pub fn var(&self) -> &LCCSInstanceVar<G1, C1> {
         &self.0
     }
 }
@@ -413,20 +419,33 @@ where
     G1::BaseField: PrimeField,
 {
     fn new_variable<T: Borrow<PolynomialInfo>>(
-        _cs: impl Into<Namespace<G1::ScalarField>>,
+        cs: impl Into<Namespace<G1::ScalarField>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
-        _mode: AllocationMode,
+        mode: AllocationMode,
     ) -> Result<Self, SynthesisError> {
+        let ns = cs.into();
+        let cs = ns.cs();
+
         let r1cs = f()?;
         let max_multiplicands = r1cs.borrow().max_multiplicands as u32;
         let num_variables = r1cs.borrow().num_variables as u32;
         let num_terms = r1cs.borrow().num_terms as u32;
 
-        let max_multiplicands =
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(max_multiplicands));
-        let num_variables =
-            FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_variables));
-        let num_terms = FpVar::<G1::ScalarField>::Constant(G1::ScalarField::from(num_terms));
+        let max_multiplicands = FpVar::<G1::ScalarField>::new_variable(
+            cs.clone(),
+            || Ok(G1::ScalarField::from(max_multiplicands)),
+            mode,
+        )?;
+        let num_variables = FpVar::<G1::ScalarField>::new_variable(
+            cs.clone(),
+            || Ok(G1::ScalarField::from(num_variables)),
+            mode,
+        )?;
+        let num_terms = FpVar::<G1::ScalarField>::new_variable(
+            cs.clone(),
+            || Ok(G1::ScalarField::from(num_terms)),
+            mode,
+        )?;
 
         Ok(Self(PolynomialInfoVar {
             max_multiplicands,
@@ -500,7 +519,7 @@ where
     G1::BaseField: PrimeField,
     RO: SpongeWithGadget<G1::ScalarField>,
 {
-    pub(super) fn var(&self) -> &ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO> {
+    pub fn var(&self) -> &ProofVar<G1, PolynomialInfoFromR1CSVar<G1>, RO> {
         &self.0
     }
 }

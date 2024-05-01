@@ -8,9 +8,14 @@ ark-ff = "0.4.0"
 ark-relations = { version = "0.4.0" }
 ark-r1cs-std = { version = "0.4.0" }
 ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
+ark-std = "0.4.0"
 
 ark-pallas = "0.4.0"
 ark-vesta = "0.4.0"
+ark-bn254 = "0.4.0"
+ark-grumpkin = "0.4.0"
+
+ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
 
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
@@ -20,11 +25,16 @@ nexus-nova = { path = "../nova", default-features = false, features = [
 ] }
 
 [features]
-default = ["parallel"]
+default = ["parallel", "spartan"]
 parallel = ["nexus-nova/parallel"]
+spartan = ["ark_spartan"]
 
 [[bench]]
-name = "recursive-snark"
+name = "nova"
+harness = false
+
+[[bench]]
+name = "hypernova"
 harness = false
 
 [patch.crates-io]
@@ -41,4 +51,6 @@ ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "
 
 ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }

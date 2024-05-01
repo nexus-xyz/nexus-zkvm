@@ -21,9 +21,10 @@ pub mod commitment;
 pub mod r1cs;
 
 pub use circuits::{
+    hypernova::{self}, // uses same StepCircuit trait as Nova
     nova::{self, StepCircuit},
     supernova::{self, NonUniformCircuit},
 };
-pub use provider::{pedersen, poseidon::poseidon_config};
+pub use provider::{pedersen, poseidon::poseidon_config, zeromorph};
 
 pub(crate) const LOG_TARGET: &str = "nexus-nova";

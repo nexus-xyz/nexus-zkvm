@@ -70,7 +70,7 @@ use augmented::{
     NovaAugmentedCircuit, NovaAugmentedCircuitInput, NovaAugmentedCircuitNonBaseInput, PCDNodeInput,
 };
 
-const LOG_TARGET: &str = "nexus-nova::pcd";
+const LOG_TARGET: &str = "nexus-nova::nova::pcd";
 
 #[doc(hidden)]
 pub struct SetupParams<T>(PhantomData<T>);

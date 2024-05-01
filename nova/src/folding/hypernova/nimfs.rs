@@ -1,4 +1,4 @@
-#![allow(unused)]
+#![allow(clippy::upper_case_acronyms)]
 
 use std::marker::PhantomData;
 
@@ -13,6 +13,7 @@ use ark_std::{fmt::Display, rc::Rc};
 use crate::{
     absorb::AbsorbNonNative,
     ccs::{self, mle::vec_to_ark_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
+    safe_loglike,
     utils::cast_field_element,
 };
 
@@ -25,14 +26,14 @@ pub const SQUEEZE_ELEMENTS_BIT_SIZE: FieldElementSize = FieldElementSize::Trunca
 
 #[derive(Debug, Clone, Copy)]
 pub enum Error {
-    Ccs(ccs::Error),
+    CCS(ccs::Error),
     SumCheck(ml_sumcheck::Error),
     InconsistentSubclaim,
 }
 
 impl From<ccs::Error> for Error {
     fn from(err: ccs::Error) -> Error {
-        Error::Ccs(err)
+        Error::CCS(err)
     }
 }
 
@@ -45,7 +46,7 @@ impl From<ml_sumcheck::Error> for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Ccs(error) => write!(f, "{}", error),
+            Self::CCS(error) => write!(f, "{}", error),
             Self::SumCheck(error) => write!(f, "{}", error),
             Self::InconsistentSubclaim => write!(f, "inconsistent subclaim"),
         }
@@ -55,7 +56,7 @@ impl Display for Error {
 impl ark_std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Ccs(error) => error.source(),
+            Self::CCS(error) => error.source(),
             Self::SumCheck(error) => error.source(),
             Self::InconsistentSubclaim => None,
         }
@@ -67,7 +68,7 @@ pub struct NIMFSProof<G: CurveGroup, RO> {
     pub(crate) poly_info: ml_sumcheck::PolynomialInfo,
     pub(crate) sigmas: Vec<G::ScalarField>,
     pub(crate) thetas: Vec<G::ScalarField>,
-    _random_oracle: PhantomData<RO>,
+    pub(crate) _random_oracle: PhantomData<RO>,
 }
 
 impl<G: CurveGroup, RO> Clone for NIMFSProof<G, RO> {
@@ -106,7 +107,7 @@ where
         let rho_scalar: G::ScalarField =
             unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
 
-        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+        let s: usize = safe_loglike!(shape.num_constraints) as usize;
 
         let gamma: G::ScalarField = random_oracle.squeeze_field_elements(1)[0];
         let beta = random_oracle.squeeze_field_elements(s);
@@ -192,7 +193,7 @@ where
         let rho_scalar: G::ScalarField =
             unsafe { cast_field_element::<G::BaseField, G::ScalarField>(&rho) };
 
-        let s: usize = ((shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1) as usize;
+        let s: usize = safe_loglike!(shape.num_constraints) as usize;
 
         let gamma: G::ScalarField = random_oracle.squeeze_field_elements(1)[0];
         let beta = random_oracle.squeeze_field_elements(s);
@@ -262,13 +263,13 @@ pub(crate) mod tests {
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
         r1cs::tests::to_field_elements,
         test_utils::setup_test_ccs,
+        zeromorph::Zeromorph,
     };
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::{
         short_weierstrass::{Projective, SWCurveConfig},
         AdditiveGroup,
     };
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
     use ark_test_curves::bls12_381::{g1::Config as G, Bls12_381 as E};
 
@@ -298,7 +299,7 @@ pub(crate) mod tests {
 
         let commitment_W = W1.commit::<C>(&ck);
 
-        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_loglike!(shape.num_constraints);
         let rs: Vec<G::ScalarField> = (0..s).map(|_| G::ScalarField::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W1.W.as_slice()].concat();
@@ -319,7 +320,7 @@ pub(crate) mod tests {
         let vk = G::ScalarField::ZERO;
         let mut random_oracle = PoseidonSponge::new(&config);
 
-        let (proof, (folded_U, folded_W), rho) =
+        let (proof, (folded_U, folded_W), _rho) =
             NIMFSProof::<Projective<G>, PoseidonSponge<G::ScalarField>>::prove_as_subprotocol(
                 &mut random_oracle,
                 &vk,
@@ -329,7 +330,7 @@ pub(crate) mod tests {
             )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (v_folded_U, rho) =
+        let (v_folded_U, _rho) =
             proof.verify_as_subprotocol(&mut random_oracle, &vk, &shape, &U1, &U2)?;
         assert_eq!(folded_U, v_folded_U);
 
@@ -341,7 +342,7 @@ pub(crate) mod tests {
         let (_, U2, W2, _) = setup_test_ccs(5, Some(&ck), Some(&mut rng));
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (proof, (folded_U, folded_W), rho) = NIMFSProof::prove_as_subprotocol(
+        let (proof, (folded_U, folded_W), _rho) = NIMFSProof::prove_as_subprotocol(
             &mut random_oracle,
             &vk,
             &shape,
@@ -350,7 +351,7 @@ pub(crate) mod tests {
         )?;
 
         let mut random_oracle = PoseidonSponge::new(&config);
-        let (v_folded_U, rho) =
+        let (v_folded_U, _rho) =
             proof.verify_as_subprotocol(&mut random_oracle, &vk, &shape, &U1, &U2)?;
         assert_eq!(folded_U, v_folded_U);
 

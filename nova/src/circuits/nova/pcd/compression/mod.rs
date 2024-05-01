@@ -302,7 +302,7 @@ mod tests {
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::PrimeField;
     use ark_grumpkin::{GrumpkinConfig, Projective as GrumpkinProjective};
-    use ark_spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
+    use ark_spartan::polycommitments::PolyCommitmentScheme;
     use ark_std::{fs::File, test_rng, One};
     use zstd::stream::Encoder;
 
@@ -313,6 +313,7 @@ mod tests {
         nova::pcd::{compression::SNARK, PCDNode, PublicParams},
         pedersen::PedersenCommitment,
         poseidon_config,
+        zeromorph::Zeromorph,
     };
 
     fn test_setup_helper<G1, G2, PC, C2>() -> (

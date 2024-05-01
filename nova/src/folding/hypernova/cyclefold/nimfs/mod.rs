@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
@@ -26,7 +24,23 @@ pub struct NIMFSProof<
 > {
     pub(crate) commitment_W_proof: secondary::Proof<G2, C2>,
     pub(crate) hypernova_proof: HNProof<Projective<G1>, RO>,
-    _poly_commitment: PhantomData<C1::Commitment>,
+    pub(crate) _poly_commitment: PhantomData<C1::Commitment>,
+}
+
+impl<G1, G2, C1, C2, RO> Clone for NIMFSProof<G1, G2, C1, C2, RO>
+where
+    G1: SWCurveConfig,
+    G2: SWCurveConfig,
+    C1: PolyCommitmentScheme<Projective<G1>>,
+    C2: CommitmentScheme<Projective<G2>>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            commitment_W_proof: self.commitment_W_proof.clone(),
+            hypernova_proof: self.hypernova_proof.clone(),
+            _poly_commitment: self._poly_commitment,
+        }
+    }
 }
 
 impl<G1, G2, C1, C2, RO> NIMFSProof<G1, G2, C1, C2, RO>
@@ -182,12 +196,13 @@ mod tests {
         ccs::{mle::vec_to_mle, CCSWitness, LCCSInstance},
         pedersen::PedersenCommitment,
         r1cs::tests::to_field_elements,
+        safe_loglike,
         test_utils::setup_test_ccs,
+        zeromorph::Zeromorph,
     };
     use ark_crypto_primitives::sponge::poseidon::PoseidonSponge;
     use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
     use ark_ff::Field;
-    use ark_spartan::polycommitments::zeromorph::Zeromorph;
     use ark_std::{test_rng, UniformRand};
     use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
@@ -232,7 +247,7 @@ mod tests {
 
         let commitment_W = W.commit::<C1>(&ck);
 
-        let s = (shape.num_constraints - 1).checked_ilog2().unwrap_or(0) + 1;
+        let s = safe_loglike!(shape.num_constraints);
         let rs: Vec<G1::ScalarField> = (0..s).map(|_| G1::ScalarField::rand(&mut rng)).collect();
 
         let z = [X.as_slice(), W.W.as_slice()].concat();
