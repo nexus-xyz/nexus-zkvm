@@ -8,3 +8,6 @@ Cargo.lock
 
 # public parameter files
 *.zst
+
+# proof file
+nexus-proof
