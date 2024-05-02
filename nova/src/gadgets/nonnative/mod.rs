@@ -35,6 +35,7 @@ where
     /// The mode of allocation is decided by `mode`.
     ///
     /// This should not create any constraints.
+    #[allow(dead_code)]
     fn new_variable_unconstrained<T: Borrow<V>>(
         cs: impl Into<Namespace<F>>,
         f: impl FnOnce() -> Result<T, SynthesisError>,
