@@ -8,6 +8,7 @@ pub trait ProofTranscript<G: CurveGroup> {
   fn append_scalar(&mut self, label: &'static [u8], scalar: &G::ScalarField);
   fn append_scalars(&mut self, label: &'static [u8], scalars: &[G::ScalarField]);
   fn append_point(&mut self, label: &'static [u8], point: &G);
+  #[allow(dead_code)]
   fn append_points(&mut self, label: &'static [u8], points: &[G]);
   fn challenge_scalar(&mut self, label: &'static [u8]) -> G::ScalarField;
   fn challenge_vector(&mut self, label: &'static [u8], len: usize) -> Vec<G::ScalarField>;
