@@ -49,10 +49,10 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
         )
     )?;
 
-    // .cargo/config
+    // .cargo/config.toml
     let config_path = path.join(".cargo");
     fs::create_dir_all(&config_path)?;
-    fs::write(config_path.join("config"), TEMPLATE_CARGO_CONFIG)?;
+    fs::write(config_path.join("config.toml"), TEMPLATE_CARGO_CONFIG)?;
 
     // src/main.rs
     fs::write(path.join("src/main.rs"), TEMPLATE_SRC_MAIN)?;
@@ -66,5 +66,5 @@ macro_rules! examples_dir {
     };
 }
 
-const TEMPLATE_CARGO_CONFIG: &str = include_str!(concat!(examples_dir!(), "/.cargo/config"));
+const TEMPLATE_CARGO_CONFIG: &str = include_str!(concat!(examples_dir!(), "/.cargo/config.toml"));
 const TEMPLATE_SRC_MAIN: &str = include_str!(concat!(examples_dir!(), "/src/main.rs"));
