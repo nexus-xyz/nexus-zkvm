@@ -45,9 +45,11 @@ pub fn setup_logger() -> tracing::subscriber::DefaultGuard {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
-                .with_timer(tracing_subscriber::fmt::time::ChronoLocal::rfc_3339())
+                // .with_timer(tracing_subscriber::fmt::time::ChronoLocal::rfc_3339())
+                .without_time()
                 .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
-                .pretty()
+                // .pretty()
+                .compact()
                 .with_file(false)
                 .with_line_number(false),
         )

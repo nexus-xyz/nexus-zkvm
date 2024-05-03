@@ -42,6 +42,8 @@ impl Syscalls {
         let inp1 = regs[11]; // a1 = x11
         let inp2 = regs[12]; // a2 = x12
 
+        tracing::trace!(pc, num, inp1, inp2);
+
         let mut out = 0x0;
 
         if num == 1 {
