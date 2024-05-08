@@ -1,0 +1,19 @@
+[package]
+name = "nexus-riscv-circuit"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+clap.workspace = true
+
+ark-ff.workspace = true
+ark-std.workspace = true
+ark-bn254.workspace = true
+
+nexus-riscv = { path = "../riscv" }
