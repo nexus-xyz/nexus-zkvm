@@ -4,8 +4,8 @@ use std::collections::VecDeque;
 use std::io::Write;
 
 use crate::{
-    error::{NexusVMError::UnknownSyscall, Result},
-    instructions::Width,
+    error::{NexusVMError::UnknownECall, Result},
+    rv32::LOP,
     memory::Memory,
 };
 
@@ -48,7 +48,7 @@ impl Syscalls {
             // write_log
             let mut stdout = std::io::stdout();
             for addr in inp1..inp1 + inp2 {
-                let b = memory.load(Width::BU, addr)?.0;
+                let b = memory.load(LOP::LBU, addr)?.0;
                 stdout.write_all(&[b as u8])?;
             }
             let _ = stdout.flush();
@@ -59,7 +59,7 @@ impl Syscalls {
                 None => out = u32::MAX,
             }
         } else {
-            return Err(UnknownSyscall(pc, num));
+            return Err(UnknownECall(pc, num));
         }
 
         Ok(out)

@@ -7,7 +7,7 @@ use ark_ff::PrimeField;
 
 use crate::error::*;
 use crate::rv32::*;
-use VMError::Misaligned;
+use NexusVMError::Misaligned;
 
 /// A CacheLine represents the smallest unit of memory that can be read
 /// or written. This size if chosen to be a power of two and convenient

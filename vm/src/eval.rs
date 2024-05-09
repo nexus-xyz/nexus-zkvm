@@ -1,15 +1,13 @@
 //! A Virtual Machine for RISC-V
 
-use nexus_vm::{
-    instructions::Width,
+use crate::{
+    rv32::{parse::*, *},
+    error::*,
     memory::{paged::Paged, Memory},
     syscalls::Syscalls,
 };
 
 use std::collections::HashSet;
-
-use crate::error::*;
-use crate::rv32::{parse::*, *};
 
 /// virtual machine state
 #[derive(Default)]
@@ -67,7 +65,7 @@ impl VM {
     pub fn init_memory(&mut self, addr: u32, bytes: &[u8]) -> Result<()> {
         // slow, but simple
         for (i, b) in bytes.iter().enumerate() {
-            self.mem.store(Width::B, addr + (i as u32), *b as u32)?;
+            self.mem.store(SOP::SB, addr + (i as u32), *b as u32)?;
         }
         Ok(())
     }
@@ -110,7 +108,7 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut VM) -> Result<()> {
-    let slice = vm.mem.load(Width::W, vm.regs.pc)?.0.to_le_bytes();
+    let slice = vm.mem.load(LOP::LW, vm.regs.pc)?.0.to_le_bytes();
     vm.inst = parse_inst(vm.regs.pc, &slice)?;
 
     // initialize micro-architecture state
@@ -153,24 +151,14 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
             RD = rd;
 
             let addr = add32(X, imm);
-            match lop {
-                LB => vm.Z = vm.mem.load(Width::B, addr)?.0,
-                LH => vm.Z = vm.mem.load(Width::H, addr)?.0,
-                LW => vm.Z = vm.mem.load(Width::W, addr)?.0,
-                LBU => vm.Z = vm.mem.load(Width::BU, addr)?.0,
-                LHU => vm.Z = vm.mem.load(Width::HU, addr)?.0,
-            }
+            vm.mem.load(lop, addr)?.0;
         }
         STORE { sop, rs1, rs2, imm } => {
             let X = vm.get_reg(rs1);
             let Y = vm.get_reg(rs2);
 
             let addr = add32(X, imm);
-            match sop {
-                SB => vm.mem.store(Width::B, addr, Y)?,
-                SH => vm.mem.store(Width::H, addr, Y)?,
-                SW => vm.mem.store(Width::W, addr, Y)?,
-            };
+            vm.mem.store(sop, addr, Y);
         }
         ALUI { aop, rd, rs1, imm } => {
             RD = rd;

@@ -12,6 +12,7 @@ categories = { workspace = true }
 [dependencies]
 clap.workspace = true
 elf.workspace = true
+serde.workspace = true
 thiserror = "1.0"
 num-traits = "0.2"
 num-derive = "0.4"

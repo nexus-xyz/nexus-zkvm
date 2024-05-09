@@ -128,7 +128,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
         if let Some(vm) = machines::lookup_test_machine(m) {
             Ok(vm)
         } else {
-            Err(VMError::UnknownMachine(m.clone()))
+            Err(NexusVMError::UnknownMachine(m.clone()))
         }
     } else {
         load_elf(opts.file.as_ref().unwrap())

@@ -2,7 +2,7 @@ use thiserror::Error;
 
 /// Errors related to VM initialization and execution
 #[derive(Debug, Error)]
-pub enum VMError {
+pub enum NexusVMError {
     /// not enough bytes available to complete instruction parse
     #[error("partial instruction at pc:{0:x}")]
     PartialInstruction(u32),
