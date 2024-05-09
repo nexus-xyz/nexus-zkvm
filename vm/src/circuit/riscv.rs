@@ -1303,9 +1303,9 @@ fn misc(cs: &mut R1CS) {
 
 #[cfg(test)]
 mod test {
-    use nexus_riscv::vm::memory::cacheline::CacheLine;
-    use nexus_riscv::vm::eval::Regs;
-    use nexus_riscv::rv32::parse::*;
+    use crate::memory::cacheline::CacheLine;
+    use crate::eval::Regs;
+    use crate::rv32::parse::*;
     use super::*;
 
     #[test]

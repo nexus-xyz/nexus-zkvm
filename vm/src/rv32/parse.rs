@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::error::*;
-use VMError::*;
+use NexusVMError::*;
 
 fn bits(val: u32, start: u32, end: u32) -> u32 {
     debug_assert!(start <= end);
