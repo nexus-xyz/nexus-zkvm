@@ -1,9 +1,9 @@
 //! A Virtual Machine for RISC-V
 
 use crate::{
-    rv32::{parse::*, *},
     error::*,
     memory::{paged::Paged, Memory},
+    rv32::{parse::*, *},
     syscalls::Syscalls,
 };
 
@@ -30,7 +30,6 @@ pub struct NexusVM<M: Memory> {
     pub read_proof: Option<M::Proof>,
     /// Memory proof for store instructions.
     pub write_proof: Option<M::Proof>,
-
 }
 
 /// ISA defined registers
@@ -75,6 +74,53 @@ impl NexusVM {
             self.mem.store(SOP::SB, addr + (i as u32), *b as u32)?;
         }
         Ok(())
+    }
+}
+
+// A simple, stable peephole optimizer for local constant propagation.
+//
+// Introduced for old 32-bit -> 64-bit translation, currently unused.
+#[allow(dead_code)]
+fn peephole(insn: &mut [Inst]) {
+    for i in 0..insn.len() {
+        match const_prop(&insn[i..]) {
+            None => (),
+            Some(v) => {
+                for (j, x) in v.iter().enumerate() {
+                    insn[i + j] = *x;
+                }
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
+    match insn {
+        [Inst {
+            pc: pc1,
+            inst: RV32::AUIPC { rd: rd1, imm: imm1 },
+            ..
+        }, Inst {
+            pc: pc2,
+            inst: RV32::JALR { rd: rd2, rs1, imm: imm2 },
+            ..
+        }, ..]
+            if rd1 == rs1 =>
+        {
+            let target = add32(add32(*pc1, *imm1), *imm2);
+            Some(vec![Inst { *pc1,
+                              len: 4,
+                              word: 0,
+                              RV32::ALUI { aop: AOP::ADD, rd: 0, rs1: 0, imm: 0 },
+                      }, Inst { *pc2,
+                                 len: 4,
+                                 word: 0,
+                                 RV32::JALR { *rd2, 0, target }
+                      },
+            ])
+        }
+        _ => None,
     }
 }
 

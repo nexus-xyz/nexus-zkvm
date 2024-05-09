@@ -10,8 +10,8 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
-use ark_ff::{BigInt, Fp, MontConfig};
 use ark_bn254::FrConfig;
+use ark_ff::{BigInt, Fp, MontConfig};
 
 pub use ark_bn254::Fr as F;
 
@@ -396,7 +396,11 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
         if i == n - 1 {
             cs.muli(&format!("r{}", i), &format!("x-{i}"), ONE);
         } else {
-            cs.mul(&format!("r{}", i), &format!("x-{i}"), &format!("r{}", i + 1));
+            cs.mul(
+                &format!("r{}", i),
+                &format!("x-{i}"),
+                &format!("r{}", i + 1),
+            );
         }
 
         // set cx_i variables
@@ -405,11 +409,19 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
         } else if i == (n - 1) {
             cs.muli(&format!("cx{}", i), &format!("l{}", i - 1), ONE);
         } else {
-            cs.mul(&format!("cx{}", i), &format!("l{}", i - 1), &format!("r{}", i + 1));
+            cs.mul(
+                &format!("cx{}", i),
+                &format!("l{}", i - 1),
+                &format!("r{}", i + 1),
+            );
         }
 
         // set x=i variables
-        cs.muli(&format!("{name}={}", set[i]), &format!("cx{i}"), ONE / C(set[i]));
+        cs.muli(
+            &format!("{name}={}", set[i]),
+            &format!("cx{i}"),
+            ONE / C(set[i]),
+        );
     }
 
     cs.seal();
@@ -458,7 +470,11 @@ pub fn load_array(cs: &mut R1CS, input: &str, output: &str, arr: &str, size: u32
     // build constraints
     // rsx_i = rs_i=i * x_i
     for i in 0..size {
-        cs.mul(&format!("rsx{i}"), &format!("{input}={i}"), &format!("{arr}{i}"));
+        cs.mul(
+            &format!("rsx{i}"),
+            &format!("{input}={i}"),
+            &format!("{arr}{i}"),
+        );
     }
 
     // output = sum_i(rsx_i)

@@ -70,15 +70,15 @@ pub trait Memory: Default {
         Ok(())
     }
 
-        /// perform load according to `lop`
-    fn load(&self, lop: LOP, addr: u32) -> Result<(u32, Option<Path>)> {
-        let (cl, path) = self.trie.query(addr);
+    /// perform load according to `lop`
+    fn load(&self, lop: LOP, addr: u32) -> Result<Self::Proof> {
+        let (cl, path) = self.query(addr);
         Ok((cl.load(lop, addr)?, path))
     }
 
     /// perform store according to `sop`
-    fn store(&mut self, sop: SOP, addr: u32, val: u32) -> Result<Option<Path>> {
-        self.trie.update(addr, |cl| cl.store(sop, addr, val))
+    fn store(&mut self, sop: SOP, addr: u32, val: u32) -> Result<Self::Proof> {
+        self.update(addr, |cl| cl.store(sop, addr, val))
     }
 }
 

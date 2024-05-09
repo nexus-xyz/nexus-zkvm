@@ -3,8 +3,8 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::identity_op)]
 
-use crate::{Regs, NexusVM};
 use super::{instructions::Width, memory::Memory};
+use crate::{NexusVM, Regs};
 
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]

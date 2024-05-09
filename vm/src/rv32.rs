@@ -156,9 +156,17 @@ impl RV32 {
 
     pub const fn instruction_set(&self) -> InstructionSet {
         match self {
-            LUI { .. } | AUIPC { .. } | JAL { .. } | JALR { .. } |
-            BR { .. } | LOAD { .. } | STORE { .. } | ALUI { .. } |
-            ALU { .. } | FENCE | UNIMP => InstructionSet::RV32i,
+            LUI { .. }
+            | AUIPC { .. }
+            | JAL { .. }
+            | JALR { .. }
+            | BR { .. }
+            | LOAD { .. }
+            | STORE { .. }
+            | ALUI { .. }
+            | ALU { .. }
+            | FENCE
+            | UNIMP => InstructionSet::RV32i,
             // we overload these instructions
             ECALL | EBREAK => InstructionSet::RV32Nexus,
         }

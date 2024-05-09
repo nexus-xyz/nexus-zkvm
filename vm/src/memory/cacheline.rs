@@ -1,6 +1,6 @@
 //! Memory cache lines
 
-use std::fmt::{Debug, Formatter, Error};
+use std::fmt::{Debug, Error, Formatter};
 
 use ark_bn254::Fr as F;
 use ark_ff::PrimeField;

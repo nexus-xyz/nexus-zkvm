@@ -5,8 +5,8 @@ use std::io::Write;
 
 use crate::{
     error::{NexusVMError::UnknownECall, Result},
-    rv32::LOP,
     memory::Memory,
+    rv32::LOP,
 };
 
 /// Holds information related to syscall implementation.
