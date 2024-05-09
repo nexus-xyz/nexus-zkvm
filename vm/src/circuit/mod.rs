@@ -8,7 +8,7 @@ pub mod riscv;
 use r1cs::*;
 use riscv::*;
 
-use crate::{Result, nop_vm, eval::*, trace::*};
+use crate::{eval::*, nop_vm, trace::*, Result};
 
 pub use crate::trace::Trace;
 

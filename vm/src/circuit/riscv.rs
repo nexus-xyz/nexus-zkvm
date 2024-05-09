@@ -3,9 +3,9 @@
 use ark_ff::{BigInt, PrimeField};
 
 use crate::{
-    memory::{MemoryProof, path::Path},
+    memory::{path::Path, MemoryProof},
+    rv32::{parse::*, *},
     trace::*,
-    rv32::{*, parse::*},
 };
 
 use super::r1cs::*;
@@ -111,10 +111,18 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
     }
 
     // type=I
-    cs.add("type=I", &format!("opcode={OPC_JALR}"), &format!("opcode={OPC_LOAD}"));
+    cs.add(
+        "type=I",
+        &format!("opcode={OPC_JALR}"),
+        &format!("opcode={OPC_LOAD}"),
+    );
 
     // type=U
-    cs.add("type=U", &format!("opcode={OPC_LUI}"), &format!("opcode={OPC_AUIPC}"));
+    cs.add(
+        "type=U",
+        &format!("opcode={OPC_LUI}"),
+        &format!("opcode={OPC_AUIPC}"),
+    );
 
     // type=R
     cs.constraint(|cs, a, b, c| {
@@ -1149,7 +1157,11 @@ fn shift_right(cs: &mut R1CS, output: &str, X: u32, I: u32, arith: bool) {
         // generate final output products
         let j = cs.new_local_var(&format!("SZ{amt}"));
         cs.w[j] = if amt == I { F::from(out) } else { ZERO };
-        cs.mul(&format!("SZ{amt}"), &format!("shamt={amt}"), &format!("out{amt}"));
+        cs.mul(
+            &format!("SZ{amt}"),
+            &format!("shamt={amt}"),
+            &format!("out{amt}"),
+        );
     }
 
     // generate final output
@@ -1192,7 +1204,11 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
         // generate final output products
         let j = cs.new_local_var(&format!("SZ{amt}"));
         cs.w[j] = if amt == I { F::from(out) } else { ZERO };
-        cs.mul(&format!("SZ{amt}"), &format!("shamt={amt}"), &format!("out{amt}"));
+        cs.mul(
+            &format!("SZ{amt}"),
+            &format!("shamt={amt}"),
+            &format!("out{amt}"),
+        );
     }
 
     // generate final output
@@ -1305,10 +1321,10 @@ fn misc(cs: &mut R1CS) {
 
 #[cfg(test)]
 mod test {
-    use crate::memory::cacheline::CacheLine;
-    use crate::eval::Regs;
-    use crate::rv32::parse::*;
     use super::*;
+    use crate::eval::Regs;
+    use crate::memory::cacheline::CacheLine;
+    use crate::rv32::parse::*;
 
     #[test]
     fn test_parse_opc() {
