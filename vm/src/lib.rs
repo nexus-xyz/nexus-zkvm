@@ -6,8 +6,15 @@
 pub mod error;
 pub mod eval;
 pub mod machines;
-pub mod nvm;
 pub mod rv32;
+
+pub mod syscalls;
+pub mod trace;
+
+mod ark_serde;
+pub mod memory;
+
+pub mod circuit;
 
 use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
@@ -24,8 +31,8 @@ pub use machines::{loop_vm, nop_vm};
 // A simple, stable peephole optimizer for local constant propagation.
 //
 // Introduced for old 32-bit -> 64-bit translation, currently unused.
-#[allow(dead_code)]]
-fn peephole(insn: &mut [RVInst]) {
+#[allow(dead_code)]
+fn peephole(insn: &mut [Inst]) {
     for i in 0..insn.len() {
         match const_prop(&insn[i..]) {
             None => (),
@@ -37,6 +44,28 @@ fn peephole(insn: &mut [RVInst]) {
         }
     }
 }
+
+#[allow(dead_code)]
+fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
+    match insn {
+        [Inst {
+            pc: pc1,
+            inst: RV32::AUIPC { rd: rd1, imm: imm1 },
+            ..
+        }, Inst {
+            pc: pc2,
+            inst: RV32::JALR { rd: rd2, rs1, imm: imm2 },
+            ..
+        }, ..]
+            if rd1 == rs1 =>
+        {
+            let target = add32(add32(*pc1, *imm1), *imm2);
+            Some(vec![nop(*pc1), jalr(*pc2, *rd2, 0, target)])
+        }
+        _ => None,
+    }
+}
+
 
 /// Load a VM state from an ELF file
 pub fn load_elf(path: &PathBuf) -> Result<VM> {

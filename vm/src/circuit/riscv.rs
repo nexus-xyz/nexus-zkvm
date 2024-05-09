@@ -1,10 +1,10 @@
-//! Circuits for the RISC-V VM (nexus-riscv)
+//! Generic RISC-V circuits for the Nexus VM (nexus-vm)
 
 use ark_ff::{BigInt, PrimeField};
 
-use nexus_riscv::vm::memory::path::Path;
-use nexus_riscv::vm::trace::*;
-use nexus_riscv::rv32::{*, parse::*};
+use crate::memory::path::Path;
+use crate::trace::*;
+use crate::rv32::{*, parse::*};
 
 use super::r1cs::*;
 
