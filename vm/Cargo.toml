@@ -10,10 +10,9 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-thiserror = "1.0"
+clap.workspace = true
 elf.workspace = true
-serde.workspace = true
-
+thiserror = "1.0"
 num-traits = "0.2"
 num-derive = "0.4"
 
@@ -24,3 +23,5 @@ ark-relations.workspace = true
 ark-serialize.workspace = true
 ark-r1cs-std.workspace = true
 ark-bn254.workspace = true
+
+nexus-vm = { path = "../vm" }
