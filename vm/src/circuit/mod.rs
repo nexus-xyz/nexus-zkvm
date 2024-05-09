@@ -5,10 +5,10 @@
 pub mod r1cs;
 pub mod riscv;
 
-use r1cs::*;
-use riscv::*;
+pub use r1cs::*;
+pub use riscv::*;
 
-use crate::{eval::*, nop_vm, trace::*, Result};
+use crate::{eval::*, nop_vm, trace::*, memory::MemoryProof, Result};
 
 pub use crate::trace::Trace;
 
@@ -22,7 +22,7 @@ pub fn step_circuit() -> Result<R1CS> {
     Ok(cs)
 }
 
-pub fn eval(vm: &mut VM, k: usize, check: bool) -> Result<Trace> {
+pub fn eval<P: MemoryProof>(vm: &mut VM, k: usize, check: bool) -> Result<Trace<P>> {
     let tr = trace(vm, k, false)?;
     if check {
         let mut cs = step_circuit()?;

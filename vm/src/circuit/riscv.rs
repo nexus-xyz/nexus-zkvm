@@ -24,19 +24,19 @@ fn init_cs(w: &Witness<impl MemoryProof>) -> R1CS {
     for i in 0..32 {
         cs.set_var(&format!("x{i}"), w.regs.x[i]);
     }
-    cs.set_field_var("root", w.pc_path.root);
+    cs.set_field_var("root", w.pc_proof.root);
 
     // outputs
     cs.set_var("PC", w.PC);
     for i in 0..32 {
         cs.set_var(&format!("x'{i}"), w.regs.x[i]);
     }
-    cs.set_field_var("ROOT", w.write_path.root);
+    cs.set_field_var("ROOT", w.write_proof.root);
 
     // memory contents
-    add_path(&mut cs, "pc_mem", &w.pc_path);
-    add_path(&mut cs, "read_mem", &w.read_path);
-    add_path(&mut cs, "write_mem", &w.write_path);
+    add_path(&mut cs, "pc_mem", &w.pc_proof);
+    add_path(&mut cs, "read_mem", &w.read_proof);
+    add_path(&mut cs, "write_mem", &w.write_proof);
     cs
 }
 
@@ -1587,7 +1587,7 @@ mod test {
         let values = [1, 2, 3, 4, 5, 6, 7, 8];
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.pc_path.leaf = cl.scalars();
+        vm.pc_proof.leaf = cl.scalars();
 
         for (i, value) in values.iter().enumerate() {
             vm.regs.pc = (i * 4) as u32;
@@ -1605,7 +1605,7 @@ mod test {
         let values = [1, 2, 3, 4, 5, 6, 7, 8];
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.read_path.leaf = cl.scalars();
+        vm.read_proof.leaf = cl.scalars();
 
         for (i, value) in values.iter().enumerate() {
             vm.X = (i * 4) as u32;
@@ -1625,7 +1625,7 @@ mod test {
         let values: [u8; 32] = core::array::from_fn(|i| i as u8);
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.read_path.leaf = cl.scalars();
+        vm.read_proof.leaf = cl.scalars();
 
         for i in values.iter() {
             vm.X = *i as u32;
@@ -1643,7 +1643,7 @@ mod test {
         let values = [0, 0x01028384, 0, 0, 0, 0, 0, 0];
         let cl = CacheLine::from(values);
         let mut vm = Witness::default();
-        vm.read_path.leaf = cl.scalars();
+        vm.read_proof.leaf = cl.scalars();
 
         vm.X = 4;
         let mut cs = init_cs(&vm);

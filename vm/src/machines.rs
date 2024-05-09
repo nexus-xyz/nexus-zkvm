@@ -3,7 +3,7 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::identity_op)]
 
-use super::{instructions::Width, memory::Memory};
+use super::{rv32::SOP, memory::Memory};
 use crate::{NexusVM, Regs};
 
 /// An array of test machines, useful for debugging and developemnt.
@@ -21,7 +21,7 @@ pub const MACHINES: &[(&str, fn() -> Vec<u32>, fn() -> Regs)] = &[
 ];
 
 /// Lookup and initialize a test VM by name
-pub fn lookup_test_machine(name: &str) -> Option<NexusVM> {
+pub fn lookup_test_machine<M: Memory>(name: &str) -> Option<NexusVM<M>> {
     Some(assemble(&lookup_test_code(name)?))
 }
 
@@ -35,16 +35,16 @@ pub fn lookup_test_code(name: &str) -> Option<Vec<u32>> {
     None
 }
 
-fn assemble(words: &[u32]) -> NexusVM {
-    let mut vm = NexusVM::new(0);
+fn assemble<M: Memory>(words: &[u32]) -> NexusVM<M> {
+    let mut vm = NexusVM::<M>::new(0);
     for (i, w) in words.iter().enumerate() {
-        vm.mem.store(Width::W, i as u32 * 4, *w).unwrap();
+        vm.mem.store(SOP::SW, i as u32 * 4, *w).unwrap();
     }
     vm
 }
 
 /// Create a VM with k no-op instructions
-pub fn nop_vm(k: usize) -> NexusVM {
+pub fn nop_vm<M: Memory>(k: usize) -> NexusVM<M> {
     assemble(&nop_code(k))
 }
 
@@ -60,7 +60,7 @@ fn nop_result(k: usize) -> Regs {
 }
 
 /// Create a VM which loops k times
-pub fn loop_vm(k: usize) -> NexusVM {
+pub fn loop_vm<M: Memory>(k: usize) -> NexusVM<M> {
     assemble(&loop_code(k))
 }
 

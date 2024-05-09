@@ -24,18 +24,19 @@ use std::path::PathBuf;
 pub use error::*;
 use eval::*;
 use rv32::*;
+use memory::*;
 
 // don't break API
 pub use machines::{loop_vm, nop_vm};
 
 /// Load a VM state from an ELF file
-pub fn load_elf(path: &PathBuf) -> Result<NexusVM> {
+pub fn load_elf<M: Memory>(path: &PathBuf) -> Result<NexusVM<M>> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
     parse_elf(slice)
 }
 
-pub fn parse_elf(bytes: &[u8]) -> Result<NexusVM> {
+pub fn parse_elf<M: Memory>(bytes: &[u8]) -> Result<NexusVM<M>> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
@@ -45,7 +46,7 @@ pub fn parse_elf(bytes: &[u8]) -> Result<NexusVM> {
         .filter(|phdr| phdr.p_type == PT_LOAD)
         .collect();
 
-    let mut vm = NexusVM::new(file.ehdr.e_entry as u32);
+    let mut vm = NexusVM::<M>::new(file.ehdr.e_entry as u32);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
@@ -84,7 +85,7 @@ fn list_machines() -> String {
 }
 
 /// Load the VM described by `opts`
-pub fn load_vm(opts: &VMOpts) -> Result<VM> {
+pub fn load_vm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
     if let Some(m) = &opts.machine {
         if let Some(vm) = machines::lookup_test_machine(m) {
             Ok(vm)
@@ -97,7 +98,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
 }
 
 /// Evaluate a program starting from a given machine state
-pub fn eval(vm: &mut NexusVM, show: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
     if show {
         println!("\nExecution:");
         println!(

@@ -1,5 +1,5 @@
-//! A sparse trie of `CacheLine` structures which hold the memory of the
-//! machine.
+//! A Trie of `CacheLine` structures which hold the memory of the
+//! machine. The trie can be configured as a Merkle tree dynamically.
 
 use super::cacheline::*;
 use super::path::*;
@@ -7,7 +7,8 @@ use super::Memory;
 use crate::circuit::F;
 use crate::error::*;
 
-/// A sparse Trie of `CacheLines` with merkle hashing.
+/// A sparse Trie of `CacheLines`.
+#[derive(Default)]
 pub struct MerkleTrie {
     // The root node, initially `None`
     root: Option<Box<Node>>,
@@ -16,76 +17,30 @@ pub struct MerkleTrie {
     zeros: Vec<Digest>,
 
     // The hash parameters.
-    params: Params,
+    // If the hash parameters are None, then we will skip computing the hashes,
+    // although other overheads remain to keep the code simple
+    params: Option<Params>,
 }
 
-/// Populated nodes of the trie are represented by `Node`.
 #[derive(Debug)]
 struct Node {
-    // The hash of the node data
     digest: Digest,
-
-    // Contents of the node, either internal or leaf
     data: NodeData,
 }
 
-/// Populated nodes contain one `NodeData` value.
 #[derive(Debug)]
 enum NodeData {
-    // internal nodes, with optionally populated children.
     Branch {
         left: Option<Box<Node>>,
         right: Option<Box<Node>>,
     },
-    // leaf nodes, containing a single `CacheLine`.
     Leaf {
         val: CacheLine,
     },
 }
 use NodeData::*;
 
-// Some (private) convenience methods for projecting out of `NodeData`.
-// These methods are only called from contexts in which the match will
-// succeed, and only serve to make the code more readable.
-
-impl NodeData {
-    #[inline]
-    fn leaf(&self) -> &CacheLine {
-        match self {
-            Leaf { val } => val,
-            _ => unreachable!(),
-        }
-    }
-
-    #[inline]
-    fn leaf_mut(&mut self) -> &mut CacheLine {
-        match self {
-            Leaf { val } => val,
-            _ => unreachable!(),
-        }
-    }
-
-    #[inline]
-    fn left(&self) -> &Option<Box<Node>> {
-        match self {
-            Branch { left, .. } => left,
-            _ => unreachable!(),
-        }
-    }
-
-    #[inline]
-    fn right(&self) -> &Option<Box<Node>> {
-        match self {
-            Branch { right, .. } => right,
-            _ => unreachable!(),
-        }
-    }
-}
-
-// Conveneience methods for constructing internal and leaf nodes.
-
 impl Node {
-    // construct a new leaf node with default data.
     fn new_leaf() -> Self {
         Self {
             digest: Digest::default(),
@@ -93,7 +48,6 @@ impl Node {
         }
     }
 
-    // construct a new internal node with unpopulated children.
     fn new_node() -> Self {
         Self {
             digest: Digest::default(),
@@ -102,12 +56,39 @@ impl Node {
     }
 }
 
-// Conveneience methods for traversing the Trie.
+impl NodeData {
+    fn leaf(&self) -> &CacheLine {
+        match self {
+            Leaf { val } => val,
+            _ => panic!(),
+        }
+    }
+
+    fn leaf_mut(&mut self) -> &mut CacheLine {
+        match self {
+            Leaf { val } => val,
+            _ => panic!(),
+        }
+    }
+
+    fn left(&self) -> &Option<Box<Node>> {
+        match self {
+            Branch { left, .. } => left,
+            _ => panic!(),
+        }
+    }
+
+    fn right(&self) -> &Option<Box<Node>> {
+        match self {
+            Branch { right, .. } => right,
+            _ => panic!(),
+        }
+    }
+}
 
 impl Node {
     // descend into a child, allocating if necessary
     fn descend(&mut self, left: bool, leaf: bool) -> &mut Box<Node> {
-        // descending into a leaf node is an fatal error.
         let Node { data: Branch { left: l, right: r }, .. } = self else {
             panic!()
         };
@@ -122,7 +103,7 @@ impl Node {
         }
         match node {
             Some(ref mut b) => b,
-            None => unreachable!(),
+            None => panic!(),
         }
     }
 
@@ -154,18 +135,28 @@ impl Node {
     }
 }
 
-impl Default for MerkleTrie {
-    fn default() -> Self {
-        let params = poseidon_config();
-        let zeros = compute_zeros(&params).unwrap();
+impl MerkleTrie {
+    pub fn new(hashes: bool) -> Self {
+        let (params, zeros) = if hashes {
+            let params = poseidon_config();
+            let zeros = compute_zeros(&params).unwrap();
+            (Some(params), zeros)
+        } else {
+            (None, Vec::new())
+        };
         Self { root: None, zeros, params }
     }
-}
 
-impl MerkleTrie {
-    // return the current merkle root
-    fn root(&self) -> Digest {
-        self.digest(0, &self.root)
+    // return merkle root if present
+    #[allow(clippy::question_mark)]
+    pub fn root(&self) -> Option<Digest> {
+        if self.params.is_none() {
+            return None;
+        }
+        match &self.root {
+            Some(n) => Some(n.digest),
+            None => Some(self.zeros[0]),
+        }
     }
 
     // return digest of node, or default if not present
@@ -178,15 +169,21 @@ impl MerkleTrie {
 
     /// Query the tree at `addr` returning the `CacheLine` (and `Path` if hashes enabled).
     /// The default CacheLine is returned if the tree is unpopulated at `addr`.
-    pub fn query(&self, addr: u32) -> (&CacheLine, Path) {
-        let addr = addr.reverse_bits() >> IGNORED_BITS;
+    pub fn query(&self, addr: u32) -> (&CacheLine, Option<Path>) {
+        let addr = addr.reverse_bits();
         let mut auth = Vec::new();
-        let cl = self.query_inner(&self.root, &mut auth, 0, addr);
-        let path = Path::new(self.root(), cl.scalars(), auth);
-        (cl, path)
+        let cl = self.query_(&self.root, &mut auth, 0, addr);
+        if self.params.is_some() {
+            (
+                cl,
+                Some(Path::new(self.root().unwrap(), cl.scalars(), auth)),
+            )
+        } else {
+            (cl, None)
+        }
     }
 
-    fn query_inner<'a>(
+    fn query_<'a>(
         &'a self,
         node: &'a Option<Box<Node>>,
         auth: &mut Vec<(bool, Digest)>,
@@ -200,34 +197,37 @@ impl MerkleTrie {
         let level = level + 1;
         let addr = addr >> 1;
         let is_left = (addr & 1) == 0;
-        let cl = self.query_inner(Node::child(node, is_left), auth, level, addr);
+        let cl = self.query_(Node::child(node, is_left), auth, level, addr);
 
-        let sibling = Node::child(node, !is_left);
-        auth.push((is_left, self.digest(level, sibling)));
+        if self.params.is_some() {
+            let sibling = Node::child(node, !is_left);
+            auth.push((is_left, self.digest(level, sibling)));
+        }
         cl
     }
 
-    /// Update `CacheLine` at `addr`.
-    pub fn update<F>(&mut self, addr: u32, f: F) -> Result<Path>
+    /// Update tree at `addr` with new `CacheLine`
+    pub fn update<F>(&mut self, addr: u32, f: F) -> Result<Option<Path>>
     where
         F: Fn(&mut CacheLine) -> Result<()>,
     {
-        let addr = addr.reverse_bits() >> IGNORED_BITS;
+        let addr = addr.reverse_bits();
         let mut auth = Vec::new();
         if self.root.is_none() {
             self.root = Some(Box::new(Node::new_node()));
         }
-        let Some(ref mut b) = self.root else { unreachable!() };
-
-        // Note: root is never accessed through self in update_,
-        // so we can safely make the following optimization
-        let root = b as *mut Box<Node>;
-        let root = unsafe { &mut *root as &mut Box<Node> };
-        let cl = self.update_inner(root, &mut auth, 0, addr, f)?;
-        Ok(Path::new(self.root(), cl, auth))
+        let Some(ref mut b) = self.root else { panic!() };
+        let x = b as *mut Box<Node>;
+        let y = unsafe { &mut *x as &mut Box<Node> };
+        let cl = self.update_(y, &mut auth, 0, addr, f)?;
+        if self.params.is_some() {
+            Ok(Some(Path::new(self.root().unwrap(), cl, auth)))
+        } else {
+            Ok(None)
+        }
     }
 
-    fn update_inner<'a, UF>(
+    fn update_<'a, UF>(
         &'a self,
         node: &'a mut Box<Node>,
         auth: &mut Vec<(bool, Digest)>,
@@ -240,7 +240,9 @@ impl MerkleTrie {
     {
         if level == CACHE_LOG {
             f(node.data.leaf_mut())?;
-            node.digest = hash_memory(&self.params, node.data.leaf())?;
+            if let Some(ref p) = &self.params {
+                node.digest = hash_memory(p, node.data.leaf())?;
+            }
             return Ok(node.data.leaf().scalars());
         }
 
@@ -248,36 +250,23 @@ impl MerkleTrie {
         let addr = addr >> 1;
         let is_left = (addr & 1) == 0;
         let b = node.descend(is_left, level == CACHE_LOG);
-        let cl = self.update_inner(b, auth, level, addr, f)?;
+        let cl = self.update_(b, auth, level, addr, f)?;
 
-        let sibling = Node::sibling(node, is_left);
-        auth.push((is_left, self.digest(level, sibling)));
-        let lh = self.digest(level, node.data.left());
-        let rh = self.digest(level, node.data.right());
-        node.digest = compress(&self.params, &lh, &rh)?;
+        if let Some(ref p) = &self.params {
+            let sibling = Node::sibling(node, is_left);
+            auth.push((is_left, self.digest(level, sibling)));
+            let lh = self.digest(level, node.data.left());
+            let rh = self.digest(level, node.data.right());
+            node.digest = compress(p, &lh, &rh)?;
+        }
         Ok(cl)
-    }
-}
-
-impl Memory for MerkleTrie {
-    type Proof = Path;
-
-    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
-        self.query(addr)
-    }
-
-    fn update<F>(&mut self, addr: u32, f: F) -> Result<Self::Proof>
-    where
-        F: Fn(&mut CacheLine) -> Result<()>,
-    {
-        self.update(addr, f)
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::path::test::*;
     use super::*;
+    use super::super::path::test::*;
 
     #[test]
     #[should_panic]
@@ -305,27 +294,30 @@ mod test {
 
     #[test]
     fn trie_query_empty() {
-        let zeros = &CacheLine::default();
-        let mt = MerkleTrie::default();
-        let params = &mt.params;
+        let zeros = (&CacheLine::default(), None);
+        let mt = MerkleTrie::new(false);
+        assert_eq!(zeros, mt.query(0));
+
+        let mt = MerkleTrie::new(true);
+        let Some(params) = &mt.params else { panic!() };
         let x = mt.query(0);
-        let path = x.1;
-        assert_eq!(zeros, x.0);
+        let path = x.1.unwrap();
+        assert_eq!(zeros.0, x.0);
         assert!(path.verify(params).unwrap());
     }
 
     #[test]
     fn trie_empty_circuit() {
-        let mt = MerkleTrie::default();
+        let mt = MerkleTrie::new(true);
         let x = mt.query(0);
-        let path = x.1;
+        let path = x.1.unwrap();
 
         verify_circuit_sat(&path);
     }
 
     #[test]
     fn trie_update() {
-        let mut mt = MerkleTrie::default();
+        let mut mt = MerkleTrie::new(false);
         let _ = mt.update(0, |cl| cl.sw(0, 1)).unwrap();
 
         let cl = CacheLine::from([1u32, 0, 0, 0, 0, 0, 0, 0]);
@@ -335,8 +327,8 @@ mod test {
 
     #[test]
     fn trie_update_path() {
-        let mut mt = MerkleTrie::default();
-        let path = mt.update(0, |cl| cl.sw(0, 1)).unwrap();
+        let mut mt = MerkleTrie::new(true);
+        let path = mt.update(0, |cl| cl.sw(0, 1)).unwrap().unwrap();
 
         let cl = CacheLine::from([1u32, 0, 0, 0, 0, 0, 0, 0]);
         let leaf = cl.scalars();
@@ -345,8 +337,8 @@ mod test {
         let x = mt.query(0);
         assert_eq!(cl, *x.0);
 
-        let params = &mt.params;
-        let root = mt.root();
+        let Some(params) = &mt.params else { panic!() };
+        let Some(root) = mt.root() else { panic!() };
         assert_eq!(root, path.root);
         assert!(path.verify(params).unwrap());
 
