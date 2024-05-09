@@ -68,13 +68,13 @@ fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
 
 
 /// Load a VM state from an ELF file
-pub fn load_elf(path: &PathBuf) -> Result<VM> {
+pub fn load_elf(path: &PathBuf) -> Result<NexusVM> {
     let file_data = read(path)?;
     let slice = file_data.as_slice();
     parse_elf(slice)
 }
 
-pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
+pub fn parse_elf(bytes: &[u8]) -> Result<NexusVM> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
 
     let load_phdrs: Vec<ProgramHeader> = file
@@ -84,7 +84,7 @@ pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
         .filter(|phdr| phdr.p_type == PT_LOAD)
         .collect();
 
-    let mut vm = VM::new(file.ehdr.e_entry as u32);
+    let mut vm = NexusVM::new(file.ehdr.e_entry as u32);
 
     for p in &load_phdrs {
         let s = p.p_offset as usize;
@@ -136,7 +136,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
 }
 
 /// Evaluate a program starting from a given machine state
-pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM, show: bool) -> Result<()> {
     if show {
         println!("\nExecution:");
         println!(

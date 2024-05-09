@@ -11,19 +11,26 @@ use std::collections::HashSet;
 
 /// virtual machine state
 #[derive(Default)]
-pub struct VM {
+pub struct NexusVM<M: Memory> {
     /// ISA registers
     pub regs: Regs,
     /// Syscall implementation
     pub syscalls: Syscalls,
-    /// machine memory
-    pub mem: Paged,
     /// current instruction
     pub inst: Inst,
     /// internal result register
     pub Z: u32,
     /// used instruction sets
     pub instruction_sets: HashSet<InstructionSet>,
+    /// Machine memory.
+    pub memory: M,
+    /// Memory proof for current instruction at pc
+    pub pc_proof: M::Proof,
+    /// Memory proof for load/store instructions.
+    pub read_proof: Option<M::Proof>,
+    /// Memory proof for store instructions.
+    pub write_proof: Option<M::Proof>,
+
 }
 
 /// ISA defined registers
@@ -35,7 +42,7 @@ pub struct Regs {
     pub x: [u32; 32],
 }
 
-impl VM {
+impl NexusVM {
     pub fn new(pc: u32) -> Self {
         let mut vm = Self::default();
 

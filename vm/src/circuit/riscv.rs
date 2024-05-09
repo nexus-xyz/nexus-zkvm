@@ -2,9 +2,11 @@
 
 use ark_ff::{BigInt, PrimeField};
 
-use crate::memory::path::Path;
-use crate::trace::*;
-use crate::rv32::{*, parse::*};
+use crate::{
+    memory::{MemoryProof, path::Path},
+    trace::*,
+    rv32::{*, parse::*},
+};
 
 use super::r1cs::*;
 
@@ -13,7 +15,7 @@ use super::r1cs::*;
 
 #[allow(clippy::field_reassign_with_default)]
 #[allow(clippy::needless_range_loop)]
-fn init_cs(w: &Witness) -> R1CS {
+fn init_cs(w: &Witness<impl MemoryProof>) -> R1CS {
     let mut cs = R1CS::default();
     cs.arity = 34;
 
@@ -476,7 +478,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.seal();
 }
 
-pub fn big_step(vm: &Witness, witness_only: bool) -> R1CS {
+pub fn big_step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     let mut cs = init_cs(vm);
     cs.witness_only = witness_only;
 
@@ -601,35 +603,35 @@ fn add_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
     cs.seal();
 }
 
-fn lui(cs: &mut R1CS, vm: &Witness) {
+fn lui(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u32 = (LUI { rd: 0, imm: 0 }).index_j();
 
     cs.set_var(&format!("Z{J}"), vm.I);
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
-fn auipc(cs: &mut R1CS, _vm: &Witness) {
+fn auipc(cs: &mut R1CS, _vm: &Witness<impl MemoryProof>) {
     const J: u32 = (AUIPC { rd: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+I");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
-fn jal(cs: &mut R1CS, _vm: &Witness) {
+fn jal(cs: &mut R1CS, _vm: &Witness<impl MemoryProof>) {
     const J: u32 = (JAL { rd: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "pc+I");
 }
 
-fn jalr(cs: &mut R1CS, _vm: &Witness) {
+fn jalr(cs: &mut R1CS, _vm: &Witness<impl MemoryProof>) {
     const J: u32 = (JALR { rd: 0, rs1: 0, imm: 0 }).index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "X+I");
 }
 
-fn alu(cs: &mut R1CS, vm: &Witness) {
+fn alu(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     add(cs, vm);
     addi(cs, vm);
 
@@ -649,14 +651,14 @@ fn alu(cs: &mut R1CS, vm: &Witness) {
     }
 }
 
-fn add(cs: &mut R1CS, vm: &Witness) {
+fn add(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u32 = (ALU { aop: ADD, rd: 0, rs1: 0, rs2: 0 }).index_j();
 
     add_cir(cs, "X+Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X+Y");
 }
 
-fn addi(cs: &mut R1CS, vm: &Witness) {
+fn addi(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u32 = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
 
     add_cir(cs, "X+I", "X", "I", vm.X, vm.I);
@@ -787,14 +789,14 @@ fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
     cs.seal();
 }
 
-fn sub(cs: &mut R1CS, vm: &Witness) {
+fn sub(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u32 = (ALU { aop: SUB, rd: 0, rs1: 0, rs2: 0 }).index_j();
 
     sub_cir(cs, "X-Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X-Y");
 }
 
-fn subi(cs: &mut R1CS, vm: &Witness) {
+fn subi(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     const J: u32 = (ALUI { aop: SUB, rd: 0, rs1: 0, imm: 0 }).index_j();
 
     sub_cir(cs, "X-I", "X", "I", vm.X, vm.I);
@@ -1046,7 +1048,7 @@ fn sx16(cs: &mut R1CS, output: &str, input: &str) {
     });
 }
 
-fn load(cs: &mut R1CS, vm: &Witness) {
+fn load(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let addr = vm.X.overflowing_add(vm.I).0;
     cs.to_bits("X+I", addr);
     load_select(cs, "X+I", "read_mem", addr, false);
@@ -1072,7 +1074,7 @@ fn load(cs: &mut R1CS, vm: &Witness) {
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
 
-fn store(cs: &mut R1CS, vm: &Witness) {
+fn store(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let addr = vm.X.overflowing_add(vm.I).0;
     load_select(cs, "X+I", "write_mem", addr, false);
 
@@ -1206,7 +1208,7 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
     cs.seal();
 }
 
-fn shift(cs: &mut R1CS, vm: &Witness) {
+fn shift(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     selector(cs, "shamt", 32, vm.shamt);
 
     let J = (ALUI { aop: SLL, rd: 0, rs1: 0, imm: 0 }).index_j();
@@ -1246,7 +1248,7 @@ fn bitop(cs: &mut R1CS, output: &str, y_name: &str, z: u32, adj: F) {
     }
 }
 
-fn bitops(cs: &mut R1CS, vm: &Witness) {
+fn bitops(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     fn bit(x: u32, bit: u32) -> bool {
         ((x >> bit) & 1) != 0
     }

@@ -23,7 +23,7 @@ pub enum NexusVMError {
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
-    /// Unknown test machine
+    /// Unknown (test) machine
     #[error("unknown machine {0}")]
     UnknownMachine(String),
 
@@ -35,10 +35,14 @@ pub enum NexusVMError {
     #[error("ELF format not supported: {0}")]
     ELFFormat(&'static str),
 
-    /// Nexus VM Error
-    #[error(transparent)]
-    NVMError(#[from] nexus_vm::error::NexusVMError),
+    /// Invalid memory alignment
+    #[error("misaligned memory access {0:x}")]
+    Misaligned(u32),
+
+    /// An error occured while hashing
+    #[error("error hashing {0}")]
+    HashError(String),
 }
 
 /// Result type for VM functions that can produce errors
-pub type Result<T, E = VMError> = std::result::Result<T, E>;
+pub type Result<T, E = NexusVMError> = std::result::Result<T, E>;
