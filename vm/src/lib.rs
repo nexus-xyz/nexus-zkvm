@@ -24,6 +24,7 @@ use std::path::PathBuf;
 pub use error::*;
 use eval::*;
 use rv32::*;
+use memory::*;
 
 // don't break API
 pub use machines::{loop_vm, nop_vm};
@@ -93,7 +94,7 @@ fn list_machines() -> String {
 }
 
 /// Load the VM described by `opts`
-pub fn load_vm(opts: &VMOpts) -> Result<VM> {
+pub fn load_vm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
     if let Some(m) = &opts.machine {
         if let Some(vm) = machines::lookup_test_machine(m) {
             Ok(vm)
@@ -106,7 +107,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
 }
 
 /// Evaluate a program starting from a given machine state
-pub fn eval(vm: &mut NexusVM, show: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
     if show {
         println!("\nExecution:");
         println!(

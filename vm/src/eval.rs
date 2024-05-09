@@ -23,7 +23,7 @@ pub struct NexusVM<M: Memory> {
     /// used instruction sets
     pub instruction_sets: HashSet<InstructionSet>,
     /// Machine memory.
-    pub memory: M,
+    pub mem: M,
     /// Memory proof for current instruction at pc
     pub pc_proof: M::Proof,
     /// Memory proof for load/store instructions.
@@ -41,7 +41,7 @@ pub struct Regs {
     pub x: [u32; 32],
 }
 
-impl NexusVM {
+impl<M: Memory> NexusVM<M> {
     pub fn new(pc: u32) -> Self {
         let mut vm = Self::default();
 
@@ -109,15 +109,17 @@ fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
             if rd1 == rs1 =>
         {
             let target = add32(add32(*pc1, *imm1), *imm2);
-            Some(vec![Inst { *pc1,
-                              len: 4,
-                              word: 0,
-                              RV32::ALUI { aop: AOP::ADD, rd: 0, rs1: 0, imm: 0 },
-                      }, Inst { *pc2,
-                                 len: 4,
-                                 word: 0,
-                                 RV32::JALR { *rd2, 0, target }
-                      },
+            Some(vec![
+                Inst { pc: *pc1,
+                       len: 4,
+                       word: 0,
+                       inst: RV32::ALUI { aop: AOP::ADD, rd: 0, rs1: 0, imm: 0 },
+                },
+                Inst { pc: *pc2,
+                       len: 4,
+                       word: 0,
+                       inst: RV32::JALR { rd: *rd2, rs1: 0, imm: target },
+                }
             ])
         }
         _ => None,
@@ -160,7 +162,7 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 }
 
 /// evaluate next instruction
-pub fn eval_inst(vm: &mut VM) -> Result<()> {
+pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
     let slice = vm.mem.load(LOP::LW, vm.regs.pc)?.0.to_le_bytes();
     vm.inst = parse_inst(vm.regs.pc, &slice)?;
 
