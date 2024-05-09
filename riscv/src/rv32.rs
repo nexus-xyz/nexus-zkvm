@@ -51,6 +51,12 @@ pub enum AOP {
 }
 pub use AOP::*;
 
+#[derive(Eq, Hash, PartialEq)]
+pub enum InstructionSet {
+    RV32i,
+    RV32Nexus,
+}
+
 /// RV32 instructions
 #[rustfmt::skip]
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
@@ -97,6 +103,16 @@ pub struct Inst {
 impl RV32 {
     /// maximum J value
     pub const MAX_J: u32 = 42;
+
+    pub const fn instruction_set(&self) -> InstructionSet {
+        match self {
+            LUI { .. } | AUIPC { .. } | JAL { .. } | JALR { .. } |
+            BR { .. } | LOAD { .. } | STORE { .. } | ALUI { .. } |
+            ALU { .. } | FENCE | UNIMP => InstructionSet::RV32i,
+            // we overload these instructions
+            ECALL | EBREAK => InstructionSet::RV32Nexus,
+        }
+    }
 
     /// return the J index for instruction
     pub const fn index_j(&self) -> u32 {

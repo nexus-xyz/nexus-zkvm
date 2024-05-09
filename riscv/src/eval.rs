@@ -6,6 +6,8 @@ use nexus_vm::{
     syscalls::Syscalls,
 };
 
+use std::collections::HashSet;
+
 use crate::error::*;
 use crate::rv32::{parse::*, *};
 
@@ -22,6 +24,8 @@ pub struct VM {
     pub inst: Inst,
     /// internal result register
     pub Z: u32,
+    /// used instruction sets
+    pub instruction_sets: HashSet<InstructionSet>,
 }
 
 /// ISA defined registers
@@ -36,7 +40,10 @@ pub struct Regs {
 impl VM {
     pub fn new(pc: u32) -> Self {
         let mut vm = Self::default();
+
         vm.regs.pc = pc;
+        vm.instruction_sets = HashSet::new();
+
         vm
     }
 
@@ -110,6 +117,8 @@ pub fn eval_inst(vm: &mut VM) -> Result<()> {
     vm.Z = 0;
     let mut RD = 0u32;
     let mut PC = 0;
+
+    vm.instruction_sets.insert(vm.inst.inst.instruction_set());
 
     match vm.inst.inst {
         LUI { rd, imm } => {
