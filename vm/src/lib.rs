@@ -74,7 +74,6 @@ pub fn load_elf<M: Memory>(path: &PathBuf) -> Result<NexusVM<M>> {
     parse_elf(slice)
 }
 
-
 #[doc(hidden)]
 pub fn parse_elf_bytes(bytes: &[u8]) -> Result<ElfBytes<LittleEndian>> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
@@ -91,7 +90,7 @@ pub fn init_vm<M: Memory>(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<N
         .iter()
         .filter(|phdr| phdr.p_type == PT_LOAD);
 
-    let mut vm = VM::new(e_entry);
+    let mut vm = NexusVM::new(e_entry);
     for p in load_phdrs {
         let s = p.p_offset as usize;
         let e = (p.p_offset + p.p_filesz) as usize;
@@ -146,7 +145,7 @@ pub fn load_vm(opts: &VMOpts) -> Result<VM> {
 }
 
 /// Evaluate a program starting from a given machine state
-pub fn eval(vm: &mut VM, show: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM, show: bool) -> Result<()> {
     if show {
         println!("\nExecution:");
         println!(
