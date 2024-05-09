@@ -23,5 +23,3 @@ ark-relations.workspace = true
 ark-serialize.workspace = true
 ark-r1cs-std.workspace = true
 ark-bn254.workspace = true
-
-nexus-vm = { path = "../vm" }

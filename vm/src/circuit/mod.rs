@@ -8,9 +8,9 @@ pub mod riscv;
 use r1cs::*;
 use riscv::*;
 
-use nexus_riscv::{Result, nop_vm, vm::eval::*, vm::trace::*};
+use crate::{Result, nop_vm, eval::*, trace::*};
 
-pub use nexus_riscv::vm::trace::Trace;
+pub use crate::trace::Trace;
 
 pub fn step_circuit() -> Result<R1CS> {
     // use unimp instruction as nop

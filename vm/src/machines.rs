@@ -4,7 +4,7 @@
 #![allow(clippy::identity_op)]
 
 use crate::{Regs, VM};
-use nexus_vm::{instructions::Width, memory::Memory};
+use super::{instructions::Width, memory::Memory};
 
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]
