@@ -375,12 +375,13 @@ fn sub_result() -> Regs {
 mod test {
     use super::*;
     use crate::eval;
+    use crate::trie::MerkleTrie;
 
     #[test]
     fn test_machines() {
         for (name, f_code, f_result) in MACHINES {
             println!("Testing machine {name}");
-            let mut vm = assemble(&f_code());
+            let mut vm: NexusVM<MerkleTrie> = assemble(&f_code());
             eval(&mut vm, false).unwrap();
             let regs = f_result();
             assert_eq!(regs, vm.regs);
