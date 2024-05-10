@@ -9,6 +9,9 @@ use crate::{
 
 use std::collections::HashSet;
 
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use serde::{Deserialize, Serialize};
+
 /// virtual machine state
 #[derive(Default)]
 pub struct NexusVM<M: Memory> {
@@ -33,7 +36,7 @@ pub struct NexusVM<M: Memory> {
 }
 
 /// ISA defined registers
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
 pub struct Regs {
     /// ISA defined program counter register
     pub pc: u32,

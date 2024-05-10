@@ -263,6 +263,21 @@ impl MerkleTrie {
     }
 }
 
+impl Memory for MerkleTrie {
+    type Proof = Path;
+
+    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
+        self.query(addr)
+    }
+
+    fn update<F>(&mut self, addr: u32, f: F) -> Result<Self::Proof>
+    where
+        F: Fn(&mut CacheLine) -> Result<()>,
+    {
+        self.update(addr, f)
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

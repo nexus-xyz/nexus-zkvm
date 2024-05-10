@@ -59,19 +59,19 @@ pub trait Memory: Default {
         F: Fn(&mut CacheLine) -> Result<()>;
 
     /// read instruction at address
-    fn read_inst(&self, addr: u32) -> Result<(u64, Self::Proof)> {
+    fn read_inst(&self, addr: u32) -> Result<(u32, Self::Proof)> {
         let (cl, path) = self.query(addr);
-        Ok((cl.ldw(addr)?, path))
+        Ok((cl.lw(addr)?, path))
     }
 
     /// write instruction at address
-    fn write_inst(&mut self, addr: u32, val: u64) -> Result<()> {
-        let _ = self.update(addr, |cl| cl.sdw(addr, val))?;
+    fn write_inst(&mut self, addr: u32, val: u32) -> Result<()> {
+        let _ = self.update(addr, |cl| cl.sw(addr, val))?;
         Ok(())
     }
 
     /// perform load according to `lop`
-    fn load(&self, lop: LOP, addr: u32) -> Result<Self::Proof> {
+    fn load(&self, lop: LOP, addr: u32) -> Result<(u32, Self::Proof)> {
         let (cl, path) = self.query(addr);
         Ok((cl.load(lop, addr)?, path))
     }

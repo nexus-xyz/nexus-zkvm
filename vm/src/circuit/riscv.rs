@@ -24,25 +24,26 @@ fn init_cs(w: &Witness<impl MemoryProof>) -> R1CS {
     for i in 0..32 {
         cs.set_var(&format!("x{i}"), w.regs.x[i]);
     }
-    cs.set_field_var("root", w.pc_proof.root);
+    cs.set_field_var("root", w.pc_proof.commit());
 
     // outputs
     cs.set_var("PC", w.PC);
     for i in 0..32 {
         cs.set_var(&format!("x'{i}"), w.regs.x[i]);
     }
-    cs.set_field_var("ROOT", w.write_proof.root);
+    cs.set_field_var("ROOT", w.write_proof.commit());
 
     // memory contents
-    add_path(&mut cs, "pc_mem", &w.pc_proof);
-    add_path(&mut cs, "read_mem", &w.read_proof);
-    add_path(&mut cs, "write_mem", &w.write_proof);
+    add_proof(&mut cs, "pc_mem", &w.pc_proof);
+    add_proof(&mut cs, "read_mem", &w.read_proof);
+    add_proof(&mut cs, "write_mem", &w.write_proof);
     cs
 }
 
-fn add_path(cs: &mut R1CS, prefix: &str, path: &Path) {
-    cs.set_field_var(&format!("{}_lo", prefix), path.leaf[0]);
-    cs.set_field_var(&format!("{}_hi", prefix), path.leaf[1]);
+fn add_proof(cs: &mut R1CS, prefix: &str, proof: &impl MemoryProof) {
+    let leaf = proof.data();
+    cs.set_field_var(&format!("{}_lo", prefix), leaf[0]);
+    cs.set_field_var(&format!("{}_hi", prefix), leaf[1]);
 }
 
 fn select_XY(cs: &mut R1CS, rs1: u32, rs2: u32) {
@@ -1323,7 +1324,7 @@ fn misc(cs: &mut R1CS) {
 mod test {
     use super::*;
     use crate::eval::Regs;
-    use crate::memory::cacheline::CacheLine;
+    use crate::memory::{path::Path, cacheline::CacheLine};
     use crate::rv32::parse::*;
 
     #[test]
@@ -1400,9 +1401,9 @@ mod test {
     #[test]
     fn test_select_XY() {
         let regs: [u32; 32] = core::array::from_fn(|i| i as u32);
-        let w = Witness {
+        let w: Witness<Path> = Witness {
             regs: Regs { pc: 0, x: regs },
-            ..Witness::default()
+            ..Witness::<Path>::default()
         };
         for x in [0, 1, 2, 31] {
             for y in [0, 6, 13] {
@@ -1418,9 +1419,9 @@ mod test {
     #[test]
     fn test_select_Z() {
         let regs: [u32; 32] = core::array::from_fn(|i| i as u32);
-        let w = Witness {
+        let w: Witness<Path> = Witness {
             regs: Regs { pc: 0, x: regs },
-            ..Witness::default()
+            ..Witness::<Path>::default()
         };
         for i in 0..32 {
             let mut cs = init_cs(&w);
@@ -1445,7 +1446,7 @@ mod test {
 
     #[test]
     fn test_add() {
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         for x in [0, 1, 0xffffffff] {
             for y in [0, 1, 100] {
                 vm.X = x;
@@ -1466,7 +1467,7 @@ mod test {
 
     #[test]
     fn test_sub() {
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         for x in [0, 1, 0xfffffff0, 0xffffffff] {
             for y in [0, 1, 0xfffffff0, 0xffffffff] {
                 vm.X = x;
@@ -1528,7 +1529,7 @@ mod test {
     #[test]
     #[allow(clippy::field_reassign_with_default)]
     fn test_shift() {
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         vm.inst = 0x00000013; // nop
         for x in [0x7aaaaaaa, 0xf5555555] {
             for a in [0, 1, 10, 13, 30, 31] {
@@ -1554,7 +1555,7 @@ mod test {
 
     #[test]
     fn test_bitops() {
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         for x in [0u32, 0xaaaaaaaa, 0x55555555, 0xffffffff] {
             for y in [0u32, 0xaaaaaaaa, 0x55555555, 0xffffffff] {
                 let i = y.overflowing_add(7).0;
@@ -1586,7 +1587,7 @@ mod test {
     fn test_memory_pc() {
         let values = [1, 2, 3, 4, 5, 6, 7, 8];
         let cl = CacheLine::from(values);
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         vm.pc_proof.leaf = cl.scalars();
 
         for (i, value) in values.iter().enumerate() {
@@ -1604,7 +1605,7 @@ mod test {
     fn test_memory_lw() {
         let values = [1, 2, 3, 4, 5, 6, 7, 8];
         let cl = CacheLine::from(values);
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         vm.read_proof.leaf = cl.scalars();
 
         for (i, value) in values.iter().enumerate() {
@@ -1624,7 +1625,7 @@ mod test {
     fn test_memory_lb() {
         let values: [u8; 32] = core::array::from_fn(|i| i as u8);
         let cl = CacheLine::from(values);
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         vm.read_proof.leaf = cl.scalars();
 
         for i in values.iter() {
@@ -1642,7 +1643,7 @@ mod test {
     fn test_memory_sx() {
         let values = [0, 0x01028384, 0, 0, 0, 0, 0, 0];
         let cl = CacheLine::from(values);
-        let mut vm = Witness::default();
+        let mut vm = Witness::<Path>::default();
         vm.read_proof.leaf = cl.scalars();
 
         vm.X = 4;

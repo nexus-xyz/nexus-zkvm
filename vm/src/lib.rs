@@ -140,7 +140,7 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
 }
 
 /// Load and run an ELF file
-pub fn run_vm(vm: &VMOpts, show: bool) -> Result<()> {
-    let mut vm = load_vm(vm)?;
+pub fn run_vm<M: Memory>(vm: &VMOpts, show: bool) -> Result<()> {
+    let mut vm: NexusVM<M> = load_vm(vm)?;
     eval(&mut vm, show)
 }
