@@ -255,7 +255,7 @@ fn ldst_code() -> Vec<u32> {
         0xffc02103, //  lw      x2,-4(x0)
         0x00100183, //  lb      x3,1(x0)
         0x00104203, //  lbu     x4,1(x0)
-        0xc0001073, // unimp
+        0xc0001073, //  unimp
     ]
 }
 
@@ -292,7 +292,7 @@ fn shift_code() -> Vec<u32> {
         0x4010d793, //  srai    x15,x1,0x1
         0x40a0d813, //  srai    x16,x1,0xa
         0x41f0d893, //  srai    x17,x1,0x1f
-        0xc0001073, // unimp
+        0xc0001073, //  unimp
     ]
 }
 
