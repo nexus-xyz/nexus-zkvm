@@ -3,7 +3,7 @@
 use ark_ff::{BigInt, PrimeField};
 
 use crate::{
-    memory::{path::Path, MemoryProof},
+    memory::MemoryProof,
     rv32::{parse::*, *},
     trace::*,
 };
@@ -1324,8 +1324,7 @@ fn misc(cs: &mut R1CS) {
 mod test {
     use super::*;
     use crate::eval::Regs;
-    use crate::memory::{path::Path, cacheline::CacheLine};
-    use crate::rv32::parse::*;
+    use crate::memory::{cacheline::CacheLine, path::Path};
 
     #[test]
     fn test_parse_opc() {

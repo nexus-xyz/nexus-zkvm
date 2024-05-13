@@ -2,7 +2,7 @@
 
 use crate::{
     error::*,
-    memory::{paged::Paged, Memory},
+    memory::Memory,
     rv32::{parse::*, *},
     syscalls::Syscalls,
 };
@@ -36,7 +36,16 @@ pub struct NexusVM<M: Memory> {
 }
 
 /// ISA defined registers
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Default,
+    Serialize,
+    Deserialize,
+    CanonicalSerialize,
+    CanonicalDeserialize,
+)]
 pub struct Regs {
     /// ISA defined program counter register
     pub pc: u32,
@@ -113,16 +122,18 @@ fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
         {
             let target = add32(add32(*pc1, *imm1), *imm2);
             Some(vec![
-                Inst { pc: *pc1,
-                       len: 4,
-                       word: 0,
-                       inst: RV32::ALUI { aop: AOP::ADD, rd: 0, rs1: 0, imm: 0 },
+                Inst {
+                    pc: *pc1,
+                    len: 4,
+                    word: 0,
+                    inst: RV32::ALUI { aop: AOP::ADD, rd: 0, rs1: 0, imm: 0 },
                 },
-                Inst { pc: *pc2,
-                       len: 4,
-                       word: 0,
-                       inst: RV32::JALR { rd: *rd2, rs1: 0, imm: target },
-                }
+                Inst {
+                    pc: *pc2,
+                    len: 4,
+                    word: 0,
+                    inst: RV32::JALR { rd: *rd2, rs1: 0, imm: target },
+                },
             ])
         }
         _ => None,

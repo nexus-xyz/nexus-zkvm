@@ -73,6 +73,7 @@ impl CacheLine {
 
     // return slice at address. This slice will only extend to the
     // end of the cacheline. (used by instruction parsing)
+    #[allow(dead_code)]
     pub(crate) fn bytes(&self, addr: u32) -> &[u8] {
         let offset = (addr & 31) as usize;
         unsafe { &self.bytes[offset..] }

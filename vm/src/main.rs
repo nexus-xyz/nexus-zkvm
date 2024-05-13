@@ -1,4 +1,4 @@
-use nexus_vm::{VMOpts, run_vm, memory::trie::MerkleTrie};
+use nexus_vm::{memory::trie::MerkleTrie, run_vm, VMOpts};
 
 use clap::Parser;
 

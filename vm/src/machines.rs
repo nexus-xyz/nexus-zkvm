@@ -3,7 +3,7 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::identity_op)]
 
-use super::{rv32::SOP, memory::Memory};
+use super::{memory::Memory, rv32::SOP};
 use crate::{NexusVM, Regs};
 
 /// An array of test machines, useful for debugging and developemnt.

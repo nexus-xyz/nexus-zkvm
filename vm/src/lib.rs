@@ -23,8 +23,8 @@ use std::path::PathBuf;
 
 pub use error::*;
 use eval::*;
-use rv32::*;
 use memory::*;
+use rv32::*;
 
 // don't break API
 pub use machines::{loop_vm, nop_vm};
