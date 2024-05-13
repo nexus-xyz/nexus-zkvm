@@ -1,4 +1,3 @@
-
 #![allow(non_snake_case)]
 
 //! Circuits for the Nexus RISC-V virtual machine
@@ -9,7 +8,7 @@ pub mod riscv;
 pub use r1cs::*;
 pub use riscv::*;
 
-use crate::{eval::*, nop_vm, trace::*, memory::*, Result};
+use crate::{eval::*, memory::*, nop_vm, trace::*, Result};
 
 pub use crate::trace::Trace;
 

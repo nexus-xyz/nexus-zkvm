@@ -13,13 +13,11 @@
 //! step contained in the block. The witnesses can be reconstructed
 //! by iterating over the steps in the block.
 
-use num_traits::FromPrimitive;
-
 use crate::circuit::F;
 use crate::error::Result;
 use crate::eval::{eval_inst, NexusVM, Regs};
-use crate::rv32::{Inst, RV32::UNIMP, parse::*};
 use crate::memory::{Memory, MemoryProof};
+use crate::rv32::{parse::*, RV32::UNIMP};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
@@ -123,7 +121,11 @@ fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
     let step = Step {
         inst: vm.inst.word,
         Z: vm.Z,
-        PC: if vm.regs.pc == pc + 8 { None } else { Some(vm.regs.pc) },
+        PC: if vm.regs.pc == pc + 8 {
+            None
+        } else {
+            Some(vm.regs.pc)
+        },
         pc_proof: vm.pc_proof.clone(),
         read_proof: vm.read_proof.clone(),
         write_proof: vm.write_proof.clone(),
@@ -133,10 +135,7 @@ fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
 
 // Generate a `Block` by evaluating `k` steps of `vm`.
 fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
-    let mut block = Block {
-        regs: vm.regs.clone(),
-        steps: Vec::new(),
-    };
+    let mut block = Block { regs: vm.regs.clone(), steps: Vec::new() };
 
     for _ in 0..k {
         block.steps.push(step(vm)?);
@@ -222,11 +221,7 @@ pub struct BlockIter<'a, P: MemoryProof> {
 
 impl<P: MemoryProof> BlockIter<'_, P> {
     fn new(b: &Block<P>) -> BlockIter<'_, P> {
-        BlockIter {
-            regs: b.regs.clone(),
-            block: b,
-            index: 0,
-        }
+        BlockIter { regs: b.regs.clone(), block: b, index: 0 }
     }
 }
 
@@ -247,7 +242,11 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
         w.X = w.regs.x[w.rs1 as usize];
         w.Y = w.regs.x[w.rs2 as usize];
         w.Z = s.Z;
-        w.PC = if let Some(pc) = s.PC { pc } else { self.regs.pc + 8 };
+        w.PC = if let Some(pc) = s.PC {
+            pc
+        } else {
+            self.regs.pc + 8
+        };
 
         w.pc_proof = s.pc_proof.clone();
         w.read_proof = s.read_proof.as_ref().unwrap_or(&w.pc_proof).clone();

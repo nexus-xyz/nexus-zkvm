@@ -166,7 +166,7 @@ impl MerkleTrie {
         level: usize,
         addr: u32,
     ) -> &CacheLine {
-          if level == CACHE_LOG {
+        if level == CACHE_LOG {
             return Node::leaf(node);
         }
 
@@ -257,9 +257,8 @@ impl Memory for MerkleTrie {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use super::super::path::test::*;
-
+    use super::*;
 
     #[test]
     #[should_panic]
