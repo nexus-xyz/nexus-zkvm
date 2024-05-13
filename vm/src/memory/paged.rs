@@ -61,7 +61,7 @@ impl Memory for Paged {
         let page = addr >> 12;
         let offset = ((addr >> 5) & 0x7f) as usize;
 
-        const ZERO: CacheLine = CacheLine { words: [0; 4] };
+        const ZERO: CacheLine = CacheLine { words: [0; 8] };
         let cl = match self.tree.get(&page) {
             None => &ZERO,
             Some(arr) => &arr[offset],
