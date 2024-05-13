@@ -134,7 +134,7 @@ fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
 // Generate a `Block` by evaluating `k` steps of `vm`.
 fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
     let mut block = Block {
-        regs: vm.regs,
+        regs: vm.regs.clone(),
         steps: Vec::new(),
     };
 
@@ -247,7 +247,7 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
         w.X = w.regs.x[w.rs1 as usize];
         w.Y = w.regs.x[w.rs2 as usize];
         w.Z = s.Z;
-        w.PC = s.PC;
+        w.PC = if let Some(pc) = s.PC { pc } else { self.regs.pc + 8 };
 
         w.pc_proof = s.pc_proof.clone();
         w.read_proof = s.read_proof.as_ref().unwrap_or(&w.pc_proof).clone();
@@ -316,7 +316,7 @@ fn parse_alt<P: MemoryProof>(regs: &Regs, word: u32) -> Witness<P> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{eval::halt_vm, memory::paged::Paged, memory::trie::MerkleTrie};
+    use crate::{machines::loop_vm, memory::paged::Paged, memory::trie::MerkleTrie};
 
     // basic check that tracing and iteration succeeds
     fn trace_test_machine(mut nvm: NexusVM<impl Memory>) {
@@ -332,7 +332,7 @@ mod test {
 
     #[test]
     fn trace_test_machines() {
-        trace_test_machine(halt_vm::<Paged>());
-        trace_test_machine(halt_vm::<MerkleTrie>());
+        trace_test_machine(loop_vm::<Paged>(5));
+        trace_test_machine(loop_vm::<MerkleTrie>(5));
     }
 }
