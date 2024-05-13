@@ -209,14 +209,24 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
             RD = rd;
 
             let addr = add32(X, imm);
-            vm.mem.load(lop, addr)?.0;
+            let (val, proof) = vm.mem.load(lop, addr)?;
+            vm.read_proof = Some(proof);
+            vm.Z = val;
         }
         STORE { sop, rs1, rs2, imm } => {
             let X = vm.get_reg(rs1);
             let Y = vm.get_reg(rs2);
 
             let addr = add32(X, imm);
-            vm.mem.store(sop, addr, Y);
+            let lop = match sop {
+                SB => LB,
+                SH => LH,
+                SW => LW,
+            };
+
+            let (_, proof) = vm.mem.load(lop, addr)?;
+            vm.read_proof = Some(proof);
+            vm.write_proof = Some(vm.mem.store(sop, addr, Y)?);
         }
         ALUI { aop, rd, rs1, imm } => {
             RD = rd;
