@@ -20,7 +20,9 @@ fn main() {
 
     // For this example we are using a built-in test VM, but using paged memory.
     run_vm::<Paged>(&opts, true).expect("error running Nexus VM");
-    let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/debug/fib");
+
+    // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
+    let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/fib");
 
     // For this example we are using an ELF file, accessed through the single-entry interface.
     let opts = VMOpts {
