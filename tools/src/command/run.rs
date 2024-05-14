@@ -27,5 +27,5 @@ pub fn run_vm_with_elf_file(path: &Path, verbose: bool) -> anyhow::Result<()> {
         file: Some(path.into()),
     };
 
-    nexus_vm::run_vm::<nexus_vm::memory::trie::MerkleTrie>(&opts, verbose).map_err(Into::into)
+    nexus_vm::run_vm::<nexus_vm::memory::paged::Paged>(&opts, verbose).map_err(Into::into)
 }
