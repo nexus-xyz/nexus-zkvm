@@ -13,13 +13,15 @@ fn main() {
     // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
     let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/private_input");
 
+    // nb: the tracing and proving infrastructure assumes use of MerkleTrie memory model
+
     println!("Setting up public parameters...");
     let public_params =
         prover::setup::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
-        nvm::interactive::load_elf(&pb).expect("error loading and parsing RISC-V VM");
+        nvm::interactive::load_elf(&pb).expect("error loading and parsing RISC-V instruction");
 
     vm.syscalls.set_input(&[0x06]);
 
