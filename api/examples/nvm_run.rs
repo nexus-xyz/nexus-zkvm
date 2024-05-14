@@ -34,7 +34,7 @@ fn main() {
     run_vm::<MerkleTrie>(&opts, true).expect("error running Nexus VM");
 
     // For this example we are using an ELF file, accessed through the interactive interface.
-    let mut vm: NexusVM<MerkleTrie> =
+    let mut vm: NexusVM<Paged> =
         nvm::interactive::load_elf(&pb).expect("error loading and parsing RISC-V VM");
     nvm::interactive::eval(&mut vm, true).expect("error running Nexus VM");
 }
