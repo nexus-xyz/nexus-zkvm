@@ -174,6 +174,7 @@ impl R1CS {
         j
     }
 
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_bits(&mut self, name: &str, val: u32) {
         let vj = self.set_var(name, val);
         let js: Vec<usize> = (0..32)
