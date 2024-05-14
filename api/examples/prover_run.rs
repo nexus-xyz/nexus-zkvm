@@ -4,7 +4,6 @@ use nexus_api::{
     config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
-    riscv::{self},
 };
 use nexus_config::vm::NovaImpl;
 use std::path::PathBuf;
@@ -24,13 +23,13 @@ fn main() {
 
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
-        riscv::interactive::translate_elf(&pb).expect("error loading and translating RISC-V VM");
+        nvm::interactive::load_elf(&pb).expect("error loading and parsing RISC-V VM");
 
     vm.syscalls.set_input(&[0x06]);
 
     println!("Generating execution trace of vm...");
     println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    let trace = nvm::interactive::trace(
+    let trace = nvm::trace_vm(
         &mut vm,
         CONFIG.k,
         matches!(CONFIG.prover, ProverImpl::Nova(NovaImpl::Parallel)),

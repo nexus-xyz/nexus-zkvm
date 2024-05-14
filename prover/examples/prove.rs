@@ -5,7 +5,7 @@ use nexus_config::{
     vm::{NovaImpl, ProverImpl},
     VmConfig,
 };
-use nexus_riscv::VMOpts;
+use nexus_vm::VMOpts;
 
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;

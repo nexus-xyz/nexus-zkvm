@@ -10,8 +10,7 @@ use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use nexus_riscv::VMOpts;
-use nexus_vm::memory::trie::MerkleTrie;
+use nexus_vm::{memory::trie::MerkleTrie, VMOpts};
 
 use nexus_nova::nova::pcd::compression::SNARK;
 
@@ -68,9 +67,7 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
 type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    Ok(nexus_riscv::nvm::run_as_nvm::<MerkleTrie>(
-        opts, pow, false,
-    )?)
+    Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
 }
 
 pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {

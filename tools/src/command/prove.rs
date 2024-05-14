@@ -114,7 +114,7 @@ fn local_prove(
     };
     let path_str = pp_file.to_str().context("path is not valid utf8")?;
 
-    let opts = nexus_riscv::VMOpts {
+    let opts = nexus_vm::VMOpts {
         k,
         machine: None,
         file: Some(path.into()),

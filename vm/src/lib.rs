@@ -20,11 +20,13 @@ use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
 use std::fs::read;
 use std::path::PathBuf;
+use std::time::Instant;
 
 pub use error::*;
 use eval::*;
 use memory::*;
 use rv32::*;
+use trace::*;
 
 // don't break API
 pub use machines::{loop_vm, nop_vm};
@@ -152,4 +154,31 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
 pub fn run_vm<M: Memory>(vm: &VMOpts, show: bool) -> Result<()> {
     let mut vm: NexusVM<M> = load_vm(vm)?;
     eval(&mut vm, show)
+}
+
+/// Load and run an ELF file, then return the execution trace
+pub fn trace_vm<M: Memory>(
+    opts: &VMOpts,
+    pow: bool,
+    show: bool,
+) -> Result<Trace<M::Proof>, NexusVMError> {
+    let mut vm = load_vm::<M>(opts)?;
+
+    if show {
+        println!("Executing program...");
+    }
+
+    let start = Instant::now();
+    let trace = trace::<M>(&mut vm, opts.k, pow)?;
+
+    if show {
+        println!(
+            "Executed {} instructions in {:?}. {} bytes used by trace.",
+            trace.k * trace.blocks.len(),
+            start.elapsed(),
+            &trace.estimate_size(),
+        );
+    }
+
+    Ok(trace)
 }
