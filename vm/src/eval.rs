@@ -260,6 +260,7 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
             // that `rd` points to the modified register, and so we will always
             // generate the R1CS circuit constraints correctly.
             RD = 10;
+
             vm.Z = vm.syscalls.syscall(vm.regs.pc, vm.regs.x, &vm.mem)?;
         }
         UNIMP => {
