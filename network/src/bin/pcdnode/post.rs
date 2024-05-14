@@ -18,8 +18,7 @@ use crate::{
     api::NexusAPI::{Error, NexusProof, Program, Query},
     request_work, WorkerState, LOG_TARGET,
 };
-use nexus_riscv::nvm::translate_elf_bytes;
-use nexus_vm::{eval::NexusVM, memory::trie::MerkleTrie, trace::trace};
+use nexus_vm::{eval::NexusVM, memory::trie::MerkleTrie, parse_elf, trace::trace};
 
 pub fn manage_proof(
     mut state: WorkerState,
@@ -105,7 +104,7 @@ fn api(mut state: WorkerState, msg: NexusAPI) -> Result<NexusAPI> {
                 target: LOG_TARGET,
                 "received prove-request",
             );
-            let vm = translate_elf_bytes(&elf)?;
+            let vm = parse_elf::<MerkleTrie>(&elf)?;
             let hash = hex::encode(Sha256::digest(&elf));
             manage_proof(state, hash.clone(), vm)?;
             Ok(NexusProof(Proof { hash, ..Proof::default() }))

@@ -2,7 +2,7 @@
 //! Run with `cargo run --release --example prove`.
 
 use nexus_config::{vm::NovaImpl, VmConfig};
-use nexus_riscv::VMOpts;
+use nexus_vm::VMOpts;
 
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;

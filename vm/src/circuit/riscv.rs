@@ -10,6 +10,9 @@ use crate::{
 
 use super::r1cs::*;
 
+/// The arity of the NexusVM step circuit
+pub const ARITY: usize = 34;
+
 // Note: circuit generation code depends on this ordering
 // (inputs: pc,x0..31 and then outputs: PC,x'0..31)
 
@@ -17,7 +20,7 @@ use super::r1cs::*;
 #[allow(clippy::needless_range_loop)]
 fn init_cs(w: &Witness<impl MemoryProof>) -> R1CS {
     let mut cs = R1CS::default();
-    cs.arity = 34;
+    cs.arity = ARITY;
 
     // inputs
     cs.set_var("pc", w.regs.pc);
@@ -487,7 +490,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.seal();
 }
 
-pub fn big_step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
+pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     let mut cs = init_cs(vm);
     cs.witness_only = witness_only;
 
