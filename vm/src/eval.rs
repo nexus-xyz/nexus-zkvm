@@ -252,6 +252,14 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
         }
         FENCE | EBREAK => {}
         ECALL => {
+            // Per the RISC-V ISA, for an ecall `rd = 0` and the system determines
+            // how to return a value, e.g. by modifying register `x10` (aka `a0`).
+            //
+            // For the NVM ISA, we formalize this by setting `rd = 10` and having each
+            // ecall modify `x10`, even if to just write zero. By doing so, we know
+            // that `rd` points to the modified register, and so we will always
+            // generate the R1CS circuit constraints correctly.
+            RD = 10;
             vm.Z = vm.syscalls.syscall(vm.regs.pc, vm.regs.x, &vm.mem)?;
         }
         UNIMP => {
