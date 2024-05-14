@@ -177,13 +177,17 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
-    let slice = vm.mem.load(LOP::LW, vm.regs.pc)?.0.to_le_bytes();
-    vm.inst = parse_inst(vm.regs.pc, &slice)?;
+    let (word, proof) = vm.mem.read_inst(vm.regs.pc)?;
+    vm.inst = parse_inst(vm.regs.pc, &word.to_le_bytes())?;
 
     // initialize micro-architecture state
     vm.Z = 0;
     let mut RD = 0u32;
     let mut PC = 0;
+
+    vm.pc_proof = proof;
+    vm.read_proof = None;
+    vm.write_proof = None;
 
     vm.instruction_sets.insert(vm.inst.inst.instruction_set());
 
