@@ -29,7 +29,7 @@ fn main() {
 
     println!("Generating execution trace of vm...");
     println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    let trace = nvm::trace_vm(
+    let trace = nvm::interactive::trace(
         &mut vm,
         CONFIG.k,
         matches!(CONFIG.prover, ProverImpl::Nova(NovaImpl::Parallel)),

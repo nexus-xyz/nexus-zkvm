@@ -67,11 +67,13 @@ impl R1CS {
         }
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn input(&self) -> &[F] {
         &self.w[self.input_range()]
     }
 
+    #[allow(dead_code)]
     #[inline]
     pub fn output(&self) -> &[F] {
         &self.w[self.output_range()]
@@ -229,6 +231,7 @@ impl R1CS {
         });
     }
 
+    #[allow(dead_code)]
     pub fn merge(&mut self, cs: &Self) {
         let left_len = self.w.len();
         let len = left_len + cs.w.len();
@@ -250,6 +253,7 @@ impl R1CS {
         })
     }
 
+    #[allow(dead_code)]
     pub fn is_sat(&self) -> bool {
         debug_assert!(self.a.len() == self.b.len());
         debug_assert!(self.a.len() == self.c.len());
