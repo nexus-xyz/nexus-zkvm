@@ -25,9 +25,9 @@ fn main() {
 
     println!("Generating execution trace of vm...");
     println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    let trace = nvm::trace_vm(
+    let trace = nvm::interactive::trace(
         &mut vm,
-        true,
+        CONFIG.k,
         matches!(CONFIG.nova_impl, NovaImpl::Parallel),
     )
     .expect("error generating execution trace");
