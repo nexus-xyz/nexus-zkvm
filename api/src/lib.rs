@@ -12,7 +12,7 @@ pub mod config {
 /// RISC-V processing
 pub mod nvm {
     pub mod interactive {
-        pub use nexus_vm::{eval, trace::trace, load_elf, parse_elf};
+        pub use nexus_vm::{eval, load_elf, parse_elf, trace::trace};
     }
     pub use nexus_vm::{error::NexusVMError, eval::NexusVM, run_vm, trace_vm, VMOpts};
     pub mod memory {
