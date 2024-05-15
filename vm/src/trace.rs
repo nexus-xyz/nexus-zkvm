@@ -50,7 +50,7 @@ pub struct Step<P: MemoryProof> {
     /// Result of instruction evaluation.
     pub Z: u32,
     /// Next program counter, for jump and branch instructions.
-    pub PC: Option<u32>,
+    pub PC: u32,
     /// Merkle proof for instruction at pc.
     #[serde(with = "crate::ark_serde")]
     pub pc_proof: P,
@@ -116,16 +116,11 @@ impl<P: MemoryProof> Trace<P> {
 
 // Generate a `Step` by evaluating the next instruction of `vm`.
 fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
-    let pc = vm.regs.pc;
     eval_inst(vm)?;
     let step = Step {
         inst: vm.inst.word,
         Z: vm.Z,
-        PC: if vm.regs.pc == pc + 8 {
-            None
-        } else {
-            Some(vm.regs.pc)
-        },
+        PC: vm.regs.pc,
         pc_proof: vm.pc_proof.clone(),
         read_proof: vm.read_proof.clone(),
         write_proof: vm.write_proof.clone(),
@@ -176,6 +171,7 @@ pub struct Witness<P: MemoryProof> {
     pub regs: Regs,
     /// Instruction being executed.
     pub inst: u32,
+    /// RISC-V instruction components.
     pub J: u32,
     pub shamt: u32,
     pub rs1: u32,
@@ -188,7 +184,7 @@ pub struct Witness<P: MemoryProof> {
     pub Y: u32,
     /// Result of instuction.
     pub Z: u32,
-    /// Next program counter.
+    /// Program counter.
     pub PC: u32,
     /// Proof for reading instruction at pc.
     pub pc_proof: P,
@@ -242,11 +238,7 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
         w.X = w.regs.x[w.rs1 as usize];
         w.Y = w.regs.x[w.rs2 as usize];
         w.Z = s.Z;
-        w.PC = if let Some(pc) = s.PC {
-            pc
-        } else {
-            self.regs.pc + 8
-        };
+        w.PC = s.PC;
 
         w.pc_proof = s.pc_proof.clone();
         w.read_proof = s.read_proof.as_ref().unwrap_or(&w.pc_proof).clone();
