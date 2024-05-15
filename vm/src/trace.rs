@@ -92,7 +92,7 @@ impl<P: MemoryProof> Trace<P> {
     }
 
     /// Return the circuit input for block at index `n`.
-    /// This vector is compatible with the NexusVM step circuit.
+    /// This vector is compatible with the step circuit.
     pub fn input(&self, n: usize) -> Option<Vec<F>> {
         let b = self.block(n)?;
         let mut v = Vec::new();
