@@ -60,11 +60,11 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (signed comparison)| 
 | $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (unsigned comparison)| 
 | $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (unsigned comparison)| 
-| $\textbf{lb}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the sign extension of the byte at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lh}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the sign extension of the half-word at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lw}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the sign extension of the word at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lbu}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the zero extension of the byte at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lhu}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the zero extension of the half-word at $M[R[rs_1] + i]$ into $rd$| 
+| $\textbf{lb}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the byte at $M[R[rs_1] + i]$ into $rd$| 
+| $\textbf{lh}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the half-word at $M[R[rs_1] + i]$ into $rd$| 
+| $\textbf{lw}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the word at $M[R[rs_1] + i]$ into $rd$| 
+| $\textbf{lbu}$ | $rd$ $rs_1$  $i$ | loads the zero extension of the byte at $M[R[rs_1] + i]$ into $rd$| 
+| $\textbf{lhu}$ | $rd$ $rs_1$  $i$ | loads the zero extension of the half-word at $M[R[rs_1] + i]$ into $rd$| 
 | $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | stores the first byte of $R[rs_2]$ at $M[R[rs_1] + i]$| 
 | $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | stores the first half-word of $R[rs_2]$ at $M[R[rs_1] + i]$| 
 | $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$| 
