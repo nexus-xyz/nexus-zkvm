@@ -1,5 +1,5 @@
 ---
-title: The Nexus zkVM (v1.0)
+title: The Nexus zkVM
 description: A modular, extensible, open-source, highly-parallelized zkVM, written in Rust.
 image: ./images/opengraph.png
 ---
@@ -8,7 +8,7 @@ import {NexusImage as Image} from "../components/Image";
 
 import { Callout } from 'nextra/components'
 
-# The Nexus zkVM v1.0
+# The Nexus zkVM
 
 <br />
 
@@ -16,8 +16,8 @@ import { Callout } from 'nextra/components'
     <a href="https://t.me/nexus_zkvm" style={{marginRight: 3}}>
         <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/>
     </a>
-    <a href="https://github.com/nexus-xyz/nexus-zkvm" style={{marginRight: 3}}>
-        <img src="https://img.shields.io/badge/GitHub-black?logo=github&logoColor=white"/>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/graphs/contributors" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/github/contributors/nexus-xyz/nexus-zkvm.svg"/>
     </a>
     <a href="https://twitter.com/NexusLabsHQ" style={{marginRight: 3}}>
         <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/>
@@ -25,11 +25,19 @@ import { Callout } from 'nextra/components'
     <a href="https://nexus.xyz" style={{marginRight: 3}}>
         <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/>
     </a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-MIT" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/badge/license-MIT-blue"/>
+    </a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-APACHE" style={{marginRight: 3}}>
+        <img src="https://img.shields.io/badge/license-APACHE-blue"/>
+    </a>
 </div>
 
 The Nexus zkVM (zero-knowledge virtual machine) is a modular, extensible, open-source, highly-parallelized, prover-optimized, contributor-friendly, [zkVM](specs/zkvm-overview.mdx) written in Rust, focused on performance and security.
 
-## Proving Computations
+The [Nexus zkVM v1.0.0](https://github.com/nexus-xyz/nexus-zkvm/releases/tag/v1.0.0) is the current stable release.
+
+## Proving Computation
 
 The Nexus zkVM can prove any computation. For a Rust program:
 
@@ -71,15 +79,21 @@ To get started with the Nexus zkVM, check out the [Quick Start](zkvm/quick-start
   Nexus is in an experimental stage and is not currently recommended for production use. The system has low performance and high costs. Many future upgrades are expected.
 </Callout>
 
-## Design
+## Architecture and Science
 
-The core ethos of the Nexus project is a commitment to open and transparent science, cryptography, engineering, and benchmarking. The Nexus zkVM is designed to be modular and extensible, with highly optimized components:
+The ethos of the Nexus project is a commitment to open and transparent science, engineering, and evaluation.
+
+For an in-depth look at the science behind the Nexus zkVM and the Nexus Network, see the [Nexus Whitepaper](https://www.nexus.xyz/whitepaper.pdf).
+
+### Core Components
+
+The Nexus zkVM is designed to be modular and extensible, with highly optimized components:
 
 - **The Nexus Prover**: A prover enabling highly efficient Incrementally Verifiable Computation (IVC) through the first production-grade implementations of folding schemes, like the [CycleFold](https://eprint.iacr.org/2023/1192.pdf)-variants of [Nova](https://eprint.iacr.org/2021/370), [SuperNova](https://eprint.iacr.org/2022/1758.pdf), and [HyperNova](https://eprint.iacr.org/2023/573.pdf).
 - **The Nexus Virtual Machine (NVM)**: A minimal, general-purpose virtual machine extending RISC-V and designed to optimize prover performance.
 - **The Nexus Proof Compression Mechanism**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, but can be compressed through recursion down to a few bytes.
 
-Each component of the Nexus zkVM has been carefully designed or selected and then implemented by the [Nexus team](https://nexus.xyz) to maximize security, performance, modularity, and extensibility. As a consequence of that design, the Nexus zkVM is architected to be extended in response to new theoretical developments, as well as to support comprehensive tooling for a variety of use cases and applications domains:
+Each component of the Nexus zkVM has been carefully designed or selected and then implemented by the [Nexus team](https://nexus.xyz) to maximize security, performance, modularity, and extensibility. As a consequence of that design, the Nexus zkVM is architected to be extensible in response to new theoretical developments, as well as to support comprehensive tooling for a variety of use cases and applications domains:
 
 - swappable backends providing the best efficiency and security with different tradeoffs
 - Precompiles are custom extensions on the NVM instruction set, like SHA-256, keccack256, etc, that developers can use to accelerate specific computations. Nexus precompiles are exactly like Ethereum precompiles, but in the context of zkVMs. Developers can extend the zkVM with custom precompiles, and import other developer's precompiles. This is only possible due to the non-uniform IVC system introduced by [SuperNova](https://eprint.iacr.org/2022/1758.pdf).
@@ -88,7 +102,13 @@ Each component of the Nexus zkVM has been carefully designed or selected and the
 
 The zkVM aims to offer developers out-of-the-box prover performance and security, designed to power production-grade applications. See the [Roadmap](zkvm/roadmap.mdx) for more.
 
-## Fast Distributed Proving
+### Proving Architectures
+
+The Nexus zkVM turns computations into proofs, but to get those proofs in practice the computational work of executing the zkVM must be implemented by a proving architecture.
+
+The Nexus zkVM design is compatible with a variety of proving architectures, from sequential execution on your laptop all the way up to the [Nexus Network](network.mdx), a globally-distributed proving network under active development.
+
+See the [Nexus Network](network.mdx) overview for more.
 
 ## The Nexus Ethos: Secure, Open Science, Open Source
 
@@ -96,12 +116,8 @@ We believe a zkVM's main purpose is to provide an efficient proving mechanism, w
 
 The Nexus zkVM features no code obfuscation, no proprietary components, and no closed-source code.
 
-## Modular and Extensible
+### Modular and Extensible
 
 The Nexus zkVM is designed to be modular and extensible, with highly optimized isolated components. With thoroughly analyzed sensible defaults (provers, compilers, etc.) that will work for most users, developers can feel confident in the security and performance of the zkVM.
 
 That said, the Nexus zkVM is specifically designed to be extensible. Users can add support for new languages, new ISAs, new precompiles, and new provers, and import other developer's precompiles, with no vendor lock-in.
-
-## Architecture and Science
-
-For an in depth look at the science behind the Nexus zkVM and the Nexus Network, see the [Nexus Whitepaper](https://www.nexus.xyz/whitepaper.pdf).

@@ -44,7 +44,7 @@ cargo nexus verify
 
 ### Configuring `k`
 
-The `k` number denotes how many NexusVM instructions are batched into each prover step. Increasing this number reduces the overall number of proving steps, while also increases
+The `k` parameter denotes how many NexusVM instructions are batched into each prover step. Increasing this value reduces the overall number of proving steps, while also increases
 the overhead of computing one, as well as the size of the final proof. Similarly to the previous section, you can either pass it through cli or environment:
 
 ```shell

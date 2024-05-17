@@ -5,9 +5,15 @@ description: "A description of the Nexus Virtual Machine."
 image: "/nexus-head.png"
 ---
 
+import { Callout } from 'nextra/components'
+
 # Nexus Virtual Machine
 
-The Nexus Virtual Machine (Nexus VM) is a reduced instruction set computer (RISC) with a word-addressable random-access memory and input tapes. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
+The Nexus Virtual Machine (Nexus VM or NVM) is a reduced instruction set computer (RISC) with a word-addressable random-access memory and input tapes. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
+
+<Callout type="info" emoji="ℹ️">
+  The NVM architecture has not yet stabilized. The following specification describes the architecture as of the Nexus zkVM 1.0.0 release.
+</Callout>
 
 ## Nexus Virtual Machine Architecture
 
