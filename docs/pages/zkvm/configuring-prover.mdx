@@ -9,7 +9,7 @@ At present the Nexus zkVM is most easily accessed through a stable command line 
 
 A stable SDK that enables programmatic configuration and execution of the zkVM, including documented support for private input tapes, is under active development.
 
-### Prove custom profiles
+### Custom Proving Profiles
 
 `cargo nexus prove` accepts `--profile` argument to build and prove artifact in specified profile.
 The default is `release`. You can define your own profile in `Cargo.toml` of your Nexus project according
@@ -20,9 +20,9 @@ build:
 cargo nexus prove --profile=dev
 ```
 
-### Switching Nova implementation
+### Switching Nova Implementations
 
-`nexus-nova` provides two implementations of the prover: sequential and proof-carrying data. The second one is also aliased as parallel
+At present, `nexus-nova` exposes two implementations of the prover: sequential and proof-carrying data. The second one is also aliased as parallel
 or distributed. It enables multiple provers to work on the same program in parallel, at the cost of bigger recursion overhead (see [module docs](https://github.com/nexus-xyz/nexus-zkvm/blob/main/nova/src/circuits/nova/pcd/mod.rs) for details).
 The default one you have tried in the quick start is sequential, to switch to parallel you can either pass it as a CLI argument:
 
@@ -63,7 +63,7 @@ cargo nexus verify
 
 > Changing this value requires generating new public parameters!
 
-### Caching public parameters
+### Caching Public Parameters
 
 The first time you prove a new project, `cargo nexus` sets up public parameters and stores them into `./target/nexus-cache` directory. If you want to re-use it
 or replace this path with something else, set the environment variable:
