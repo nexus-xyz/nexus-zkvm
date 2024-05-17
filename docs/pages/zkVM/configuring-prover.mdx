@@ -24,7 +24,7 @@ cargo nexus prove --profile=dev
 
 `nexus-nova` provides two implementations of the prover: sequential and proof-carrying data. The second one is also aliased as parallel
 or distributed. It enables multiple provers to work on the same program in parallel, at the cost of bigger recursion overhead (see [module docs](https://github.com/nexus-xyz/nexus-zkvm/blob/main/nova/src/circuits/nova/pcd/mod.rs) for details).
-The default one you have tried in the quick start is sequential, to switch to parallel you can either pass it as a cli argument:
+The default one you have tried in the quick start is sequential, to switch to parallel you can either pass it as a CLI argument:
 
 ```shell
 cargo nexus prove --impl=par
@@ -45,7 +45,7 @@ cargo nexus verify
 ### Configuring `k`
 
 The `k` parameter denotes how many NexusVM instructions are batched into each prover step. Increasing this value reduces the overall number of proving steps, while also increases
-the overhead of computing one, as well as the size of the final proof. Similarly to the previous section, you can either pass it through cli or environment:
+the overhead of computing one, as well as the size of the final proof. Similarly to the previous section, you can either pass it through CLI or environment:
 
 ```shell
 cargo nexus prove -k=32
