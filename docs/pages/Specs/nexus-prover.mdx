@@ -10,10 +10,10 @@ image: "/nexus-head.png"
 The second main component of the Nexus zkVM is the Nexus Proof System, which provides proofs of correctness for any computation being run on the Nexus VM. In order to realize this goal and be able to support arbitrarily large computations, the Nexus Proof System relies on modern recursive zero-knowledge proof systems such as folding and accumulation schemes [[KST22; KS22; BC23](#references)] to achieve a high level of parallelization.
 
 Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors.  The proof generation process for $P$ has four main steps: 
-1. Nexus zkVM initialization;
-2. Program execution;
-3. Proof accumulation; and
-4. Proof compression.
+1. zkVM initialization;
+2. program execution;
+3. proof accumulation; and
+4. proof compression.
 
 The following subsections provide an overview of each of these components.
 
