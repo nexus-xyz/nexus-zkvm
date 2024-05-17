@@ -90,14 +90,14 @@ For an in-depth look at the science behind the Nexus zkVM and the Nexus Network,
 The Nexus zkVM is designed to be modular and extensible, with highly optimized components:
 
 - **The Nexus Prover**: A prover enabling highly efficient Incrementally Verifiable Computation (IVC) through the first production-grade implementations of folding schemes, like the [CycleFold](https://eprint.iacr.org/2023/1192.pdf)-variants of [Nova](https://eprint.iacr.org/2021/370), [SuperNova](https://eprint.iacr.org/2022/1758.pdf), and [HyperNova](https://eprint.iacr.org/2023/573.pdf).
-- **The Nexus Virtual Machine (NVM)**: A minimal, general-purpose virtual machine extending RISC-V and designed to optimize prover performance.
+- **The Nexus Virtual Machine (NVM)**: A minimal, general-purpose virtual machine inspired by and extending RISC-V, designed to optimize prover performance.
 - **The Nexus Proof Compression Mechanism**: A proof compression sequence of recursive SNARKs that compresses proofs with each recursive application of a SNARK. Nexus (Nova) proofs are inherently large, but can be compressed through recursion down to a few bytes.
 
 Each component of the Nexus zkVM has been carefully designed or selected and then implemented by the [Nexus team](https://nexus.xyz) to maximize security, performance, modularity, and extensibility.
 
-As a consequence of that design, the Nexus zkVM is architected to support new theoretical developments led by our science team, as well as tooling to accelerate deploying the zkVM for a variety of use cases:
+As a consequence of that design, the Nexus zkVM is architected to support new theoretical developments led by our research team, as well as tooling to accelerate deploying the zkVM for a variety of use cases:
 
-- **Proving Schemes**: In addition to the Nova familiy of folding schemes, the Nexus Prover can be extended with new proving scheme constructions as the theoretical and practical state-of-the-art continue to advance.
+- **Proving Schemes**: In addition to the Nova familiy of folding schemes, the Nexus Prover can be extended with new proving scheme constructions as the state-of-the-art continues to advance.
 - **Precompiles**: Precompiles are custom extensions planned for the NVM instruction set, supporting common operations like cryptographic hashing (SHA-256 or keccack256) and matrix multiplication, that developers can use to accelerate specific computations. Nexus precompiles are exactly like Ethereum precompiles, but in the context of zkVMs. Developers will be able to extend the zkVM with their own custom precompiles, as well as import other developer's precompiles. This is possible due to non-uniform IVC like [SuperNova](https://eprint.iacr.org/2022/1758.pdf).
 - **Language Support**: As the NVM extends the RISC-V ISA, the zkVM can run programs written in any high-level language (e.g. Rust, C++, etc.), including emulation with minimal overhead of many common Instruction Set Architectures (ISA) such as the EVM, Wasm, and RISC-V itself.
 - **Targeted Compilation**: The zkVM can be targeted by a safe and correct compiler that compiles various high-level languages and any other ISAs to the NVM, with dedicated support for precompiles and compiler optimizations designed to maximize prover performance.
