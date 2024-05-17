@@ -5,7 +5,7 @@ description: "A description of the Nexus Proof System."
 image: "/nexus-head.png"
 ---
 
-# Nexus Proof System
+## Nexus Proof System
 
 The second main component of the Nexus zkVM is the Nexus Proof System, which provides proofs of correctness for any computation being run on the Nexus VM. In order to realize this goal and be able to support arbitrarily large computations, the Nexus Proof System relies on modern recursive zero-knowledge proof systems such as folding and accumulation schemes [[KST22; KS22; BC23](#references)] to achieve a high level of parallelization.
 
@@ -17,7 +17,7 @@ Let $P$ be a program that has been compiled to the Nexus VM, possibly with acces
 
 The following subsections provide an overview of each of these components.
 
-## Initialization
+### Initialization
 
 Let $P$ be a program which we want to execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x0000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
 
@@ -27,17 +27,17 @@ Once the Merkle Root for the initial state is computed, the Nexus zkVM starts lo
 
 Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for the current state of the memory as the public input to the execution step of the proof system.
 
-## Program execution
+### Program execution
 
 After receiving a Merkle proof from the initialization step with a Merkle proof for the initial memory state with the program loaded at address $\mathtt{0x0000}$, the Nexus zkVM runs the program on the Nexus VM and generates a full execution trace for it. This execution trace is then passed to the proof accumulation step, as indicated in the following diagram, where each step $F$ denotes one step of the Nexus VM.
 
 ![zkvm-architecture](/images/execution-sequence.svg)
 
-## Proof accumulation
+### Proof accumulation
 
 In order to enable a high-level of parallelization without impacting the efficiency of the scheme, the Nexus zkVM uses proof accumulation (without SNARKs), represented by the IVC step in the diagram above. The main advantage of using such a scheme is that it realizes the notion of Incrementally Verifiable Computation (IVC) [[Val08](#references)] and its Proof-Carrying Data (PCD) [[CT10](#references)] generalization to the distribued setting.
 
-### Nova folding scheme
+#### Nova folding scheme
 
 In the current version of the Nexus zkVM, this step makes use of the *Nova* folding scheme [[KST22](#references)] over a cycle of elliptic curves. At a high level, *Nova* provides a method to prove correctness of a repeated computation $F^{(n)}(z) = F(F(F(\ldots F(z))))$ by reducing this claim to a claim about the correctness of a *single* invocation of $F$, where $F$ is encoded using a generalized version of the Rank 1 Constraint System, called *Relaxed* R1CS.  In the context of the Nexus zkVM, one can think of $F$ as representing the state transition corresponding to a single machine instruction of the Nexus VM and $z$ as representing the state of the machine's memory and registers, as well as the program itself.
 
@@ -45,7 +45,7 @@ One main advantage of using *Nova* is that it has a small recursion overhead, wh
 
 In terms of prover costs, the most expensive part of the prover's work at the each folding step is to compute *two multi-scalar multiplications* (MSMs) of size proportional to the size of $F$. This is because the prover needs to commit to two large witness vectors at each folding step using a Pedersen commitment scheme. Despite being the most computationally expensive part of the proof generation, this computation is highly parallelizable.
 
-### Cycles of curves
+#### Cycles of curves
 
 One difficulty that arises in the Nova implementation is that the group scalar multiplications used in the recursive step involve operations over a field that is different than the native field used by the proof system. Hence, as mentioned above, the [Nova reference implementation](https://github.com/microsoft/Nova) by Microsoft uses a *cycle of elliptic curves* to reduce the number of non-native arithmetic operations and improve its overall efficiency, This is a well-known technique introduced in [[BCTV14](#references)] to improve the efficiency of elliptic-curve-based SNARK recursions. In a $2$-_cycle_ of elliptic curves $(\mathbb{G}_1, \mathbb{G}_2)$, the size of the _base field_ of one curve equals the _scalar field_ (i.e., group order) of the other curve, and vice-versa.
 
@@ -53,7 +53,7 @@ In a nutshell, Microsoft's reference implementation for Nova works by creating t
 
 Thus, one consequence of using Nova over a cycles of curves is that the proof system ends up producing a pair of proofs instead of a single one. Hence, in order to verify a Nova proof, one needs to check instances over *two different* group-field pairs $(\mathbb{G}_1, \mathbb{F}_1)$ and $(\mathbb{G}_2, \mathbb{F}_2)$, where $\mathbb{F}_i$ is the scalar field of $\mathbb{G}_i$.
 
-### `bn254`-`grumpkin` curve cycle
+#### `bn254`-`grumpkin` curve cycle
 
 In order to be able to produce proofs that can be cheaply verified on Ethereum, the Nexus zkVM currently implements the Nova folding scheme using the pairing-friendly [`bn254`](https://neuromancer.sk/std/bn/bn254) as the primary curve (also known as `bn128` or `bn256`), since the latter has precompile support on Ethereum. Moreover, since `bn254` forms a $2$-cycle along with the [`grumpkin`](https://hackmd.io/@aztec-network/ByzgNxBfd#2-Grumpkin---A-curve-on-top-of-BN-254-for-SNARK-efficient-group-operations) curve, `grumpkin` is used as the secondary curve.
 
@@ -65,7 +65,7 @@ Besides not having to reason about the 2-cycle of elliptic curves in the securit
 
 The reduction in circuit complexity over the secondary curve has, however, implications on the size of the IVC verifier over the primary curve since the latter circuit now needs to keep track of additional witnesses and to perform several additional small multi-scalar multiplications and hashing operations related to these witnesses. More concretely, the recursion overhead over the primary curve is in the order of $120{,}000$ constraints when used to realize an IVC scheme and $340{,}000$ constraints when used to realize a PCD scheme.
 
-## Proof compression
+### Proof compression
 
 Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short. 
 
@@ -79,7 +79,7 @@ For IVC proofs associated with the secondary `grumpkin` curve, the same combinat
 
 To implement the second part of the compression phase, the current plan is for the Nexus zkVM to use Groth16 proofs [[Gro16](#references)]. This final stage of compression will recursively verify the Spartan proofs from the first stage, reducing the log-sized proofs to a constant size.
 
-## Nexus zkVM parameters
+### Nexus zkVM parameters
 
 In order to run the Nexus zkVM, certain values used by the proof system as well as the public parameters shared between the prover and the verifier need to be configured.
 
@@ -92,7 +92,7 @@ As for the public parameters, these consist essentially of the following:
 - Parameters for the Zeromorph commitment used by Spartan in the compression phase; and
 - Parameters for the remaining SNARKs in the compression phase.
 
-### Hash function configuration 
+#### Hash function configuration 
 
 In order to configure the Poseidon hash function, we currently use the parameters proposed in the Poseidon paper [[GKR21](#references)] to achieve a 128-bit level of security. More precisely, we use the following parameters:
 
@@ -105,7 +105,7 @@ const CAPACITY: usize = 1;
 const MODULUS_BITS: u64 = 254;
 ```
 
-### Instructions per folding step
+#### Instructions per folding step
 
 The Nexus zkVM's approach based on Nova provides a proof system with a recursion overhead which is independent of the total number of computation steps and of the step function itself. However, in our current implementation, the recursion overhead  remains quite high (in the order of $120{,}000$ and $340{,}000$ constraints in the IVC and PCD settings) compared the cost of a single step of the Nexus VM (around $15{,}000$ constraints). 
 
@@ -123,7 +123,7 @@ As for the public parameters for the Zeromorph commitment scheme used in Spartan
 
 Finally, since the parameters for the Pedersen and Zeromorph commitment schemes consist of a vector of group elements and need to be compatible in order to make Spartan a proof system for committed relaxed R1CS, the Nexus zkVM currently generates the parameters for the Pedersen commitment scheme by truncating the parameters used for Zeromorph, instead of randomly sampling a vector of fresh group elements. Note that this is cryptographically indistinguishable from a random vector,  unless one knows the toxic waste secret.
 
-## References
+### References
 
 [[BC23](https://eprint.iacr.org/2023/620)] Benedikt Bünz and Binyi Chen. “Protostar: Generic efficient accumulation/folding for special sound protocols”. In: Cryptology ePrint Archive (2023)
 
