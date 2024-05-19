@@ -15,6 +15,7 @@ members = [
     "nova",
     "spartan",
     "api",
+    "jolt",
 ]
 default-members = [
     "riscv",

@@ -10,7 +10,7 @@ pub mod nvm;
 pub mod rv32;
 
 use clap::Args;
-use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
+use elf::{abi::PT_LOAD, endian::LittleEndian, ElfBytes};
 use std::fs::read;
 use std::path::PathBuf;
 
@@ -21,6 +21,10 @@ use rv32::*;
 // don't break API
 pub use machines::{loop_vm, nop_vm};
 
+// re-export
+#[doc(hidden)]
+pub use elf;
+
 /// Load a VM state from an ELF file
 pub fn load_elf(path: &PathBuf) -> Result<VM> {
     let file_data = read(path)?;
@@ -28,26 +32,36 @@ pub fn load_elf(path: &PathBuf) -> Result<VM> {
     parse_elf(slice)
 }
 
-pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
+#[doc(hidden)]
+pub fn parse_elf_bytes(bytes: &[u8]) -> Result<ElfBytes<LittleEndian>> {
     let file = ElfBytes::<LittleEndian>::minimal_parse(bytes)?;
+    Ok(file)
+}
 
-    let load_phdrs: Vec<ProgramHeader> = file
+#[doc(hidden)]
+pub fn init_vm(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<VM> {
+    let e_entry = elf.ehdr.e_entry as u32;
+
+    let load_phdrs = elf
         .segments()
         .unwrap()
         .iter()
-        .filter(|phdr| phdr.p_type == PT_LOAD)
-        .collect();
+        .filter(|phdr| phdr.p_type == PT_LOAD);
 
-    let mut vm = VM::new(file.ehdr.e_entry as u32);
-
-    for p in &load_phdrs {
+    let mut vm = VM::new(e_entry);
+    for p in load_phdrs {
         let s = p.p_offset as usize;
         let e = (p.p_offset + p.p_filesz) as usize;
-        let bytes = &bytes[s..e];
+        let bytes = &data[s..e];
         vm.init_memory(p.p_vaddr as u32, bytes)?;
     }
-
     Ok(vm)
+}
+
+pub fn parse_elf(bytes: &[u8]) -> Result<VM> {
+    let file = parse_elf_bytes(bytes)?;
+
+    init_vm(&file, bytes)
 }
 
 /// A structure describing a VM to load.

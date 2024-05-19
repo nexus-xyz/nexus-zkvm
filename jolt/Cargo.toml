@@ -1,0 +1,17 @@
+[package]
+name = "nexus-jolt"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nexus-riscv = { path = "../riscv" }
+nexus-vm = { path = "../vm" }
+
+tracing = { version = "0.1", default-features = false }
+thiserror = "1.0"
+rayon = "1.8"
+
+ark-bn254 = "0.4"
+
+jolt-core = { git = "https://github.com/slumber/jolt", branch = "slumber-arkworks-compat" }
+jolt-common = { git = "https://github.com/slumber/jolt", branch = "slumber-arkworks-compat", package = "common" }

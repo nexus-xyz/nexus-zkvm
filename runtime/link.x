@@ -2,8 +2,8 @@ ENTRY(_start);
 
 SECTIONS
 {
-  __memory_top = 0x400000;
-  . = 0;
+  __memory_top = 0x80400000;
+  . = 0x80000000;
 
   .text : ALIGN(4)
   {
@@ -14,7 +14,7 @@ SECTIONS
   }
 
   . = ALIGN(8);
-  . = .* 2;
+ /* . = .* 2; */
 
   .data : ALIGN(4)
   {

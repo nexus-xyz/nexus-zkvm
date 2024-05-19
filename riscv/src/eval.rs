@@ -66,11 +66,11 @@ impl VM {
     }
 }
 
-fn add32(a: u32, b: u32) -> u32 {
+pub fn add32(a: u32, b: u32) -> u32 {
     a.overflowing_add(b).0
 }
 
-fn sub32(a: u32, b: u32) -> u32 {
+pub fn sub32(a: u32, b: u32) -> u32 {
     a.overflowing_sub(b).0
 }
 
