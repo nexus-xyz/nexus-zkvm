@@ -28,11 +28,11 @@ The current implementation of the Nexus VM does not yet support public and auxil
 
 At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The input and auxiliary tapes, once supported, should contain the public and input auxiliary inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
 
-The program counter $pc$ is always advanced by 8 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 8-byte-memory alignment for the program counter by checking that $pc$ is a multiple of 8 when reading an instruction.     
+The program counter $pc$ is always advanced by 8 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 8-byte-memory alignment for the program counter by checking that $pc$ is a multiple of 8 when reading an instruction.
 
 ## Nexus Virtual Machine Instruction Set
 
-The Nexus VM instruction set contains 30 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and takes three arguments, two register selectors and a full 32-bit immediate value. The exact format $(\textbf{opcode}\;rd\;\;rs_1\;rs_2\;i)$ of each instruction is defined as follows: 
+The Nexus VM instruction set contains 30 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and takes three arguments, two register selectors and a full 32-bit immediate value. The exact format $(\textbf{opcode}\;rd\;\;rs_1\;rs_2\;i)$ of each instruction is defined as follows:
 * $\textbf{opcode}$ is a string defining the instruction;
 * $rd$ is a register selector specifying the destination register;
 * $rs_1$ is a register selector specifying the first operand;
@@ -42,63 +42,63 @@ The Nexus VM instruction set contains 30 instructions in total, as summarized in
 Table: Summary of the Nexus Virtual Machine Instruction Set, where operations are mod $2^{32}$.
 | Instruction mnemonic| Arguments | Description of functionality |
 | -------- | -------- | -------- |
-| $\textbf{add}$     | $rd$ $rs_1$  $rs_2$  $i$     | sets $rd$ to $R[rs_1] + (R[rs_2] + i)$     |
-| $\textbf{sub}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to $R[rs_1] - (R[rs_2] + i)$| 
-| $\textbf{mul}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to the least significant bits of $R[rs_1] \times (R[rs_2] + i)$| 
-| $\textbf{div}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to the quotient of $R[rs_1] / (R[rs_2] + i)$|  % What if $R[rs_2] + i) = 0$?
-| $\textbf{slt}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to $(R[rs_1] < (R[rs_2] + i)$ (signed comparison) | 
-| $\textbf{sltu}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to $(R[rs_1] < (R[rs_2] + i)$ (unsigned comparison)| 
-| $\textbf{sll}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to $R[rs_1] \ll (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$| 
-| $\textbf{slr}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to $R[rs_1] \gg (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$| 
-| $\textbf{sra}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to $R[rs_1] \gg (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$ ($R[rs_1]$  as integer) | 
-| $\textbf{xor}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to the bitwise XOR of $R[rs_1]$ and $(R[rs_2] + i)$ | 
-| $\textbf{and}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to the bitwise AND of $R[rs_1]$ and $(R[rs_2] + i)$| 
-| $\textbf{or}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $rd$ to the bitwise OR of $R[rs_1]$ and $(R[rs_2] + i)$| 
-| $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] = R[rs_2])$ (signed comparison)| 
-| $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | branches  to $pc+i$ if $(R[rs_1] \not= R[rs_2])$ (signed comparison)| 
-| $\textbf{blt}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (signed comparison)| 
-| $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (signed comparison)| 
-| $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (unsigned comparison)| 
-| $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (unsigned comparison)| 
-| $\textbf{lb}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the sign extension of the byte at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lh}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the sign extension of the half-word at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lw}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the sign extension of the word at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lbu}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the zero extension of the byte at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{lhu}$ | $rd$ $rs_1$  $rs_2$  $i$ | loads the zero extension of the half-word at $M[R[rs_1] + i]$ into $rd$| 
-| $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | stores the first byte of $R[rs_2]$ at $M[R[rs_1] + i]$| 
-| $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | stores the first half-word of $R[rs_2]$ at $M[R[rs_1] + i]$| 
-| $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$| 
-| $\textbf{jal}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$  and stores $pc+8$ into $rd$| 
-| $\textbf{nop}$ |  | no operation | 
-| $\textbf{halt}$ | $rs_1$ $i$ | halts execution with a return value $(R[rs_1] + i)$, $pc$ is not updated| 
-| $\textbf{sys}$ |  | system call| 
+| $\textbf{add}$     | $rd$ $rs_1$  $rs_2$  $i$     | sets $R[rd]$ to $R[rs_1] + (R[rs_2] + i)$     |
+| $\textbf{sub}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] - (R[rs_2] + i)$|
+| $\textbf{mul}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the least significant bits of $R[rs_1] \times (R[rs_2] + i)$|
+| $\textbf{div}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the quotient of $R[rs_1] / (R[rs_2] + i)$|  % What if $R[rs_2] + i) = 0$?
+| $\textbf{slt}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $(R[rs_1] < (R[rs_2] + i)$ (signed comparison) |
+| $\textbf{sltu}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $(R[rs_1] < (R[rs_2] + i)$ (unsigned comparison)|
+| $\textbf{sll}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] \ll (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$|
+| $\textbf{slr}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] \gg (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$|
+| $\textbf{sra}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] \gg (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$ ($R[rs_1]$  as integer) |
+| $\textbf{xor}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise XOR of $R[rs_1]$ and $(R[rs_2] + i)$ |
+| $\textbf{and}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise AND of $R[rs_1]$ and $(R[rs_2] + i)$|
+| $\textbf{or}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise OR of $R[rs_1]$ and $(R[rs_2] + i)$|
+| $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] = R[rs_2])$ (signed comparison)|
+| $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | branches  to $pc+i$ if $(R[rs_1] \not= R[rs_2])$ (signed comparison)|
+| $\textbf{blt}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (signed comparison)|
+| $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (signed comparison)|
+| $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (unsigned comparison)|
+| $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (unsigned comparison)|
+| $\textbf{lb}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the byte at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lh}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the half-word at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lw}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the word at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lbu}$ | $rd$ $rs_1$  $i$ | loads the zero extension of the byte at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lhu}$ | $rd$ $rs_1$  $i$ | loads the zero extension of the half-word at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | stores the first byte of $R[rs_2]$ at $M[R[rs_1] + i]$|
+| $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | stores the first half-word of $R[rs_2]$ at $M[R[rs_1] + i]$|
+| $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$|
+| $\textbf{jal}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$  and stores $pc+8$ into $R[rd]$|
+| $\textbf{nop}$ |  | no operation |
+| $\textbf{halt}$ | $rs_1$ $i$ | halts execution with a return value $(R[rs_1] + i)$, $pc$ is not updated|
+| $\textbf{sys}$ |  | system call|
 
-The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words. In particular, one cannot read or write half-words and words to addresses which are not a multiple of $2$ and $4$, respectively.       
+The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words. In particular, one cannot read or write half-words and words to addresses which are not a multiple of $2$ and $4$, respectively.
 
-Each instruction is encoded as a 64-bit-long string, starting with 8-bit-long $\textbf{opcode}$ string, followed by a 9-bit-long zero string, three 5-bit-long register selectors for $rd$, $rs_1$, and $rs_1$, and a 32-bit immediate value. 
+Each instruction is encoded as a 64-bit-long string, starting with 8-bit-long $\textbf{opcode}$ string, followed by a 9-bit-long zero string, three 5-bit-long register selectors for $rd$, $rs_1$, and $rs_1$, and a 32-bit immediate value.
 
-Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$, and $\langle i \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$, and the 32-bit-long immediate value $i$. 
+Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$, and $\langle i \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$, and the 32-bit-long immediate value $i$.
 
 | Instruction mnemonic| Arguments | Binary Encodings |
 | -------- | -------- | -------- |
-| $\textbf{nop}$ | | $\begin{array}{llllll} \texttt{0x01}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$| 
-| $\textbf{halt}$ | $rs_1$ $i$ | $\begin{array}{llllll} \texttt{0x02}  & \mathtt{*^5} \; \  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle \end{array}$| 
-| $\textbf{sys}$ | | $\begin{array}{llllll} \texttt{0x03}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$| 
-| $\textbf{jal}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x10}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
-| $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x11}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x12}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{blt}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x13}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x14}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x15}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x16}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{lb}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x20}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
-| $\textbf{lh}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x21}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
-| $\textbf{lw}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x22}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
-| $\textbf{lbu}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x23}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
-| $\textbf{lhu}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x24}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$| 
-| $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x30}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x31}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
-| $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x32}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$| 
+| $\textbf{nop}$ | | $\begin{array}{llllll} \texttt{0x01}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$|
+| $\textbf{halt}$ | $rs_1$ $i$ | $\begin{array}{llllll} \texttt{0x02}  & \mathtt{*^5} \; \  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle \end{array}$|
+| $\textbf{sys}$ | | $\begin{array}{llllll} \texttt{0x03}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$|
+| $\textbf{jal}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x10}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
+| $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x11}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x12}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{blt}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x13}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x14}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x15}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x16}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{lb}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x20}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
+| $\textbf{lh}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x21}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
+| $\textbf{lw}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x22}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
+| $\textbf{lbu}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x23}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
+| $\textbf{lhu}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x24}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
+| $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x30}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x31}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
+| $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x32}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
 | $\textbf{add}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x40}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 | $\textbf{sub}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x41}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 | $\textbf{slt}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x42}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
@@ -118,7 +118,7 @@ Similarly to the $\textbf{answer}$ instruction in the [TinyRAM architecture spec
 
 The current architecture does not specify an output tape. Nevertheless, one can easily return arbitrary strings as output by encoding that string in some specific region of the memory before halting in an accepting state.
 
-As we show in the next section, the RISC-V instruction set can be easily compiled to the instruction set of the Nexus VM, by applying a simple translation function to a subset of these instructions. As a result, the Nexus VM can effortlessly support the execution of programs written in high-level programming languages such as Rust and C++. In addition to that, as indicated further below, future versions of the Nexus VM will be able to be *extended* with custom instructions (e.g. SHA-256). 
+As we show in the next section, the RISC-V instruction set can be easily compiled to the instruction set of the Nexus VM, by applying a simple translation function to a subset of these instructions. As a result, the Nexus VM can effortlessly support the execution of programs written in high-level programming languages such as Rust and C++. In addition to that, as indicated further below, future versions of the Nexus VM will be able to be *extended* with custom instructions (e.g. SHA-256).
 
 ## Translation from RISC-V to Nexus VM
 
@@ -204,11 +204,11 @@ Note that the special RISC-V load immediate instructions ($\textbf{lui}$ and $\t
 
 Both $\textbf{ebreak}$ and $\textbf{fence}$ are mapped to $\textbf{nop}$ since they have no effect as we do not support debugging and our virtual machine only has one CPU core (a.k.a. Hart in RISC-V terminology),
 
-$\textbf{unimp}$ is mapped to $\textbf{halt}\;x_0\;1$ to indicate a failure condition. 
+$\textbf{unimp}$ is mapped to $\textbf{halt}\;x_0\;1$ to indicate a failure condition.
 
 ## Nexus Virtual Machine Initialization
 
-Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link). 
+Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link).
 
 In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next, each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x0000}$.
 
@@ -239,7 +239,7 @@ Though we first expect to implement these special functions as part of the Nexus
 
 [[BCKL22](https://eprint.iacr.org/2022/1542)] Eli Ben-Sasson, Dan Carmon, Swastik Kopparty, and David Levit. “Scalable and transparent proofs over all large fields, via elliptic curves”. In: Electronic Colloquium on Computational Complexity, Report. Vol. 110. 2022, p. 2022
 
-[[CBBZ23](https://eprint.iacr.org/2022/1355)] Binyi Chen, Benedikt Bünz, Dan Boneh, and Zhenfei Zhang. “Hyperplonk: Plonk with linear-time prover and high-degree custom gates”. In EUROCRYPT 2023. 
+[[CBBZ23](https://eprint.iacr.org/2022/1355)] Binyi Chen, Benedikt Bünz, Dan Boneh, and Zhenfei Zhang. “Hyperplonk: Plonk with linear-time prover and high-degree custom gates”. In EUROCRYPT 2023.
 
 [[GGPR13](https://eprint.iacr.org/2012/215.pdf)] Rosario Gennaro, Craig Gentry, Bryan Parno, and Mariana Raykova. “Quadratic span programs and succinct NIZKs without PCPs”. In EUROCRYPT 2013.
 
@@ -247,7 +247,7 @@ Though we first expect to implement these special functions as part of the Nexus
 
 [[KS22](https://eprint.iacr.org/2022/1758)] Abhiram Kothapalli and Srinath Setty. “SuperNova: Proving universal machine executions without universal circuits”. In: Cryptology ePrint Archive (2022)
 
-[[Sta21](https://eprint.iacr.org/2021/582)] StarkWare. ethSTARK Documentation. Cryptology ePrint Archive, Paper 2021/582. 
+[[Sta21](https://eprint.iacr.org/2021/582)] StarkWare. ethSTARK Documentation. Cryptology ePrint Archive, Paper 2021/582.
 
 [[STW23](https://eprint.iacr.org/2023/552)] Srinath Setty, Justin Thaler, and Riad Wahby. “Customizable constraint systems for succinct arguments”. In: Cryptology ePrint Archive (2023)
 
