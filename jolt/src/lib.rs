@@ -1,6 +1,6 @@
 //! Translation layer for using NexusVM with Jolt (https://github.com/a16z/jolt).
 //!
-//! JoltVM works with a superset of NexusVS instruction set, hence the mapping is almost identical.
+//! JoltVM works with a superset of NexusVM instruction set, hence the mapping is almost identical.
 //! Mainly, it's required to modify the link script for the memory shift, fetch additional sections
 //! from the ELF file, and build a trace of memory accesses.
 
