@@ -4,6 +4,8 @@
 //! Mainly, it's required to modify the link script for the memory shift, fetch additional sections
 //! from the ELF file, and build a trace of memory accesses.
 
+#![allow(clippy::type_complexity)]
+
 use jolt_common::{constants::MEMORY_OPS_PER_INSTRUCTION, rv_trace as jolt_rv};
 use jolt_core::{
     jolt::vm::{

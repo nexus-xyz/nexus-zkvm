@@ -19,7 +19,7 @@ pub fn parse_elf(bytes: &[u8]) -> Result<VM, Error> {
     // convert immediately for preprocessing
     let insts = parse_instructions(&elf, bytes)?
         .into_iter()
-        .map(|i| convert::inst(i))
+        .map(convert::inst)
         .collect();
     let mem_init = parse_raw_memory(&elf, bytes)?;
 
