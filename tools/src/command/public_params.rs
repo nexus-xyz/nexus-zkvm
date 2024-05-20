@@ -5,7 +5,10 @@ use std::{
 
 use anyhow::Context;
 
-use nexus_config::{vm as vm_config, Config};
+use nexus_config::{
+    vm::{self as vm_config, ProverImpl},
+    Config,
+};
 use nexus_prover::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
 use nexus_tools_dev::command::common::public_params::{
     format_params_file, format_srs_file, PublicParamsAction, PublicParamsArgs, SRSSetupArgs,
@@ -34,7 +37,15 @@ pub(crate) fn setup_params(args: SetupArgs) -> anyhow::Result<PathBuf> {
 
     let force = args.force;
     let k = args.k.unwrap_or(vm_config.k);
-    let nova_impl = args.nova_impl.unwrap_or(vm_config.nova_impl);
+    let nova_impl = if let Some(nova_impl) = args.nova_impl {
+        nova_impl
+    } else {
+        match vm_config.prover {
+            ProverImpl::Jolt => anyhow::bail!("Jolt doesn't require Nova-setup"),
+            ProverImpl::Nova(nova_impl) => nova_impl,
+        }
+    };
+
     let srs_file = args.srs_file;
 
     let path = match args.path {

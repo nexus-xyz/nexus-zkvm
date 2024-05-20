@@ -12,6 +12,8 @@ categories = { workspace = true }
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_wrapper = { path = "./serde_wrapper" }
+serde-untagged = "0.1.6"
+
 config = { version = "0.13.4", default-features = false }
 
 url = { version = "2.5.0", features = ["serde"] }

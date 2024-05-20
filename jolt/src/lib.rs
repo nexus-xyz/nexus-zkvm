@@ -30,9 +30,9 @@ pub type JoltCommitments = jolt_core::jolt::vm::JoltCommitments<PCS>;
 
 mod convert;
 mod error;
-mod trace;
 
 pub mod parse;
+pub mod trace;
 
 pub use error::Error;
 
@@ -48,6 +48,12 @@ pub struct VM {
     mem_init: Vec<(u64, u8)>,
 }
 
+impl VM {
+    pub fn bytecode_size(&self) -> usize {
+        self.insts.len()
+    }
+}
+
 pub fn preprocess(vm: &VM) -> JoltPreprocessing {
     rv32i_vm::RV32IJoltVM::preprocess(
         vm.insts.clone(),
@@ -59,11 +65,9 @@ pub fn preprocess(vm: &VM) -> JoltPreprocessing {
 }
 
 pub fn prove(
-    vm: VM,
+    trace: Vec<jolt_rv::RVTraceRow>,
     preprocessing: &JoltPreprocessing,
 ) -> Result<(JoltProof, JoltCommitments), Error> {
-    let trace = trace::trace(vm)?;
-
     let (io_device, bytecode_trace, instruction_trace, memory_trace, circuit_flags) =
         build_jolt_trace::<F>(&trace);
 

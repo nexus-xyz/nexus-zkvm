@@ -56,6 +56,7 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
 
     // src/main.rs
     fs::write(path.join("src/main.rs"), TEMPLATE_SRC_MAIN)?;
+    fs::write(path.join("rust-toolchain.toml"), RUST_TOOLCHAIN)?;
 
     Ok(())
 }
@@ -67,4 +68,10 @@ macro_rules! examples_dir {
 }
 
 const TEMPLATE_CARGO_CONFIG: &str = include_str!(concat!(examples_dir!(), "/.cargo/config"));
-const TEMPLATE_SRC_MAIN: &str = include_str!(concat!(examples_dir!(), "/src/main.rs"));
+const TEMPLATE_SRC_MAIN: &str = include_str!(concat!(examples_dir!(), "/src/bin/fact.rs"));
+
+// freeze toolchain that works with all provers
+const RUST_TOOLCHAIN: &str = r#"[toolchain]
+channel = "1.77.0"
+targets = ["riscv32i-unknown-none-elf"]
+"#;

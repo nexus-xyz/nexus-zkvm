@@ -36,7 +36,10 @@ pub(crate) fn setup_params_from_env(args: SetupArgs) -> anyhow::Result<PathBuf> 
 
     let force = args.force;
     let k = args.k.unwrap_or(vm_config.k);
-    let nova_impl = args.nova_impl.unwrap_or(vm_config.nova_impl);
+    let nova_impl = args.nova_impl.unwrap_or(match vm_config.prover {
+        vm_config::ProverImpl::Jolt => unimplemented!("Jolt doesn't require Nova-setup"),
+        vm_config::ProverImpl::Nova(nova_impl) => nova_impl,
+    });
     let srs_file = args.srs_file.as_deref();
 
     let path = match args.path {

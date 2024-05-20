@@ -13,6 +13,7 @@ pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
         prover_args: LocalProveArgs { pp_file, .. },
         compressed,
         key_file,
+        ..
     } = args;
 
     // make sure configs are compiled

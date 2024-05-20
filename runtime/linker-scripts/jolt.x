@@ -14,7 +14,7 @@ SECTIONS
   }
 
   . = ALIGN(8);
- /* . = .* 2; */
+  /* . = .* 2; */
 
   .data : ALIGN(4)
   {

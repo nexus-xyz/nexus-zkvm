@@ -1,13 +1,19 @@
 //! Example of using `nexus-prover` API.
 //! Run with `cargo run --release --example prove`.
 
-use nexus_config::{vm::NovaImpl, VmConfig};
+use nexus_config::{
+    vm::{NovaImpl, ProverImpl},
+    VmConfig,
+};
 use nexus_riscv::VMOpts;
 
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::EnvFilter;
 
-const CONFIG: VmConfig = VmConfig { k: 16, nova_impl: NovaImpl::Sequential };
+const CONFIG: VmConfig = VmConfig {
+    k: 16,
+    prover: ProverImpl::Nova(nexus_config::vm::NovaImpl::Sequential),
+};
 
 fn main() -> anyhow::Result<()> {
     let filter = EnvFilter::builder()
@@ -29,7 +35,10 @@ fn main() -> anyhow::Result<()> {
         machine: Some(String::from("nop10")),
         ..Default::default()
     };
-    let trace = nexus_prover::run(&vm_opts, matches!(CONFIG.nova_impl, NovaImpl::Parallel))?;
+    let trace = nexus_prover::run(
+        &vm_opts,
+        matches!(CONFIG.prover, ProverImpl::Nova(NovaImpl::Parallel)),
+    )?;
 
     tracing::info!("Proving execution trace...");
     let proof = nexus_prover::prove_seq(&public_params, trace)?;
