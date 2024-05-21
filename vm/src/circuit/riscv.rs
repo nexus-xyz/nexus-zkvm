@@ -157,7 +157,9 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         }
 
         b[0] = ONE;
-        for op in [OPC_BR, OPC_STORE, OPC_ECALL] {
+        // nb: ECALL is _not_ included, as we use the rd flag
+        //     for our overloading in the RV32Nexus extension
+        for op in [OPC_BR, OPC_STORE] {
             b[cs.var(&format!("opcode={op}"))] = MINUS;
         }
         c[cs.var("rd")] = ONE;
@@ -532,6 +534,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
 
     load(&mut cs, vm);
     store(&mut cs, vm);
+    ecall(&mut cs, vm);
 
     misc(&mut cs);
 
@@ -1307,6 +1310,13 @@ fn bitops(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     bitop(cs, &format!("Z{J}"), "Y", vm.X ^ vm.Y, F::from(-2));
 }
 
+fn ecall(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
+    // ecall is special in RV32Nexus extension
+    let J = ECALL.index_j();
+    cs.set_var(&format!("Z{J}"), vm.Z);
+    cs.set_eq(&format!("PC{J}"), "pc+4");
+}
+
 fn misc(cs: &mut R1CS) {
     let mut nop = |J: u32| {
         cs.set_var(&format!("Z{J}"), 0);
@@ -1314,7 +1324,6 @@ fn misc(cs: &mut R1CS) {
     };
 
     nop(FENCE.index_j());
-    nop(ECALL.index_j());
     nop(EBREAK.index_j());
 
     // unimp is special
