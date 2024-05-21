@@ -39,7 +39,7 @@ fn main() {
     .expect("error generating execution trace");
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
-    println!("Proving execution...");
+    println!("Proving execution of length {}...", trace.blocks.len());
     let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
