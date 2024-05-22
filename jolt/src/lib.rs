@@ -6,21 +6,22 @@
 
 #![allow(clippy::type_complexity)]
 
-use jolt_common::{constants::MEMORY_OPS_PER_INSTRUCTION, rv_trace as jolt_rv};
+use jolt_common::rv_trace as jolt_rv;
 use jolt_core::{
     jolt::vm::{
         bytecode::BytecodeRow as JoltBytecodeRow,
         rv32i_vm::{self, RV32ISubtables, C, M, RV32I},
-        Jolt,
+        Jolt, JoltTraceStep,
     },
     poly::{commitment::hyrax::HyraxScheme, field::JoltField},
     utils::thread::unsafe_allocate_zero_vec,
 };
 
 use rayon::{
-    iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator},
+    iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator},
     slice::ParallelSliceMut,
 };
+use strum::EnumCount;
 
 const LOG_TARGET: &str = "nexus-jolt";
 
@@ -71,17 +72,14 @@ pub fn preprocess(vm: &VM) -> JoltPreprocessing {
 }
 
 pub fn prove(
-    trace: Vec<jolt_rv::RVTraceRow>,
+    raw_trace: Vec<jolt_rv::RVTraceRow>,
     preprocessing: &JoltPreprocessing,
 ) -> Result<(JoltProof, JoltCommitments), Error> {
-    let (io_device, bytecode_trace, instruction_trace, memory_trace, circuit_flags) =
-        build_jolt_trace::<F>(&trace);
+    let (io_device, trace, circuit_flags) = build_jolt_trace::<F>(&raw_trace);
 
     Ok(rv32i_vm::RV32IJoltVM::prove(
         io_device,
-        bytecode_trace,
-        memory_trace,
-        instruction_trace,
+        trace,
         circuit_flags,
         preprocessing.clone(),
     ))
@@ -96,14 +94,8 @@ pub fn verify(
 }
 
 fn build_jolt_trace<F: JoltField>(
-    trace: &[jolt_rv::RVTraceRow],
-) -> (
-    jolt_rv::JoltDevice,
-    Vec<JoltBytecodeRow>,
-    Vec<Option<rv32i_vm::RV32I>>,
-    Vec<[jolt_rv::MemoryOp; MEMORY_OPS_PER_INSTRUCTION]>,
-    Vec<F>,
-) {
+    raw_trace: &[jolt_rv::RVTraceRow],
+) -> (jolt_rv::JoltDevice, Vec<JoltTraceStep<RV32I>>, Vec<F>) {
     // Nexus VM doesn't use JoltVM provided IO.
     const MAX_INPUT_SIZE: u64 = 0;
     const MAX_OUTPUT_SIZE: u64 = 0;
@@ -111,27 +103,34 @@ fn build_jolt_trace<F: JoltField>(
     let io_device = jolt_rv::JoltDevice::new(MAX_INPUT_SIZE, MAX_OUTPUT_SIZE);
 
     // copy of [`jolt_core::host::Program::trace`]
-    let bytecode_trace: Vec<JoltBytecodeRow> = trace
-        .par_iter()
-        .map(|row| JoltBytecodeRow::from_instruction::<rv32i_vm::RV32I>(&row.instruction))
-        .collect();
-
-    let instruction_trace: Vec<Option<rv32i_vm::RV32I>> = trace
-        .par_iter()
+    let trace: Vec<_> = raw_trace
+        .into_par_iter()
+        .flat_map(|row| match row.instruction.opcode {
+            jolt_rv::RV32IM::MULH
+            | jolt_rv::RV32IM::MULHSU
+            | jolt_rv::RV32IM::DIV
+            | jolt_rv::RV32IM::DIVU
+            | jolt_rv::RV32IM::REM
+            | jolt_rv::RV32IM::REMU => unimplemented!(),
+            _ => vec![row],
+        })
         .map(|row| {
-            if let Ok(jolt_instruction) = rv32i_vm::RV32I::try_from(row) {
+            let instruction_lookup = if let Ok(jolt_instruction) = RV32I::try_from(row) {
                 Some(jolt_instruction)
             } else {
                 // Instruction does not use lookups
                 None
+            };
+
+            JoltTraceStep {
+                instruction_lookup,
+                bytecode_row: JoltBytecodeRow::from_instruction::<RV32I>(&row.instruction),
+                memory_ops: (row).into(),
             }
         })
         .collect();
-
-    let memory_trace: Vec<[jolt_rv::MemoryOp; MEMORY_OPS_PER_INSTRUCTION]> =
-        trace.iter().map(|row| row.into()).collect();
-
     let padded_trace_len = trace.len().next_power_of_two();
+
     let mut circuit_flag_trace =
         unsafe_allocate_zero_vec(padded_trace_len * jolt_rv::NUM_CIRCUIT_FLAGS);
     circuit_flag_trace
@@ -139,17 +138,14 @@ fn build_jolt_trace<F: JoltField>(
         .enumerate()
         .for_each(|(flag_index, chunk)| {
             chunk.iter_mut().zip(trace.iter()).for_each(|(flag, row)| {
-                if row.instruction.to_circuit_flags()[flag_index] {
+                let packed_circuit_flags = row.bytecode_row.bitflags >> RV32I::COUNT;
+                // Check if the flag is set in the packed representation
+                if (packed_circuit_flags >> (jolt_rv::NUM_CIRCUIT_FLAGS - flag_index - 1)) & 1 != 0
+                {
                     *flag = F::one();
                 }
             });
         });
 
-    (
-        io_device,
-        bytecode_trace,
-        instruction_trace,
-        memory_trace,
-        circuit_flag_trace,
-    )
+    (io_device, trace, circuit_flag_trace)
 }

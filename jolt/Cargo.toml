@@ -10,6 +10,7 @@ nexus-vm = { path = "../vm" }
 tracing = { version = "0.1", default-features = false }
 thiserror = "1.0"
 rayon = "1.8"
+strum = "0.25.0"
 
 ark-bn254 = "0.4"
 

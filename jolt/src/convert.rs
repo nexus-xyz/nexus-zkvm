@@ -8,11 +8,12 @@ pub fn inst(inst: Inst) -> jolt_rv::ELFInstruction {
     jolt_rv::ELFInstruction {
         address: inst.pc as u64,
         opcode: rv32_opcode(inst.inst),
-        raw: inst.word,
         rs1: inst.inst.rs1().map(Into::into),
         rs2: inst.inst.rs2().map(Into::into),
         rd: inst.inst.rd().map(Into::into),
         imm: inst.inst.imm(),
+        // unsupported
+        virtual_sequence_index: None,
     }
 }
 

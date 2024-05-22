@@ -67,7 +67,6 @@ fn init_trace_row(
         register_state: jolt_rv::RegisterState {
             rs1_val: elf_inst.rs1.map(|rs1| vm.get_reg(rs1 as u32) as u64),
             rs2_val: elf_inst.rs2.map(|rs2| vm.get_reg(rs2 as u32) as u64),
-            rd_pre_val: elf_inst.rd.map(|rd| vm.get_reg(rd as u32) as u64),
             rd_post_val: None,
         },
         memory_state: memory_state(vm, inst),
@@ -107,20 +106,12 @@ fn memory_state(vm: &NexusVM, inst: Inst) -> Option<jolt_rv::MemoryState> {
 
             Some(jolt_rv::MemoryState::Read { address: addr as u64, value })
         }
-        RV32::STORE { rs1, imm, sop, .. } => {
-            use nexus_riscv::rv32::SOP::*;
-            let width = match sop {
-                SB => Width::BU,
-                SH => Width::HU,
-                SW => Width::W,
-            };
+        RV32::STORE { rs1, imm, .. } => {
             let x = vm.get_reg(rs1);
-
             let addr = add32(x, imm);
-            let value = vm.mem.load(width, addr).expect("invalid store").0 as u64;
+
             Some(jolt_rv::MemoryState::Write {
                 address: addr as u64,
-                pre_value: value,
                 post_value: 0, // updated after `eval_inst`
             })
         }
