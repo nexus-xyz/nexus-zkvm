@@ -57,12 +57,16 @@ impl VM {
 }
 
 pub fn preprocess(vm: &VM) -> JoltPreprocessing {
+    const MAX_BYTECODE_SIZE: usize = 0x400000;
+    const MAX_MEMORY_ADDRESS: usize = 1 << 20;
+    const MAX_TRACE_LENGTH: usize = 1 << 22;
+
     rv32i_vm::RV32IJoltVM::preprocess(
         vm.insts.clone(),
         vm.mem_init.clone(),
-        1 << 22,
-        1 << 20,
-        1 << 22,
+        MAX_BYTECODE_SIZE,
+        MAX_MEMORY_ADDRESS,
+        MAX_TRACE_LENGTH,
     )
 }
 
