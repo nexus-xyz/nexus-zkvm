@@ -157,8 +157,8 @@ fn parse_opc(cs: &mut R1CS, inst: u32) {
         }
 
         b[0] = ONE;
-        // nb: ECALL is _not_ included, as we use the rd flag
-        //     for our overloading in the RV32Nexus extension
+        // nb: ECALL is _not_ skipped, as we overload the inst
+        //     to use the `rd` flag in the RV32Nexus extension
         for op in [OPC_BR, OPC_STORE] {
             b[cs.var(&format!("opcode={op}"))] = MINUS;
         }
@@ -398,7 +398,7 @@ fn parse_shamt(cs: &mut R1CS, Y: u32) {
 
 fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_var("J", J);
-    for j in 1..RV32::MAX_J + 1 {
+    for j in 1..=RV32::MAX_J {
         cs.set_var(&format!("J={j}"), (j == J).into());
     }
 
@@ -539,7 +539,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
     misc(&mut cs);
 
     // constrain Z and PC according to instruction index J
-    for j in 1..RV32::MAX_J + 1 {
+    for j in 1..=RV32::MAX_J {
         #[rustfmt::skip]
         cs.set_var(
             &format!("JZ{j}"),
@@ -557,7 +557,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
 
     // Z = Z[J]
     cs.constraint(|cs, a, b, c| {
-        for j in 1..RV32::MAX_J + 1 {
+        for j in 1..=RV32::MAX_J {
             a[cs.var(&format!("JZ{j}"))] = ONE;
         }
         b[0] = ONE;
@@ -566,7 +566,7 @@ pub fn step(vm: &Witness<impl MemoryProof>, witness_only: bool) -> R1CS {
 
     // PC = PC[J]
     cs.constraint(|cs, a, b, c| {
-        for j in 1..RV32::MAX_J + 1 {
+        for j in 1..=RV32::MAX_J {
             a[cs.var(&format!("JPC{j}"))] = ONE;
         }
         b[0] = ONE;
@@ -661,7 +661,7 @@ fn alu(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
 
     let start = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
     let end = (ALU { aop: AND, rd: 0, rs1: 0, rs2: 0 }).index_j();
-    for j in start..end + 1 {
+    for j in start..=end {
         cs.set_eq(&format!("PC{j}"), "pc+4");
     }
 }
@@ -1352,7 +1352,7 @@ mod test {
             (OPC_ALUI,  1, 1, 0 ),
             (OPC_ALU,   1, 1, 1 ),
             (OPC_FENCE, 1, 1, 0 ),
-            (OPC_ECALL, 0, 0, 0 ),
+            (OPC_ECALL, 1, 0, 0 ),
         ];
         for (op, has_rd, has_rs1, has_rs2) in opc {
             for rd in [0, 1, 31] {
