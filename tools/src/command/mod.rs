@@ -17,7 +17,7 @@ mod jolt;
 /// Default environment variables for prover configuration.
 const ENV: &str = r#"
 NEXUS_VM_K=16
-NEXUS_VM_PROVER=jolt
+NEXUS_VM_PROVER=nova-seq
 "#;
 
 pub fn handle_command(cmd: Command) -> anyhow::Result<()> {

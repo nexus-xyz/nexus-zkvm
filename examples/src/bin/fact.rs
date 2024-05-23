@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+use nexus_rt::{println, Write};
+
 #[nexus_rt::main]
 fn main() {
     fn f(n: u32) -> u32 {
@@ -13,6 +15,6 @@ fn main() {
             n.saturating_mul(f(n - 1))
         }
     }
-    let n = core::hint::black_box(12);
-    let _result = f(n);
+    let n = 12;
+    println!("fact {n} = {}", f(n))
 }
