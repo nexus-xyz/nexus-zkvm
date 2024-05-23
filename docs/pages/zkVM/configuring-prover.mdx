@@ -21,14 +21,14 @@ or distributed. It enables multiple provers to work on the same program in paral
 The default one you have tried in the quick start is sequential, to switch to parallel you can either pass it as a cli argument:
 
 ```shell
-cargo nexus prove --impl=par
-cargo nexus verify --impl=par # don't forget to specify it for the verifier!
+cargo nexus prove --impl=nova-par
+cargo nexus verify --impl=nova-par # don't forget to specify it for the verifier!
 ```
 
 Or simply set the environment variable:
 
 ```shell
-export NEXUS_VM_NOVAIMPL=par # default is seq
+export NEXUS_VM_PROVER=nova-par # default is nova-seq
 
 cargo nexus prove
 cargo nexus verify
