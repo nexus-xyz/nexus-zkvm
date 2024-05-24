@@ -1,11 +1,11 @@
 ---
-title: "Nexus zkVM costs"
+title: "Nexus zkVM Costs"
 lang: en-US
 description: "A summary of the Nexus zkVM costs."
 image: "/nexus-head.png"
 ---
 
-# Summary of Nexus zkVM costs
+## Summary of Nexus zkVM costs
 
 Most of instructions of the Nexus VM instruction set can be implemented quite efficiently requiring less than 2000 constraints in total. The main exception are memory operations, which require expensive Merkle proof computations. More precisely, in the case of a memory update, one needs to compute 3 Merkle proofs, one to read the current instruction from memory, one to read the current contents of the memory location, and one to update that memory location. Since each of these Merkle proofs require about 4300 constraints, as indicated in the [memory checking costs section](nexus-memory-checking#cost-profile), the total cost of a memory update is about 13000 constraints.
 

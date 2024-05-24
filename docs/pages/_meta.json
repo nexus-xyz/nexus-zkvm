@@ -5,8 +5,8 @@
     }
   },
   "network": {},
-  "zkVM": {},
-  "Specs": {},
+  "zkvm": { "title": "Using the zkVM" },
+  "specs": { "title": "Specifications" },
   "svg": {
     "title": "SVG Images",
     "display": "hidden"
