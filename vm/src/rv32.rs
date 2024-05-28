@@ -54,7 +54,6 @@ pub use AOP::*;
 #[derive(Eq, Hash, PartialEq)]
 pub enum InstructionSet {
     //
-
     RV32i,
     RV32Nexus,
 }
