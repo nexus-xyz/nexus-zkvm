@@ -53,6 +53,8 @@ pub use AOP::*;
 
 #[derive(Eq, Hash, PartialEq)]
 pub enum InstructionSet {
+    //
+
     RV32i,
     RV32Nexus,
 }
@@ -76,8 +78,8 @@ pub enum RV32 {
     ALU  { aop: AOP, rd: u32, rs1: u32, rs2: u32, },
 
     FENCE,
-    ECALL,
-    EBREAK,
+    ECALL { rd: u32 },  // RV32Nexus Extension
+    EBREAK { rd: u32 }, // RV32Nexus Extension
 
     #[default]
     UNIMP,
@@ -118,7 +120,7 @@ impl RV32 {
             | FENCE
             | UNIMP => InstructionSet::RV32i,
             // we overload these instructions
-            ECALL | EBREAK => InstructionSet::RV32Nexus,
+            ECALL { .. } | EBREAK { .. } => InstructionSet::RV32Nexus,
         }
     }
 
@@ -175,8 +177,8 @@ impl RV32 {
             ALU { aop: AND, .. } => 38,
 
             FENCE => 39,
-            ECALL => 40,
-            EBREAK => 41,
+            ECALL { .. } => 40,
+            EBREAK { .. } => 41,
             UNIMP => 42,
         }
     }

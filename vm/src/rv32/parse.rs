@@ -210,8 +210,8 @@ pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
         OPC_FENCE => FENCE,
 
         _ => match word {
-            0x00000073 => ECALL,
-            0x00100073 => EBREAK,
+            0x00000573 => ECALL { rd: rd(word) },
+            0x00100573 => EBREAK { rd: rd(word) },
             0xc0001073 => UNIMP, // csrrw x0, cycle, x0
             _ => return None,
         },
@@ -241,6 +241,15 @@ fn inst_size(b0: u8, b1: u8) -> u32 {
     }
 }
 
+/// translate RV32i instructions to RV32Nexus instructions
+fn translate_nexus(word: u32) -> u32 {
+    match word {
+        // ecall     // ebreak
+        0x00000073 | 0x00100073 => word | (0b101 << 8), // set rd = 10
+        _ => word
+    }
+}
+
 /// parse a single instruction from a byte array
 pub fn parse_inst(pc: u32, mem: &[u8]) -> Result<Inst> {
     if mem.len() < 2 {
@@ -260,6 +269,8 @@ pub fn parse_inst(pc: u32, mem: &[u8]) -> Result<Inst> {
         | ((mem[2] as u32) << 16)
         | ((mem[1] as u32) << 8)
         | (mem[0] as u32);
+
+    let word = translate_nexus(word);
 
     match parse_u32(word) {
         None => Err(InvalidInstruction(pc, word)),
@@ -463,10 +474,14 @@ mod test {
     }
 
     #[test]
+    fn test_nexus() {
+        assert_eq!(parse_u32(0x00000573), Some(ECALL { rd: 10 }));
+        assert_eq!(parse_u32(0x00100573), Some(EBREAK { rd: 10 }));
+    }
+
+    #[test]
     fn test_misc() {
         assert_eq!(parse_u32(0), None);
-        assert_eq!(parse_u32(0x00000073), Some(ECALL));
-        assert_eq!(parse_u32(0x00100073), Some(EBREAK));
         assert_eq!(parse_u32(0xc0001073), Some(UNIMP));
     }
 }
