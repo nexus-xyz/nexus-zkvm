@@ -300,14 +300,7 @@ fn parse_alt<P: MemoryProof>(regs: &Regs, word: u32) -> Witness<P> {
             w.shamt = regs.x[w.rs2 as usize] & 0x1f;
         },
         OPC_ECALL => {
-            // Per the RISC-V ISA, for an ecall `rd = 0` and the system determines
-            // how to return a value, e.g. by modifying register `x10` (aka `a0`).
-            //
-            // For the NVM ISA, we formalize this by setting `rd = 10` and having each
-            // ecall modify `x10`, even if to just write zero. By doing so, we know
-            // that `rd` points to the modified register, and so we will always
-            // generate the R1CS circuit constraints correctly.
-            w.rd = 10;
+            w.rd = rd(word);
         }
         _ => (),
     };
