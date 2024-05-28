@@ -1,6 +1,6 @@
 <p align="center">
   <p align="center">
-   <img width="150" height="150" src="assets/logo.png" alt="Logo">
+   <img width="150" height="150" src="assets/nexus_docs-header.png" alt="Logo">
   </p>
  <h1 align="center"><b>The Nexus zkVM</b></h1>
  <p align="center">
