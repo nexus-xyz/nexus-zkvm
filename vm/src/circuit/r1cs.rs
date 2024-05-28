@@ -311,7 +311,7 @@ impl R1CS {
                         let mut rv = format!("{i}");
                         for (n, j) in &self.vars {
                             if *j == i {
-                                rv = n.clone();
+                                rv.clone_from(n);
                             }
                         }
                         println!("{} * {} (name {})", v[i], self.w[i], rv);
