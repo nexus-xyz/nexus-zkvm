@@ -11,3 +11,6 @@ Cargo.lock
 
 # proof file
 nexus-proof
+
+# macos
+.DS_Store

@@ -1,0 +1,75 @@
+---
+title: "Nexus zkVM Prover Configuration"
+lang: en-US
+---
+
+## Configuration
+
+At present the Nexus zkVM is most easily accessed through a stable command line interface (CLI). This page documents configuring the zkVM and prover through that CLI.
+
+A stable SDK that enables programmatic configuration and execution of the zkVM, including documented support for private input tapes, is under active development.
+
+### Custom Proving Profiles
+
+`cargo nexus prove` accepts a `--profile` argument to build and prove the artifact in the specified profile.
+The default is `release`. You can define your own profile in `Cargo.toml` of your Nexus project according
+to [cargo docs](https://doc.rust-lang.org/cargo/reference/profiles.html). As an example, you can try proving a debug
+build:
+
+```shell
+cargo nexus prove --profile=dev
+```
+
+### Switching Nova Implementations
+
+At present, `nexus-nova` exposes two implementations of the prover: sequential and proof-carrying data. The second one is also aliased as parallel
+or distributed. It enables multiple provers to work on the same program in parallel, at the cost of bigger recursion overhead (see [module docs](https://github.com/nexus-xyz/nexus-zkvm/blob/main/nova/src/circuits/nova/pcd/mod.rs) for details).
+The default one -- used in the quick start -- is sequential. To switch to parallel you can either pass it as a CLI argument:
+
+```shell
+cargo nexus prove --impl=nova-par
+cargo nexus verify --impl=nova-par # don't forget to specify it for the verifier!
+```
+
+Or simply set an environment variable:
+
+```shell
+export NEXUS_VM_PROVER=nova-par # default is nova-seq
+
+cargo nexus prove
+cargo nexus verify
+```
+
+> Changing this value requires generating new public parameters!
+
+### Configuring `k`
+
+The `k` parameter denotes how many NexusVM instructions are batched into each prover step. Increasing this value reduces the overall number of proving steps, but also increases
+the overhead of computing one, as well as the size of the final proof. Similar to the previous section, you can either pass the value through the CLI or the environment:
+
+```shell
+cargo nexus prove -k=32
+cargo nexus verify -k=32 # don't forget to specify it for the verifier!
+```
+
+or
+
+```shell
+export NEXUS_VM_K=32
+
+cargo nexus prove
+cargo nexus verify
+```
+
+> Changing this value requires generating new public parameters!
+
+### Caching Public Parameters
+
+The first time you prove a new project, `cargo nexus` sets up public parameters and stores them into `./target/nexus-cache` directory. If you want to re-use them
+or replace this path with something else, set the environment variable:
+
+```shell
+export NEXUS_CACHE=/tmp/nexus
+
+cargo nexus prove
+```
