@@ -1311,7 +1311,7 @@ fn bitops(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
 }
 
 fn ecall(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    let J = ECALL.index_j();
+    let J = (ECALL { rd: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), vm.Z);
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
@@ -1323,7 +1323,7 @@ fn misc(cs: &mut R1CS) {
     };
 
     nop(FENCE.index_j());
-    nop(EBREAK.index_j());
+    nop((EBREAK { rd: 0 }).index_j());
 
     // unimp is special
     let J = UNIMP.index_j();
