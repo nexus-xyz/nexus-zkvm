@@ -298,7 +298,7 @@ fn parse_alt<P: MemoryProof>(regs: &Regs, word: u32) -> Witness<P> {
             w.rs1 = rs1(word);
             w.rs2 = rs2(word);
             w.shamt = regs.x[w.rs2 as usize] & 0x1f;
-        },
+        }
         OPC_ECALL => {
             w.rd = rd(word);
         }
