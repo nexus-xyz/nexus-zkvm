@@ -53,7 +53,6 @@ pub use AOP::*;
 
 #[derive(Eq, Hash, PartialEq)]
 pub enum InstructionSet {
-    //
     RV32i,
     RV32Nexus,
 }
@@ -77,8 +76,38 @@ pub enum RV32 {
     ALU  { aop: AOP, rd: u32, rs1: u32, rs2: u32, },
 
     FENCE,
-    ECALL { rd: u32 },  // RV32Nexus Extension
-    EBREAK { rd: u32 }, // RV32Nexus Extension
+
+    // BEGIN RV32Nexus EXTENSION
+
+    // ECALL: An overload of the RV32i ECALL instruction, with explicit return.
+    //
+    //        In the RV32i spec, ECALL looks like:
+    //
+    //           00000 00 00000 00000 000 00000 11100 11
+    //
+    //        We overload the instruction as:
+    //
+    //           00000 00 00000 00000 000 {-rd} 11100 11
+    //
+    //        We then use rd as the return location for the ecall. By making the return
+    //        explicit in this way, circuit generation is much cleaner since the memory
+    //        updates involved are all captured explicitly in the instruction.
+    ECALL { rd: u32 },
+
+    // EBREAK: An overload of the RV32i EBREAK instruction, with explicit return.
+    //
+    //        In the RV32i spec, EBREAK looks like:
+    //
+    //           00000 00 00001 00000 000 00000 11100 11
+    //
+    //        We overload the instruction as:
+    //
+    //           00000 00 00001 00000 000 {-rd} 11100 11
+    //
+    //        We then use rd as the return location for the ebreak. By making the return
+    //        explicit in this way, circuit generation is much cleaner since the memory
+    //        updates involved are all captured explicitly in the instruction.
+    EBREAK { rd: u32 },
 
     #[default]
     UNIMP,
