@@ -1,5 +1,5 @@
-//! A Trie of `CacheLine` structures which hold the memory of the
-//! machine. The trie can be configured as a Merkle tree dynamically.
+//! A sparse trie of `CacheLine` structures which hold the memory of the
+//! machine.
 
 use super::cacheline::*;
 use super::path::*;
@@ -7,7 +7,7 @@ use super::Memory;
 use crate::circuit::F;
 use crate::error::*;
 
-/// A sparse Trie of `CacheLines`.
+/// A sparse Trie of `CacheLines` with merkle hashing..
 pub struct MerkleTrie {
     // The root node, initially `None`
     root: Option<Box<Node>>,
@@ -19,24 +19,32 @@ pub struct MerkleTrie {
     params: Params,
 }
 
+/// Populated nodes of the trie are represented by `Node`.
 #[derive(Debug)]
 struct Node {
+    // The hash of the node data
     digest: Digest,
+    
+    // Contents of the node, either internal or leaf
     data: NodeData,
 }
 
+/// Populated nodes contain one `NodeData` value.
 #[derive(Debug)]
 enum NodeData {
+    // internal nodes, with optionally populated children.
     Branch {
         left: Option<Box<Node>>,
         right: Option<Box<Node>>,
     },
+    // leaf nodes, containing a single `CacheLine`.
     Leaf {
         val: CacheLine,
     },
 }
 use NodeData::*;
 
+// Convenience methods for constructing internal and leaf nodes.
 impl Node {
     // construct a new leaf node with default data.
     fn new_leaf() -> Self {
@@ -56,6 +64,7 @@ impl Node {
 }
 
 impl NodeData {
+    #[inline]
     fn leaf(&self) -> &CacheLine {
         match self {
             Leaf { val } => val,
@@ -63,6 +72,7 @@ impl NodeData {
         }
     }
 
+    #[inline]
     fn leaf_mut(&mut self) -> &mut CacheLine {
         match self {
             Leaf { val } => val,
@@ -70,6 +80,7 @@ impl NodeData {
         }
     }
 
+    #[inline]
     fn left(&self) -> &Option<Box<Node>> {
         match self {
             Branch { left, .. } => left,
@@ -77,6 +88,7 @@ impl NodeData {
         }
     }
 
+    #[inline]
     fn right(&self) -> &Option<Box<Node>> {
         match self {
             Branch { right, .. } => right,
@@ -88,6 +100,7 @@ impl NodeData {
 impl Node {
     // descend into a child, allocating if necessary
     fn descend(&mut self, left: bool, leaf: bool) -> &mut Box<Node> {
+        // descending into a leaf node is an fatal error.
         let Node { data: Branch { left: l, right: r }, .. } = self else {
             panic!()
         };
@@ -102,7 +115,7 @@ impl Node {
         }
         match node {
             Some(ref mut b) => b,
-            None => panic!(),
+            None => unimplemented!(),
         }
     }
 
@@ -141,7 +154,7 @@ impl MerkleTrie {
         self.digest(0, &self.root)
     }
 
-    // return digest of node
+    // return digest of node, or default if not present
     fn digest(&self, level: usize, node: &Option<Box<Node>>) -> Digest {
         match node {
             None => self.zeros[level],
@@ -180,7 +193,7 @@ impl MerkleTrie {
         cl
     }
 
-    /// Update tree at `addr` with new `CacheLine`
+    /// Update `CacheLine` at `addr`.
     pub fn update<F>(&mut self, addr: u32, f: F) -> Result<Path>
     where
         F: Fn(&mut CacheLine) -> Result<()>,
