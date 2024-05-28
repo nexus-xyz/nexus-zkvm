@@ -39,7 +39,7 @@ impl Tr {
 }
 
 pub fn nop_circuit(k: usize) -> Result<Tr, ProofError> {
-    let mut vm = nop_vm::<MerkleTrie>(0);
+    let mut vm = nop_vm::<MerkleTrie>(1);
     let trace = trace(&mut vm, k, false)?;
     Ok(Tr(trace))
 }
