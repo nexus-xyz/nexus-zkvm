@@ -24,7 +24,7 @@ pub struct MerkleTrie {
 struct Node {
     // The hash of the node data
     digest: Digest,
-    
+
     // Contents of the node, either internal or leaf
     data: NodeData,
 }
