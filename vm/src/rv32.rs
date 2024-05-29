@@ -124,6 +124,8 @@ impl RV32 {
             ALUI { rd, .. } => Some(rd),
             ALU { rd, .. } => Some(rd),
             LOAD { rd, .. } => Some(rd),
+            ECALL { rd } => Some(rd),
+            EBREAK { rd } => Some(rd),
             _ => None,
         }
     }
