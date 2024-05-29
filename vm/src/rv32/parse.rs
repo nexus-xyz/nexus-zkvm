@@ -158,7 +158,7 @@ mod opcodes {
     pub const OPC_ALUI  : u32 = 0b_001_0011;
     pub const OPC_ALU   : u32 = 0b_011_0011;
     pub const OPC_FENCE : u32 = 0b_000_1111;
-    pub const OPC_ECALL : u32 = 0b_111_0011;
+    pub const OPC_ECALL : u32 = 0b_111_0011; // also captures EBREAK and UNIMP
 }
 pub use opcodes::*;
 
@@ -209,12 +209,16 @@ pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
 
         OPC_FENCE => FENCE,
 
-        _ => match word {
-            0x00000573 => ECALL { rd: rd(word) },
-            0x00100573 => EBREAK { rd: rd(word) },
-            0xc0001073 => UNIMP, // csrrw x0, cycle, x0
-            _ => return None,
+        OPC_ECALL => {
+            match word >> 12 {
+                0x00000 => ECALL { rd: rd(word) },
+                0x00100 => EBREAK { rd: rd(word) },
+                0xc0001 => UNIMP, // csrrw x0, cycle, x0
+                _ => return None
+            }
         },
+
+        _ => return None,
     };
     Some(inst)
 }
