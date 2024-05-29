@@ -1,7 +1,7 @@
 use nexus_vm::{
     eval::{add32, eval_inst, NexusVM},
     memory::Memory,
-    rv32::{parse::parse_inst, Inst, LOP, RV32, SOP, InstructionSet as RV32IS},
+    rv32::{parse::parse_inst, Inst, InstructionSet as RV32IS, LOP, RV32, SOP},
 };
 
 use jolt_common::rv_trace as jolt_rv;
