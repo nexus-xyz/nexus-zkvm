@@ -6,9 +6,10 @@ use nexus_vm::elf::{
     ElfBytes,
 };
 use nexus_vm::{
-    init_vm, parse_elf_bytes,
-    rv32::{parse::parse_inst, Inst, RV32},
+    init_vm,
     memory::Memory,
+    parse_elf_bytes,
+    rv32::{parse::parse_inst, Inst, RV32},
 };
 
 use crate::{convert, Error, LOG_TARGET, VM};
@@ -92,7 +93,7 @@ fn parse_instructions(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Vec<I
                     );
                     return Err(Error::Unsupported(inst.inst));
                 }
-                _ => ()
+                _ => (),
             }
 
             insts.push(inst);

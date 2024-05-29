@@ -67,8 +67,8 @@ pub fn rv32_opcode(inst: RV32) -> jolt_rv::RV32IM {
         ALU { aop: AND, .. } => JoltRV32IM::AND,
 
         FENCE => JoltRV32IM::FENCE,
-        ECALL => JoltRV32IM::ECALL,
-        EBREAK => JoltRV32IM::EBREAK,
+        ECALL { .. } => JoltRV32IM::ECALL,
+        EBREAK { .. } => JoltRV32IM::EBREAK,
         UNIMP => JoltRV32IM::UNIMPL,
     }
 }

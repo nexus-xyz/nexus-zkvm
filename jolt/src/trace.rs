@@ -1,8 +1,8 @@
 use nexus_vm::{
     eval::{add32, eval_inst, NexusVM},
-    rv32::{parse::parse_inst, Inst, RV32},
+    memory::Memory,
+    rv32::{parse::parse_inst, Inst, LOP, RV32, SOP},
 };
-use nexus_vm::{instructions::Width, memory::Memory};
 
 use jolt_common::rv_trace as jolt_rv;
 
@@ -15,25 +15,24 @@ pub fn trace<M: Memory>(vm: VM<M>) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
     let mut trace = Vec::new();
     loop {
         // decode next inst
-        let slice = vm.mem.load(Width::W, vm.regs.pc)?.0.to_le_bytes();
+        let slice = vm.mem.load(LOP::LW, vm.regs.pc)?.0.to_le_bytes();
         let next_inst = parse_inst(vm.regs.pc, &slice)?;
         if next_inst.inst == RV32::UNIMP {
             break;
         }
 
         // save store address for memory state
-        let store_addr: Option<(Width, u32)> =
+        let store_addr: Option<(LOP, u32)> =
             if let RV32::STORE { rs1, imm, sop, .. } = next_inst.inst {
-                use nexus_vm::rv32::SOP::*;
-                let width = match sop {
-                    SB => Width::BU,
-                    SH => Width::HU,
-                    SW => Width::W,
+                let lop = match sop {
+                    SOP::SB => LOP::LB,
+                    SOP::SH => LOP::LH,
+                    SOP::SW => LOP::LW,
                 };
 
                 let x = vm.get_reg(rs1);
                 let addr = add32(x, imm);
-                Some((width, addr))
+                Some((lop, addr))
             } else {
                 None
             };
@@ -76,13 +75,13 @@ fn init_trace_row<M: Memory>(
 fn update_row_post_eval<M: Memory>(
     vm: &NexusVM<M>,
     rv_trace_row: &mut jolt_rv::RVTraceRow,
-    store_addr: Option<(Width, u32)>,
+    store_addr: Option<(LOP, u32)>,
 ) {
     if let Some(rd) = rv_trace_row.instruction.rd {
         rv_trace_row.register_state.rd_post_val = Some(vm.get_reg(rd as u32) as u64);
     }
-    if let Some((width, store_addr)) = store_addr {
-        let new_value = vm.mem.load(width, store_addr).expect("invalid store").0 as u64;
+    if let Some((lop, store_addr)) = store_addr {
+        let new_value = vm.mem.load(lop, store_addr).expect("invalid store").0 as u64;
         let Some(jolt_rv::MemoryState::Write { post_value, .. }) = &mut rv_trace_row.memory_state
         else {
             panic!("invalid memory state for store instruction");
@@ -94,15 +93,9 @@ fn update_row_post_eval<M: Memory>(
 fn memory_state<M: Memory>(vm: &NexusVM<M>, inst: Inst) -> Option<jolt_rv::MemoryState> {
     match inst.inst {
         RV32::LOAD { rs1, imm, lop, .. } => {
-            use nexus_vm::rv32::LOP::*;
-            let width = match lop {
-                LB | LBU => Width::BU,
-                LH | LHU => Width::HU,
-                LW => Width::W,
-            };
             let x = vm.get_reg(rs1);
             let addr = add32(x, imm);
-            let value = vm.mem.load(width, addr).expect("invalid load").0 as u64;
+            let value = vm.mem.load(lop, addr).expect("invalid load").0 as u64;
 
             Some(jolt_rv::MemoryState::Read { address: addr as u64, value })
         }
