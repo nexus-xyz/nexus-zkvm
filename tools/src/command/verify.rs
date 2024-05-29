@@ -7,23 +7,28 @@ use std::{
 use anyhow::Context;
 use ark_serialize::CanonicalDeserialize;
 use nexus_config::{
-    vm::{NovaImpl, VmConfig},
+    vm::{NovaImpl, ProverImpl, VmConfig},
     Config,
 };
 use nexus_prover::types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP};
 use nexus_tools_dev::command::common::{
-    prove::LocalProveArgs, public_params::format_params_file, spartan_key::format_key_file,
+    prove::{CommonProveArgs, LocalProveArgs},
+    public_params::format_params_file,
+    spartan_key::format_key_file,
     VerifyArgs,
 };
 
 use crate::{command::cache_path, LOG_TARGET};
 
+use super::jolt;
+
 pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
     let VerifyArgs {
         file,
         compressed,
-        prover_args: LocalProveArgs { k, pp_file, nova_impl, .. },
+        prover_args: LocalProveArgs { k, pp_file, prover_impl: nova_impl, .. },
         key_file,
+        common_args,
     } = args;
 
     let vm_config = VmConfig::from_env()?;
@@ -33,7 +38,8 @@ pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
         verify_proof(
             &file,
             k.unwrap_or(vm_config.k),
-            nova_impl.unwrap_or(vm_config.nova_impl),
+            nova_impl.unwrap_or(vm_config.prover),
+            common_args,
             pp_file,
         )
     }
@@ -117,9 +123,16 @@ fn verify_proof_compressed(
 fn verify_proof(
     path: &Path,
     k: usize,
-    nova_impl: NovaImpl,
+    prover: ProverImpl,
+    prove_args: CommonProveArgs,
     pp_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    // handle jolt separately
+    let nova_impl = match prover {
+        ProverImpl::Jolt => return jolt::verify(path, prove_args),
+        ProverImpl::Nova(nova_impl) => nova_impl,
+    };
+
     let file = File::open(path)?;
     let reader = BufReader::new(file);
 

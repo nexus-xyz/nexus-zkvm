@@ -30,7 +30,7 @@ pub struct LocalProveArgs {
     pub pp_file: Option<PathBuf>,
 
     #[arg(long("impl"))]
-    pub nova_impl: Option<vm_config::NovaImpl>,
+    pub prover_impl: Option<vm_config::ProverImpl>,
 
     /// Path to the SRS file: only needed when pp_file is None and nova_impl is ParallelCompressible.
     #[arg(long("srs-file"))]

@@ -5,7 +5,10 @@ use std::{
 };
 
 use anyhow::Context;
-use nexus_config::{vm::NovaImpl, Config, NetworkConfig, VmConfig};
+use nexus_config::{
+    vm::{NovaImpl, ProverImpl},
+    Config, NetworkConfig, VmConfig,
+};
 
 use crate::{
     command::{
@@ -52,10 +55,10 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         // build artifact if needed
         cargo(None, ["build", "--profile", &profile])?;
 
-        let LocalProveArgs { k, pp_file, nova_impl, srs_file } = local_args;
+        let LocalProveArgs { k, pp_file, prover_impl, srs_file } = local_args;
         let k = k.unwrap_or(vm_config.k);
-        let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);
-        local_prove(&path, k, nova_impl, pp_file, srs_file)
+        let prover_impl = prover_impl.unwrap_or(vm_config.prover);
+        local_prove(&path, k, prover_impl, pp_file, srs_file)
     }
 }
 
@@ -78,10 +81,14 @@ fn request_prove(path: &Path, url: &str) -> anyhow::Result<()> {
 fn local_prove(
     path: &Path,
     k: usize,
-    nova_impl: NovaImpl,
+    prover: ProverImpl,
     pp_file: Option<PathBuf>,
     srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    let nova_impl = match prover {
+        ProverImpl::Jolt => unimplemented!(),
+        ProverImpl::Nova(nova_impl) => nova_impl,
+    };
     // setup if necessary
     let pp_file = if let Some(path) = pp_file {
         // return early if the path was explicitly specified and doesn't exist

@@ -78,6 +78,56 @@ pub enum RV32 {
 }
 pub use RV32::*;
 
+impl RV32 {
+    pub fn rd(&self) -> Option<u32> {
+        match *self {
+            LUI { rd, .. } => Some(rd),
+            AUIPC { rd, .. } => Some(rd),
+            JAL { rd, .. } => Some(rd),
+            JALR { rd, .. } => Some(rd),
+            ALUI { rd, .. } => Some(rd),
+            ALU { rd, .. } => Some(rd),
+            LOAD { rd, .. } => Some(rd),
+            _ => None,
+        }
+    }
+
+    pub fn rs1(&self) -> Option<u32> {
+        match *self {
+            JALR { rs1, .. } => Some(rs1),
+            BR { rs1, .. } => Some(rs1),
+            LOAD { rs1, .. } => Some(rs1),
+            STORE { rs1, .. } => Some(rs1),
+            ALUI { rs1, .. } => Some(rs1),
+            ALU { rs1, .. } => Some(rs1),
+            _ => None,
+        }
+    }
+
+    pub fn rs2(&self) -> Option<u32> {
+        match *self {
+            BR { rs2, .. } => Some(rs2),
+            STORE { rs2, .. } => Some(rs2),
+            ALU { rs2, .. } => Some(rs2),
+            _ => None,
+        }
+    }
+
+    pub fn imm(&self) -> Option<u32> {
+        match *self {
+            LUI { imm, .. } => Some(imm),
+            AUIPC { imm, .. } => Some(imm),
+            JAL { imm, .. } => Some(imm),
+            JALR { imm, .. } => Some(imm),
+            BR { imm, .. } => Some(imm),
+            LOAD { imm, .. } => Some(imm),
+            STORE { imm, .. } => Some(imm),
+            ALUI { imm, .. } => Some(imm),
+            _ => None,
+        }
+    }
+}
+
 /// a parsed RV32 instruction
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
 pub struct Inst {
