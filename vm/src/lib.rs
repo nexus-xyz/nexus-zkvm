@@ -17,7 +17,7 @@ pub mod memory;
 pub mod circuit;
 
 use clap::Args;
-use elf::{abi::PT_LOAD, endian::LittleEndian, segment::ProgramHeader, ElfBytes};
+use elf::{abi::PT_LOAD, endian::LittleEndian, ElfBytes};
 use std::fs::read;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -30,6 +30,10 @@ use trace::*;
 
 // don't break API
 pub use machines::{loop_vm, nop_vm};
+
+// re-export
+#[doc(hidden)]
+pub use elf;
 
 /// Load a VM state from an ELF file
 pub fn load_elf<M: Memory>(path: &PathBuf) -> Result<NexusVM<M>> {

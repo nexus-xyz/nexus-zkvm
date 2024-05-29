@@ -1,5 +1,5 @@
-use nexus_riscv::{
-    eval::{add32, eval_inst, VM as NexusVM},
+use nexus_vm::{
+    eval::{add32, eval_inst, NexusVM},
     rv32::{parse::parse_inst, Inst, RV32},
 };
 use nexus_vm::{instructions::Width, memory::Memory};
@@ -9,7 +9,7 @@ use jolt_common::rv_trace as jolt_rv;
 use crate::{convert, Error, LOG_TARGET, VM};
 
 /// Trace VM execution in Jolt format.
-pub fn trace(vm: VM) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
+pub fn trace<M: Memory>(vm: VM<M>) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
     let VM { mut vm, insts, .. } = vm;
 
     let mut trace = Vec::new();
@@ -24,7 +24,7 @@ pub fn trace(vm: VM) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
         // save store address for memory state
         let store_addr: Option<(Width, u32)> =
             if let RV32::STORE { rs1, imm, sop, .. } = next_inst.inst {
-                use nexus_riscv::rv32::SOP::*;
+                use nexus_vm::rv32::SOP::*;
                 let width = match sop {
                     SB => Width::BU,
                     SH => Width::HU,
@@ -57,8 +57,8 @@ pub fn trace(vm: VM) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
     Ok(trace)
 }
 
-fn init_trace_row(
-    vm: &NexusVM,
+fn init_trace_row<M: Memory>(
+    vm: &NexusVM<M>,
     inst: Inst,
     elf_inst: &jolt_rv::ELFInstruction,
 ) -> jolt_rv::RVTraceRow {
@@ -73,8 +73,8 @@ fn init_trace_row(
     }
 }
 
-fn update_row_post_eval(
-    vm: &NexusVM,
+fn update_row_post_eval<M: Memory>(
+    vm: &NexusVM<M>,
     rv_trace_row: &mut jolt_rv::RVTraceRow,
     store_addr: Option<(Width, u32)>,
 ) {
@@ -91,10 +91,10 @@ fn update_row_post_eval(
     }
 }
 
-fn memory_state(vm: &NexusVM, inst: Inst) -> Option<jolt_rv::MemoryState> {
+fn memory_state<M: Memory>(vm: &NexusVM<M>, inst: Inst) -> Option<jolt_rv::MemoryState> {
     match inst.inst {
         RV32::LOAD { rs1, imm, lop, .. } => {
-            use nexus_riscv::rv32::LOP::*;
+            use nexus_vm::rv32::LOP::*;
             let width = match lop {
                 LB | LBU => Width::BU,
                 LH | LHU => Width::HU,

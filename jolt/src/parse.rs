@@ -1,18 +1,19 @@
 //! Utilities for parsing elf files.
 
-use nexus_riscv::elf::{
+use nexus_vm::elf::{
     abi::{PT_LOAD, SHF_ALLOC, SHF_EXECINSTR, SHT_PROGBITS},
     endian::LittleEndian,
     ElfBytes,
 };
-use nexus_riscv::{
+use nexus_vm::{
     init_vm, parse_elf_bytes,
     rv32::{parse::parse_inst, Inst, RV32},
+    memory::Memory,
 };
 
 use crate::{convert, Error, LOG_TARGET, VM};
 
-pub fn parse_elf(bytes: &[u8]) -> Result<VM, Error> {
+pub fn parse_elf<M: Memory>(bytes: &[u8]) -> Result<VM<M>, Error> {
     let elf = parse_elf_bytes(bytes)?;
 
     let vm = init_vm(&elf, bytes)?;
@@ -82,13 +83,16 @@ fn parse_instructions(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Vec<I
             });
 
             // UNIMP instruction is OK as long as it's not executed.
-            if inst.inst == RV32::ECALL || inst.inst == RV32::EBREAK {
-                tracing::debug!(
-                    target: LOG_TARGET,
-                    ?addr,
-                    "Unsupported instruction",
-                );
-                return Err(Error::Unsupported(inst.inst));
+            match inst.inst {
+                RV32::ECALL { .. } | RV32::EBREAK { .. } => {
+                    tracing::debug!(
+                        target: LOG_TARGET,
+                        ?addr,
+                        "Unsupported instruction",
+                    );
+                    return Err(Error::Unsupported(inst.inst));
+                }
+                _ => ()
             }
 
             insts.push(inst);
