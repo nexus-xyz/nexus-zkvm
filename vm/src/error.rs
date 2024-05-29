@@ -19,7 +19,7 @@ pub enum NexusVMError {
     #[error("unknown ecall {1} at pc:{0:x}")]
     UnknownECall(u32, u32),
 
-    /// An error occurred reading file system
+    /// An I/O error occurred
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
