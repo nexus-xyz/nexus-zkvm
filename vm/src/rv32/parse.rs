@@ -245,7 +245,7 @@ fn inst_size(b0: u8, b1: u8) -> u32 {
 fn translate_nexus(word: u32) -> u32 {
     match word {
         // ecall     // ebreak
-        0x00000073 | 0x00100073 => word | (0b101 << 8), // set rd = 10
+        0x00000073 | 0x00100073 => word | (0b1010 << 7), // set rd = 10
         _ => word,
     }
 }
