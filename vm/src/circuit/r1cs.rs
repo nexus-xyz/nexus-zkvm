@@ -108,7 +108,7 @@ impl R1CS {
         if self.vars.contains_key(name) {
             panic!("local variable override {name}");
         }
-        //debug_assert!(!self.vars.contains_key(name));
+
         let n = self.new_var(name);
         self.locals.push(name.to_string());
         n
