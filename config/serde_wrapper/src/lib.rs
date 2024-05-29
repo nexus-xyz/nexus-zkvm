@@ -22,7 +22,9 @@ pub fn derive_deserialize(input: TokenStream) -> TokenStream {
         #[::serde_wrapper::black_hole]
     }
     .into();
-    derive_input.attrs = parse_macro_input!(attrs with syn::Attribute::parse_outer);
+    let new_attrs = parse_macro_input!(attrs with syn::Attribute::parse_outer);
+    let old_attrs = &derive_input.attrs[..];
+    derive_input.attrs = [&new_attrs[..], old_attrs].concat();
 
     let struct_item = match &mut derive_input.data {
         syn::Data::Struct(item) => item,

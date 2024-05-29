@@ -14,7 +14,10 @@ use nexus_tools_dev::{
     utils::{cargo, path_to_artifact},
 };
 
-use crate::{command::public_params::setup_params, LOG_TARGET};
+use crate::{
+    command::{jolt, public_params::setup_params},
+    LOG_TARGET,
+};
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
@@ -38,13 +41,19 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         let url = url.context("url must be specified")?;
         request_prove(&path, &url)
     } else {
+        let LocalProveArgs { k, pp_file, prover_impl, srs_file } = local_args;
+
+        // workaround to enforce runtime to rebuild -- set env (cli args take priority)
+        if let Some(prover) = prover_impl {
+            std::env::set_var("NEXUS_VM_PROVER", prover.to_string());
+        }
+
         // build artifact if needed
         cargo(None, ["build", "--profile", &profile])?;
 
-        let LocalProveArgs { k, pp_file, nova_impl, srs_file } = local_args;
         let k = k.unwrap_or(vm_config.k);
-        let nova_impl = nova_impl.unwrap_or(vm_config.nova_impl);
-        local_prove(&path, k, nova_impl, pp_file, srs_file)
+        let prover_impl = prover_impl.unwrap_or(vm_config.prover);
+        local_prove(&path, k, prover_impl, pp_file, srs_file)
     }
 }
 
@@ -72,10 +81,16 @@ fn request_prove(_path: &Path, _url: &str) -> anyhow::Result<()> {
 fn local_prove(
     path: &Path,
     k: usize,
-    nova_impl: vm_config::NovaImpl,
+    prover: vm_config::ProverImpl,
     pp_file: Option<PathBuf>,
     srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
+    // handle jolt separately
+    let nova_impl = match prover {
+        vm_config::ProverImpl::Jolt => return jolt::prove(path),
+        vm_config::ProverImpl::Nova(nova_impl) => nova_impl,
+    };
+
     // setup if necessary
     let pp_file = if let Some(path) = pp_file {
         // return early if the path was explicitly specified and doesn't exist

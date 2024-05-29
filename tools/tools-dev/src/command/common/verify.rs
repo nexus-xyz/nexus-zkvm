@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 
-use super::prove::LocalProveArgs;
+use super::prove::{CommonProveArgs, LocalProveArgs};
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
@@ -16,6 +16,9 @@ pub struct VerifyArgs {
 
     #[clap(flatten)]
     pub prover_args: LocalProveArgs,
+
+    #[clap(flatten)]
+    pub common_args: CommonProveArgs,
 
     /// File containing the Spartan key; only needed when 'compressed' is true
     #[arg(long = "key-file", short = 'k')]

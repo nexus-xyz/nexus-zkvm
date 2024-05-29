@@ -1,3 +1,6 @@
 Cargo.lock
 target/
 bin/*.o
+
+# TODO: remove
+link.x

@@ -1,14 +1,18 @@
 // An example of loading and running the NVM.
 
 use nexus_api::{
-    config::vm::{NovaImpl, VmConfig},
+    config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
     riscv::{self},
 };
+use nexus_config::vm::NovaImpl;
 use std::path::PathBuf;
 
-const CONFIG: VmConfig = VmConfig { k: 1, nova_impl: NovaImpl::Sequential };
+const CONFIG: VmConfig = VmConfig {
+    k: 1,
+    prover: ProverImpl::Nova(NovaImpl::Sequential),
+};
 
 fn main() {
     // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
@@ -29,7 +33,7 @@ fn main() {
     let trace = nvm::interactive::trace(
         &mut vm,
         CONFIG.k,
-        matches!(CONFIG.nova_impl, NovaImpl::Parallel),
+        matches!(CONFIG.prover, ProverImpl::Nova(NovaImpl::Parallel)),
     )
     .expect("error generating execution trace");
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
