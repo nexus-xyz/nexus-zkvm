@@ -1,7 +1,7 @@
 use nexus_vm::{
     eval::{add32, eval_inst, NexusVM},
     memory::Memory,
-    rv32::{parse::parse_inst, Inst, LOP, RV32, SOP},
+    rv32::{parse::parse_inst, Inst, LOP, RV32, SOP, InstructionSet as RV32IS},
 };
 
 use jolt_common::rv_trace as jolt_rv;
@@ -41,6 +41,16 @@ pub fn trace<M: Memory>(vm: VM<M>) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
         let mut rv_row = init_trace_row(&vm, next_inst, &inst);
 
         eval_inst(&mut vm)?;
+
+        if vm.instruction_sets.contains(&RV32IS::RV32Nexus) {
+            tracing::debug!(
+                target: LOG_TARGET,
+                ?inst,
+                "Unsupported instruction",
+            );
+            return Err(Error::Unsupported(next_inst.inst));
+        }
+
         update_row_post_eval(&vm, &mut rv_row, store_addr);
 
         trace.push(rv_row);
