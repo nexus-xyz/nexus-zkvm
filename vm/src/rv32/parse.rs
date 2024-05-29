@@ -214,9 +214,9 @@ pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
                 0x00000 => ECALL { rd: rd(word) },
                 0x00100 => EBREAK { rd: rd(word) },
                 0xc0001 => UNIMP, // csrrw x0, cycle, x0
-                _ => return None
+                _ => return None,
             }
-        },
+        }
 
         _ => return None,
     };
