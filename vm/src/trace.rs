@@ -121,7 +121,11 @@ fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
     let step = Step {
         inst: vm.inst.word,
         Z: vm.Z,
-        PC: if vm.regs.pc == pc + 4 { None } else { Some(vm.regs.pc) },
+        PC: if vm.regs.pc == pc + 4 {
+            None
+        } else {
+            Some(vm.regs.pc)
+        },
         pc_proof: vm.pc_proof.clone(),
         read_proof: vm.read_proof.clone(),
         write_proof: vm.write_proof.clone(),
@@ -239,7 +243,11 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
         w.X = w.regs.x[w.rs1 as usize];
         w.Y = w.regs.x[w.rs2 as usize];
         w.Z = s.Z;
-        w.PC = if let Some(pc) = s.PC { pc } else { self.regs.pc + 4 };
+        w.PC = if let Some(pc) = s.PC {
+            pc
+        } else {
+            self.regs.pc + 4
+        };
         w.pc_proof = s.pc_proof.clone();
         w.read_proof = s.read_proof.as_ref().unwrap_or(&w.pc_proof).clone();
         w.write_proof = s.write_proof.as_ref().unwrap_or(&w.read_proof).clone();
