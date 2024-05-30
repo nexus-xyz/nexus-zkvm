@@ -5,7 +5,7 @@ use nexus_api::{
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
 };
-use nexus_config::vm::NovaImpl;
+use nexus_api::config::vm::NovaImpl;
 use std::path::PathBuf;
 
 const CONFIG: VmConfig = VmConfig {

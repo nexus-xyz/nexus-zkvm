@@ -5,11 +5,11 @@ use std::{
 
 use anyhow::Context;
 
-use nexus_config::{
+use nexus_api::config::{
     vm::{self as vm_config, ProverImpl},
     Config,
 };
-use nexus_prover::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
+use nexus_api::prover::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
 
 use crate::{command::cache_path, LOG_TARGET};
 
