@@ -18,7 +18,7 @@ use hyper::{
 };
 use tracing_subscriber::EnvFilter;
 
-use nexus_prover::pp::gen_or_load;
+use nexus_api::prover::pp::gen_or_load;
 
 use nexus_network::*;
 use post::*;

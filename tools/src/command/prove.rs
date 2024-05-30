@@ -162,29 +162,29 @@ fn local_prove(
         machine: None,
         file: Some(path.into()),
     };
-    let trace = nexus_prover::run(&opts, true)?;
+    let trace = nexus_api::prover::run(&opts, true)?;
 
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
-            let state = nexus_prover::pp::gen_or_load(false, k, path_str, None)?;
-            let root = nexus_prover::prove_par(state, trace)?;
+            let state = nexus_api::prover::pp::gen_or_load(false, k, path_str, None)?;
+            let root = nexus_api::prover::prove_par(state, trace)?;
 
-            nexus_prover::save_proof(root, &proof_path)?;
+            nexus_api::prover::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::ParallelCompressible => {
-            let state = nexus_prover::pp::gen_or_load(false, k, path_str, None)?;
-            let root = nexus_prover::prove_par_com(state, trace)?;
+            let state = nexus_api::prover::pp::gen_or_load(false, k, path_str, None)?;
+            let root = nexus_api::prover::prove_par_com(state, trace)?;
 
-            nexus_prover::save_proof(root, &proof_path)?;
+            nexus_api::prover::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
-            let state = nexus_prover::pp::gen_or_load(false, k, path_str, None)?;
-            let proof = nexus_prover::prove_seq(&state, trace)?;
+            let state = nexus_api::prover::pp::gen_or_load(false, k, path_str, None)?;
+            let proof = nexus_api::prover::prove_seq(&state, trace)?;
 
-            nexus_prover::save_proof(proof, &proof_path)?;
+            nexus_api::prover::save_proof(proof, &proof_path)?;
         }
     }
 

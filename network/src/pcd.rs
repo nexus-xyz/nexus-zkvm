@@ -188,8 +188,8 @@ mod test {
     use super::*;
 
     use ark_ff::fields::AdditiveGroup;
-    use nexus_prover::circuit::nop_circuit;
-    use nexus_prover::pp::gen_pp;
+    use nexus_api::prover::circuit::nop_circuit;
+    use nexus_api::prover::pp::gen_pp;
 
     fn round_trip(msg: &NexusMsg) {
         let v = encode_lz4(msg).unwrap();
