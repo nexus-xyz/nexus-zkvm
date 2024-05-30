@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "runtime",
     "examples",
-    "riscv",
     "vm",
     "tools",
     "tools/tools-dev",
@@ -18,7 +17,6 @@ members = [
     "jolt",
 ]
 default-members = [
-    "riscv",
     "vm",
     "tools",
     "prover",

@@ -5,16 +5,12 @@ pub use ark_relations::r1cs::SynthesisError;
 pub use ark_serialize::SerializationError;
 pub use nexus_nova::nova::{pcd::compression::SpartanError, Error as NovaError};
 pub use nexus_nova::r1cs::Error as R1CSError;
-pub use nexus_riscv::error::VMError as RVError;
 pub use nexus_vm::error::NexusVMError;
 
 /// Errors related to proof generation
 #[derive(Debug)]
 pub enum ProofError {
-    /// A error occured loading program
-    VMError(RVError),
-
-    /// An error occured executing program
+    /// An error occured loading or executing program
     NexusVMError(NexusVMError),
 
     /// An error occurred reading file system
@@ -51,12 +47,6 @@ pub enum ProofError {
     InvalidProofFormat,
 }
 use ProofError::*;
-
-impl From<RVError> for ProofError {
-    fn from(x: RVError) -> ProofError {
-        VMError(x)
-    }
-}
 
 impl From<NexusVMError> for ProofError {
     fn from(x: NexusVMError) -> ProofError {
@@ -101,7 +91,6 @@ impl From<SpartanError> for ProofError {
 impl Error for ProofError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            VMError(e) => Some(e),
             NexusVMError(e) => Some(e),
             IOError(e) => Some(e),
             CircuitError(e) => Some(e),
@@ -121,7 +110,6 @@ impl Error for ProofError {
 impl Display for ProofError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            VMError(e) => write!(f, "{e}"),
             NexusVMError(e) => write!(f, "{e}"),
             IOError(e) => write!(f, "{e}"),
             CircuitError(e) => write!(f, "{e}"),

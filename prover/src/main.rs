@@ -16,7 +16,7 @@ use nexus_prover::{
     types::{ComPCDNode, ComPP},
     LOG_TARGET,
 };
-use nexus_riscv::VMOpts;
+use nexus_vm::VMOpts;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]

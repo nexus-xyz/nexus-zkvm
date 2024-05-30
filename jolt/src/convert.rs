@@ -1,6 +1,6 @@
 //! Conversion between NexusVM and Jolt types.
 
-use nexus_riscv::rv32::{Inst, RV32};
+use nexus_vm::rv32::{Inst, RV32};
 
 use jolt_common::rv_trace as jolt_rv;
 
@@ -19,7 +19,7 @@ pub fn inst(inst: Inst) -> jolt_rv::ELFInstruction {
 
 pub fn rv32_opcode(inst: RV32) -> jolt_rv::RV32IM {
     use jolt_rv::RV32IM as JoltRV32IM;
-    use nexus_riscv::rv32::{AOP::*, BOP::*, LOP::*, RV32::*, SOP::*};
+    use nexus_vm::rv32::{AOP::*, BOP::*, LOP::*, RV32::*, SOP::*};
 
     match inst {
         LUI { .. } => JoltRV32IM::LUI,
@@ -67,8 +67,8 @@ pub fn rv32_opcode(inst: RV32) -> jolt_rv::RV32IM {
         ALU { aop: AND, .. } => JoltRV32IM::AND,
 
         FENCE => JoltRV32IM::FENCE,
-        ECALL => JoltRV32IM::ECALL,
-        EBREAK => JoltRV32IM::EBREAK,
+        ECALL { .. } => JoltRV32IM::ECALL,
+        EBREAK { .. } => JoltRV32IM::EBREAK,
         UNIMP => JoltRV32IM::UNIMPL,
     }
 }

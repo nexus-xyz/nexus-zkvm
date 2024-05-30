@@ -14,7 +14,7 @@ pub use ark_relations::{
 
 use nexus_vm::{
     circuit::{build_constraints, ARITY},
-    eval::halt_vm,
+    machines::nop_vm,
     memory::{path::Path, trie::MerkleTrie},
     trace::{trace, Trace},
 };
@@ -39,7 +39,7 @@ impl Tr {
 }
 
 pub fn nop_circuit(k: usize) -> Result<Tr, ProofError> {
-    let mut vm = halt_vm::<MerkleTrie>();
+    let mut vm = nop_vm::<MerkleTrie>(1);
     let trace = trace(&mut vm, k, false)?;
     Ok(Tr(trace))
 }

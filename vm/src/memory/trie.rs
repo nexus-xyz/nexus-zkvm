@@ -7,7 +7,7 @@ use super::Memory;
 use crate::circuit::F;
 use crate::error::*;
 
-/// A sparse Trie of `CacheLines` with merkle hashing.
+/// A sparse Trie of `CacheLines` with merkle hashing..
 pub struct MerkleTrie {
     // The root node, initially `None`
     root: Option<Box<Node>>,
@@ -44,9 +44,24 @@ enum NodeData {
 }
 use NodeData::*;
 
-// Some (private) convenience methods for projecting out of `NodeData`.
-// These methods are only called from contexts in which the match will
-// succeed, and only serve to make the code more readable.
+// Convenience methods for constructing internal and leaf nodes.
+impl Node {
+    // construct a new leaf node with default data.
+    fn new_leaf() -> Self {
+        Self {
+            digest: Digest::default(),
+            data: Leaf { val: CacheLine::default() },
+        }
+    }
+
+    // construct a new internal node with unpopulated children.
+    fn new_node() -> Self {
+        Self {
+            digest: Digest::default(),
+            data: Branch { left: None, right: None },
+        }
+    }
+}
 
 impl NodeData {
     #[inline]
@@ -82,28 +97,6 @@ impl NodeData {
     }
 }
 
-// Conveneience methods for constructing internal and leaf nodes.
-
-impl Node {
-    // construct a new leaf node with default data.
-    fn new_leaf() -> Self {
-        Self {
-            digest: Digest::default(),
-            data: Leaf { val: CacheLine::default() },
-        }
-    }
-
-    // construct a new internal node with unpopulated children.
-    fn new_node() -> Self {
-        Self {
-            digest: Digest::default(),
-            data: Branch { left: None, right: None },
-        }
-    }
-}
-
-// Conveneience methods for traversing the Trie.
-
 impl Node {
     // descend into a child, allocating if necessary
     fn descend(&mut self, left: bool, leaf: bool) -> &mut Box<Node> {
@@ -122,7 +115,7 @@ impl Node {
         }
         match node {
             Some(ref mut b) => b,
-            None => unreachable!(),
+            None => unimplemented!(),
         }
     }
 
@@ -154,17 +147,10 @@ impl Node {
     }
 }
 
-impl Default for MerkleTrie {
-    fn default() -> Self {
-        let params = poseidon_config();
-        let zeros = compute_zeros(&params).unwrap();
-        Self { root: None, zeros, params }
-    }
-}
-
 impl MerkleTrie {
-    // return the current merkle root
-    fn root(&self) -> Digest {
+    // return merkle root
+    #[allow(clippy::question_mark)]
+    pub fn root(&self) -> Digest {
         self.digest(0, &self.root)
     }
 
@@ -179,7 +165,7 @@ impl MerkleTrie {
     /// Query the tree at `addr` returning the `CacheLine` (and `Path` if hashes enabled).
     /// The default CacheLine is returned if the tree is unpopulated at `addr`.
     pub fn query(&self, addr: u32) -> (&CacheLine, Path) {
-        let addr = addr.reverse_bits() >> IGNORED_BITS;
+        let addr = addr.reverse_bits();
         let mut auth = Vec::new();
         let cl = self.query_inner(&self.root, &mut auth, 0, addr);
         let path = Path::new(self.root(), cl.scalars(), auth);
@@ -212,14 +198,14 @@ impl MerkleTrie {
     where
         F: Fn(&mut CacheLine) -> Result<()>,
     {
-        let addr = addr.reverse_bits() >> IGNORED_BITS;
+        let addr = addr.reverse_bits();
         let mut auth = Vec::new();
         if self.root.is_none() {
             self.root = Some(Box::new(Node::new_node()));
         }
         let Some(ref mut b) = self.root else { unreachable!() };
 
-        // Note: root is never accessed through self in update_,
+        // Note: root is never accessed through self in update_inner,
         // so we can safely make the following optimization
         let root = b as *mut Box<Node>;
         let root = unsafe { &mut *root as &mut Box<Node> };
@@ -256,6 +242,14 @@ impl MerkleTrie {
         let rh = self.digest(level, node.data.right());
         node.digest = compress(&self.params, &lh, &rh)?;
         Ok(cl)
+    }
+}
+
+impl Default for MerkleTrie {
+    fn default() -> Self {
+        let params = poseidon_config();
+        let zeros = compute_zeros(&params).unwrap();
+        Self { root: None, zeros, params }
     }
 }
 

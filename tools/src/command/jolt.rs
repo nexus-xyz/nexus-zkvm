@@ -4,6 +4,7 @@ use std::{fs::File, io::BufReader, path::Path};
 
 use nexus_jolt::{parse, preprocess, trace, JoltCommitments, JoltProof};
 use nexus_tools_dev::command::common::prove::CommonProveArgs;
+use nexus_vm::memory::trie::MerkleTrie;
 
 use anyhow::Context;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -14,7 +15,7 @@ type Proof = (JoltProof, JoltCommitments);
 
 pub fn prove(path: &Path) -> anyhow::Result<()> {
     let bytes = std::fs::read(path)?;
-    let vm = parse::parse_elf(&bytes)?;
+    let vm: nexus_jolt::VM<MerkleTrie> = parse::parse_elf(&bytes)?;
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
 
@@ -82,7 +83,7 @@ pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<
         .context("proof is not in Jolt format")?;
 
     let bytes = std::fs::read(path)?;
-    let vm = parse::parse_elf(&bytes)?;
+    let vm: nexus_jolt::VM<MerkleTrie> = parse::parse_elf(&bytes)?;
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
 

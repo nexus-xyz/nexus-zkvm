@@ -32,6 +32,8 @@ impl Display for RV32 {
             STORE { sop, rs1, rs2, imm } => write!(f, "{} x{}, x{}, {:x}", sop, rs1, rs2, imm),
             ALUI { aop, rd, rs1, imm } => write!(f, "{}i x{}, x{}, {:x}", aop, rd, rs1, imm),
             ALU { aop, rd, rs1, rs2 } => write!(f, "{} x{}, x{}, x{}", aop, rd, rs1, rs2),
+            ECALL { rd } => write!(f, "ecall x{}", rd),
+            EBREAK { rd } => write!(f, "ebreak x{}", rd),
             _ => lower(f, self),
         }
     }

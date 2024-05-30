@@ -27,7 +27,7 @@ pub fn run_vm_with_elf_file(path: &Path, verbose: bool) -> anyhow::Result<()> {
         vm_opts.push("--trace".into());
     }
 
-    let mut cargo_opts: Vec<OsString> = ["run", "-p", "nexus-riscv"]
+    let mut cargo_opts: Vec<OsString> = ["run", "-p", "nexus-vm"]
         .into_iter()
         .map(From::from)
         .collect();

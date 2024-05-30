@@ -3,16 +3,17 @@ use ark_relations::r1cs::ConstraintSystem;
 
 use crate::{
     error::Result,
-    eval::{halt_vm, NexusVM},
+    eval::NexusVM,
+    machines::loop_vm,
     memory::{trie::MerkleTrie, Memory},
     trace::trace,
 };
 
-use super::{nvm::step, r1cs::R1CS, step::build_constraints, F};
+use super::{r1cs::R1CS, riscv::step, step::build_constraints, F};
 
 // generate R1CS matrices
 fn vm_circuit(k: usize) -> Result<R1CS> {
-    let mut vm = halt_vm::<MerkleTrie>();
+    let mut vm = loop_vm::<MerkleTrie>(5);
     let tr = trace(&mut vm, k, false)?;
     let w = tr.blocks[0].into_iter().next().unwrap();
     Ok(step(&w, false))
@@ -38,7 +39,7 @@ fn nvm_check_steps(mut vm: NexusVM<impl Memory>) -> Result<()> {
 #[test]
 #[ignore]
 fn nvm_step() {
-    let vm = halt_vm::<MerkleTrie>();
+    let vm = loop_vm::<MerkleTrie>(5);
     nvm_check_steps(vm).unwrap();
 }
 
@@ -61,7 +62,7 @@ fn ark_check(mut vm: NexusVM<impl Memory>, k: usize) -> Result<()> {
 }
 
 fn ark_check_steps(k: usize) {
-    let vm = halt_vm::<MerkleTrie>();
+    let vm = loop_vm::<MerkleTrie>(5);
     ark_check(vm, k).unwrap();
 }
 

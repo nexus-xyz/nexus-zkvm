@@ -1,4 +1,4 @@
-use nexus_riscv::*;
+use nexus_vm::{memory::trie::MerkleTrie, run_vm, VMOpts};
 
 use clap::Parser;
 
@@ -15,7 +15,7 @@ pub struct Opts {
 
 fn main() {
     let opts = Opts::parse();
-    match run_vm(&opts.vm, opts.trace) {
+    match run_vm::<MerkleTrie>(&opts.vm, opts.trace) {
         Ok(()) => (),
         Err(e) => println!("{e}"),
     }

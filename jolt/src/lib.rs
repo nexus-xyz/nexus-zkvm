@@ -17,6 +17,8 @@ use jolt_core::{
     utils::thread::unsafe_allocate_zero_vec,
 };
 
+use nexus_vm::{eval::NexusVM, memory::Memory};
+
 use rayon::{
     iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator},
     slice::ParallelSliceMut,
@@ -40,9 +42,9 @@ pub mod trace;
 pub use error::Error;
 
 /// Wrapper for initialized VM.
-pub struct VM {
+pub struct VM<M: Memory> {
     /// Initialized Nexus VM.
-    vm: nexus_riscv::eval::VM,
+    vm: NexusVM<M>,
 
     /// Instructions section.
     insts: Vec<jolt_rv::ELFInstruction>,
@@ -51,13 +53,13 @@ pub struct VM {
     mem_init: Vec<(u64, u8)>,
 }
 
-impl VM {
+impl<M: Memory> VM<M> {
     pub fn bytecode_size(&self) -> usize {
         self.insts.len()
     }
 }
 
-pub fn preprocess(vm: &VM) -> JoltPreprocessing {
+pub fn preprocess<M: Memory>(vm: &VM<M>) -> JoltPreprocessing {
     const MAX_BYTECODE_SIZE: usize = 0x400000;
     const MAX_MEMORY_ADDRESS: usize = 1 << 20;
     const MAX_TRACE_LENGTH: usize = 1 << 22;
