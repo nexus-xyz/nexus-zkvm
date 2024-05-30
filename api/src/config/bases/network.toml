@@ -1,0 +1,6 @@
+[network.api]
+bind_addr = "127.0.0.1:8080"
+
+[network.client]
+host_name = "localhost" # domain or ip
+port = 8080             # optional

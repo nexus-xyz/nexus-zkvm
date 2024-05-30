@@ -6,9 +6,6 @@ members = [
     "vm",
     "tools",
     "tools/tui",
-    "config",
-    "config/serde_wrapper",
-    "prover",
     "network",
     "network/rpc/common",
     "network/rpc/server",
@@ -16,12 +13,12 @@ members = [
     "nova",
     "spartan",
     "api",
+    "api/serde_wrapper",
     "jolt",
 ]
 default-members = [
     "vm",
     "tools",
-    "prover",
     "network",
     "nova",
     "spartan",

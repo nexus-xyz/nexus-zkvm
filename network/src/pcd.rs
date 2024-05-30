@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use nexus_prover::types::*;
+use nexus_api::prover::types::*;
 
 use crate::Result;
 

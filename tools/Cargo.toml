@@ -34,7 +34,7 @@ clap.workspace = true
 
 nexus-config = { path = "../config", features = ["clap_derive"] }
 nexus-vm = { path = "../vm" }
-nexus-prover = { path = "../prover", features = ["verbose"] }
+nexus-api = { path = "../api", features = ["verbose"] }
 nexus-jolt = { path = "../jolt" }
 nexus-tui = { path = "./tui" }
 

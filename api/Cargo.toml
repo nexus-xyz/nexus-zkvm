@@ -10,6 +10,52 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-nexus-config = { path = "../config" }
+clap.workspace = true
+
+#rayon = "1.8"
+snmalloc-rs = { version = "0.3.4", optional = true }
+
+anyhow = "1.0"
+
+zstd = { version = "0.12", default-features = false }
+
 nexus-vm = { path = "../vm" }
-nexus-prover = { path = "../prover" }
+nexus-nova = { path = "../nova", features = ["spartan"] }
+nexus-tui = { path = "../tools/tui" }
+spartan = { path = "../spartan", package = "ark-spartan" }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+ark-ff.workspace = true
+ark-ec.workspace = true
+ark-std.workspace = true
+ark-crypto-primitives.workspace = true
+ark-relations.workspace = true
+ark-r1cs-std.workspace = true
+ark-serialize.workspace = true
+
+ark-bn254.workspace = true
+ark-grumpkin.workspace = true
+
+serde = { version = "1.0", features = ["derive"] }
+serde_wrapper = { path = "./serde_wrapper" }
+serde-untagged = "0.1.6"
+
+config = { version = "0.13.4", default-features = false }
+
+url = { version = "2.5.0", features = ["serde"] }
+
+[features]
+default = ["parallel", "snmalloc"]
+parallel = [
+   "ark-ff/parallel",
+   "ark-ec/parallel",
+   "ark-std/parallel",
+   "ark-crypto-primitives/parallel",
+   "ark-r1cs-std/parallel",
+   "nexus-nova/parallel",
+]
+snmalloc = ["snmalloc-rs"]
+# TODO: disable superconsole if not enabled
+verbose = []
