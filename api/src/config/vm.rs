@@ -17,8 +17,7 @@ pub enum ProverImpl {
     Nova(NovaImpl),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, serde_wrapper::Deserialize)]
-#[derive(clap::ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, serde_wrapper::Deserialize, clap::ValueEnum)]
 pub enum NovaImpl {
     #[serde(rename = "nova-seq")]
     #[clap(name = "nova-seq")]

@@ -1,11 +1,11 @@
 // An example of loading and running the NVM.
 
+use nexus_api::config::vm::NovaImpl;
 use nexus_api::{
     config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
 };
-use nexus_api::config::vm::NovaImpl;
 use std::path::PathBuf;
 
 const CONFIG: VmConfig = VmConfig {

@@ -6,7 +6,7 @@ use nexus_api::prover::types::*;
 
 use crate::Result;
 
-pub type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
+pub type Trace = nexus_api::nvm::interactive::Trace<nexus_api::nvm::memory::Path>;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize)]
