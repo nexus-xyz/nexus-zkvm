@@ -9,7 +9,7 @@ image: "/nexus-head.png"
 
 The second main component of the Nexus zkVM is the Nexus Proof System, which provides proofs of correctness for any computation being run on the Nexus VM. In order to realize this goal and be able to support arbitrarily large computations, the Nexus Proof System relies on modern recursive zero-knowledge proof systems such as folding and accumulation schemes [[KST22; KS22; BC23](#references)] to achieve a high level of parallelization.
 
-Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors.  The proof generation process for $P$ has four main steps: 
+Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors. The proof generation process for $P$ has four main steps: 
 1. zkVM initialization;
 2. program execution;
 3. proof accumulation; and
@@ -35,7 +35,7 @@ After receiving a Merkle proof from the initialization step with a Merkle proof 
 
 ### Proof Accumulation
 
-In order to enable a high-level of parallelization without impacting the efficiency of the scheme, the Nexus zkVM uses proof accumulation (without SNARKs), represented by the IVC step in the diagram above. The main advantage of using such a scheme is that it realizes the notion of Incrementally Verifiable Computation (IVC) [[Val08](#references)] and its Proof-Carrying Data (PCD) [[CT10](#references)] generalization to the distribued setting.
+In order to enable a high-level of parallelization without impacting the efficiency of the scheme, the Nexus zkVM uses proof accumulation (without SNARKs), represented by the IVC step in the diagram above. The main advantage of using such a scheme is that it realizes the notion of Incrementally Verifiable Computation (IVC) [[Val08](#references)] and its Proof-Carrying Data (PCD) [[CT10](#references)] generalization to the distributed setting.
 
 #### Nova Folding Scheme
 
@@ -43,7 +43,7 @@ In the current version of the Nexus zkVM, this step makes use of the *Nova* fold
 
 One main advantage of using *Nova* is that it has a small recursion overhead, which denotes the number of steps that a prover must prove in addition to proving an invocation of $F$ [[KST22](#references)]. In particular, when used to realize an IVC scheme, Nova's recursion overhead is dominated by *two group scalar multiplications* and three hash computations. When used within a PCD, this overhead is slightly higher but still reasonable.
 
-In terms of prover costs, the most expensive part of the prover's work at the each folding step is to compute *two multi-scalar multiplications* (MSMs) of size proportional to the size of $F$. This is because the prover needs to commit to two large witness vectors at each folding step using a Pedersen commitment scheme. Despite being the most computationally expensive part of the proof generation, this computation is highly parallelizable.
+In terms of prover costs, the most expensive part of the prover's work at each folding step is to compute *two multi-scalar multiplications* (MSMs) of size proportional to the size of $F$. This is because the prover needs to commit to two large witness vectors at each folding step using a Pedersen commitment scheme. Despite being the most computationally expensive part of the proof generation, this computation is highly parallelizable.
 
 #### Cycles of Curves
 
@@ -107,7 +107,7 @@ const MODULUS_BITS: u64 = 254;
 
 #### Instructions Per Folding Step
 
-The Nexus zkVM's approach based on Nova provides a proof system with a recursion overhead which is independent of the total number of computation steps and of the step function itself. However, in our current implementation, the recursion overhead  remains quite high (in the order of $120{,}000$ and $340{,}000$ constraints in the IVC and PCD settings) compared the cost of a single step of the Nexus VM (around $15{,}000$ constraints). 
+The Nexus zkVM's approach based on Nova provides a proof system with a recursion overhead which is independent of the total number of computation steps and of the step function itself. However, in our current implementation, the recursion overhead remains quite high (in the order of $120{,}000$ and $340{,}000$ constraints in the IVC and PCD settings) compared to the cost of a single step of the Nexus VM (around $15{,}000$ constraints). 
 
 Hence, in order to offset the current recursion overhead, the Nexus zkVM includes a configuration parameter $k$ which allows the prover to combine several steps of the Nexus VM into a single folding step. Even though a higher value of $k$ will increase the overall complexity of the prover, the value $k$ has no impact on the recursion overhead. As a result, one can improve the overall performance of the Nexus zkVM by increasing the value $k$. For instance, by choosing $k=8$ in the IVC setting, the cost of each folding step will approximately double while the total number of folding steps will be reduced by a factor $8$.
 
@@ -117,11 +117,11 @@ The current default value for $k$ is 16, which seems to avoid large RAM requirem
 
 As mentioned above, the public parameters for the Nexus zkVM consist of those needed by the Pedersen commitment scheme during the accumulation phase and by the Zeromorph commitment scheme during the compression phase. Other public parameters will also be needed for the remaining SNARKs of the compression, but these are currently under development and hence omitted for now.
 
-Regarding the public parameters for the Pedersen commitment scheme used in Nova, these consist of a vector of random group elements of sufficient size in the respective curve in the cycle. In the PCD setting with $k=1$, Nova circuits for the primary curve are represented by three sparse matrices $(A,B,C)$ each containing about $2^{19}$ rows and columns and about 8 non-zero entries per row. As a result, the size of the public parameters for the Pedersen commitment scheme contains about $2^{19}$ `bn254` elliptic curve elements. Since larger values of $k$ would increase the witness size, the size of the vector would need to increase accordingly.  For the secondary curve, the size of the vector depends on the size of the witness for the secondary circuit, containing about $3{,}000$ `grumpkin` elliptic curve elements.
+Regarding the public parameters for the Pedersen commitment scheme used in Nova, these consist of a vector of random group elements of sufficient size in the respective curve in the cycle. In the PCD setting with $k=1$, Nova circuits for the primary curve are represented by three sparse matrices $(A,B,C)$ each containing about $2^{19}$ rows and columns and about 8 non-zero entries per row. As a result, the size of the public parameters for the Pedersen commitment scheme contains about $2^{19}$ `bn254` elliptic curve elements. Since larger values of $k$ would increase the witness size, the size of the vector would need to increase accordingly. For the secondary curve, the size of the vector depends on the size of the witness for the secondary circuit, containing about $3{,}000$ `grumpkin` elliptic curve elements.
 
 As for the public parameters for the Zeromorph commitment scheme used in Spartan, these consist of a sufficiently large vector of group elements of the form $\tau^i g$, where $g$ is a generator for the group and $\tau$ is the “toxic waste” secret used to generate the vector. These public parameters are exactly the same as those used for the KZG polynomial commitment scheme [[KZG10](#references)], requiring a trusted setup phase as well. As in the case of systems such as Plonk-KZG [[GWC19](#references)], the trusted setup is universal and only depends on a global bound on the size of committed vectors. Regarding the actual size of this vector, the current implementation requires committing to a single vector of size $2^{26}$ when $k=1$ since the pre-processing phase of Spartan needs to commit to a specialized sparse matrix representation of $(A, B, C)$ used in Nova (see [[Set20, Sections 6-7](#references)] for details). As for Pedersen commitments, larger values of $k$ would also result in larger parameters for Zeromorph. 
 
-Finally, since the parameters for the Pedersen and Zeromorph commitment schemes consist of a vector of group elements and need to be compatible in order to make Spartan a proof system for committed relaxed R1CS, the Nexus zkVM currently generates the parameters for the Pedersen commitment scheme by truncating the parameters used for Zeromorph, instead of randomly sampling a vector of fresh group elements. Note that this is cryptographically indistinguishable from a random vector,  unless one knows the toxic waste secret.
+Finally, since the parameters for the Pedersen and Zeromorph commitment schemes consist of a vector of group elements and need to be compatible in order to make Spartan a proof system for committed relaxed R1CS, the Nexus zkVM currently generates the parameters for the Pedersen commitment scheme by truncating the parameters used for Zeromorph, instead of randomly sampling a vector of fresh group elements. Note that this is cryptographically indistinguishable from a random vector, unless one knows the toxic waste secret.
 
 ### References
 
