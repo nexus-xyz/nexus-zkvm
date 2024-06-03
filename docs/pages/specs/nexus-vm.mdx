@@ -213,7 +213,7 @@ $\textbf{unimp}$ is mapped to $\textbf{halt}\;x_0\;1$ to indicate a failure cond
 
 ### Nexus Virtual Machine Initialization
 
-Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in a Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link).
+Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support input and auxiliary tapes, these will be eventually implemented and initialized with the contents of the public and auxiliary inputs for the program. The program itself is provided to the Nexus VM via a file in an Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link).
 
 In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next, each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x0000}$.
 
@@ -222,7 +222,7 @@ In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code
 
 While the universality of the current instruction set allows for executing any program on the Nexus VM, the translation process may yield inefficient programs due to the limited instruction set of the Nexus VM. As a result, proving the correctness of such computations within the Nexus zkVM may become infeasible for more complex programs. The cost of such an abstraction may be multiplied by more than a $1000$ factor for functions such as the SHA-256 circuit.
 
-To deal with such scenarios, the Nexus Virtual Machine is being designed with extensability in mind in order to enable the addition of custom instructions for more complex functions, such as hashing and signature verification.
+To deal with such scenarios, the Nexus Virtual Machine is being designed with extensibility in mind in order to enable the addition of custom instructions for more complex functions, such as hashing and signature verification.
 
 Currently, the Nexus Virtual Machine uses universal circuits to simulate the whole CPU and this unfortunately increases the complexity of the Nexus Proof System with each additional instruction.
 
@@ -234,7 +234,7 @@ Nevertheless, we will soon be switching to a *non-uniform* computation model bas
 
 The main advantage of using precompiles is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
-Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles written as as CCS circuits [[STW23](#references)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set. CCS circuits are a generalization of R1CS [[GGPR13](#references)], Plonkish [[GWC19; CBBZ23](#references)], and AIR [[BBHR19; Sta21; BCKL22](#references)].
+Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles written as CCS circuits [[STW23](#references)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set. CCS circuits are a generalization of R1CS [[GGPR13](#references)], Plonkish [[GWC19; CBBZ23](#references)], and AIR [[BBHR19; Sta21; BCKL22](#references)].
 
 ### References
 
