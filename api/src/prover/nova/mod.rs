@@ -10,33 +10,24 @@ use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use nexus_vm::{memory::trie::MerkleTrie, VMOpts};
+use nexus_vm::{memory::{Memory, MemoryProof}, trace::Trace, VMOpts};
 
 use nexus_nova::nova::pcd::compression::SNARK;
 
-use crate::prover::{
+use crate::prover::nova::{
     circuit::Tr,
     error::ProofError,
     types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP, SpartanKey},
 };
 
-#[cfg(feature = "verbose")]
-const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
-#[cfg(not(feature = "verbose"))]
-const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
-
 pub const LOG_TARGET: &str = "nexus-prover";
 
 pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
     tracing::info!(
-        target: LOG_TARGET,
-        path = %path.display(),
+         target: LOG_TARGET,
+         path = %path.display(),
         "Saving the proof",
     );
-
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut context = term.context("Saving").on_step(|_step| "proof".into());
-    let _guard = context.display_step();
 
     let mut buf = Vec::new();
 
@@ -47,58 +38,46 @@ pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Resul
 }
 
 pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError> {
-    let file = std::fs::File::open(path)?;
-    let reader = std::io::BufReader::new(file);
     tracing::info!(
         target: LOG_TARGET,
         path = %path.display(),
         "Loading the proof",
     );
 
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut context = term.context("Loading").on_step(|_step| "proof".into());
-    let _guard = context.display_step();
+    let file = std::fs::File::open(path)?;
+    let reader = std::io::BufReader::new(file);
 
     let proof: P = P::deserialize_compressed(reader)?;
 
     Ok(proof)
 }
 
-type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
-
-pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
+pub fn run<M: Memory>(opts: &VMOpts, pow: bool) -> Result<Trace<M::Proof>, ProofError> {
+    Ok(nexus_vm::trace_vm::<M>(opts, pow, false)?)
 }
 
 pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
-    // let k = trace.k;
-    let tr = Tr(trace);
+    let (mut proof, tr) = prove_seq_setup(pp, trace)?;
+    let num_steps = tr.steps();
+
+    for _ in 0..num_steps {
+        proof = prove_seq_step(proof, pp, &tr)?;
+    }
+
+    Ok(proof)
+}
+
+pub fn prove_seq_setup(pp: &SeqPP, trace: Trace) -> Result<(IVCProof, Tr), ProofError> {
+    let tr = Tr(trace, PhantomData);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
     let mut proof = IVCProof::new(&z_0);
 
-    let num_steps = tr.steps();
+    Ok((proof, tr))
+}
 
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut term_ctx = term
-        .context("Computing")
-        .on_step(|step| format!("step {step}"))
-        .num_steps(num_steps)
-        .with_loading_bar("Proving")
-        .completion_header("Proved")
-        .completion_stats(move |elapsed| {
-            format!(
-                "{num_steps} step(s) in {elapsed}; {:.2} instructions / second",
-                icount as f32 / elapsed.as_secs_f32()
-            )
-        });
-
-    for _ in 0..num_steps {
-        let _guard = term_ctx.display_step();
-
-        proof = IVCProof::prove_step(proof, pp, &tr)?;
-    }
-
+pub fn prove_seq_step(pp: &SeqPP, proof: &IVCProof, step_circuit: &Tr) -> Result<IVCProof, ProofError> {
+    let proof = IVCProof::prove_step(proof, pp, step_circuit)?;
     Ok(proof)
 }
 
@@ -181,11 +160,6 @@ pub fn compress(
         target: LOG_TARGET,
         "Compressing the proof",
     );
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut term_ctx = term
-        .context("Compressing")
-        .on_step(|_step| "the proof".into());
-    let _guard = term_ctx.display_step();
 
     let compressed_pcd_proof = SNARK::compress(compression_pp, key, node)?;
 
@@ -202,10 +176,6 @@ pub fn verify_compressed(
         "Verifying the compressed proof",
     );
     let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut term_ctx = term
-        .context("Verifying")
-        .on_step(|_step| "compressed proof".into());
-    let _guard = term_ctx.display_step();
 
     SNARK::verify(key, params, proof)?;
     Ok(())

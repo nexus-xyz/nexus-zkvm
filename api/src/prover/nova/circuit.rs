@@ -1,4 +1,6 @@
-use ark_ff::BigInt;
+use core::marker::PhantomData;
+use ark_ff::{BigInt, PrimeField};
+
 pub use ark_r1cs_std::{
     alloc::AllocVar,
     fields::{
@@ -15,11 +17,12 @@ pub use ark_relations::{
 use nexus_vm::{
     circuit::{build_constraints, ARITY},
     machines::nop_vm,
-    memory::{path::Path, trie::MerkleTrie},
+    memory::{Memory, MemoryProof, path::Path, trie::MerkleTrie},
     trace::{trace, Trace},
 };
+use nexus_nova::StepCircuit;
 
-use crate::prover::error::*;
+use crate::prover::nova::error::*;
 
 pub struct Tr<F: PrimeField, P: MemoryProof>(pub Trace<P>, pub PhantomData<F>);
 

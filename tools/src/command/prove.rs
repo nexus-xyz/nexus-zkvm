@@ -8,6 +8,11 @@ use clap::Args;
 
 use nexus_config::{vm as vm_config, Config};
 
+#[cfg(feature = "verbose")]
+pub(crate) const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
+#[cfg(not(feature = "verbose"))]
+pub(crate) const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
+
 use crate::{
     command::{
         jolt,
@@ -169,43 +174,55 @@ fn local_prove(
 
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
-            let state = nexus_api::prover::pp::gen_or_load(false, k, path_str, None)?;
-            let root = nexus_api::prover::prove_par(state, trace)?;
+            let state = nexus_api::prover::nova::pp::gen_or_load(false, k, path_str, None)?;
+            let root = nexus_api::prover::nova::prove_par(state, trace)?;
 
-            nexus_api::prover::save_proof(root, &proof_path)?;
+            save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::ParallelCompressible => {
-            let state = nexus_api::prover::pp::gen_or_load(false, k, path_str, None)?;
-            let root = nexus_api::prover::prove_par_com(state, trace)?;
+            let state = nexus_api::prover::nova::pp::gen_or_load(false, k, path_str, None)?;
+            let root = nexus_api::prover::nova::prove_par_com(state, trace)?;
 
-            nexus_api::prover::save_proof(root, &proof_path)?;
+            save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
-            let state = nexus_api::prover::pp::gen_or_load(false, k, path_str, None)?;
-            let proof = nexus_api::prover::prove_seq(&state, trace)?;
+            let state = nexus_api::prover::nova::pp::gen_or_load(false, k, path_str, None)?;
 
-            nexus_api::prover::save_proof(proof, &proof_path)?;
+            let mut (proof, tr) = nexus_api::prover::nova::prove_seq_setup(&state, trace)?;
+            let num_steps = tr.steps();
+
+            let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let mut term_ctx = term
+                .context("Computing")
+                .on_step(|step| format!("step {step}"))
+                .num_steps(num_steps)
+	        .with_loading_bar("Proving")
+                .completion_header("Proved")
+                .completion_stats(move |elapsed| {
+                    format!(
+                        "{num_steps} step(s) in {elapsed}; {:.2} instructions / second",
+                        icount as f32 / elapsed.as_secs_f32()
+                    )
+                });
+
+            for _ in 0..num_steps {
+                let _guard = term_ctx.display_step();
+                proof = nexus_api::prover::nova::prove_seq_step(proof, pp, &tr)?;
+            }
+
+            save_proof(proof, &proof_path)?;
         }
     }
 
     Ok(())
 }
 
-// fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
-//     tracing::info!(
-//         target: LOG_TARGET,
-//         path = %path.display(),
-//         "Saving the proof",
-//     );
+pub(crate) fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut context = term.context("Saving").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
 
-//     let mut term = nexus_tui::TerminalHandle::new_enabled();
-//     let mut context = term.context("Saving").on_step(|_step| "proof".into());
-//     let _guard = context.display_step();
+    nexus_api::prover::save_proof(root, &proof_path)?;
 
-//     let mut buf = Vec::new();
-
-//     proof.serialize_compressed(&mut buf)?;
-//     std::fs::write(path, buf)?;
-
-//     Ok(())
-// }
+    Ok(())
+}

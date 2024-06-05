@@ -4,9 +4,9 @@ use zstd::stream::{Decoder, Encoder};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use super::srs::load_srs;
-use crate::prover::circuit::{nop_circuit, Tr};
-use crate::prover::error::*;
-use crate::prover::{LOG_TARGET, TERMINAL_MODE};
+use crate::prover::nova::circuit::{nop_circuit, Tr};
+use crate::prover::nova::error::*;
+use crate::prover::nova::LOG_TARGET;
 
 pub fn gen_pp<C, SP>(circuit: &SC, aux: &C::SetupAux) -> Result<PP<C, SP>, ProofError>
 where

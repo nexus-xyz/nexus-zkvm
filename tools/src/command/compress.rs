@@ -10,6 +10,7 @@ use crate::{
     command::{cache_path, spartan_key::spartan_setup},
     LOG_TARGET,
 };
+use super::prove::{save_proof, TERMINAL_MODE};
 use nexus_api::config::{vm as vm_config, Config};
 
 #[derive(Debug, Args)]
@@ -69,7 +70,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
     );
     let pp_file_str = pp_file.to_str().context("path is not valid utf8")?;
 
-    let pp = nexus_api::prover::pp::load_pp(pp_file_str)?;
+    let pp = nexus_api::prover::nova::pp::load_pp(pp_file_str)?;
 
     let key_file = if let Some(path) = args.key_file {
         // return early if the path was explicitly specified and doesn't exist
@@ -92,7 +93,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         })?
     };
     let key_file_str = key_file.to_str().context("path is not valid utf8")?;
-    let key = nexus_api::prover::key::gen_or_load_key(false, key_file_str, None, None)?;
+    let key = nexus_api::prover::nova::key::gen_or_load_key(false, key_file_str, None, None)?;
 
     let proof_file = args.proof_file;
     if !proof_file.try_exists()? {
@@ -103,14 +104,40 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         );
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     };
-    let proof = nexus_api::prover::load_proof(&proof_file)?;
+    let proof = nexus_api::prover::nova::load_proof(&proof_file)?;
 
     let current_dir = std::env::current_dir()?;
     let compressed_proof_path = current_dir.join("nexus-proof-compressed");
 
-    let compressed_proof = nexus_api::prover::compress(&pp, &key, proof)?;
+    let compressed_proof = compress(&pp, &key, proof)?;
 
-    nexus_api::prover::save_proof(compressed_proof, &compressed_proof_path)?;
+    save_proof(compressed_proof, &compressed_proof_path)?;
 
     Ok(())
+}
+
+fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError> {
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let mut context = term.context("Loading").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
+
+    let proof = nexus_api::prover::nova::load_proof(path);
+
+    Ok(proof)
+}
+
+fn compress(
+    compression_pp: &ComPP,
+    key: &SpartanKey,
+    node: ComPCDNode,
+) -> Result<ComProof, ProofError> {
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let mut term_ctx = term
+        .context("Compressing")
+        .on_step(|_step| "the proof".into());
+    let _guard = term_ctx.display_step();
+
+    let proof = nexus_api::prover::nova::compress(compression_pp, key, node);
+
+    Ok(proof)
 }

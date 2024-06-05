@@ -4,11 +4,11 @@ use zstd::stream::{Decoder, Encoder};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use nexus_nova::nova::pcd::compression::SNARK;
 
-use crate::prover::error::*;
-use crate::prover::pp::load_pp;
-use crate::prover::srs::load_srs;
-use crate::prover::default_types::*;
-use crate::prover::{LOG_TARGET, TERMINAL_MODE};
+use crate::prover::nova::error::*;
+use crate::prover::nova::pp::load_pp;
+use crate::prover::nova::srs::load_srs;
+use crate::prover::nova::types::*;
+use crate::prover::nova::LOG_TARGET;
 
 pub fn gen_key(pp: &ComPP, srs: &SRS) -> Result<SpartanKey, ProofError> {
     let key = SNARK::setup(pp, srs)?;
