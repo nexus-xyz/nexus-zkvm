@@ -11,13 +11,13 @@ pub use ark_r1cs_std::{
 };
 pub use ark_relations::{
     lc,
-    r1cs::{SynthesisError, SynthesisMode, Variable},
+    r1cs::{SynthesisError, SynthesisMode, Variable, ConstraintSystemRef},
 };
 
 use nexus_vm::{
     circuit::{build_constraints, ARITY},
     machines::nop_vm,
-    memory::{Memory, MemoryProof, path::Path, trie::MerkleTrie},
+    memory::{Memory, MemoryProof},
     trace::{trace, Trace},
 };
 use nexus_nova::StepCircuit;
@@ -51,7 +51,7 @@ impl<F: PrimeField, P: MemoryProof> StepCircuit<F> for Tr<F, P> {
 
     fn generate_constraints(
         &self,
-        cs: CS,
+        cs: ConstraintSystemRef<F>,
         k: &FpVar<F>,
         z: &[FpVar<F>],
     ) -> Result<Vec<FpVar<F>>, SynthesisError> {

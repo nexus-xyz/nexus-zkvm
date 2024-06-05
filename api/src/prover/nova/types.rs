@@ -16,6 +16,7 @@ pub use ark_relations::r1cs::ConstraintSystemRef;
 pub use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 
 // types and traits from nexus prover
+use nexus_vm::memory::path::Path;
 pub use nexus_nova::{
     commitment::CommitmentScheme,
     nova::pcd,
@@ -46,7 +47,7 @@ pub type PVC1 = com::PolyVectorCommitment<P1, PC>;
 // structured reference string for polynomial commitment scheme
 pub type SRS = <PC as PolyCommitmentScheme<P1>>::SRS;
 
-pub type SC = crate::prover::circuit::Tr;
+pub type SC = crate::prover::nova::circuit::Tr<F1, Path>;
 
 // concrete public parameters
 pub type PP<C, SP> = PublicParams<G1, G2, C, C2, RO, SC, SP>;

@@ -7,7 +7,9 @@ pub mod srs;
 pub mod types;
 
 use std::path::Path;
+use core::marker::PhantomData;
 
+use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use nexus_vm::{memory::{Memory, MemoryProof}, trace::Trace, VMOpts};
@@ -56,19 +58,19 @@ pub fn run<M: Memory>(opts: &VMOpts, pow: bool) -> Result<Trace<M::Proof>, Proof
     Ok(nexus_vm::trace_vm::<M>(opts, pow, false)?)
 }
 
-pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
-    let (mut proof, tr) = prove_seq_setup(pp, trace)?;
+pub fn prove_seq<F: PrimeField, P: MemoryProof>(pp: &SeqPP, trace: Trace<P>) -> Result<IVCProof, ProofError> {
+    let (mut proof, tr) = prove_seq_setup::<F, P>(pp, trace)?;
     let num_steps = tr.steps();
 
     for _ in 0..num_steps {
-        proof = prove_seq_step(proof, pp, &tr)?;
+        proof = prove_seq_step::<F, P>(proof, pp, &tr)?;
     }
 
     Ok(proof)
 }
 
-pub fn prove_seq_setup(pp: &SeqPP, trace: Trace) -> Result<(IVCProof, Tr), ProofError> {
-    let tr = Tr(trace, PhantomData);
+pub fn prove_seq_setup<F: PrimeField, P: MemoryProof>(pp: &SeqPP, trace: Trace<P>) -> Result<(IVCProof, Tr<F, P>), ProofError> {
+    let tr = Tr::<F, P>(trace, PhantomData);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
     let mut proof = IVCProof::new(&z_0);
@@ -76,7 +78,7 @@ pub fn prove_seq_setup(pp: &SeqPP, trace: Trace) -> Result<(IVCProof, Tr), Proof
     Ok((proof, tr))
 }
 
-pub fn prove_seq_step(pp: &SeqPP, proof: &IVCProof, step_circuit: &Tr) -> Result<IVCProof, ProofError> {
+pub fn prove_seq_step<F: PrimeField, P: MemoryProof>(pp: &SeqPP, proof: &IVCProof, step_circuit: &Tr<F, P>) -> Result<IVCProof, ProofError> {
     let proof = IVCProof::prove_step(proof, pp, step_circuit)?;
     Ok(proof)
 }
