@@ -6,7 +6,6 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use super::srs::load_srs;
 use crate::prover::circuit::{nop_circuit, Tr};
 use crate::prover::error::*;
-use crate::prover::types::*;
 use crate::prover::{LOG_TARGET, TERMINAL_MODE};
 
 pub fn gen_pp<C, SP>(circuit: &SC, aux: &C::SetupAux) -> Result<PP<C, SP>, ProofError>

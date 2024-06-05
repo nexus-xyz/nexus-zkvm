@@ -1,4 +1,4 @@
-//! Concrete types and traits used by zkVM
+//! Default types and traits for use by zkVM
 
 pub use std::marker::PhantomData;
 

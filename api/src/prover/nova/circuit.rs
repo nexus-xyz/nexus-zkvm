@@ -20,11 +20,10 @@ use nexus_vm::{
 };
 
 use crate::prover::error::*;
-use crate::prover::types::*;
 
-pub struct Tr(pub Trace<Path>);
+pub struct Tr<F: PrimeField, P: MemoryProof>(pub Trace<P>, pub PhantomData<F>);
 
-impl Tr {
+impl<F: PrimeField, P: MemoryProof> Tr<F, P> {
     pub fn steps(&self) -> usize {
         self.0.blocks.len()
     }
@@ -33,26 +32,26 @@ impl Tr {
         self.0.k * self.0.blocks.len()
     }
 
-    pub fn input(&self, index: usize) -> Result<Vec<F1>, ProofError> {
+    pub fn input(&self, index: usize) -> Result<Vec<F>, ProofError> {
         self.0.input(index).ok_or(ProofError::InvalidIndex(index))
     }
 }
 
-pub fn nop_circuit(k: usize) -> Result<Tr, ProofError> {
-    let mut vm = nop_vm::<MerkleTrie>(1);
+pub fn nop_circuit<F: PrimeField, M: Memory>(k: usize) -> Result<Tr<F, M::Proof>, ProofError> {
+    let mut vm = nop_vm::<M>(1);
     let trace = trace(&mut vm, k, false)?;
-    Ok(Tr(trace))
+    Ok(Tr(trace, PhantomData))
 }
 
-impl StepCircuit<F1> for Tr {
+impl<F: PrimeField, P: MemoryProof> StepCircuit<F> for Tr<F, P> {
     const ARITY: usize = ARITY;
 
     fn generate_constraints(
         &self,
         cs: CS,
-        k: &FpVar<F1>,
-        z: &[FpVar<F1>],
-    ) -> Result<Vec<FpVar<F1>>, SynthesisError> {
+        k: &FpVar<F>,
+        z: &[FpVar<F>],
+    ) -> Result<Vec<FpVar<F>>, SynthesisError> {
         let index = k.value().map_or(0, |s| match s.into_bigint() {
             BigInt(l) => l[0] as usize,
         });

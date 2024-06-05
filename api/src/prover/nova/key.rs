@@ -7,7 +7,7 @@ use nexus_nova::nova::pcd::compression::SNARK;
 use crate::prover::error::*;
 use crate::prover::pp::load_pp;
 use crate::prover::srs::load_srs;
-use crate::prover::types::*;
+use crate::prover::default_types::*;
 use crate::prover::{LOG_TARGET, TERMINAL_MODE};
 
 pub fn gen_key(pp: &ComPP, srs: &SRS) -> Result<SpartanKey, ProofError> {
