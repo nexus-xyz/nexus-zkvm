@@ -93,7 +93,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         })?
     };
     let key_file_str = key_file.to_str().context("path is not valid utf8")?;
-    let key = nexus_api::prover::nova::key::gen_or_load_key(false, key_file_str, None, None)?;
+    let key = nexus_api::prover::nova::key::load_key(key_file_str)?;
 
     let proof_file = args.proof_file;
     if !proof_file.try_exists()? {

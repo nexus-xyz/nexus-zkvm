@@ -109,8 +109,8 @@ fn verify_proof_compressed(
 
     let result = {
         let proof = ComProof::deserialize_compressed(reader)?;
-        let params = nexus_api::prover::pp::gen_or_load(false, k, &pp_path, None)?;
-        let key = nexus_api::prover::key::gen_or_load_key(false, &key_path, Some(&pp_path), None)?;
+        let params = nexus_api::prover::nova::pp::gen_or_load(false, k, &pp_path, None)?;
+        let key = nexus_api::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
         nexus_api::prover::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
