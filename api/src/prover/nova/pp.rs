@@ -28,6 +28,11 @@ where
     SC: StepCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
+    tracing::info!(
+        target: LOG_TARGET,
+        "Generating public parameters",
+    );
+
     Ok(SP::setup(RO::Config(), circuit, aux, &())?)
 }
 
@@ -45,6 +50,12 @@ where
     SC: StepCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
+    tracing::info!(
+        target: LOG_TARGET,
+        path = ?file,
+        "Saving public parameters",
+    );
+
     let f = File::create(file)?;
     let mut enc = Encoder::new(&f, 0)?;
     pp.serialize_compressed(&mut enc)?;
@@ -66,6 +77,12 @@ where
     SC: StepCircuit<G1::ScalarField>,
     SP: SetupParams<G1, G2, C1, C2, RO, SC>,
 {
+    tracing::info!(
+        target: LOG_TARGET,
+        path = ?file,
+        "Loading public parameters",
+    );
+
     let f = File::open(file)?;
     let mut dec = Decoder::new(&f)?;
     let pp = PublicParams::<G1, G2, C1, C2, RO, SC, SP>::deserialize_compressed(&mut dec)?;
@@ -195,54 +212,4 @@ pub fn gen_to_file(
         show_pp(&pp);
         save_pp(pp, pp_file)
     }
-}
-
-pub fn gen_or_load<C, SP>(
-    gen: bool,
-    k: usize,
-    pp_file: &str,
-    aux_opt: Option<&C::SetupAux>,
-) -> Result<PP<C, SP>, ProofError>
-where
-    SP: SetupParams<G1, G2, C, C2, RO, Tr> + Sync,
-    C: CommitmentScheme<P1>,
-{
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-
-    let pp: PP<C, SP> = if gen {
-        tracing::info!(
-            target: LOG_TARGET,
-            "Generating public parameters",
-        );
-
-        let aux = if let Some(aux) = aux_opt {
-            aux
-        } else {
-            tracing::error!(
-                target: LOG_TARGET,
-                "Auxiliary setup parameters are not provided",
-            );
-            return Err(ProofError::MissingSRS);
-        };
-        let mut term_ctx = term
-            .context("Setting up")
-            .on_step(|_step| "public parameters".into());
-        let _guard = term_ctx.display_step();
-        gen_vm_pp(k, aux)?
-    } else {
-        tracing::info!(
-            target: LOG_TARGET,
-            path = ?pp_file,
-            "Loading public parameters",
-        );
-        let mut term_ctx = term
-            .context("Loading")
-            .on_step(|_step| "public parameters".into());
-        let _guard = term_ctx.display_step();
-
-        load_pp(pp_file)?
-    };
-
-    show_pp(&pp);
-    Ok(pp)
 }

@@ -87,7 +87,7 @@ macro_rules! prove_par_impl {
     ( $pp_type:ty, $node_type:ty, $name:ident ) => {
         pub fn $name<F: PrimeField, P: MemoryProof>(pp: $pp_type, trace: Trace<P>) -> Result<$node_type, ProofError> {
             let k = trace.k;
-            let tr = Tr::<F, P>(trace);
+            let tr = Tr::<F, P>(trace, PhantomData);
 
             let num_steps = tr.steps();
             assert!((num_steps + 1).is_power_of_two());

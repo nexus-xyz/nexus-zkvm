@@ -172,22 +172,25 @@ fn local_prove(
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
+     let state = {
+         let mut term_ctx = term
+             .context("Loading")
+             .on_step(|_step| "public parameters".into());
+         let _guard = term_ctx.display_step();
+
+         nexus_api::prover::nova::pp::load_pp(path_str)?
+     }
+
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
-            let state = nexus_api::prover::nova::pp::gen_or_load(false, k, path_str, None)?;
-            let root = nexus_api::prover::nova::prove_par(state, trace)?;
-
+            let proof = nexus_api::prover::nova::prove_par(state, trace)?;
             save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::ParallelCompressible => {
-            let state = nexus_api::prover::nova::pp::gen_or_load(false, k, path_str, None)?;
             let root = nexus_api::prover::nova::prove_par_com(state, trace)?;
-
             save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
-            let state = nexus_api::prover::nova::pp::gen_or_load(false, k, path_str, None)?;
-
             let mut (proof, tr) = nexus_api::prover::nova::prove_seq_setup(&state, trace)?;
             let num_steps = tr.steps();
 
@@ -222,7 +225,7 @@ pub(crate) fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow
     let mut context = term.context("Saving").on_step(|_step| "proof".into());
     let _guard = context.display_step();
 
-    nexus_api::prover::save_proof(root, &proof_path)?;
+    nexus_api::prover::nova::save_proof(root, &proof_path)?;
 
     Ok(())
 }

@@ -1,9 +1,10 @@
 use std::fs::File;
 use zstd::stream::{Decoder, Encoder};
 
+use ark_ff::PrimeField;
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use ark_crypto_primitives::sponge::CryptographicSponge;
+use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge};
 use nexus_nova::StepCircuit;
 use nexus_nova::commitment::CommitmentScheme;
 use nexus_nova::nova::pcd::{compression::{SNARK, PolyVectorCommitment, SNARKKey as SpartanKey}, PublicParams as ComPP};
@@ -20,10 +21,13 @@ pub fn gen_key<G1, G2, C1, C2, RO, SC>(
 ) -> Result<SpartanKey<Projective<G1>, C1>, ProofError>
 where
     G1: SWCurveConfig,
-    G2: SWCurveConfig,
+    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+    G1::BaseField: PrimeField + Absorb,
+    G2::BaseField: PrimeField + Absorb,
     C1: PolyCommitmentScheme<Projective<G1>>,
+    C1::Commitment: Copy + From<Projective<G1>> + Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge + Sync,
+    RO: CryptographicSponge + Sync + Send,
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
@@ -67,13 +71,16 @@ pub fn gen_key_to_file<G1, G2, C1, C2, RO, SC>(
 ) -> Result<SpartanKey<Projective<G1>, C1>, ProofError>
 where
     G1: SWCurveConfig,
-    G2: SWCurveConfig,
+    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+    G1::BaseField: PrimeField + Absorb,
+    G2::BaseField: PrimeField + Absorb,
     C1: PolyCommitmentScheme<Projective<G1>>,
+    C1::Commitment: Copy + From<Projective<G1>> + Into<Projective<G1>>,
     C2: CommitmentScheme<Projective<G2>>,
-    RO: CryptographicSponge + Sync,
+    RO: CryptographicSponge + Sync + Send,
     RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
     SC: StepCircuit<G1::ScalarField>,
 {
-    let key: SpartanKey = gen_key(&pp, &srs)?;
+    let key: SpartanKey<Projective<G1>, C1> = gen_key(&pp, &srs)?;
     save_key(key, key_file)
 }

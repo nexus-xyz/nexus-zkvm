@@ -46,7 +46,7 @@ pub fn nop_circuit<F: PrimeField, M: Memory>(k: usize) -> Result<Tr<F, M::Proof>
     Ok(Tr(trace, PhantomData))
 }
 
-impl<F: PrimeField, P: MemoryProof> StepCircuit<F> for Tr<F, P> {
+impl<F: PrimeField, P: MemoryProof + Send> StepCircuit<F> for Tr<F, P> {
     const ARITY: usize = ARITY;
 
     fn generate_constraints(
