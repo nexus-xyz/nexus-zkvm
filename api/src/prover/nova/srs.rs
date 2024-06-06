@@ -4,6 +4,7 @@ use zstd::stream::Decoder;
 use crate::prover::nova::{
     error::ProofError,
     pp::gen_vm_pp,
+    types::{ParPP, SpartanKey, SRS},
 };
 
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};

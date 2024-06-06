@@ -4,11 +4,9 @@ use zstd::stream::{Decoder, Encoder};
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use nexus_nova::nova::pcd::compression::SNARK;
 
-use crate::error::*;
-use crate::pp::load_pp;
-use crate::srs::load_srs;
-use crate::types::*;
-use crate::{LOG_TARGET, TERMINAL_MODE};
+use super::error::*;
+use super::types::*;
+use super::LOG_TARGET;
 
 pub fn gen_key(pp: &ComPP, srs: &SRS) -> Result<SpartanKey, ProofError> {
     tracing::info!(
@@ -48,7 +46,7 @@ pub fn load_key(file: &str) -> Result<SpartanKey, ProofError> {
     Ok(key)
 }
 
-pub fn gen_key_to_file(pp_file: &str, srs_file: &str, key_file: &str) -> Result<(), ProofError> {
+pub fn gen_key_to_file(pp: &ComPP, srs: &SRS, key_file: &str) -> Result<(), ProofError> {
     let key: SpartanKey = gen_key(&pp, &srs)?;
     save_key(key, key_file)
 }

@@ -7,19 +7,17 @@ pub mod srs;
 pub mod types;
 
 use std::path::Path;
-use core::marker::PhantomData;
 
-use ark_ff::PrimeField;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use nexus_vm::{memory::{Memory, MemoryProof}, trace::Trace, VMOpts};
+use nexus_vm::{memory::{Memory, trie::MerkleTrie}, VMOpts};
 
 use nexus_nova::nova::pcd::compression::SNARK;
 
 use crate::prover::nova::{
     circuit::Tr,
     error::ProofError,
-    types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP, SpartanKey},
+    types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP, SpartanKey, SC},
 };
 
 pub const LOG_TARGET: &str = "nexus-prover";
@@ -54,23 +52,25 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
     Ok(proof)
 }
 
-pub fn run<M: Memory>(opts: &VMOpts, pow: bool) -> Result<Trace<M::Proof>, ProofError> {
-    Ok(nexus_vm::trace_vm::<M>(opts, pow, false)?)
+type Trace = nexus_vm::trace::Trace<<MerkleTrie as Memory>::Proof>;
+
+pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
+    Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
 }
 
-pub fn prove_seq<F: PrimeField, P: MemoryProof>(pp: &SeqPP, trace: Trace<P>) -> Result<IVCProof, ProofError> {
-    let (mut proof, tr) = prove_seq_setup::<F, P>(pp, trace)?;
+pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
+    let (mut proof, tr) = prove_seq_setup(pp, trace)?;
     let num_steps = tr.steps();
 
     for _ in 0..num_steps {
-        proof = prove_seq_step::<F, P>(proof, pp, &tr)?;
+        proof = prove_seq_step(pp, proof, &tr)?;
     }
 
     Ok(proof)
 }
 
-pub fn prove_seq_setup<F: PrimeField, P: MemoryProof>(pp: &SeqPP, trace: Trace<P>) -> Result<(IVCProof, Tr<F, P>), ProofError> {
-    let tr = Tr::<F, P>(trace, PhantomData);
+pub fn prove_seq_setup(pp: &SeqPP, trace: Trace) -> Result<(IVCProof, SC), ProofError> {
+    let tr = Tr::<MerkleTrie>(trace);
     let icount = tr.instructions();
     let z_0 = tr.input(0)?;
     let mut proof = IVCProof::new(&z_0);
@@ -78,16 +78,16 @@ pub fn prove_seq_setup<F: PrimeField, P: MemoryProof>(pp: &SeqPP, trace: Trace<P
     Ok((proof, tr))
 }
 
-pub fn prove_seq_step<F: PrimeField, P: MemoryProof>(pp: &SeqPP, proof: &IVCProof, step_circuit: &Tr<F, P>) -> Result<IVCProof, ProofError> {
+pub fn prove_seq_step(pp: &SeqPP, proof: IVCProof, step_circuit: &SC) -> Result<IVCProof, ProofError> {
     let proof = IVCProof::prove_step(proof, pp, step_circuit)?;
     Ok(proof)
 }
 
 macro_rules! prove_par_impl {
     ( $pp_type:ty, $node_type:ty, $name:ident ) => {
-        pub fn $name<F: PrimeField, P: MemoryProof>(pp: $pp_type, trace: Trace<P>) -> Result<$node_type, ProofError> {
+        pub fn $name(pp: $pp_type, trace: Trace) -> Result<$node_type, ProofError> {
             let k = trace.k;
-            let tr = Tr::<F, P>(trace, PhantomData);
+            let tr = Tr::<MerkleTrie>(trace);
 
             let num_steps = tr.steps();
             assert!((num_steps + 1).is_power_of_two());
