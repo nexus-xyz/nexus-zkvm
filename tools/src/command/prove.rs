@@ -8,11 +8,6 @@ use clap::Args;
 
 use nexus_config::{vm as vm_config, Config};
 
-#[cfg(feature = "verbose")]
-pub(crate) const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
-#[cfg(not(feature = "verbose"))]
-pub(crate) const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
-
 use crate::{
     command::{
         jolt,
@@ -20,6 +15,7 @@ use crate::{
     },
     utils::{cargo, path_to_artifact},
     LOG_TARGET,
+    TERMINAL_MODE,
 };
 
 #[derive(Debug, Args)]
@@ -167,10 +163,12 @@ fn local_prove(
         machine: None,
         file: Some(path.into()),
     };
-    let trace = nexus_api::prover::run(&opts, true)?;
+    let trace = nexus_api::prover::nova::run(&opts, true)?;
 
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
+
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
     let state = {
         let mut term_ctx = term
@@ -182,7 +180,7 @@ fn local_prove(
     };
 
     let tr = nexus_api::prover::nova::init_trace_circuit(&state, trace)?;
-    let num_steps = sc.steps();
+    let num_steps = tr.steps();
 
     let on_step = move |iter: usize| {
         match nova_impl {
@@ -201,7 +199,7 @@ fn local_prove(
                 format!("{step_type} {step}")
             }
             _ => {
-                format!("step {step}")
+                format!("step {iter}")
             }
         };
     };
@@ -215,9 +213,8 @@ fn local_prove(
                 tr.instructions()
             }
         }
-    }
+    };
 
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut term_ctx = term
         .context("Computing")
         .on_step(on_step)
@@ -239,29 +236,34 @@ fn local_prove(
                 .map(|i| {
                     let _guard = term_ctx.display_step();
 
-                    let v = nexus_api::prover::nova::prove_par_leaf_step(&pp, &tr, i)?;
+                    let v = nexus_api::prover::nova::prove_par_leaf_step(&state, &tr, i)?;
                     Ok(v)
                 })
-                .collect::<Result<Vec<_>, ProofError>>()?;
+                .collect::<anyhow::Result<Vec<_>>>()?;
 
-            let root = { 
+            let root = {
                 loop {
                     if vs.len() == 1 {
-                        return vs.into_iter().next().unwrap(); 
+                        return vs.into_iter().next().unwrap();
                     }
-                    
+
                     vs = vs
                         .chunks(2)
                         .map(|ab| {
                             let _guard = term_ctx.display_step();
-                            let c = nexus_api::prover::nova::prove_par_parent_step(&pp, &tr, )?;
+                            let c = nexus_api::prover::nova::prove_par_parent_step(&state, &tr, &ab[0], &ab[1])?;
                             Ok(c)
                         })
-                        .collect::<Result<Vec<_>, ProofError>>()?;
+                        .collect::<anyhow::Result<Vec<_>>>()?;
                 }
             };
 
-            save_proof(root, &proof_path)?;
+            let _ = {
+                let mut context = term.context("Saving").on_step(|_step| "proof".into());
+                let _guard = context.display_step();
+
+                nexus_api::prover::nova::save_proof(root, &proof_path)?;
+            };
         }
         vm_config::NovaImpl::ParallelCompressible => {
             let mut vs = (0..num_steps)
@@ -269,51 +271,51 @@ fn local_prove(
                 .map(|i| {
                     let _guard = term_ctx.display_step();
 
-                    let v = nexus_api::prover::nova::prove_par_com_leaf_step(&pp, &tr, i)?;
+                    let v = nexus_api::prover::nova::prove_par_com_leaf_step(&state, &tr, i)?;
                     Ok(v)
                 })
-                .collect::<Result<Vec<_>, ProofError>>()?;
+                .collect::<anyhow::Result<Vec<_>>>()?;
 
-            let root = { 
+            let root = {
                 loop {
                     if vs.len() == 1 {
-                        return vs.into_iter().next().unwrap(); 
+                        return vs.into_iter().next().unwrap();
                     }
-                    
+
                     vs = vs
                         .chunks(2)
                         .map(|ab| {
                             let _guard = term_ctx.display_step();
-                            let c = nexus_api::prover::nova::prove_par_com_parent_step(&pp, &tr, )?;
+                            let c = nexus_api::prover::nova::prove_par_com_parent_step(&state, &tr, &ab[0], &ab[1])?;
                             Ok(c)
                         })
-                        .collect::<Result<Vec<_>, ProofError>>()?;
+                        .collect::<anyhow::Result<Vec<_>>>()?;
                 }
             };
 
-            save_proof(root, &proof_path)?;
+            let _ = {
+                let mut context = term.context("Saving").on_step(|_step| "proof".into());
+                let _guard = context.display_step();
+
+                nexus_api::prover::nova::save_proof(root, &proof_path)?;
+            };
         }
         vm_config::NovaImpl::Sequential => {
-            let mut proof = nexus_api::prover::nova::prove_seq_step(None, pp, &tr)?;
+            let mut proof = nexus_api::prover::nova::prove_seq_step(None, &state, &tr)?;
 
             for _ in 1..num_steps {
                 let _guard = term_ctx.display_step();
-                proof = nexus_api::prover::nova::prove_seq_step(proof, pp, &tr)?;
+                proof = nexus_api::prover::nova::prove_seq_step(proof, &state, &tr)?;
             }
 
-            save_proof(proof, &proof_path)?;
+            let _ = {
+                let mut context = term.context("Saving").on_step(|_step| "proof".into());
+                let _guard = context.display_step();
+
+                nexus_api::prover::nova::save_proof(proof, &proof_path)?;
+            };
         }
     }
-
-    Ok(())
-}
-
-pub(crate) fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
-    let mut context = term.context("Saving").on_step(|_step| "proof".into());
-    let _guard = context.display_step();
-
-    nexus_api::prover::nova::save_proof(root, &proof_path)?;
 
     Ok(())
 }

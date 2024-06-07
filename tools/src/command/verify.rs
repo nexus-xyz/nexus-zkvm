@@ -12,8 +12,7 @@ use nexus_config::{
     vm::{NovaImpl, ProverImpl, VmConfig},
     Config,
 };
-use nexus_api::prover::types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP};
-
+use nexus_api::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
 use super::{
     jolt,
     prove::{CommonProveArgs, LocalProveArgs},
@@ -120,7 +119,7 @@ fn verify_proof_compressed(
         let key = nexus_api::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
-        nexus_api::prover::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
+        nexus_api::prover::nova::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
     };
 
     match result {

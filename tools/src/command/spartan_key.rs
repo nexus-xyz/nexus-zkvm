@@ -7,10 +7,10 @@ use std::{
 use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
-use nexus_api::prover::srs::get_min_srs_size;
+use nexus_api::prover::nova::{types::ComPP, srs::get_min_srs_size};
 
 use super::public_params::{format_params_file, format_srs_file};
-use crate::{command::cache_path, LOG_TARGET};
+use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
 
 #[derive(Debug, Args)]
 pub struct SpartanSetupArgs {
@@ -132,7 +132,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
 
     tracing::info!(
         target: LOG_TARGET,
-        path =?srs_file,
+        path =?srs_path_str,
         "Reading the SRS",
     );
     let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
@@ -140,19 +140,19 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
         let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::srs::load_srs(srs_file)?
+        nexus_api::prover::nova::srs::load_srs(srs_path_str)?
     };
 
     tracing::info!(
         target: LOG_TARGET,
-        path =?srs_file,
+        path =?srs_path_str,
         "SRS found for a maximum of {} variables",
         srs.max_num_vars
     );
 
     tracing::info!(
         target: LOG_TARGET,
-        pp_file =?pp_file,
+        pp_file =?pp_path_str,
         "Reading the Nova public parameters",
     );
 
@@ -162,7 +162,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
             .on_step(|_step| "Nova public parameters".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::key::load_pp(pp_file)?
+        nexus_api::prover::nova::pp::load_pp(pp_path_str)?
     };
 
     let _ = {

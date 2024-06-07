@@ -9,9 +9,10 @@ use nexus_config::{
     vm::{self as vm_config, ProverImpl},
     Config,
 };
-use nexus_api::prover::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
+use nexus_api::prover::nova::types::{SRS, ComPP, SeqPP, ParPP};
+use nexus_api::prover::nova::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
 
-use crate::{command::cache_path, LOG_TARGET};
+use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
 
 mod command_args;
 pub use command_args::{PublicParamsAction, PublicParamsArgs, SRSSetupArgs, SetupArgs};
@@ -77,6 +78,9 @@ fn setup_params_to_file(
     srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
+    
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    
     match nova_impl {
         vm_config::NovaImpl::Sequential => {
             tracing::info!(
@@ -93,7 +97,7 @@ fn setup_params_to_file(
                 nexus_api::prover::nova::pp::gen_vm_pp(k, &())?
             };
             nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(pp, pp_file)
+            nexus_api::prover::nova::pp::save_pp(pp, path)
         }
         vm_config::NovaImpl::Parallel => {
             tracing::info!(
@@ -103,7 +107,7 @@ fn setup_params_to_file(
             let pp: ParPP = nexus_api::prover::nova::pp::gen_vm_pp(k, &())?;
 
             nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(pp, pp_file)
+            nexus_api::prover::nova::pp::save_pp(pp, path)
         }
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
@@ -131,7 +135,7 @@ fn setup_params_to_file(
                 path =?srs_file,
                 "Reading the SRS",
             );
-            let srs: SRS = load_srs(srs_file)?;
+            let srs: SRS = nexus_api::prover::nova::srs::load_srs(srs_file)?;
 
             tracing::info!(
                 target: LOG_TARGET,
@@ -150,7 +154,7 @@ fn setup_params_to_file(
             };
 
             nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(pp, pp_file)
+            nexus_api::prover::nova::pp::save_pp(pp, path)
         }
     };
     Ok(())

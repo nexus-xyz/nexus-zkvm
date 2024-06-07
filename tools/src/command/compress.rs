@@ -11,6 +11,7 @@ use super::prove::{save_proof, TERMINAL_MODE};
 use crate::{
     command::{cache_path, spartan_key::spartan_setup},
     LOG_TARGET,
+    TERMINAL_MODE,
 };
 use nexus_api::config::{vm as vm_config, Config};
 
@@ -105,40 +106,34 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         );
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     };
-    let proof = nexus_api::prover::nova::load_proof(&proof_file)?;
+
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+
+    let proof = {
+        let mut context = term.context("Loading").on_step(|_step| "proof".into());
+        let _guard = context.display_step();
+
+        nexus_api::prover::nova::load_proof(proof_file)?
+    };
 
     let current_dir = std::env::current_dir()?;
     let compressed_proof_path = current_dir.join("nexus-proof-compressed");
 
-    let compressed_proof = compress(&pp, &key, proof)?;
+    let compressed_proof = {
+        let mut term_ctx = term
+            .context("Compressing")
+            .on_step(|_step| "the proof".into());
+        let _guard = term_ctx.display_step();
 
-    save_proof(compressed_proof, &compressed_proof_path)?;
+        nexus_api::prover::nova::compress(&pp, &key, proof)?
+    };
+    
+    let _ = {
+        let mut context = term.context("Saving").on_step(|_step| "proof".into());
+        let _guard = context.display_step();
+
+        nexus_api::prover::nova::save_proof(compressed_proof, &compressed_proof_path)?;
+    };
 
     Ok(())
-}
-
-fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError> {
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut context = term.context("Loading").on_step(|_step| "proof".into());
-    let _guard = context.display_step();
-
-    let proof = nexus_api::prover::nova::load_proof(path);
-
-    Ok(proof)
-}
-
-fn compress(
-    compression_pp: &ComPP,
-    key: &SpartanKey,
-    node: ComPCDNode,
-) -> Result<ComProof, ProofError> {
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    let mut term_ctx = term
-        .context("Compressing")
-        .on_step(|_step| "the proof".into());
-    let _guard = term_ctx.display_step();
-
-    let proof = nexus_api::prover::nova::compress(compression_pp, key, node);
-
-    Ok(proof)
 }

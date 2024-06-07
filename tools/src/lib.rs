@@ -43,3 +43,8 @@ const ENV: &str = r#"
 NEXUS_VM_K=16
 NEXUS_VM_PROVER=nova-seq
 "#;
+
+#[cfg(feature = "verbose")]
+pub(crate) const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Enabled;
+#[cfg(not(feature = "verbose"))]
+pub(crate) const TERMINAL_MODE: nexus_tui::Mode = nexus_tui::Mode::Disabled;
