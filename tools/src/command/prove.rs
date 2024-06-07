@@ -179,12 +179,14 @@ fn local_prove(
         nexus_api::prover::nova::pp::load_pp(path_str)?
     };
 
-    let tr = nexus_api::prover::nova::init_trace_circuit(&state, trace)?;
+    let tr = nexus_api::prover::nova::init_circuit_trace(trace)?;
     let num_steps = tr.steps();
 
     let on_step = move |iter: usize| {
+        let mut s;
+
         match nova_impl {
-            vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressable => {
+            vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
                 let b = (num_steps + 1).ilog2();
                 let a = b - 1 - (num_steps - iter).ilog2();
 
@@ -196,22 +198,20 @@ fn local_prove(
                 } else {
                     "node"
                 };
-                format!("{step_type} {step}")
+                s = format!("{step_type} {step}")
             }
-            _ => {
-                format!("step {iter}")
-            }
+            _ => s = format!("step {iter}"),
         };
+
+        s
     };
 
     let icount = {
         match nova_impl {
-            vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressable => {
+            vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
                 trace.k * num_steps
             }
-            _ => {
-                tr.instructions()
-            }
+            _ => tr.instructions(),
         }
     };
 
@@ -228,7 +228,6 @@ fn local_prove(
             )
         });
 
-
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
             let mut vs = (0..num_steps)
@@ -244,18 +243,22 @@ fn local_prove(
             let root = {
                 loop {
                     if vs.len() == 1 {
-                        return vs.into_iter().next().unwrap();
+                        break;
                     }
 
                     vs = vs
                         .chunks(2)
                         .map(|ab| {
                             let _guard = term_ctx.display_step();
-                            let c = nexus_api::prover::nova::prove_par_parent_step(&state, &tr, &ab[0], &ab[1])?;
+                            let c = nexus_api::prover::nova::prove_par_parent_step(
+                                &state, &tr, &ab[0], &ab[1],
+                            )?;
                             Ok(c)
                         })
                         .collect::<anyhow::Result<Vec<_>>>()?;
                 }
+
+                vs.into_iter().next().unwrap()
             };
 
             let _ = {
@@ -279,18 +282,22 @@ fn local_prove(
             let root = {
                 loop {
                     if vs.len() == 1 {
-                        return vs.into_iter().next().unwrap();
+                        break;
                     }
 
                     vs = vs
                         .chunks(2)
                         .map(|ab| {
                             let _guard = term_ctx.display_step();
-                            let c = nexus_api::prover::nova::prove_par_com_parent_step(&state, &tr, &ab[0], &ab[1])?;
+                            let c = nexus_api::prover::nova::prove_par_com_parent_step(
+                                &state, &tr, &ab[0], &ab[1],
+                            )?;
                             Ok(c)
                         })
                         .collect::<anyhow::Result<Vec<_>>>()?;
                 }
+
+                vs.into_iter().next().unwrap()
             };
 
             let _ = {
@@ -305,7 +312,7 @@ fn local_prove(
 
             for _ in 1..num_steps {
                 let _guard = term_ctx.display_step();
-                proof = nexus_api::prover::nova::prove_seq_step(proof, &state, &tr)?;
+                proof = nexus_api::prover::nova::prove_seq_step(Some(proof), &state, &tr)?;
             }
 
             let _ = {

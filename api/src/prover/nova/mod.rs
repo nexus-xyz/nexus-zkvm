@@ -61,7 +61,7 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
 }
 
-pub fn init_trace_circuit(trace: Trace) -> Result<SC, ProofError> {
+pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
     let tr = Tr::<MerkleTrie>(trace);
     Ok(tr)
 }
@@ -86,24 +86,29 @@ pub fn prove_seq_step(
 
 macro_rules! prove_par_leaf_step_impl {
     ( $pp_type:ty, $node_type:ty, $name:ident ) => {
-        pub fn $name(pp: $pp_type, tr: &SC, i: usize) -> Result<$node_type, ProofError> {
+        pub fn $name(pp: &$pp_type, tr: &SC, i: usize) -> Result<$node_type, ProofError> {
             assert!((tr.steps() + 1).is_power_of_two());
 
-            let v = <$node_type>::prove_leaf(&pp, tr, i, &tr.input(i)?)?;
+            let v = <$node_type>::prove_leaf(pp, tr, i, &tr.input(i)?)?;
             Ok(v)
         }
-    }
+    };
 }
 
 macro_rules! prove_par_parent_step_impl {
     ( $pp_type:ty, $node_type:ty, $name:ident ) => {
-        pub fn $name(pp: $pp_type, tr: &SC, ab0: &$node_type, ab1: &$node_type) -> Result<$node_type, ProofError> {
+        pub fn $name(
+            pp: &$pp_type,
+            tr: &SC,
+            ab0: &$node_type,
+            ab1: &$node_type,
+        ) -> Result<$node_type, ProofError> {
             assert!((tr.steps() + 1).is_power_of_two());
 
-            let c = <$node_type>::prove_parent(&pp, &tr, &ab0, &ab1)?;
+            let c = <$node_type>::prove_parent(pp, tr, ab0, ab1)?;
             Ok(c)
         }
-    }
+    };
 }
 
 prove_par_leaf_step_impl!(ParPP, PCDNode, prove_par_leaf_step);

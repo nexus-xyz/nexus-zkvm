@@ -10,8 +10,7 @@ use super::prove::{save_proof, TERMINAL_MODE};
 
 use crate::{
     command::{cache_path, spartan_key::spartan_setup},
-    LOG_TARGET,
-    TERMINAL_MODE,
+    LOG_TARGET, TERMINAL_MODE,
 };
 use nexus_api::config::{vm as vm_config, Config};
 
@@ -113,7 +112,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         let mut context = term.context("Loading").on_step(|_step| "proof".into());
         let _guard = context.display_step();
 
-        nexus_api::prover::nova::load_proof(proof_file)?
+        nexus_api::prover::nova::load_proof(&proof_file)?
     };
 
     let current_dir = std::env::current_dir()?;
@@ -127,7 +126,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
 
         nexus_api::prover::nova::compress(&pp, &key, proof)?
     };
-    
+
     let _ = {
         let mut context = term.context("Saving").on_step(|_step| "proof".into());
         let _guard = context.display_step();

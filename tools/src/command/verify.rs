@@ -119,7 +119,8 @@ fn verify_proof_compressed(
         let key = nexus_api::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
-        nexus_api::prover::nova::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
+        nexus_api::prover::nova::verify_compressed(&key, &params, &proof)
+            .map_err(anyhow::Error::from)
     };
 
     match result {
@@ -193,7 +194,7 @@ fn verify_proof(
             .on_step(|_step| "public parameters".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::pp::load_pp(pp_file)?
+        nexus_api::prover::nova::pp::load_pp(&path)?
     };
 
     let result = match nova_impl {

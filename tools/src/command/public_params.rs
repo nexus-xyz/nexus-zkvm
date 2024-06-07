@@ -9,8 +9,8 @@ use nexus_config::{
     vm::{self as vm_config, ProverImpl},
     Config,
 };
-use nexus_api::prover::nova::types::{SRS, ComPP, SeqPP, ParPP};
 use nexus_api::prover::nova::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
+use nexus_api::prover::nova::types::{ComPP, ParPP, SeqPP, SRS};
 
 use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
 
@@ -78,9 +78,9 @@ fn setup_params_to_file(
     srs_file: Option<PathBuf>,
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
-    
+
     let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-    
+
     match nova_impl {
         vm_config::NovaImpl::Sequential => {
             tracing::info!(
