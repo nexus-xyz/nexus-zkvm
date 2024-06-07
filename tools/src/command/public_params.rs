@@ -79,9 +79,32 @@ fn setup_params_to_file(
     let path = path.to_str().context("path is not valid utf8")?;
     match nova_impl {
         vm_config::NovaImpl::Sequential => {
-            nexus_api::prover::pp::gen_to_file(k, false, path, None)?
+            tracing::info!(
+                target: LOG_TARGET,
+                "Generating IVC public parameters",
+            );
+
+            let pp: SeqPP = {
+                let mut term_ctx = term
+                    .context("Setting up")
+                    .on_step(|_step| "public parameters for IVC".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::gen_vm_pp(k, &())?
+            };
+            nexus_api::prover::nova::pp::show_pp(&pp);
+            nexus_api::prover::nova::pp::save_pp(pp, pp_file)
         }
-        vm_config::NovaImpl::Parallel => nexus_api::prover::pp::gen_to_file(k, true, path, None)?,
+        vm_config::NovaImpl::Parallel => {
+            tracing::info!(
+                target: LOG_TARGET,
+                "Generating non-compressible PCD public parameters",
+            );
+            let pp: ParPP = nexus_api::prover::nova::pp::gen_vm_pp(k, &())?;
+
+            nexus_api::prover::nova::pp::show_pp(&pp);
+            nexus_api::prover::nova::pp::save_pp(pp, pp_file)
+        }
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
                 None => {
@@ -102,7 +125,32 @@ fn setup_params_to_file(
                 return Err(io::Error::from(io::ErrorKind::NotFound).into());
             }
             let srs_file_str = srs_file.to_str().context("path is not valid utf8")?;
-            nexus_api::prover::pp::gen_to_file(k, true, path, Some(srs_file_str))?
+
+            tracing::info!(
+                target: LOG_TARGET,
+                path =?srs_file,
+                "Reading the SRS",
+            );
+            let srs: SRS = load_srs(srs_file)?;
+
+            tracing::info!(
+                target: LOG_TARGET,
+                path =?srs_file,
+                "SRS found for a maximum of {} variables",
+                srs.max_num_vars
+            );
+
+            let pp: ComPP = {
+                tracing::info!(
+                    target: LOG_TARGET,
+                    "Generating compressible PCD public parameters",
+                );
+
+                nexus_api::prover::nova::pp::gen_vm_pp(k, &srs)?
+            };
+
+            nexus_api::prover::nova::pp::show_pp(&pp);
+            nexus_api::prover::nova::pp::save_pp(pp, pp_file)
         }
     };
     Ok(())
