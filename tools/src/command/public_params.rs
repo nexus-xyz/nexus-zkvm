@@ -135,7 +135,7 @@ fn setup_params_to_file(
                 path =?srs_file,
                 "Reading the SRS",
             );
-            let srs: SRS = nexus_api::prover::nova::srs::load_srs(srs_file)?;
+            let srs: SRS = nexus_api::prover::nova::srs::load_srs(srs_file_str)?;
 
             tracing::info!(
                 target: LOG_TARGET,
