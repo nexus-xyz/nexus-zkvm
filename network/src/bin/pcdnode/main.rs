@@ -18,8 +18,6 @@ use hyper::{
 };
 use tracing_subscriber::EnvFilter;
 
-use nexus_api::prover::nova::pp::gen_or_load;
-
 use nexus_network::*;
 use post::*;
 use workers::*;
@@ -86,7 +84,13 @@ async fn main() -> Result<()> {
 
     let opts = Opts::parse();
 
-    let pp = gen_or_load(false, 0, &opts.pp_file, None)?;
+    tracing::info!(
+        target: LOG_TARGET,
+        path = ?opts.pp_file,
+        "Loading public parameters",
+    );
+
+    let pp = nexus_api::prover::nova::pp::load_pp(&opts.pp_file)?;
     let state = WorkerState::new(pp);
 
     start_local_workers(state.clone())?;

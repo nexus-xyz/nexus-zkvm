@@ -81,7 +81,7 @@ fn setup_params_to_file(
 
     let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
-    match nova_impl {
+    let _ = match nova_impl {
         vm_config::NovaImpl::Sequential => {
             tracing::info!(
                 target: LOG_TARGET,

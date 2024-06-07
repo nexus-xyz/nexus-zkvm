@@ -47,6 +47,6 @@ pub fn load_key(file: &str) -> Result<SpartanKey, ProofError> {
 }
 
 pub fn gen_key_to_file(pp: &ComPP, srs: &SRS, key_file: &str) -> Result<(), ProofError> {
-    let key: SpartanKey = gen_key(&pp, &srs)?;
+    let key: SpartanKey = gen_key(pp, srs)?;
     save_key(key, key_file)
 }

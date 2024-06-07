@@ -19,7 +19,7 @@ use super::{
     public_params::format_params_file,
     spartan_key::format_key_file,
 };
-use crate::{command::cache_path, LOG_TARGET};
+use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
@@ -100,7 +100,16 @@ fn verify_proof_compressed(
     .context("path is not utf-8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let params = {
+        let mut ctx = term
+            .context("Loading")
+            .on_step(|_step| "public parameters".into());
+        let _guard = ctx.display_step();
+
+        nexus_api::prover::nova::pp::load_pp(&pp_path)?
+    };
+
     let mut ctx = term
         .context("Verifying compressed")
         .on_step(move |_step| "proof".into());
@@ -108,14 +117,6 @@ fn verify_proof_compressed(
 
     let result = {
         let proof = ComProof::deserialize_compressed(reader)?;
-        let params = {
-            let mut term_ctx = term
-                .context("Loading")
-                .on_step(|_step| "public parameters".into());
-            let _guard = term_ctx.display_step();
-
-            nexus_api::prover::nova::pp::load_pp(&pp_path)?
-        };
         let key = nexus_api::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
@@ -177,7 +178,7 @@ fn verify_proof(
     .context("path is not utf8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
     let mut ctx = term.context("Verifying").on_step(move |_step| {
         match nova_impl {
             NovaImpl::Parallel => "root",
@@ -188,29 +189,47 @@ fn verify_proof(
     });
     let mut _guard = Default::default();
 
-    let params = {
-        let mut term_ctx = term
-            .context("Loading")
-            .on_step(|_step| "public parameters".into());
-        let _guard = term_ctx.display_step();
-
-        nexus_api::prover::nova::pp::load_pp(&path)?
-    };
-
     let result = match nova_impl {
         NovaImpl::Parallel => {
+            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let params = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(&path)?
+            };
             let root = PCDNode::deserialize_compressed(reader)?;
 
             _guard = ctx.display_step();
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::ParallelCompressible => {
+            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let params = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(&path)?
+            };
             let root = ComPCDNode::deserialize_compressed(reader)?;
 
             _guard = ctx.display_step();
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::Sequential => {
+            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let params = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(&path)?
+            };
             let proof = IVCProof::deserialize_compressed(reader)?;
 
             _guard = ctx.display_step();

@@ -21,7 +21,7 @@ fn main() {
 
     println!("Setting up public parameters...");
     let public_params =
-        prover::setup::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
+        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
@@ -40,7 +40,12 @@ fn main() {
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
+    let tr = prover::nova::init_circuit_trace(trace).expect("error constructing circuit");
+    
+    let mut proof = prover::nova::prove_seq_step(None, &public_params, &tr).expect("error proving execution");
+    for _ in 1..tr.steps() {
+        proof = prover::nova::prove_seq_step(Some(proof), &public_params, &tr).expect("error proving execution");
+    }
 
     print!("Verifying execution...");
     proof

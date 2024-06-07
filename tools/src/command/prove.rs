@@ -164,28 +164,18 @@ fn local_prove(
         file: Some(path.into()),
     };
     let trace = nexus_api::prover::nova::run(&opts, true)?;
+    let k = trace.k;
 
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
     let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
-    let state = {
-        let mut term_ctx = term
-            .context("Loading")
-            .on_step(|_step| "public parameters".into());
-        let _guard = term_ctx.display_step();
-
-        nexus_api::prover::nova::pp::load_pp(path_str)?
-    };
-
     let tr = nexus_api::prover::nova::init_circuit_trace(trace)?;
     let num_steps = tr.steps();
 
     let on_step = move |iter: usize| {
-        let mut s;
-
-        match nova_impl {
+        let s = match nova_impl {
             vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
                 let b = (num_steps + 1).ilog2();
                 let a = b - 1 - (num_steps - iter).ilog2();
@@ -198,18 +188,17 @@ fn local_prove(
                 } else {
                     "node"
                 };
-                s = format!("{step_type} {step}")
+                format!("{step_type} {step}")
             }
-            _ => s = format!("step {iter}"),
+            _ => format!("step {iter}"),
         };
-
         s
     };
 
     let icount = {
         match nova_impl {
             vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
-                trace.k * num_steps
+                k * num_steps
             }
             _ => tr.instructions(),
         }
@@ -230,6 +219,16 @@ fn local_prove(
 
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
+            let state = {
+                let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(path_str)?
+            };
+
             let mut vs = (0..num_steps)
                 .step_by(2)
                 .map(|i| {
@@ -261,14 +260,22 @@ fn local_prove(
                 vs.into_iter().next().unwrap()
             };
 
-            let _ = {
-                let mut context = term.context("Saving").on_step(|_step| "proof".into());
-                let _guard = context.display_step();
+            let mut context = term.context("Saving").on_step(|_step| "proof".into());
+            let _guard = context.display_step();
 
-                nexus_api::prover::nova::save_proof(root, &proof_path)?;
-            };
+            nexus_api::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::ParallelCompressible => {
+            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let state = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(path_str)?
+            };
+
             let mut vs = (0..num_steps)
                 .step_by(2)
                 .map(|i| {
@@ -300,14 +307,22 @@ fn local_prove(
                 vs.into_iter().next().unwrap()
             };
 
-            let _ = {
-                let mut context = term.context("Saving").on_step(|_step| "proof".into());
-                let _guard = context.display_step();
-
-                nexus_api::prover::nova::save_proof(root, &proof_path)?;
-            };
+            let mut context = term.context("Saving").on_step(|_step| "proof".into());
+            let _guard = context.display_step();
+            
+            nexus_api::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
+            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let state = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(path_str)?
+            };
+
             let mut proof = nexus_api::prover::nova::prove_seq_step(None, &state, &tr)?;
 
             for _ in 1..num_steps {
@@ -315,12 +330,10 @@ fn local_prove(
                 proof = nexus_api::prover::nova::prove_seq_step(Some(proof), &state, &tr)?;
             }
 
-            let _ = {
-                let mut context = term.context("Saving").on_step(|_step| "proof".into());
-                let _guard = context.display_step();
+            let mut context = term.context("Saving").on_step(|_step| "proof".into());
+            let _guard = context.display_step();
 
-                nexus_api::prover::nova::save_proof(proof, &proof_path)?;
-            };
+            nexus_api::prover::nova::save_proof(proof, &proof_path)?;
         }
     }
 
