@@ -6,11 +6,12 @@ use clap::Args;
 use nexus_config::{vm as vm_config, Config};
 
 use super::{public_params::format_params_file, spartan_key::SetupArgs};
+use super::prove::{save_proof, TERMINAL_MODE};
+
 use crate::{
     command::{cache_path, spartan_key::spartan_setup},
     LOG_TARGET,
 };
-use super::prove::{save_proof, TERMINAL_MODE};
 use nexus_api::config::{vm as vm_config, Config};
 
 #[derive(Debug, Args)]

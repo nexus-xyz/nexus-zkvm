@@ -16,7 +16,6 @@ pub use ark_relations::r1cs::ConstraintSystemRef;
 pub use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 
 // types and traits from nexus prover
-use nexus_vm::memory::trie::MerkleTrie;
 pub use nexus_nova::{
     commitment::CommitmentScheme,
     nova::pcd,
@@ -27,6 +26,7 @@ pub use nexus_nova::{
     r1cs::{R1CSShape, R1CSWitness},
     StepCircuit,
 };
+use nexus_vm::memory::trie::MerkleTrie;
 
 // concrete constraint system
 pub type CS = ConstraintSystemRef<F1>;

@@ -10,7 +10,10 @@ use std::path::Path;
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use nexus_vm::{memory::{Memory, trie::MerkleTrie}, VMOpts};
+use nexus_vm::{
+    memory::{trie::MerkleTrie, Memory},
+    VMOpts,
+};
 
 use nexus_nova::nova::pcd::compression::SNARK;
 
@@ -78,7 +81,11 @@ pub fn prove_seq_setup(pp: &SeqPP, trace: Trace) -> Result<(IVCProof, SC), Proof
     Ok((proof, tr))
 }
 
-pub fn prove_seq_step(pp: &SeqPP, proof: IVCProof, step_circuit: &SC) -> Result<IVCProof, ProofError> {
+pub fn prove_seq_step(
+    pp: &SeqPP,
+    proof: IVCProof,
+    step_circuit: &SC,
+) -> Result<IVCProof, ProofError> {
     let proof = IVCProof::prove_step(proof, pp, step_circuit)?;
     Ok(proof)
 }

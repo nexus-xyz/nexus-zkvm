@@ -116,7 +116,7 @@ fn verify_proof_compressed(
             let _guard = term_ctx.display_step();
 
             nexus_api::prover::nova::pp::load_pp(&pp_path)?
-        }
+        };
         let key = nexus_api::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
@@ -195,7 +195,7 @@ fn verify_proof(
         let _guard = term_ctx.display_step();
 
         nexus_api::prover::nova::pp::load_pp(path_str)?
-    }
+    };
 
     let result = match nova_impl {
         NovaImpl::Parallel => {

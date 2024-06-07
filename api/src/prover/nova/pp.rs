@@ -3,9 +3,9 @@ use zstd::stream::{Decoder, Encoder};
 
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use super::srs::load_srs;
-use super::circuit::{nop_circuit};
+use super::circuit::nop_circuit;
 use super::error::*;
+use super::srs::load_srs;
 use super::types::*;
 use super::LOG_TARGET;
 

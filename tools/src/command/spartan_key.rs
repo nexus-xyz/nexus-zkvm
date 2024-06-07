@@ -170,9 +170,9 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
             .context("Generating")
             .on_step(|_step| "Spartan key".into());
         let _guard = term_ctx.display_step();
-   
+
         nexus_api::prover::nova::key::gen_key_to_file(pp, srs, key_path)?;
-    }
+    };
 
     Ok(())
 }

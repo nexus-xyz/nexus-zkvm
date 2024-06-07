@@ -172,14 +172,14 @@ fn local_prove(
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
-     let state = {
-         let mut term_ctx = term
-             .context("Loading")
-             .on_step(|_step| "public parameters".into());
-         let _guard = term_ctx.display_step();
+    let state = {
+        let mut term_ctx = term
+            .context("Loading")
+            .on_step(|_step| "public parameters".into());
+        let _guard = term_ctx.display_step();
 
-         nexus_api::prover::nova::pp::load_pp(path_str)?
-     }
+        nexus_api::prover::nova::pp::load_pp(path_str)?
+    };
 
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
@@ -191,7 +191,7 @@ fn local_prove(
             save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
-            let mut (proof, tr) = nexus_api::prover::nova::prove_seq_setup(&state, trace)?;
+            let (mut proof, tr) = nexus_api::prover::nova::prove_seq_setup(&state, trace)?;
             let num_steps = tr.steps();
 
             let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
@@ -199,7 +199,7 @@ fn local_prove(
                 .context("Computing")
                 .on_step(|step| format!("step {step}"))
                 .num_steps(num_steps)
-	        .with_loading_bar("Proving")
+                .with_loading_bar("Proving")
                 .completion_header("Proved")
                 .completion_stats(move |elapsed| {
                     format!(
