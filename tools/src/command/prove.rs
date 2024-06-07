@@ -175,7 +175,8 @@ fn local_prove(
     let num_steps = tr.steps();
 
     let on_step = move |iter: usize| {
-        let s = match nova_impl {
+
+        match nova_impl {
             vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
                 let b = (num_steps + 1).ilog2();
                 let a = b - 1 - (num_steps - iter).ilog2();
@@ -191,8 +192,7 @@ fn local_prove(
                 format!("{step_type} {step}")
             }
             _ => format!("step {iter}"),
-        };
-        s
+        }
     };
 
     let icount = {
@@ -309,7 +309,7 @@ fn local_prove(
 
             let mut context = term.context("Saving").on_step(|_step| "proof".into());
             let _guard = context.display_step();
-            
+
             nexus_api::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
