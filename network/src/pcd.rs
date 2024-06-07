@@ -188,9 +188,9 @@ mod test {
     use super::*;
 
     use ark_ff::fields::AdditiveGroup;
+    use nexus_api::nvm::memory::MerkleTrie;
     use nexus_api::prover::nova::circuit::nop_circuit;
     use nexus_api::prover::nova::pp::gen_pp;
-    use nexus_api::nvm::memory::MerkleTrie;
 
     fn round_trip(msg: &NexusMsg) {
         let v = encode_lz4(msg).unwrap();

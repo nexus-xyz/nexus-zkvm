@@ -131,6 +131,6 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
     let _guard = context.display_step();
 
     nexus_api::prover::nova::save_proof(compressed_proof, &compressed_proof_path)?;
-    
+
     Ok(())
 }

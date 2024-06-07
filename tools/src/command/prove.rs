@@ -174,25 +174,22 @@ fn local_prove(
     let tr = nexus_api::prover::nova::init_circuit_trace(trace)?;
     let num_steps = tr.steps();
 
-    let on_step = move |iter: usize| {
+    let on_step = move |iter: usize| match nova_impl {
+        vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
+            let b = (num_steps + 1).ilog2();
+            let a = b - 1 - (num_steps - iter).ilog2();
 
-        match nova_impl {
-            vm_config::NovaImpl::Parallel | vm_config::NovaImpl::ParallelCompressible => {
-                let b = (num_steps + 1).ilog2();
-                let a = b - 1 - (num_steps - iter).ilog2();
-
-                let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
-                let step_type = if iter <= num_steps / 2 {
-                    "leaf"
-                } else if iter == num_steps - 1 {
-                    "root"
-                } else {
-                    "node"
-                };
-                format!("{step_type} {step}")
-            }
-            _ => format!("step {iter}"),
+            let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
+            let step_type = if iter <= num_steps / 2 {
+                "leaf"
+            } else if iter == num_steps - 1 {
+                "root"
+            } else {
+                "node"
+            };
+            format!("{step_type} {step}")
         }
+        _ => format!("step {iter}"),
     };
 
     let icount = {

@@ -6,14 +6,13 @@
 
 #![allow(clippy::type_complexity)]
 
+pub use jolt_common;
+pub use jolt_core;
+
 use jolt_common::rv_trace as jolt_rv;
 use jolt_core::{
-    jolt::vm::{
-        bytecode::BytecodeRow as JoltBytecodeRow,
-        rv32i_vm::{self, RV32ISubtables, C, M, RV32I},
-        Jolt, JoltTraceStep,
-    },
-    poly::{commitment::hyrax::HyraxScheme, field::JoltField},
+    jolt::vm::{bytecode::BytecodeRow as JoltBytecodeRow, rv32i_vm::RV32I, JoltTraceStep},
+    poly::field::JoltField,
     utils::thread::unsafe_allocate_zero_vec,
 };
 
@@ -27,12 +26,6 @@ use strum::EnumCount;
 
 const LOG_TARGET: &str = "nexus-jolt";
 
-pub type F = ark_bn254::Fr;
-pub type PCS = HyraxScheme<ark_bn254::G1Projective>;
-pub type JoltPreprocessing = jolt_core::jolt::vm::JoltPreprocessing<F, PCS>;
-pub type JoltProof = jolt_core::jolt::vm::JoltProof<C, M, F, PCS, RV32I, RV32ISubtables<F>>;
-pub type JoltCommitments = jolt_core::jolt::vm::JoltCommitments<PCS>;
-
 mod convert;
 mod error;
 
@@ -44,13 +37,13 @@ pub use error::Error;
 /// Wrapper for initialized VM.
 pub struct VM<M: Memory> {
     /// Initialized Nexus VM.
-    vm: NexusVM<M>,
+    pub vm: NexusVM<M>,
 
     /// Instructions section.
-    insts: Vec<jolt_rv::ELFInstruction>,
+    pub insts: Vec<jolt_rv::ELFInstruction>,
 
     /// Flattened initial state of memory.
-    mem_init: Vec<(u64, u8)>,
+    pub mem_init: Vec<(u64, u8)>,
 }
 
 impl<M: Memory> VM<M> {
@@ -59,43 +52,7 @@ impl<M: Memory> VM<M> {
     }
 }
 
-pub fn preprocess<M: Memory>(vm: &VM<M>) -> JoltPreprocessing {
-    const MAX_BYTECODE_SIZE: usize = 0x400000;
-    const MAX_MEMORY_ADDRESS: usize = 1 << 20;
-    const MAX_TRACE_LENGTH: usize = 1 << 22;
-
-    rv32i_vm::RV32IJoltVM::preprocess(
-        vm.insts.clone(),
-        vm.mem_init.clone(),
-        MAX_BYTECODE_SIZE,
-        MAX_MEMORY_ADDRESS,
-        MAX_TRACE_LENGTH,
-    )
-}
-
-pub fn prove(
-    raw_trace: Vec<jolt_rv::RVTraceRow>,
-    preprocessing: &JoltPreprocessing,
-) -> Result<(JoltProof, JoltCommitments), Error> {
-    let (io_device, trace, circuit_flags) = build_jolt_trace::<F>(&raw_trace);
-
-    Ok(rv32i_vm::RV32IJoltVM::prove(
-        io_device,
-        trace,
-        circuit_flags,
-        preprocessing.clone(),
-    ))
-}
-
-pub fn verify(
-    preprocessing: JoltPreprocessing,
-    proof: JoltProof,
-    commitments: JoltCommitments,
-) -> Result<(), Error> {
-    rv32i_vm::RV32IJoltVM::verify(preprocessing, proof, commitments).map_err(Into::into)
-}
-
-fn build_jolt_trace<F: JoltField>(
+pub fn build_jolt_trace<F: JoltField>(
     raw_trace: &[jolt_rv::RVTraceRow],
 ) -> (jolt_rv::JoltDevice, Vec<JoltTraceStep<RV32I>>, Vec<F>) {
     // Nexus VM doesn't use JoltVM provided IO.
