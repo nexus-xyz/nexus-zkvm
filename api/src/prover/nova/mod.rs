@@ -61,104 +61,55 @@ pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
 }
 
-pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
-    let (mut proof, tr) = prove_seq_setup(pp, trace)?;
-    let num_steps = tr.steps();
-
-    for _ in 0..num_steps {
-        proof = prove_seq_step(pp, proof, &tr)?;
-    }
-
-    Ok(proof)
-}
-
-pub fn prove_seq_setup(pp: &SeqPP, trace: Trace) -> Result<(IVCProof, SC), ProofError> {
+pub fn init_trace_circuit(trace: Trace) -> Result<SC, ProofError> {
     let tr = Tr::<MerkleTrie>(trace);
-    let icount = tr.instructions();
-    let z_0 = tr.input(0)?;
-    let mut proof = IVCProof::new(&z_0);
-
-    Ok((proof, tr))
+    Ok(tr)
 }
 
 pub fn prove_seq_step(
+    proof: Option<IVCProof>,
     pp: &SeqPP,
-    proof: IVCProof,
-    step_circuit: &SC,
+    tr: &SC,
 ) -> Result<IVCProof, ProofError> {
-    let proof = IVCProof::prove_step(proof, pp, step_circuit)?;
-    Ok(proof)
+    let mut pr;
+
+    if proof.is_none() {
+        let z_0 = tr.input(0)?;
+        pr = IVCProof::new(&z_0);
+    } else {
+        pr = proof.unwrap();
+    }
+
+    pr = IVCProof::prove_step(pr, pp, tr)?;
+    Ok(pr)
 }
 
-macro_rules! prove_par_impl {
+macro_rules! prove_par_leaf_step_impl {
     ( $pp_type:ty, $node_type:ty, $name:ident ) => {
-        pub fn $name(pp: $pp_type, trace: Trace) -> Result<$node_type, ProofError> {
-            let k = trace.k;
-            let tr = Tr::<MerkleTrie>(trace);
+        pub fn $name(pp: $pp_type, tr: &SC, i: usize) -> Result<$node_type, ProofError> {
+            assert!((tr.steps() + 1).is_power_of_two());
 
-            let num_steps = tr.steps();
-            assert!((num_steps + 1).is_power_of_two());
-
-            let on_step = move |iter: usize| {
-                let b = (num_steps + 1).ilog2();
-                let a = b - 1 - (num_steps - iter).ilog2();
-
-                let step = 2usize.pow(a + 1) * iter - (2usize.pow(a) - 1) * (2usize.pow(b + 1) - 1);
-                let step_type = if iter <= num_steps / 2 {
-                    "leaf"
-                } else if iter == num_steps - 1 {
-                    "root"
-                } else {
-                    "node"
-                };
-                format!("{step_type} {step}")
-            };
-
-            let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
-            let mut term_ctx = term
-                .context("Computing")
-                .on_step(on_step)
-                .num_steps(num_steps)
-                .with_loading_bar("Proving")
-                .completion_header("Proved")
-                .completion_stats(move |elapsed| {
-                    format!(
-                        "tree root in {elapsed}; {:.2} instructions / second",
-                        (k * num_steps) as f32 / elapsed.as_secs_f32()
-                    )
-                });
-
-            let mut vs = (0..num_steps)
-                .step_by(2)
-                .map(|i| {
-                    let _guard = term_ctx.display_step();
-
-                    let v = <$node_type>::prove_leaf(&pp, &tr, i, &tr.input(i)?)?;
-                    Ok(v)
-                })
-                .collect::<Result<Vec<_>, ProofError>>()?;
-
-            loop {
-                if vs.len() == 1 {
-                    break;
-                }
-                vs = vs
-                    .chunks(2)
-                    .map(|ab| {
-                        let _guard = term_ctx.display_step();
-                        let c = <$node_type>::prove_parent(&pp, &tr, &ab[0], &ab[1])?;
-                        Ok(c)
-                    })
-                    .collect::<Result<Vec<_>, ProofError>>()?;
-            }
-
-            Ok(vs.into_iter().next().unwrap())
+            let v = <$node_type>::prove_leaf(&pp, tr, i, &tr.input(i)?)?;
+            Ok(v)
         }
-    };
+    }
 }
 
-prove_par_impl!(ParPP, PCDNode, prove_par);
-prove_par_impl!(ComPP, ComPCDNode, prove_par_com);
+macro_rules! prove_par_parent_step_impl {
+    ( $pp_type:ty, $node_type:ty, $name:ident ) => {
+        pub fn $name(pp: $pp_type, tr: &SC, ab0: &$node_type, ab1: &$node_type) -> Result<$node_type, ProofError> {
+            assert!((tr.steps() + 1).is_power_of_two());
+
+            let c = <$node_type>::prove_parent(&pp, &tr, &ab0, &ab1)?;
+            Ok(c)
+        }
+    }
+}
+
+prove_par_leaf_step_impl!(ParPP, PCDNode, prove_par_leaf_step);
+prove_par_leaf_step_impl!(ComPP, ComPCDNode, prove_par_com_leaf_step);
+prove_par_parent_step_impl!(ParPP, PCDNode, prove_par_parent_step);
+prove_par_parent_step_impl!(ComPP, ComPCDNode, prove_par_com_parent_step);
 
 pub fn compress(
     compression_pp: &ComPP,
@@ -184,7 +135,6 @@ pub fn verify_compressed(
         target: LOG_TARGET,
         "Verifying the compressed proof",
     );
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
 
     SNARK::verify(key, params, proof)?;
     Ok(())

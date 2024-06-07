@@ -5,7 +5,6 @@ pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
 use super::circuit::nop_circuit;
 use super::error::*;
-use super::srs::load_srs;
 use super::types::*;
 use super::LOG_TARGET;
 
@@ -69,7 +68,7 @@ where
     gen_pp(&tr, aux)
 }
 
-fn show_pp<C, SP>(pp: &PP<C, SP>)
+pub fn show_pp<C, SP>(pp: &PP<C, SP>)
 where
     SP: SetupParams<G1, G2, C, C2, RO, SC>,
     C: CommitmentScheme<P1>,

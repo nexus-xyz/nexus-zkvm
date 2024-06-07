@@ -194,7 +194,7 @@ fn verify_proof(
             .on_step(|_step| "public parameters".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::pp::load_pp(path_str)?
+        nexus_api::prover::nova::pp::load_pp(pp_file)?
     };
 
     let result = match nova_impl {
