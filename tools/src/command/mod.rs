@@ -70,7 +70,7 @@ pub(crate) fn cache_path() -> anyhow::Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nexus_api::config::{Config, vm::VmConfig};
+    use nexus_api::config::{vm::VmConfig, Config};
 
     #[test]
     fn env_config() {
