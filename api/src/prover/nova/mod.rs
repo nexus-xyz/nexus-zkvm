@@ -66,6 +66,17 @@ pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
     Ok(tr)
 }
 
+pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
+    let tr = init_circuit_trace(trace)?;
+
+    let mut proof = prove_seq_step(None, pp, &tr)?;
+    for _ in 1..tr.steps() {
+        proof = prove_seq_step(Some(proof), pp, &tr)?;
+    }
+
+    Ok(proof)
+}
+
 pub fn prove_seq_step(
     proof: Option<IVCProof>,
     pp: &SeqPP,
@@ -82,6 +93,43 @@ pub fn prove_seq_step(
 
     pr = IVCProof::prove_step(pr, pp, tr)?;
     Ok(pr)
+}
+
+macro_rules! prove_par_impl {
+    ( $pp_type:ty, $node_type:ty, $name:ident, $leaf_step_name:ident, $parent_step_name:ident) => {
+        pub fn $name(pp: &$pp_type, trace: Trace) -> Result<$node_type, ProofError> {
+            let tr = init_circuit_trace(trace)?;
+            let num_steps = tr.steps();
+
+            assert!((tr.steps() + 1).is_power_of_two());
+
+            let mut vs = (0..num_steps)
+                .step_by(2)
+                .map(|i| {
+                    // todo: replace with concat_idents once stable
+                    let v = $leaf_step_name(pp, &tr, i)?;
+                    Ok(v)
+                })
+                .collect::<Result<Vec<_>, ProofError>>()?;
+
+            loop {
+                if vs.len() == 1 {
+                    break;
+                }
+
+                vs = vs
+                    .chunks(2)
+                    .map(|ab| {
+                        // todo: replace with concat_idents once stable
+                        let c = $parent_step_name(pp, &tr, &ab[0], &ab[1])?;
+                        Ok(c)
+                    })
+                    .collect::<Result<Vec<_>, ProofError>>()?;
+            }
+
+            Ok(vs.into_iter().next().unwrap())
+        }
+    };
 }
 
 macro_rules! prove_par_leaf_step_impl {
@@ -115,6 +163,20 @@ prove_par_leaf_step_impl!(ParPP, PCDNode, prove_par_leaf_step);
 prove_par_leaf_step_impl!(ComPP, ComPCDNode, prove_par_com_leaf_step);
 prove_par_parent_step_impl!(ParPP, PCDNode, prove_par_parent_step);
 prove_par_parent_step_impl!(ComPP, ComPCDNode, prove_par_com_parent_step);
+prove_par_impl!(
+    ParPP,
+    PCDNode,
+    prove_par,
+    prove_par_leaf_step,
+    prove_par_parent_step
+);
+prove_par_impl!(
+    ComPP,
+    ComPCDNode,
+    prove_par_com,
+    prove_par_com_leaf_step,
+    prove_par_com_parent_step
+);
 
 pub fn compress(
     compression_pp: &ComPP,

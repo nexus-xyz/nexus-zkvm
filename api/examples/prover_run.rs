@@ -40,14 +40,7 @@ fn main() {
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let tr = prover::nova::init_circuit_trace(trace).expect("error constructing circuit");
-
-    let mut proof =
-        prover::nova::prove_seq_step(None, &public_params, &tr).expect("error proving execution");
-    for _ in 1..tr.steps() {
-        proof = prover::nova::prove_seq_step(Some(proof), &public_params, &tr)
-            .expect("error proving execution");
-    }
+    let proof = prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
     proof

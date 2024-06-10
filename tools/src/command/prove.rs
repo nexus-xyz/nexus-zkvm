@@ -216,6 +216,8 @@ fn local_prove(
 
     match nova_impl {
         vm_config::NovaImpl::Parallel => {
+            assert!((num_steps + 1).is_power_of_two());
+
             let state = {
                 let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
                 let mut term_ctx = iterm
@@ -263,6 +265,8 @@ fn local_prove(
             nexus_api::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::ParallelCompressible => {
+            assert!((num_steps + 1).is_power_of_two());
+
             let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
             let state = {
                 let mut term_ctx = iterm
