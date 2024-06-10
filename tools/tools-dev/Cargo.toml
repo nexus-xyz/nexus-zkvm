@@ -22,6 +22,9 @@ required-features = ["dev"]
 [dependencies]
 clap.workspace = true
 
+nexus-config = { path = "../../config", features = [
+   "clap_derive",
+]}
 nexus-api = { path = "../../api" }
 
 anyhow = "1.0"

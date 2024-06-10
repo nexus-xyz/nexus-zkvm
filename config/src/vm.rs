@@ -17,18 +17,19 @@ pub enum ProverImpl {
     Nova(NovaImpl),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, serde_wrapper::Deserialize, clap::ValueEnum)]
+#[derive(Debug, Copy, Clone, PartialEq, serde_wrapper::Deserialize)]
+#[cfg_attr(feature = "clap_derive", derive(clap::ValueEnum))]
 pub enum NovaImpl {
     #[serde(rename = "nova-seq")]
-    #[clap(name = "nova-seq")]
+    #[cfg_attr(feature = "clap_derive", clap(name = "nova-seq"))]
     Sequential,
 
     #[serde(rename = "nova-par")]
-    #[clap(name = "nova-par")]
+    #[cfg_attr(feature = "clap_derive", clap(name = "nova-par"))]
     Parallel,
 
     #[serde(rename = "nova-par-com")]
-    #[clap(name = "nova-par-com")]
+    #[cfg_attr(feature = "clap_derive", clap(name = "nova-par-com"))]
     ParallelCompressible,
 }
 
@@ -78,6 +79,7 @@ impl fmt::Display for NovaImpl {
 }
 
 // `derive(ValueEnum)` only works for enums with unit variants -- needs manual implementation.
+#[cfg(feature = "clap_derive")]
 mod clap_derive {
     use super::{NovaImpl, ProverImpl};
     use clap::{builder::PossibleValue, ValueEnum};

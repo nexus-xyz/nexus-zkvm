@@ -19,6 +19,7 @@ anyhow = "1.0"
 
 zstd = { version = "0.12", default-features = false }
 
+nexus-config = { path = "../config" }
 nexus-vm = { path = "../vm" }
 nexus-jolt = { path = "../jolt" }
 nexus-nova = { path = "../nova", features = ["spartan"] }
@@ -40,7 +41,6 @@ ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
 serde = { version = "1.0", features = ["derive"] }
-serde_wrapper = { path = "./serde_wrapper" }
 serde-untagged = "0.1.6"
 
 config = { version = "0.13.4", default-features = false }

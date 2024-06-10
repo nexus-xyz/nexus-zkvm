@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Args;
-use nexus_api::config::vm as vm_config;
+use nexus_config::vm as vm_config;
 
 #[derive(Debug, Args)]
 pub struct ProveArgs {

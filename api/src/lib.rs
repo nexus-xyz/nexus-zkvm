@@ -2,6 +2,14 @@
 
 #![doc = include_str!("../README.md")]
 
+/// Configurations
+pub mod config {
+    pub use nexus_config::{Config, MiscConfig};
+    pub mod vm {
+        pub use nexus_config::vm::*;
+    }
+}
+
 /// RISC-V processing
 pub mod nvm {
     pub mod interactive {
@@ -13,5 +21,4 @@ pub mod nvm {
     }
 }
 
-pub mod config;
 pub mod prover;

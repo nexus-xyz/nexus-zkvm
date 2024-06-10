@@ -1,6 +1,6 @@
 use serde::de::DeserializeOwned;
 
-pub mod error;
+mod error;
 
 pub mod misc;
 pub mod network;
