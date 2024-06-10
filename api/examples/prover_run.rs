@@ -40,7 +40,7 @@ fn main() {
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let proof = prove_seq(&public_params, trace).expect("error proving execution");
+    let proof = nexus_api::prover::nova::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
     proof
