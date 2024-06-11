@@ -23,7 +23,7 @@ body:
     attributes:
       label: Program information
       description: |
-        Provide information about your Nexus program, ideally a minimal example to replicate the bug.
+        Provide information about your zkVM program, ideally a minimal example to replicate the bug.
       placeholder: Program information
     validations:
       required: true
