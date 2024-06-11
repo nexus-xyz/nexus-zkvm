@@ -61,11 +61,11 @@ fn fib(n: u32) -> u32 {
     }
 }
 
-#[nexus::main]
+#[nexus_rt::main]
 fn main() {
     let n = 7;
     let result = fib(n);
-    assert_eq!(result, 21);
+    assert_eq!(result, 13);
 }
 ```
 
