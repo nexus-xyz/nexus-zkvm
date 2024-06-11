@@ -21,7 +21,7 @@ body:
   - type: textarea
     id: program-info
     attributes:
-      label: Program information
+      label: Program Information
       description: |
         Provide information about your zkVM program, ideally a minimal example to replicate the bug.
       placeholder: Program information
@@ -30,21 +30,19 @@ body:
   - type: textarea
     id: program-info
     attributes:
-      label: Project information
+      label: Project Information
       description: |
         Provide information about your project using the Nexus zkVM, ideally a minimal example to replicate the bug.
-      placeholder: Project information
     validations:
       required: true
   - type: textarea
     id: steps-to-reproduce
     attributes:
-      label: Steps to reproduce
+      label: Reproduction Steps
       description: |
         What exactly is your application doing that causes the zkVM to malfunction?
 
         If we have to investigate the issue, what would we have to do to reproduce the issue?
-      placeholder: Steps to reproduce.
     validations:
       required: true
   - type: textarea
@@ -66,11 +64,9 @@ body:
   - type: textarea
     id: system-info
     attributes:
-      label: System Info
+      label: System Information
       description: |
         Provide as much information about the environment you are using.
-      render: shell
-      placeholder: Operating system, architecture, etc...
   - type: textarea
     id: additional-comments
     attributes:
