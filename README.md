@@ -94,6 +94,10 @@ fn main() {
 ### 3. Run your program
 
 ```bash
+cd nexus-project
+```
+
+```bash
 cargo nexus run
 ```
 
