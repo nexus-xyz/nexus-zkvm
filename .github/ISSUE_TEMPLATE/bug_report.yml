@@ -23,7 +23,7 @@ body:
     attributes:
       label: Program Information
       description: |
-        Provide information about your zkVM program, ideally a minimal example to replicate the bug.
+        Provide information about your zkVM program (i.e., your program that runs _inside_ the Nexus zkVM), ideally a minimal example to replicate the bug.
       placeholder: Program information
     validations:
       required: true
@@ -32,9 +32,9 @@ body:
     attributes:
       label: Project Information
       description: |
-        Provide information about your project using the Nexus zkVM, ideally a minimal example to replicate the bug.
+        Provide information about your project using the Nexus zkVM (i.e., your program that invokes the zkVM, if any), ideally a minimal example to replicate the bug.
     validations:
-      required: true
+      required: false
   - type: textarea
     id: steps-to-reproduce
     attributes:
