@@ -17,7 +17,7 @@ where
     Ok(SP::setup(ro_config(), circuit, aux, &())?)
 }
 
-pub fn save_pp<C, SP>(pp: PP<C, SP>, file: &str) -> Result<(), ProofError>
+pub fn save_pp<C, SP>(pp: &PP<C, SP>, file: &str) -> Result<(), ProofError>
 where
     C: CommitmentScheme<P1>,
     SC: StepCircuit<F1>,
@@ -114,7 +114,7 @@ pub fn gen_to_file(
                 };
 
                 show_pp(&pp);
-                save_pp(pp, pp_file)
+                save_pp(&pp, pp_file)
             }
             None => {
                 tracing::info!(
@@ -130,7 +130,7 @@ pub fn gen_to_file(
                     gen_vm_pp(k, &())?
                 };
                 show_pp(&pp);
-                save_pp(pp, pp_file)
+                save_pp(&pp, pp_file)
             }
         }
     } else {
@@ -147,7 +147,7 @@ pub fn gen_to_file(
             gen_vm_pp(k, &())?
         };
         show_pp(&pp);
-        save_pp(pp, pp_file)
+        save_pp(&pp, pp_file)
     }
 }
 

@@ -11,6 +11,9 @@ members = [
     "config/serde_wrapper",
     "prover",
     "network",
+    "network/rpc/common",
+    "network/rpc/server",
+    "network/rpc/traits",
     "nova",
     "spartan",
     "api",
@@ -42,6 +45,11 @@ clap = { version = "4.3", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 elf = { version = "0.7", default-features = false, features = ["std"] }
+
+jsonrpsee = { version = "0.23", default-features = false }
+
+sha3 = { version = "0.10", default-features = false }
+hex = { version = "0.4.3" }
 
 ark-crypto-primitives = { version = "0.4.0", features = [
     "r1cs",
