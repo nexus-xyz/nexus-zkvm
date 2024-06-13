@@ -24,6 +24,7 @@ pub enum GroupConversionError {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum ConversionError {
     Field(FieldConversionError),
     Group(GroupConversionError),
