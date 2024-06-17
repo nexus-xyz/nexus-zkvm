@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use nexus_prover::types::IVCProof;
-use nexus_rpc_common::ArkWrapper;
+use nexus_rpc_common::{ArkWrapper, ElfBytes};
 use nexus_rpc_traits::RpcClient;
 
 use tracing::Level;
@@ -48,7 +48,7 @@ async fn main() {
     );
 }
 
-async fn request(elf_bytes: Vec<u8>) -> RpcProof {
+async fn request(elf_bytes: ElfBytes) -> RpcProof {
     let client = WsClientBuilder::default()
         .request_timeout(Duration::from_secs(180))
         .max_response_size(u32::MAX)
