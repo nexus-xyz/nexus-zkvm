@@ -9,7 +9,7 @@ image: "/nexus-head.png"
 
 Since the external memory used by the Nexus Virtual Machine is assumed to be untrusted, the Nexus zkVM must ensure read-write consistency throughout the execution of a program. Informally, this requires that reading the contents of any cell of the memory should always return the value last written to that cell.
 
-In order to enforce the consistency of read-write operations into the memory, the Nexus zkVM currently uses Merkle Trees [[M87](#references)] together with the Poseidon hash function [[GKR21](#references)]. In this method, the contents of the memory are first associated with leaves of a Merkle tree and then Merkle-hashed into a Merkle root. The latter Merkle root serves as a binding commitment to the memory and needs to be updated whenever the contents of the memory change.
+In order to enforce the consistency of read-write operations in the memory, the Nexus zkVM currently uses Merkle Trees [[M87](#references)] together with the Poseidon hash function [[GKR21](#references)]. In this method, the contents of the memory are first associated with leaves of a Merkle tree and then Merkle-hashed into a Merkle root. The latter Merkle root serves as a binding commitment to the memory and needs to be updated whenever the contents of the memory change.
 
 ### Merkle Tree Setup
 
