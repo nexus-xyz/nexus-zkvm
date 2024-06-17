@@ -71,6 +71,10 @@ mod tests {
 
         let data = ArkWrapper((point, f1));
         let s = serde_json::to_string(&data).unwrap();
+        assert_eq!(
+            s,
+            r#""bbc622db0af03afbef1a7af93fe8556c58ac1b173f3a4ea105b974974f8c68c30faca94f8c63952694d79731a7d3f11701000000fffffffffe5bfeff02a4bd5305d8a10908d83933487d9d2953a7ed73""#,
+        );
 
         let de: ArkWrapper<(G1Affine, <Fr as PrimeField>::BigInt)> =
             serde_json::from_str(&s).unwrap();
