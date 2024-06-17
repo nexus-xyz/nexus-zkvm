@@ -19,7 +19,7 @@ The following subsections provide an overview of each of these components.
 
 ### Initialization
 
-Let $P$ be a program which we want to execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x0000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
+Let $P$ be a program that we want to execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x0000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
 
 In order to enforce the consistency of the memory throughout the execution of the program $P$, the Nexus zkVM currently uses Merkle Trees [[M87](#references)] for memory checking together with the Poseidon hash function [[GKR21](#references)]. In this method, we compute a Merkle root associated with the current contents of the memory and we update its value whenever the contents of the memory change.
 
