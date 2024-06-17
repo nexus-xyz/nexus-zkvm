@@ -17,7 +17,7 @@ fn main() {
     // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
     let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/private_input");
 
-    // nb: the tracing and proving infrastructure assumes use of MerkleTrie memory model
+    // nb: the tracing and proving infrastructure assumes the use of MerkleTrie memory model
 
     println!("Setting up public parameters...");
     let public_params =
