@@ -29,7 +29,7 @@ cargo add nexus-rt
 ```
 
 Next, for convenience, you can set the default target and
-linker flags for the project in the `.cargo/config` file
+linker flags for the project in the `.cargo/config.toml` file
 under the project directory. The contents of the file should
 be:
 
