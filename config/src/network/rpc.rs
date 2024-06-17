@@ -32,7 +32,7 @@ mod tests {
         std::env::set_var("NEXUS_NETWORK_RPC_DBPATH", "/tmp/db");
 
         let config = <RpcConfig as Config>::from_env().unwrap();
-        
+
         assert_eq!(config.bind_addr, "127.0.0.1:8080".parse().unwrap());
         assert_eq!(config.db_path.to_str(), Some("/tmp/db"));
     }
