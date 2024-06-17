@@ -2,6 +2,8 @@ mod error;
 mod nova;
 mod prover;
 mod storage;
+#[cfg(test)]
+mod tests;
 mod traits;
 
 pub mod rpc;

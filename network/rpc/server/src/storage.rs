@@ -87,7 +87,7 @@ pub async fn run<P: ProverT, S: StorageT<P::Proof>>(
 mod tests {
     use super::*;
     use crate::{
-        traits::test_utils::{TestProver, TestStorage},
+        tests::utils::{TestProver, TestStorage},
         Error,
     };
 

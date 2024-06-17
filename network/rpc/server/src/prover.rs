@@ -79,7 +79,7 @@ pub async fn run<P: ProverT>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{traits::test_utils::*, Error};
+    use crate::{tests::utils::*, Error};
 
     #[tokio::test]
     async fn send_requests() {

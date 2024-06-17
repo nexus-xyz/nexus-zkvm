@@ -56,19 +56,22 @@ impl<P: ProverT> RpcServer<ArkWrapper<P::Proof>> for Rpc<P> {
     }
 }
 
-pub async fn run<P: ProverT, S: StorageT<P::Proof>>(
-    bind_addr: SocketAddr,
-    storage: S,
-    prover_params: P::Params,
-) {
+pub(crate) async fn build_server(bind_addr: SocketAddr) -> jsonrpsee::server::Server {
     // TODO: env configuration
-    let server = ServerBuilder::default()
+    ServerBuilder::default()
         .ws_only()
         .max_request_body_size(u32::MAX)
         .max_response_body_size(u32::MAX)
         .build(bind_addr)
         .await
-        .expect("failed to build server");
+        .expect("failed to build server")
+}
+
+pub(crate) async fn run_server<P: ProverT, S: StorageT<P::Proof>>(
+    server: jsonrpsee::server::Server,
+    storage: S,
+    prover_params: P::Params,
+) {
     let local_addr = server.local_addr().expect("local addr error");
 
     let (prover_tx, prover_rx) = mpsc::channel(32);
@@ -93,4 +96,13 @@ pub async fn run<P: ProverT, S: StorageT<P::Proof>>(
     if let Some(_res) = tasks.join_next().await {
         tracing::error!(target: LOG_TARGET, "task unexpectedly finished");
     }
+}
+
+pub async fn run<P: ProverT, S: StorageT<P::Proof>>(
+    bind_addr: SocketAddr,
+    storage: S,
+    prover_params: P::Params,
+) {
+    let server = build_server(bind_addr).await;
+    run_server::<P, S>(server, storage, prover_params).await;
 }
