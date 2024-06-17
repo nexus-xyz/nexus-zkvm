@@ -14,3 +14,9 @@ configured as the default for cargo in this crate:
 ```sh
 cargo run -r --bin example
 ```
+
+## Testing examples with private inputs
+
+Some examples expect private inputs. An example of
+programmatically invoking a program with a private input can be
+found in `/api/examples/prover_run.rs`.
