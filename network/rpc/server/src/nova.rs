@@ -5,8 +5,8 @@ use nexus_api::config::{
     Config, MiscConfig,
 };
 use nexus_api::prover::nova::types::{IVCProof, SeqPP};
-use nexus_rpc_common::ElfBytes;
 use nexus_api::vm::{init_vm, memory::trie::MerkleTrie, parse_elf_bytes, trace::trace};
+use nexus_rpc_common::ElfBytes;
 
 use super::{Error, ProverT};
 
@@ -58,8 +58,8 @@ pub fn load_params() -> SeqPP {
         )
         .entered();
 
-        let pp: SeqPP =
-            nexus_api::prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("failed to gen parameters");
+        let pp: SeqPP = nexus_api::prover::nova::pp::gen_vm_pp(CONFIG.k, &())
+            .expect("failed to gen parameters");
         nexus_api::prover::nova::pp::save_pp(&pp, path_str).expect("failed to save parameters");
         pp
     }
