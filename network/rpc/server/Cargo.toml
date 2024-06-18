@@ -1,0 +1,49 @@
+[package]
+name = "nexus-rpc-server"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+default-run = "server"
+
+[[bin]]
+name = "server"
+path = "src/bin/server.rs"
+
+[[bin]]
+name = "client"
+path = "src/bin/client.rs"
+
+[dependencies]
+nexus-rpc-traits = { path = "../traits", features = ["server"] }
+nexus-rpc-common = { path = "../common" }
+nexus-prover = { path = "../../../prover" }
+nexus-vm = { path = "../../../vm" }
+nexus-config = { path = "../../../config" }
+
+ark-serialize = { workspace = true }
+jsonrpsee = { workspace = true }
+async-trait = "0.1"
+thiserror = "1.0"
+
+rocksdb = "0.22.0"
+tokio = { version = "1.38", features = [
+    "rt-multi-thread",
+    "macros",
+    "sync",
+] }
+rayon = "1.8"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "fmt",
+    "env-filter",
+] }
+
+
+[dev-dependencies]
+assert_matches = "1.5"
+ark-std = { workspace = true }

@@ -1,0 +1,21 @@
+[package]
+name = "nexus-rpc-common"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+ark-std = { workspace = true }
+sha3 = { workspace = true }
+hex = { workspace = true, features = ["serde"] }
+ark-serialize = { workspace = true }
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+ark-test-curves = { workspace = true }
+serde_json = { workspace = true }
