@@ -1,3 +1,0 @@
-[vm]
-k = 16              # number of NexusVM instructions proved per Nova folding step.
-prover = "nova-seq" # IVC implementation to be used, should be one of "nova-seq" (sequential), "nova-par" (parallel).
