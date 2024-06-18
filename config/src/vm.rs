@@ -14,6 +14,7 @@ pub struct VmConfig {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ProverImpl {
     Jolt,
+
     Nova(NovaImpl),
 }
 
