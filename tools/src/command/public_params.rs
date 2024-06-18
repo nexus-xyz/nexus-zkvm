@@ -10,12 +10,11 @@ use nexus_config::{
     Config,
 };
 use nexus_prover::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
-use nexus_tools_dev::command::common::public_params::{
-    format_params_file, format_srs_file, PublicParamsAction, PublicParamsArgs, SRSSetupArgs,
-    SetupArgs,
-};
 
 use crate::{command::cache_path, LOG_TARGET};
+
+mod command_args;
+pub use command_args::{PublicParamsAction, PublicParamsArgs, SRSSetupArgs, SetupArgs};
 
 pub fn handle_command(args: PublicParamsArgs) -> anyhow::Result<()> {
     let action = args
@@ -140,4 +139,13 @@ pub fn sample_test_srs(args: SRSSetupArgs) -> anyhow::Result<PathBuf> {
 
     gen_test_srs_to_file(num_vars, path_str)?;
     Ok(path)
+}
+
+// TODO: make it accessible to all crates.
+pub fn format_params_file(nova_impl: vm_config::NovaImpl, k: usize) -> String {
+    format!("nexus-public-{nova_impl}-{k}.zst")
+}
+
+pub fn format_srs_file(num_vars: usize) -> String {
+    format!("nexus-srs-{num_vars}.zst")
 }

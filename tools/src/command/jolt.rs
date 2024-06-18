@@ -3,13 +3,13 @@
 use std::{fs::File, io::BufReader, path::Path};
 
 use nexus_jolt::{parse, preprocess, trace, JoltCommitments, JoltProof};
-use nexus_tools_dev::command::common::prove::CommonProveArgs;
 use nexus_vm::memory::trie::MerkleTrie;
 
 use anyhow::Context;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::LOG_TARGET;
+use super::prove::CommonProveArgs;
+use crate::{utils::path_to_artifact, LOG_TARGET};
 
 type Proof = (JoltProof, JoltCommitments);
 
@@ -73,7 +73,7 @@ pub fn prove(path: &Path) -> anyhow::Result<()> {
 
 pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<()> {
     let CommonProveArgs { bin, profile } = prove_args;
-    let path = nexus_tools_dev::utils::path_to_artifact(bin, &profile)?;
+    let path = path_to_artifact(bin, &profile)?;
 
     // load proof
     let file = File::open(proof_path)?;

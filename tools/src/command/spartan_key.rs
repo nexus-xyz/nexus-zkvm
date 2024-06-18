@@ -1,3 +1,4 @@
+use clap::{Args, Subcommand};
 use std::{
     io,
     path::{Path, PathBuf},
@@ -7,12 +8,48 @@ use anyhow::Context;
 
 use nexus_config::{vm as vm_config, Config};
 use nexus_prover::srs::get_min_srs_size;
-use nexus_tools_dev::command::common::{
-    public_params::{format_params_file, format_srs_file},
-    spartan_key::{format_key_file, SetupArgs, SpartanSetupAction, SpartanSetupArgs},
-};
 
+use super::public_params::{format_params_file, format_srs_file};
 use crate::{command::cache_path, LOG_TARGET};
+
+#[derive(Debug, Args)]
+pub struct SpartanSetupArgs {
+    #[command(subcommand)]
+    pub command: Option<SpartanSetupAction>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum SpartanSetupAction {
+    /// Generate Spartan key to file.
+    Setup(SetupArgs),
+}
+
+#[derive(Debug, Default, Args)]
+pub struct SetupArgs {
+    /// Where to save the file.
+    #[arg(short, long)]
+    pub path: Option<PathBuf>,
+
+    /// Overwrite the file if it already exists
+    #[arg(long)]
+    pub force: bool,
+
+    /// Number of vm instructions per fold.
+    #[arg(short, name = "k")]
+    pub k: Option<usize>,
+
+    /// Path to Nova public parameters file.
+    #[arg(short = 'p', long = "public_params")]
+    pub pp_file: Option<PathBuf>,
+
+    /// Path to the Zeromorph structured reference string.
+    #[arg(short = 's', long = "srs")]
+    pub srs_file: Option<PathBuf>,
+}
+
+pub fn format_key_file(k: usize) -> String {
+    format!("nexus-spartan-key-{k}.zst")
+}
 
 pub fn handle_command(args: SpartanSetupArgs) -> anyhow::Result<()> {
     let action = args

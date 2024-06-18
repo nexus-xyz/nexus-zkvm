@@ -57,12 +57,3 @@ pub struct SetupArgs {
     #[arg(long("srs_file"))]
     pub srs_file: Option<PathBuf>,
 }
-
-// TODO: make it accessible to all crates.
-pub fn format_params_file(nova_impl: vm_config::NovaImpl, k: usize) -> String {
-    format!("nexus-public-{nova_impl}-{k}.zst")
-}
-
-pub fn format_srs_file(num_vars: usize) -> String {
-    format!("nexus-srs-{num_vars}.zst")
-}

@@ -22,12 +22,17 @@ path = "src/bin/nexus-run.rs"
 anyhow = "1.0"
 dotenvy = "0.15.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "fmt",
+    "ansi",
+    "chrono",
+    "env-filter",
+] }
 
 cargo_metadata = "0.18.1"
 clap.workspace = true
 
-nexus-tools-dev = { path = "./tools-dev", default-features = false }
-nexus-config = { path = "../config" }
+nexus-config = { path = "../config", features = ["clap_derive"] }
 nexus-vm = { path = "../vm" }
 nexus-prover = { path = "../prover", features = ["verbose"] }
 nexus-jolt = { path = "../jolt" }

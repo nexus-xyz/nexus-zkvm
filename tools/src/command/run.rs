@@ -1,9 +1,23 @@
 use std::path::Path;
 
-use nexus_tools_dev::{
-    command::common::RunArgs,
-    utils::{cargo, path_to_artifact},
-};
+use clap::Args;
+
+use crate::utils::{cargo, path_to_artifact};
+
+#[derive(Debug, Args)]
+pub struct RunArgs {
+    /// Print instruction trace.
+    #[arg(short)]
+    pub verbose: bool,
+
+    /// Build artifacts with the specified profile. "dev" is default.
+    #[arg(long, default_value = "dev")]
+    pub profile: String,
+
+    /// Name of the bin target to run.
+    #[arg(long)]
+    pub bin: Option<String>,
+}
 
 pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
     let RunArgs { verbose, profile, bin } = args;
