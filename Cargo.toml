@@ -5,7 +5,6 @@ members = [
     "examples",
     "vm",
     "tools",
-    "tools/tools-dev",
     "tools/tui",
     "config",
     "config/serde_wrapper",

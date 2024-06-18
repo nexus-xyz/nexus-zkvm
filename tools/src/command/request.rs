@@ -1,8 +1,16 @@
 use anyhow::Context;
-
-use nexus_tools_dev::command::common::RequestArgs;
+use clap::Args;
 
 use crate::LOG_TARGET;
+
+#[derive(Debug, Args)]
+pub struct RequestArgs {
+    /// Program hash.
+    pub hash: String,
+
+    #[arg(long)]
+    pub url: Option<String>,
+}
 
 pub fn handle_command(args: RequestArgs) -> anyhow::Result<()> {
     let hash = args.hash;
