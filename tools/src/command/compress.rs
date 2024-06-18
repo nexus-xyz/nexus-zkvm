@@ -1,14 +1,38 @@
-use anyhow::Context;
-use std::io;
+use std::{io, path::PathBuf};
 
+use anyhow::Context;
+use clap::Args;
+
+use nexus_config::{vm as vm_config, Config};
+
+use super::{public_params::format_params_file, spartan_key::SetupArgs};
 use crate::{
     command::{cache_path, spartan_key::spartan_setup},
     LOG_TARGET,
 };
-use nexus_config::{vm as vm_config, Config};
-use nexus_tools_dev::command::common::{
-    compress::CompressArgs, public_params::format_params_file, spartan_key::SetupArgs,
-};
+
+#[derive(Debug, Args)]
+pub struct CompressArgs {
+    /// Number of vm instructions per fold
+    #[arg(short, name = "k")]
+    pub k: Option<usize>,
+
+    /// Spartan key file
+    #[arg(long = "key")]
+    pub key_file: Option<PathBuf>,
+
+    /// public parameters file; only needed if generating a new Spartan key
+    #[arg(short = 'p', long = "public-params")]
+    pub pp_file: Option<PathBuf>,
+
+    /// srs file; only needed if generating a new Spartan key
+    #[arg(short = 's', long = "structured-reference-string")]
+    pub srs_file: Option<PathBuf>,
+
+    /// File containing uncompressed proof
+    #[arg(short = 'f', long = "proof-file")]
+    pub proof_file: PathBuf,
+}
 
 pub fn handle_command(args: CompressArgs) -> anyhow::Result<()> {
     compress_proof(args)

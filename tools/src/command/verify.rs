@@ -6,21 +6,42 @@ use std::{
 
 use anyhow::Context;
 use ark_serialize::CanonicalDeserialize;
+use clap::Args;
+
 use nexus_config::{
     vm::{NovaImpl, ProverImpl, VmConfig},
     Config,
 };
 use nexus_prover::types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP};
-use nexus_tools_dev::command::common::{
+
+use super::{
+    jolt,
     prove::{CommonProveArgs, LocalProveArgs},
     public_params::format_params_file,
     spartan_key::format_key_file,
-    VerifyArgs,
 };
-
 use crate::{command::cache_path, LOG_TARGET};
 
-use super::jolt;
+#[derive(Debug, Args)]
+pub struct VerifyArgs {
+    /// File containing completed proof
+    #[arg(default_value = "nexus-proof")]
+    pub file: PathBuf,
+
+    /// whether the proof has been compressed
+    #[arg(long, short, default_value = "false")]
+    pub compressed: bool,
+
+    #[clap(flatten)]
+    pub prover_args: LocalProveArgs,
+
+    #[clap(flatten)]
+    pub common_args: CommonProveArgs,
+
+    /// File containing the Spartan key; only needed when 'compressed' is true
+    #[arg(long = "key-file", short = 'k')]
+    pub key_file: Option<PathBuf>,
+}
 
 pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
     let VerifyArgs {

@@ -1,3 +1,27 @@
+//! Environment-based workspace configuration primitives.
+//!
+//! Allows reading env variables into Rust structures that can be deserialized with [`serde`].
+//! Implementing [`Config`] trait only requires specifying a prefix for the config:
+//! ```
+//! #[derive(serde_wrapper::Deserialize)]
+//! struct SimpleConfig {
+//!     pub integer_value: u16,
+//!     pub url: url::Url,
+//! }
+//!
+//! impl nexus_config::Config for SimpleConfig {
+//!     const PREFIX: &'static str = "SIMPLE";
+//! }
+//! ```
+//!
+//! Reading a config the from environment with `<SimpleConfig as Config>::from_env()` requires
+//! both `NEXUS_SIMPLE_INTEGERVALUE` and `NEXUS_SIMPLE_URL` being defined. Note that the struct
+//! name doesn't matter, and underscores are removed from field names.
+//!
+//! By convention, `Default::default()` should return configurations for local usage, for example
+//! - prover configuration with reduced RAM requirement
+//! - localhost bind address
+
 use serde::de::DeserializeOwned;
 
 mod error;
@@ -36,8 +60,4 @@ pub mod constants {
     /// Note that to avoid ambiguity in path resolution (see https://github.com/SergioBenitez/Figment/issues/12) this
     /// crate uses a wrapper to derive [`serde::Deserialize`]. See [`serde_wrapper`] doc-comments for details.
     pub const CONFIG_SEPARATOR: &str = "_";
-    /// File for storing and reading environment variables.
-    pub const CONFIG_FILE_NAME: &str = ".config.env";
-    /// Full path to [`CONFIG_FILE_NAME`].
-    pub const CONFIG_ENV_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/.config.env");
 }

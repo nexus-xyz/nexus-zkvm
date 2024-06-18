@@ -1,7 +1,9 @@
+use clap::Subcommand;
 use std::path::PathBuf;
 
 use nexus_config::{Config, MiscConfig};
-use nexus_tools_dev::{command::common::Command as CommonCommand, Command};
+
+use super::ENV;
 
 pub mod compress;
 pub mod new;
@@ -14,27 +16,39 @@ pub mod verify;
 
 mod jolt;
 
-/// Default environment variables for prover configuration.
-const ENV: &str = r#"
-NEXUS_VM_K=16
-NEXUS_VM_PROVER=nova-seq
-"#;
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    /// Create a new Nexus package at <path>.
+    New(new::NewArgs),
+    /// Run a binary with the Nexus VM.
+    Run(run::RunArgs),
+    /// Compute proof of program execution.
+    Prove(prove::ProveArgs),
+    /// Request proof status from the network; download it if it's finished.
+    Request(request::RequestArgs),
+    /// Verify the proof.
+    Verify(verify::VerifyArgs),
+    /// Nova public parameters management.
+    #[clap(name = "pp")]
+    PublicParams(public_params::PublicParamsArgs),
+    /// Spartan key management.
+    SpartanKey(spartan_key::SpartanSetupArgs),
+    /// Compress a Nova proof.
+    Compress(compress::CompressArgs),
+}
 
 pub fn handle_command(cmd: Command) -> anyhow::Result<()> {
-    #![allow(irrefutable_let_patterns)] // rust-analyzer may give a false warning in a workspace.
-
     dotenvy::from_read(ENV.as_bytes()).expect("env must be valid");
 
-    let Command::Common(cmd) = cmd else { unreachable!() };
     match cmd {
-        CommonCommand::New(args) => new::handle_command(args),
-        CommonCommand::Run(args) => run::handle_command(args),
-        CommonCommand::Prove(args) => prove::handle_command(args),
-        CommonCommand::Request(args) => request::handle_command(args),
-        CommonCommand::Verify(args) => verify::handle_command(args),
-        CommonCommand::PublicParams(args) => public_params::handle_command(args),
-        CommonCommand::Compress(args) => compress::handle_command(args),
-        CommonCommand::SpartanKey(args) => spartan_key::handle_command(args),
+        Command::New(args) => new::handle_command(args),
+        Command::Run(args) => run::handle_command(args),
+        Command::Prove(args) => prove::handle_command(args),
+        Command::Request(args) => request::handle_command(args),
+        Command::Verify(args) => verify::handle_command(args),
+        Command::PublicParams(args) => public_params::handle_command(args),
+        Command::Compress(args) => compress::handle_command(args),
+        Command::SpartanKey(args) => spartan_key::handle_command(args),
     }
 }
 
