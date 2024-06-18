@@ -14,5 +14,5 @@ strum = "0.25.0"
 ark-bn254 = "0.4"
 
 # latest commit on slumber-arkworks-compat
-jolt-core = { git = "https://github.com/nexus-xyz/jolt", rev = "dfb9f27" }
-jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "dfb9f27", package = "common" }
+jolt-core = { git = "https://github.com/nexus-xyz/jolt", rev = "f0f1f12" }
+jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "f0f1f12", package = "common" }
