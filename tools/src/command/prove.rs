@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use clap::Args;
 
-use nexus_config::{vm as vm_config, Config};
+use nexus_api::config::{vm as vm_config, Config};
 
 use crate::{
     command::{
@@ -14,8 +14,7 @@ use crate::{
         public_params::{setup_params, SetupArgs},
     },
     utils::{cargo, path_to_artifact},
-    LOG_TARGET,
-    TERMINAL_MODE,
+    LOG_TARGET, TERMINAL_MODE,
 };
 
 #[derive(Debug, Args)]

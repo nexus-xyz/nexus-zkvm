@@ -1,7 +1,7 @@
 use clap::Subcommand;
 use std::path::PathBuf;
 
-use nexus_config::{Config, MiscConfig};
+use nexus_api::config::{Config, MiscConfig};
 
 use super::ENV;
 

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Context;
 
-use nexus_config::{
+use nexus_api::config::{
     vm::{self as vm_config, ProverImpl},
     Config,
 };

@@ -8,11 +8,6 @@ use anyhow::Context;
 use ark_serialize::CanonicalDeserialize;
 use clap::Args;
 
-use nexus_config::{
-    vm::{NovaImpl, ProverImpl, VmConfig},
-    Config,
-};
-use nexus_api::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
 use super::{
     jolt,
     prove::{CommonProveArgs, LocalProveArgs},
@@ -20,6 +15,11 @@ use super::{
     spartan_key::format_key_file,
 };
 use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
+use nexus_api::config::{
+    vm::{NovaImpl, ProverImpl, VmConfig},
+    Config,
+};
+use nexus_api::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
