@@ -1,14 +1,13 @@
 // This example shows how to compute keccak hashes in software. In
 // practice, using a keccak "pre-compile" will be more efficient.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 #![allow(non_upper_case_globals)]
 
 extern crate alloc;
 use alloc::vec::Vec;
 
-use nexus_rt::{print, println, Write};
+use nexus_rt::{print, println};
 
 #[inline]
 fn rotl64(x: u64, y: u32) -> u64 {
