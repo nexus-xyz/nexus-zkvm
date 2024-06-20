@@ -8,6 +8,10 @@ pub mod config {
     pub mod vm {
         pub use nexus_config::vm::*;
     }
+    pub mod network {
+        pub use nexus_config::network::*;
+    }
+
 }
 
 /// RISC-V processing

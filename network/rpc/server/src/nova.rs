@@ -5,7 +5,10 @@ use nexus_api::config::{
     Config, MiscConfig,
 };
 use nexus_api::prover::nova::types::{IVCProof, SeqPP};
-use nexus_api::vm::{init_vm, memory::trie::MerkleTrie, parse_elf_bytes, trace::trace};
+use nexus_api::nvm::{
+    memory::MerkleTrie,
+    interactive::{parse_elf, trace},
+};
 use nexus_rpc_common::ElfBytes;
 
 use super::{Error, ProverT};
@@ -25,8 +28,7 @@ impl ProverT for NovaProver {
     type Params = SeqPP;
 
     fn prove(pp: &SeqPP, elf_bytes: ElfBytes) -> Result<Self::Proof, Error> {
-        let elf = parse_elf_bytes(&elf_bytes)?;
-        let mut vm = init_vm(&elf, &elf_bytes)?;
+        let mut vm = parse_elf(&elf_bytes)?;
 
         let trace = trace::<MerkleTrie>(&mut vm, CONFIG.k, false)?;
         let proof = nexus_api::prover::nova::prove_seq(pp, trace).map_err(Error::Nova)?;

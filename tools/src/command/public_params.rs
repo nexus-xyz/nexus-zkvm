@@ -97,7 +97,7 @@ fn setup_params_to_file(
                 nexus_api::prover::nova::pp::gen_vm_pp(k, &())?
             };
             nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(pp, path)
+            nexus_api::prover::nova::pp::save_pp(&pp, path)
         }
         vm_config::NovaImpl::Parallel => {
             tracing::info!(
@@ -107,7 +107,7 @@ fn setup_params_to_file(
             let pp: ParPP = nexus_api::prover::nova::pp::gen_vm_pp(k, &())?;
 
             nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(pp, path)
+            nexus_api::prover::nova::pp::save_pp(&pp, path)
         }
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
@@ -154,7 +154,7 @@ fn setup_params_to_file(
             };
 
             nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(pp, path)
+            nexus_api::prover::nova::pp::save_pp(&pp, path)
         }
     };
     Ok(())

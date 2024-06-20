@@ -8,7 +8,7 @@ pub enum Error {
     #[error("program hash is unknown")]
     UnknownHash,
     #[error(transparent)]
-    Vm(#[from] nexus_api::vm::NexusVMError),
+    Vm(#[from] nexus_api::nvm::NexusVMError),
     #[error("Nova error")]
     Nova(ProofError),
 

@@ -21,7 +21,7 @@ where
     Ok(SP::setup(ro_config(), circuit, aux, &())?)
 }
 
-pub fn save_pp<C, SP>(pp: PP<C, SP>, file: &str) -> Result<(), ProofError>
+pub fn save_pp<C, SP>(pp: &PP<C, SP>, file: &str) -> Result<(), ProofError>
 where
     C: CommitmentScheme<P1>,
     SC: StepCircuit<F1>,
