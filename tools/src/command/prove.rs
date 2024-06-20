@@ -14,7 +14,7 @@ use crate::{
         public_params::{setup_params, SetupArgs},
     },
     utils::{cargo, path_to_artifact},
-    LOG_TARGET, TERMINAL_MODE,
+    LOG_TARGET,
 };
 
 #[derive(Debug, Args)]
@@ -168,7 +168,7 @@ fn local_prove(
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
 
     let tr = nexus_api::prover::nova::init_circuit_trace(trace)?;
     let num_steps = tr.steps();
@@ -218,7 +218,7 @@ fn local_prove(
             assert!((num_steps + 1).is_power_of_two());
 
             let state = {
-                let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+                let mut iterm = nexus_tui::TerminalHandle::new_enabled();
                 let mut term_ctx = iterm
                     .context("Loading")
                     .on_step(|_step| "public parameters".into());
@@ -266,7 +266,7 @@ fn local_prove(
         vm_config::NovaImpl::ParallelCompressible => {
             assert!((num_steps + 1).is_power_of_two());
 
-            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
             let state = {
                 let mut term_ctx = iterm
                     .context("Loading")
@@ -313,7 +313,7 @@ fn local_prove(
             nexus_api::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
-            let mut iterm = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
             let state = {
                 let mut term_ctx = iterm
                     .context("Loading")

@@ -135,7 +135,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
         path =?srs_path_str,
         "Reading the SRS",
     );
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
     let srs = {
         let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
         let _guard = term_ctx.display_step();

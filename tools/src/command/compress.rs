@@ -9,7 +9,7 @@ use super::{public_params::format_params_file, spartan_key::SetupArgs};
 
 use crate::{
     command::{cache_path, spartan_key::spartan_setup},
-    LOG_TARGET, TERMINAL_MODE,
+    LOG_TARGET,
 };
 
 #[derive(Debug, Args)]
@@ -104,7 +104,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     };
 
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
 
     let proof = {
         let mut context = term.context("Loading").on_step(|_step| "proof".into());

@@ -79,7 +79,7 @@ fn setup_params_to_file(
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
 
-    let mut term = nexus_tui::TerminalHandle::new(TERMINAL_MODE);
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
 
     let _ = match nova_impl {
         vm_config::NovaImpl::Sequential => {
