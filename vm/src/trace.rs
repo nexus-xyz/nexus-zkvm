@@ -145,8 +145,8 @@ fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
 }
 
 /// Generate a program trace by evaluating `vm`, using `k` steps
-/// per block. If `pow` is true, the total number of steps will
-/// be rounded up to the nearest power of two by inserting UNIMP
+/// per block. If `pow` is true, the number of blocks will be
+/// rounded up to the nearest power of two by inserting UNIMP
 /// instructions.
 pub fn trace<M: Memory>(vm: &mut NexusVM<M>, k: usize, pow: bool) -> Result<Trace<M::Proof>> {
     let mut trace = Trace { k, start: 0, blocks: Vec::new() };
