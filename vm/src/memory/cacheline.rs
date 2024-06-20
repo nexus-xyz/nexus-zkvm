@@ -43,6 +43,12 @@ impl From<[u8; 32]> for CacheLine {
     }
 }
 
+impl From<[u16; 16]> for CacheLine {
+    fn from(halfs: [u16; 16]) -> Self {
+        CacheLine { halfs }
+    }
+}
+
 impl From<[u32; 8]> for CacheLine {
     fn from(words: [u32; 8]) -> Self {
         CacheLine { words }
@@ -185,6 +191,18 @@ mod test {
 
         let b = CacheLine::from([1; 32]);
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn cache_endian_lsb() {
+        // Two ways of setting least significant byte, assuming little endian
+        let mut bytes = [0u8; 32];
+        bytes[31] = 1;
+        let mut halfs = [0u16; 16];
+        halfs[15] = 1 << 8;
+        let a = CacheLine::from(bytes);
+        let b = CacheLine::from(halfs);
+        assert_eq!(a, b);
     }
 
     #[test]
