@@ -1,3 +1,3 @@
-pub use nexus_jolt::{preprocess, prove, verify, parse, trace, VM};
+pub use nexus_jolt::{parse, preprocess, prove, trace, verify, VM};
 
 pub mod types;
