@@ -14,7 +14,7 @@ use super::{
     public_params::format_params_file,
     spartan_key::format_key_file,
 };
-use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
+use crate::{command::cache_path, LOG_TARGET};
 use nexus_api::config::{
     vm::{NovaImpl, ProverImpl, VmConfig},
     Config,

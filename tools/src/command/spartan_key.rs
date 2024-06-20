@@ -10,7 +10,7 @@ use nexus_api::config::{vm as vm_config, Config};
 use nexus_api::prover::nova::{srs::get_min_srs_size, types::ComPP};
 
 use super::public_params::{format_params_file, format_srs_file};
-use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
+use crate::{command::cache_path, LOG_TARGET};
 
 #[derive(Debug, Args)]
 pub struct SpartanSetupArgs {

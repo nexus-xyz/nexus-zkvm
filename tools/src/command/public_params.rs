@@ -12,7 +12,7 @@ use nexus_api::config::{
 use nexus_api::prover::nova::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
 use nexus_api::prover::nova::types::{ComPP, ParPP, SeqPP, SRS};
 
-use crate::{command::cache_path, LOG_TARGET, TERMINAL_MODE};
+use crate::{command::cache_path, LOG_TARGET};
 
 mod command_args;
 pub use command_args::{PublicParamsAction, PublicParamsArgs, SRSSetupArgs, SetupArgs};
