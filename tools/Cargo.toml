@@ -33,7 +33,7 @@ cargo_metadata = "0.18.1"
 clap.workspace = true
 
 nexus-config = { path = "../config", features = ["clap_derive"] }
-nexus-api = { path = "../api", features = ["verbose"] }
+nexus-api = { path = "../api" }
 nexus-jolt = { path = "../jolt" }
 nexus-tui = { path = "./tui" }
 

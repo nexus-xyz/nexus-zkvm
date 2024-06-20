@@ -10,11 +10,6 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-clap.workspace = true
-
-#rayon = "1.8"
-snmalloc-rs = { version = "0.3.4", optional = true }
-
 anyhow = "1.0"
 
 zstd = { version = "0.12", default-features = false }
@@ -23,11 +18,9 @@ nexus-config = { path = "../config" }
 nexus-vm = { path = "../vm" }
 nexus-jolt = { path = "../jolt" }
 nexus-nova = { path = "../nova", features = ["spartan"] }
-nexus-tui = { path = "../tools/tui" }
 spartan = { path = "../spartan", package = "ark-spartan" }
 
 tracing = "0.1"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 ark-ff.workspace = true
 ark-ec.workspace = true
@@ -40,15 +33,8 @@ ark-serialize.workspace = true
 ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
-serde = { version = "1.0", features = ["derive"] }
-serde-untagged = "0.1.6"
-
-config = { version = "0.13.4", default-features = false }
-
-url = { version = "2.5.0", features = ["serde"] }
-
 [features]
-default = ["parallel", "snmalloc"]
+default = ["parallel"]
 parallel = [
    "ark-ff/parallel",
    "ark-ec/parallel",
@@ -57,6 +43,3 @@ parallel = [
    "ark-r1cs-std/parallel",
    "nexus-nova/parallel",
 ]
-snmalloc = ["snmalloc-rs"]
-# TODO: disable superconsole if not enabled
-verbose = []
