@@ -11,7 +11,6 @@ pub mod config {
     pub mod network {
         pub use nexus_config::network::*;
     }
-
 }
 
 /// RISC-V processing

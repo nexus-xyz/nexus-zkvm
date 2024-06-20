@@ -4,11 +4,11 @@ use nexus_api::config::{
     vm::{NovaImpl, ProverImpl, VmConfig},
     Config, MiscConfig,
 };
-use nexus_api::prover::nova::types::{IVCProof, SeqPP};
 use nexus_api::nvm::{
-    memory::MerkleTrie,
     interactive::{parse_elf, trace},
+    memory::MerkleTrie,
 };
+use nexus_api::prover::nova::types::{IVCProof, SeqPP};
 use nexus_rpc_common::ElfBytes;
 
 use super::{Error, ProverT};
