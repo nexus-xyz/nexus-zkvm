@@ -20,15 +20,15 @@ pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Resul
 }
 
 pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError> {
-    super::nova::load_proof::<P>(path).map_err(|e| ProofError::from(e))
+    super::nova::load_proof::<P>(path).map_err(ProofError::from)
 }
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    super::nova::run(opts, pow).map_err(|e| ProofError::from(e))
+    super::nova::run(opts, pow).map_err(ProofError::from)
 }
 
 pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
-    super::nova::init_circuit_trace(trace).map_err(|e| ProofError::from(e))
+    super::nova::init_circuit_trace(trace).map_err(ProofError::from)
 }
 
 pub fn prove_seq(pp: &PP, trace: Trace) -> Result<IVCProof, ProofError> {
