@@ -18,7 +18,6 @@ nexus-config = { path = "../config", features = ["clap_derive"] }
 nexus-vm = { path = "../vm" }
 nexus-jolt = { path = "../jolt", optional = true }
 spartan = { path = "../spartan", package = "ark-spartan", optional = true }
-
 nexus-nova = { path = "../nova", optional = true }
 
 tracing = "0.1"
