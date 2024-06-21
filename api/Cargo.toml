@@ -14,7 +14,7 @@ anyhow = "1.0"
 
 zstd = { version = "0.12", default-features = false }
 
-nexus-config = { path = "../config" }
+nexus-config = { path = "../config", features = ["clap_derive"] }
 nexus-vm = { path = "../vm" }
 nexus-jolt = { path = "../jolt" }
 nexus-nova = { path = "../nova", features = ["spartan"] }
