@@ -87,7 +87,7 @@ pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<
         .context("proof is not in Jolt format")?;
 
     let bytes = std::fs::read(path)?;
-    let vm: nexus_jolt::VM<MerkleTrie> = parse::parse_elf(&bytes)?;
+    let vm: VM<MerkleTrie> = parse::parse_elf(&bytes)?;
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
 
