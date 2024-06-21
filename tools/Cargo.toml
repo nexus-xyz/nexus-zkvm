@@ -32,7 +32,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 cargo_metadata = "0.18.1"
 clap.workspace = true
 
-nexus-api = { path = "../api" }
+nexus-api = { path = "../api", features = ["prover_jolt"] }
 nexus-tui = { path = "./tui" }
 
 ark-spartan = { path = "../spartan" }

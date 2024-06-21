@@ -16,9 +16,10 @@ zstd = { version = "0.12", default-features = false }
 
 nexus-config = { path = "../config", features = ["clap_derive"] }
 nexus-vm = { path = "../vm" }
-nexus-jolt = { path = "../jolt" }
-nexus-nova = { path = "../nova", features = ["spartan"] }
-spartan = { path = "../spartan", package = "ark-spartan" }
+nexus-jolt = { path = "../jolt", optional = true }
+spartan = { path = "../spartan", package = "ark-spartan", optional = true }
+
+nexus-nova = { path = "../nova", optional = true }
 
 tracing = "0.1"
 
@@ -34,7 +35,7 @@ ark-bn254.workspace = true
 ark-grumpkin.workspace = true
 
 [features]
-default = ["parallel"]
+default = ["parallel", "prover_nova"]
 parallel = [
    "ark-ff/parallel",
    "ark-ec/parallel",
@@ -43,3 +44,5 @@ parallel = [
    "ark-r1cs-std/parallel",
    "nexus-nova/parallel",
 ]
+prover_nova = ["dep:nexus-nova", "dep:spartan", "nexus-nova/spartan"]
+prover_jolt = ["dep:nexus-jolt"]
