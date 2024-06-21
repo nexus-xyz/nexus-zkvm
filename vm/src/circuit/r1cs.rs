@@ -7,7 +7,8 @@
 //! These matrices are meant to be used at compile-time as a
 //! source for generating constraints over a target field.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::hash::Hash;
 use std::ops::Range;
 
 use ark_bn254::FrConfig;
@@ -324,9 +325,20 @@ impl R1CS {
     }
 }
 
+fn unique_values<Elm: Eq + Hash>(set: &[Elm]) -> bool {
+    let mut seen = HashSet::new();
+    for v in set.iter() {
+        if !seen.insert(v) {
+            return false;
+        }
+    }
+    true
+}
+
 pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
     debug_assert!(set.len() > 1);
     debug_assert!(set.contains(&k));
+    debug_assert!(unique_values(set));
 
     // Compute constant that comes from evaulating
     // (x - s0)(x - s1)...(x - s{n - 1}) / (x - sk)
@@ -611,6 +623,13 @@ mod test {
         test_mem(&[2, 3]);
         test_mem(&[4, 7, 11, 19]);
         test_mem(&[57, 67, 77, 107, 117, 119]);
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "assertion failed: unique_values(set)")]
+    fn test_member_dup() {
+        test_mem(&[2, 2]);
     }
 
     fn test_sel(n: u32) {
