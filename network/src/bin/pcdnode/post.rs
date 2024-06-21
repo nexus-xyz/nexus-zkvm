@@ -18,7 +18,11 @@ use crate::{
     api::NexusAPI::{Error, NexusProof, Program, Query},
     request_work, WorkerState, LOG_TARGET,
 };
-use nexus_vm::{eval::NexusVM, memory::trie::MerkleTrie, parse_elf, trace::trace};
+use nexus_api::nvm::{
+    interactive::{parse_elf, trace},
+    memory::MerkleTrie,
+    NexusVM,
+};
 
 pub fn manage_proof(
     mut state: WorkerState,

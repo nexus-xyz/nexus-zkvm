@@ -21,9 +21,7 @@ path = "src/bin/client.rs"
 [dependencies]
 nexus-rpc-traits = { path = "../traits", features = ["server"] }
 nexus-rpc-common = { path = "../common" }
-nexus-prover = { path = "../../../prover" }
-nexus-vm = { path = "../../../vm" }
-nexus-config = { path = "../../../config" }
+nexus-api = { path = "../../../api" }
 
 ark-serialize = { workspace = true }
 jsonrpsee = { workspace = true }

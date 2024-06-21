@@ -2,11 +2,11 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use nexus_prover::types::*;
+use nexus_api::prover::nova::types::*;
 
 use crate::Result;
 
-pub type Trace = nexus_vm::trace::Trace<nexus_vm::memory::path::Path>;
+pub type Trace = nexus_api::nvm::interactive::Trace<nexus_api::nvm::memory::Path>;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize)]
@@ -188,8 +188,9 @@ mod test {
     use super::*;
 
     use ark_ff::fields::AdditiveGroup;
-    use nexus_prover::circuit::nop_circuit;
-    use nexus_prover::pp::gen_pp;
+    use nexus_api::nvm::memory::MerkleTrie;
+    use nexus_api::prover::nova::circuit::nop_circuit;
+    use nexus_api::prover::nova::pp::gen_pp;
 
     fn round_trip(msg: &NexusMsg) {
         let v = encode_lz4(msg).unwrap();
@@ -209,14 +210,14 @@ mod test {
 
     #[test]
     fn round_trip_leaf() {
-        let t = nop_circuit(3).unwrap().0;
+        let t = nop_circuit::<MerkleTrie>(3).unwrap().0;
         round_trip(&LeafReq(t));
     }
 
     #[test]
     #[ignore]
     fn round_trip_node() {
-        let circuit = nop_circuit(3).unwrap();
+        let circuit = nop_circuit::<MerkleTrie>(3).unwrap();
         let pp: ParPP = gen_pp(&circuit, &()).unwrap();
         let n0 = PCDNode::prove_leaf(&pp, &circuit, 0, &circuit.input(0).unwrap()).unwrap();
         let n2 = PCDNode::prove_leaf(&pp, &circuit, 2, &circuit.input(2).unwrap()).unwrap();

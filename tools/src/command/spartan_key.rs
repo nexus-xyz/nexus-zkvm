@@ -6,8 +6,8 @@ use std::{
 
 use anyhow::Context;
 
-use nexus_config::{vm as vm_config, Config};
-use nexus_prover::srs::get_min_srs_size;
+use nexus_api::config::{vm as vm_config, Config};
+use nexus_api::prover::nova::{srs::get_min_srs_size, types::ComPP};
 
 use super::public_params::{format_params_file, format_srs_file};
 use crate::{command::cache_path, LOG_TARGET};
@@ -129,7 +129,48 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
     let key_path = key_path.to_str().context("path is not valid utf8")?;
     let pp_path_str = pp_path.to_str().context("path is not valid utf8")?;
     let srs_path_str = srs_path.to_str().context("path is not valid utf8")?;
-    nexus_prover::key::gen_key_to_file(pp_path_str, srs_path_str, key_path)?;
+
+    tracing::info!(
+        target: LOG_TARGET,
+        path =?srs_path_str,
+        "Reading the SRS",
+    );
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let srs = {
+        let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
+        let _guard = term_ctx.display_step();
+
+        nexus_api::prover::nova::srs::load_srs(srs_path_str)?
+    };
+
+    tracing::info!(
+        target: LOG_TARGET,
+        path =?srs_path_str,
+        "SRS found for a maximum of {} variables",
+        srs.max_num_vars
+    );
+
+    tracing::info!(
+        target: LOG_TARGET,
+        pp_file =?pp_path_str,
+        "Reading the Nova public parameters",
+    );
+
+    let pp: ComPP = {
+        let mut term_ctx = term
+            .context("Loading")
+            .on_step(|_step| "Nova public parameters".into());
+        let _guard = term_ctx.display_step();
+
+        nexus_api::prover::nova::pp::load_pp(pp_path_str)?
+    };
+
+    let mut term_ctx = term
+        .context("Generating")
+        .on_step(|_step| "Spartan key".into());
+    let _guard = term_ctx.display_step();
+
+    nexus_api::prover::nova::key::gen_key_to_file(&pp, &srs, key_path)?;
 
     Ok(())
 }
