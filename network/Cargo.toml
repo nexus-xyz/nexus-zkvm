@@ -35,7 +35,6 @@ ark-ec.workspace = true
 ark-serialize.workspace = true
 
 nexus-api = { path = "../api" }
-nexus-vm = { path = "../vm" }
 hex = { workspace = true }
 
 [features]
