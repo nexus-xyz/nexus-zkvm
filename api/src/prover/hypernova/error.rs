@@ -98,8 +98,8 @@ impl From<NovaProofError> for ProofError {
             // The above error conversions allow reusing convienence functions
             // from the nova implemementation in this crate.
             //
-            // The remaining errors are thrown by functions that are proof system
-            // system specific, and so shouldn't be shared across the definitions,
+            // The remaining errors are thrown by functions that are specific to
+            // a proof system, and so shouldn't be shared across the definitions
             // even with identical names.
             _ => unimplemented!(),
         }
