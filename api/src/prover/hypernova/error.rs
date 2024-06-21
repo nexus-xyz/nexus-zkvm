@@ -3,9 +3,9 @@ use std::fmt::{self, Debug, Display, Formatter};
 
 pub use ark_relations::r1cs::SynthesisError;
 pub use ark_serialize::SerializationError;
+pub use nexus_nova::ccs::Error as CCSError;
 pub use nexus_nova::hypernova::{Error as HyperNovaError, HNFoldingError};
 pub use nexus_nova::r1cs::Error as R1CSError;
-pub use nexus_nova::ccs::Error as CCSError;
 pub use nexus_vm::error::NexusVMError;
 
 pub use crate::prover::nova::error::ProofError as NovaProofError;
@@ -39,7 +39,7 @@ pub enum ProofError {
 
     /// An error occured while computing the HyperNova folding
     FoldingError(HNFoldingError),
-    
+
     /// An error occured while setting up a polynomial commitment
     PolyCommitmentError,
 

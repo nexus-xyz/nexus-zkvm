@@ -42,11 +42,7 @@ pub fn prove_seq(pp: &PP, trace: Trace) -> Result<IVCProof, ProofError> {
     Ok(proof)
 }
 
-pub fn prove_seq_step(
-    proof: Option<IVCProof>,
-    pp: &PP,
-    tr: &SC,
-) -> Result<IVCProof, ProofError> {
+pub fn prove_seq_step(proof: Option<IVCProof>, pp: &PP, tr: &SC) -> Result<IVCProof, ProofError> {
     let mut pr;
 
     if proof.is_none() {

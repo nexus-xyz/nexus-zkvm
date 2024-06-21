@@ -11,11 +11,8 @@ pub use spartan::polycommitments::{zeromorph::Zeromorph, PolyCommitmentScheme};
 
 // types and traits from nexus prover
 pub use nexus_nova::{
-    commitment::CommitmentScheme,
-    hypernova::public_params::PublicParams,
-    hypernova::sequential as seq,
-    pedersen::PedersenCommitment,
-    StepCircuit,
+    commitment::CommitmentScheme, hypernova::public_params::PublicParams,
+    hypernova::sequential as seq, pedersen::PedersenCommitment, StepCircuit,
 };
 use nexus_vm::memory::trie::MerkleTrie;
 
