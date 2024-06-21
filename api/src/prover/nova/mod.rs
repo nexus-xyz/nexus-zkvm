@@ -55,7 +55,7 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
     Ok(proof)
 }
 
-type Trace = nexus_vm::trace::Trace<<MerkleTrie as Memory>::Proof>;
+pub(crate) type Trace = nexus_vm::trace::Trace<<MerkleTrie as Memory>::Proof>;
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
