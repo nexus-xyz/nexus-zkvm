@@ -1,11 +1,11 @@
 // An example of loading and running the NVM.
 
+use nexus_api::config::vm::NovaImpl;
 use nexus_api::{
     config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
 };
-use nexus_config::vm::NovaImpl;
 use std::path::PathBuf;
 
 const CONFIG: VmConfig = VmConfig {
@@ -21,7 +21,7 @@ fn main() {
 
     println!("Setting up public parameters...");
     let public_params =
-        prover::setup::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
+        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
@@ -40,7 +40,8 @@ fn main() {
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
+    let proof =
+        nexus_api::prover::nova::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
     proof

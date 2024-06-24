@@ -1,4 +1,4 @@
-//! Concrete types and traits used by zkVM
+//! Default types and traits for use by zkVM
 
 pub use std::marker::PhantomData;
 
@@ -26,6 +26,7 @@ pub use nexus_nova::{
     r1cs::{R1CSShape, R1CSWitness},
     StepCircuit,
 };
+use nexus_vm::memory::trie::MerkleTrie;
 
 // concrete constraint system
 pub type CS = ConstraintSystemRef<F1>;
@@ -46,7 +47,7 @@ pub type PVC1 = com::PolyVectorCommitment<P1, PC>;
 // structured reference string for polynomial commitment scheme
 pub type SRS = <PC as PolyCommitmentScheme<P1>>::SRS;
 
-pub type SC = crate::circuit::Tr;
+pub type SC = crate::prover::nova::circuit::Tr<MerkleTrie>;
 
 // concrete public parameters
 pub type PP<C, SP> = PublicParams<G1, G2, C, C2, RO, SC, SP>;

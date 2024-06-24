@@ -56,7 +56,7 @@ impl Syscalls {
             // read_from_private_input
             match self.input.pop_front() {
                 Some(b) => out = b as u32,
-                None => out = u32::MAX,
+                None => out = u32::MAX, // out of range of possible u8 inputs
             }
         } else {
             return Err(UnknownECall(pc, num));

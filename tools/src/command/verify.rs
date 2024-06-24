@@ -8,12 +8,6 @@ use anyhow::Context;
 use ark_serialize::CanonicalDeserialize;
 use clap::Args;
 
-use nexus_config::{
-    vm::{NovaImpl, ProverImpl, VmConfig},
-    Config,
-};
-use nexus_prover::types::{ComPCDNode, ComPP, ComProof, IVCProof, PCDNode, ParPP, SeqPP};
-
 use super::{
     jolt,
     prove::{CommonProveArgs, LocalProveArgs},
@@ -21,6 +15,11 @@ use super::{
     spartan_key::format_key_file,
 };
 use crate::{command::cache_path, LOG_TARGET};
+use nexus_api::config::{
+    vm::{NovaImpl, ProverImpl, VmConfig},
+    Config,
+};
+use nexus_api::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
@@ -102,6 +101,15 @@ fn verify_proof_compressed(
     .to_owned();
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let params = {
+        let mut ctx = term
+            .context("Loading")
+            .on_step(|_step| "public parameters".into());
+        let _guard = ctx.display_step();
+
+        nexus_api::prover::nova::pp::load_pp(&pp_path)?
+    };
+
     let mut ctx = term
         .context("Verifying compressed")
         .on_step(move |_step| "proof".into());
@@ -109,11 +117,11 @@ fn verify_proof_compressed(
 
     let result = {
         let proof = ComProof::deserialize_compressed(reader)?;
-        let params = nexus_prover::pp::gen_or_load(false, k, &pp_path, None)?;
-        let key = nexus_prover::key::gen_or_load_key(false, &key_path, Some(&pp_path), None)?;
+        let key = nexus_api::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
-        nexus_prover::verify_compressed(&key, &params, &proof).map_err(anyhow::Error::from)
+        nexus_api::prover::nova::verify_compressed(&key, &params, &proof)
+            .map_err(anyhow::Error::from)
     };
 
     match result {
@@ -183,22 +191,46 @@ fn verify_proof(
 
     let result = match nova_impl {
         NovaImpl::Parallel => {
+            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let params = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(&path)?
+            };
             let root = PCDNode::deserialize_compressed(reader)?;
-            let params: ParPP = nexus_prover::pp::gen_or_load(false, k, &path, None)?;
 
             _guard = ctx.display_step();
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::ParallelCompressible => {
+            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let params = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(&path)?
+            };
             let root = ComPCDNode::deserialize_compressed(reader)?;
-            let params: ComPP = nexus_prover::pp::gen_or_load(false, k, &path, None)?;
 
             _guard = ctx.display_step();
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::Sequential => {
+            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let params = {
+                let mut term_ctx = iterm
+                    .context("Loading")
+                    .on_step(|_step| "public parameters".into());
+                let _guard = term_ctx.display_step();
+
+                nexus_api::prover::nova::pp::load_pp(&path)?
+            };
             let proof = IVCProof::deserialize_compressed(reader)?;
-            let params: SeqPP = nexus_prover::pp::gen_or_load(false, k, &path, None)?;
 
             _guard = ctx.display_step();
             proof

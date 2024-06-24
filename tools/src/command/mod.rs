@@ -1,7 +1,7 @@
 use clap::Subcommand;
 use std::path::PathBuf;
 
-use nexus_config::{Config, MiscConfig};
+use nexus_api::config::{Config, MiscConfig};
 
 use super::ENV;
 
@@ -70,7 +70,7 @@ pub(crate) fn cache_path() -> anyhow::Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nexus_config::{Config, VmConfig};
+    use nexus_api::config::{vm::VmConfig, Config};
 
     #[test]
     fn env_config() {

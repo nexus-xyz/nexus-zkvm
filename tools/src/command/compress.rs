@@ -3,9 +3,10 @@ use std::{io, path::PathBuf};
 use anyhow::Context;
 use clap::Args;
 
-use nexus_config::{vm as vm_config, Config};
+use nexus_api::config::{vm as vm_config, Config};
 
 use super::{public_params::format_params_file, spartan_key::SetupArgs};
+
 use crate::{
     command::{cache_path, spartan_key::spartan_setup},
     LOG_TARGET,
@@ -68,7 +69,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
     );
     let pp_file_str = pp_file.to_str().context("path is not valid utf8")?;
 
-    let pp = nexus_prover::pp::load_pp(pp_file_str)?;
+    let pp = nexus_api::prover::nova::pp::load_pp(pp_file_str)?;
 
     let key_file = if let Some(path) = args.key_file {
         // return early if the path was explicitly specified and doesn't exist
@@ -91,7 +92,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         })?
     };
     let key_file_str = key_file.to_str().context("path is not valid utf8")?;
-    let key = nexus_prover::key::gen_or_load_key(false, key_file_str, None, None)?;
+    let key = nexus_api::prover::nova::key::load_key(key_file_str)?;
 
     let proof_file = args.proof_file;
     if !proof_file.try_exists()? {
@@ -102,14 +103,32 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         );
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     };
-    let proof = nexus_prover::load_proof(&proof_file)?;
+
+    let mut term = nexus_tui::TerminalHandle::new_enabled();
+
+    let proof = {
+        let mut context = term.context("Loading").on_step(|_step| "proof".into());
+        let _guard = context.display_step();
+
+        nexus_api::prover::nova::load_proof(&proof_file)?
+    };
 
     let current_dir = std::env::current_dir()?;
     let compressed_proof_path = current_dir.join("nexus-proof-compressed");
 
-    let compressed_proof = nexus_prover::compress(&pp, &key, proof)?;
+    let compressed_proof = {
+        let mut term_ctx = term
+            .context("Compressing")
+            .on_step(|_step| "the proof".into());
+        let _guard = term_ctx.display_step();
 
-    nexus_prover::save_proof(compressed_proof, &compressed_proof_path)?;
+        nexus_api::prover::nova::compress(&pp, &key, proof)?
+    };
+
+    let mut context = term.context("Saving").on_step(|_step| "proof".into());
+    let _guard = context.display_step();
+
+    nexus_api::prover::nova::save_proof(compressed_proof, &compressed_proof_path)?;
 
     Ok(())
 }
