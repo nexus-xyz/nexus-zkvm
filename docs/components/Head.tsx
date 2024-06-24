@@ -20,7 +20,8 @@ export const Head = () => {
       <meta name="twitter:card" content="summary_large_image" />
       <meta property="twitter:domain" content="docs.nexus.xyz" />
       <meta property="twitter:url" content="https://docs.nexus.xyz/" />
-      <meta name="twitter:site" content="NexusLabsHQ" />
+      <meta name="twitter:title" content="NexusLabsHQ" />
+      <meta name="twitter:site" content="@NexusLabsHQ" />
       <meta
         name="twitter:description"
         content="Enabling Verifiable Computing"
