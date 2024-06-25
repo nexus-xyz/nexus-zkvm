@@ -26,7 +26,7 @@ pub use nexus_nova::poseidon_config as ro_config;
 
 // polynomial commitment scheme
 pub type C1 = Zeromorph<E>;
-
+    
 // commitment scheme
 pub type C2 = PedersenCommitment<P2>;
 

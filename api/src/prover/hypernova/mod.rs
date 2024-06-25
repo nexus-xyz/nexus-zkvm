@@ -1,5 +1,6 @@
 pub use super::nova::circuit;
 pub mod error;
+pub mod pp;
 pub mod types;
 
 use std::path::Path;
@@ -13,7 +14,7 @@ use crate::prover::hypernova::{
     types::{IVCProof, PP, SC},
 };
 
-use super::nova::Trace;
+use super::nova::{Trace, LOG_TARGET};
 
 pub fn save_proof<P: CanonicalSerialize>(proof: P, path: &Path) -> anyhow::Result<()> {
     super::nova::save_proof::<P>(proof, path)
