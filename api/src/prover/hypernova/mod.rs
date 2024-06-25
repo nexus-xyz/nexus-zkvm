@@ -55,3 +55,27 @@ pub fn prove_seq_step(proof: Option<IVCProof>, pp: &PP, tr: &SC) -> Result<IVCPr
     pr = IVCProof::prove_step(pr, pp, tr)?;
     Ok(pr)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use nexus_nova::poseidon_config;
+    use crate::nvm::memory::MerkleTrie;
+    use crate::prover::nova::circuit::nop_circuit;
+
+    #[test]
+    fn test_prove_seq() -> Result<(), ProofError> {
+        let ro_config = poseidon_config();
+
+        let circuit = nop_circuit::<MerkleTrie>(1)?;
+        let trace = circuit.0.clone();
+
+        let params = PP::test_setup(ro_config, &circuit)?;
+
+        let proof = prove_seq(&params, trace)?;
+        assert!(proof.verify(&params, proof.step_num() as _).is_ok());
+
+        Ok(())
+    }
+}
