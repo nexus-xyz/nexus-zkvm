@@ -40,8 +40,8 @@ fn main() {
         prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let proof =
-        nexus_core::prover::nova::prove_seq(&public_params, trace).expect("error proving execution");
+    let proof = nexus_core::prover::nova::prove_seq(&public_params, trace)
+        .expect("error proving execution");
 
     print!("Verifying execution...");
     proof
