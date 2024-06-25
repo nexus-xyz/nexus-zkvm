@@ -60,9 +60,9 @@ pub fn prove_seq_step(proof: Option<IVCProof>, pp: &PP, tr: &SC) -> Result<IVCPr
 mod tests {
     use super::*;
 
-    use nexus_nova::poseidon_config;
     use crate::nvm::memory::MerkleTrie;
     use crate::prover::nova::circuit::nop_circuit;
+    use nexus_nova::poseidon_config;
 
     #[test]
     fn test_prove_seq() -> Result<(), ProofError> {

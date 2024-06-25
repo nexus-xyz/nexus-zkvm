@@ -211,9 +211,9 @@ pub fn verify_compressed(
 mod tests {
     use super::*;
 
-    use nexus_nova::poseidon_config;
     use crate::nvm::memory::MerkleTrie;
     use crate::prover::nova::circuit::nop_circuit;
+    use nexus_nova::poseidon_config;
 
     #[test]
     fn test_prove_seq() -> Result<(), ProofError> {
