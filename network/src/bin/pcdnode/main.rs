@@ -40,7 +40,7 @@ async fn router(state: WorkerState, req: Request<Body>) -> Result<Response<Body>
 
     if req.method() == Method::POST {
         match req.uri().path() {
-            "/api" => return post_api(state, req).await,
+            "/core" => return post_api(state, req).await,
             _ => return r404(),
         }
     }
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
         "Loading public parameters",
     );
 
-    let pp = nexus_api::prover::nova::pp::load_pp(&opts.pp_file)?;
+    let pp = nexus_core::prover::nova::pp::load_pp(&opts.pp_file)?;
     let state = WorkerState::new(pp);
 
     start_local_workers(state.clone())?;

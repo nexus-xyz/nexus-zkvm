@@ -3,7 +3,7 @@ use std::{io, path::PathBuf};
 use anyhow::Context;
 use clap::Args;
 
-use nexus_api::config::{vm as vm_config, Config};
+use nexus_core::config::{vm as vm_config, Config};
 
 use super::{public_params::format_params_file, spartan_key::SetupArgs};
 
@@ -69,7 +69,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
     );
     let pp_file_str = pp_file.to_str().context("path is not valid utf8")?;
 
-    let pp = nexus_api::prover::nova::pp::load_pp(pp_file_str)?;
+    let pp = nexus_core::prover::nova::pp::load_pp(pp_file_str)?;
 
     let key_file = if let Some(path) = args.key_file {
         // return early if the path was explicitly specified and doesn't exist
@@ -92,7 +92,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         })?
     };
     let key_file_str = key_file.to_str().context("path is not valid utf8")?;
-    let key = nexus_api::prover::nova::key::load_key(key_file_str)?;
+    let key = nexus_core::prover::nova::key::load_key(key_file_str)?;
 
     let proof_file = args.proof_file;
     if !proof_file.try_exists()? {
@@ -110,7 +110,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         let mut context = term.context("Loading").on_step(|_step| "proof".into());
         let _guard = context.display_step();
 
-        nexus_api::prover::nova::load_proof(&proof_file)?
+        nexus_core::prover::nova::load_proof(&proof_file)?
     };
 
     let current_dir = std::env::current_dir()?;
@@ -122,13 +122,13 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
             .on_step(|_step| "the proof".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::compress(&pp, &key, proof)?
+        nexus_core::prover::nova::compress(&pp, &key, proof)?
     };
 
     let mut context = term.context("Saving").on_step(|_step| "proof".into());
     let _guard = context.display_step();
 
-    nexus_api::prover::nova::save_proof(compressed_proof, &compressed_proof_path)?;
+    nexus_core::prover::nova::save_proof(compressed_proof, &compressed_proof_path)?;
 
     Ok(())
 }

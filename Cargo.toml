@@ -14,7 +14,7 @@ members = [
     "network/rpc/traits",
     "nova",
     "spartan",
-    "api",
+    "core",
     "jolt",
 ]
 default-members = [
@@ -23,7 +23,7 @@ default-members = [
     "network",
     "nova",
     "spartan",
-    "api",
+    "core",
 ]
 exclude = ["nova-benches"]
 

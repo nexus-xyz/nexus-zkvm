@@ -1,14 +1,14 @@
 use std::path::PathBuf;
 
-use nexus_api::config::{
+use nexus_core::config::{
     vm::{NovaImpl, ProverImpl, VmConfig},
     Config, MiscConfig,
 };
-use nexus_api::nvm::{
+use nexus_core::nvm::{
     interactive::{parse_elf, trace},
     memory::MerkleTrie,
 };
-use nexus_api::prover::nova::types::{IVCProof, SeqPP};
+use nexus_core::prover::nova::types::{IVCProof, SeqPP};
 use nexus_rpc_common::ElfBytes;
 
 use super::{Error, ProverT};
@@ -31,7 +31,7 @@ impl ProverT for NovaProver {
         let mut vm = parse_elf(&elf_bytes)?;
 
         let trace = trace::<MerkleTrie>(&mut vm, CONFIG.k, false)?;
-        let proof = nexus_api::prover::nova::prove_seq(pp, trace).map_err(Error::Nova)?;
+        let proof = nexus_core::prover::nova::prove_seq(pp, trace).map_err(Error::Nova)?;
 
         Ok(proof)
     }
@@ -50,7 +50,7 @@ pub fn load_params() -> SeqPP {
     let path_str = path.to_str().expect("cache path is not valid utf8");
 
     if path.exists() {
-        nexus_api::prover::nova::pp::load_pp(path_str).expect("failed to load params")
+        nexus_core::prover::nova::pp::load_pp(path_str).expect("failed to load params")
     } else {
         let _span = tracing::info_span!(
             target: LOG_TARGET,
@@ -60,9 +60,9 @@ pub fn load_params() -> SeqPP {
         )
         .entered();
 
-        let pp: SeqPP = nexus_api::prover::nova::pp::gen_vm_pp(CONFIG.k, &())
+        let pp: SeqPP = nexus_core::prover::nova::pp::gen_vm_pp(CONFIG.k, &())
             .expect("failed to gen parameters");
-        nexus_api::prover::nova::pp::save_pp(&pp, path_str).expect("failed to save parameters");
+        nexus_core::prover::nova::pp::save_pp(&pp, path_str).expect("failed to save parameters");
         pp
     }
 }

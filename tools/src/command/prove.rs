@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context;
 use clap::Args;
 
-use nexus_api::config::{vm as vm_config, Config};
+use nexus_core::config::{vm as vm_config, Config};
 
 use crate::{
     command::{
@@ -160,12 +160,12 @@ fn local_prove(
     };
     let path_str = pp_file.to_str().context("path is not valid utf8")?;
 
-    let opts = nexus_api::nvm::VMOpts {
+    let opts = nexus_core::nvm::VMOpts {
         k,
         machine: None,
         file: Some(path.into()),
     };
-    let trace = nexus_api::prover::nova::run(&opts, true)?;
+    let trace = nexus_core::prover::nova::run(&opts, true)?;
     let k = trace.k;
 
     let current_dir = std::env::current_dir()?;
@@ -173,7 +173,7 @@ fn local_prove(
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
 
-    let tr = nexus_api::prover::nova::init_circuit_trace(trace)?;
+    let tr = nexus_core::prover::nova::init_circuit_trace(trace)?;
     let num_steps = tr.steps();
 
     let on_step = move |iter: usize| match nova_impl {
@@ -227,7 +227,7 @@ fn local_prove(
                     .on_step(|_step| "public parameters".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::load_pp(path_str)?
+                nexus_core::prover::nova::pp::load_pp(path_str)?
             };
 
             let mut vs = (0..num_steps)
@@ -235,7 +235,7 @@ fn local_prove(
                 .map(|i| {
                     let _guard = term_ctx.display_step();
 
-                    let v = nexus_api::prover::nova::prove_par_leaf_step(&state, &tr, i)?;
+                    let v = nexus_core::prover::nova::prove_par_leaf_step(&state, &tr, i)?;
                     Ok(v)
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
@@ -250,7 +250,7 @@ fn local_prove(
                         .chunks(2)
                         .map(|ab| {
                             let _guard = term_ctx.display_step();
-                            let c = nexus_api::prover::nova::prove_par_parent_step(
+                            let c = nexus_core::prover::nova::prove_par_parent_step(
                                 &state, &tr, &ab[0], &ab[1],
                             )?;
                             Ok(c)
@@ -264,7 +264,7 @@ fn local_prove(
             let mut context = term.context("Saving").on_step(|_step| "proof".into());
             let _guard = context.display_step();
 
-            nexus_api::prover::nova::save_proof(root, &proof_path)?;
+            nexus_core::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::ParallelCompressible => {
             assert!((num_steps + 1).is_power_of_two());
@@ -276,7 +276,7 @@ fn local_prove(
                     .on_step(|_step| "public parameters".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::load_pp(path_str)?
+                nexus_core::prover::nova::pp::load_pp(path_str)?
             };
 
             let mut vs = (0..num_steps)
@@ -284,7 +284,7 @@ fn local_prove(
                 .map(|i| {
                     let _guard = term_ctx.display_step();
 
-                    let v = nexus_api::prover::nova::prove_par_com_leaf_step(&state, &tr, i)?;
+                    let v = nexus_core::prover::nova::prove_par_com_leaf_step(&state, &tr, i)?;
                     Ok(v)
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
@@ -299,7 +299,7 @@ fn local_prove(
                         .chunks(2)
                         .map(|ab| {
                             let _guard = term_ctx.display_step();
-                            let c = nexus_api::prover::nova::prove_par_com_parent_step(
+                            let c = nexus_core::prover::nova::prove_par_com_parent_step(
                                 &state, &tr, &ab[0], &ab[1],
                             )?;
                             Ok(c)
@@ -313,7 +313,7 @@ fn local_prove(
             let mut context = term.context("Saving").on_step(|_step| "proof".into());
             let _guard = context.display_step();
 
-            nexus_api::prover::nova::save_proof(root, &proof_path)?;
+            nexus_core::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
             let mut iterm = nexus_tui::TerminalHandle::new_enabled();
@@ -323,20 +323,20 @@ fn local_prove(
                     .on_step(|_step| "public parameters".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::load_pp(path_str)?
+                nexus_core::prover::nova::pp::load_pp(path_str)?
             };
 
-            let mut proof = nexus_api::prover::nova::prove_seq_step(None, &state, &tr)?;
+            let mut proof = nexus_core::prover::nova::prove_seq_step(None, &state, &tr)?;
 
             for _ in 1..num_steps {
                 let _guard = term_ctx.display_step();
-                proof = nexus_api::prover::nova::prove_seq_step(Some(proof), &state, &tr)?;
+                proof = nexus_core::prover::nova::prove_seq_step(Some(proof), &state, &tr)?;
             }
 
             let mut context = term.context("Saving").on_step(|_step| "proof".into());
             let _guard = context.display_step();
 
-            nexus_api::prover::nova::save_proof(proof, &proof_path)?;
+            nexus_core::prover::nova::save_proof(proof, &proof_path)?;
         }
     }
 

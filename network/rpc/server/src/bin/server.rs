@@ -1,4 +1,4 @@
-use nexus_api::config::{network::rpc::RpcConfig, Config};
+use nexus_core::config::{network::rpc::RpcConfig, Config};
 
 use tracing::{level_filters::LevelFilter, Level};
 use tracing_subscriber::{

@@ -1,13 +1,17 @@
 // An example of loading and running the NVM.
 
-use nexus_api::{
+use nexus_core::config::vm::NovaImpl;
+use nexus_core::{
     config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
 };
 use std::path::PathBuf;
 
-const CONFIG: VmConfig = VmConfig { k: 1, prover: ProverImpl::HyperNova };
+const CONFIG: VmConfig = VmConfig {
+    k: 1,
+    prover: ProverImpl::Nova(NovaImpl::Sequential),
+};
 
 fn main() {
     // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
@@ -23,17 +27,21 @@ fn main() {
 
     println!("Generating execution trace of vm...");
     println!(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-    let trace = nvm::interactive::trace(&mut vm, CONFIG.k, false)
-        .expect("error generating execution trace");
+    let trace = nvm::interactive::trace(
+        &mut vm,
+        CONFIG.k,
+        matches!(CONFIG.prover, ProverImpl::Nova(NovaImpl::Parallel)),
+    )
+    .expect("error generating execution trace");
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Setting up Nova public parameters...");
-    let public_params = prover::hypernova::pp::test_pp::gen_vm_test_pp(CONFIG.k)
-        .expect("error generating public parameters"); // uses test SRS instead of loading trusted setup output from a file
+    let public_params =
+        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let proof = nexus_api::prover::hypernova::prove_seq(&public_params, trace)
-        .expect("error proving execution");
+    let proof =
+        nexus_core::prover::nova::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
     proof
