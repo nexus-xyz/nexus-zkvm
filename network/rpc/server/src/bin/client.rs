@@ -11,7 +11,7 @@ use std::env;
 use std::time::Duration;
 
 use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
-use nexus_prover::types::IVCProof;
+use nexus_api::prover::nova::types::IVCProof;
 use nexus_rpc_common::{ArkWrapper, ElfBytes};
 use nexus_rpc_traits::RpcClient;
 

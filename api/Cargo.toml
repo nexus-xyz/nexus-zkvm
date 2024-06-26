@@ -10,6 +10,38 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-nexus-config = { path = "../config" }
+anyhow = "1.0"
+
+zstd = { version = "0.12", default-features = false }
+
+nexus-config = { path = "../config", features = ["clap_derive"] }
 nexus-vm = { path = "../vm" }
-nexus-prover = { path = "../prover" }
+nexus-jolt = { path = "../jolt", optional = true }
+spartan = { path = "../spartan", package = "ark-spartan", optional = true }
+nexus-nova = { path = "../nova", optional = true }
+
+tracing = "0.1"
+
+ark-ff.workspace = true
+ark-ec.workspace = true
+ark-std.workspace = true
+ark-crypto-primitives.workspace = true
+ark-relations.workspace = true
+ark-r1cs-std.workspace = true
+ark-serialize.workspace = true
+
+ark-bn254.workspace = true
+ark-grumpkin.workspace = true
+
+[features]
+default = ["parallel", "prover_nova"]
+parallel = [
+   "ark-ff/parallel",
+   "ark-ec/parallel",
+   "ark-std/parallel",
+   "ark-crypto-primitives/parallel",
+   "ark-r1cs-std/parallel",
+   "nexus-nova/parallel",
+]
+prover_nova = ["dep:nexus-nova", "dep:spartan", "nexus-nova/spartan"]
+prover_jolt = ["dep:nexus-jolt"]

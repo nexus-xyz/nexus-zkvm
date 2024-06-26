@@ -1,5 +1,5 @@
 use jsonrpsee::types::ErrorObjectOwned;
-use nexus_prover::error::ProofError;
+use nexus_api::prover::nova::error::ProofError;
 use thiserror::Error;
 use tokio::sync::oneshot::error::RecvError;
 
@@ -8,7 +8,7 @@ pub enum Error {
     #[error("program hash is unknown")]
     UnknownHash,
     #[error(transparent)]
-    Vm(#[from] nexus_vm::NexusVMError),
+    Vm(#[from] nexus_api::nvm::NexusVMError),
     #[error("Nova error")]
     Nova(ProofError),
 

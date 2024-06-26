@@ -15,16 +15,16 @@ pub use ark_relations::{
 use nexus_vm::{
     circuit::{build_constraints, ARITY},
     machines::nop_vm,
-    memory::{path::Path, trie::MerkleTrie},
+    memory::Memory,
     trace::{trace, Trace},
 };
 
-use crate::error::*;
-use crate::types::*;
+use super::error::*;
+use super::types::*;
 
-pub struct Tr(pub Trace<Path>);
+pub struct Tr<M: Memory>(pub Trace<M::Proof>);
 
-impl Tr {
+impl<M: Memory> Tr<M> {
     pub fn steps(&self) -> usize {
         self.0.blocks.len()
     }
@@ -38,13 +38,16 @@ impl Tr {
     }
 }
 
-pub fn nop_circuit(k: usize) -> Result<Tr, ProofError> {
-    let mut vm = nop_vm::<MerkleTrie>(1);
+pub fn nop_circuit<M: Memory>(k: usize) -> Result<Tr<M>, ProofError> {
+    let mut vm = nop_vm::<M>(1);
     let trace = trace(&mut vm, k, false)?;
     Ok(Tr(trace))
 }
 
-impl StepCircuit<F1> for Tr {
+impl<M: Memory> StepCircuit<F1> for Tr<M>
+where
+    M::Proof: Send + Sync,
+{
     const ARITY: usize = ARITY;
 
     fn generate_constraints(
