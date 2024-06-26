@@ -42,7 +42,7 @@ pub(crate) fn setup_params(args: SetupArgs) -> anyhow::Result<PathBuf> {
     } else {
         match vm_config.prover {
             ProverImpl::Jolt => anyhow::bail!("Jolt doesn't require Nova-setup"),
-            ProverImpl::HyperNova => todo!(),
+            ProverImpl::HyperNova => anyhow::bail!("HyperNova not yet supported through the CLI"),
             ProverImpl::Nova(nova_impl) => nova_impl,
         }
     };
