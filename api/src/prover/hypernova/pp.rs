@@ -3,10 +3,10 @@ use zstd::stream::{Decoder, Encoder};
 
 pub use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-use crate::prover::nova::circuit::nop_circuit;
 use super::error::*;
 use super::types::*;
 use super::LOG_TARGET;
+use crate::prover::nova::circuit::nop_circuit;
 
 pub fn gen_pp(circuit: &SC, srs: &SRS, aux: &SetupAux) -> Result<PP, ProofError> {
     tracing::info!(
@@ -67,7 +67,11 @@ pub mod test_pp {
     use super::*;
 
     pub fn gen_test_pp(circuit: &SC) -> Result<PP, ProofError> {
-        let params = nexus_nova::hypernova::sequential::PublicParams::<G1, G2, C1, C2, RO, SC>::test_setup(nexus_nova::poseidon_config(), circuit)?;
+        let params =
+            nexus_nova::hypernova::sequential::PublicParams::<G1, G2, C1, C2, RO, SC>::test_setup(
+                nexus_nova::poseidon_config(),
+                circuit,
+            )?;
 
         Ok(params)
     }
@@ -76,5 +80,4 @@ pub mod test_pp {
         let tr = nop_circuit(k)?;
         gen_test_pp(&tr)
     }
-
 }

@@ -9,11 +9,7 @@ use ark_spartan::polycommitments::PolyCommitmentScheme;
 use super::{Error, StepCircuit};
 use crate::{
     commitment::CommitmentScheme,
-    folding::hypernova::cyclefold::nimfs::{
-        CCSShape,
-        R1CSShape,
-        SQUEEZE_ELEMENTS_BIT_SIZE,
-    },
+    folding::hypernova::cyclefold::nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
     utils,
 };
 
@@ -94,21 +90,19 @@ where
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
 }
 
-
 pub mod test_pp {
     use super::*;
-    
-    use ark_std::test_rng;
-    use ark_crypto_primitives::sponge::Absorb;
-    use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
+
     use crate::{
         circuits::hypernova::{
-            HyperNovaConstraintSynthesizer,
-            sequential::augmented::HyperNovaAugmentedCircuit,
+            sequential::augmented::HyperNovaAugmentedCircuit, HyperNovaConstraintSynthesizer,
         },
         folding::hypernova::cyclefold,
         safe_loglike,
     };
+    use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
+    use ark_crypto_primitives::sponge::Absorb;
+    use ark_std::test_rng;
 
     impl<G1, G2, C1, C2, RO, SC, SP> PublicParams<G1, G2, C1, C2, RO, SC, SP>
     where
