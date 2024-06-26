@@ -94,15 +94,17 @@ where
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
 }
 
-#[cfg(test)]
-mod test {
+
+pub mod test_pp {
+    use super::*;
+    
     use ark_std::test_rng;
     use ark_crypto_primitives::sponge::Absorb;
     use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
     use crate::{
-        circuits::hypernova::sequential::augmented::{
-            HyperNovaAugmentedCircuit,
+        circuits::hypernova::{
             HyperNovaConstraintSynthesizer,
+            sequential::augmented::HyperNovaAugmentedCircuit,
         },
         folding::hypernova::cyclefold,
         safe_loglike,
@@ -125,13 +127,13 @@ mod test {
         pub fn test_setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
             let (_, projected_augmented_circuit_size_upper_bound) =
                 HyperNovaAugmentedCircuit::<
-                        G1,
+                    G1,
                     G2,
                     C1,
                     C2,
                     RO,
                     SC,
-                    >::project_augmented_circuit_size_upper_bound(step_circuit)?;
+                >::project_augmented_circuit_size_upper_bound(step_circuit)?;
 
             let mut rng = test_rng();
             let max_poly_vars: usize =

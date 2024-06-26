@@ -8,19 +8,7 @@ use super::error::*;
 use super::types::*;
 use super::LOG_TARGET;
 
-#[cfg(test)]
-pub(crate) fn gen_test_pp(circuit: &SC) -> Result<PP, ProofError> {
-    tracing::info!(
-        target: LOG_TARGET,
-        "Generating public parameters",
-    );
-
-    let params = nexus_nova::hypernova::public_params::PublicParams::<G1, G2, C1, C2, RO, SC>::test_setup(ro_config(), circuit)?;
-
-    Ok(params)
-}
-
-pub fn gen_pp(circuit: &SC, srs: &C1::SRS, aux: &C2::SetupAux) -> Result<PP, ProofError> {
+pub fn gen_pp(circuit: &SC, srs: &SRS, aux: &SetupAux) -> Result<PP, ProofError> {
     tracing::info!(
         target: LOG_TARGET,
         "Generating public parameters",
@@ -57,7 +45,7 @@ pub fn load_pp(file: &str) -> Result<PP, ProofError> {
     Ok(pp)
 }
 
-pub fn gen_vm_pp(k: usize, srs: &C1::SRS, aux: &C2::SetupAux) -> Result<PP, ProofError> {
+pub fn gen_vm_pp(k: usize, srs: &SRS, aux: &SetupAux) -> Result<PP, ProofError> {
     let tr = nop_circuit(k)?;
     gen_pp(&tr, srs, aux)
 }
@@ -73,4 +61,20 @@ pub fn show_pp(pp: &PP) {
         "Secondary circuit {}",
         pp.shape_secondary,
     );
+}
+
+pub mod test_pp {
+    use super::*;
+
+    pub fn gen_test_pp(circuit: &SC) -> Result<PP, ProofError> {
+        let params = nexus_nova::hypernova::sequential::PublicParams::<G1, G2, C1, C2, RO, SC>::test_setup(nexus_nova::poseidon_config(), circuit)?;
+
+        Ok(params)
+    }
+
+    pub fn gen_vm_test_pp(k: usize) -> Result<PP, ProofError> {
+        let tr = nop_circuit(k)?;
+        gen_test_pp(&tr)
+    }
+
 }

@@ -26,9 +26,11 @@ pub use nexus_nova::poseidon_config as ro_config;
 
 // polynomial commitment scheme
 pub type C1 = Zeromorph<E>;
-    
+pub type SRS = <spartan::polycommitments::zeromorph::Zeromorph<ark_ec::models::bn::Bn<ark_bn254::Config>> as spartan::polycommitments::PolyCommitmentScheme<P1>>::SRS; // requires fully-qualified syntax
+
 // commitment scheme
 pub type C2 = PedersenCommitment<P2>;
+pub type SetupAux = <PedersenCommitment<ark_ec::short_weierstrass::Projective<ark_grumpkin::GrumpkinConfig>> as nexus_nova::commitment::CommitmentScheme<P2>>::SetupAux; // requires fully-qualified syntax
 
 pub type SC = crate::prover::nova::circuit::Tr<MerkleTrie>;
 

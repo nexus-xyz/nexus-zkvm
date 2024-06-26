@@ -1,6 +1,5 @@
 // An example of loading and running the NVM.
 
-use nexus_api::config::vm::NovaImpl;
 use nexus_api::{
     config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
@@ -10,7 +9,7 @@ use std::path::PathBuf;
 
 const CONFIG: VmConfig = VmConfig {
     k: 1,
-    prover: ProverImpl::Nova(NovaImpl::Sequential),
+    prover: ProverImpl::HyperNova,
 };
 
 fn main() {
@@ -30,18 +29,18 @@ fn main() {
     let trace = nvm::interactive::trace(
         &mut vm,
         CONFIG.k,
-        matches!(CONFIG.prover, ProverImpl::Nova(NovaImpl::Parallel)),
+        false,
     )
     .expect("error generating execution trace");
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
     println!("Setting up Nova public parameters...");
     let public_params =
-        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
+        prover::hypernova::pp::test_pp::gen_vm_test_pp(CONFIG.k).expect("error generating public parameters"); // uses test SRS instead of loading trusted setup output from a file
 
     println!("Proving execution of length {}...", trace.blocks.len());
     let proof =
-        nexus_api::prover::nova::prove_seq(&public_params, trace).expect("error proving execution");
+        nexus_api::prover::hypernova::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");
     proof
@@ -49,20 +48,4 @@ fn main() {
         .expect("error verifying execution");
 
     println!("  Succeeded!");
-
-    println!("Setting up Nova HyperNova public parameters...");
-    let public_params =
-        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
-
-    println!("Proving execution of length {}...", trace.blocks.len());
-    let proof =
-        nexus_api::prover::nova::prove_seq(&public_params, trace).expect("error proving execution");
-
-    print!("Verifying execution...");
-    proof
-        .verify(&public_params, proof.step_num() as _)
-        .expect("error verifying execution");
-
-    println!("  Succeeded!");
-
 }

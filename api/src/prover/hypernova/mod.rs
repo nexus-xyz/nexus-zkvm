@@ -63,16 +63,13 @@ mod tests {
 
     use crate::nvm::memory::MerkleTrie;
     use crate::prover::nova::circuit::nop_circuit;
-    use nexus_nova::poseidon_config;
 
     #[test]
     fn test_prove_seq() -> Result<(), ProofError> {
-        let ro_config = poseidon_config();
-
         let circuit = nop_circuit::<MerkleTrie>(1)?;
         let trace = circuit.0.clone();
 
-        let params = PP::test_setup(ro_config, &circuit)?;
+        let params = pp::test_pp::gen_test_pp(&circuit)?;
 
         let proof = prove_seq(&params, trace)?;
         assert!(proof.verify(&params, proof.step_num() as _).is_ok());
