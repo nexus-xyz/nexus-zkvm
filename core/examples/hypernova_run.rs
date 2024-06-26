@@ -32,7 +32,7 @@ fn main() {
         .expect("error generating public parameters"); // uses test SRS instead of loading trusted setup output from a file
 
     println!("Proving execution of length {}...", trace.blocks.len());
-    let proof = nexus_api::prover::hypernova::prove_seq(&public_params, trace)
+    let proof = nexus_core::prover::hypernova::prove_seq(&public_params, trace)
         .expect("error proving execution");
 
     print!("Verifying execution...");
