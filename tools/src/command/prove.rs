@@ -131,7 +131,9 @@ fn local_prove(
     // handle jolt separately
     let nova_impl = match prover {
         vm_config::ProverImpl::Jolt => return jolt::prove(path),
-        vm_config::ProverImpl::HyperNova => anyhow::bail!("HyperNova not yet supported through the CLI"),
+        vm_config::ProverImpl::HyperNova => {
+            anyhow::bail!("HyperNova not yet supported through the CLI")
+        }
         vm_config::ProverImpl::Nova(nova_impl) => nova_impl,
     };
 
