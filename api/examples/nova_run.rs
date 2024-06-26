@@ -19,10 +19,6 @@ fn main() {
 
     // nb: the tracing and proving infrastructure assumes use of MerkleTrie memory model
 
-    println!("Setting up public parameters...");
-    let public_params =
-        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
-
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
         nvm::interactive::load_elf(&pb).expect("error loading and parsing RISC-V instruction");
@@ -38,6 +34,10 @@ fn main() {
     )
     .expect("error generating execution trace");
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
+
+    println!("Setting up Nova public parameters...");
+    let public_params =
+        prover::nova::pp::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Proving execution of length {}...", trace.blocks.len());
     let proof =

@@ -5,7 +5,7 @@ use crate::ccs;
 use ark_ec::short_weierstrass::Projective;
 use ark_std::fmt::Display;
 
-use super::nimfs::Error as HNFoldingError;
+pub use super::nimfs::Error as HNFoldingError;
 use crate::ccs::Error as CCSError;
 use crate::r1cs::Error as R1CSError;
 

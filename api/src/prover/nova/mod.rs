@@ -55,7 +55,7 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
     Ok(proof)
 }
 
-type Trace = nexus_vm::trace::Trace<<MerkleTrie as Memory>::Proof>;
+pub(crate) type Trace = nexus_vm::trace::Trace<<MerkleTrie as Memory>::Proof>;
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
     Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
@@ -205,4 +205,28 @@ pub fn verify_compressed(
 
     SNARK::verify(key, params, proof)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::nvm::memory::MerkleTrie;
+    use crate::prover::nova::circuit::nop_circuit;
+    use nexus_nova::poseidon_config;
+
+    #[test]
+    fn test_prove_seq() -> Result<(), ProofError> {
+        let ro_config = poseidon_config();
+
+        let circuit = nop_circuit::<MerkleTrie>(1)?;
+        let trace = circuit.0.clone();
+
+        let params = SeqPP::setup(ro_config, &circuit, &(), &())?;
+
+        let proof = prove_seq(&params, trace)?;
+        assert!(proof.verify(&params, proof.step_num() as _).is_ok());
+
+        Ok(())
+    }
 }

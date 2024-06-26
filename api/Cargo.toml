@@ -43,5 +43,6 @@ parallel = [
    "ark-r1cs-std/parallel",
    "nexus-nova/parallel",
 ]
+prover_hypernova = ["dep:nexus-nova", "dep:spartan", "nexus-nova/spartan"]
 prover_nova = ["dep:nexus-nova", "dep:spartan", "nexus-nova/spartan"]
 prover_jolt = ["dep:nexus-jolt"]

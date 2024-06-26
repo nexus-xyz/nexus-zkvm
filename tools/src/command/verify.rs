@@ -159,6 +159,7 @@ fn verify_proof(
     // handle jolt separately
     let nova_impl = match prover {
         ProverImpl::Jolt => return jolt::verify(path, prove_args),
+        ProverImpl::HyperNova => anyhow::bail!("HyperNova not yet supported through the CLI"),
         ProverImpl::Nova(nova_impl) => nova_impl,
     };
 
