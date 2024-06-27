@@ -15,6 +15,7 @@ members = [
     "spartan",
     "core",
     "jolt",
+    "sdk",
 ]
 default-members = [
     "vm",
@@ -23,6 +24,7 @@ default-members = [
     "nova",
     "spartan",
     "core",
+    "sdk",
 ]
 exclude = ["nova-benches"]
 

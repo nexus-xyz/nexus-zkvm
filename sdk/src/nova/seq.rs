@@ -3,29 +3,16 @@ use crate::traits::*;
 // hard-coded number of vm instructions to pack per recursion step
 const K: usize = 64;
 
-trait Prover<S: ExecutionState = Uninitialized, C: Compute = Local> {
-    type Memory;
-    type Params;
-    type Proof;
-    type Error;
-}
-
-trait Verifiable {
-    type Error;
-
-    fn verify(&self) -> Result<(), Self::Error>;
-}
-
-struct Nova {
+pub struct Nova {
     vm: NexusVM,
-    trace: Option<nexus_api::nvm::memory::MerkleTrie::Proof>,
+    trace: Option<nexus_core::nvm::memory::MerkleTrie::Proof>,
 }
 
-impl Prover for Nova {
-    type Memory = nexus_api::nvm::memory::MerkleTrie;
-    type Params = nexus_api::prover::nova::SeqPP;
-    type Proof = nexus_api::prover::nova::types::IVCProof;
-    type Error = nexus_api::prover::nova::ProofError;
+impl<S: ExecutionState, C: Compute> Prover<S, C> for Nova {
+    type Memory = nexus_core::nvm::memory::MerkleTrie;
+    type Params = nexus_core::prover::nova::SeqPP;
+    type Proof = nexus_core::prover::nova::types::IVCProof;
+    type Error = nexus_core::prover::nova::ProofError;
 
     fn gen_pp() -> Result<Self::Params, Self::Error> {
         prover::nova::pp::gen_vm_pp(K, &())
@@ -44,47 +31,60 @@ impl<C: Compute> Prover<Uninitialized, C> for Nova {
 
     fn new(elf_bytes: &[u8]) -> Prover<Initialized, C> {
         Prover<Initialized, C> {
-            vm: nexus_api::nvm::interactive::parse_elf::<Self::Memory>(path),
+            vm: nexus_core::nvm::interactive::parse_elf::<Self::Memory>(elf_bytes),
             trace: None,
         }
     }
 
     fn new_from_file(path: AsRef<Path>) -> Prover<Initialized, C> {
         Prover<Initialized, C> {
-            vm: nexus_api::nvm::interactive::parse_elf::<Self::Memory>(path),
+            vm: nexus_core::nvm::interactive::load_elf::<Self::Memory>(path),
             trace: None,
         }
     }
 
 }
 
-// impl<C: Compute> Prover<Initialized, C> for Nova {
+//impl<C: Compute> Prover<Initialized, C> for Nova {
 //
-    // todo: add output tape
-    // /// Execute the program and return the output.
-    // ///
-    // /// Allows for checking termination and the output of a program execution before committing to proving.
-    // /// However, it requires re-executing the program in order to prove it.
-    // fn run<T, U>(
-    //     &self,
-    //    input: Option<T>
-    // ) -> Result<U, Self::Error>
-    // where
-    //    T: Serialize + ?Sized,
-    //    U: Deserialize
-    // {
-    //     if input.is_some() {
-    //         self.vm.set_input(postcard::to_slice(input.unwrap()).unwrap())
-    //     }
-    //
-    //     nexus_api::nvm::interactive::eval(self.vm, false)?;
-    //
-    //     if self.vm.output.is_some() {
-    //         return Ok(postcard::from_bytes::<U>(output))
-    //     }
-    // }
+//    todo: add output tape
+//    /// Execute the program and return the output.
+//    ///
+//    /// Allows for checking termination and the output of a program execution before committing to proving.
+//    /// However, it requires re-executing the program in order to prove it.
+//    fn run<T, U>(
+//        &self,
+//       input: Option<T>
+//    ) -> Result<U, Self::Error>
+//    where
+//       T: Serialize + ?Sized,
+//       U: Deserialize
+//    {
+//        if input.is_some() {
+//            self.vm.set_input(postcard::to_slice(input.unwrap()).unwrap())
+//        }
+//
+//        nexus_core::nvm::interactive::eval(self.vm, false)?;
+//
+//        if self.vm.output.is_some() {
+//            return Ok(postcard::from_bytes::<U>(output))
+//        }
+//    }
 //
 // }
+//
+//impl Prover<Initialized, Cloud> for Nova {
+//
+//    todo: finish outsourced proving interfaces
+//    /// Remotely prove the program.
+//    async fn prove<T, U>(
+//        &self,
+//        input: Option<T>
+//    ) -> Result<NovaProof, Self::Error> {
+//       // do something like what is contained in network/rpc/server/bin/client.rs ...
+//    }
+//
+//}
 
 impl Prover<Initialized, Local> for Nova {
 
@@ -104,7 +104,7 @@ impl Prover<Initialized, Local> for Nova {
         }
 
         Prover<Evaluated, C> {
-            trace: nexus_api::nvm::interactive::trace(self.vm, K, false),
+            trace: nexus_core::nvm::interactive::trace(self.vm, K, false),
             ..self,
         }
     }
@@ -112,15 +112,16 @@ impl Prover<Initialized, Local> for Nova {
     /// Execute and locally prove the program.
     fn prove<T, U>(
         &self,
+        pp: &Self::Params,
         input: Option<T>
     ) -> Result<(U, NovaProof), Self::Error> {
         if input.is_some() {
             self.vm.set_input(postcard::to_slice(input.unwrap()).unwrap())
         }
 
-        self.trace = Some(nexus_api::nvm::interactive::trace(self.vm, K, false));
+        self.trace = Some(nexus_core::nvm::interactive::trace(self.vm, K, false));
 
-        let proof = nexus_api::prover::nova::prove_seq(&pp, self.trace.unwrap())?;
+        let proof = nexus_core::prover::nova::prove_seq(&pp, self.trace.unwrap())?;
 
         if self.vm.output.is_some() {
             let output = postcard::from_bytes::<U>(output)
@@ -148,7 +149,7 @@ impl Prover<Traced, Local> for Nova {
         self,
         pp: &Self::Params
     ) -> Result<NovaProof, Self::Error> {
-        let proof = nexus_api::prover::nova::prove_seq(&pp, self.trace.unwrap())?;
+        let proof = nexus_core::prover::nova::prove_seq(&pp, self.trace.unwrap())?;
 
         Ok(NovaProof(proof))
     }
