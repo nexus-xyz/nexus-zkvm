@@ -13,7 +13,7 @@ use crate::{
 
 pub const LOG_TARGET: &str = "nexus-network::client";
 
-// const URL: &str = "http://35.209.216.211:80/core";
+// const URL: &str = "http://35.209.216.211:80/api";
 
 #[derive(Clone)]
 pub struct Client {
@@ -29,8 +29,8 @@ impl Client {
         Ok(Self { url, client })
     }
 
-    async fn nexus_core(&self, msg: &NexusAPI) -> Result<NexusAPI> {
-        let url = format!("http://{}/core", self.url);
+    async fn nexus_api(&self, msg: &NexusAPI) -> Result<NexusAPI> {
+        let url = format!("http://{}/api", self.url);
         let req = hyper::Request::post(&url).body(serde_json::to_string(msg)?.into())?;
         let response = self.client.request(req).await?;
 
@@ -53,7 +53,7 @@ impl Client {
                 .enable_all()
                 .build()?;
 
-            rt.block_on(client.nexus_core(&msg))
+            rt.block_on(client.nexus_api(&msg))
         })
         .join()
         .map_err(|_err| "request failed".to_owned())??;
