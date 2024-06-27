@@ -937,7 +937,9 @@ fn choose(cs: &mut R1CS, result: &str, bit: &str, left: &str, right: &str) {
 }
 
 fn split128(cs: &mut R1CS, scalar: &str, widths: &[usize]) {
-    let BigInt([a, b, _, _]) = cs.get_var(scalar).into_bigint();
+    let BigInt([a, b, c, d]) = cs.get_var(scalar).into_bigint();
+    assert_eq!(c, 0u64);
+    assert_eq!(d, 0u64);
     let val = (b as u128) << 64 | (a as u128);
 
     let mut v = val;
@@ -945,6 +947,16 @@ fn split128(cs: &mut R1CS, scalar: &str, widths: &[usize]) {
         cs.set_bit(&format!("{scalar}_{i}"), (v & 1) != 0);
         v >>= 1;
     }
+
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 0..128 {
+            a[cs.var(&format!("{scalar}_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[0] = ONE;
+        c[cs.var(scalar)] = ONE;
+    });
 
     for bits in widths {
         let mask = (1u128 << bits) - 1;
