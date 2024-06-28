@@ -1105,17 +1105,73 @@ fn store(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let addr = vm.X.overflowing_add(vm.I).0;
     load_select(cs, "X+I", "write_mem", addr, false);
 
+    store_word(cs);
+    store_half(cs);
+    store_byte(cs);
+}
+
+fn store_word(cs: &mut R1CS) {
     let J = (STORE { sop: SW, rs1: 0, rs2: 0, imm: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
+    // relate Y and write_mem32 only when the J-value is this one
+    let j = cs.new_var(&format!("J={J},w32"));
+    cs.w[j] = cs.get_var(&format!("J={J}")) * cs.get_var("write_mem32");
 
+    if cs.witness_only {
+        return;
+    }
+
+    cs.mul(&format!("J={J},w32"), &format!("J={J}"), "write_mem32");
+    cs.mul(&format!("J={J},w32"), &format!("J={J}"), "Y");
+}
+
+fn store_half(cs: &mut R1CS) {
     let J = (STORE { sop: SH, rs1: 0, rs2: 0, imm: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
+    // relate Y's bits and write_mem16 only when the J-value is this one
+    let j = cs.new_var(&format!("J={J},w16"));
+    cs.w[j] = cs.get_var(&format!("J={J}")) * cs.get_var("write_mem16");
 
+    if cs.witness_only {
+        return;
+    }
+
+    cs.mul(&format!("J={J},w16"), &format!("J={J}"), "write_mem16");
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 0..16 {
+            a[cs.var(&format!("Y_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[cs.var(&format!("J={J}"))] = ONE;
+        c[cs.var(&format!("J={J},w16"))] = ONE;
+    });
+}
+
+fn store_byte(cs: &mut R1CS) {
     let J = (STORE { sop: SB, rs1: 0, rs2: 0, imm: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
+    // relate Y's bits and write_mem8 only when the J-value is this one
+    let j = cs.new_var(&format!("J={J},w8"));
+    cs.w[j] = cs.get_var(&format!("J={J}")) * cs.get_var("write_mem8");
+
+    if cs.witness_only {
+        return;
+    }
+
+    cs.mul(&format!("J={J},w8"), &format!("J={J}"), "write_mem8");
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 0..8 {
+            a[cs.var(&format!("Y_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[cs.var(&format!("J={J}"))] = ONE;
+        c[cs.var(&format!("J={J},w8"))] = ONE;
+    });
 }
 
 // shift operations
