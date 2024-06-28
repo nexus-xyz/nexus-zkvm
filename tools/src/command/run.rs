@@ -31,6 +31,8 @@ fn run_vm(bin: Option<String>, verbose: bool, profile: &str) -> anyhow::Result<(
 
     let path = path_to_artifact(bin, profile)?;
 
+    println!("running {}", &path.display());
+
     run_vm_with_elf_file(&path, verbose)
 }
 

@@ -59,26 +59,26 @@ pub trait Memory: Default {
         F: Fn(&mut CacheLine) -> Result<()>;
 
     /// read instruction at address
-    fn read_inst(&self, addr: u32) -> Result<(u32, Self::Proof)> {
+    fn read_inst(&self, addr: u32, pc: u32) -> Result<(u32, Self::Proof)> {
         let (cl, path) = self.query(addr);
-        Ok((cl.lw(addr)?, path))
+        Ok((cl.lw(addr, pc)?, path))
     }
 
     /// write instruction at address
-    fn write_inst(&mut self, addr: u32, val: u32) -> Result<()> {
-        let _ = self.update(addr, |cl| cl.sw(addr, val))?;
+    fn write_inst(&mut self, addr: u32, val: u32, pc: u32) -> Result<()> {
+        let _ = self.update(addr, |cl| cl.sw(addr, val, pc))?;
         Ok(())
     }
 
     /// perform load according to `lop`
-    fn load(&self, lop: LOP, addr: u32) -> Result<(u32, Self::Proof)> {
+    fn load(&self, lop: LOP, addr: u32, pc: u32) -> Result<(u32, Self::Proof)> {
         let (cl, path) = self.query(addr);
-        Ok((cl.load(lop, addr)?, path))
+        Ok((cl.load(lop, addr, pc)?, path))
     }
 
     /// perform store according to `sop`
-    fn store(&mut self, sop: SOP, addr: u32, val: u32) -> Result<Self::Proof> {
-        self.update(addr, |cl| cl.store(sop, addr, val))
+    fn store(&mut self, sop: SOP, addr: u32, val: u32, pc: u32) -> Result<Self::Proof> {
+        self.update(addr, |cl| cl.store(sop, addr, val, pc))
     }
 }
 

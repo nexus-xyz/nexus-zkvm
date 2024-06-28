@@ -83,7 +83,8 @@ impl<M: Memory> NexusVM<M> {
     pub fn init_memory(&mut self, addr: u32, bytes: &[u8]) -> Result<()> {
         // slow, but simple
         for (i, b) in bytes.iter().enumerate() {
-            self.mem.store(SOP::SB, addr + (i as u32), *b as u32)?;
+            self.mem
+                .store(SOP::SB, addr + (i as u32), *b as u32, 0xffffff00 as u32)?;
         }
         Ok(())
     }
@@ -177,7 +178,7 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
-    let (word, proof) = vm.mem.read_inst(vm.regs.pc)?;
+    let (word, proof) = vm.mem.read_inst(vm.regs.pc, vm.regs.pc)?;
     vm.inst = parse_inst(vm.regs.pc, &word.to_le_bytes())?;
 
     // initialize micro-architecture state
@@ -224,7 +225,7 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
             RD = rd;
 
             let addr = add32(X, imm);
-            let (val, proof) = vm.mem.load(lop, addr)?;
+            let (val, proof) = vm.mem.load(lop, addr, vm.regs.pc)?;
             vm.read_proof = Some(proof);
             vm.Z = val;
         }
@@ -239,9 +240,9 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
                 SW => LW,
             };
 
-            let (_, proof) = vm.mem.load(lop, addr)?;
+            let (_, proof) = vm.mem.load(lop, addr, vm.regs.pc)?;
             vm.read_proof = Some(proof);
-            vm.write_proof = Some(vm.mem.store(sop, addr, Y)?);
+            vm.write_proof = Some(vm.mem.store(sop, addr, Y, vm.regs.pc)?);
         }
         ALUI { aop, rd, rs1, imm } => {
             RD = rd;

@@ -86,22 +86,22 @@ impl CacheLine {
     }
 
     /// perform load according to `lop`
-    pub fn load(&self, lop: LOP, addr: u32) -> Result<u32> {
+    pub fn load(&self, lop: LOP, addr: u32, pc: u32) -> Result<u32> {
         match lop {
             LB => self.lb(addr),
-            LH => self.lh(addr),
-            LW => self.lw(addr),
+            LH => self.lh(addr, pc),
+            LW => self.lw(addr, pc),
             LBU => self.lbu(addr),
-            LHU => self.lhu(addr),
+            LHU => self.lhu(addr, pc),
         }
     }
 
     /// perform store according to `sop`
-    pub fn store(&mut self, sop: SOP, addr: u32, val: u32) -> Result<()> {
+    pub fn store(&mut self, sop: SOP, addr: u32, val: u32, pc: u32) -> Result<()> {
         match sop {
             SB => self.sb(addr, val as u8),
-            SH => self.sh(addr, val as u16),
-            SW => self.sw(addr, val),
+            SH => self.sh(addr, val as u16, pc),
+            SW => self.sw(addr, val, pc),
         }
     }
 
@@ -112,18 +112,19 @@ impl CacheLine {
     }
 
     /// load 16-bit value at addr, zero-extended
-    pub fn lhu(&self, addr: u32) -> Result<u32> {
+    pub fn lhu(&self, addr: u32, pc: u32) -> Result<u32> {
         if (addr & 1) != 0 {
-            return Err(Misaligned(addr));
+            return Err(Misaligned(addr, 0, pc));
         }
         let h = unsafe { self.halfs[((addr >> 1) & 15) as usize] };
         Ok(h as u32)
     }
 
     /// load 32-bit value at addr
-    pub fn lw(&self, addr: u32) -> Result<u32> {
+    pub fn lw(&self, addr: u32, pc: u32) -> Result<u32> {
         if (addr & 3) != 0 {
-            return Err(Misaligned(addr));
+            println!("the masked address {}", addr & 3);
+            return Err(Misaligned(addr, 1, pc));
         }
         unsafe { Ok(self.words[((addr >> 2) & 7) as usize]) }
     }
@@ -139,8 +140,8 @@ impl CacheLine {
     }
 
     /// load 16-bit value at addr, sign-extended
-    pub fn lh(&self, addr: u32) -> Result<u32> {
-        let val = self.lhu(addr)?;
+    pub fn lh(&self, addr: u32, pc: u32) -> Result<u32> {
+        let val = self.lhu(addr, pc)?;
         if val & 0x8000 == 0 {
             Ok(val)
         } else {
@@ -157,9 +158,9 @@ impl CacheLine {
     }
 
     /// store the lowest two bytes of val at addr
-    pub fn sh(&mut self, addr: u32, val: u16) -> Result<()> {
+    pub fn sh(&mut self, addr: u32, val: u16, pc: u32) -> Result<()> {
         if (addr & 1) != 0 {
-            return Err(Misaligned(addr));
+            return Err(Misaligned(addr, 2, pc));
         }
         unsafe {
             self.halfs[((addr >> 1) & 15) as usize] = val;
@@ -168,9 +169,9 @@ impl CacheLine {
     }
 
     /// store val at addr
-    pub fn sw(&mut self, addr: u32, val: u32) -> Result<()> {
+    pub fn sw(&mut self, addr: u32, val: u32, pc: u32) -> Result<()> {
         if (addr & 3) != 0 {
-            return Err(Misaligned(addr));
+            return Err(Misaligned(addr, 3, pc));
         }
         unsafe {
             self.words[((addr >> 2) & 7) as usize] = val;

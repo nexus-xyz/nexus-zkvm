@@ -48,7 +48,7 @@ impl Syscalls {
             // write_log
             let mut stdout = std::io::stdout();
             for addr in inp1..inp1 + inp2 {
-                let b = memory.load(LOP::LBU, addr)?.0;
+                let b = memory.load(LOP::LBU, addr, pc)?.0;
                 stdout.write_all(&[b as u8])?;
             }
             let _ = stdout.flush();

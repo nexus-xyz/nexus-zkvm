@@ -15,7 +15,11 @@ pub fn trace<M: Memory>(vm: VM<M>) -> Result<Vec<jolt_rv::RVTraceRow>, Error> {
     let mut trace = Vec::new();
     loop {
         // decode next inst
-        let slice = vm.mem.load(LOP::LW, vm.regs.pc)?.0.to_le_bytes();
+        let slice = vm
+            .mem
+            .load(LOP::LW, vm.regs.pc, vm.regs.pc)?
+            .0
+            .to_le_bytes();
         let next_inst = parse_inst(vm.regs.pc, &slice)?;
         if next_inst.inst == RV32::UNIMP {
             break;
@@ -91,7 +95,11 @@ fn update_row_post_eval<M: Memory>(
         rv_trace_row.register_state.rd_post_val = Some(vm.get_reg(rd as u32) as u64);
     }
     if let Some((lop, store_addr)) = store_addr {
-        let new_value = vm.mem.load(lop, store_addr).expect("invalid store").0 as u64;
+        let new_value = vm
+            .mem
+            .load(lop, store_addr, vm.regs.pc)
+            .expect("invalid store")
+            .0 as u64;
         let Some(jolt_rv::MemoryState::Write { post_value, .. }) = &mut rv_trace_row.memory_state
         else {
             panic!("invalid memory state for store instruction");
@@ -105,7 +113,7 @@ fn memory_state<M: Memory>(vm: &NexusVM<M>, inst: Inst) -> Option<jolt_rv::Memor
         RV32::LOAD { rs1, imm, lop, .. } => {
             let x = vm.get_reg(rs1);
             let addr = add32(x, imm);
-            let value = vm.mem.load(lop, addr).expect("invalid load").0 as u64;
+            let value = vm.mem.load(lop, addr, vm.regs.pc).expect("invalid load").0 as u64;
 
             Some(jolt_rv::MemoryState::Read { address: addr as u64, value })
         }

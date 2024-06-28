@@ -36,8 +36,8 @@ pub enum NexusVMError {
     ELFFormat(&'static str),
 
     /// Invalid memory alignment
-    #[error("misaligned memory access {0:x}")]
-    Misaligned(u32),
+    #[error("misaligned memory access {0:x} {1} instruction at {2:x}")]
+    Misaligned(u32, u8, u32),
 
     /// An error occured while hashing
     #[error("error hashing {0}")]

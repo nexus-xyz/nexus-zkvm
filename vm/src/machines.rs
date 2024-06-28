@@ -38,7 +38,9 @@ pub fn lookup_test_code(name: &str) -> Option<Vec<u32>> {
 fn assemble<M: Memory>(words: &[u32]) -> NexusVM<M> {
     let mut vm = NexusVM::<M>::new(0);
     for (i, w) in words.iter().enumerate() {
-        vm.mem.store(SOP::SW, i as u32 * 4, *w).unwrap();
+        vm.mem
+            .store(SOP::SW, i as u32 * 4, *w, i as u32 * 4)
+            .unwrap();
     }
     vm
 }
