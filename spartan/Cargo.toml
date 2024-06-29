@@ -3,7 +3,7 @@ name = "ark-spartan"
 # sync up with Arkwork's version
 version = "0.4.0"
 authors = [
-    # author of original Spartan paper and code base 
+    # author of original Spartan paper and code base
     # for which this library is modified from
     "Srinath Setty <srinath@microsoft.com>",
     # authors who contributed to this modification

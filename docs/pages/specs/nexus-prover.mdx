@@ -9,7 +9,7 @@ image: "/nexus-head.png"
 
 The second main component of the Nexus zkVM is the Nexus Proof System, which provides proofs of correctness for any computation being run on the Nexus VM. In order to realize this goal and be able to support arbitrarily large computations, the Nexus Proof System relies on modern recursive zero-knowledge proof systems such as folding and accumulation schemes [[KST22; KS22; BC23](#references)] to achieve a high level of parallelization.
 
-Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors. The proof generation process for $P$ has four main steps: 
+Let $P$ be a program that has been compiled to the Nexus VM, possibly with access to co-processors. The proof generation process for $P$ has four main steps:
 1. zkVM initialization;
 2. program execution;
 3. proof accumulation; and
@@ -19,11 +19,11 @@ The following subsections provide an overview of each of these components.
 
 ### Initialization
 
-Let $P$ be a program which we want to execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x0000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined. 
+Let $P$ be a program which we want to execute in a verifiable manner. As described above, before loading $P$ into the memory starting at address $\mathtt{0x0000}$, the Nexus VM initially sets the contents of its global-purpose registers to 0 and the value of each memory location is assumed to be undefined.
 
 In order to enforce the consistency of the memory throughout the execution of the program $P$, the Nexus zkVM currently uses Merkle Trees [[M87](#references)] for memory checking together with the Poseidon hash function [[GKR21](#references)]. In this method, we compute a Merkle root associated with the current contents of the memory and we update its value whenever the contents of the memory change.
 
-Once the Merkle Root for the initial state is computed, the Nexus zkVM starts loading the program $P$ one instruction at a time, updating the Merkle Tree Root accordingly after each memory update. 
+Once the Merkle Root for the initial state is computed, the Nexus zkVM starts loading the program $P$ one instruction at a time, updating the Merkle Tree Root accordingly after each memory update.
 
 Finally, once $P$ is fully loaded into the memory, we use the Merkle Root for the current state of the memory as the public input to the execution step of the proof system.
 
@@ -67,7 +67,7 @@ The reduction in circuit complexity over the secondary curve has, however, impli
 
 ### Proof Compression
 
-Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short. 
+Despite being highly parallelizable, the accumulated proof generated in the IVC phase is quite large, which is undesirable in practice. Besides their sizes, such proofs are also not easily verifiable by other systems. For these reasons, the final step of the proof generation is to compress the accumulated proof with a sequence of succinct (zero-knowledge) Non-Interactive Arguments of Knowledge or (zk)-SNARKs for short.
 
 In the current design of the Nexus zkVM, the final compression step is split into two phases. In the first phase, accumulated proofs generated in the IVC phase are turned into proofs of knowledge of valid IVC proofs, whose sizes are logarithmic in the size of the underlying Nova IVC proofs. Then, in the second phase, these proofs are converted into succinct proofs of constant size which can be cheaply verified on systems such as Ethereum.
 
@@ -88,7 +88,7 @@ Two of the main configuration parameters for the Nexus zkVM are:
 - The number $k$ of Nexus VM instructions per folding step.
 
 As for the public parameters, these consist essentially of the following:
-- Parameters for the Pedersen commitment used by Nova in the proof accumulation phase for each curve in the cycle; 
+- Parameters for the Pedersen commitment used by Nova in the proof accumulation phase for each curve in the cycle;
 - Parameters for the Zeromorph commitment used by Spartan in the compression phase; and
 - Parameters for the remaining SNARKs in the compression phase.
 
@@ -107,11 +107,11 @@ const MODULUS_BITS: u64 = 254;
 
 #### Instructions Per Folding Step
 
-The Nexus zkVM's approach based on Nova provides a proof system with a recursion overhead which is independent of the total number of computation steps and of the step function itself. However, in our current implementation, the recursion overhead remains quite high (in the order of $120{,}000$ and $340{,}000$ constraints in the IVC and PCD settings) compared to the cost of a single step of the Nexus VM (around $15{,}000$ constraints). 
+The Nexus zkVM's approach based on Nova provides a proof system with a recursion overhead which is independent of the total number of computation steps and of the step function itself. However, in our current implementation, the recursion overhead remains quite high (in the order of $120{,}000$ and $340{,}000$ constraints in the IVC and PCD settings) compared to the cost of a single step of the Nexus VM (around $15{,}000$ constraints).
 
 Hence, in order to offset the current recursion overhead, the Nexus zkVM includes a configuration parameter $k$ which allows the prover to combine several steps of the Nexus VM into a single folding step. Even though a higher value of $k$ will increase the overall complexity of the prover, the value $k$ has no impact on the recursion overhead. As a result, one can improve the overall performance of the Nexus zkVM by increasing the value $k$. For instance, by choosing $k=8$ in the IVC setting, the cost of each folding step will approximately double while the total number of folding steps will be reduced by a factor $8$.
 
-The current default value for $k$ is 16, which seems to avoid large RAM requirements for the prover while providing a reasonable offset for the recursion overhead. This value can, however, be set by the user of the Nexus zkVM. 
+The current default value for $k$ is 16, which seems to avoid large RAM requirements for the prover while providing a reasonable offset for the recursion overhead. This value can, however, be set by the user of the Nexus zkVM.
 
 ### Public Parameters
 
@@ -119,7 +119,7 @@ As mentioned above, the public parameters for the Nexus zkVM consist of those ne
 
 Regarding the public parameters for the Pedersen commitment scheme used in Nova, these consist of a vector of random group elements of sufficient size in the respective curve in the cycle. In the PCD setting with $k=1$, Nova circuits for the primary curve are represented by three sparse matrices $(A,B,C)$ each containing about $2^{19}$ rows and columns and about 8 non-zero entries per row. As a result, the size of the public parameters for the Pedersen commitment scheme contains about $2^{19}$ `bn254` elliptic curve elements. Since larger values of $k$ would increase the witness size, the size of the vector would need to increase accordingly. For the secondary curve, the size of the vector depends on the size of the witness for the secondary circuit, containing about $3{,}000$ `grumpkin` elliptic curve elements.
 
-As for the public parameters for the Zeromorph commitment scheme used in Spartan, these consist of a sufficiently large vector of group elements of the form $\tau^i g$, where $g$ is a generator for the group and $\tau$ is the “toxic waste” secret used to generate the vector. These public parameters are exactly the same as those used for the KZG polynomial commitment scheme [[KZG10](#references)], requiring a trusted setup phase as well. As in the case of systems such as Plonk-KZG [[GWC19](#references)], the trusted setup is universal and only depends on a global bound on the size of committed vectors. Regarding the actual size of this vector, the current implementation requires committing to a single vector of size $2^{26}$ when $k=1$ since the pre-processing phase of Spartan needs to commit to a specialized sparse matrix representation of $(A, B, C)$ used in Nova (see [[Set20, Sections 6-7](#references)] for details). As for Pedersen commitments, larger values of $k$ would also result in larger parameters for Zeromorph. 
+As for the public parameters for the Zeromorph commitment scheme used in Spartan, these consist of a sufficiently large vector of group elements of the form $\tau^i g$, where $g$ is a generator for the group and $\tau$ is the “toxic waste” secret used to generate the vector. These public parameters are exactly the same as those used for the KZG polynomial commitment scheme [[KZG10](#references)], requiring a trusted setup phase as well. As in the case of systems such as Plonk-KZG [[GWC19](#references)], the trusted setup is universal and only depends on a global bound on the size of committed vectors. Regarding the actual size of this vector, the current implementation requires committing to a single vector of size $2^{26}$ when $k=1$ since the pre-processing phase of Spartan needs to commit to a specialized sparse matrix representation of $(A, B, C)$ used in Nova (see [[Set20, Sections 6-7](#references)] for details). As for Pedersen commitments, larger values of $k$ would also result in larger parameters for Zeromorph.
 
 Finally, since the parameters for the Pedersen and Zeromorph commitment schemes consist of a vector of group elements and need to be compatible in order to make Spartan a proof system for committed relaxed R1CS, the Nexus zkVM currently generates the parameters for the Pedersen commitment scheme by truncating the parameters used for Zeromorph, instead of randomly sampling a vector of fresh group elements. Note that this is cryptographically indistinguishable from a random vector, unless one knows the toxic waste secret.
 
@@ -157,4 +157,3 @@ Finally, since the parameters for the Pedersen and Zeromorph commitment schemes 
 [TinyRAM]: (https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)
 [RISCZero]: (https://www.risczero.com)
 [zkMISP]: (https://whitepaper.zkm.io/whitepaper1.2.pdf)
-

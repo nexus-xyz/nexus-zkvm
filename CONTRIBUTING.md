@@ -23,12 +23,12 @@ There are three main ways to contribute:
 
 **Anybody can participate in any stage of contribution**. We urge you to participate in all discussions around bugs, feature requests, existing code, and PRs.
 
-## Reporting Issues 
+## Reporting Issues
 
 #### Asking for help
 
-If you have reviewed this document and existing documentation and still have questions or are still having problems, but don't quite know enough to create a bug report, then 
-you can get help by **starting a discussion**. 
+If you have reviewed this document and existing documentation and still have questions or are still having problems, but don't quite know enough to create a bug report, then
+you can get help by **starting a discussion**.
 
 You can do so either on the [dev Telegram][dev-tg] or on discussiom board of the [Github][gh] page for this repository. Look for the "Discussions" tab at the top.
 
@@ -57,7 +57,7 @@ If you have examples of other tools that have the feature you are requesting, pl
 
 Pull requests are the way concrete changes are made to the code, documentation, and dependencies of the Nexus zkVM.
 
-Before making a large change, it is usually a good idea to first open an issue describing the change to solicit feedback and guidance. 
+Before making a large change, it is usually a good idea to first open an issue describing the change to solicit feedback and guidance.
 This will increase the likelihood of the PR getting merged. Striking up a discussion the [dev Telegram][dev-tg] to let the community know
 what you'll be working on can also be helpful for getting early feedback before diving in.
 
@@ -66,7 +66,7 @@ contributors are not duplicating work.
 
 #### Discussion
 
-You will probably get feedback or requests for changes to your pull request. 
+You will probably get feedback or requests for changes to your pull request.
 This is a regular and important part of the submission process, so don't be discouraged! Some reviewers may sign off on the pull
 request right away, others may have more detailed comments or feedback. This is a necessary part of the process in order
 to evaluate whether the changes are correct and necessary.

@@ -1,0 +1,19 @@
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.6.0
+      hooks:
+          - id: check-yaml
+          - id: end-of-file-fixer
+          - id: trailing-whitespace
+          - id: detect-private-key
+    - repo: https://github.com/yoheimuta/protolint
+      rev: v0.50.2 # Select a release here like v0.44.0
+      hooks:
+          - id: protolint
+    - repo: local
+      hooks:
+          - id: cargo fmt
+            name: cargo fmt
+            entry: cargo fmt --all -- --check --color always
+            language: system
+            pass_filenames: false

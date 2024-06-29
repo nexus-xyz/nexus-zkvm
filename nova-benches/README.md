@@ -15,7 +15,7 @@ Benches comparison-results:
 | 514303           | 630.94 ms       | 776.78 ms   | 596.13 ms       | 824.23 ms    |
 | 1038591          | 1.1913 s        | 1.3661 s    | 1.1284 s        | 1.5852 s     |
 
-Both were executed on the same hardware, commits used: 
+Both were executed on the same hardware, commits used:
 
 - Nexus – https://github.com/nexus-xyz/nexus-zkvm/tree/6045c596f2e136aca58e248c993d85a370f983f9
 - Microsoft – https://github.com/microsoft/Nova/tree/4f8f3e782b172e98d6d741b29e5bc671ab5b93a6

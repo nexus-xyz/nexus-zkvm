@@ -18,7 +18,7 @@ config = { version = "0.13.4", default-features = false }
 
 url = { version = "2.5.0", features = ["serde"] }
 
-clap = { workspace = true, optional = true } 
+clap = { workspace = true, optional = true }
 
 [features]
 clap_derive = ["clap"]

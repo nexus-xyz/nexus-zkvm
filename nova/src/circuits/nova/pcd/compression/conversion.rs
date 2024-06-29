@@ -59,7 +59,7 @@ where
         let rearrange =
             |matrix: SparseMatrix<G::ScalarField>| -> Vec<(usize, usize, G::ScalarField)> {
                 matrix.iter().map(|(row, col, val)|
-                // this is a witness entry 
+                // this is a witness entry
                 if col >= num_io {
                     (row, col - num_io, val)
                 } else {
