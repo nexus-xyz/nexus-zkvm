@@ -20,7 +20,7 @@ pub mod nvm {
     }
     pub use nexus_vm::{error::NexusVMError, eval::NexusVM, run_vm, trace_vm, VMOpts};
     pub mod memory {
-        pub use nexus_vm::memory::{paged::Paged, path::Path, trie::MerkleTrie};
+        pub use nexus_vm::memory::{Memory, paged::Paged, path::Path, trie::MerkleTrie};
     }
 }
 
