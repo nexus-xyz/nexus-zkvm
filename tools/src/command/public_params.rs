@@ -5,12 +5,12 @@ use std::{
 
 use anyhow::Context;
 
-use nexus_api::config::{
+use nexus_core::config::{
     vm::{self as vm_config, ProverImpl},
     Config,
 };
-use nexus_api::prover::nova::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
-use nexus_api::prover::nova::types::{ComPP, ParPP, SeqPP, SRS};
+use nexus_core::prover::nova::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
+use nexus_core::prover::nova::types::{ComPP, ParPP, SeqPP, SRS};
 
 use crate::{command::cache_path, LOG_TARGET};
 
@@ -95,20 +95,20 @@ fn setup_params_to_file(
                     .on_step(|_step| "public parameters for IVC".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::gen_vm_pp(k, &())?
+                nexus_core::prover::nova::pp::gen_vm_pp(k, &())?
             };
-            nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(&pp, path)
+            nexus_core::prover::nova::pp::show_pp(&pp);
+            nexus_core::prover::nova::pp::save_pp(&pp, path)
         }
         vm_config::NovaImpl::Parallel => {
             tracing::info!(
                 target: LOG_TARGET,
                 "Generating non-compressible PCD public parameters",
             );
-            let pp: ParPP = nexus_api::prover::nova::pp::gen_vm_pp(k, &())?;
+            let pp: ParPP = nexus_core::prover::nova::pp::gen_vm_pp(k, &())?;
 
-            nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(&pp, path)
+            nexus_core::prover::nova::pp::show_pp(&pp);
+            nexus_core::prover::nova::pp::save_pp(&pp, path)
         }
         vm_config::NovaImpl::ParallelCompressible => {
             let srs_file = match srs_file {
@@ -136,7 +136,7 @@ fn setup_params_to_file(
                 path =?srs_file,
                 "Reading the SRS",
             );
-            let srs: SRS = nexus_api::prover::nova::srs::load_srs(srs_file_str)?;
+            let srs: SRS = nexus_core::prover::nova::srs::load_srs(srs_file_str)?;
 
             tracing::info!(
                 target: LOG_TARGET,
@@ -151,11 +151,11 @@ fn setup_params_to_file(
                     "Generating compressible PCD public parameters",
                 );
 
-                nexus_api::prover::nova::pp::gen_vm_pp(k, &srs)?
+                nexus_core::prover::nova::pp::gen_vm_pp(k, &srs)?
             };
 
-            nexus_api::prover::nova::pp::show_pp(&pp);
-            nexus_api::prover::nova::pp::save_pp(&pp, path)
+            nexus_core::prover::nova::pp::show_pp(&pp);
+            nexus_core::prover::nova::pp::save_pp(&pp, path)
         }
     };
     Ok(())

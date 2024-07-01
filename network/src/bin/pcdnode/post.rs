@@ -18,7 +18,7 @@ use crate::{
     api::NexusAPI::{Error, NexusProof, Program, Query},
     request_work, WorkerState, LOG_TARGET,
 };
-use nexus_api::nvm::{
+use nexus_core::nvm::{
     interactive::{parse_elf, trace},
     memory::MerkleTrie,
     NexusVM,

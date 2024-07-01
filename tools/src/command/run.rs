@@ -35,11 +35,11 @@ fn run_vm(bin: Option<String>, verbose: bool, profile: &str) -> anyhow::Result<(
 }
 
 pub fn run_vm_with_elf_file(path: &Path, verbose: bool) -> anyhow::Result<()> {
-    let opts = nexus_api::nvm::VMOpts {
+    let opts = nexus_core::nvm::VMOpts {
         k: 1,
         machine: None,
         file: Some(path.into()),
     };
 
-    nexus_api::nvm::run_vm::<nexus_api::nvm::memory::Paged>(&opts, verbose).map_err(Into::into)
+    nexus_core::nvm::run_vm::<nexus_core::nvm::memory::Paged>(&opts, verbose).map_err(Into::into)
 }

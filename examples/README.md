@@ -19,4 +19,4 @@ cargo run -r --bin example
 
 Some examples expect private inputs. An example of
 programmatically invoking a program with a private input can be
-found in `/api/examples/prover_run.rs`.
+found in `/core/examples/prover_run.rs`.

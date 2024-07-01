@@ -15,11 +15,11 @@ use super::{
     spartan_key::format_key_file,
 };
 use crate::{command::cache_path, LOG_TARGET};
-use nexus_api::config::{
+use nexus_core::config::{
     vm::{NovaImpl, ProverImpl, VmConfig},
     Config,
 };
-use nexus_api::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
+use nexus_core::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
@@ -107,7 +107,7 @@ fn verify_proof_compressed(
             .on_step(|_step| "public parameters".into());
         let _guard = ctx.display_step();
 
-        nexus_api::prover::nova::pp::load_pp(&pp_path)?
+        nexus_core::prover::nova::pp::load_pp(&pp_path)?
     };
 
     let mut ctx = term
@@ -117,10 +117,10 @@ fn verify_proof_compressed(
 
     let result = {
         let proof = ComProof::deserialize_compressed(reader)?;
-        let key = nexus_api::prover::nova::key::load_key(&key_path)?;
+        let key = nexus_core::prover::nova::key::load_key(&key_path)?;
 
         _guard = ctx.display_step();
-        nexus_api::prover::nova::verify_compressed(&key, &params, &proof)
+        nexus_core::prover::nova::verify_compressed(&key, &params, &proof)
             .map_err(anyhow::Error::from)
     };
 
@@ -199,7 +199,7 @@ fn verify_proof(
                     .on_step(|_step| "public parameters".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::load_pp(&path)?
+                nexus_core::prover::nova::pp::load_pp(&path)?
             };
             let root = PCDNode::deserialize_compressed(reader)?;
 
@@ -214,7 +214,7 @@ fn verify_proof(
                     .on_step(|_step| "public parameters".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::load_pp(&path)?
+                nexus_core::prover::nova::pp::load_pp(&path)?
             };
             let root = ComPCDNode::deserialize_compressed(reader)?;
 
@@ -229,7 +229,7 @@ fn verify_proof(
                     .on_step(|_step| "public parameters".into());
                 let _guard = term_ctx.display_step();
 
-                nexus_api::prover::nova::pp::load_pp(&path)?
+                nexus_core::prover::nova::pp::load_pp(&path)?
             };
             let proof = IVCProof::deserialize_compressed(reader)?;
 

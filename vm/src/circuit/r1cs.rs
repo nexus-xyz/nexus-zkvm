@@ -551,9 +551,9 @@ pub fn store_reg(cs: &mut R1CS, input: &str, output: &str, rs: u32) {
 
     // build constraints
     for i in 1..32 {
-        // rsx_i = (1 - rs_i=i) * x'_i
+        // rsx_i = (1 - rs_i=i) * x_i
         let j1 = cs.var(&format!("{input}={i}"));
-        let j2 = cs.var(&format!("x'{i}"));
+        let j2 = cs.var(&format!("x{i}"));
         let j3 = cs.var(&format!("rsx{i}"));
         cs.constraint(|_cs, a, b, c| {
             a[0] = ONE;

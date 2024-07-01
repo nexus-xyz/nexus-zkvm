@@ -8,5 +8,5 @@ The API is relatively self-documenting, see `./src/lib.rs`. Examples of using th
 
 ```sh
 nexus-zkvm/examples$ cargo build -r
-nexus-zkvm/api$ cargo run -r --example prover_run
+nexus-zkvm/core$ cargo run -r --example prover_run
 ```

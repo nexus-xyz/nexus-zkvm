@@ -11,7 +11,7 @@ use hyper::upgrade::Upgraded;
 
 use async_channel::{unbounded, Receiver, Sender};
 
-use nexus_api::prover::nova::{circuit::Tr, error::ProofError, types::*};
+use nexus_core::prover::nova::{circuit::Tr, error::ProofError, types::*};
 
 use nexus_network::pcd::*;
 use nexus_network::*;

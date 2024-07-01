@@ -17,7 +17,7 @@ pub use nova::load_params;
 
 type RocksDB = storage::RocksDb<<nova::NovaProver as ProverT>::Proof>;
 
-pub async fn run(config: nexus_api::config::network::rpc::RpcConfig) {
+pub async fn run(config: nexus_core::config::network::rpc::RpcConfig) {
     tracing::info!(
         target: rpc::LOG_TARGET,
         "RPC config: {config:?}",

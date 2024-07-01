@@ -2,8 +2,8 @@
 
 use std::{fs::File, io::BufReader, path::Path};
 
-use nexus_api::nvm::memory::MerkleTrie;
-use nexus_api::prover::jolt::{
+use nexus_core::nvm::memory::MerkleTrie;
+use nexus_core::prover::jolt::{
     parse, trace,
     types::{JoltCommitments, JoltProof},
     VM,
@@ -31,7 +31,7 @@ pub fn prove(path: &Path) -> anyhow::Result<()> {
         .completion_stats(move |elapsed| format!("in {elapsed}; bytecode size: {bytecode_size}"));
     let preprocessing = {
         let _guard = ctx.display_step();
-        nexus_api::prover::jolt::preprocess(&vm)
+        nexus_core::prover::jolt::preprocess(&vm)
     };
     drop(term);
 
@@ -53,7 +53,7 @@ pub fn prove(path: &Path) -> anyhow::Result<()> {
         .on_step(|_step| "program execution".into());
     let (proof, commitments) = {
         let _guard = ctx.display_step();
-        nexus_api::prover::jolt::prove(trace, &preprocessing)?
+        nexus_core::prover::jolt::prove(trace, &preprocessing)?
     };
 
     let proof = (proof, commitments);
@@ -99,7 +99,7 @@ pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<
         .completion_stats(move |elapsed| format!("in {elapsed}; bytecode size: {bytecode_size}"));
     let preprocessing = {
         let _guard = ctx.display_step();
-        nexus_api::prover::jolt::preprocess(&vm)
+        nexus_core::prover::jolt::preprocess(&vm)
     };
 
     // verify
@@ -108,7 +108,7 @@ pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<
         .on_step(move |_step| "proof".into());
     let mut _guard = ctx.display_step();
 
-    let result = nexus_api::prover::jolt::verify(preprocessing, proof, commitments);
+    let result = nexus_core::prover::jolt::verify(preprocessing, proof, commitments);
 
     match result {
         Ok(_) => {
