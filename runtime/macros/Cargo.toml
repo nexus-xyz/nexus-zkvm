@@ -9,7 +9,11 @@ proc-macro = true
 [dependencies]
 quote = "1.0"
 proc-macro2 = "1.0"
+syn = { version = "1.0", features = ["full"] }
 
-[dependencies.syn]
-version = "1.0"
-features = ["extra-traits", "full"]
+[dev-dependencies]
+trybuild = { version = "1.0.49", features = ["diff"] }
+
+[[test]]
+name = "build-tests"
+path = "build-tests/compiletest.rs"

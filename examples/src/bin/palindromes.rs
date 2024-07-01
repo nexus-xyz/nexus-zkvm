@@ -1,10 +1,9 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
 extern crate alloc;
 
 use alloc::string::String;
-use nexus_rt::{println, Write};
+use nexus_rt::println;
 
 fn is_palindrome_string(s: &str) -> bool {
     let rev_s: String = s.chars().rev().collect(); // Reverse the string

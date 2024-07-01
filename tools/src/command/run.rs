@@ -27,7 +27,15 @@ pub fn handle_command(args: RunArgs) -> anyhow::Result<()> {
 
 fn run_vm(bin: Option<String>, verbose: bool, profile: &str) -> anyhow::Result<()> {
     // build artifact
-    cargo(None, ["build", "--profile", profile])?;
+    cargo(
+        None,
+        [
+            "build",
+            "--target=riscv32i-unknown-none-elf",
+            "--profile",
+            profile,
+        ],
+    )?;
 
     let path = path_to_artifact(bin, profile)?;
 

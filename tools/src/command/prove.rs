@@ -92,7 +92,15 @@ pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
         }
 
         // build artifact if needed
-        cargo(None, ["build", "--profile", &profile])?;
+        cargo(
+            None,
+            [
+                "build",
+                "--target=riscv32i-unknown-none-elf",
+                "--profile",
+                &profile,
+            ],
+        )?;
 
         let k = k.unwrap_or(vm_config.k);
         let prover_impl = prover_impl.unwrap_or(vm_config.prover);

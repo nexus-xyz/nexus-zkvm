@@ -1,0 +1,17 @@
+error: `main` function is not allowed to be `async`
+ --> build-tests/02-invalid-fn-sig.rs:3:5
+  |
+3 |     async fn main() {}
+  |     ^^^^^^^^^^^^^^^
+
+error: `main` function is not allowed to have generic parameters
+ --> build-tests/02-invalid-fn-sig.rs:8:12
+  |
+8 |     fn main<'a, T1, T2>() {}
+  |            ^^^^^^^^^^^^
+
+error: `main` function is not allowed to have a `where` clause
+  --> build-tests/02-invalid-fn-sig.rs:13:15
+   |
+13 |     fn main() where (): Send {}
+   |               ^^^^^^^^^^^^^^

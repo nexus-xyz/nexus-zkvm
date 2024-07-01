@@ -1,0 +1,10 @@
+error[E0308]: mismatched types
+ --> build-tests/03-invalid-fn-ptr-type.rs:2:5
+  |
+2 |     #[nexus_rt_macros::main]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^ expected normal fn, found unsafe fn
+  |
+  = note: expected fn pointer `fn()`
+                found fn item `unsafe extern "C" for<'a> fn(&'a u32) -> String {test::main}`
+  = note: unsafe functions cannot be coerced into safe function pointers
+  = note: this error originates in the attribute macro `nexus_rt_macros::main` (in Nightly builds, run with -Z macro-backtrace for more info)
