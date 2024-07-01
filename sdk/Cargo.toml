@@ -10,4 +10,7 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
+serde.workspace = true
+
 nexus-core = { path = "../core", features = ["prover_nova", "prover_jolt", "prover_hypernova"] }
+postcard = { version = "1.0.8", features = ["alloc"] }

@@ -11,13 +11,13 @@ fn main() {
     let pp = Nova::gen_pp();
 
     // defaults to local proving
-    let initd_prover = Nova::new_from_file(&pb);
+    let mut prover = Nova::new_from_file(&pb);
 
     println!("Generating execution trace of vm...");
-    let tracd_prover = initd_prover.trace(&[0x06]);
+    prover = prover.trace(&[0x06]);
 
     println!("Proving execution of vm...");
-    let proof = prover.prover(&pp);
+    let proof = prover.prove(&pp);
 
     print!("Verifying execution...");
     proof.verify(&pp)?;

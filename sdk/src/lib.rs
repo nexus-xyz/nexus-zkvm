@@ -1,3 +1,4 @@
 pub mod nova;
 
-pub(crate) mod traits;
+mod traits;
+pub use traits::*;
