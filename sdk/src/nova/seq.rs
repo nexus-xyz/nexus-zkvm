@@ -11,12 +11,28 @@ use nexus_core::prover::nova::error::ProofError;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
 
+use std::marker::PhantomData;
+
 // hard-coded number of vm instructions to pack per recursion step
 const K: usize = 64;
 
-pub struct Nova {
+struct Uninitialized {}
+impl ExecutionState for Uninitialized {};
+
+struct Initialized {
     vm: NexusVM<MerkleTrie>,
-    trace: Option<<MerkleTrie as nexus_core::nvm::memory::Memory>::Proof>,
+}
+impl ExecutionState for Initialized {};
+
+struct Traced {
+    vm: NexusVM<MerkleTrie>,
+    trace: <MerkleTrie as nexus_core::nvm::memory::Memory>::Proof,
+}
+impl ExecutionState for Traced {};
+
+pub struct Nova<S: ExecutionState = Uninitialized, C: Compute = Local> {
+    state: S,
+    compute: C,
 }
 
 impl<S: ExecutionState, C: Compute> Prover<S, C> for Nova {
@@ -24,33 +40,25 @@ impl<S: ExecutionState, C: Compute> Prover<S, C> for Nova {
     type Params = SeqPP;
     type Proof = IVCProof;
     type Error = ProofError;
-
-    fn gen_pp() -> Result<Self::Params, Self::Error> {
-        gen_vm_pp(K, &())
-    }
-
-    fn load_pp(path: AsRef<Path>) -> Result<Self::Params, Self::Error> {
-        load_pp(path)
-    }
-
-    fn save_pp(pp: &Self::Params, path: AsRef<Path>) -> Result<(), Self::Error> {
-        save_pp(path)
-    }
 }
 
 impl<C: Compute> Prover<Uninitialized, C> for Nova {
 
     fn new(elf_bytes: &[u8]) -> Self {
         Nova::<Initialized, C> {
-            vm: parse_elf::<Self::Memory>(elf_bytes),
-            trace: None,
-        }
+            state: Initialized {
+                vm: parse_elf::<Self::Memory>(elf_bytes),
+            },
+            compute: C {},
+         }
     }
 
     fn new_from_file(path: AsRef<Path>) -> Self {
         Nova::<Initialized, C> {
-            vm: load_elf::<Self::Memory>(path),
-            trace: None,
+            state: Initialized {
+                vm: load_elf::<Self::Memory>(path),
+            },
+            compute: C {},
         }
     }
 
@@ -176,6 +184,18 @@ impl Prover<Traced, Local> for Nova {
 impl Verifiable for IVCProof {
     type Params = SeqPP;
     type Error = ProofError;
+
+    fn gen_pp() -> Result<Self::Params, Self::Error> {
+        gen_vm_pp(K, &())
+    }
+
+    fn load_pp(path: AsRef<Path>) -> Result<Self::Params, Self::Error> {
+        load_pp(path)
+    }
+
+    fn save_pp(pp: &Self::Params, path: AsRef<Path>) -> Result<(), Self::Error> {
+        save_pp(path)
+    }
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
         return self.verify(pp, self.num_steps() as _);
