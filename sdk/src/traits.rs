@@ -12,9 +12,13 @@ pub trait Prover {
     type Proof: Verifiable;
     type Error;
 
-    fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> where Self: Sized;
+    fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 
-    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error> where Self: Sized;
+    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 
     fn run<T>(self, input: Option<T>) -> Result<(), Self::Error>
     where
@@ -28,9 +32,13 @@ pub trait Prover {
 pub trait Parameterized {
     type Error;
 
-    fn generate() -> Result<Self, Self::Error> where Self: Sized;
+    fn generate() -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 
-    fn load(path: &PathBuf) -> Result<Self, Self::Error> where Self: Sized;
+    fn load(path: &PathBuf) -> Result<Self, Self::Error>
+    where
+        Self: Sized;
 
     fn save(pp: &Self, path: &PathBuf) -> Result<(), Self::Error>;
 }

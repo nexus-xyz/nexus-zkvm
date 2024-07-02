@@ -1,7 +1,6 @@
-use nexus_sdk::{Prover, Verifiable, nova::seq::Nova};
+use nexus_sdk::{nova::seq::Nova, Prover, Verifiable};
 
 fn main() {
-
     // expects for this program to be run from root of crate
     // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
     let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/private_input");
@@ -20,5 +19,4 @@ fn main() {
     proof.verify(&pp)?;
 
     println!("  Succeeded!");
-
 }
