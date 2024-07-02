@@ -1,22 +1,41 @@
-use nexus_sdk::{nova::seq::Nova, Prover, Verifiable};
+use nexus_sdk::{nova::seq::{Nova, Proof, PP}, Parameters, Prover, Local};
+
+const EXAMPLE_NAME: &str = "private_input";
+
+const TARGET_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../target/riscv32i-unknown-none-elf/release"
+);
 
 fn main() {
-    // expects for this program to be run from root of crate
-    // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
-    let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/private_input");
+
+    let path = std::path::Path::new(TARGET_PATH).join(EXAMPLE_NAME);
+    if !path.try_exists().is_ok() {
+        panic!(
+            "{}{} was not found, make sure to compile the program \
+             with `cd examples && cargo build --release --bin {}`",
+            "target/riscv32i-unknown-none-elf/release/", EXAMPLE_NAME, EXAMPLE_NAME,
+        );
+    }
 
     // generate public parameters
     println!("Setting up Nova public parameters...");
-    let pp = Nova::Params::generate();
+    let pp: PP = PP::generate()
+        .expect("failed to generate parameters");
 
     // defaults to local proving
-    let mut prover = Nova::new_from_file(&pb);
+    let prover: Nova<Local> = Nova::new_from_file(&path)
+        .expect("failed to load program");
+
+    let input: u8 = 0x06;
 
     println!("Proving execution of vm...");
-    let proof = prover.prove(&pp);
+    let proof: Proof = prover.prove::<u8>(&pp, Some(input))
+        .expect("failed to prove program");
 
     print!("Verifying execution...");
-    proof.verify(&pp)?;
+    proof.verify(&pp)
+        .expect("failed to verify proof");
 
     println!("  Succeeded!");
 }

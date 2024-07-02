@@ -6,10 +6,11 @@ use std::path::PathBuf;
 use nexus_core::nvm::interactive::{eval, load_elf, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
 use nexus_core::nvm::NexusVM;
-use nexus_core::prover::nova::error::ProofError;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
-use nexus_core::prover::nova::types::{IVCProof, SeqPP};
+
+pub use nexus_core::prover::nova::types::{IVCProof as Proof, SeqPP as PP};
+pub use nexus_core::prover::nova::error::ProofError as Error;
 
 use std::marker::PhantomData;
 
@@ -23,9 +24,9 @@ pub struct Nova<C: Compute = Local> {
 
 impl Prover for Nova<Local> {
     type Memory = MerkleTrie;
-    type Params = SeqPP;
-    type Proof = IVCProof;
-    type Error = ProofError;
+    type Params = PP;
+    type Proof = Proof;
+    type Error = Error;
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> {
         Ok(Nova::<Local> {
@@ -77,8 +78,8 @@ impl Prover for Nova<Local> {
     }
 }
 
-impl Parameters for SeqPP {
-    type Error = ProofError;
+impl Parameters for PP {
+    type Error = Error;
 
     fn generate() -> Result<Self, Self::Error> {
         gen_vm_pp(K, &())
@@ -93,9 +94,9 @@ impl Parameters for SeqPP {
     }
 }
 
-impl Verifiable for IVCProof {
-    type Params = SeqPP;
-    type Error = ProofError;
+impl Verifiable for Proof {
+    type Params = PP;
+    type Error = Error;
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
         Ok(self.verify(pp, self.step_num() as _)?)
