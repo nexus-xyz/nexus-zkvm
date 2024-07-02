@@ -1,24 +1,16 @@
 use std::marker::PhantomData;
 
-use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
-use ark_crypto_primitives::sponge::{Absorb, CryptographicSponge, FieldElementSize};
+use ark_crypto_primitives::sponge::{CryptographicSponge, FieldElementSize};
 use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, CanonicalSerializeHashExt};
 use ark_spartan::polycommitments::PolyCommitmentScheme;
-use ark_std::test_rng;
 
 use super::{Error, StepCircuit};
 use crate::{
-    circuits::hypernova::{
-        sequential::augmented::HyperNovaAugmentedCircuit, HyperNovaConstraintSynthesizer,
-    },
     commitment::CommitmentScheme,
-    folding::hypernova::cyclefold::{
-        self,
-        nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
-    },
-    safe_loglike, utils,
+    folding::hypernova::cyclefold::nimfs::{CCSShape, R1CSShape, SQUEEZE_ELEMENTS_BIT_SIZE},
+    utils,
 };
 
 #[derive(CanonicalSerialize, CanonicalDeserialize)]
@@ -80,42 +72,6 @@ where
     }
 }
 
-impl<G1, G2, C1, C2, RO, SC, SP> PublicParams<G1, G2, C1, C2, RO, SC, SP>
-where
-    G1: SWCurveConfig,
-    G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
-    G1::BaseField: PrimeField + Absorb,
-    G2::BaseField: PrimeField + Absorb,
-    C1: PolyCommitmentScheme<Projective<G1>>,
-    C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
-    RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
-    RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
-    RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
-    SC: StepCircuit<G1::ScalarField>,
-    SP: SetupParams<G1, G2, C1, C2, RO, SC>,
-{
-    pub fn test_setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
-        let (_, projected_augmented_circuit_size_upper_bound) =
-            HyperNovaAugmentedCircuit::<
-                G1,
-                G2,
-                C1,
-                C2,
-                RO,
-                SC,
-             >::project_augmented_circuit_size_upper_bound(step_circuit)?;
-
-        let mut rng = test_rng();
-        let max_poly_vars: usize =
-            safe_loglike!(projected_augmented_circuit_size_upper_bound) as usize;
-
-        let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
-            .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
-
-        SP::setup(ro_config, step_circuit, &srs, &())
-    }
-}
-
 pub trait SetupParams<G1, G2, C1, C2, RO, SC>: Send + Sync + Sized
 where
     G1: SWCurveConfig,
@@ -132,4 +88,55 @@ where
         srs: &C1::SRS,
         aux: &C2::SetupAux,
     ) -> Result<PublicParams<G1, G2, C1, C2, RO, SC, Self>, Error>;
+}
+
+pub mod test_pp {
+    use super::*;
+
+    use crate::{
+        circuits::hypernova::{
+            sequential::augmented::HyperNovaAugmentedCircuit, HyperNovaConstraintSynthesizer,
+        },
+        folding::hypernova::cyclefold,
+        safe_loglike,
+    };
+    use ark_crypto_primitives::sponge::constraints::{CryptographicSpongeVar, SpongeWithGadget};
+    use ark_crypto_primitives::sponge::Absorb;
+    use ark_std::test_rng;
+
+    impl<G1, G2, C1, C2, RO, SC, SP> PublicParams<G1, G2, C1, C2, RO, SC, SP>
+    where
+        G1: SWCurveConfig,
+        G2: SWCurveConfig<BaseField = G1::ScalarField, ScalarField = G1::BaseField>,
+        G1::BaseField: PrimeField + Absorb,
+        G2::BaseField: PrimeField + Absorb,
+        C1: PolyCommitmentScheme<Projective<G1>>,
+        C2: CommitmentScheme<Projective<G2>, SetupAux = ()>,
+        RO: SpongeWithGadget<G1::ScalarField> + Send + Sync,
+        RO::Var: CryptographicSpongeVar<G1::ScalarField, RO, Parameters = RO::Config>,
+        RO::Config: CanonicalSerialize + CanonicalDeserialize + Sync,
+        SC: StepCircuit<G1::ScalarField>,
+        SP: SetupParams<G1, G2, C1, C2, RO, SC>,
+    {
+        pub fn test_setup(ro_config: RO::Config, step_circuit: &SC) -> Result<Self, Error> {
+            let (_, projected_augmented_circuit_size_upper_bound) =
+                HyperNovaAugmentedCircuit::<
+                    G1,
+                    G2,
+                    C1,
+                    C2,
+                    RO,
+                    SC,
+                >::project_augmented_circuit_size_upper_bound(step_circuit)?;
+
+            let mut rng = test_rng();
+            let max_poly_vars: usize =
+                safe_loglike!(projected_augmented_circuit_size_upper_bound) as usize;
+
+            let srs = C1::setup(max_poly_vars, b"test_hypernova_seq_primary_curve", &mut rng)
+                .map_err(|_| cyclefold::Error::PolyCommitmentSetup)?;
+
+            SP::setup(ro_config, step_circuit, &srs, &())
+        }
+    }
 }

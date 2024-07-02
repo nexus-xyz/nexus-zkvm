@@ -6,8 +6,8 @@ use std::{
 
 use anyhow::Context;
 
-use nexus_api::config::{vm as vm_config, Config};
-use nexus_api::prover::nova::{srs::get_min_srs_size, types::ComPP};
+use nexus_core::config::{vm as vm_config, Config};
+use nexus_core::prover::nova::{srs::get_min_srs_size, types::ComPP};
 
 use super::public_params::{format_params_file, format_srs_file};
 use crate::{command::cache_path, LOG_TARGET};
@@ -140,7 +140,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
         let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::srs::load_srs(srs_path_str)?
+        nexus_core::prover::nova::srs::load_srs(srs_path_str)?
     };
 
     tracing::info!(
@@ -162,7 +162,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
             .on_step(|_step| "Nova public parameters".into());
         let _guard = term_ctx.display_step();
 
-        nexus_api::prover::nova::pp::load_pp(pp_path_str)?
+        nexus_core::prover::nova::pp::load_pp(pp_path_str)?
     };
 
     let mut term_ctx = term
@@ -170,7 +170,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
         .on_step(|_step| "Spartan key".into());
     let _guard = term_ctx.display_step();
 
-    nexus_api::prover::nova::key::gen_key_to_file(&pp, &srs, key_path)?;
+    nexus_core::prover::nova::key::gen_key_to_file(&pp, &srs, key_path)?;
 
     Ok(())
 }

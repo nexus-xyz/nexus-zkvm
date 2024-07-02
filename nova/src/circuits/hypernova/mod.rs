@@ -12,7 +12,7 @@ pub mod sequential;
 
 pub mod public_params;
 use crate::commitment::CommitmentScheme;
-pub use crate::folding::hypernova::cyclefold::{self, Error};
+pub use crate::folding::hypernova::cyclefold::{self, Error, HNFoldingError};
 use crate::folding::hypernova::cyclefold::{nimfs::NIMFSProof, LCCSInstance};
 
 pub use crate::circuits::nova::StepCircuit;

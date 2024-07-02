@@ -14,8 +14,8 @@ pub struct VmConfig {
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ProverImpl {
     Jolt,
-
     Nova(NovaImpl),
+    HyperNova,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, serde_wrapper::Deserialize)]
@@ -44,6 +44,7 @@ impl<'de> de::Deserialize<'de> for ProverImpl {
             .string(|s| {
                 Ok(match s {
                     "jolt" => Self::Jolt,
+                    "hypernova" => Self::HyperNova,
                     "nova-seq" => Self::Nova(NovaImpl::Sequential),
                     "nova-par" => Self::Nova(NovaImpl::Parallel),
                     "nova-par-com" => Self::Nova(NovaImpl::ParallelCompressible),
@@ -64,6 +65,7 @@ impl fmt::Display for ProverImpl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ProverImpl::Jolt => write!(f, "jolt"),
+            ProverImpl::HyperNova => write!(f, "hypernova"),
             ProverImpl::Nova(nova_impl) => write!(f, "{nova_impl}"),
         }
     }
@@ -89,6 +91,7 @@ mod clap_derive {
         fn value_variants<'a>() -> &'a [Self] {
             &[
                 Self::Jolt,
+                Self::HyperNova,
                 Self::Nova(NovaImpl::Sequential),
                 Self::Nova(NovaImpl::Parallel),
                 Self::Nova(NovaImpl::ParallelCompressible),
@@ -98,6 +101,7 @@ mod clap_derive {
         fn to_possible_value(&self) -> Option<PossibleValue> {
             let str = match self {
                 ProverImpl::Jolt => "jolt",
+                ProverImpl::HyperNova => "hypernova",
                 ProverImpl::Nova(NovaImpl::Sequential) => "nova-seq",
                 ProverImpl::Nova(NovaImpl::Parallel) => "nova-par",
                 ProverImpl::Nova(NovaImpl::ParallelCompressible) => "nova-par-com",

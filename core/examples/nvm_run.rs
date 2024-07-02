@@ -1,6 +1,6 @@
 // An example of loading and running the NVM.
 
-use nexus_api::nvm::{
+use nexus_core::nvm::{
     self,
     memory::{MerkleTrie, Paged},
     run_vm, NexusVM, VMOpts,

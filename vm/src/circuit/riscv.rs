@@ -937,7 +937,9 @@ fn choose(cs: &mut R1CS, result: &str, bit: &str, left: &str, right: &str) {
 }
 
 fn split128(cs: &mut R1CS, scalar: &str, widths: &[usize]) {
-    let BigInt([a, b, _, _]) = cs.get_var(scalar).into_bigint();
+    let BigInt([a, b, c, d]) = cs.get_var(scalar).into_bigint();
+    assert_eq!(c, 0u64);
+    assert_eq!(d, 0u64);
     let val = (b as u128) << 64 | (a as u128);
 
     let mut v = val;
@@ -945,6 +947,16 @@ fn split128(cs: &mut R1CS, scalar: &str, widths: &[usize]) {
         cs.set_bit(&format!("{scalar}_{i}"), (v & 1) != 0);
         v >>= 1;
     }
+
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 0..128 {
+            a[cs.var(&format!("{scalar}_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[0] = ONE;
+        c[cs.var(scalar)] = ONE;
+    });
 
     for bits in widths {
         let mask = (1u128 << bits) - 1;
@@ -1096,14 +1108,42 @@ fn store(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     let J = (STORE { sop: SW, rs1: 0, rs2: 0, imm: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
+    // relate Y and write_mem32 only when the J-value is this one
+    cs.new_var(&format!("J={J},w32"));
+    cs.mul(&format!("J={J},w32"), &format!("J={J}"), "write_mem32");
+    cs.mul(&format!("J={J},w32"), &format!("J={J}"), "Y");
 
     let J = (STORE { sop: SH, rs1: 0, rs2: 0, imm: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
+    // relate Y's bits and write_mem16 only when the J-value is this one
+    cs.new_var(&format!("J={J},w16"));
+    cs.mul(&format!("J={J},w16"), &format!("J={J}"), "write_mem16");
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 0..16 {
+            a[cs.var(&format!("Y_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[cs.var(&format!("J={J}"))] = ONE;
+        c[cs.var(&format!("J={J},w16"))] = ONE;
+    });
 
     let J = (STORE { sop: SB, rs1: 0, rs2: 0, imm: 0 }).index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
+    cs.new_var(&format!("J={J},w8"));
+    // relate Y's bits and write_mem8 only when the J-value is this one
+    cs.mul(&format!("J={J},w8"), &format!("J={J}"), "write_mem8");
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 0..8 {
+            a[cs.var(&format!("Y_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[cs.var(&format!("J={J}"))] = ONE;
+        c[cs.var(&format!("J={J},w8"))] = ONE;
+    });
 }
 
 // shift operations

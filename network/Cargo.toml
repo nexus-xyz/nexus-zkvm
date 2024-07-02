@@ -34,7 +34,7 @@ ark-ff.workspace = true
 ark-ec.workspace = true
 ark-serialize.workspace = true
 
-nexus-api = { path = "../api" }
+nexus-core = { path = "../core" }
 hex = { workspace = true }
 
 [features]

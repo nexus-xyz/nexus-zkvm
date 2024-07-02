@@ -1,5 +1,5 @@
 [package]
-name = "nexus-api"
+name = "nexus-core"
 authors = { workspace = true }
 version = { workspace = true }
 edition = { workspace = true }
@@ -43,5 +43,6 @@ parallel = [
    "ark-r1cs-std/parallel",
    "nexus-nova/parallel",
 ]
+prover_hypernova = ["dep:nexus-nova", "dep:spartan", "nexus-nova/spartan"]
 prover_nova = ["dep:nexus-nova", "dep:spartan", "nexus-nova/spartan"]
 prover_jolt = ["dep:nexus-jolt"]

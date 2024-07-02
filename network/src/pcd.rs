@@ -2,11 +2,11 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use nexus_api::prover::nova::types::*;
+use nexus_core::prover::nova::types::*;
 
 use crate::Result;
 
-pub type Trace = nexus_api::nvm::interactive::Trace<nexus_api::nvm::memory::Path>;
+pub type Trace = nexus_core::nvm::interactive::Trace<nexus_core::nvm::memory::Path>;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Serialize, Deserialize)]
@@ -188,9 +188,9 @@ mod test {
     use super::*;
 
     use ark_ff::fields::AdditiveGroup;
-    use nexus_api::nvm::memory::MerkleTrie;
-    use nexus_api::prover::nova::circuit::nop_circuit;
-    use nexus_api::prover::nova::pp::gen_pp;
+    use nexus_core::nvm::memory::MerkleTrie;
+    use nexus_core::prover::nova::circuit::nop_circuit;
+    use nexus_core::prover::nova::pp::gen_pp;
 
     fn round_trip(msg: &NexusMsg) {
         let v = encode_lz4(msg).unwrap();
