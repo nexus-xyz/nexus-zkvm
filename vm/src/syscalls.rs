@@ -11,26 +11,29 @@ use crate::{
 
 /// Holds information related to syscall implementation.
 pub struct Syscalls {
-    output_enable: bool,
+    to_stdout: bool,
+    output_buffer: Vec<u8>
     input: VecDeque<u8>,
 }
 
 impl Default for Syscalls {
     fn default() -> Self {
         Self {
-            output_enable: true,
+            to_stdout: false,
+            output_buffer: Vec::new(),
             input: VecDeque::new(),
         }
     }
 }
 
 impl Syscalls {
-    pub fn enable_output(&mut self) {
-        self.output_enable = true;
+
+    pub fn enable_stdout(&mut self) {
+        self.to_stdout = true;
     }
 
-    pub fn disable_output(&mut self) {
-        self.output_enable = false;
+    pub fn disable_stdout(&mut self) {
+        self.to_stdout = false;
     }
 
     pub fn set_input(&mut self, slice: &[u8]) {
@@ -42,26 +45,32 @@ impl Syscalls {
         let inp1 = regs[11]; // a1 = x11
         let inp2 = regs[12]; // a2 = x12
 
-        let mut out = 0x0;
+        let mut ret = 0x0;
 
         if num == 1 {
             // write_log
-            let mut stdout = std::io::stdout();
             for addr in inp1..inp1 + inp2 {
                 let b = memory.load(LOP::LBU, addr)?.0;
-                stdout.write_all(&[b as u8])?;
+                self.output_buffer.push(b as u8);
             }
-            let _ = stdout.flush();
+
+            if self.to_stdout {
+                let mut stdout = std::io::stdout();
+                stdout.write_all(&self.output_buffer.as_slice());
+
+                let _ = stdout.flush();
+                self.output_buffer.clear();
+            }
         } else if num == 2 {
             // read_from_private_input
             match self.input.pop_front() {
-                Some(b) => out = b as u32,
-                None => out = u32::MAX, // out of range of possible u8 inputs
+                Some(b) => ret = b as u32,
+                None => ret = u32::MAX, // out of range of possible u8 inputs
             }
         } else {
             return Err(UnknownECall(pc, num));
         }
 
-        Ok(out)
+        Ok(ret)
     }
 }
