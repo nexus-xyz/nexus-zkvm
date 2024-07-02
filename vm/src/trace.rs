@@ -338,7 +338,6 @@ mod test {
             }
         }
         assert_eq!(nvm.regs.pc, pc);
-        println!("{}", nvm.trace_len);
     }
 
     #[test]
