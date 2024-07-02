@@ -122,11 +122,9 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
         );
     }
     let t = std::time::Instant::now();
-    let mut count = 0;
 
     loop {
         eval_inst(vm)?;
-        count += 1;
         if show {
             println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.regs.pc);
         }
@@ -149,7 +147,11 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
         println!("\nFinal Machine State: pc: {:x}", vm.regs.pc);
         table("x", &vm.regs.x);
 
-        println!("Executed {count} instructions in {:?}", t.elapsed());
+        println!(
+            "Executed {} instructions in {:?}",
+            vm.trace_len,
+            t.elapsed()
+        );
     }
     Ok(())
 }

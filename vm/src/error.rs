@@ -42,6 +42,9 @@ pub enum NexusVMError {
     /// An error occured while hashing
     #[error("error hashing {0}")]
     HashError(String),
+
+    #[error("reached maximum number of executed instructions: {0}")]
+    MaxTraceLengthExceeded(usize),
 }
 
 /// Result type for VM functions that can produce errors
