@@ -8,7 +8,7 @@ impl Compute for Local {}
 
 pub trait Prover {
     type Memory;
-    type Params: Parameterized;
+    type Params: Parameters;
     type Proof: Verifiable;
     type Error;
 
@@ -29,7 +29,7 @@ pub trait Prover {
         T: Serialize + Sized;
 }
 
-pub trait Parameterized {
+pub trait Parameters {
     type Error;
 
     fn generate() -> Result<Self, Self::Error>
@@ -44,7 +44,7 @@ pub trait Parameterized {
 }
 
 pub trait Verifiable {
-    type Params: Parameterized;
+    type Params: Parameters;
     type Error;
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error>;

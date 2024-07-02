@@ -77,7 +77,7 @@ impl Prover for Nova<Local> {
     }
 }
 
-impl Parameterized for SeqPP {
+impl Parameters for SeqPP {
     type Error = ProofError;
 
     fn generate() -> Result<Self, Self::Error> {
