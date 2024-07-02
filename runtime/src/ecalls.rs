@@ -77,3 +77,8 @@ macro_rules! println {
 
 #[cfg(not(target_arch = "riscv32"))]
 pub use std::{print, println};
+
+#[cfg(not(target_arch = "riscv32"))]
+pub fn read_from_private_input() -> Option<u8> {
+    panic!("private input is not available outside of NexusVM")
+}
