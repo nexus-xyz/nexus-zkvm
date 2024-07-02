@@ -8,13 +8,10 @@ fn main() {
 
     // generate public parameters
     println!("Setting up Nova public parameters...");
-    let pp = Nova::gen_pp();
+    let pp = Nova::Params::generate();
 
     // defaults to local proving
     let mut prover = Nova::new_from_file(&pb);
-
-    println!("Generating execution trace of vm...");
-    prover = prover.trace(&[0x06]);
 
     println!("Proving execution of vm...");
     let proof = prover.prove(&pp);
