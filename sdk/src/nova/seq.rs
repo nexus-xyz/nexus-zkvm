@@ -35,13 +35,6 @@ impl Prover for Nova<Local> {
         })
     }
 
-    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error> {
-        Ok(Nova::<Local> {
-            vm: load_elf::<Self::Memory>(path)?,
-            _compute: PhantomData,
-        })
-    }
-
     fn run<T>(mut self, input: Option<T>) -> Result<(), Self::Error>
     where
         T: Serialize + Sized,

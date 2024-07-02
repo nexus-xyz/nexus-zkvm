@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 
 pub trait Compute {}
@@ -16,9 +17,15 @@ pub trait Prover {
     where
         Self: Sized;
 
-    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error>
+    fn new_from_file(
+        path: &PathBuf
+    ) -> Result<Self, Self::Error>
     where
-        Self: Sized;
+        Self: Sized,
+        Self::Error: From<std::io::Error>
+    {
+        Self::new(&fs::read(path)?)
+    }
 
     fn run<T>(self, input: Option<T>) -> Result<(), Self::Error>
     where
