@@ -320,7 +320,13 @@ fn parse_alt<P: MemoryProof>(regs: &Regs, word: u32) -> Witness<P> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{machines::loop_vm, memory::paged::Paged, memory::trie::MerkleTrie};
+    use crate::{
+        eval,
+        machines::{loop_vm, nop_vm},
+        memory::paged::Paged,
+        memory::trie::MerkleTrie,
+        NexusVMError,
+    };
 
     // basic check that tracing and iteration succeeds
     fn trace_test_machine(mut nvm: NexusVM<impl Memory>) {
@@ -338,5 +344,29 @@ mod test {
     fn trace_test_machines() {
         trace_test_machine(loop_vm::<Paged>(5));
         trace_test_machine(loop_vm::<MerkleTrie>(5));
+    }
+
+    #[test]
+    fn run_with_trace_limit() {
+        let mut vm = nop_vm::<MerkleTrie>(10);
+        // should fail because of appended UNIMP
+        vm.set_max_trace_len(10);
+
+        let result = eval(&mut vm, false);
+        assert!(matches!(
+            result,
+            Err(NexusVMError::MaxTraceLengthExceeded(len)) if len == 10
+        ));
+
+        // try with trace
+        let k = 1;
+        let mut vm = nop_vm::<MerkleTrie>(10);
+        vm.set_max_trace_len(10);
+
+        let result = trace(&mut vm, k, false);
+        assert!(matches!(
+            result,
+            Err(NexusVMError::MaxTraceLengthExceeded(len)) if len == 10
+        ));
     }
 }

@@ -33,6 +33,12 @@ pub struct NexusVM<M: Memory> {
     pub read_proof: Option<M::Proof>,
     /// Memory proof for store instructions.
     pub write_proof: Option<M::Proof>,
+    /// Number of executed instructions.
+    pub trace_len: usize,
+    /// Maximum (inclusive) number of instruction this VM instance is allowed to execute.
+    ///
+    /// Does include executing UNIMP instruction.
+    pub max_trace_len: Option<usize>,
 }
 
 /// ISA defined registers
@@ -86,6 +92,11 @@ impl<M: Memory> NexusVM<M> {
             self.mem.store(SOP::SB, addr + (i as u32), *b as u32)?;
         }
         Ok(())
+    }
+
+    /// set the limit for the executed trace length
+    pub fn set_max_trace_len(&mut self, max_trace_len: usize) {
+        self.max_trace_len = Some(max_trace_len);
     }
 }
 
@@ -177,6 +188,13 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
 
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
+    if vm
+        .max_trace_len
+        .map_or(false, |max_trace_len| max_trace_len <= vm.trace_len)
+    {
+        return Err(NexusVMError::MaxTraceLengthExceeded(vm.trace_len));
+    }
+
     let (word, proof) = vm.mem.read_inst(vm.regs.pc)?;
     vm.inst = parse_inst(vm.regs.pc, &word.to_le_bytes())?;
 
@@ -270,5 +288,6 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
     }
     vm.set_reg(RD, vm.Z);
     vm.regs.pc = PC;
+    vm.trace_len += 1;
     Ok(())
 }
