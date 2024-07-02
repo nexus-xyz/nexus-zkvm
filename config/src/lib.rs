@@ -14,7 +14,7 @@
 //! }
 //! ```
 //!
-//! Reading a config the from environment with `<SimpleConfig as Config>::from_env()` requires
+//! Reading a config from the environment with `<SimpleConfig as Config>::from_env()` requires
 //! both `NEXUS_SIMPLE_INTEGERVALUE` and `NEXUS_SIMPLE_URL` being defined. Note that the struct
 //! name doesn't matter, and underscores are removed from field names.
 //!
