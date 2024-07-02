@@ -25,6 +25,7 @@ jobs:
         with:
           toolchain: stable
       - run: cargo build --all-features
+      - run: cargo build --all-features --examples
       - run: cd nova-benches && cargo bench --no-run
 
   cargo-clippy:
@@ -37,6 +38,7 @@ jobs:
       - run: cargo clippy --all-targets --all-features
 
   test:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
