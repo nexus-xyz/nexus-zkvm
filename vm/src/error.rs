@@ -43,6 +43,7 @@ pub enum NexusVMError {
     #[error("error hashing {0}")]
     HashError(String),
 
+    /// Reached the limit of executed instructions.
     #[error("reached maximum number of executed instructions: {0}")]
     MaxTraceLengthExceeded(usize),
 }
