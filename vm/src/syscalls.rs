@@ -10,20 +10,11 @@ use crate::{
 };
 
 /// Holds information related to syscall implementation.
+#[derive(Default)]
 pub struct Syscalls {
     to_stdout: bool,
     output_buffer: Vec<u8>,
     input: VecDeque<u8>,
-}
-
-impl Default for Syscalls {
-    fn default() -> Self {
-        Self {
-            to_stdout: false,
-            output_buffer: Vec::new(),
-            input: VecDeque::new(),
-        }
-    }
 }
 
 impl Syscalls {

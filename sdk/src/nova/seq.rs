@@ -3,13 +3,13 @@ use crate::traits::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use nexus_core::nvm::NexusVM;
-use nexus_core::nvm::interactive::{load_elf, parse_elf, trace, eval};
+use nexus_core::nvm::interactive::{eval, load_elf, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
-use nexus_core::prover::nova::types::{SeqPP, IVCProof};
+use nexus_core::nvm::NexusVM;
 use nexus_core::prover::nova::error::ProofError;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
+use nexus_core::prover::nova::types::{IVCProof, SeqPP};
 
 use std::marker::PhantomData;
 
@@ -46,7 +46,9 @@ impl Prover for Nova<Local> {
         T: Serialize + Sized,
     {
         if let Some(inp) = input {
-            self.vm.syscalls.set_input(postcard::to_stdvec(&inp).unwrap().as_slice())
+            self.vm
+                .syscalls
+                .set_input(postcard::to_stdvec(&inp).unwrap().as_slice())
         }
 
         eval(&mut self.vm, false, false)?;
@@ -61,7 +63,9 @@ impl Prover for Nova<Local> {
         T: Serialize + Sized,
     {
         if let Some(inp) = input {
-            self.vm.syscalls.set_input(postcard::to_stdvec(&inp).unwrap().as_slice())
+            self.vm
+                .syscalls
+                .set_input(postcard::to_stdvec(&inp).unwrap().as_slice())
         }
 
         let tr = trace(&mut self.vm, K, false)?;
@@ -94,6 +98,6 @@ impl Verifiable for IVCProof {
     type Error = ProofError;
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
-        return Ok(self.verify(pp, self.step_num() as _)?);
+        Ok(self.verify(pp, self.step_num() as _)?)
     }
 }
