@@ -99,6 +99,6 @@ impl Verifiable for Proof {
     type Error = Error;
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
-        Ok(self.verify(pp, self.step_num() as _)?)
+        Ok(self.verify(pp)?)
     }
 }

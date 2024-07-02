@@ -18,7 +18,6 @@ fn main() {
         );
     }
 
-    // generate public parameters
     println!("Setting up Nova public parameters...");
     let pp: PP = PP::generate()
         .expect("failed to generate parameters");

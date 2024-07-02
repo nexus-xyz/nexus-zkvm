@@ -235,7 +235,7 @@ fn verify_proof(
 
             _guard = ctx.display_step();
             proof
-                .verify(&params, proof.step_num() as usize)
+                .verify(&params)
                 .map_err(anyhow::Error::from)
         }
     };
