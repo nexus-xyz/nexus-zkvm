@@ -9,8 +9,8 @@ use nexus_core::nvm::NexusVM;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
 
-pub use nexus_core::prover::nova::types::{IVCProof as Proof, SeqPP as PP};
 pub use nexus_core::prover::nova::error::ProofError as Error;
+pub use nexus_core::prover::nova::types::{IVCProof as Proof, SeqPP as PP};
 
 use std::marker::PhantomData;
 

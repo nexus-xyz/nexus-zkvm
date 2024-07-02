@@ -1,4 +1,7 @@
-use nexus_sdk::{nova::seq::{Nova, Proof, PP}, Parameters, Prover, Local};
+use nexus_sdk::{
+    nova::seq::{Nova, Proof, PP},
+    Local, Parameters, Prover,
+};
 
 const EXAMPLE_NAME: &str = "private_input";
 
@@ -8,7 +11,6 @@ const TARGET_PATH: &str = concat!(
 );
 
 fn main() {
-
     let path = std::path::Path::new(TARGET_PATH).join(EXAMPLE_NAME);
     if !path.try_exists().is_ok() {
         panic!(
@@ -19,22 +21,20 @@ fn main() {
     }
 
     println!("Setting up Nova public parameters...");
-    let pp: PP = PP::generate()
-        .expect("failed to generate parameters");
+    let pp: PP = PP::generate().expect("failed to generate parameters");
 
     // defaults to local proving
-    let prover: Nova<Local> = Nova::new_from_file(&path)
-        .expect("failed to load program");
+    let prover: Nova<Local> = Nova::new_from_file(&path).expect("failed to load program");
 
     let input: u8 = 0x06;
 
     println!("Proving execution of vm...");
-    let proof: Proof = prover.prove::<u8>(&pp, Some(input))
+    let proof: Proof = prover
+        .prove::<u8>(&pp, Some(input))
         .expect("failed to prove program");
 
     print!("Verifying execution...");
-    proof.verify(&pp)
-        .expect("failed to verify proof");
+    proof.verify(&pp).expect("failed to verify proof");
 
     println!("  Succeeded!");
 }

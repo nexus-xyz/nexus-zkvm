@@ -17,12 +17,10 @@ pub trait Prover {
     where
         Self: Sized;
 
-    fn new_from_file(
-        path: &PathBuf
-    ) -> Result<Self, Self::Error>
+    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error>
     where
         Self: Sized,
-        Self::Error: From<std::io::Error>
+        Self::Error: From<std::io::Error>,
     {
         Self::new(&fs::read(path)?)
     }
