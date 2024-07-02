@@ -1,48 +1,43 @@
-use std::path::Path;
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
-pub(crate) trait ExecutionState {}
-pub(crate) trait Compute {}
+pub trait Compute {}
+
+pub enum Local {}
+impl Compute for Local {}
 
 pub trait Prover {
     type Memory;
-    type Params;
-    type Proof;
+    type Params: Parameterized;
+    type Proof: Verifiable;
     type Error;
+
+    fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> where Self: Sized;
+
+    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error> where Self: Sized;
+
+    fn run<T>(self, input: Option<T>) -> Result<(), Self::Error>
+    where
+        T: Serialize + Sized;
+
+    fn prove<T>(self, pp: &Self::Params, input: Option<T>) -> Result<Self::Proof, Self::Error>
+    where
+        T: Serialize + Sized;
 }
 
-pub trait Configurable {
-    type Memory;
+pub trait Parameterized {
     type Error;
 
-    fn new(elf_bytes: &[u8]) -> Self;
-    fn new_from_file(path: AsRef<Path>) -> Self;
-}
+    fn generate() -> Result<Self, Self::Error> where Self: Sized;
 
-pub trait Executable {
-    type Memory;
-    type Error;
+    fn load(path: &PathBuf) -> Result<Self, Self::Error> where Self: Sized;
 
-    fn trace<T>(self, input: Option<T>) -> Self;
-}
-
-pub trait Provable {
-    type Memory;
-    type Params;
-    type Proof;
-    type Error;
-
-    fn prove<T>(self, pp: &Self::Params, input: Option<T>) -> Result<Self::Proof, Self::Error>;
+    fn save(pp: &Self, path: &PathBuf) -> Result<(), Self::Error>;
 }
 
 pub trait Verifiable {
-    type Params;
+    type Params: Parameterized;
     type Error;
 
-    fn gen_pp() -> Result<Self::Params, Self::Error>;
-
-    fn load_pp(path: AsRef<Path>) -> Result<Self::Params, Self::Error>;
-
-    fn save_pp(pp: &Self::Params, path: AsRef<Path>) -> Result<(), Self::Error>;
-
-    fn verify(&self) -> Result<(), Self::Error>;
+    fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error>;
 }
