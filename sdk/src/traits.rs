@@ -30,7 +30,6 @@ pub trait Prover {
         Self: Sized,
         Self::Error: From<std::io::Error>,
     {
-        
     }
 
     fn run<T>(self, input: Option<T>) -> Result<(), Self::Error>

@@ -19,7 +19,6 @@ pub struct Syscalls {
 }
 
 impl Syscalls {
-
     pub fn enable_stdout(&mut self) {
         self.to_stdout = true;
     }

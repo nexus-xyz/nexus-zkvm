@@ -234,9 +234,7 @@ fn verify_proof(
             let proof = IVCProof::deserialize_compressed(reader)?;
 
             _guard = ctx.display_step();
-            proof
-                .verify(&params)
-                .map_err(anyhow::Error::from)
+            proof.verify(&params).map_err(anyhow::Error::from)
         }
     };
 
