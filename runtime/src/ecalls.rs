@@ -64,7 +64,7 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => {
-        $nexus_rt::print!("\n")
+        nexus_rt::print!("\n")
     };
     ($($as:tt)*) => {
         <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
@@ -78,6 +78,7 @@ macro_rules! println {
 #[cfg(not(target_arch = "riscv32"))]
 pub use std::{print, println};
 
+/// Read a byte from the private input tape
 #[cfg(not(target_arch = "riscv32"))]
 pub fn read_from_private_input() -> Option<u8> {
     panic!("private input is not available outside of NexusVM")
