@@ -26,7 +26,7 @@ impl Default for CompileOpts {
             linker_path: None,
             debug: false,
             native: false,
-            source_path: PathBuf::default(),
+            source_path: None,
             memlimit: Some(4),
             prover: ForProver::default(),
         }
@@ -86,6 +86,8 @@ impl CompileOpts {
     }
 
     fn build(&mut self) -> Result<PathBuf, Error> {
+        // error if no source path
+
         self.set_linker();
 
         let rust_flags = [
