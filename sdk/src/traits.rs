@@ -28,9 +28,7 @@ pub trait Prover {
     fn compile_to_new(opts: &CompileOpts) -> Result<Self, Self::Error>
     where
         Self: Sized,
-        Self::Error: From<std::io::Error>,
-    {
-    }
+        Self::Error: From<std::io::Error>;
 
     fn run<T>(self, input: Option<T>) -> Result<(), Self::Error>
     where

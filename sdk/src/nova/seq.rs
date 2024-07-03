@@ -35,6 +35,17 @@ impl Prover for Nova<Local> {
         })
     }
 
+    fn compile_to_new(opts: &CompileOpts) -> Result<Self, Self::Error> {
+        let iopts = opts.to_owned();
+
+        // if the user has not set the memory limit, default to 4mb
+        if iopts.memlimit.is_none() {
+            iopts.memlimit(4);
+        }
+
+        iopts.build()?;
+    }
+
     fn run<T>(mut self, input: Option<T>) -> Result<(), Self::Error>
     where
         T: Serialize + Sized,

@@ -18,40 +18,37 @@ pub struct CompileOpts {
     prover: ForProver,
 }
 
-impl Default for CompileOpts {
+impl CompileOpts {
 
-    fn default() -> Self {
+    pub fn new() -> Self {
         Self {
             id: Uuid::new_v4(),
             linker_path: None,
             debug: false,
             native: false,
             source_path: None,
-            memlimit: Some(4),
+            memlimit: None,
             prover: ForProver::default(),
         }
     }
-}
 
-impl CompileOpts {
-
-    fn debug(&mut self, debug: bool) -> () {
+    pub fn debug(&mut self, debug: bool) -> () {
         self.debug = true;
     };
 
-    fn native(&mut self, native: bool) -> () {
+    pub fn native(&mut self, native: bool) -> () {
         self.native = true;
     };
 
-    fn source_path(&mut self, source_path: PathBuf) -> () {
+    pub fn source_path(&mut self, source_path: PathBuf) -> () {
         self.source_path = Some(source_path);
     };
 
-    fn memlimit(&mut self, memlimit: usize) -> () {
+    pub fn memlimit(&mut self, memlimit: usize) -> () {
         self.memlimit = Some(memlimit);
     }
 
-    fn prover(&mut self, prover: ForProver) -> () {
+    pub fn prover(&mut self, prover: ForProver) -> () {
         self.prover = Some(prover);
     }
 
@@ -85,7 +82,7 @@ impl CompileOpts {
         file.write_all(linker_script.as_bytes())?;
     }
 
-    fn build(&mut self) -> Result<PathBuf, Error> {
+    pub(crate) fn build(&mut self) -> Result<PathBuf, Error> {
         // error if no source path
 
         self.set_linker();
