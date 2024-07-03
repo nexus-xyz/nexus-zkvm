@@ -1,4 +1,5 @@
 use std::env;
+use uuid::Uuid;
 
 #[derive(Default)]
 pub enum ForProver {
@@ -8,27 +9,54 @@ pub enum ForProver {
 }
 
 pub struct CompileOpts {
-    pub source: PathBuf,
-    pub memlimit: Option<usize>, // in mb
-    pub for_prover: ForProver,
+    id: Uuid,
+    linker_path: Option<PathBuf>,
+    debug: bool,
+    native: bool,
+    source_path: Option<PathBuf>,
+    memlimit: Option<usize>, // in mb
+    prover: ForProver,
 }
 
 impl Default for CompileOpts {
 
     fn default() -> Self {
         Self {
-            source: PathBuf::default(),
+            id: Uuid::new_v4(),
+            linker_path: None,
+            debug: false,
+            native: false,
+            source_path: PathBuf::default(),
             memlimit: Some(4),
-            for_prover: ForProver::default(),
+            prover: ForProver::default(),
         }
     }
 }
 
 impl CompileOpts {
 
-    fn set_linker(&self) -> Result<> {
+    fn debug(&mut self, debug: bool) -> () {
+        self.debug = true;
+    };
 
-        let linker_script_header = match self.for_prover {
+    fn native(&mut self, native: bool) -> () {
+        self.native = true;
+    };
+
+    fn source_path(&mut self, source_path: PathBuf) -> () {
+        self.source_path = Some(source_path);
+    };
+
+    fn memlimit(&mut self, memlimit: usize) -> () {
+        self.memlimit = Some(memlimit);
+    }
+
+    fn prover(&mut self, prover: ForProver) -> () {
+        self.prover = Some(prover);
+    }
+
+    fn set_linker(&mut self) -> Result<(), Error> {
+        let linker_script_header = match self.prover {
             Jolt => {
                 if self.memlimit.is_none() {
                     return JOLT_HEADER;
@@ -47,9 +75,46 @@ impl CompileOpts {
 
         let linker_script = LINKER_SCRIPT_TEMPLATE.replace("HEADER", linker_script_header);
 
-        // write it out
+        self.linker_path = PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", self.id.to_string()))?;
+
+        if let Some(parent) = self.linker_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let mut file = File::create(self.linker_path)?;
+        file.write_all(linker_script.as_bytes())?;
     }
 
+    fn build(&mut self) -> Result<PathBuf, Error> {
+        self.set_linker();
+
+        let rust_flags = [
+            "-C",
+            &format!("link-arg=-T{}", self.linker_path),
+            "-C",
+            "panic=abort",
+        ];
+
+        let target = "riscv32i-unknown-none-elf";
+        let profile = if self.debug { "debug" } else { "release-unoptimized" };
+
+        let output = Command::new("cargo")
+            .args([
+                "build",
+                "--target=riscv32i-unknown-none-elf",
+                "--profile",
+                profile,
+            ])
+            .output()?;
+
+        if !output.status.success() {
+            io::stderr().write_all(&output.stderr)?;
+        }
+
+        let elf_path = format!("{}/{}/release/guest", target, toolchain);
+
+        elf_path
+    }
 }
 
 const LINKER_SCRIPT_TEMPLATE: &str = r#"

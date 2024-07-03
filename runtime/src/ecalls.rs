@@ -33,6 +33,12 @@ mod riscv32 {
         } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
     }
 
+    /// Write a slice to the output tape
+    pub fn write_to_output(b: &[u8]) {
+        let mut _out: u32;
+        ecall!(3, b.as_ptr(), b.len, _out);
+    }
+
     /// An empty type representing the VM terminal
     pub struct NexusLog;
 

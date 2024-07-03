@@ -15,6 +15,7 @@ pub struct Syscalls {
     to_stdout: bool,
     output_buffer: Vec<u8>,
     input: VecDeque<u8>,
+    output: Vec<u8>,
 }
 
 impl Syscalls {
@@ -29,6 +30,10 @@ impl Syscalls {
 
     pub fn set_input(&mut self, slice: &[u8]) {
         self.input = slice.to_owned().into();
+    }
+
+    pub fn get_output(&mut self, slice: &[u8]) {
+        self.output
     }
 
     pub fn syscall(&mut self, pc: u32, regs: [u32; 32], memory: &impl Memory) -> Result<u32> {
@@ -57,6 +62,12 @@ impl Syscalls {
             match self.input.pop_front() {
                 Some(b) => ret = b as u32,
                 None => ret = u32::MAX, // out of range of possible u8 inputs
+            }
+        } else if num == 3 {
+            // write_to_output
+            for addr in inp1..inp1 + inp2 {
+                let b = memory.load(LOP::LBU, addr)?.0;
+                self.output.push(b as u8);
             }
         } else {
             return Err(UnknownECall(pc, num));
