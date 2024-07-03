@@ -50,8 +50,7 @@ The Nexus zkVM (zero-knowledge virtual machine) is a modular, extensible, open-s
 The Nexus zkVM can prove any computation. For a Rust program:
 
 ```rust
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
 fn fib(n: u32) -> u32 {
     match n {

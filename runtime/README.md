@@ -53,8 +53,7 @@ simple way to make proving more efficient.
 Finally, a minimal `main.rs` file may look like:
 
 ```rust
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
 #[nexus_rt::main]
 fn main() {}

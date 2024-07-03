@@ -5,6 +5,11 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
+    let target = env::var("TARGET").unwrap();
+    if !target.starts_with("riscv32i-") && !target.starts_with("riscv32imc-") {
+        return;
+    }
+
     // START dynamic linker script hack
     const PROVER_ENV: &str = "NEXUS_VM_PROVER";
     println!("cargo:rerun-if-env-changed={PROVER_ENV}");
@@ -17,13 +22,8 @@ fn main() {
 
     // END hack
 
-    let target = env::var("TARGET").unwrap();
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let name = env::var("CARGO_PKG_NAME").unwrap();
-
-    if !target.starts_with("riscv32i-") && !target.starts_with("riscv32imc-") {
-        panic!("Unsupported target: {}", target);
-    }
 
     let archive = format!("bin/{}.a", target);
     eprintln!("{}", archive);

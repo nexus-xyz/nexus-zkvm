@@ -67,7 +67,12 @@ macro_rules! examples_dir {
     };
 }
 
-const TEMPLATE_CARGO_CONFIG: &str = include_str!(concat!(examples_dir!(), "/.cargo/config.toml"));
+const TEMPLATE_CARGO_CONFIG: &str = r#"[target.riscv32i-unknown-none-elf]
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+]
+runner="nexus-run"
+"#;
 const TEMPLATE_SRC_MAIN: &str = include_str!(concat!(examples_dir!(), "/src/main.rs"));
 
 // freeze toolchain that works with all provers

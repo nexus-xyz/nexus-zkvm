@@ -1,7 +1,6 @@
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
-use nexus_rt::{println, Write};
+use nexus_rt::println;
 
 fn fib(n: u32) -> u32 {
     match n {

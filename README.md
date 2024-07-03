@@ -72,8 +72,7 @@ This will create a new Rust project directory with the following structure:
 As an example, you can change the content of `./src/main.rs` to:
 
 ```rust
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
 fn fib(n: u32) -> u32 {
     match n {
