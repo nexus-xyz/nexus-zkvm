@@ -43,7 +43,7 @@ impl Prover for Nova<Local> {
             iopts.memlimit(4);
         }
 
-        iopts.build(compile::ForProver::Default)?;
+        compile::CompileOpts::build(iopts, compile::ForProver::Default)?;
     }
 
     fn run<T>(mut self, input: Option<T>) -> Result<(), Self::Error>

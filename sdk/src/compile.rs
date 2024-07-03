@@ -60,11 +60,11 @@ impl CompileOpts {
 
         let linker_path = PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string()))?;
 
-        if let Some(parent) = self.linker_path.parent() {
+        if let Some(parent) = linker_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let mut file = File::create(self.linker_path)?;
+        let mut file = File::create(linker_path)?;
         file.write_all(linker_script.as_bytes())?;
 
         linker_path
