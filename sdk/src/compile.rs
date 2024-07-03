@@ -9,51 +9,37 @@ pub enum ForProver {
 }
 
 pub struct CompileOpts {
-    id: Uuid,
-    linker_path: Option<PathBuf>,
     debug: bool,
     native: bool,
-    source_path: Option<PathBuf>,
+    source_path: PathBuf,
     memlimit: Option<usize>, // in mb
-    prover: ForProver,
 }
 
 impl CompileOpts {
 
-    pub fn new() -> Self {
+    pub fn new(source_path: PathBuf) -> Self {
         Self {
-            id: Uuid::new_v4(),
-            linker_path: None,
             debug: false,
             native: false,
-            source_path: None,
+            source_path,
             memlimit: None,
-            prover: ForProver::default(),
         }
     }
 
-    pub fn debug(&mut self, debug: bool) -> () {
+    pub fn set_debug(&mut self, debug: bool) -> () {
         self.debug = true;
     };
 
-    pub fn native(&mut self, native: bool) -> () {
+    pub fn set_native(&mut self, native: bool) -> () {
         self.native = true;
     };
 
-    pub fn source_path(&mut self, source_path: PathBuf) -> () {
-        self.source_path = Some(source_path);
-    };
-
-    pub fn memlimit(&mut self, memlimit: usize) -> () {
+    pub fn set_memlimit(&mut self, memlimit: usize) -> () {
         self.memlimit = Some(memlimit);
     }
 
-    pub fn prover(&mut self, prover: ForProver) -> () {
-        self.prover = Some(prover);
-    }
-
-    fn set_linker(&mut self) -> Result<(), Error> {
-        let linker_script_header = match self.prover {
+    fn set_linker(&mut self, id: &Uuid, prover: &ForProver) -> Result<PathBuf, Error> {
+        let linker_script_header = match prover {
             Jolt => {
                 if self.memlimit.is_none() {
                     return JOLT_HEADER;
@@ -70,9 +56,9 @@ impl CompileOpts {
             },
         }
 
-        let linker_script = LINKER_SCRIPT_TEMPLATE.replace("HEADER", linker_script_header);
+        let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", linker_script_header);
 
-        self.linker_path = PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", self.id.to_string()))?;
+        let linker_path = PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string()))?;
 
         if let Some(parent) = self.linker_path.parent() {
             fs::create_dir_all(parent)?;
@@ -80,27 +66,32 @@ impl CompileOpts {
 
         let mut file = File::create(self.linker_path)?;
         file.write_all(linker_script.as_bytes())?;
+
+        linker_path
     }
 
-    pub(crate) fn build(&mut self) -> Result<PathBuf, Error> {
+    pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, Error> {
         // error if no source path
 
-        self.set_linker();
+        let uuid = Uuid::new_v4();
+
+        let linker_path = self.set_linker(uuid, prover);
 
         let rust_flags = [
             "-C",
-            &format!("link-arg=-T{}", self.linker_path),
+            &format!("link-arg=-T{}", linker_path),
             "-C",
             "panic=abort",
         ];
 
-        let target = "riscv32i-unknown-none-elf";
+        let target = if self.native { "native" } else { "riscv32i-unknown-none-elf" };
         let profile = if self.debug { "debug" } else { "release-unoptimized" };
 
         let output = Command::new("cargo")
             .args([
                 "build",
-                "--target=riscv32i-unknown-none-elf",
+                "--target",
+                target,
                 "--profile",
                 profile,
             ])
@@ -110,8 +101,7 @@ impl CompileOpts {
             io::stderr().write_all(&output.stderr)?;
         }
 
-        let elf_path = format!("{}/{}/release/guest", target, toolchain);
-
+        let elf_path = format!("target/{}/{}/{}", target, profile, uuid.to_string());
         elf_path
     }
 }
