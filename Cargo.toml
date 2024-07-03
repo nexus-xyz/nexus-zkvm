@@ -10,7 +10,6 @@ members = [
     "config/serde_wrapper",
     "network",
     "network/rpc/common",
-    "network/rpc/server",
     "network/rpc/traits",
     "nova",
     "spartan",

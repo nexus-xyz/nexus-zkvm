@@ -4,8 +4,6 @@ use serde::{Deserialize, Deserializer};
 
 use super::Config;
 
-pub mod rpc;
-
 #[derive(serde_wrapper::Deserialize)]
 pub struct NetworkConfig {
     pub api: ApiConfig,
