@@ -1,4 +1,3 @@
-use std::env;
 use std::fs;
 use std::io;
 use std::io::Write;
@@ -14,13 +13,6 @@ pub enum ForProver {
     Jolt,
 }
 
-pub struct CompileOpts {
-    pub(crate) debug: bool,
-    pub(crate) native: bool,
-    pub source_path: PathBuf,
-    pub(crate) memlimit: Option<usize>, // in mb
-}
-
 #[derive(Debug)]
 pub enum BuildError {
     /// The compile options are invalid
@@ -31,6 +23,19 @@ pub enum BuildError {
 
     /// The compilation process failed
     CompilerError,
+}
+
+impl From<std::io::Error> for BuildError {
+    fn from(x: std::io::Error) -> BuildError {
+        BuildError::IOError(x)
+    }
+}
+
+pub struct CompileOpts {
+    pub(crate) debug: bool,
+    pub(crate) native: bool,
+    pub source_path: PathBuf,
+    pub(crate) memlimit: Option<usize>, // in mb
 }
 
 impl CompileOpts {
@@ -95,11 +100,11 @@ impl CompileOpts {
 
     pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let uuid = Uuid::new_v4();
-        let linker_path = self.set_linker(&uuid, prover);
+        let linker_path = self.set_linker(&uuid, prover)?;
 
         let rust_flags = [
             "-C",
-            &format!("link-arg=-T{}", linker_path),
+            &format!("link-arg=-T{}", linker_path.display()),
             "-C",
             "panic=abort",
         ];

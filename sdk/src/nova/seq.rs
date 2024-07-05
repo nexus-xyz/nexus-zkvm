@@ -4,7 +4,7 @@ use crate::traits::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use nexus_core::nvm::interactive::{eval, load_elf, parse_elf, trace};
+use nexus_core::nvm::interactive::{eval, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
 use nexus_core::nvm::NexusVM;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
