@@ -156,13 +156,8 @@ impl CompileOpts {
             return Err(BuildError::CompilerError);
         }
 
-        let elf_path = PathBuf::from_str(&format!(
-            "target/{}/{}/{}",
-            target,
-            profile,
-            uuid,
-        ))
-        .unwrap();
+        let elf_path =
+            PathBuf::from_str(&format!("target/{}/{}/{}", target, profile, uuid,)).unwrap();
 
         Ok(elf_path)
     }
