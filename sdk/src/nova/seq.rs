@@ -10,6 +10,7 @@ use nexus_core::nvm::NexusVM;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
 
+// re-exports
 pub use nexus_core::prover::nova::error::ProofError as Error;
 pub use nexus_core::prover::nova::types::{IVCProof as Proof, SeqPP as PP};
 
@@ -36,17 +37,16 @@ impl Prover for Nova<Local> {
         })
     }
 
-    fn compile_to_new(opts: &compile::CompileOpts) -> Result<Self, Self::Error> {
-        let iopts = opts.to_owned();
+    fn compile(opts: &compile::CompileOpts) -> Result<PathBuf, compile::BuildError> {
+        let mut iopts = opts.to_owned();
 
         // if the user has not set the memory limit, default to 4mb
         if iopts.memlimit.is_none() {
             iopts.set_memlimit(4);
         }
 
-        let elf_path = compile::CompileOpts::build(&mut iopts, &compile::ForProver::Default)?;
-
-        Self::new_from_file(&elf_path)
+        let elf_path = iopts.build(&compile::ForProver::Default)?;
+        Ok(elf_path)
     }
 
     fn run<'a, T, U>(mut self, input: Option<T>) -> Result<(), Self::Error>

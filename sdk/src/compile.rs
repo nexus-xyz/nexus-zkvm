@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
+use std::fmt::Display;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -15,8 +16,8 @@ pub enum ForProver {
 
 #[derive(Debug)]
 pub enum BuildError {
-    /// The compile options are invalid
-    ConfigError,
+    /// The compile options are invalid for the memory limit
+    MemoryConfigurationError,
 
     /// An error occured reading file system
     IOError(std::io::Error),
@@ -31,6 +32,17 @@ impl From<std::io::Error> for BuildError {
     }
 }
 
+impl Display for BuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MemoryConfigurationError => write!(f, "invalid memory configuration for selected prover"),
+            Self::IOError(error) => write!(f, "{}", error),
+            Self::CompilerError => write!(f, "unable to compile using rustc"),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct CompileOpts {
     pub(crate) debug: bool,
     pub(crate) native: bool,
@@ -49,11 +61,11 @@ impl CompileOpts {
     }
 
     pub fn set_debug(&mut self, debug: bool) -> () {
-        self.debug = true;
+        self.debug = debug;
     }
 
     pub fn set_native(&mut self, native: bool) -> () {
-        self.native = true;
+        self.native = native;
     }
 
     pub fn set_memlimit(&mut self, memlimit: usize) -> () {
@@ -62,19 +74,19 @@ impl CompileOpts {
 
     fn set_linker(&mut self, id: &Uuid, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let linker_script_header = match prover {
-            Jolt => {
+            ForProver::Jolt => {
                 if self.memlimit.is_some() {
-                    return Err(BuildError::ConfigError);
+                    return Err(BuildError::MemoryConfigurationError);
                 }
 
-                JOLT_HEADER
+                JOLT_HEADER.into()
             }
-            Default => {
+            ForProver::Default => {
                 if self.memlimit.is_none() {
-                    return Err(BuildError::ConfigError);
+                    return Err(BuildError::MemoryConfigurationError);
                 }
 
-                &DEFAULT_HEADER.replace(
+                DEFAULT_HEADER.replace(
                     "{MEMORY_SIZE}",
                     &(self.memlimit.unwrap() as u32)
                         .saturating_mul(0x100000)
@@ -83,7 +95,7 @@ impl CompileOpts {
             }
         };
 
-        let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", linker_script_header);
+        let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", &linker_script_header);
 
         let linker_path =
             PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string())).unwrap();
@@ -92,7 +104,7 @@ impl CompileOpts {
             fs::create_dir_all(parent)?;
         }
 
-        let mut file = fs::File::create(linker_path)?;
+        let mut file = fs::File::create(linker_path.clone())?;
         file.write_all(linker_script.as_bytes())?;
 
         Ok(linker_path)
@@ -120,7 +132,7 @@ impl CompileOpts {
             "release-unoptimized"
         };
 
-        let mut envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
+        let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
 
         let dest = format!("/tmp/nexus-target-{}", uuid.to_string(),);
 

@@ -27,7 +27,7 @@ pub trait Prover {
         Self::new(&fs::read(path)?)
     }
 
-    fn compile_to_new(opts: &CompileOpts) -> Result<Self, Self::Error>
+    fn compile(opts: &CompileOpts) -> Result<PathBuf, BuildError>
     where
         Self: Sized,
         Self::Error: From<std::io::Error>;
