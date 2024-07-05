@@ -1,5 +1,5 @@
-use crate::traits::*;
 use crate::compile;
+use crate::traits::*;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -41,10 +41,10 @@ impl Prover for Nova<Local> {
 
         // if the user has not set the memory limit, default to 4mb
         if iopts.memlimit.is_none() {
-            iopts.memlimit(4);
+            iopts.set_memlimit(4);
         }
 
-        compile::CompileOpts::build(iopts, compile::ForProver::Default)?;
+        compile::CompileOpts::build(&mut iopts, &compile::ForProver::Default)?;
     }
 
     fn run<T>(mut self, input: Option<T>) -> Result<(), Self::Error>

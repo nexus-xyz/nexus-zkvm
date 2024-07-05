@@ -1,9 +1,10 @@
-use std::io;
-use std::io::Write;
 use std::env;
 use std::fs;
+use std::io;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
+use std::str::FromStr;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -14,10 +15,10 @@ pub enum ForProver {
 }
 
 pub struct CompileOpts {
-    debug: bool,
-    native: bool,
-    source_path: PathBuf,
-    memlimit: Option<usize>, // in mb
+    pub(crate) debug: bool,
+    pub(crate) native: bool,
+    pub source_path: PathBuf,
+    pub(crate) memlimit: Option<usize>, // in mb
 }
 
 #[derive(Debug)]
@@ -33,7 +34,6 @@ pub enum BuildError {
 }
 
 impl CompileOpts {
-
     pub fn new(source_path: PathBuf) -> Self {
         Self {
             debug: false,
@@ -58,24 +58,30 @@ impl CompileOpts {
     fn set_linker(&mut self, id: &Uuid, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let linker_script_header = match prover {
             Jolt => {
-                if self.memlimit.is_none() {
-                    return JOLT_HEADER;
+                if self.memlimit.is_some() {
+                    return Err(BuildError::ConfigError);
                 }
 
-                return Err(BuildError::ConfigError);
-            },
+                JOLT_HEADER;
+            }
             Default => {
-                if let Some(memlimit) = self.memlimit {
-                    return DEFAULT_HEADER.replace("{MEMORY_SIZE}", memlimit.saturating_mul(0x100000 as u32).to_string())
+                if self.memlimit.is_none() {
+                    return Err(BuildError::ConfigError);
                 }
 
-                return Err(BuildError::ConfigError);
-            },
+                DEFAULT_HEADER.replace(
+                    "{MEMORY_SIZE}",
+                    &(self.memlimit.unwrap() as u32)
+                        .saturating_mul(0x100000)
+                        .to_string(),
+                )
+            }
         };
 
         let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", linker_script_header);
 
-        let linker_path = PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string()))?;
+        let linker_path =
+            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string()))?;
 
         if let Some(parent) = linker_path.parent() {
             fs::create_dir_all(parent)?;
@@ -98,17 +104,20 @@ impl CompileOpts {
             "panic=abort",
         ];
 
-        let target = if self.native { "native" } else { "riscv32i-unknown-none-elf" };
-        let profile = if self.debug { "debug" } else { "release-unoptimized" };
+        let target = if self.native {
+            "native"
+        } else {
+            "riscv32i-unknown-none-elf"
+        };
+        let profile = if self.debug {
+            "debug"
+        } else {
+            "release-unoptimized"
+        };
 
-        let mut envs = vec![
-            ("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f")),
-        ];
+        let mut envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
 
-        let dest = format!(
-            "/tmp/nexus-target-{}",
-            uuid.to_string(),
-        );
+        let dest = format!("/tmp/nexus-target-{}", uuid.to_string(),);
 
         let output = Command::new("cargo")
             .envs(envs)
@@ -128,7 +137,12 @@ impl CompileOpts {
             return Err(BuildError::CompileError);
         }
 
-        let elf_path = format!("target/{}/{}/{}", target, profile, uuid.to_string());
+        let elf_path = PathBuf::from_str(&format!(
+            "target/{}/{}/{}",
+            target,
+            profile,
+            uuid.to_string()
+        ));
         elf_path
     }
 }
