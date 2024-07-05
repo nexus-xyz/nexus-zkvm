@@ -2,7 +2,7 @@ use crate::compile;
 use crate::traits::*;
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use nexus_core::nvm::interactive::{eval, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
@@ -98,11 +98,11 @@ impl Parameters for PP {
         gen_vm_pp(K, &())
     }
 
-    fn load(path: &PathBuf) -> Result<Self, Self::Error> {
+    fn load(path: &Path) -> Result<Self, Self::Error> {
         load_pp(path.to_str().unwrap())
     }
 
-    fn save(pp: &Self, path: &PathBuf) -> Result<(), Self::Error> {
+    fn save(pp: &Self, path: &Path) -> Result<(), Self::Error> {
         save_pp(pp, path.to_str().unwrap())
     }
 }

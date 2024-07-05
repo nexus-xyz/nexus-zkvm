@@ -225,7 +225,7 @@ mod tests {
         let params = SeqPP::setup(ro_config, &circuit, &(), &())?;
 
         let proof = prove_seq(&params, trace)?;
-        assert!(proof.verify(&params, proof.step_num() as _).is_ok());
+        assert!(proof.verify(&params).is_ok());
 
         Ok(())
     }

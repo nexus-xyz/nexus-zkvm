@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::compile::*;
 
@@ -54,11 +54,11 @@ pub trait Parameters {
     where
         Self: Sized;
 
-    fn load(path: &PathBuf) -> Result<Self, Self::Error>
+    fn load(path: &Path) -> Result<Self, Self::Error>
     where
         Self: Sized;
 
-    fn save(pp: &Self, path: &PathBuf) -> Result<(), Self::Error>;
+    fn save(pp: &Self, path: &Path) -> Result<(), Self::Error>;
 }
 
 pub trait Verifiable {

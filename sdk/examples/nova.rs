@@ -12,7 +12,7 @@ const TARGET_PATH: &str = concat!(
 
 fn main() {
     let path = std::path::Path::new(TARGET_PATH).join(EXAMPLE_NAME);
-    if !path.try_exists().is_ok() {
+    if path.try_exists().is_err() {
         panic!(
             "{}{} was not found, make sure to compile the program \
              with `cd examples && cargo build --release --bin {}`",
@@ -30,7 +30,7 @@ fn main() {
 
     println!("Proving execution of vm...");
     let proof: Proof = prover
-        .prove::<u8>(&pp, Some(input))
+        .prove::<u8, ()>(&pp, Some(input))
         .expect("failed to prove program");
 
     print!("Verifying execution...");

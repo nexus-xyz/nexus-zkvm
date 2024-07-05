@@ -461,7 +461,6 @@ pub(crate) mod tests {
 
         let circuit = CubicCircuit::<G1::ScalarField>(PhantomData);
         let z_0 = vec![G1::ScalarField::ONE];
-        let num_steps = 1;
 
         let params = PublicParams::<
             G1,
@@ -474,7 +473,7 @@ pub(crate) mod tests {
 
         let mut recursive_snark = IVCProof::new(&z_0);
         recursive_snark = recursive_snark.prove_step(&params, &circuit)?;
-        recursive_snark.verify(&params, num_steps).unwrap();
+        recursive_snark.verify(&params).unwrap();
 
         assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(7));
 
@@ -529,7 +528,7 @@ pub(crate) mod tests {
         for _ in 0..num_steps {
             recursive_snark = IVCProof::prove_step(recursive_snark, &params, &circuit)?;
         }
-        recursive_snark.verify(&params, num_steps).unwrap();
+        recursive_snark.verify(&params).unwrap();
 
         assert_eq!(&recursive_snark.z_i()[0], &G1::ScalarField::from(44739235));
         Ok(())

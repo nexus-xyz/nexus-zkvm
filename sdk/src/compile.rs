@@ -17,7 +17,7 @@ pub enum ForProver {
 #[derive(Debug)]
 pub enum BuildError {
     /// The compile options are invalid for the memory limit
-    MemoryConfigurationError,
+    InvalidMemoryConfiguration,
 
     /// An error occured reading file system
     IOError(std::io::Error),
@@ -35,7 +35,7 @@ impl From<std::io::Error> for BuildError {
 impl Display for BuildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MemoryConfigurationError => {
+            Self::InvalidMemoryConfiguration => {
                 write!(f, "invalid memory configuration for selected prover")
             }
             Self::IOError(error) => write!(f, "{}", error),
@@ -62,15 +62,15 @@ impl CompileOpts {
         }
     }
 
-    pub fn set_debug(&mut self, debug: bool) -> () {
+    pub fn set_debug(&mut self, debug: bool) {
         self.debug = debug;
     }
 
-    pub fn set_native(&mut self, native: bool) -> () {
+    pub fn set_native(&mut self, native: bool) {
         self.native = native;
     }
 
-    pub fn set_memlimit(&mut self, memlimit: usize) -> () {
+    pub fn set_memlimit(&mut self, memlimit: usize) {
         self.memlimit = Some(memlimit);
     }
 
@@ -78,14 +78,14 @@ impl CompileOpts {
         let linker_script_header = match prover {
             ForProver::Jolt => {
                 if self.memlimit.is_some() {
-                    return Err(BuildError::MemoryConfigurationError);
+                    return Err(BuildError::InvalidMemoryConfiguration);
                 }
 
                 JOLT_HEADER.into()
             }
             ForProver::Default => {
                 if self.memlimit.is_none() {
-                    return Err(BuildError::MemoryConfigurationError);
+                    return Err(BuildError::InvalidMemoryConfiguration);
                 }
 
                 DEFAULT_HEADER.replace(
@@ -100,7 +100,7 @@ impl CompileOpts {
         let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", &linker_script_header);
 
         let linker_path =
-            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string())).unwrap();
+            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id)).unwrap();
 
         if let Some(parent) = linker_path.parent() {
             fs::create_dir_all(parent)?;
@@ -136,7 +136,7 @@ impl CompileOpts {
 
         let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
 
-        let dest = format!("/tmp/nexus-target-{}", uuid.to_string(),);
+        let dest = format!("/tmp/nexus-target-{}", uuid);
 
         let output = Command::new("cargo")
             .envs(envs)
@@ -160,7 +160,7 @@ impl CompileOpts {
             "target/{}/{}/{}",
             target,
             profile,
-            uuid.to_string()
+            uuid,
         ))
         .unwrap();
 
