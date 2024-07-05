@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::compile::*;
+
 pub trait Compute {}
 
 pub enum Local {}

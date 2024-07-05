@@ -1,4 +1,5 @@
 use crate::traits::*;
+use crate::compile;
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -35,7 +36,7 @@ impl Prover for Nova<Local> {
         })
     }
 
-    fn compile_to_new(opts: &CompileOpts) -> Result<Self, Self::Error> {
+    fn compile_to_new(opts: &compile::CompileOpts) -> Result<Self, Self::Error> {
         let iopts = opts.to_owned();
 
         // if the user has not set the memory limit, default to 4mb

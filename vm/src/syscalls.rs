@@ -31,8 +31,8 @@ impl Syscalls {
         self.input = slice.to_owned().into();
     }
 
-    pub fn get_output(&mut self, slice: &[u8]) {
-        self.output
+    pub fn get_output(&mut self) -> Vec<u8> {
+        self.output.clone()
     }
 
     pub fn syscall(&mut self, pc: u32, regs: [u32; 32], memory: &impl Memory) -> Result<u32> {

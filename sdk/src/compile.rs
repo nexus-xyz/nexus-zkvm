@@ -1,4 +1,9 @@
+use std::io;
+use std::io::Write;
 use std::env;
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -15,7 +20,7 @@ pub struct CompileOpts {
     memlimit: Option<usize>, // in mb
 }
 
-#[derie(Debug)]
+#[derive(Debug)]
 pub enum BuildError {
     /// The compile options are invalid
     ConfigError,
@@ -40,11 +45,11 @@ impl CompileOpts {
 
     pub fn set_debug(&mut self, debug: bool) -> () {
         self.debug = true;
-    };
+    }
 
     pub fn set_native(&mut self, native: bool) -> () {
         self.native = true;
-    };
+    }
 
     pub fn set_memlimit(&mut self, memlimit: usize) -> () {
         self.memlimit = Some(memlimit);
@@ -66,7 +71,7 @@ impl CompileOpts {
 
                 return Err(BuildError::ConfigError);
             },
-        }
+        };
 
         let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", linker_script_header);
 
@@ -76,7 +81,7 @@ impl CompileOpts {
             fs::create_dir_all(parent)?;
         }
 
-        let mut file = File::create(linker_path)?;
+        let mut file = fs::File::create(linker_path)?;
         file.write_all(linker_script.as_bytes())?;
 
         linker_path
@@ -110,7 +115,7 @@ impl CompileOpts {
             .args([
                 "build",
                 "--target-dir",
-                dest,
+                &dest,
                 "--target",
                 target,
                 "--profile",
