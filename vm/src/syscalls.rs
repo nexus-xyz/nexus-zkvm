@@ -51,7 +51,7 @@ impl Syscalls {
 
             if self.to_stdout {
                 let mut stdout = std::io::stdout();
-                stdout.write_all(&self.output_buffer.as_slice())?;
+                stdout.write_all(self.output_buffer.as_slice())?;
 
                 let _ = stdout.flush();
                 self.output_buffer.clear();
