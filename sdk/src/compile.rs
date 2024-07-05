@@ -62,14 +62,14 @@ impl CompileOpts {
                     return Err(BuildError::ConfigError);
                 }
 
-                JOLT_HEADER;
+                JOLT_HEADER
             }
             Default => {
                 if self.memlimit.is_none() {
                     return Err(BuildError::ConfigError);
                 }
 
-                DEFAULT_HEADER.replace(
+                &DEFAULT_HEADER.replace(
                     "{MEMORY_SIZE}",
                     &(self.memlimit.unwrap() as u32)
                         .saturating_mul(0x100000)
@@ -81,7 +81,7 @@ impl CompileOpts {
         let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", linker_script_header);
 
         let linker_path =
-            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string()))?;
+            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id.to_string())).unwrap();
 
         if let Some(parent) = linker_path.parent() {
             fs::create_dir_all(parent)?;
@@ -90,7 +90,7 @@ impl CompileOpts {
         let mut file = fs::File::create(linker_path)?;
         file.write_all(linker_script.as_bytes())?;
 
-        linker_path
+        Ok(linker_path)
     }
 
     pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
@@ -134,7 +134,7 @@ impl CompileOpts {
 
         if !output.status.success() {
             io::stderr().write_all(&output.stderr)?;
-            return Err(BuildError::CompileError);
+            return Err(BuildError::CompilerError);
         }
 
         let elf_path = PathBuf::from_str(&format!(
@@ -142,8 +142,10 @@ impl CompileOpts {
             target,
             profile,
             uuid.to_string()
-        ));
-        elf_path
+        ))
+        .unwrap();
+
+        Ok(elf_path)
     }
 }
 

@@ -44,12 +44,15 @@ impl Prover for Nova<Local> {
             iopts.set_memlimit(4);
         }
 
-        compile::CompileOpts::build(&mut iopts, &compile::ForProver::Default)?;
+        let elf_path = compile::CompileOpts::build(&mut iopts, &compile::ForProver::Default)?;
+
+        Self::new_from_file(&elf_path)
     }
 
-    fn run<T>(mut self, input: Option<T>) -> Result<(), Self::Error>
+    fn run<'a, T, U>(mut self, input: Option<T>) -> Result<(), Self::Error>
     where
         T: Serialize + Sized,
+        U: Deserialize<'a>,
     {
         if let Some(inp) = input {
             self.vm
@@ -64,9 +67,14 @@ impl Prover for Nova<Local> {
         Ok(())
     }
 
-    fn prove<T>(mut self, pp: &Self::Params, input: Option<T>) -> Result<Self::Proof, Self::Error>
+    fn prove<'a, T, U>(
+        mut self,
+        pp: &Self::Params,
+        input: Option<T>,
+    ) -> Result<Self::Proof, Self::Error>
     where
         T: Serialize + Sized,
+        U: Deserialize<'a>,
     {
         if let Some(inp) = input {
             self.vm
