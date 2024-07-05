@@ -15,6 +15,18 @@ pub struct CompileOpts {
     memlimit: Option<usize>, // in mb
 }
 
+#[derie(Debug)]
+pub enum BuildError {
+    /// The compile options are invalid
+    ConfigError,
+
+    /// An error occured reading file system
+    IOError(std::io::Error),
+
+    /// The compilation process failed
+    CompilerError,
+}
+
 impl CompileOpts {
 
     pub fn new(source_path: PathBuf) -> Self {
@@ -38,21 +50,21 @@ impl CompileOpts {
         self.memlimit = Some(memlimit);
     }
 
-    fn set_linker(&mut self, id: &Uuid, prover: &ForProver) -> Result<PathBuf, Error> {
+    fn set_linker(&mut self, id: &Uuid, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let linker_script_header = match prover {
             Jolt => {
                 if self.memlimit.is_none() {
                     return JOLT_HEADER;
                 }
 
-                // throw error
+                return Err(BuildError::ConfigError);
             },
             Default => {
                 if let Some(memlimit) = self.memlimit {
                     return DEFAULT_HEADER.replace("{MEMORY_SIZE}", memlimit.saturating_mul(0x100000 as u32).to_string())
                 }
 
-                // throw error
+                return Err(BuildError::ConfigError);
             },
         }
 
@@ -70,12 +82,9 @@ impl CompileOpts {
         linker_path
     }
 
-    pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, Error> {
-        // error if no source path
-
+    pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let uuid = Uuid::new_v4();
-
-        let linker_path = self.set_linker(uuid, prover);
+        let linker_path = self.set_linker(&uuid, prover);
 
         let rust_flags = [
             "-C",
@@ -87,9 +96,21 @@ impl CompileOpts {
         let target = if self.native { "native" } else { "riscv32i-unknown-none-elf" };
         let profile = if self.debug { "debug" } else { "release-unoptimized" };
 
+        let mut envs = vec![
+            ("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f")),
+        ];
+
+        let dest = format!(
+            "/tmp/nexus-target-{}",
+            uuid.to_string(),
+        );
+
         let output = Command::new("cargo")
+            .envs(envs)
             .args([
                 "build",
+                "--target-dir",
+                dest,
                 "--target",
                 target,
                 "--profile",
@@ -99,6 +120,7 @@ impl CompileOpts {
 
         if !output.status.success() {
             io::stderr().write_all(&output.stderr)?;
+            return Err(BuildError::CompileError);
         }
 
         let elf_path = format!("target/{}/{}/{}", target, profile, uuid.to_string());
