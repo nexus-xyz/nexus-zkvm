@@ -47,6 +47,14 @@ mod riscv32 {
             Some(out.to_le_bytes()[0])
         } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
     }
+    
+    /// Write an object to the output tape
+    pub fn write_output<T: Serialize + ?Sized>(val: &T) {
+        let ser: Vec<u8> = to_allocvec(&val).unwrap();
+        let mut _out: u32;
+
+        ecall!(3, b.as_slice().as_ptr(), b.len, _out);
+    }
 
     /// Write a slice to the output tape
     pub fn write_to_output(b: &[u8]) {
