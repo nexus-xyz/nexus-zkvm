@@ -1,10 +1,10 @@
+use std::fmt::Display;
 use std::fs;
 use std::io;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 use std::str::FromStr;
-use std::fmt::Display;
 use uuid::Uuid;
 
 #[derive(Default)]
@@ -35,7 +35,9 @@ impl From<std::io::Error> for BuildError {
 impl Display for BuildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::MemoryConfigurationError => write!(f, "invalid memory configuration for selected prover"),
+            Self::MemoryConfigurationError => {
+                write!(f, "invalid memory configuration for selected prover")
+            }
             Self::IOError(error) => write!(f, "{}", error),
             Self::CompilerError => write!(f, "unable to compile using rustc"),
         }

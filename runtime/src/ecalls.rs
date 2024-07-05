@@ -7,17 +7,32 @@ mod riscv32 {
     // in s2 (rust will not allow us to use s0 or s1).
 
     macro_rules! ecall {
-    ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
-        unsafe {
-            core::arch::asm!("ecall", in("s2") $n, in("a1") $inp1, in("a2") $inp2, out("a0") $out)
+        ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
+            unsafe {
+                core::arch::asm!("ecall", in("s2") $n, in("a1") $inp1, in("a2") $inp2, out("a0") $out)
+            }
         }
     }
-}
 
     /// Write a string to the output console (if any).
     pub fn write_log(s: &str) {
         let mut _out: u32;
         ecall!(1, s.as_ptr(), s.len(), _out);
+    }
+
+    /// Read an object off the private input tape
+    pub fn read_private_input<'a, T: Deserialize>() -> Result<T, postcard::Error> {
+        let inp: u32 = 0;
+        let mut out: u32 = 0;
+
+        let mut bytes: Vec<u8> = vec![];
+
+        while out != u32::MAX {
+            ecall!(2, inp, inp, out);
+            bytes.append(out.to_le_bytes()[0])
+        }
+
+        postcard::from_bytes::<T>(bytes.as_slice())
     }
 
     /// Read a byte from the private input tape
