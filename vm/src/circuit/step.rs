@@ -16,8 +16,8 @@ use crate::{
 };
 
 use super::{
-    nvm::{step, ARITY},
     r1cs::{R1CS, V, ZERO},
+    riscv::{step, ARITY},
     F,
 };
 

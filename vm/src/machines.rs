@@ -3,8 +3,8 @@
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::identity_op)]
 
-use crate::{Regs, VM};
-use nexus_vm::{instructions::Width, memory::Memory};
+use super::{memory::Memory, rv32::SOP};
+use crate::{NexusVM, Regs};
 
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]
@@ -21,7 +21,7 @@ pub const MACHINES: &[(&str, fn() -> Vec<u32>, fn() -> Regs)] = &[
 ];
 
 /// Lookup and initialize a test VM by name
-pub fn lookup_test_machine(name: &str) -> Option<VM> {
+pub fn lookup_test_machine<M: Memory>(name: &str) -> Option<NexusVM<M>> {
     Some(assemble(&lookup_test_code(name)?))
 }
 
@@ -35,16 +35,16 @@ pub fn lookup_test_code(name: &str) -> Option<Vec<u32>> {
     None
 }
 
-fn assemble(words: &[u32]) -> VM {
-    let mut vm = VM::new(0);
+fn assemble<M: Memory>(words: &[u32]) -> NexusVM<M> {
+    let mut vm = NexusVM::<M>::new(0);
     for (i, w) in words.iter().enumerate() {
-        vm.mem.store(Width::W, i as u32 * 4, *w).unwrap();
+        vm.mem.store(SOP::SW, i as u32 * 4, *w).unwrap();
     }
     vm
 }
 
 /// Create a VM with k no-op instructions
-pub fn nop_vm(k: usize) -> VM {
+pub fn nop_vm<M: Memory>(k: usize) -> NexusVM<M> {
     assemble(&nop_code(k))
 }
 
@@ -60,7 +60,7 @@ fn nop_result(k: usize) -> Regs {
 }
 
 /// Create a VM which loops k times
-pub fn loop_vm(k: usize) -> VM {
+pub fn loop_vm<M: Memory>(k: usize) -> NexusVM<M> {
     assemble(&loop_code(k))
 }
 
@@ -255,7 +255,7 @@ fn ldst_code() -> Vec<u32> {
         0xffc02103, //  lw      x2,-4(x0)
         0x00100183, //  lb      x3,1(x0)
         0x00104203, //  lbu     x4,1(x0)
-        0xc0001073, // unimp
+        0xc0001073, //  unimp
     ]
 }
 
@@ -292,7 +292,7 @@ fn shift_code() -> Vec<u32> {
         0x4010d793, //  srai    x15,x1,0x1
         0x40a0d813, //  srai    x16,x1,0xa
         0x41f0d893, //  srai    x17,x1,0x1f
-        0xc0001073, // unimp
+        0xc0001073, //  unimp
     ]
 }
 
@@ -375,12 +375,13 @@ fn sub_result() -> Regs {
 mod test {
     use super::*;
     use crate::eval;
+    use crate::trie::MerkleTrie;
 
     #[test]
     fn test_machines() {
         for (name, f_code, f_result) in MACHINES {
             println!("Testing machine {name}");
-            let mut vm = assemble(&f_code());
+            let mut vm: NexusVM<MerkleTrie> = assemble(&f_code());
             eval(&mut vm, false).unwrap();
             let regs = f_result();
             assert_eq!(regs, vm.regs);

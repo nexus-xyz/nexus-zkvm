@@ -51,6 +51,12 @@ pub enum AOP {
 }
 pub use AOP::*;
 
+#[derive(Eq, Hash, PartialEq)]
+pub enum InstructionSet {
+    RV32i,
+    RV32Nexus,
+}
+
 /// RV32 instructions
 #[rustfmt::skip]
 #[derive(Copy, Clone, Default, Debug, PartialEq)]
@@ -70,8 +76,38 @@ pub enum RV32 {
     ALU  { aop: AOP, rd: u32, rs1: u32, rs2: u32, },
 
     FENCE,
-    ECALL,
-    EBREAK,
+
+    // BEGIN RV32Nexus EXTENSION
+
+    // ECALL: An overload of the RV32i ECALL instruction, with explicit return.
+    //
+    //        In the RV32i spec, ECALL looks like:
+    //
+    //           00000 00 00000 00000 000 00000 11100 11
+    //
+    //        We overload the instruction as:
+    //
+    //           00000 00 00000 00000 000 {-rd} 11100 11
+    //
+    //        We then use rd as the return location for the ecall. By making the return
+    //        explicit in this way, circuit generation is much cleaner since the memory
+    //        updates involved are all captured explicitly in the instruction.
+    ECALL { rd: u32 },
+
+    // EBREAK: An overload of the RV32i EBREAK instruction, with explicit return.
+    //
+    //        In the RV32i spec, EBREAK looks like:
+    //
+    //           00000 00 00001 00000 000 00000 11100 11
+    //
+    //        We overload the instruction as:
+    //
+    //           00000 00 00001 00000 000 {-rd} 11100 11
+    //
+    //        We then use rd as the return location for the ebreak. By making the return
+    //        explicit in this way, circuit generation is much cleaner since the memory
+    //        updates involved are all captured explicitly in the instruction.
+    EBREAK { rd: u32 },
 
     #[default]
     UNIMP,
@@ -88,6 +124,8 @@ impl RV32 {
             ALUI { rd, .. } => Some(rd),
             ALU { rd, .. } => Some(rd),
             LOAD { rd, .. } => Some(rd),
+            ECALL { rd } => Some(rd),
+            EBREAK { rd } => Some(rd),
             _ => None,
         }
     }
@@ -148,6 +186,24 @@ impl RV32 {
     /// maximum J value
     pub const MAX_J: u32 = 42;
 
+    pub const fn instruction_set(&self) -> InstructionSet {
+        match self {
+            LUI { .. }
+            | AUIPC { .. }
+            | JAL { .. }
+            | JALR { .. }
+            | BR { .. }
+            | LOAD { .. }
+            | STORE { .. }
+            | ALUI { .. }
+            | ALU { .. }
+            | FENCE
+            | UNIMP => InstructionSet::RV32i,
+            // we overload these instructions
+            ECALL { .. } | EBREAK { .. } => InstructionSet::RV32Nexus,
+        }
+    }
+
     /// return the J index for instruction
     pub const fn index_j(&self) -> u32 {
         // It would be nice to use mem::variant_count here,
@@ -201,8 +257,8 @@ impl RV32 {
             ALU { aop: AND, .. } => 38,
 
             FENCE => 39,
-            ECALL => 40,
-            EBREAK => 41,
+            ECALL { .. } => 40,
+            EBREAK { .. } => 41,
             UNIMP => 42,
         }
     }

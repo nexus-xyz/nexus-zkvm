@@ -4,7 +4,6 @@ use nexus_api::{
     config::vm::{ProverImpl, VmConfig},
     nvm::{self, memory::MerkleTrie, NexusVM},
     prover::{self},
-    riscv::{self},
 };
 use nexus_config::vm::NovaImpl;
 use std::path::PathBuf;
@@ -18,13 +17,15 @@ fn main() {
     // expects example programs (`nexus-zkvm/examples`) to have been built with `cargo build -r`
     let pb = PathBuf::from(r"../target/riscv32i-unknown-none-elf/release/private_input");
 
+    // nb: the tracing and proving infrastructure assumes use of MerkleTrie memory model
+
     println!("Setting up public parameters...");
     let public_params =
         prover::setup::gen_vm_pp(CONFIG.k, &()).expect("error generating public parameters");
 
     println!("Reading and translating vm...");
     let mut vm: NexusVM<MerkleTrie> =
-        riscv::interactive::translate_elf(&pb).expect("error loading and translating RISC-V VM");
+        nvm::interactive::load_elf(&pb).expect("error loading and parsing RISC-V instruction");
 
     vm.syscalls.set_input(&[0x06]);
 
@@ -38,7 +39,7 @@ fn main() {
     .expect("error generating execution trace");
     println!("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
 
-    println!("Proving execution...");
+    println!("Proving execution of length {}...", trace.blocks.len());
     let proof = prover::prove::prove_seq(&public_params, trace).expect("error proving execution");
 
     print!("Verifying execution...");

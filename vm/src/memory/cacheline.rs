@@ -6,8 +6,7 @@ use ark_bn254::Fr as F;
 use ark_ff::PrimeField;
 
 use crate::error::*;
-use crate::instructions::{Width, Width::*};
-
+use crate::rv32::*;
 use NexusVMError::Misaligned;
 
 /// A CacheLine represents the smallest unit of memory that can be read
@@ -16,20 +15,16 @@ use NexusVMError::Misaligned;
 
 #[derive(Copy, Clone)]
 pub union CacheLine {
-    pub dwords: [u64; 4],
-    pub words: [u32; 8],
-    pub halfs: [u16; 16],
-    pub bytes: [u8; 32],
+    pub(crate) words: [u32; 8],
+    pub(crate) halfs: [u16; 16],
+    pub(crate) bytes: [u8; 32],
 }
 
 /// The number of bits of address the cacheline holds
 pub const CACHE_BITS: usize = 5;
 
-/// The number of ignored bits in the address
-pub const IGNORED_BITS: usize = 11;
-
 /// The log of the number of `CacheLines` in a complete memory.
-pub const CACHE_LOG: usize = 22 - CACHE_BITS;
+pub const CACHE_LOG: usize = 32 - CACHE_BITS;
 
 // This will generate a compile error if CacheLine is not the right size
 const _: fn() = || {
@@ -62,7 +57,7 @@ impl Debug for CacheLine {
 
 impl PartialEq for CacheLine {
     fn eq(&self, other: &CacheLine) -> bool {
-        unsafe { self.dwords == other.dwords }
+        unsafe { self.words == other.words }
     }
 }
 
@@ -78,28 +73,29 @@ impl CacheLine {
 
     // return slice at address. This slice will only extend to the
     // end of the cacheline. (used by instruction parsing)
-    //pub(crate) fn bytes(&self, addr: u32) -> &[u8] {
-    //    let offset = (addr & 31) as usize;
-    //    unsafe { &self.bytes[offset..] }
-    //}
+    #[allow(dead_code)]
+    pub(crate) fn bytes(&self, addr: u32) -> &[u8] {
+        let offset = (addr & 31) as usize;
+        unsafe { &self.bytes[offset..] }
+    }
 
-    /// perform load according to `width`
-    pub fn load(&self, width: Width, addr: u32) -> Result<u32> {
-        match width {
-            B => self.lb(addr),
-            H => self.lh(addr),
-            W => self.lw(addr),
-            BU => self.lbu(addr),
-            HU => self.lhu(addr),
+    /// perform load according to `lop`
+    pub fn load(&self, lop: LOP, addr: u32) -> Result<u32> {
+        match lop {
+            LB => self.lb(addr),
+            LH => self.lh(addr),
+            LW => self.lw(addr),
+            LBU => self.lbu(addr),
+            LHU => self.lhu(addr),
         }
     }
 
-    /// perform store according to `width`
-    pub fn store(&mut self, width: Width, addr: u32, val: u32) -> Result<()> {
-        match width {
-            B | BU => self.sb(addr, val as u8),
-            H | HU => self.sh(addr, val as u16),
-            W => self.sw(addr, val),
+    /// perform store according to `sop`
+    pub fn store(&mut self, sop: SOP, addr: u32, val: u32) -> Result<()> {
+        match sop {
+            SB => self.sb(addr, val as u8),
+            SH => self.sh(addr, val as u16),
+            SW => self.sw(addr, val),
         }
     }
 
@@ -124,14 +120,6 @@ impl CacheLine {
             return Err(Misaligned(addr));
         }
         unsafe { Ok(self.words[((addr >> 2) & 7) as usize]) }
-    }
-
-    /// load 64-bit value at addr
-    pub fn ldw(&self, addr: u32) -> Result<u64> {
-        if (addr & 7) != 0 {
-            return Err(Misaligned(addr));
-        }
-        unsafe { Ok(self.dwords[((addr >> 3) & 3) as usize]) }
     }
 
     /// load byte at addr, sign-extended
@@ -183,17 +171,6 @@ impl CacheLine {
         }
         Ok(())
     }
-
-    /// store 64-bit value at addr
-    pub fn sdw(&mut self, addr: u32, val: u64) -> Result<()> {
-        if (addr & 7) != 0 {
-            return Err(Misaligned(addr));
-        }
-        unsafe {
-            self.dwords[((addr >> 3) & 3) as usize] = val;
-        }
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -237,17 +214,6 @@ mod test {
     }
 
     #[test]
-    fn cache_64() {
-        let mut cache = CacheLine::from([0; 32]);
-        cache.sw(0, 0x01020304).unwrap();
-        cache.sw(4, 0x05060708).unwrap();
-        cache.sw(8, 0x01020304).unwrap();
-        cache.sw(12, 0x05060708).unwrap();
-        assert_eq!(cache.ldw(0).unwrap(), 0x0506070801020304);
-        assert_eq!(cache.ldw(8).unwrap(), 0x0506070801020304);
-    }
-
-    #[test]
     #[should_panic]
     fn cache_misaligned_half() {
         let cache = CacheLine::default();
@@ -258,13 +224,6 @@ mod test {
     #[should_panic]
     fn cache_misaligned_word() {
         let cache = CacheLine::default();
-        cache.lw(2).unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn cache_misaligned_dword() {
-        let cache = CacheLine::default();
-        cache.ldw(4).unwrap();
+        cache.lw(1).unwrap();
     }
 }
