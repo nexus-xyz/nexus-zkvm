@@ -20,8 +20,6 @@ use nexus_tools_dev::command::common::{
 
 use crate::{command::cache_path, LOG_TARGET};
 
-use super::jolt;
-
 pub fn handle_command(args: VerifyArgs) -> anyhow::Result<()> {
     let VerifyArgs {
         file,
@@ -129,10 +127,9 @@ fn verify_proof(
 ) -> anyhow::Result<()> {
     // handle jolt separately
     let nova_impl = match prover {
-        ProverImpl::Jolt => return jolt::verify(path, prove_args),
+        ProverImpl::Jolt => return Err(anyhow::anyhow!("An error occurred")),
         ProverImpl::Nova(nova_impl) => nova_impl,
     };
-
     let file = File::open(path)?;
     let reader = BufReader::new(file);
 

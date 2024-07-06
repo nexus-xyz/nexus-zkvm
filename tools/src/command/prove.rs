@@ -14,10 +14,7 @@ use nexus_tools_dev::{
     utils::{cargo, path_to_artifact},
 };
 
-use crate::{
-    command::{jolt, public_params::setup_params},
-    LOG_TARGET,
-};
+use crate::{command::public_params::setup_params, LOG_TARGET};
 
 pub fn handle_command(args: ProveArgs) -> anyhow::Result<()> {
     let ProveArgs {
@@ -87,7 +84,7 @@ fn local_prove(
 ) -> anyhow::Result<()> {
     // handle jolt separately
     let nova_impl = match prover {
-        vm_config::ProverImpl::Jolt => return jolt::prove(path),
+        vm_config::ProverImpl::Jolt => return Err(io::Error::from(io::ErrorKind::NotFound).into()),
         vm_config::ProverImpl::Nova(nova_impl) => nova_impl,
     };
 
