@@ -14,6 +14,15 @@ pub enum ForProver {
     Jolt,
 }
 
+impl Display for ForProver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Default => write!(f, "default"),
+            Self::Jolt => write!(f, "jolt")
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum BuildError {
     /// The compile options are invalid for the memory limit
@@ -46,18 +55,20 @@ impl Display for BuildError {
 
 #[derive(Clone)]
 pub struct CompileOpts {
+    pub package: String,
+    pub binary: String,
     pub(crate) debug: bool,
     pub(crate) native: bool,
-    pub source_path: PathBuf,
     pub(crate) memlimit: Option<usize>, // in mb
 }
 
 impl CompileOpts {
-    pub fn new(source_path: PathBuf) -> Self {
+    pub fn new(package: &str, binary: &str) -> Self {
         Self {
+            package: package.to_string(),
+            binary: binary.to_string(),
             debug: false,
             native: false,
-            source_path,
             memlimit: None,
         }
     }
@@ -74,7 +85,7 @@ impl CompileOpts {
         self.memlimit = Some(memlimit);
     }
 
-    fn set_linker(&mut self, id: &Uuid, prover: &ForProver) -> Result<PathBuf, BuildError> {
+    fn set_linker(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let linker_script_header = match prover {
             ForProver::Jolt => {
                 if self.memlimit.is_some() {
@@ -89,10 +100,8 @@ impl CompileOpts {
                 }
 
                 DEFAULT_HEADER.replace(
-                    "{MEMORY_SIZE}",
-                    &(self.memlimit.unwrap() as u32)
-                        .saturating_mul(0x100000)
-                        .to_string(),
+                    "{MEMORY_LIMIT}",
+                    &format!("0x{:X}", &(self.memlimit.unwrap() as u32).saturating_mul(0x100000))
                 )
             }
         };
@@ -100,7 +109,7 @@ impl CompileOpts {
         let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", &linker_script_header);
 
         let linker_path =
-            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", id)).unwrap();
+            PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", prover)).unwrap();
 
         if let Some(parent) = linker_path.parent() {
             fs::create_dir_all(parent)?;
@@ -114,7 +123,7 @@ impl CompileOpts {
 
     pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
         let uuid = Uuid::new_v4();
-        let linker_path = self.set_linker(&uuid, prover)?;
+        let linker_path = self.set_linker(prover)?;
 
         let rust_flags = [
             "-C",
@@ -136,28 +145,34 @@ impl CompileOpts {
 
         let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
 
+        let prog = self.binary.as_str();
         let dest = format!("/tmp/nexus-target-{}", uuid);
 
-        let output = Command::new("cargo")
-            .envs(envs)
+        let mut cmd = Command::new("cargo");
+        cmd.envs(envs)
             .args([
                 "build",
+                "--package",
+                self.package.as_str(),
+                "--bin",
+                prog,
                 "--target-dir",
                 &dest,
                 "--target",
                 target,
                 "--profile",
                 profile,
-            ])
-            .output()?;
+            ]);
 
-        if !output.status.success() {
-            io::stderr().write_all(&output.stderr)?;
+        let res = cmd.output()?;
+
+        if !res.status.success() {
+            io::stderr().write_all(&res.stderr)?;
             return Err(BuildError::CompilerError);
         }
 
         let elf_path =
-            PathBuf::from_str(&format!("target/{}/{}/{}", target, profile, uuid,)).unwrap();
+            PathBuf::from_str(&format!("/tmp/nexus-target-{}/{}/{}/{}", uuid, target, profile, prog)).unwrap();
 
         Ok(elf_path)
     }
@@ -221,8 +236,7 @@ then modify your build script to compile the C code _without_ the
 details.");
 "#;
 
-const DEFAULT_HEADER: &str = r#"
-  __memory_top = {MEMORY_LIMIT};
+const DEFAULT_HEADER: &str = r#"__memory_top = {MEMORY_LIMIT};
   . = 0;
 
   .text : ALIGN(4)
@@ -237,8 +251,7 @@ const DEFAULT_HEADER: &str = r#"
   . = .* 2;
 "#;
 
-const JOLT_HEADER: &str = r#"
-  __memory_top = 0x80400000;
+const JOLT_HEADER: &str = r#"__memory_top = 0x80400000;
   . = 0x80000000;
 
   .text : ALIGN(4)
