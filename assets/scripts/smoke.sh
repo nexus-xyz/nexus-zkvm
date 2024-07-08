@@ -36,7 +36,9 @@ cp -n Cargo.toml Cargo.toml.bkp
 cleanup() {
     cd $ORIGINAL_DIR
     rm -rf $PROJECT_NAME
-    mv -f Cargo.toml.bkp Cargo.toml
+    if [ -f Cargo.toml.bkp ]; then
+        mv -f Cargo.toml.bkp Cargo.toml
+    fi
 }
 trap cleanup SIGINT
 
