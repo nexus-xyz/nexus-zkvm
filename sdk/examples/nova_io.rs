@@ -3,6 +3,9 @@ use nexus_sdk::{
     Local, Parameters, Prover,
 };
 
+type Input = (u32, u32);
+type Output = i32;
+
 const EXAMPLE_NAME: &str = "input_output";
 
 const TARGET_PATH: &str = concat!(
@@ -26,12 +29,11 @@ fn main() {
     // defaults to local proving
     let prover: Nova<Local> = Nova::new_from_file(&path).expect("failed to load program");
 
-    // input type is (u32, u32), output type is i32
-    let input = (3 as u32, 5 as u32);
+    let input: Input = (3 as u32, 5 as u32);
 
     print!("Proving execution of vm...");
-    let (proof, output): (Proof, i32) = prover
-        .prove::<(u32, u32), i32>(&pp, Some(input))
+    let (proof, output): (Proof, Output) = prover
+        .prove::<Input, Output>(&pp, Some(input))
         .expect("failed to prove program");
 
     println!(" output is {}!", output);
