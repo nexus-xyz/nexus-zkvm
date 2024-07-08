@@ -15,7 +15,7 @@ fn main() {
     if path.try_exists().is_err() {
         panic!(
             "{}{} was not found, make sure to compile the program \
-             with `cd examples && cargo build --bin {}`",
+             with `cd examples && cargo build --release-unoptimized --bin {}`",
             "target/riscv32i-unknown-none-elf/release-unoptimized/", EXAMPLE_NAME, EXAMPLE_NAME,
         );
     }
