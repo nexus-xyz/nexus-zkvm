@@ -33,11 +33,16 @@ set -x
 
 cp -n Cargo.toml Cargo.toml.bkp
 
-error_handler() {
-    echo "Error occured in e2e.sh: : ${1}. Exiting."
+cleanup() {
     cd $ORIGINAL_DIR
     rm -rf $PROJECT_NAME
     mv -f Cargo.toml.bkp Cargo.toml
+}
+trap cleanup SIGINT
+
+error_handler() {
+    echo "Error occured in smoke.sh: : ${1}. Exiting."
+    cleanup
     exit 1
 }
 trap 'error_handler ${LINENO}' ERR
@@ -49,6 +54,4 @@ cd $PROJECT_NAME
 ../target/release/cargo-nexus nexus run
 ../target/release/cargo-nexus nexus prove
 ../target/release/cargo-nexus nexus verify
-cd $ORIGINAL_DIR
-rm -rf $PROJECT_NAME
-mv -f Cargo.toml.bkp Cargo.toml
+cleanup
