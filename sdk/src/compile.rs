@@ -18,7 +18,7 @@ impl Display for ForProver {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Default => write!(f, "default"),
-            Self::Jolt => write!(f, "jolt")
+            Self::Jolt => write!(f, "jolt"),
         }
     }
 }
@@ -101,7 +101,10 @@ impl CompileOpts {
 
                 DEFAULT_HEADER.replace(
                     "{MEMORY_LIMIT}",
-                    &format!("0x{:X}", &(self.memlimit.unwrap() as u32).saturating_mul(0x100000))
+                    &format!(
+                        "0x{:X}",
+                        &(self.memlimit.unwrap() as u32).saturating_mul(0x100000)
+                    ),
                 )
             }
         };
@@ -149,20 +152,19 @@ impl CompileOpts {
         let dest = format!("/tmp/nexus-target-{}", uuid);
 
         let mut cmd = Command::new("cargo");
-        cmd.envs(envs)
-            .args([
-                "build",
-                "--package",
-                self.package.as_str(),
-                "--bin",
-                prog,
-                "--target-dir",
-                &dest,
-                "--target",
-                target,
-                "--profile",
-                profile,
-            ]);
+        cmd.envs(envs).args([
+            "build",
+            "--package",
+            self.package.as_str(),
+            "--bin",
+            prog,
+            "--target-dir",
+            &dest,
+            "--target",
+            target,
+            "--profile",
+            profile,
+        ]);
 
         let res = cmd.output()?;
 
@@ -171,8 +173,11 @@ impl CompileOpts {
             return Err(BuildError::CompilerError);
         }
 
-        let elf_path =
-            PathBuf::from_str(&format!("/tmp/nexus-target-{}/{}/{}/{}", uuid, target, profile, prog)).unwrap();
+        let elf_path = PathBuf::from_str(&format!(
+            "/tmp/nexus-target-{}/{}/{}/{}",
+            uuid, target, profile, prog
+        ))
+        .unwrap();
 
         Ok(elf_path)
     }
