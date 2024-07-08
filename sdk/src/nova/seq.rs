@@ -1,7 +1,7 @@
 use crate::compile;
 use crate::traits::*;
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use std::path::{Path, PathBuf};
 
 use nexus_core::nvm::interactive::{eval, parse_elf, trace};
@@ -49,10 +49,10 @@ impl Prover for Nova<Local> {
         Ok(elf_path)
     }
 
-    fn run<'a, T, U>(mut self, input: Option<T>) -> Result<(), Self::Error>
+    fn run<T, U>(mut self, input: Option<T>) -> Result<U, Self::Error>
     where
         T: Serialize + Sized,
-        U: Deserialize<'a>,
+        U: DeserializeOwned,
     {
         if let Some(inp) = input {
             self.vm
@@ -62,19 +62,19 @@ impl Prover for Nova<Local> {
 
         eval(&mut self.vm, false, false)?;
 
-        // todo: print output? add output tape?
+        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
 
-        Ok(())
+        Ok(output)
     }
 
-    fn prove<'a, T, U>(
+    fn prove<T, U>(
         mut self,
         pp: &Self::Params,
         input: Option<T>,
-    ) -> Result<Self::Proof, Self::Error>
+    ) -> Result<(Self::Proof, U), Self::Error>
     where
         T: Serialize + Sized,
-        U: Deserialize<'a>,
+        U: DeserializeOwned,
     {
         if let Some(inp) = input {
             self.vm
@@ -85,9 +85,9 @@ impl Prover for Nova<Local> {
         let tr = trace(&mut self.vm, K, false)?;
         let pr = prove_seq(pp, tr)?;
 
-        // todo: print output? add output tape?
+        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
 
-        Ok(pr)
+        Ok((pr, output))
     }
 }
 

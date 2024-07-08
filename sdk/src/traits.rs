@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -32,19 +32,19 @@ pub trait Prover {
         Self: Sized,
         Self::Error: From<std::io::Error>;
 
-    fn run<'a, T, U>(self, input: Option<T>) -> Result<(), Self::Error>
+    fn run<T, U>(self, input: Option<T>) -> Result<U, Self::Error>
     where
         T: Serialize + Sized,
-        U: Deserialize<'a>;
+        U: DeserializeOwned;
 
     fn prove<'a, T, U>(
         self,
         pp: &Self::Params,
         input: Option<T>,
-    ) -> Result<Self::Proof, Self::Error>
+    ) -> Result<(Self::Proof, U), Self::Error>
     where
         T: Serialize + Sized,
-        U: Deserialize<'a>;
+        U: DeserializeOwned;
 }
 
 pub trait Parameters {
