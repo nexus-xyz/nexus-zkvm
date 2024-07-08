@@ -92,20 +92,20 @@ impl CompileOpts {
     }
 
     fn set_linker(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
-        let linker_script_header = match prover {
+        let linker_script = match prover {
             ForProver::Jolt => {
                 if self.memlimit.is_some() {
                     return Err(BuildError::InvalidMemoryConfiguration);
                 }
 
-                JOLT_HEADER.into()
+                include_str!("./linker-scripts/jolt.x").into()
             }
             ForProver::Default => {
                 if self.memlimit.is_none() {
                     return Err(BuildError::InvalidMemoryConfiguration);
                 }
 
-                DEFAULT_HEADER.replace(
+                include_str!("./linker-scripts/default.x").replace(
                     "{MEMORY_LIMIT}",
                     &format!(
                         "0x{:X}",
@@ -114,8 +114,6 @@ impl CompileOpts {
                 )
             }
         };
-
-        let linker_script = LINKER_SCRIPT_TEMPLATE.replace("{HEADER}", &linker_script_header);
 
         let linker_path =
             PathBuf::from_str(&format!("/tmp/nexus-guest-linkers/{}.ld", prover)).unwrap();
@@ -155,7 +153,10 @@ impl CompileOpts {
         let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
         let prog = self.binary.as_str();
 
-        let mut dest = format!("/tmp/nexus-target");
+        let mut dest = match std::env::var_os("OUT_DIR") {
+            Some(path) => path.into_string().unwrap(),
+            None => "/tmp/nexus-target".into(),
+        };
 
         if self.unique {
             let uuid = Uuid::new_v4();
@@ -193,91 +194,3 @@ impl CompileOpts {
         Ok(elf_path)
     }
 }
-
-const LINKER_SCRIPT_TEMPLATE: &str = r#"
-ENTRY(_start);
-
-SECTIONS
-{
-  {HEADER}
-
-  .data : ALIGN(4)
-  {
-    /* Must be called __global_pointer$ for linker relaxations to work. */
-    __global_pointer$ = . + 0x800;
-    *(.srodata .srodata.*);
-    *(.rodata .rodata.*);
-    *(.sdata .sdata.* .sdata2 .sdata2.*);
-    *(.data .data.*);
-
-    /* this is used by the global allocator (see:src/lib.rs) */
-    . = ALIGN(4);
-    _heap = .;
-    LONG(_ebss);
-  }
-
-  .bss (NOLOAD) : ALIGN(4)
-  {
-    *(.sbss .sbss.* .bss .bss.*);
-    . = ALIGN(4);
-    _ebss = .;
-  }
-
-  /* Dynamic relocations are unsupported. This section is only used to detect
-     relocatable code in the input files and raise an error if relocatable code
-     is found */
-  .got (INFO) :
-  {
-    KEEP(*(.got .got.*));
-  }
-
-  /DISCARD/ :
-  {
-    *(.comment*)
-    *(.debug*)
-  }
-
-  /* Stack unwinding is not supported, but we will keep these for now */
-  .eh_frame (INFO) : { KEEP(*(.eh_frame)) }
-  .eh_frame_hdr (INFO) : { *(.eh_frame_hdr) }
-}
-
-ASSERT(. < __memory_top, "Program is too large for the VM memory.");
-
-ASSERT(SIZEOF(.got) == 0, "
-.got section detected in the input files. Dynamic relocations are not
-supported. If you are linking to C code compiled using the `gcc` crate
-then modify your build script to compile the C code _without_ the
--fPIC flag. See the documentation of the `gcc::Config.fpic` method for
-details.");
-"#;
-
-const DEFAULT_HEADER: &str = r#"__memory_top = {MEMORY_LIMIT};
-  . = 0;
-
-  .text : ALIGN(4)
-  {
-    KEEP(*(.init));
-    . = ALIGN(4);
-    KEEP(*(.init.rust));
-    *(.text .text.*);
-  }
-
-  . = ALIGN(8);
-  . = .* 2;
-"#;
-
-const JOLT_HEADER: &str = r#"__memory_top = 0x80400000;
-  . = 0x80000000;
-
-  .text : ALIGN(4)
-  {
-    KEEP(*(.init));
-    . = ALIGN(4);
-    KEEP(*(.init.rust));
-    *(.text .text.*);
-  }
-
-  . = ALIGN(8);
-  /* . = .* 2; */
-"#;
