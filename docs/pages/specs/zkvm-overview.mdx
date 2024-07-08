@@ -11,7 +11,7 @@ The *Nexus Zero-Knowledge Virtual Machine* (***Nexus zkVM***) is a general compu
 
 Being inspired by the RISC-V ISA [[WLPA14](#references)] and the vnTinyRAM architecture [[CGTV20](#references)], the Nexus VM can be easily translated from the RISC-V instruction set, for which a rich set of compilation tools already exists. As a result, the Nexus zkVM can easily support the verifiable execution of programs written in high-level programming languages such as Rust and C++. Support for other machine architectures such as EVM and Wasm can be provided through translation, emulation, or native execution.
 
-The first iteration of the Nexus Virtual Machine provides support for circuits encoded in Rank-1 Constraint Satisfiability (R1CS). Future versions of the Nexus zkVM will provide support for user-defined circuits encoded in CCS [[STW23](#references)], a modern encoding that simultaneously captures R1CS [[GGPR13](#references)], Plonkish [[GWC19; CBBZ23](#references)], and AIR [[BBHR19; Sta21; BCKL22](#references)].
+The first iterations of the Nexus Virtual Machine provides support for circuits encoded in Rank-1 Constraint Satisfiability (R1CS). Future versions of the Nexus zkVM will provide support for user-defined circuits encoded in CCS [[STW23](#references)], a modern encoding that simultaneously captures R1CS [[GGPR13](#references)], Plonkish [[GWC19; CBBZ23](#references)], and AIR [[BBHR19; Sta21; BCKL22](#references)].
 
 ### References
 
@@ -19,22 +19,20 @@ The first iteration of the Nexus Virtual Machine provides support for circuits e
 
 [[BCKL22](https://eprint.iacr.org/2022/1542)] Eli Ben-Sasson, Dan Carmon, Swastik Kopparty, and David Levit. “Scalable and transparent proofs over all large fields, via elliptic curves”. In: Electronic Colloquium on Computational Complexity, Report. Vol. 110. 2022, p. 2022
 
-[[CGTV20](https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)] Eli Ben-Sasson Alessandro Chiesa, Daniel Genkin, Eran Tromer, and Madars Virza. “TinyRAM Architecture Specification v2. 000”. (2020) 
+[[CGTV20](https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)] Eli Ben-Sasson Alessandro Chiesa, Daniel Genkin, Eran Tromer, and Madars Virza. “TinyRAM Architecture Specification v2. 000”. (2020)
 
-[[CBBZ23](https://eprint.iacr.org/2022/1355)] Binyi Chen, Benedikt Bünz, Dan Boneh, and Zhenfei Zhang. “Hyperplonk: Plonk with linear-time prover and high-degree custom gates”. In EUROCRYPT 2023. 
+[[CBBZ23](https://eprint.iacr.org/2022/1355)] Binyi Chen, Benedikt Bünz, Dan Boneh, and Zhenfei Zhang. “Hyperplonk: Plonk with linear-time prover and high-degree custom gates”. In EUROCRYPT 2023.
 
 [[GGPR13](https://eprint.iacr.org/2012/215.pdf)] Rosario Gennaro, Craig Gentry, Bryan Parno, and Mariana Raykova. “Quadratic span programs and succinct NIZKs without PCPs”. In EUROCRYPT 2013.
 
 [[GWC19](https://eprint.iacr.org/2019/953)] Ariel Gabizon, Zachary J Williamson, and Oana Ciobotaru. “Plonk: Permutations over lagrange-bases for oecumenical noninteractive arguments of knowledge”. In: Cryptology ePrint Archive (2019)
 
-[[Sta21](https://eprint.iacr.org/2021/582)] StarkWare. ethSTARK Documentation. Cryptology ePrint Archive, Paper 2021/582. 
+[[Sta21](https://eprint.iacr.org/2021/582)] StarkWare. ethSTARK Documentation. Cryptology ePrint Archive, Paper 2021/582.
 
 [[STW23](https://eprint.iacr.org/2023/552)] Srinath Setty, Justin Thaler, and Riad Wahby. “Customizable constraint systems for succinct arguments”. In: Cryptology ePrint Archive (2023)
 
 [[WLPA14](https://www2.eecs.berkeley.edu/Pubs/TechRpts/2014/EECS-2014-54.pdf)] Andrew Waterman, Yunsup Lee, David A Patterson, and Krste Asanovic. “The RISC-V instruction set manual, volume I: User-level ISA, version 2.0”. In: EECS Department, University of California, Berkeley, Tech. Rep. UCB/EECS-2014-54 (2014)
 
-    
 [TinyRAM]: (https://www.scipr-lab.org/doc/TinyRAM-spec-2.000.pdf)
 [RISCZero]: (https://www.risczero.com)
 [zkMISP]: (https://whitepaper.zkm.io/whitepaper1.2.pdf)
-
