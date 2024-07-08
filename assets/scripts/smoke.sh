@@ -5,7 +5,7 @@
 
 # Call at the top directory of the nexus-zkvm project
 # For example:
-# ./assets/scripts/e2e.sh examples/src/bin/fib3.rs
+# ./assets/scripts/smoke.sh examples/src/bin/fib3.rs
 
 # Every command needs to succeed
 set -e
