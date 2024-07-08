@@ -4,3 +4,5 @@ mod traits;
 pub use traits::*;
 
 pub mod compile;
+
+pub mod error;

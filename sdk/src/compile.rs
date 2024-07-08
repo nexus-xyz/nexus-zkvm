@@ -7,6 +7,8 @@ use std::process::Command;
 use std::str::FromStr;
 use uuid::Uuid;
 
+pub use crate::error::BuildError;
+
 #[derive(Default)]
 pub enum ForProver {
     #[default]
@@ -19,36 +21,6 @@ impl Display for ForProver {
         match self {
             Self::Default => write!(f, "default"),
             Self::Jolt => write!(f, "jolt"),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum BuildError {
-    /// The compile options are invalid for the memory limit
-    InvalidMemoryConfiguration,
-
-    /// An error occured reading file system
-    IOError(std::io::Error),
-
-    /// The compilation process failed
-    CompilerError,
-}
-
-impl From<std::io::Error> for BuildError {
-    fn from(x: std::io::Error) -> BuildError {
-        BuildError::IOError(x)
-    }
-}
-
-impl Display for BuildError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidMemoryConfiguration => {
-                write!(f, "invalid memory configuration for selected prover")
-            }
-            Self::IOError(error) => write!(f, "{}", error),
-            Self::CompilerError => write!(f, "unable to compile using rustc"),
         }
     }
 }
@@ -75,15 +47,15 @@ impl CompileOpts {
         }
     }
 
-    pub fn set_debug(&mut self, debug: bool) {
+    pub fn set_debug_build(&mut self, debug: bool) {
         self.debug = debug;
     }
 
-    pub fn set_native(&mut self, native: bool) {
+    pub fn set_native_build(&mut self, native: bool) {
         self.native = native;
     }
 
-    pub fn set_unique(&mut self, unique: bool) {
+    pub fn set_unique_build(&mut self, unique: bool) {
         self.unique = unique;
     }
 
@@ -185,11 +157,8 @@ impl CompileOpts {
             return Err(BuildError::CompilerError);
         }
 
-        let elf_path = PathBuf::from_str(&format!(
-            "{}/{}/{}/{}",
-            dest, target, profile, prog
-        ))
-        .unwrap();
+        let elf_path =
+            PathBuf::from_str(&format!("{}/{}/{}/{}", dest, target, profile, prog)).unwrap();
 
         Ok(elf_path)
     }

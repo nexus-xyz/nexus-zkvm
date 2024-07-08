@@ -2,7 +2,8 @@ use crate::compile;
 use crate::traits::*;
 
 use serde::{de::DeserializeOwned, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use thiserror::Error;
 
 use nexus_core::nvm::interactive::{eval, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
@@ -10,14 +11,35 @@ use nexus_core::nvm::NexusVM;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
 
+use crate::error::{BuildError, TapeError};
+use nexus_core::prover::nova::error::ProofError;
+
 // re-exports
-pub use nexus_core::prover::nova::error::ProofError as Error;
 pub use nexus_core::prover::nova::types::{IVCProof as Proof, SeqPP as PP};
 
 use std::marker::PhantomData;
 
 // hard-coded number of vm instructions to pack per recursion step
 const K: usize = 64;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    /// An error occured during parameter generation, execution, proving, or proof verification for the VM
+    #[error(transparent)]
+    ProofError(#[from] ProofError),
+
+    /// An error occured building the guest program dynamically
+    #[error(transparent)]
+    BuildError(#[from] BuildError),
+
+    /// An error occured reading or writing to the file system
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+
+    /// An error occured reading or writing to the VM input/output tapes
+    #[error(transparent)]
+    TapeError(#[from] TapeError),
+}
 
 pub struct Nova<C: Compute = Local> {
     vm: NexusVM<MerkleTrie>,
@@ -32,12 +54,12 @@ impl Prover for Nova<Local> {
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> {
         Ok(Nova::<Local> {
-            vm: parse_elf::<Self::Memory>(elf_bytes)?,
+            vm: parse_elf::<Self::Memory>(elf_bytes).map_err(ProofError::from)?,
             _compute: PhantomData,
         })
     }
 
-    fn compile(opts: &compile::CompileOpts) -> Result<PathBuf, compile::BuildError> {
+    fn compile(opts: &compile::CompileOpts) -> Result<Self, Self::Error> {
         let mut iopts = opts.to_owned();
 
         // if the user has not set the memory limit, default to 4mb
@@ -45,8 +67,10 @@ impl Prover for Nova<Local> {
             iopts.set_memlimit(4);
         }
 
-        let elf_path = iopts.build(&compile::ForProver::Default)?;
-        Ok(elf_path)
+        let elf_path = iopts
+            .build(&compile::ForProver::Default)
+            .map_err(BuildError::from)?;
+        Self::new_from_file(&elf_path)
     }
 
     fn run<T, U>(mut self, input: Option<T>) -> Result<U, Self::Error>
@@ -55,15 +79,17 @@ impl Prover for Nova<Local> {
         U: DeserializeOwned,
     {
         if let Some(inp) = input {
-            self.vm
-                .syscalls
-                .set_input(postcard::to_stdvec(&inp).unwrap().as_slice())
+            self.vm.syscalls.set_input(
+                postcard::to_stdvec(&inp)
+                    .map_err(TapeError::from)?
+                    .as_slice(),
+            )
         }
 
-        eval(&mut self.vm, false, false)?;
+        eval(&mut self.vm, false, false).map_err(ProofError::from)?;
 
-        let output: U =
-            postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
+        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice())
+            .map_err(TapeError::from)?;
 
         Ok(output)
     }
@@ -78,16 +104,18 @@ impl Prover for Nova<Local> {
         U: DeserializeOwned,
     {
         if let Some(inp) = input {
-            self.vm
-                .syscalls
-                .set_input(postcard::to_stdvec(&inp).unwrap().as_slice())
+            self.vm.syscalls.set_input(
+                postcard::to_stdvec(&inp)
+                    .map_err(TapeError::from)?
+                    .as_slice(),
+            )
         }
 
-        let tr = trace(&mut self.vm, K, false)?;
-        let pr = prove_seq(pp, tr)?;
+        let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
+        let pr = prove_seq(pp, tr).map_err(ProofError::from)?;
 
-        let output: U =
-            postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
+        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice())
+            .map_err(TapeError::from)?;
 
         Ok((pr, output))
     }
@@ -97,15 +125,15 @@ impl Parameters for PP {
     type Error = Error;
 
     fn generate() -> Result<Self, Self::Error> {
-        gen_vm_pp(K, &())
+        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
-        load_pp(path.to_str().unwrap())
+        Ok(load_pp(path.to_str().unwrap()).map_err(ProofError::from)?)
     }
 
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error> {
-        save_pp(pp, path.to_str().unwrap())
+        Ok(save_pp(pp, path.to_str().unwrap()).map_err(ProofError::from)?)
     }
 }
 
@@ -114,6 +142,6 @@ impl Verifiable for Proof {
     type Error = Error;
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
-        Ok(self.verify(pp)?)
+        Ok(self.verify(pp).map_err(ProofError::from)?)
     }
 }
