@@ -28,7 +28,7 @@ fn main() {
 
     // input type is (u32, u32), output type is i32
     let input = (3 as u32, 5 as u32);
-    
+
     print!("Proving execution of vm...");
     let (proof, output): (Proof, i32) = prover
         .prove::<(u32, u32), i32>(&pp, Some(input))

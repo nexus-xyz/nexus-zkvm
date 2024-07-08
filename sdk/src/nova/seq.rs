@@ -62,7 +62,8 @@ impl Prover for Nova<Local> {
 
         eval(&mut self.vm, false, false)?;
 
-        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
+        let output: U =
+            postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
 
         Ok(output)
     }
@@ -85,7 +86,8 @@ impl Prover for Nova<Local> {
         let tr = trace(&mut self.vm, K, false)?;
         let pr = prove_seq(pp, tr)?;
 
-        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
+        let output: U =
+            postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice()).unwrap();
 
         Ok((pr, output))
     }
