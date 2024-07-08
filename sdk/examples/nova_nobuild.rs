@@ -28,7 +28,7 @@ fn main() {
 
     // input and output types are both `()`
     println!("Proving execution of vm...");
-    let proof, _: Proof, () = prover
+    let (proof, _): (Proof, ()) = prover
         .prove::<(), ()>(&pp, None)
         .expect("failed to prove program");
 
