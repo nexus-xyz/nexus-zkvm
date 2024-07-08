@@ -4,13 +4,11 @@ use nexus_rt::{println, read_private_input, write_output};
 
 #[nexus_rt::main]
 fn main() {
-    let input: Option<(u32, u32)> = read_private_input::<u32>();
+    let input = read_private_input::<(u32, u32)>();
 
-    let (x, y) = input;
     let mut z: i32 = -1;
-
-    if let Some(v) = input {
-        println!("Read private input: {}", v);
+    if let Ok((x, y)) = input {
+        println!("Read private input: ({}, {})", x, y);
 
         z = (x * y) as i32;
     } else {

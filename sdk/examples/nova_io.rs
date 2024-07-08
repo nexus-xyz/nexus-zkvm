@@ -27,9 +27,11 @@ fn main() {
     let prover: Nova<Local> = Nova::new_from_file(&path).expect("failed to load program");
 
     // input type is (u32, u32), output type is i32
+    let input = (3 as u32, 5 as u32);
+    
     print!("Proving execution of vm...");
     let (proof, output): (Proof, i32) = prover
-        .prove::<(u32, u32), i32>(&pp, Some((3 as u32, 5 as u32)))
+        .prove::<(u32, u32), i32>(&pp, Some(input))
         .expect("failed to prove program");
 
     println!(" output is {}!", output);

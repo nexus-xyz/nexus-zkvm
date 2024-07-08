@@ -2,6 +2,9 @@ pub use core::fmt::Write;
 
 #[cfg(target_arch = "riscv32")]
 mod riscv32 {
+    extern crate alloc;
+    use serde::{de::DeserializeOwned, Serialize};
+
     // To simplify calling out to the environment, we keep the
     // argument registers intact, and place the function number
     // in s2 (rust will not allow us to use s0 or s1).
@@ -21,15 +24,15 @@ mod riscv32 {
     }
 
     /// Read an object off the private input tape
-    pub fn read_private_input<'a, T: Deserialize>() -> Result<T, postcard::Error> {
+    pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
         let inp: u32 = 0;
         let mut out: u32 = 0;
 
-        let mut bytes: Vec<u8> = vec![];
+        let mut bytes = alloc::vec::Vec::<u8>::new();
 
         while out != u32::MAX {
             ecall!(2, inp, inp, out);
-            bytes.append(out.to_le_bytes()[0])
+            bytes.push(out.to_le_bytes()[0])
         }
 
         postcard::from_bytes::<T>(bytes.as_slice())
@@ -50,16 +53,16 @@ mod riscv32 {
 
     /// Write an object to the output tape
     pub fn write_output<T: Serialize + ?Sized>(val: &T) {
-        let ser: Vec<u8> = to_allocvec(&val).unwrap();
+        let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
         let mut _out: u32;
 
-        ecall!(3, b.as_slice().as_ptr(), b.len, _out);
+        ecall!(3, ser.as_slice().as_ptr(), ser.len(), _out);
     }
 
     /// Write a slice to the output tape
     pub fn write_to_output(b: &[u8]) {
         let mut _out: u32;
-        ecall!(3, b.as_ptr(), b.len, _out);
+        ecall!(3, b.as_ptr(), b.len(), _out);
     }
 
     /// An empty type representing the VM terminal
