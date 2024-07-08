@@ -25,7 +25,7 @@ if [ ! -f "$1" ]; then
 fi
 
 if [ -e $PROJECT_NAME ]; then
-    echo "Error: Directory 'nexus-project-ci' already exists."
+    echo "Error: Directory '$PROJECT_NAME' already exists."
     exit 1
 fi
 
