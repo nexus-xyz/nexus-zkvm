@@ -57,8 +57,9 @@ impl Display for BuildError {
 pub struct CompileOpts {
     pub package: String,
     pub binary: String,
-    pub(crate) debug: bool,
-    pub(crate) native: bool,
+    debug: bool,
+    native: bool,
+    unique: bool,
     pub(crate) memlimit: Option<usize>, // in mb
 }
 
@@ -69,6 +70,7 @@ impl CompileOpts {
             binary: binary.to_string(),
             debug: false,
             native: false,
+            unique: false,
             memlimit: None,
         }
     }
@@ -79,6 +81,10 @@ impl CompileOpts {
 
     pub fn set_native(&mut self, native: bool) {
         self.native = native;
+    }
+
+    pub fn set_unique(&mut self, unique: bool) {
+        self.unique = unique;
     }
 
     pub fn set_memlimit(&mut self, memlimit: usize) {
@@ -125,7 +131,6 @@ impl CompileOpts {
     }
 
     pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
-        let uuid = Uuid::new_v4();
         let linker_path = self.set_linker(prover)?;
 
         let rust_flags = [
@@ -140,6 +145,7 @@ impl CompileOpts {
         } else {
             "riscv32i-unknown-none-elf"
         };
+
         let profile = if self.debug {
             "debug"
         } else {
@@ -147,9 +153,14 @@ impl CompileOpts {
         };
 
         let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
-
         let prog = self.binary.as_str();
-        let dest = format!("/tmp/nexus-target-{}", uuid);
+
+        let mut dest = format!("/tmp/nexus-target");
+
+        if self.unique {
+            let uuid = Uuid::new_v4();
+            dest = format!("{}-{}", dest, uuid);
+        }
 
         let mut cmd = Command::new("cargo");
         cmd.envs(envs).args([
@@ -174,8 +185,8 @@ impl CompileOpts {
         }
 
         let elf_path = PathBuf::from_str(&format!(
-            "/tmp/nexus-target-{}/{}/{}/{}",
-            uuid, target, profile, prog
+            "{}/{}/{}/{}",
+            dest, target, profile, prog
         ))
         .unwrap();
 
