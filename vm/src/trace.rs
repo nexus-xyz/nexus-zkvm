@@ -236,7 +236,7 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
 
         let s = &self.block.steps[self.index];
         let inst = parse_u32(s.inst).unwrap();
-        let mut w = parse_alt(&self.block.regs, s.inst);
+        let mut w = parse_alt(&self.regs, s.inst);
         w.regs = self.regs.clone();
         w.inst = s.inst;
         w.J = inst.index_j();

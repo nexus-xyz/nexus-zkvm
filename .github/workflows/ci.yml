@@ -46,3 +46,12 @@ jobs:
         with:
           toolchain: stable
       - run: cargo test -r --all-features
+
+  test-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add riscv32i-unknown-none-elf
+      - run: assets/scripts/smoke.sh examples/src/bin/fib3.rs
+      - run: assets/scripts/smoke.sh examples/src/bin/hello.rs
