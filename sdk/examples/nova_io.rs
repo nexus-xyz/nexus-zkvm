@@ -1,6 +1,6 @@
 use nexus_sdk::{
-    nova::seq::{Nova, Proof, PP},
-    Local, Parameters, Prover,
+    nova::seq::{Nova, PP},
+    Local, Parameters, Prover, Verifiable,
 };
 
 type Input = (u32, u32);
@@ -32,11 +32,13 @@ fn main() {
     let input: Input = (3, 5);
 
     print!("Proving execution of vm...");
-    let (proof, output): (Proof, Output) = prover
+    let proof = prover
         .prove::<Input, Output>(&pp, Some(input))
         .expect("failed to prove program");
 
-    println!(" output is {}!", output);
+    println!(" output is {}!", proof.output());
+
+    println!(">>>>> Logging\n{}\n<<<<<", proof.logs());
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");

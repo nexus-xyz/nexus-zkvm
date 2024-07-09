@@ -10,12 +10,13 @@ use nexus_core::nvm::memory::MerkleTrie;
 use nexus_core::nvm::NexusVM;
 use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
 use nexus_core::prover::nova::prove_seq;
+use nexus_core::prover::nova::types::IVCProof;
 
 use crate::error::{BuildError, TapeError};
 use nexus_core::prover::nova::error::ProofError;
 
 // re-exports
-pub use nexus_core::prover::nova::types::{IVCProof as Proof, SeqPP as PP};
+pub use nexus_core::prover::nova::types::SeqPP as PP;
 
 use std::marker::PhantomData;
 
@@ -46,10 +47,20 @@ pub struct Nova<C: Compute = Local> {
     _compute: PhantomData<C>,
 }
 
+pub struct Proof<U: DeserializeOwned> {
+    proof: IVCProof,
+    output: U,
+    logs: String,
+}
+
+pub struct View<U: DeserializeOwned> {
+    output: U,
+    logs: String,
+}
+
 impl Prover for Nova<Local> {
     type Memory = MerkleTrie;
     type Params = PP;
-    type Proof = Proof;
     type Error = Error;
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -73,7 +84,8 @@ impl Prover for Nova<Local> {
         Self::new_from_file(&elf_path)
     }
 
-    fn run<T, U>(mut self, input: Option<T>) -> Result<U, Self::Error>
+    #[allow(refining_impl_trait)]
+    fn run<T, U>(mut self, input: Option<T>) -> Result<View<U>, Self::Error>
     where
         T: Serialize + Sized,
         U: DeserializeOwned,
@@ -88,17 +100,15 @@ impl Prover for Nova<Local> {
 
         eval(&mut self.vm, false, false).map_err(ProofError::from)?;
 
-        let output: U = postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
-            .map_err(TapeError::from)?;
-
-        Ok(output)
+        Ok(View {
+            output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
+                .map_err(TapeError::from)?,
+            logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
+        })
     }
 
-    fn prove<T, U>(
-        mut self,
-        pp: &Self::Params,
-        input: Option<T>,
-    ) -> Result<(Self::Proof, U), Self::Error>
+    #[allow(refining_impl_trait)]
+    fn prove<T, U>(mut self, pp: &Self::Params, input: Option<T>) -> Result<Proof<U>, Self::Error>
     where
         T: Serialize + Sized,
         U: DeserializeOwned,
@@ -112,12 +122,13 @@ impl Prover for Nova<Local> {
         }
 
         let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
-        let pr = prove_seq(pp, tr).map_err(ProofError::from)?;
 
-        let output: U = postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
-            .map_err(TapeError::from)?;
-
-        Ok((pr, output))
+        Ok(Proof {
+            proof: prove_seq(pp, tr).map_err(ProofError::from)?,
+            output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
+                .map_err(TapeError::from)?,
+            logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
+        })
     }
 }
 
@@ -137,11 +148,32 @@ impl Parameters for PP {
     }
 }
 
-impl Verifiable for Proof {
+impl<U: DeserializeOwned> Viewable for View<U> {
+    type Output = U;
+
+    fn logs(&self) -> &String {
+        &self.logs
+    }
+
+    fn output(&self) -> &Self::Output {
+        &self.output
+    }
+}
+
+impl<U: DeserializeOwned> Verifiable for Proof<U> {
     type Params = PP;
     type Error = Error;
+    type Output = U;
+
+    fn logs(&self) -> &String {
+        &self.logs
+    }
+
+    fn output(&self) -> &Self::Output {
+        &self.output
+    }
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
-        Ok(self.verify(pp).map_err(ProofError::from)?)
+        Ok(self.proof.verify(pp).map_err(ProofError::from)?)
     }
 }

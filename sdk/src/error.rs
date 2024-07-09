@@ -30,12 +30,16 @@ impl Display for BuildError {
 pub enum TapeError {
     /// Error serializing to or deserializing from the VM input/output tapes
     SerializationError(#[from] postcard::Error),
+
+    /// Error parsing logging tape.
+    EncodingError(#[from] std::string::FromUtf8Error),
 }
 
 impl Display for TapeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SerializationError(error) => write!(f, "{}", error),
+            Self::EncodingError(error) => write!(f, "{}", error),
         }
     }
 }

@@ -12,7 +12,6 @@ impl Compute for Local {}
 pub trait Prover {
     type Memory;
     type Params: Parameters;
-    type Proof: Verifiable;
     type Error;
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error>
@@ -32,7 +31,7 @@ pub trait Prover {
         Self: Sized,
         Self::Error: From<std::io::Error>;
 
-    fn run<T, U>(self, input: Option<T>) -> Result<U, Self::Error>
+    fn run<T, U>(self, input: Option<T>) -> Result<impl Viewable, Self::Error>
     where
         T: Serialize + Sized,
         U: DeserializeOwned;
@@ -41,7 +40,7 @@ pub trait Prover {
         self,
         pp: &Self::Params,
         input: Option<T>,
-    ) -> Result<(Self::Proof, U), Self::Error>
+    ) -> Result<impl Verifiable, Self::Error>
     where
         T: Serialize + Sized,
         U: DeserializeOwned;
@@ -61,9 +60,22 @@ pub trait Parameters {
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error>;
 }
 
+pub trait Viewable {
+    type Output;
+
+    fn logs(&self) -> &String;
+
+    fn output(&self) -> &Self::Output;
+}
+
 pub trait Verifiable {
     type Params: Parameters;
     type Error;
+    type Output;
+
+    fn logs(&self) -> &String;
+
+    fn output(&self) -> &Self::Output;
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error>;
 }

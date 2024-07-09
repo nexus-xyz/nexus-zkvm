@@ -1,7 +1,7 @@
 use nexus_sdk::{
     compile::CompileOpts,
-    nova::seq::{Nova, Proof, PP},
-    Local, Parameters, Prover,
+    nova::seq::{Nova, PP},
+    Local, Parameters, Prover, Verifiable,
 };
 
 const PACKAGE: &str = "example";
@@ -19,9 +19,11 @@ fn main() {
 
     // input and output types are both `()`
     println!("Proving execution of vm...");
-    let (proof, _): (Proof, ()) = prover
+    let proof = prover
         .prove::<(), ()>(&pp, None)
         .expect("failed to prove program");
+
+    println!(">>>>> Logging\n{}\n<<<<<", proof.logs());
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");
