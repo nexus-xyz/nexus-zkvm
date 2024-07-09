@@ -113,96 +113,9 @@ Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denote
 | $\textbf{and}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x48}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 | $\textbf{xor}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x49}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
 
-Compared to RISC-V, Nexus VM instructions are longer (64 bits versus 32 bits) and allow for an additional argument.  One of the advantages of having an additional argument is that it allows for a reduced instruction set. In particular, as noted in the section describing the translation from RISC-V to Nexus VM,  different RISC-V instructions can be emulated with a single Nexus VM instruction.
-
 Similarly to the $\textbf{answer}$ instruction in the [TinyRAM architecture specification][TinyRAM], the output produced by $\textbf{halt}$ indicates whether the program halts in an accepting or rejecting state by setting $R[rs_1] + i=0$ or not.
 
 The current architecture does not specify an output tape. Nevertheless, one can easily return arbitrary strings as output by encoding that string in some specific region of the memory before halting in an accepting state.
-
-As we show in the next section, the RISC-V instruction set can be easily compiled to the instruction set of the Nexus VM, by applying a simple translation function to a subset of these instructions. As a result, the Nexus VM can effortlessly support the execution of programs written in high-level programming languages such as Rust and C++. In addition to that, as indicated further below, future versions of the Nexus VM will be able to be *extended* with custom instructions (e.g. SHA-256).
-
-### Translation from RISC-V to Nexus VM
-
-The syntax of RISC-V instructions supported by the Nexus VM is the following:
-
-$$
-\begin{align*}
-    %\text{Binary Operators}\\
-    i \in&\: \{0..2^{32}-1\} &\text{Immediate values} \\
-    pc \in&\: \{0..2^{32}-1\} &\text{Program counter} \\
-    rd,rs_1,rs_2 \in&\: \{x_0 .. x_{31}\} &\text{Register selectors} \\
-    alu    =&\: \textbf{add}
-         \mid   \textbf{sub} \\
-        \mid&\: \textbf{slt}
-         \mid   \textbf{sltu}
-         \mid   \textbf{sll}
-         \mid   \textbf{srl}
-         \mid   \textbf{sra} \\
-        \mid&\: \textbf{xor}
-         \mid   \textbf{and}
-         \mid   \textbf{or}                    & \text{Binary operators} \\
-    bcc    =&\: \textbf{beq}
-         \mid   \textbf{bne}
-         \mid   \textbf{blt}
-         \mid   \textbf{bge}
-         \mid   \textbf{bltu}
-         \mid   \textbf{bgeu}                  & \text{Branch conditions} \\
-    ld     =&\: \textbf{lb}
-         \mid   \textbf{lh}
-         \mid   \textbf{lw}
-         \mid   \textbf{lbu}
-         \mid   \textbf{lhu}                   & \text{Load operations} \\
-    st     =&\: \textbf{sb}
-         \mid   \textbf{sh}
-         \mid   \textbf{sw}                    & \text{Store operations} \\
-    oper
-           =&\: \textbf{lui}\;rd\;i            & \text{Load immediate} \\
-        \mid&\: \textbf{auipc}\;rd\;i          & \text{Load immediate + PC} \\
-        \mid&\: alu\;rd\;\;rs_1\;rs_2          & \text{ALU register-register} \\
-        \mid&\: alu\;rd\;\;rs_1\;i             & \text{ALU register-immediate} \\
-        \mid&\: \textbf{ebreak}                & \text{Breakpoint} \\
-        \mid&\: \textbf{fence}                 & \text{Memory fence} \\
-    branch
-           =&\: \textbf{jal}\;rd\;i            & \text{Jump and link} \\
-        \mid&\: \textbf{jalr}\;rd\;rs_1\;i     & \text{Jump and link register} \\
-        \mid&\: bcc\;rs_1\;rs_2\;i             & \text{Conditional branch} \\
-    memory
-           =&\: ld\;rd\;rs_1\;i                & \text{Load memory} \\
-        \mid&\: st\;rs_1\;rs_2\;i              & \text{Store memory} \\
-    inst
-           =&\: oper                           & \text{Operations} \\
-        \mid&\: branch                         & \text{Control transfer} \\
-        \mid&\: memory                         & \text{Load and store} \\
-        \mid&\: \textbf{ecall}                 & \text{Environment call} \\
-        \mid&\: \textbf{unimp}                 & \text{Unimplemented} \\
-\end{align*}
-$$
-
-These RISC-V instructions can be easily converted to Nexus VM instructions according to:
-
-$$
-\begin{align*}
-    \mathcal{C}(\textbf{lui}\;rd\;i)   =& \textbf{add}\;rd\;x_0\;x_0\;i \\
-    \mathcal{C}(\textbf{auipc}\;rd\;i) =& \textbf{add}\;rd\;x_0\;x_0\;(pc+i) \\
-    \mathcal{C}(alu\;rd\;\;rs_1\;rs_2) =& alu\;rd\;rs_1\;rs_2\;0 \\
-    \mathcal{C}(alu\;rd\;\;rs_1\;i)    =& alu\;rd\;rs_1\;x_0\;i \\
-    \mathcal{C}(\textbf{ebreak})       =& \textbf{nop} \\
-    \mathcal{C}(\textbf{fence})        =& \textbf{nop} \\
-    \mathcal{C}(\textbf{ecall})        =& \textbf{ecall} \\
-    \mathcal{C}(\textbf{unimp})        =& \textbf{halt}\;x_0\;1 \\
-    \mathcal{C}(bcc\;rs_1\;rs_2\;i) =& bcc\;rs_1\;rs_2\;i \\
-    \mathcal{C}(ld\;rs_1\;i) =& ld\;rs_1\;i \\
-    \mathcal{C}(st\;rs_1\;rs_2\;i) =& st\;rs_1\;rs_2\;i \\
-    \mathcal{C}(\textbf{jal}\;rd\;i) =& \textbf{jal}\;rd\;x_0\;i \\
-    \mathcal{C}(\textbf{jalr}\;rd\;rs_1\;i) =& \textbf{jal}\;rd\;rs_1\;i \\
-    \end{align*}
-$$
-
-Note that the special RISC-V load immediate instructions ($\textbf{lui}$ and $\textbf{auipc}$) are a result of the fixed 32-bit encoding of instructions. The Nexus VM relaxes this constraint allowing for a reduced instruction set.
-
-Both $\textbf{ebreak}$ and $\textbf{fence}$ are mapped to $\textbf{nop}$ since they have no effect as we do not support debugging and our virtual machine only has one CPU core (a.k.a. Hart in RISC-V terminology),
-
-$\textbf{unimp}$ is mapped to $\textbf{halt}\;x_0\;1$ to indicate a failure condition.
 
 ### Nexus Virtual Machine Initialization
 
