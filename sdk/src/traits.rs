@@ -37,7 +37,7 @@ pub trait Prover {
         T: Serialize + Sized,
         U: DeserializeOwned;
 
-    fn prove<'a, T, U>(
+    fn prove<T, U>(
         self,
         pp: &Self::Params,
         input: Option<T>,

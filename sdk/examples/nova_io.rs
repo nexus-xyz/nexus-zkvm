@@ -29,7 +29,7 @@ fn main() {
     // defaults to local proving
     let prover: Nova<Local> = Nova::new_from_file(&path).expect("failed to load program");
 
-    let input: Input = (3 as u32, 5 as u32);
+    let input: Input = (3, 5);
 
     print!("Proving execution of vm...");
     let (proof, output): (Proof, Output) = prover

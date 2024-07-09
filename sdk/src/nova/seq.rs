@@ -88,7 +88,7 @@ impl Prover for Nova<Local> {
 
         eval(&mut self.vm, false, false).map_err(ProofError::from)?;
 
-        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice())
+        let output: U = postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
             .map_err(TapeError::from)?;
 
         Ok(output)
@@ -114,7 +114,7 @@ impl Prover for Nova<Local> {
         let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
         let pr = prove_seq(pp, tr).map_err(ProofError::from)?;
 
-        let output: U = postcard::from_bytes::<U>(&self.vm.syscalls.get_output().as_slice())
+        let output: U = postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
             .map_err(TapeError::from)?;
 
         Ok((pr, output))
