@@ -8,7 +8,7 @@ use thiserror::Error;
 use nexus_core::nvm::interactive::{eval, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
 use nexus_core::nvm::NexusVM;
-use nexus_core::prover::hypernova::pp::{gen_vm_pp, test_pp::gen_vm_test_pp, load_pp, save_pp};
+use nexus_core::prover::hypernova::pp::{gen_vm_pp, load_pp, save_pp, test_pp::gen_vm_test_pp};
 use nexus_core::prover::hypernova::prove_seq;
 use nexus_core::prover::hypernova::types::IVCProof;
 
@@ -16,7 +16,7 @@ use crate::error::{BuildError, TapeError};
 use nexus_core::prover::hypernova::error::ProofError;
 
 // re-exports
-pub use nexus_core::prover::hypernova::types::{PP, SRS, SetupAux};
+pub use nexus_core::prover::hypernova::types::{SetupAux, PP, SRS};
 
 use std::marker::PhantomData;
 
@@ -127,8 +127,9 @@ impl Prover for HyperNova<Local> {
             view: View {
                 output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
                     .map_err(TapeError::from)?,
-                logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
-            }
+                logs: String::from_utf8(self.vm.syscalls.get_log_buffer())
+                    .map_err(TapeError::from)?,
+            },
         })
     }
 }
@@ -163,7 +164,6 @@ impl Generate for PP {
     fn generate(srs: &SRS) -> Result<Self, Self::Error> {
         Ok(gen_vm_pp(K, srs, &()).map_err(ProofError::from)?)
     }
-
 }
 
 impl<U: DeserializeOwned> Viewable for View<U> {

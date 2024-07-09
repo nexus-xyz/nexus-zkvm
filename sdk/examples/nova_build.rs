@@ -1,6 +1,6 @@
 use nexus_sdk::{
     compile::CompileOpts,
-    nova::seq::{Nova, PP, Generate},
+    nova::seq::{Generate, Nova, PP},
     Local, Parameters, Prover, Verifiable,
 };
 

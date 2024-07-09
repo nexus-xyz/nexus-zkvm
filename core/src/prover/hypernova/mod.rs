@@ -72,7 +72,7 @@ mod tests {
         let params = pp::test_pp::gen_test_pp(&circuit)?;
 
         let proof = prove_seq(&params, trace)?;
-        assert!(proof.verify(&params, proof.step_num() as _).is_ok());
+        assert!(proof.verify(&params).is_ok());
 
         Ok(())
     }

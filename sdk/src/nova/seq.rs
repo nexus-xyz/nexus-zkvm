@@ -127,8 +127,9 @@ impl Prover for Nova<Local> {
             view: View {
                 output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
                     .map_err(TapeError::from)?,
-                logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
-            }
+                logs: String::from_utf8(self.vm.syscalls.get_log_buffer())
+                    .map_err(TapeError::from)?,
+            },
         })
     }
 }
@@ -163,7 +164,6 @@ impl Generate for PP {
     fn generate() -> Result<Self, Self::Error> {
         Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
     }
-
 }
 
 impl<U: DeserializeOwned> Viewable for View<U> {

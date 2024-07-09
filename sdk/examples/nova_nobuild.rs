@@ -1,5 +1,5 @@
 use nexus_sdk::{
-    nova::seq::{Nova, PP, Generate},
+    nova::seq::{Generate, Nova, PP},
     Local, Parameters, Prover, Verifiable,
 };
 
