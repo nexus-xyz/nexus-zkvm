@@ -1,5 +1,5 @@
 use nexus_sdk::{
-    nova::seq::{Nova, PP, Generate},
+    hypernova::seq::{HyperNova, PP},
     Local, Parameters, Prover, Verifiable,
 };
 
@@ -20,11 +20,13 @@ fn main() {
         );
     }
 
-    println!("Setting up Nova public parameters...");
-    let pp: PP = PP::generate().expect("failed to generate parameters");
+    // HyperNova relies on an structured reference string (SRS).
+    // So we use a testing setup call that generates one for us.
+    println!("Setting up testing HyperNova public parameters...");
+    let pp: PP = PP::generate_for_testing().expect("failed to generate parameters");
 
     // defaults to local proving
-    let prover: Nova<Local> = Nova::new_from_file(&path).expect("failed to load program");
+    let prover: HyperNova<Local> = HyperNova::new_from_file(&path).expect("failed to load program");
 
     // input and output types are both `()`
     println!("Proving execution of vm...");

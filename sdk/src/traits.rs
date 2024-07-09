@@ -49,7 +49,7 @@ pub trait Prover {
 pub trait Parameters {
     type Error;
 
-    fn generate() -> Result<Self, Self::Error>
+    fn generate_for_testing() -> Result<Self, Self::Error>
     where
         Self: Sized;
 

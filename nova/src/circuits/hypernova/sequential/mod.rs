@@ -365,6 +365,13 @@ where
     pub fn verify(
         &self,
         params: &PublicParams<G1, G2, C1, C2, RO, SC>,
+    ) -> Result<(), cyclefold::Error> {
+        self.verify_steps(params, self.step_num() as _)
+    }
+
+    pub fn verify_steps(
+        &self,
+        params: &PublicParams<G1, G2, C1, C2, RO, SC>,
         num_steps: usize,
     ) -> Result<(), cyclefold::Error> {
         let _span = tracing::debug_span!(target: LOG_TARGET, "verify", %num_steps).entered();

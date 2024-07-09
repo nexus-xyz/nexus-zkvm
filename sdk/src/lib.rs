@@ -1,4 +1,5 @@
 pub mod nova;
+pub mod hypernova;
 
 mod traits;
 pub use traits::*;

@@ -8,15 +8,15 @@ use thiserror::Error;
 use nexus_core::nvm::interactive::{eval, parse_elf, trace};
 use nexus_core::nvm::memory::MerkleTrie;
 use nexus_core::nvm::NexusVM;
-use nexus_core::prover::nova::pp::{gen_vm_pp, load_pp, save_pp};
-use nexus_core::prover::nova::prove_seq;
-use nexus_core::prover::nova::types::IVCProof;
+use nexus_core::prover::hypernova::pp::{gen_vm_pp, test_pp::gen_vm_test_pp, load_pp, save_pp};
+use nexus_core::prover::hypernova::prove_seq;
+use nexus_core::prover::hypernova::types::IVCProof;
 
 use crate::error::{BuildError, TapeError};
-use nexus_core::prover::nova::error::ProofError;
+use nexus_core::prover::hypernova::error::ProofError;
 
 // re-exports
-pub use nexus_core::prover::nova::types::{SeqPP as PP, SetupAux};
+pub use nexus_core::prover::hypernova::types::{PP, SRS, SetupAux};
 
 use std::marker::PhantomData;
 
@@ -42,7 +42,7 @@ pub enum Error {
     TapeError(#[from] TapeError),
 }
 
-pub struct Nova<C: Compute = Local> {
+pub struct HyperNova<C: Compute = Local> {
     vm: NexusVM<MerkleTrie>,
     _compute: PhantomData<C>,
 }
@@ -57,13 +57,13 @@ pub struct Proof<U: DeserializeOwned> {
     view: View<U>,
 }
 
-impl Prover for Nova<Local> {
+impl Prover for HyperNova<Local> {
     type Memory = MerkleTrie;
     type Params = PP;
     type Error = Error;
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Nova::<Local> {
+        Ok(HyperNova::<Local> {
             vm: parse_elf::<Self::Memory>(elf_bytes).map_err(ProofError::from)?,
             _compute: PhantomData,
         })
@@ -137,7 +137,7 @@ impl Parameters for PP {
     type Error = Error;
 
     fn generate_for_testing() -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
+        Ok(gen_vm_test_pp(K).map_err(ProofError::from)?)
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
@@ -152,7 +152,7 @@ impl Parameters for PP {
 trait Generate {
     type Error;
 
-    fn generate() -> Result<Self, Self::Error>
+    fn generate(srs: &SRS) -> Result<Self, Self::Error>
     where
         Self: Sized;
 }
@@ -160,8 +160,8 @@ trait Generate {
 impl Generate for PP {
     type Error = Error;
 
-    fn generate() -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
+    fn generate(srs: &SRS) -> Result<Self, Self::Error> {
+        Ok(gen_vm_pp(K, srs, &()).map_err(ProofError::from)?)
     }
 
 }
