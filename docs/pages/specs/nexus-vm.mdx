@@ -93,38 +93,52 @@ The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructi
 
 Each instruction is encoded as a 32-bit-long string, starting with 7-bit-long $\textbf{opcode}$ string, followed by a 5-bit-long register selector, and other data depending on the operation.
 
-Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$, and $\langle i \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$, and the 32-bit-long immediate value $i$.
+Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$.
 
-| Instruction mnemonic| Arguments | Binary Encodings |
+The notation $\langle i_\texttt{U} \rangle$ denotes the 20-bit-long immediate value. $\langle i_\texttt{J} \rangle$ is a 20-bit-long immediate value with a special, different layout (TO DESCRIBE). $\langle i_\texttt{I} \rangle$ denotes a 12-bit long immediate value (with the sign bit alone moved to the least significant bit). $\langle i_\texttt{B0} \rangle$ and $\langle i_\texttt{B0} \rangle$ each denote a 5-bit and 7-bit long immediate values with a special layout (TO DESCRIBE). $\langle i_\texttt{SH} \rangle$ denotes a 5-bit long immediate value.
+
+| Instruction mnemonic| Arguments | Binary Encodings (left: most significant bit) |
 | -------- | -------- | -------- |
-| $\textbf{nop}$ | | $\begin{array}{llllll} \texttt{0x01}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$|
-| $\textbf{halt}$ | $rs_1$ $i$ | $\begin{array}{llllll} \texttt{0x02}  & \mathtt{*^5} \; \  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle \end{array}$|
-| $\textbf{sys}$ | | $\begin{array}{llllll} \texttt{0x03}  & \mathtt{*^5} \; \  & \mathtt{*^5} \; \ & \; \mathtt{*^5} \; \  & \mathtt{*^{32}}\end{array}$|
-| $\textbf{jal}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x10}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
-| $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x11}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x12}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{blt}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x13}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x14}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x15}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x16}  & \mathtt{*^5} \; \ & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{lb}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x20}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
-| $\textbf{lh}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x21}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
-| $\textbf{lw}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x22}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
-| $\textbf{lbu}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x23}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
-| $\textbf{lhu}$ | $rd$ $rs_1$  $i$ | $\begin{array}{llllll} \texttt{0x24}  & \langle d \rangle  & \langle s_1 \rangle & \; \mathtt{*^5} \; \  & \langle i \rangle\end{array}$|
-| $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x30}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x31}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | $\begin{array}{llllll} \texttt{0x32}  & \mathtt{*^5} \;\  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$|
-| $\textbf{add}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x40}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{sub}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x41}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{slt}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x42}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{sltu}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x43}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{sll}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x44}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{slr}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x45}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{sra}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x46}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{or}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x47}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{and}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x48}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
-| $\textbf{xor}$     | $rd$ $rs_1$  $rs_2$  $i$     |  $\begin{array}{llllll} \texttt{0x49}  & \langle d \rangle  & \langle s_1 \rangle & \langle s_2 \rangle & \langle i \rangle\end{array}$    |
+| $\textbf{lui}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{U} \rangle & \langle d \rangle & \texttt{0b\_011\_0111} \end{array}$ |
+| $\textbf{auipc}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{U} \rangle & \langle d \rangle & \texttt{0b\_001\_0111} \end{array}$ |
+| $\textbf{jal}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{J} \rangle & \langle d \rangle & \texttt{0b\_110\_1111} \end{array}$|
+| $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | $\begin{array}{llllll} \langle i_\texttt{I} \rangle  & \langle s_1 \rangle & \mathtt{*^3} & \langle d \rangle & \texttt{0b\_110\_0111}  \end{array}$|
+| $\textbf{beq}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle&\langle s_1 \rangle &\texttt{0b\_000} &\langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
+| $\textbf{bne}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle &\langle s_1 \rangle & \texttt{0b\_001} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
+| $\textbf{blt}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
+| $\textbf{bge}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
+| $\textbf{bltu}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
+| $\textbf{bgeu}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
+| $\textbf{lb}$ | $rd$ $rs_1$ $i$ | $\begin{array}{lllll}  \langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle &\texttt{0b\_000\_0011}\end{array}$|
+| $\textbf{lh}$ | $rd$ $rs_1$ $i$ | $\begin{array}{lllll}  \langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_001} & \langle d \rangle &\texttt{0b\_000\_0011}\end{array}$|
+| $\textbf{lw}$ | $rd$ $rs_1$ $i$ | $\begin{array}{lllll}  \langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_010} & \langle d \rangle &\texttt{0b\_000\_0011}\end{array}$|
+| $\textbf{lbu}$ | $rd$ $rs_1$ $i$ | $\begin{array}{lllll}  \langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_011} & \langle d \rangle &\texttt{0b\_000\_0011}\end{array}$|
+| $\textbf{lhu}$ | $rd$ $rs_1$ $i$ | $\begin{array}{lllll}  \langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle d \rangle &\texttt{0b\_000\_0011}\end{array}$|
+| $\textbf{sb}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll} \langle i_\texttt{S1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle i_\texttt{S0} \rangle & \texttt{0b\_010\_0011}\end{array}$|
+| $\textbf{sh}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll} \langle i_\texttt{S1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_001} & \langle i_\texttt{S0} \rangle & \texttt{0b\_010\_0011}\end{array}$|
+| $\textbf{sw}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll} \langle i_\texttt{S1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_010} & \langle i_\texttt{S0} \rangle & \texttt{0b\_010\_0011}\end{array}$|
+| $\textbf{addi}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{slli}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_001} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{slti}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_010} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{sltui}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_011} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{xori}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle d \rangle  &  \texttt{0b\_001\_0011}\end{array}$    |
+| $\textbf{srli}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{llllll}\texttt{0b\_000\_0000}  & \langle i_\texttt{SH} \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{srai}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{llllll}\texttt{0b\_010\_0000}  & \langle i_\texttt{SH} \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{ori}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{andi}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
+| $\textbf{add}$     | $rd$ $rs_1$ $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7}  & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{sub}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_010\_0000}  & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{sll}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_001} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{slt}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_010} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{sltu}$     | $rd$ $rs_1$ $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_011} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{xor}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{srl}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{sra}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_010\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{or}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{and}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{fense}$ | | $\begin{array}{ll} \mathtt{*^{25}} & \texttt{0b\_000\_1111} \end{array}$|
+| $\textbf{ecall}$ | $rd$ | $\begin{array}{lll} \texttt{0x00000}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
+| $\textbf{ebreak}$ | $rd$ | $\begin{array}{lll} \texttt{0x00100}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
 
 Similarly to the $\textbf{answer}$ instruction in the [TinyRAM architecture specification][TinyRAM], the output produced by $\textbf{halt}$ indicates whether the program halts in an accepting or rejecting state by setting $R[rs_1] + i=0$ or not.
 
