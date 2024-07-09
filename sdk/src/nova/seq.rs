@@ -47,15 +47,14 @@ pub struct Nova<C: Compute = Local> {
     _compute: PhantomData<C>,
 }
 
-pub struct Proof<U: DeserializeOwned> {
-    proof: IVCProof,
+pub struct View<U: DeserializeOwned> {
     output: U,
     logs: String,
 }
 
-pub struct View<U: DeserializeOwned> {
-    output: U,
-    logs: String,
+pub struct Proof<U: DeserializeOwned> {
+    proof: IVCProof,
+    view: View<U>,
 }
 
 impl Prover for Nova<Local> {
@@ -125,9 +124,11 @@ impl Prover for Nova<Local> {
 
         Ok(Proof {
             proof: prove_seq(pp, tr).map_err(ProofError::from)?,
-            output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
-                .map_err(TapeError::from)?,
-            logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
+            view: View {
+                output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
+                    .map_err(TapeError::from)?,
+                logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
+            }
         })
     }
 }
@@ -166,11 +167,11 @@ impl<U: DeserializeOwned> Verifiable for Proof<U> {
     type Output = U;
 
     fn logs(&self) -> &String {
-        &self.logs
+        &self.view.logs()
     }
 
     fn output(&self) -> &Self::Output {
-        &self.output
+        &self.view.output()
     }
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
