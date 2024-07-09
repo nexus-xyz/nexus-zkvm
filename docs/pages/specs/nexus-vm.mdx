@@ -37,48 +37,61 @@ The program counter $pc$ is always advanced by 8 bytes after the execution of ea
 
 ### Nexus Virtual Machine Instruction Set
 
-The Nexus VM instruction set contains 28 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and takes three arguments, two register selectors and a full 32-bit immediate value. The exact format $(\textbf{opcode}\;rd\;\;rs_1\;rs_2\;i)$ of each instruction is defined as follows:
+The Nexus VM instruction set contains 41 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and can take two of the three arguments, two register selectors and an immediate value. The exact format of each instruction is defined as follows:
 * $\textbf{opcode}$ is a string defining the instruction;
 * $rd$ is a register selector specifying the destination register;
 * $rs_1$ is a register selector specifying the first operand;
 * $rs_2$ is a register selector specifying the second operand; and
-* $i$ is a full 32-bit immediate value.
+* $i$ is an immediate value, whose size varies according to opcodes.
 
 Table: Summary of the Nexus Virtual Machine Instruction Set, where operations are mod $2^{32}$.
 | Instruction mnemonic| Arguments | Description of functionality |
 | -------- | -------- | -------- |
-| $\textbf{add}$     | $rd$ $rs_1$  $rs_2$  $i$     | sets $R[rd]$ to $R[rs_1] + (R[rs_2] + i)$     |
-| $\textbf{sub}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] - (R[rs_2] + i)$|
-| $\textbf{slt}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $(R[rs_1] < (R[rs_2] + i)$ (signed comparison) |
-| $\textbf{sltu}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $(R[rs_1] < (R[rs_2] + i)$ (unsigned comparison)|
-| $\textbf{sll}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] \ll (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$|
-| $\textbf{slr}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] \gg (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$|
-| $\textbf{sra}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to $R[rs_1] \gg (R[rs_2] + i) \mathbin{\&} \mathtt{0x1F}$ ($R[rs_1]$  as integer) |
-| $\textbf{xor}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise XOR of $R[rs_1]$ and $(R[rs_2] + i)$ |
-| $\textbf{and}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise AND of $R[rs_1]$ and $(R[rs_2] + i)$|
-| $\textbf{or}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise OR of $R[rs_1]$ and $(R[rs_2] + i)$|
-| $\textbf{beq}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] = R[rs_2])$ (signed comparison)|
-| $\textbf{bne}$ | $rs_1$  $rs_2$  $i$ | branches  to $pc+i$ if $(R[rs_1] \not= R[rs_2])$ (signed comparison)|
-| $\textbf{blt}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (signed comparison)|
-| $\textbf{bge}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (signed comparison)|
-| $\textbf{bltu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (unsigned comparison)|
-| $\textbf{bgeu}$ | $rs_1$  $rs_2$  $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (unsigned comparison)|
-| $\textbf{lb}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the byte at $M[R[rs_1] + i]$ into $R[rd]$|
-| $\textbf{lh}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the half-word at $M[R[rs_1] + i]$ into $R[rd]$|
-| $\textbf{lw}$ | $rd$ $rs_1$  $i$ | loads the sign extension of the word at $M[R[rs_1] + i]$ into $R[rd]$|
-| $\textbf{lbu}$ | $rd$ $rs_1$  $i$ | loads the zero extension of the byte at $M[R[rs_1] + i]$ into $R[rd]$|
-| $\textbf{lhu}$ | $rd$ $rs_1$  $i$ | loads the zero extension of the half-word at $M[R[rs_1] + i]$ into $R[rd]$|
-| $\textbf{sb}$ | $rs_1$  $rs_2$  $i$ | stores the first byte of $R[rs_2]$ at $M[R[rs_1] + i]$|
-| $\textbf{sh}$ | $rs_1$  $rs_2$  $i$ | stores the first half-word of $R[rs_2]$ at $M[R[rs_1] + i]$|
-| $\textbf{sw}$ | $rs_1$  $rs_2$  $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$|
-| $\textbf{jal}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$  and stores $pc+8$ into $R[rd]$|
-| $\textbf{nop}$ |  | no operation |
-| $\textbf{halt}$ | $rs_1$ $i$ | halts execution with a return value $(R[rs_1] + i)$, $pc$ is not updated|
-| $\textbf{ecall}$ |  | system call|
+| $\textbf{lui}$   | $rd$ $i$     | TO DESCRIBE     |
+| $\textbf{auipc}$ | $rd$ $i$     | TO DESCRIBE     |
+| $\textbf{add}$     | $rd$ $rs_1$  $rs_2$     | sets $R[rd]$ to $R[rs_1] + R[rs_2]$     |
+| $\textbf{addi}$    | $rd$ $rs_1$  $i$     | sets $R[rd]$ to $R[rs_1] + i$     |
+| $\textbf{sub}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] - R[rs_2]$|
+| $\textbf{slt}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] < R[rs_2]$ (signed comparison) |
+| $\textbf{slti}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] < i$ (signed comparison) |
+| $\textbf{sltu}$ | $rd$ $rs_1$ $rs_2$| sets $R[rd]$ to $R[rs_1] < R[rs_2]$ (unsigned comparison)|
+| $\textbf{sltui}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] < i$ (unsigned comparison)|
+| $\textbf{sll}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] \ll R[rs_2] \mathbin{\&} \mathtt{0x1F}$|
+| $\textbf{slli}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] \ll i \mathbin{\&} \mathtt{0x1F}$|
+| $\textbf{srl}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] \gg R[rs_2] \mathbin{\&} \mathtt{0x1F}$|
+| $\textbf{srli}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] \gg i \mathbin{\&} \mathtt{0x1F}$|
+| $\textbf{sra}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] \gg R[rs_2] \mathbin{\&} \mathtt{0x1F}$ ($R[rs_1]$ as signed integer) |
+| $\textbf{srai}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] \gg i \mathbin{\&} \mathtt{0x1F}$ ($R[rs_1]$ as signed integer) |
+| $\textbf{xor}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to the bitwise XOR of $R[rs_1]$ and $R[rs_2]$ |
+| $\textbf{xori}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to the bitwise XOR of $R[rs_1]$ and $i$ |
+| $\textbf{and}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to the bitwise AND of $R[rs_1]$ and $R[rs_2]$|
+| $\textbf{andi}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to the bitwise AND of $R[rs_1]$ and $i$|
+| $\textbf{or}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to the bitwise OR of $R[rs_1]$ and $R[rs_2]$|
+| $\textbf{ori}$ | $rd$ $rs_1$  $rs_2$  $i$ | sets $R[rd]$ to the bitwise OR of $R[rs_1]$ and $i$|
+| $\textbf{beq}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] = R[rs_2])$ (signed comparison)|
+| $\textbf{bne}$ | $rs_1$  $rs_2$ $i$ | branches  to $pc+i$ if $(R[rs_1] \not= R[rs_2])$ (signed comparison)|
+| $\textbf{blt}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (signed comparison)|
+| $\textbf{bge}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (signed comparison)|
+| $\textbf{bltu}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (unsigned comparison)|
+| $\textbf{bgeu}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (unsigned comparison)|
+| $\textbf{lb}$ | $rd$ $rs_1$ $i$ | loads the sign extension of the byte at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lh}$ | $rd$ $rs_1$ $i$ | loads the sign extension of the half-word at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lw}$ | $rd$ $rs_1$ $i$ | loads the sign extension of the word at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lbu}$ | $rd$ $rs_1$ $i$ | loads the zero extension of the byte at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{lhu}$ | $rd$ $rs_1$ $i$ | loads the zero extension of the half-word at $M[R[rs_1] + i]$ into $R[rd]$|
+| $\textbf{sb}$ | $rs_1$ $rs_2$ $i$ | stores the first byte of $R[rs_2]$ at $M[R[rs_1] + i]$|
+| $\textbf{sh}$ | $rs_1$ $rs_2$ $i$ | stores the first half-word of $R[rs_2]$ at $M[R[rs_1] + i]$|
+| $\textbf{sw}$ | $rs_1$ $rs_2$ $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$|
+| $\textbf{jal}$ | $rd$ $i$ | jumps to $M[pc+i]$  and stores $pc+4$ into $R[rd]$|
+| $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$ and stores $pc+4$ into $R[rd]$|
+| $\textbf{fense}$ |  | TO DESCRIBE |
+| $\textbf{ecall}$ |  | system call |
+| $\textbf{ebreak}$ |  | system call|
+| $\textbf{unimp}$ |  | TO DESCRIBE |
 
 The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words. In particular, one cannot read or write half-words and words to addresses which are not a multiple of $2$ and $4$, respectively.
 
-Each instruction is encoded as a 64-bit-long string, starting with 8-bit-long $\textbf{opcode}$ string, followed by a 9-bit-long zero string, three 5-bit-long register selectors for $rd$, $rs_1$, and $rs_1$, and a 32-bit immediate value.
+Each instruction is encoded as a 32-bit-long string, starting with 7-bit-long $\textbf{opcode}$ string, followed by a 5-bit-long register selector, and other data depending on the operation.
 
 Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$, and $\langle i \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$, and the 32-bit-long immediate value $i$.
 
