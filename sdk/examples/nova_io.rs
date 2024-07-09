@@ -38,7 +38,7 @@ fn main() {
 
     println!(" output is {}!", proof.output());
 
-    println!(">>>>> Logging\n{}\n<<<<<", proof.logs());
+    println!(">>>>> Logging\n{}<<<<<", proof.logs());
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");

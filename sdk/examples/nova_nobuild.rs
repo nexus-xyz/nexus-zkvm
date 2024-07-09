@@ -32,7 +32,7 @@ fn main() {
         .prove::<(), ()>(&pp, None)
         .expect("failed to prove program");
 
-    println!(">>>>> Logging\n{}\n<<<<<", proof.logs());
+    println!(">>>>> Logging\n{}<<<<<", proof.logs());
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");
