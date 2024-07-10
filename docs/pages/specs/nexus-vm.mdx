@@ -84,7 +84,7 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{sw}$ | $rs_1$ $rs_2$ $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$|
 | $\textbf{jal}$ | $rd$ $i$ | jumps to $M[pc+i]$  and stores $pc+4$ into $R[rd]$|
 | $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$ and stores $pc+4$ into $R[rd]$|
-| $\textbf{fense}$ |  | TO DESCRIBE |
+| $\textbf{fense}$ |  | No operation |
 | $\textbf{ecall}$ |  | system call |
 | $\textbf{ebreak}$ |  | system call|
 | $\textbf{unimp}$ |  | jumps to $pc$; in effect looping forever at the current program counter |
