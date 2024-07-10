@@ -101,6 +101,13 @@
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>serde::{de::DeserializeOwned, Serialize};
 <span class="kw">use </span>std::fs;
 <span class="kw">use </span>std::path::{Path, PathBuf};
@@ -110,9 +117,27 @@
 <span class="doccomment">/// A compute resource.
 </span><span class="kw">pub trait </span>Compute {}
 
-<span class="doccomment">/// Indicator that local compute will be used for proving the zkVM.
+<span class="doccomment">/// Indicator type that local compute will be used for proving the zkVM.
 </span><span class="kw">pub enum </span>Local {}
 <span class="kw">impl </span>Compute <span class="kw">for </span>Local {}
+
+<span class="doccomment">/// A view capturing the output of a zkVM execution.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>View&lt;U: DeserializeOwned&gt; {
+    output: U,
+    logs: String,
+}
+
+<span class="kw">impl</span>&lt;U: DeserializeOwned&gt; View&lt;U&gt; {
+    <span class="doccomment">/// Get the logging output of the zkVM.
+    </span><span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>String {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.logs
+    }
+
+    <span class="doccomment">/// Get the contents of the output tape written by the zkVM execution.
+    </span><span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>U {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.output
+    }
+}
 
 <span class="doccomment">/// A prover (and runner) for the zkVM.
 </span><span class="kw">pub trait </span>Prover {
@@ -141,7 +166,7 @@
         <span class="self">Self</span>::Error: From&lt;std::io::Error&gt;;
 
     <span class="doccomment">/// Run the zkVM on input of type `T` and return a view of the execution output by deserializing the output tape as of type `U`.
-    </span><span class="kw">fn </span>run&lt;T, U&gt;(<span class="self">self</span>, input: <span class="prelude-ty">Option</span>&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Viewable, <span class="self">Self</span>::Error&gt;
+    </span><span class="kw">fn </span>run&lt;T, U&gt;(<span class="self">self</span>, input: <span class="prelude-ty">Option</span>&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;View&lt;U&gt;, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
         </span>T: Serialize + Sized,
         U: DeserializeOwned;
@@ -164,7 +189,7 @@
     <span class="doccomment">/// Generate testing parameters.
     ///
     /// In deployment, prover parameters often depend on an external reference, like a structured reference string (SRS). As such,
-    /// individual provers may expose an interface for generating production parameters (e.g., [`HyperNova::Generate`](crate::hypernova::seq::Generate)). 
+    /// individual provers may expose an interface for generating production parameters (e.g., [`HyperNova::Generate`](crate::hypernova::seq::Generate)).
     </span><span class="kw">fn </span>generate_for_testing() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
         </span><span class="self">Self</span>: Sized;
@@ -176,17 +201,6 @@
 
     <span class="doccomment">/// Save parameters to a file.
     </span><span class="kw">fn </span>save(pp: <span class="kw-2">&amp;</span><span class="self">Self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
-}
-
-<span class="doccomment">/// A view capturing the output of a zkVM execution.
-</span><span class="kw">pub trait </span>Viewable {
-    <span class="kw">type </span>Output;
-
-    <span class="doccomment">/// Get the logging output of the zkVM.
-    </span><span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>String;
-
-    <span class="doccomment">/// Get the contents of the output tape written by the zkVM execution.
-    </span><span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Output;
 }
 
 <span class="doccomment">/// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
@@ -201,7 +215,7 @@
     <span class="doccomment">/// Get the contents of the output tape written by the zkVM execution.
     </span><span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Output;
 
-    <span class="doccomment">/// Verify the proof of execution.
+    <span class="doccomment">/// Verify the proof of an execution.
     </span><span class="kw">fn </span>verify(<span class="kw-2">&amp;</span><span class="self">self</span>, pp: <span class="kw-2">&amp;</span><span class="self">Self</span>::Params) -&gt; <span class="prelude-ty">Result</span>&lt;(), <span class="self">Self</span>::Error&gt;;
 }
 </code></pre></div></section></main></body></html>

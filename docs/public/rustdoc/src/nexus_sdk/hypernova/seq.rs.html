@@ -187,15 +187,6 @@
 <a href="#187" id="187">187</a>
 <a href="#188" id="188">188</a>
 <a href="#189" id="189">189</a>
-<a href="#190" id="190">190</a>
-<a href="#191" id="191">191</a>
-<a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
-<a href="#196" id="196">196</a>
-<a href="#197" id="197">197</a>
-<a href="#198" id="198">198</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compile;
 <span class="kw">use </span><span class="kw">crate</span>::traits::<span class="kw-2">*</span>;
 
@@ -214,43 +205,44 @@
 <span class="kw">use </span>nexus_core::prover::hypernova::error::ProofError;
 
 <span class="comment">// re-exports
-</span><span class="kw">pub use </span>nexus_core::prover::hypernova::types::{PP, SRS};
+</span><span class="doccomment">/// Public parameters used to prove and verify zkVM executions.
+</span><span class="kw">pub use </span>nexus_core::prover::hypernova::types::PP;
+<span class="doccomment">/// Structured reference string (SRS) used to generate public parameters.
+</span><span class="kw">pub use </span>nexus_core::prover::hypernova::types::SRS;
 
 <span class="kw">use </span>std::marker::PhantomData;
 
 <span class="comment">// hard-coded number of vm instructions to pack per recursion step
 </span><span class="kw">const </span>K: usize = <span class="number">64</span>;
 
-<span class="attr">#[derive(Debug, Error)]
+<span class="doccomment">/// Errors that occur while proving using Nova.
+</span><span class="attr">#[derive(Debug, Error)]
 </span><span class="kw">pub enum </span>Error {
-    <span class="doccomment">/// An error occured during parameter generation, execution, proving, or proof verification for the VM
+    <span class="doccomment">/// An error occured during parameter generation, execution, proving, or proof verification for the zkVM.
     </span><span class="attr">#[error(transparent)]
     </span>ProofError(<span class="attr">#[from] </span>ProofError),
 
-    <span class="doccomment">/// An error occured building the guest program dynamically
+    <span class="doccomment">/// An error occured building the guest program dynamically.
     </span><span class="attr">#[error(transparent)]
     </span>BuildError(<span class="attr">#[from] </span>BuildError),
 
-    <span class="doccomment">/// An error occured reading or writing to the file system
+    <span class="doccomment">/// An error occured reading or writing to the file system.
     </span><span class="attr">#[error(transparent)]
     </span>IOError(<span class="attr">#[from] </span>std::io::Error),
 
-    <span class="doccomment">/// An error occured reading or writing to the VM input/output tapes
+    <span class="doccomment">/// An error occured reading or writing to the zkVM input/output tapes.
     </span><span class="attr">#[error(transparent)]
     </span>TapeError(<span class="attr">#[from] </span>TapeError),
 }
 
-<span class="kw">pub struct </span>HyperNova&lt;C: Compute = Local&gt; {
+<span class="doccomment">/// Prover for the Nexus zkVM using HyperNova.
+</span><span class="kw">pub struct </span>HyperNova&lt;C: Compute = Local&gt; {
     vm: NexusVM&lt;MerkleTrie&gt;,
     _compute: PhantomData&lt;C&gt;,
 }
 
-<span class="kw">pub struct </span>View&lt;U: DeserializeOwned&gt; {
-    output: U,
-    logs: String,
-}
-
-<span class="kw">pub struct </span>Proof&lt;U: DeserializeOwned&gt; {
+<span class="doccomment">/// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
+</span><span class="kw">pub struct </span>Proof&lt;U: DeserializeOwned&gt; {
     proof: IVCProof,
     view: View&lt;U&gt;,
 }
@@ -349,10 +341,12 @@
     }
 }
 
-<span class="kw">pub trait </span>Generate {
+<span class="doccomment">/// Generate a deployment-ready parameter set used for proving and verifying.
+</span><span class="kw">pub trait </span>Generate {
     <span class="kw">type </span>Error;
 
-    <span class="kw">fn </span>generate(srs: <span class="kw-2">&amp;</span>SRS) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;
+    <span class="doccomment">/// Generate parameters.
+    </span><span class="kw">fn </span>generate(srs: <span class="kw-2">&amp;</span>SRS) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt;
     <span class="kw">where
         </span><span class="self">Self</span>: Sized;
 }
@@ -362,18 +356,6 @@
 
     <span class="kw">fn </span>generate(srs: <span class="kw-2">&amp;</span>SRS) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
         <span class="prelude-val">Ok</span>(gen_vm_pp(K, srs, <span class="kw-2">&amp;</span>()).map_err(ProofError::from)<span class="question-mark">?</span>)
-    }
-}
-
-<span class="kw">impl</span>&lt;U: DeserializeOwned&gt; Viewable <span class="kw">for </span>View&lt;U&gt; {
-    <span class="kw">type </span>Output = U;
-
-    <span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>String {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.logs
-    }
-
-    <span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="self">Self</span>::Output {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.output
     }
 }
 

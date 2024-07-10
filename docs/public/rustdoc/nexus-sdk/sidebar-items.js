@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Local"],"mod":["compile","error","hypernova","jolt","nova"],"trait":["Compute","Parameters","Prover","Verifiable","Viewable"]};
+window.SIDEBAR_ITEMS = {"enum":["Local"],"mod":["compile","error","hypernova","jolt","nova"],"trait":["Compute","Parameters","Prover","Verifiable"]};
