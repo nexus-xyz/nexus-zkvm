@@ -122,19 +122,19 @@
 <span class="kw">impl </span>Compute <span class="kw">for </span>Local {}
 
 <span class="doccomment">/// A view capturing the output of a zkVM execution.
-</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>View&lt;U: DeserializeOwned&gt; {
-    output: U,
-    logs: String,
+</span><span class="kw">pub struct </span>View&lt;U: DeserializeOwned&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) output: U,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) logs: String,
 }
 
 <span class="kw">impl</span>&lt;U: DeserializeOwned&gt; View&lt;U&gt; {
     <span class="doccomment">/// Get the logging output of the zkVM.
-    </span><span class="kw">fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>String {
+    </span><span class="kw">pub fn </span>logs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>String {
         <span class="kw-2">&amp;</span><span class="self">self</span>.logs
     }
 
     <span class="doccomment">/// Get the contents of the output tape written by the zkVM execution.
-    </span><span class="kw">fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>U {
+    </span><span class="kw">pub fn </span>output(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>U {
         <span class="kw-2">&amp;</span><span class="self">self</span>.output
     }
 }

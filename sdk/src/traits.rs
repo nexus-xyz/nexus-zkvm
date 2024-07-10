@@ -12,19 +12,19 @@ pub enum Local {}
 impl Compute for Local {}
 
 /// A view capturing the output of a zkVM execution.
-pub(crate) struct View<U: DeserializeOwned> {
-    output: U,
-    logs: String,
+pub struct View<U: DeserializeOwned> {
+    pub(crate) output: U,
+    pub(crate) logs: String,
 }
 
 impl<U: DeserializeOwned> View<U> {
     /// Get the logging output of the zkVM.
-    fn logs(&self) -> &String {
+    pub fn logs(&self) -> &String {
         &self.logs
     }
 
     /// Get the contents of the output tape written by the zkVM execution.
-    fn output(&self) -> &U {
+    pub fn output(&self) -> &U {
         &self.output
     }
 }
