@@ -54,7 +54,7 @@ impl CompileOpts {
         }
     }
 
-    /// Set dynamic compilation to build guest program in a debug profile.
+    /// Set dynamic compilation to build the guest program in a debug profile.
     pub fn set_debug_build(&mut self, debug: bool) {
         self.debug = debug;
     }

@@ -7,7 +7,7 @@ use crate::compile::*;
 /// A compute resource.
 pub trait Compute {}
 
-/// Indicator that local compute will be used for proving the zkVM.
+/// Indicator type that local compute will be used for proving the zkVM.
 pub enum Local {}
 impl Compute for Local {}
 
@@ -98,6 +98,6 @@ pub trait Verifiable {
     /// Get the contents of the output tape written by the zkVM execution.
     fn output(&self) -> &Self::Output;
 
-    /// Verify the proof of execution.
+    /// Verify the proof of an execution.
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error>;
 }

@@ -25,19 +25,19 @@ const K: usize = 64;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    /// An error occured during parameter generation, execution, proving, or proof verification for the VM
+    /// An error occured during parameter generation, execution, proving, or proof verification for the zkVM.
     #[error(transparent)]
     ProofError(#[from] ProofError),
 
-    /// An error occured building the guest program dynamically
+    /// An error occured building the guest program dynamically.
     #[error(transparent)]
     BuildError(#[from] BuildError),
 
-    /// An error occured reading or writing to the file system
+    /// An error occured reading or writing to the file system.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
-    /// An error occured reading or writing to the VM input/output tapes
+    /// An error occured reading or writing to the zkVM input/output tapes.
     #[error(transparent)]
     TapeError(#[from] TapeError),
 }
