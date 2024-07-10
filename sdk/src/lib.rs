@@ -1,5 +1,6 @@
-pub mod nova;
 pub mod hypernova;
+pub mod jolt;
+pub mod nova;
 
 mod traits;
 pub use traits::*;

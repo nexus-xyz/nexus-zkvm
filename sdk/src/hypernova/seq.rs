@@ -16,7 +16,7 @@ use crate::error::{BuildError, TapeError};
 use nexus_core::prover::hypernova::error::ProofError;
 
 // re-exports
-pub use nexus_core::prover::hypernova::types::{SetupAux, PP, SRS};
+pub use nexus_core::prover::hypernova::types::{PP, SRS};
 
 use std::marker::PhantomData;
 
@@ -80,6 +80,7 @@ impl Prover for HyperNova<Local> {
         let elf_path = iopts
             .build(&compile::ForProver::Default)
             .map_err(BuildError::from)?;
+
         Self::new_from_file(&elf_path)
     }
 
