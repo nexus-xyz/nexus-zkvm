@@ -31,7 +31,9 @@ impl Display for ForProver {
 ///
 /// By default, compilation occurs within `/tmp`. However, the implementation does respect the [`OUT_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html) environment variable.
 pub struct CompileOpts {
+    /// The (in-workspace) package to build.
     pub package: String,
+    /// The binary produced by the build that should be loaded into the zkVM after successful compilation.
     pub binary: String,
     debug: bool,
     native: bool,
@@ -63,7 +65,9 @@ impl CompileOpts {
         self.native = native;
     }
 
-    /// Set dynamic compilation to build a
+    /// Set dynamic compilation to run a unique build that neither overwrites prior builds nor will be overwritten by future builds. May be used to concurrently build different versions of the same binary.
+    ///
+    /// Note: the SDK does not automatically clean or otherwise manage the resultant builds in the output directory.
     pub fn set_unique_build(&mut self, unique: bool) {
         self.unique = unique;
     }

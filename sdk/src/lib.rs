@@ -2,7 +2,7 @@
 
 /// Interface into proving with [HyperNova](https://eprint.iacr.org/2023/573).
 pub mod hypernova;
-/// Interface into proving with [Jolt](https://jolt.a16zcrypto.com/).
+/// Experimental interface into proving with [Jolt](https://jolt.a16zcrypto.com/).
 pub mod jolt;
 /// Interface into proving with [Nova](https://eprint.iacr.org/2021/370).
 pub mod nova;
