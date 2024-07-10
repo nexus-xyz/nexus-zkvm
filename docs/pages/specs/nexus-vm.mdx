@@ -9,7 +9,7 @@ import { Callout } from 'nextra/components'
 
 ## Nexus Virtual Machine
 
-The Nexus Virtual Machine (Nexus VM or NVM) is a reduced instruction set computer (RISC) with a word-addressable random-access memory and input tapes. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
+The Nexus Virtual Machine (Nexus VM or NVM) is a reduced instruction set computer (RISC) with a word-addressable random-access memory and a private input tape. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
 
 <Callout type="info" emoji="ℹ️">
   The NVM architecture has not yet stabilized. The following specification describes the architecture as of the Nexus zkVM 0.2.0 release.
@@ -31,9 +31,9 @@ Both $M$ and $R$ are finite maps. The keys of $M$ are addresses in the range $\{
 
 The current implementation of the Nexus VM does not yet support public inputs, but this feature will soon be available. Also, we remark that specific implementations of the Nexus VM may choose memory sizes smaller than $2^{32}$ for efficient reasons.
 
-At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The input and tapes, once supported, should contain the public and input inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
+At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The private input tape contains private inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
 
-The program counter $pc$ is always advanced by 8 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 8-byte-memory alignment for the program counter by checking that $pc$ is a multiple of 8 when reading an instruction.
+The program counter $pc$ is always advanced by 4 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 4-byte-memory alignment for the program counter by checking that $pc$ is a multiple of 4 when reading an instruction.
 
 ### Nexus Virtual Machine Instruction Set
 
@@ -145,14 +145,14 @@ The current architecture does not specify an output tape. Nevertheless, one can 
 
 ### Nexus Virtual Machine Initialization
 
-Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. Although the current version of the Nexus VM does not yet support public input tapes, these will be eventually implemented and initialized with the contents of the public inputs for the program. The program itself is provided to the Nexus VM via a file in an Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link).
+Initially, the memory is assumed to only contain zero values and all the general-purpose registers are set to 0. The program counter $pc$ is also set to $\mathtt{0x0000}$. The program itself is provided to the Nexus VM via a file in an Executable and Linkable Format (ELF) encoded according to the RV32I Instruction Set in the *Volume I, Unprivileged Specification version 20191213* in the [The RISC-V Instruction Set Manual](https://drive.google.com/file/d/1s0lZxUZaa7eV_O0_WsZzaurFLLww7ou5/view?usp=drive_link).
 
-In order to load the ELF file into the Nexus VM memory, the RISC-V assembly code provided in the ELF file based on 32-bit-long RV32I instruction set is first translated to Nexus VM 64-bit-long instruction set following the translation process described in the previous section. Next, each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x0000}$.
+Each instruction in the program is loaded one at a time into the memory starting at address $\mathtt{0x0000}$.
 
 
 ### Nexus Virtual Machine Extensions
 
-While the universality of the current instruction set allows for executing any program on the Nexus VM, the translation process may yield inefficient programs due to the limited instruction set of the Nexus VM. As a result, proving the correctness of such computations within the Nexus zkVM may become infeasible for more complex programs. The cost of such an abstraction may be multiplied by more than a $1000$ factor for functions such as the SHA-256 circuit.
+While the universality of the current instruction set allows for executing any program on the Nexus VM, writing a program for the VM may yield inefficient programs due to the limited instruction set of the Nexus VM. As a result, proving the correctness of such computations within the Nexus zkVM may become infeasible for more complex programs. The cost of such an abstraction may be multiplied by more than a $1000$ factor for functions such as the SHA-256 circuit.
 
 To deal with such scenarios, the Nexus Virtual Machine is being designed with extensibility in mind in order to enable the addition of custom instructions for more complex functions, such as hashing and signature verification.
 
