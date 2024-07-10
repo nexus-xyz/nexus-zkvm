@@ -9,7 +9,7 @@ import { Callout } from 'nextra/components'
 
 ## Nexus Virtual Machine
 
-The Nexus Virtual Machine (Nexus VM or NVM) is a reduced instruction set computer (RISC) with a word-addressable random-access memory and a private input tape. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
+The Nexus Virtual Machine (Nexus VM or NVM) is a reduced instruction set computer (RISC) with a byte-addressable random-access memory and a private input tape. This virtual machine abstraction is comparable to others used in the zero-knowledge research space, such as the [TinyRAM architecture specification][TinyRAM]. The advantage of using such random-access machines is that they abstract away details of the underlying hardware or operating system and provide a convenient tool for generating claims and proofs about the correctness of a computation.
 
 <Callout type="info" emoji="ℹ️">
   The NVM architecture has not yet stabilized. The following specification describes the architecture as of the Nexus zkVM 0.2.0 release.
@@ -20,7 +20,7 @@ The Nexus Virtual Machine (Nexus VM or NVM) is a reduced instruction set compute
 The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions and data in the same read-write memory space.  The machine has 32 registers and a read-write memory with addresses in the range $\{0\ldots 2^{32}-1\}$.   The state of the machine is defined as a four-tuple, $(pc;M;R;I)$, where
 * $pc$ denotes the program counter register;
 * $M$ denotes the memory;
-* $R$ denotes the set of registers;
+* $R$ denotes the state of registers;
 * $I$ is the private input.
 
 <center>
@@ -29,15 +29,15 @@ The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions
 
 Both $M$ and $R$ are finite maps. The keys of $M$ are addresses in the range $\{0,\ldots, 2^{32}-1\}$. The values of $M$ are 8-bit bytes. The keys of $R$ are register selectors from the set $\{x_0\ldots x_{31}\}$. The values of $R$ are 32-bit words. By design, updates to register $x_0$ are ignored and the value of $R[x_0]$ is always zero.
 
-The current implementation of the Nexus VM does not yet support public inputs, but this feature will soon be available. Also, we remark that specific implementations of the Nexus VM may choose memory sizes smaller than $2^{32}$ for efficient reasons.
+The current implementation of the Nexus VM does not yet support public inputs. Also, we remark that specific implementations of the Nexus VM may choose memory sizes smaller than $2^{32}$ for efficiency reasons.
 
 At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The private input tape contains private inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
 
-The program counter $pc$ is always advanced by 4 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 4-byte-memory alignment for the program counter by checking that $pc$ is a multiple of 4 when reading an instruction.
+The program counter $pc$ is always advanced by 4 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 4-byte memory alignment for the program counter by checking that $pc$ is a multiple of 4 when reading an instruction.
 
 ### Nexus Virtual Machine Instruction Set
 
-The Nexus VM instruction set contains 41 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and can take two of the three arguments, two register selectors and an immediate value. The exact format of each instruction is defined as follows:
+The Nexus VM instruction set contains 41 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and can take some arguments, typically register selectors and an immediate value. The exact format of each instruction is defined as follows:
 * $\textbf{opcode}$ is a string defining the instruction;
 * $rd$ is a register selector specifying the destination register;
 * $rs_1$ is a register selector specifying the first operand;
@@ -52,10 +52,10 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{add}$     | $rd$ $rs_1$  $rs_2$     | sets $R[rd]$ to $R[rs_1] + R[rs_2]$     |
 | $\textbf{addi}$    | $rd$ $rs_1$  $i$     | sets $R[rd]$ to $R[rs_1] + i$     |
 | $\textbf{sub}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] - R[rs_2]$|
-| $\textbf{slt}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] < R[rs_2]$ (signed comparison) |
-| $\textbf{slti}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] < i$ (signed comparison) |
-| $\textbf{sltu}$ | $rd$ $rs_1$ $rs_2$| sets $R[rd]$ to $R[rs_1] < R[rs_2]$ (unsigned comparison)|
-| $\textbf{sltui}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] < i$ (unsigned comparison)|
+| $\textbf{slt}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $(R[rs_1] < R[rs_2])$ (signed comparison) |
+| $\textbf{slti}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $(R[rs_1] < i)$ (signed comparison) |
+| $\textbf{sltu}$ | $rd$ $rs_1$ $rs_2$| sets $R[rd]$ to $(R[rs_1] < R[rs_2])$ (unsigned comparison)|
+| $\textbf{sltui}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $(R[rs_1] < i)$ (unsigned comparison)|
 | $\textbf{sll}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] \ll R[rs_2] \mathbin{\&} \mathtt{0x1F}$|
 | $\textbf{slli}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to $R[rs_1] \ll i \mathbin{\&} \mathtt{0x1F}$|
 | $\textbf{srl}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to $R[rs_1] \gg R[rs_2] \mathbin{\&} \mathtt{0x1F}$|
@@ -68,8 +68,8 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{andi}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to the bitwise AND of $R[rs_1]$ and $i$|
 | $\textbf{or}$ | $rd$ $rs_1$ $rs_2$ | sets $R[rd]$ to the bitwise OR of $R[rs_1]$ and $R[rs_2]$|
 | $\textbf{ori}$ | $rd$ $rs_1$ $i$ | sets $R[rd]$ to the bitwise OR of $R[rs_1]$ and $i$|
-| $\textbf{beq}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] = R[rs_2])$ (signed comparison)|
-| $\textbf{bne}$ | $rs_1$  $rs_2$ $i$ | branches  to $pc+i$ if $(R[rs_1] \not= R[rs_2])$ (signed comparison)|
+| $\textbf{beq}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] = R[rs_2])$|
+| $\textbf{bne}$ | $rs_1$  $rs_2$ $i$ | branches  to $pc+i$ if $(R[rs_1] \not= R[rs_2])$|
 | $\textbf{blt}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (signed comparison)|
 | $\textbf{bge}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] \geq R[rs_2])$ (signed comparison)|
 | $\textbf{bltu}$ | $rs_1$  $rs_2$ $i$ | branches to $pc+i$ if $(R[rs_1] < R[rs_2])$ (unsigned comparison)|
@@ -82,20 +82,20 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{sb}$ | $rs_1$ $rs_2$ $i$ | stores the first byte of $R[rs_2]$ at $M[R[rs_1] + i]$|
 | $\textbf{sh}$ | $rs_1$ $rs_2$ $i$ | stores the first half-word of $R[rs_2]$ at $M[R[rs_1] + i]$|
 | $\textbf{sw}$ | $rs_1$ $rs_2$ $i$ | stores $R[rs_2]$ at $M[R[rs_1] + i]$|
-| $\textbf{jal}$ | $rd$ $i$ | jumps to $M[pc+i]$  and stores $pc+4$ into $R[rd]$|
-| $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | jumps to $M[R[rs_1] + i]$ and stores $pc+4$ into $R[rd]$|
-| $\textbf{fense}$ |  | No operation |
+| $\textbf{jal}$ | $rd$ $i$ | jumps to $pc+i$  and stores $pc+4$ into $R[rd]$|
+| $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | jumps to $R[rs_1] + i$ and stores $pc+4$ into $R[rd]$|
+| $\textbf{fence}$ |  | No operation |
 | $\textbf{ecall}$ |  | system call |
 | $\textbf{ebreak}$ |  | system call|
 | $\textbf{unimp}$ |  | jumps to $pc$; in effect looping forever at the current program counter |
 
-The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words. In particular, one cannot read or write half-words and words to addresses which are not a multiple of $2$ and $4$, respectively.
+The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words.
 
-Each instruction is encoded as a 32-bit-long string, starting with 7-bit-long $\textbf{opcode}$ string, followed by a 5-bit-long register selector, and other data depending on the operation.
+Each instruction is encoded as a 32-bit-long string, ending with 7-bit-long $\textbf{opcode}$ string, preceded by a 5-bit-long register selector in many cases, and other data depending on the operation.
 
 Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denotes any binary string of $m$ bits, and $\langle d \rangle$, $\langle s_1 \rangle$, $\langle s_2 \rangle$ denote respectively the binary representation of the 5-bit-long register selectors $rd$, $rs_1$, $rs_2$.
 
-The notation $\langle i_\texttt{U} \rangle$ denotes the 20-bit-long immediate value. $\langle i_\texttt{J} \rangle$ is a 20-bit-long immediate value with a special, different layout (TO DESCRIBE). $\langle i_\texttt{I} \rangle$ denotes a 12-bit long immediate value (with the sign bit alone moved to the least significant bit). $\langle i_\texttt{B0} \rangle$ and $\langle i_\texttt{B0} \rangle$ each denote a 5-bit and 7-bit long immediate values with a special layout (TO DESCRIBE). $\langle i_\texttt{SH} \rangle$ denotes a 5-bit long immediate value.
+The notation $\langle i_x \rangle$ each denote immediate values, interpreted the same way as $x$-immediate values of 32-bit RISC-V architecture. Some immediate values (type B and S) occupy discontiguous positions, so their fragments are written as $\langle i_\texttt{x0} \rangle$ and $\langle i_\texttt{x1} \rangle$. $\langle i_\texttt{SH} \rangle$ denotes a 5-bit long immediate value.
 
 | Instruction mnemonic| Arguments | Binary Encodings (left: most significant bit) |
 | -------- | -------- | -------- |
@@ -136,7 +136,7 @@ The notation $\langle i_\texttt{U} \rangle$ denotes the 20-bit-long immediate va
 | $\textbf{sra}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_010\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
 | $\textbf{or}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
 | $\textbf{and}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{fense}$ | | $\begin{array}{ll} \mathtt{*^{25}} & \texttt{0b\_000\_1111} \end{array}$|
+| $\textbf{fence}$ | | $\begin{array}{ll} \mathtt{*^{25}} & \texttt{0b\_000\_1111} \end{array}$|
 | $\textbf{ecall}$ | $rd$ | $\begin{array}{lll} \texttt{0x00000}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
 | $\textbf{ebreak}$ | $rd$ | $\begin{array}{lll} \texttt{0x00100}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
 | $\textbf{unimp}$ | | $\begin{array}{lll} \texttt{0xc0001}  & \mathtt{*^5} & \texttt{0b\_111\_0011} \end{array}$|
@@ -162,7 +162,7 @@ Nevertheless, we will soon be switching to a *non-uniform* computation model bas
 
 The main advantage of using precompiles is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
-Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles that could be provided as input to the Nexus zkVM.  We expect to first implement these special functions as part of the Nexus VM instruction set.
+We intend to eventually support user-defined precompiles that could be provided as input to the Nexus zkVM. We expect to first implement these special functions as part of the Nexus VM instruction set.
 
 ### References
 
