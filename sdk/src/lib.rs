@@ -10,7 +10,7 @@ pub mod nova;
 mod traits;
 pub use traits::*;
 
-/// Contains options for dynamic compilation of guest programs.
+/// Configure the dynamic compilation of guest programs.
 pub mod compile;
 
 /// Contains error types for SDK-specific interfaces.
