@@ -87,7 +87,7 @@ Table: Summary of the Nexus Virtual Machine Instruction Set, where operations ar
 | $\textbf{fense}$ |  | TO DESCRIBE |
 | $\textbf{ecall}$ |  | system call |
 | $\textbf{ebreak}$ |  | system call|
-| $\textbf{unimp}$ |  | TO DESCRIBE |
+| $\textbf{unimp}$ |  | jumps to $pc$; in effect looping forever at the current program counter |
 
 The Nexus VM also enforces 2-byte and 4-byte memory alignments for the instructions operating on half-words and words. In particular, one cannot read or write half-words and words to addresses which are not a multiple of $2$ and $4$, respectively.
 
