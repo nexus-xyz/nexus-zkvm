@@ -4,7 +4,7 @@ use std::{fs::File, io::BufReader, path::Path};
 
 use nexus_core::nvm::memory::MerkleTrie;
 use nexus_core::prover::jolt::{
-    parse, trace,
+    parse_elf, trace,
     types::{JoltCommitments, JoltProof},
     VM,
 };
@@ -19,7 +19,7 @@ type Proof = (JoltProof, JoltCommitments);
 
 pub fn prove(path: &Path) -> anyhow::Result<()> {
     let bytes = std::fs::read(path)?;
-    let vm: VM<MerkleTrie> = parse::parse_elf(&bytes)?;
+    let vm: VM<MerkleTrie> = parse_elf(&bytes)?;
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
 
@@ -39,7 +39,7 @@ pub fn prove(path: &Path) -> anyhow::Result<()> {
     println!("Executing program...");
 
     let start = std::time::Instant::now();
-    let trace = trace::trace(vm)?;
+    let trace = trace(vm)?;
     println!(
         "Executed {} instructions in {:?}",
         trace.len(),
@@ -87,7 +87,7 @@ pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<
         .context("proof is not in Jolt format")?;
 
     let bytes = std::fs::read(path)?;
-    let vm: VM<MerkleTrie> = parse::parse_elf(&bytes)?;
+    let vm: VM<MerkleTrie> = parse_elf(&bytes)?;
 
     let mut term = nexus_tui::TerminalHandle::new_enabled();
 
