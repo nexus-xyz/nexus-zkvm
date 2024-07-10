@@ -45,7 +45,6 @@ pub struct Proof {
 }
 
 impl Jolt<Local> {
-
     pub fn compile(opts: &compile::CompileOpts) -> Result<Self, Error> {
         let mut iopts = opts.to_owned();
 
@@ -54,7 +53,8 @@ impl Jolt<Local> {
             .map_err(BuildError::from)?;
 
         Ok(Jolt::<Local> {
-            vm: parse_elf::<MerkleTrie>(fs::read(elf_path)?.as_slice()).map_err(ProofError::from)?,
+            vm: parse_elf::<MerkleTrie>(fs::read(elf_path)?.as_slice())
+                .map_err(ProofError::from)?,
             _compute: PhantomData,
         })
     }
