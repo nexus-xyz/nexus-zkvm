@@ -11,6 +11,24 @@ pub trait Compute {}
 pub enum Local {}
 impl Compute for Local {}
 
+/// A view capturing the output of a zkVM execution.
+pub(crate) struct View<U: DeserializeOwned> {
+    output: U,
+    logs: String,
+}
+
+impl<U: DeserializeOwned> View<U> {
+    /// Get the logging output of the zkVM.
+    fn logs(&self) -> &String {
+        &self.logs
+    }
+
+    /// Get the contents of the output tape written by the zkVM execution.
+    fn output(&self) -> &U {
+        &self.output
+    }
+}
+
 /// A prover (and runner) for the zkVM.
 pub trait Prover {
     type Memory;
@@ -38,7 +56,7 @@ pub trait Prover {
         Self::Error: From<std::io::Error>;
 
     /// Run the zkVM on input of type `T` and return a view of the execution output by deserializing the output tape as of type `U`.
-    fn run<T, U>(self, input: Option<T>) -> Result<impl Viewable, Self::Error>
+    fn run<T, U>(self, input: Option<T>) -> Result<View<U>, Self::Error>
     where
         T: Serialize + Sized,
         U: DeserializeOwned;
@@ -73,17 +91,6 @@ pub trait Parameters {
 
     /// Save parameters to a file.
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error>;
-}
-
-/// A view capturing the output of a zkVM execution.
-pub trait Viewable {
-    type Output;
-
-    /// Get the logging output of the zkVM.
-    fn logs(&self) -> &String;
-
-    /// Get the contents of the output tape written by the zkVM execution.
-    fn output(&self) -> &Self::Output;
 }
 
 /// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.

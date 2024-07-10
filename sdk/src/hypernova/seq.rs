@@ -16,13 +16,17 @@ use crate::error::{BuildError, TapeError};
 use nexus_core::prover::hypernova::error::ProofError;
 
 // re-exports
-pub use nexus_core::prover::hypernova::types::{PP, SRS};
+/// Public parameters used to prove and verify zkVM executions.
+pub use nexus_core::prover::hypernova::types::PP;
+/// Structured reference string (SRS) used to generate public parameters.
+pub use nexus_core::prover::hypernova::types::SRS;
 
 use std::marker::PhantomData;
 
 // hard-coded number of vm instructions to pack per recursion step
 const K: usize = 64;
 
+/// Errors that occur while proving using Nova.
 #[derive(Debug, Error)]
 pub enum Error {
     /// An error occured during parameter generation, execution, proving, or proof verification for the zkVM.
@@ -42,16 +46,13 @@ pub enum Error {
     TapeError(#[from] TapeError),
 }
 
+/// Prover for the Nexus zkVM using HyperNova.
 pub struct HyperNova<C: Compute = Local> {
     vm: NexusVM<MerkleTrie>,
     _compute: PhantomData<C>,
 }
 
-pub struct View<U: DeserializeOwned> {
-    output: U,
-    logs: String,
-}
-
+/// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
 pub struct Proof<U: DeserializeOwned> {
     proof: IVCProof,
     view: View<U>,
@@ -151,9 +152,11 @@ impl Parameters for PP {
     }
 }
 
+/// Generate a deployment-ready parameter set used for proving and verifying.
 pub trait Generate {
     type Error;
 
+    /// Generate parameters.
     fn generate(srs: &SRS) -> Result<Self, Self::Error>
     where
         Self: Sized;
@@ -164,18 +167,6 @@ impl Generate for PP {
 
     fn generate(srs: &SRS) -> Result<Self, Self::Error> {
         Ok(gen_vm_pp(K, srs, &()).map_err(ProofError::from)?)
-    }
-}
-
-impl<U: DeserializeOwned> Viewable for View<U> {
-    type Output = U;
-
-    fn logs(&self) -> &String {
-        &self.logs
-    }
-
-    fn output(&self) -> &Self::Output {
-        &self.output
     }
 }
 

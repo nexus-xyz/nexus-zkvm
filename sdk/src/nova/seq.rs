@@ -16,6 +16,7 @@ use crate::error::{BuildError, TapeError};
 use nexus_core::prover::nova::error::ProofError;
 
 // re-exports
+/// Public parameters used to prove and verify zkVM executions.
 pub use nexus_core::prover::nova::types::SeqPP as PP;
 
 use std::marker::PhantomData;
@@ -23,6 +24,7 @@ use std::marker::PhantomData;
 // hard-coded number of vm instructions to pack per recursion step
 const K: usize = 64;
 
+/// Errors that occur while proving using Nova.
 #[derive(Debug, Error)]
 pub enum Error {
     /// An error occured during parameter generation, execution, proving, or proof verification for the zkVM.
@@ -42,16 +44,13 @@ pub enum Error {
     TapeError(#[from] TapeError),
 }
 
+/// Prover for the Nexus zkVM using Nova.
 pub struct Nova<C: Compute = Local> {
     vm: NexusVM<MerkleTrie>,
     _compute: PhantomData<C>,
 }
 
-pub struct View<U: DeserializeOwned> {
-    output: U,
-    logs: String,
-}
-
+/// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
 pub struct Proof<U: DeserializeOwned> {
     proof: IVCProof,
     view: View<U>,
@@ -151,9 +150,11 @@ impl Parameters for PP {
     }
 }
 
+/// Generate a deployment-ready parameter set used for proving and verifying.
 pub trait Generate {
     type Error;
 
+    /// Generate parameters.
     fn generate() -> Result<Self, Self::Error>
     where
         Self: Sized;
@@ -164,18 +165,6 @@ impl Generate for PP {
 
     fn generate() -> Result<Self, Self::Error> {
         Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
-    }
-}
-
-impl<U: DeserializeOwned> Viewable for View<U> {
-    type Output = U;
-
-    fn logs(&self) -> &String {
-        &self.logs
-    }
-
-    fn output(&self) -> &Self::Output {
-        &self.output
     }
 }
 
