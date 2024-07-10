@@ -61,7 +61,7 @@ pub trait Parameters {
     /// Generate testing parameters.
     ///
     /// In deployment, prover parameters often depend on an external reference, like a structured reference string (SRS). As such,
-    /// individual provers may expose an interface for generating production parameters (e.g., [`HyperNova::Generate`](crate::hypernova::seq::Generate)). 
+    /// individual provers may expose an interface for generating production parameters (e.g., [`HyperNova::Generate`](crate::hypernova::seq::Generate)).
     fn generate_for_testing() -> Result<Self, Self::Error>
     where
         Self: Sized;
