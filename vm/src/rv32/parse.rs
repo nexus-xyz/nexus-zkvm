@@ -121,6 +121,8 @@ fn sop(word: u32) -> Option<SOP> {
 fn aop(word: u32) -> Option<AOP> {
     let res = match (opcode(word), funct3(word), funct7(word)) {
         (0b0110011, 0b000, 0b0100000) => SUB,
+        (0b0110011, 0b000, 0b0000000) => ADD,
+        (0b0110011, 0b000, _) => return None,
         (_, 0b000, _) => ADD,
         (_, 0b001, _) => SLL,
         (_, 0b010, _) => SLT,

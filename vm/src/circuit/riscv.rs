@@ -206,6 +206,7 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     cs.set_var("immJ", immJ(inst));
     cs.set_var("immA", immA(inst));
     cs.set_var("lowA", shamt(inst));
+    cs.set_var("f7", funct7(inst));
 
     // function 3
     selector(cs, "f3", 8, funct3(inst));
@@ -274,6 +275,17 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         }
         b[0] = ONE;
         c[cs.var("f3")] = ONE;
+    });
+
+    // function7
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 25..32 {
+            a[cs.var(&format!("inst_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[0] = ONE;
+        c[cs.var("f7")] = ONE;
     });
 
     // sign bit
@@ -464,6 +476,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=28", "opcode=19", "f3=7"); // andi
 
     cs.mul("J=29", "opcode=51", "f3=0a"); // add
+    cs.nand("J=29", "f7"); // f7 == 0 if add
     cs.mul("J=30", "opcode=51", "f3=0b"); // sub
     cs.mul("J=31", "opcode=51", "f3=1"); // sll
     cs.mul("J=32", "opcode=51", "f3=2"); // slt
