@@ -73,7 +73,7 @@ pub trait Viewable {
     fn output(&self) -> &Self::Output;
 }
 
-/// A verifiable proof of execution. 
+/// A verifiable proof of execution.
 pub trait Verifiable {
     type Params: Parameters;
     type Error;

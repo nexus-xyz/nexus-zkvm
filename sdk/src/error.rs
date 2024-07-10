@@ -1,7 +1,7 @@
 use std::fmt::Display;
 use thiserror::Error;
 
-/// Errors that occur during dynamic compilation of guest programs. 
+/// Errors that occur during dynamic compilation of guest programs.
 #[derive(Debug, Error)]
 pub enum BuildError {
     /// The compile options are invalid for the memory limit.
@@ -27,7 +27,7 @@ impl Display for BuildError {
     }
 }
 
-/// Errors that occur while reading from or writing to the input/output tapes of the zkVM. 
+/// Errors that occur while reading from or writing to the input/output tapes of the zkVM.
 #[derive(Debug, Error)]
 pub enum TapeError {
     /// Error serializing to or deserializing from the zkVM input/output tapes.

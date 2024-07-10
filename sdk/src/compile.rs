@@ -42,7 +42,6 @@ pub struct CompileOpts {
 }
 
 impl CompileOpts {
-
     /// Setup options for dynamic compilation.
     pub fn new(package: &str, binary: &str) -> Self {
         Self {
@@ -74,7 +73,7 @@ impl CompileOpts {
 
     /// Set the amount of memory available to the guest program. For certain provers increasing the memory limit can lead to corresponding increases in the required proving time.
     ///
-    /// Compilation will fail if this option is set when compiling for use with [`Jolt`](crate::jolt::Jolt).
+    /// Compilation will fail if this option is set when compiling for use with [`Jolt`](crate::jolt::Jolt), which uses a fixed memory size.
     pub fn set_memlimit(&mut self, memlimit: usize) {
         self.memlimit = Some(memlimit);
     }
