@@ -1,4 +1,5 @@
 {
-    "quick-start": "Quick Start",
-    "configuring-prover": "Configuring the Prover"
+    "quick-start": "CLI Quick Start",
+    "configuring-prover": "Configuring the Prover",
+    "api-docs": "API Documentation"
 }
