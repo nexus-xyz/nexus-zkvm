@@ -162,18 +162,28 @@ mod opcodes {
 }
 pub use opcodes::*;
 
-// parse a 32-bit word as an instruction
+fn assert_option(exp: bool) -> Option<()> {
+    if exp {
+        Some(())
+    } else {
+        None
+    }
+}
 
+// parse a 32-bit word as an instruction
 pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
     let inst = match opcode(word) {
         OPC_LUI => LUI { rd: rd(word), imm: immU(word) },
         OPC_AUIPC => AUIPC { rd: rd(word), imm: immU(word) },
         OPC_JAL => JAL { rd: rd(word), imm: immJ(word) },
-        OPC_JALR => JALR {
-            rd: rd(word),
-            rs1: rs1(word),
-            imm: immI(word),
-        },
+        OPC_JALR => {
+            assert_option(funct3(word) == 0)?;
+            JALR {
+                rd: rd(word),
+                rs1: rs1(word),
+                imm: immI(word),
+            }
+        }
         OPC_BR => BR {
             bop: bop(word)?,
             rs1: rs1(word),

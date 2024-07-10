@@ -433,6 +433,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_eq("J=2", "opcode=23"); // auipc
     cs.set_eq("J=3", "opcode=111"); // jal
     cs.set_eq("J=4", "opcode=103"); // jalr
+    cs.nand("f3", "opcode=103");
 
     cs.mul("J=5", "opcode=99", "f3=0"); // beq
     cs.mul("J=6", "opcode=99", "f3=1"); // bne
