@@ -4,11 +4,14 @@ use std::path::{Path, PathBuf};
 
 use crate::compile::*;
 
+/// A compute resource.
 pub trait Compute {}
 
+/// Use local compute for proving the zkVM.
 pub enum Local {}
 impl Compute for Local {}
 
+/// A prover (and runner) for the zkVM.
 pub trait Prover {
     type Memory;
     type Params: Parameters;
@@ -46,6 +49,7 @@ pub trait Prover {
         U: DeserializeOwned;
 }
 
+/// A parameter set used for proving and verifying.
 pub trait Parameters {
     type Error;
 
@@ -60,6 +64,7 @@ pub trait Parameters {
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error>;
 }
 
+/// A view capturing the output of a zkVM execution.
 pub trait Viewable {
     type Output;
 
@@ -68,6 +73,7 @@ pub trait Viewable {
     fn output(&self) -> &Self::Output;
 }
 
+/// A verifiable proof of execution. 
 pub trait Verifiable {
     type Params: Parameters;
     type Error;

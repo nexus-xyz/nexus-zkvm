@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 pub use crate::error::BuildError;
 
+#[doc(hidden)]
 #[derive(Default)]
 pub enum ForProver {
     #[default]
@@ -26,6 +27,9 @@ impl Display for ForProver {
 }
 
 #[derive(Clone)]
+/// Options for dynamic compilation of guest programs.
+///
+/// By default, compilation occurs within `/tmp`. However, the implementation does respect the [`OUT_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html) environment variable.
 pub struct CompileOpts {
     pub package: String,
     pub binary: String,
@@ -36,6 +40,8 @@ pub struct CompileOpts {
 }
 
 impl CompileOpts {
+
+    /// Setup options for dynamic compilation.
     pub fn new(package: &str, binary: &str) -> Self {
         Self {
             package: package.to_string(),
@@ -47,18 +53,24 @@ impl CompileOpts {
         }
     }
 
+    /// Set dynamic compilation to build guest program in a debug profile.
     pub fn set_debug_build(&mut self, debug: bool) {
         self.debug = debug;
     }
 
+    /// Set dynamic compilation to build for the native (host machine) target, rather than for the zkVM.
     pub fn set_native_build(&mut self, native: bool) {
         self.native = native;
     }
 
+    /// Set dynamic compilation to build a
     pub fn set_unique_build(&mut self, unique: bool) {
         self.unique = unique;
     }
 
+    /// Set the amount of memory available to the guest program. For certain provers increasing the memory limit can lead to corresponding increases in the required proving time.
+    ///
+    /// Compilation will fail if this option is set when compiling for use with [`Jolt`](crate::jolt::Jolt).
     pub fn set_memlimit(&mut self, memlimit: usize) {
         self.memlimit = Some(memlimit);
     }
