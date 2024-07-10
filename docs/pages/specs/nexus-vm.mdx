@@ -139,10 +139,9 @@ The notation $\langle i_\texttt{U} \rangle$ denotes the 20-bit-long immediate va
 | $\textbf{fense}$ | | $\begin{array}{ll} \mathtt{*^{25}} & \texttt{0b\_000\_1111} \end{array}$|
 | $\textbf{ecall}$ | $rd$ | $\begin{array}{lll} \texttt{0x00000}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
 | $\textbf{ebreak}$ | $rd$ | $\begin{array}{lll} \texttt{0x00100}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
+| $\textbf{unimp}$ | | $\begin{array}{lll} \texttt{0xc0001}  & \mathtt{*^5} & \texttt{0b\_111\_0011} \end{array}$|
 
-Similarly to the $\textbf{answer}$ instruction in the [TinyRAM architecture specification][TinyRAM], the output produced by $\textbf{halt}$ indicates whether the program halts in an accepting or rejecting state by setting $R[rs_1] + i=0$ or not.
-
-The current architecture does not specify an output tape. Nevertheless, one can easily return arbitrary strings as output by encoding that string in some specific region of the memory before halting in an accepting state.
+The current architecture does not specify an output tape. Nevertheless, one can easily return arbitrary strings as output by encoding that string in some specific region of the memory.
 
 ### Nexus Virtual Machine Initialization
 
@@ -161,13 +160,9 @@ Currently, the Nexus Virtual Machine uses universal circuits to simulate the who
 
 Nevertheless, we will soon be switching to a *non-uniform* computation model based on recent advances in folding and accumulation techniques (e.g.,  [[KS22](#references)], [[BC23](#references)]), via the concept of *zkVM precompiles*. In the new model, the cost of proving custom precompile extensions of the NVM instruction set only occurs when that particular precompile is executed by the program.
 
-<center>
-![nvm-architecture-coprocessors](/images/nvm-coprocessors.svg)
-</center>
-
 The main advantage of using precompiles is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
-Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles written as CCS circuits [[STW23](#references)] that could be provided as input to the Nexus zkVM.  we expect to first implement these special functions as part of the Nexus VM instruction set. CCS circuits are a generalization of R1CS [[GGPR13](#references)], Plonkish [[GWC19; CBBZ23](#references)], and AIR [[BBHR19; Sta21; BCKL22](#references)].
+Though we first expect to implement these special functions as part of the Nexus VM instruction set, we do intend to eventually support user-defined precompiles that could be provided as input to the Nexus zkVM.  We expect to first implement these special functions as part of the Nexus VM instruction set.
 
 ### References
 
