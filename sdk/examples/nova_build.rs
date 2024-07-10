@@ -1,7 +1,7 @@
 use nexus_sdk::{
     compile::CompileOpts,
     nova::seq::{Generate, Nova, PP},
-    Local, Parameters, Prover, Verifiable,
+    Local, Prover, Verifiable,
 };
 
 const PACKAGE: &str = "example";

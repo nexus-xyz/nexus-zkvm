@@ -1,6 +1,6 @@
 use nexus_sdk::{
     nova::seq::{Generate, Nova, PP},
-    Local, Parameters, Prover, Verifiable,
+    Local, Prover, Verifiable,
 };
 
 type Input = (u32, u32);

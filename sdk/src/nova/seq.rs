@@ -151,7 +151,7 @@ impl Parameters for PP {
     }
 }
 
-trait Generate {
+pub trait Generate {
     type Error;
 
     fn generate() -> Result<Self, Self::Error>
@@ -185,11 +185,11 @@ impl<U: DeserializeOwned> Verifiable for Proof<U> {
     type Output = U;
 
     fn logs(&self) -> &String {
-        &self.view.logs()
+        self.view.logs()
     }
 
     fn output(&self) -> &Self::Output {
-        &self.view.output()
+        self.view.output()
     }
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {
