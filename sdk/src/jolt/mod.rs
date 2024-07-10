@@ -14,7 +14,7 @@ use crate::error::{BuildError, TapeError};
 
 use std::marker::PhantomData;
 
-/// Errors that occur while proving using Jolt. 
+/// Errors that occur while proving using Jolt.
 #[derive(Debug, Error)]
 pub enum Error {
     /// An error occured during parameter generation, execution, proving, or proof verification for the zkVM.
@@ -50,7 +50,6 @@ pub struct Proof {
 }
 
 impl Jolt<Local> {
-
     /// Construct a new proving instance through dynamic compilation (see [`compile`]).
     pub fn compile(opts: &compile::CompileOpts) -> Result<Self, Error> {
         let mut iopts = opts.to_owned();
@@ -78,7 +77,6 @@ impl Jolt<Local> {
 }
 
 impl Proof {
-    
     /// Verify the proof of an execution.
     pub fn verify(self) -> Result<(), Error> {
         Ok(verify(self.pre, self.proof, self.commits).map_err(ProofError::from)?)
