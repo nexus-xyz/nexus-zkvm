@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["HyperNova","Proof"],"trait":["Generate"],"type":["PP","SRS"]};

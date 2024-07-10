@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Error"],"struct":["Nova","Proof"],"trait":["Generate"],"type":["PP"]};
