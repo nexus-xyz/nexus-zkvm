@@ -37,13 +37,13 @@ pub trait Prover {
         Self: Sized,
         Self::Error: From<std::io::Error>;
 
-    /// Run the zkVM and return a view of the execution output.
+    /// Run the zkVM on input of type `T` and return a view of the execution output by deserializing the output tape as of type `U`.
     fn run<T, U>(self, input: Option<T>) -> Result<impl Viewable, Self::Error>
     where
         T: Serialize + Sized,
         U: DeserializeOwned;
 
-    /// Prove the zkVM and return a verifiable proof, along with a view of the execution output.
+    /// Prove the zkVM on input of type `T` and return a verifiable proof, along with a view of the execution output by deserializing the output tape as of type `U`.
     fn prove<T, U>(
         self,
         pp: &Self::Params,
@@ -60,7 +60,8 @@ pub trait Parameters {
 
     /// Generate testing parameters.
     ///
-    ///
+    /// In deployment, prover parameters often depend on an external reference, like a structured reference string (SRS). As such,
+    /// individual provers may expose an interface for generating production parameters (e.g., [`HyperNova::Generate`](crate::hypernova::seq::Generate)). 
     fn generate_for_testing() -> Result<Self, Self::Error>
     where
         Self: Sized;
@@ -78,10 +79,10 @@ pub trait Parameters {
 pub trait Viewable {
     type Output;
 
-    ///
+    /// Get the logging output of the zkVM.
     fn logs(&self) -> &String;
 
-    ///
+    /// Get the contents of the output tape written by the zkVM execution.
     fn output(&self) -> &Self::Output;
 }
 
@@ -91,10 +92,10 @@ pub trait Verifiable {
     type Error;
     type Output;
 
-    ///
+    /// Get the logging output of the zkVM.
     fn logs(&self) -> &String;
 
-    ///
+    /// Get the contents of the output tape written by the zkVM execution.
     fn output(&self) -> &Self::Output;
 
     /// Verify the proof of execution.
