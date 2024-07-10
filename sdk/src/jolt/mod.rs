@@ -2,7 +2,6 @@ use crate::compile;
 use crate::traits::*;
 
 use std::fs;
-use std::path::PathBuf;
 use thiserror::Error;
 
 use nexus_core::nvm::memory::MerkleTrie;
@@ -46,16 +45,6 @@ pub struct Proof {
 }
 
 impl Jolt<Local> {
-    pub fn new(elf_bytes: &[u8]) -> Result<Self, Error> {
-        Ok(Jolt::<Local> {
-            vm: parse_elf::<MerkleTrie>(elf_bytes).map_err(ProofError::from)?,
-            _compute: PhantomData,
-        })
-    }
-
-    pub fn new_from_file(path: &PathBuf) -> Result<Self, Error> {
-        Self::new(&fs::read(path)?)
-    }
 
     pub fn compile(opts: &compile::CompileOpts) -> Result<Self, Error> {
         let mut iopts = opts.to_owned();
@@ -64,7 +53,10 @@ impl Jolt<Local> {
             .build(&compile::ForProver::Jolt)
             .map_err(BuildError::from)?;
 
-        Self::new_from_file(&elf_path)
+        Ok(Jolt::<Local> {
+            vm: parse_elf::<MerkleTrie>(fs::read(elf_path)?.as_slice()).map_err(ProofError::from)?,
+            _compute: PhantomData,
+        })
     }
 
     pub fn prove(self) -> Result<Proof, Error> {
