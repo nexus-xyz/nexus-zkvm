@@ -12,7 +12,7 @@ use nexus_core::prover::hypernova::pp::{gen_vm_pp, load_pp, save_pp, test_pp::ge
 use nexus_core::prover::hypernova::prove_seq;
 use nexus_core::prover::hypernova::types::IVCProof;
 
-use crate::error::{BuildError, TapeError, PathError};
+use crate::error::{BuildError, PathError, TapeError};
 use nexus_core::prover::hypernova::error::ProofError;
 
 // re-exports
@@ -107,11 +107,14 @@ impl Prover for HyperNova<Local> {
         Ok(View {
             output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
                 .map_err(TapeError::from)?,
-            logs: self.vm.syscalls.get_log_buffer()
-                    .into_iter()
-                    .map(String::from_utf8)
-                    .collect::<Result<Vec<_>,_>>()
-                    .map_err(TapeError::from)?,
+            logs: self
+                .vm
+                .syscalls
+                .get_log_buffer()
+                .into_iter()
+                .map(String::from_utf8)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(TapeError::from)?,
         })
     }
 
@@ -136,10 +139,13 @@ impl Prover for HyperNova<Local> {
             view: View {
                 output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
                     .map_err(TapeError::from)?,
-                logs: self.vm.syscalls.get_log_buffer()
+                logs: self
+                    .vm
+                    .syscalls
+                    .get_log_buffer()
                     .into_iter()
                     .map(String::from_utf8)
-                    .collect::<Result<Vec<_>,_>>()
+                    .collect::<Result<Vec<_>, _>>()
                     .map_err(TapeError::from)?,
             },
         })
@@ -158,7 +164,9 @@ impl Parameters for PP {
             return Ok(load_pp(path_str).map_err(ProofError::from)?);
         }
 
-        Err(Self::Error::PathError(crate::error::PathError::EncodingError))
+        Err(Self::Error::PathError(
+            crate::error::PathError::EncodingError,
+        ))
     }
 
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error> {
@@ -166,7 +174,9 @@ impl Parameters for PP {
             return Ok(save_pp(pp, path_str).map_err(ProofError::from)?);
         }
 
-        Err(Self::Error::PathError(crate::error::PathError::EncodingError))
+        Err(Self::Error::PathError(
+            crate::error::PathError::EncodingError,
+        ))
     }
 }
 
