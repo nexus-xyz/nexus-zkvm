@@ -139,15 +139,15 @@ fn aop(word: u32) -> Option<AOP> {
 fn aopi(word: u32) -> Option<AOP> {
     assert_eq!(opcode(word), OPC_ALUI);
     let res = match (funct3(word), funct7(word)) {
-        (0b000, _) => ADD,
+        (0b000, _ /* funct7 bits encode immediate value in ADDI */) => ADD,
         (0b001, 0b0000000) => SLL,
-        (0b010, _) => SLT,
-        (0b011, _) => SLTU,
-        (0b100, _) => XOR,
+        (0b010, _ /* funct7 bits encode immediate value in SLTI */) => SLT,
+        (0b011, _ /* funct7 bits encode immediate value in SLTUI */) => SLTU,
+        (0b100, _ /* funct7 bits encode immediate value in XORI */) => XOR,
         (0b101, 0b0000000) => SRL,
         (0b101, 0b0100000) => SRA,
-        (0b110, _) => OR,
-        (0b111, _) => AND,
+        (0b110, _ /* funct7 bits encode immediate value in ORI */) => OR,
+        (0b111, _ /* funct7 bits encode immediate value in ANDI */) => AND,
         _ => return None,
     };
     Some(res)
