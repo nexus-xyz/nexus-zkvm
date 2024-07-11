@@ -483,6 +483,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=32", "opcode=51", "f3=2"); // slt
     cs.nand("J=32", "f7"); // f7 == 0 if slt
     cs.mul("J=33", "opcode=51", "f3=3"); // sltu
+    cs.nand("J=33", "f7"); // f7 == 0 if sltu
     cs.mul("J=34", "opcode=51", "f3=4"); // xor
     cs.mul("J=35", "opcode=51", "f3=5a"); // srl
     cs.mul("J=36", "opcode=51", "f3=5b"); // sra
