@@ -86,9 +86,11 @@ impl CompileOpts {
         self.unique = unique;
     }
 
-    /// Set the amount of memory available to the guest program. For certain provers increasing the memory limit can lead to corresponding increases in the required proving time.
+    /// Set the amount of memory available to the guest program in mb. For certain provers increasing the memory limit can lead to corresponding increases in the required proving time.
     ///
     /// Compilation will fail if this option is set when compiling for use with [`Jolt`](crate::jolt::Jolt), which uses a fixed memory size.
+    ///
+    /// The memory limit can also be set using an argument to the `nexus_rt::main` macro (e.g., `#[nexus_rt::main(memlimit = 16)]`). The SDK _will not_ overwrite such a hardcoded value.
     pub fn set_memlimit(&mut self, memlimit: usize) {
         self.memlimit = Some(memlimit);
     }
