@@ -129,8 +129,8 @@ fn aop(word: u32) -> Option<AOP> {
         (0b100, 0b0000000) => XOR,
         (0b101, 0b0000000) => SRL,
         (0b101, 0b0100000) => SRA,
-        (0b110, _) => OR,
-        (0b111, _) => AND,
+        (0b110, 0b0000000) => OR,
+        (0b111, 0b0000000) => AND,
         _ => return None,
     };
     Some(res)

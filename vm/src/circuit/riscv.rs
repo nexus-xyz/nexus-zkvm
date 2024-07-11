@@ -490,7 +490,9 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.nand("J=35", "f7"); // f7 == 0 if srl
     cs.mul("J=36", "opcode=51", "f3=5b"); // sra
     cs.mul("J=37", "opcode=51", "f3=6"); // or
+    cs.nand("J=37", "f7"); // f7 == 0 if or
     cs.mul("J=38", "opcode=51", "f3=7"); // and
+    cs.nand("J=38", "f7"); // f7 == 0 if and
 
     cs.set_eq("J=39", "opcode=15"); // fence
 
