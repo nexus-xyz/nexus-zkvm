@@ -102,7 +102,7 @@ The notation $\langle i_x \rangle$ each denote immediate values, interpreted the
 | $\textbf{lui}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{U} \rangle & \langle d \rangle & \texttt{0b\_011\_0111} \end{array}$ |
 | $\textbf{auipc}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{U} \rangle & \langle d \rangle & \texttt{0b\_001\_0111} \end{array}$ |
 | $\textbf{jal}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{J} \rangle & \langle d \rangle & \texttt{0b\_110\_1111} \end{array}$|
-| $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | $\begin{array}{llllll} \langle i_\texttt{I} \rangle  & \langle s_1 \rangle & \mathtt{*^3} & \langle d \rangle & \texttt{0b\_110\_0111}  \end{array}$|
+| $\textbf{jalr}$ | $rd$ $rs_1$ $i$ | $\begin{array}{llllll} \langle i_\texttt{I} \rangle  & \langle s_1 \rangle & \mathtt{0b\_000} & \langle d \rangle & \texttt{0b\_110\_0111}  \end{array}$|
 | $\textbf{beq}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle&\langle s_1 \rangle &\texttt{0b\_000} &\langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
 | $\textbf{bne}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle &\langle s_1 \rangle & \texttt{0b\_001} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
 | $\textbf{blt}$ | $rs_1$ $rs_2$ $i$ | $\begin{array}{llllll}  \langle i_\texttt{B1} \rangle & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle i_\texttt{B0} \rangle \;\  &\texttt{0b\_110\_0011}\end{array}$|
@@ -126,16 +126,16 @@ The notation $\langle i_x \rangle$ each denote immediate values, interpreted the
 | $\textbf{srai}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{llllll}\texttt{0b\_010\_0000}  & \langle i_\texttt{SH} \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
 | $\textbf{ori}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
 | $\textbf{andi}$     | $rd$ $rs_1$ $i$     |  $\begin{array}{lllll}\langle i_\texttt{I} \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle d \rangle  &  \texttt{0b\_001\_0011} \end{array}$    |
-| $\textbf{add}$     | $rd$ $rs_1$ $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7}  & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{add}$     | $rd$ $rs_1$ $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000}  & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
 | $\textbf{sub}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_010\_0000}  & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_000} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{sll}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_001} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{slt}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_010} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{sltu}$     | $rd$ $rs_1$ $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_011} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{xor}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{sll}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_001} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{slt}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_010} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{sltu}$     | $rd$ $rs_1$ $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_011} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{xor}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_100} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
 | $\textbf{srl}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
 | $\textbf{sra}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\texttt{0b\_010\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_101} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{or}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
-| $\textbf{and}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{*^7} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{or}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_110} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
+| $\textbf{and}$     | $rd$ $rs_1$  $rs_2$ |  $\begin{array}{llllll}\mathtt{0b\_000\_0000} & \langle s_2 \rangle & \langle s_1 \rangle & \texttt{0b\_111} & \langle d \rangle  &  \texttt{0b\_011\_0011} \end{array}$    |
 | $\textbf{fence}$ | | $\begin{array}{ll} \mathtt{*^{25}} & \texttt{0b\_000\_1111} \end{array}$|
 | $\textbf{ecall}$ | $rd$ | $\begin{array}{lll} \texttt{0x00000}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
 | $\textbf{ebreak}$ | $rd$ | $\begin{array}{lll} \texttt{0x00100}  & \langle d \rangle & \texttt{0b\_111\_0011} \end{array}$|
