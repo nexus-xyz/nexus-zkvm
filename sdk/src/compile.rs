@@ -26,10 +26,10 @@ impl Display for ForProver {
     }
 }
 
-#[derive(Clone)]
 /// Options for dynamic compilation of guest programs.
 ///
 /// By default, compilation occurs within `/tmp`. However, the implementation does respect the [`OUT_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html) environment variable.
+#[derive(Clone)]
 pub struct CompileOpts {
     /// The (in-workspace) package to build.
     pub package: String,
