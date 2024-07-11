@@ -135,6 +135,7 @@ impl CompileOpts {
         // } else {
         //     "riscv32i-unknown-none-elf"
         // };
+        let target = "riscv32i-unknown-none-elf";
 
         let profile = if self.debug {
             "debug"
@@ -164,10 +165,8 @@ impl CompileOpts {
             prog,
             "--target-dir",
             &dest,
-            // (see comment above on `set_native_build`)
-            //
-            // "--target",
-            // target,
+            "--target",
+            target,
             "--profile",
             profile,
         ]);
