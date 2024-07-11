@@ -37,12 +37,12 @@ The program counter $pc$ is always advanced by 4 bytes after the execution of ea
 
 ### Nexus Virtual Machine Instruction Set
 
-The Nexus VM instruction set contains 41 instructions in total, as summarized in table below. Each instruction is specified via an **opcode** and can take some arguments, typically register selectors and an immediate value. The exact format of each instruction is defined as follows:
-* $\textbf{opcode}$ is a string defining the instruction;
+The Nexus VM instruction set contains 41 instructions in total, as summarized in table below. Each instruction is specified via an **mnemonic** and can take some arguments, typically register selectors and an immediate value. The exact format of each instruction is defined as follows:
+* $\textbf{mnemonic}$ is a string name of the instruction;
 * $rd$ is a register selector specifying the destination register;
 * $rs_1$ is a register selector specifying the first operand;
 * $rs_2$ is a register selector specifying the second operand; and
-* $i$ is an immediate value, whose size varies according to opcodes.
+* $i$ is an immediate value, whose size varies according to instructions.
 
 Table: Summary of the Nexus Virtual Machine Instruction Set, where operations are mod $2^{32}$.
 | Instruction mnemonic| Arguments | Description of functionality |
