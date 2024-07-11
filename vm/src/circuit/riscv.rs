@@ -473,11 +473,14 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=19", "opcode=19", "f3=0"); // addi
     cs.set_var("J=20", 0); // subi does not exist
     cs.mul("J=21", "opcode=19", "f3=1"); // slli
+    cs.nand("J=21", "f7"); // f7 == 0 if slli
     cs.mul("J=22", "opcode=19", "f3=2"); // slti
     cs.mul("J=23", "opcode=19", "f3=3"); // sltui
     cs.mul("J=24", "opcode=19", "f3=4"); // xori
     cs.mul("J=25", "opcode=19", "f3=5a"); // srli
+    cs.nand("J=25", "f7"); // f7 == 0 if srli
     cs.mul("J=26", "opcode=19", "f3=5b"); // srai
+    cs.nand("J=26", "f7-32"); // f7 == 32 if srai
     cs.mul("J=27", "opcode=19", "f3=6"); // ori
     cs.mul("J=28", "opcode=19", "f3=7"); // andi
 

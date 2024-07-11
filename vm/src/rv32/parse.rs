@@ -140,7 +140,7 @@ fn aopi(word: u32) -> Option<AOP> {
     assert_eq!(opcode(word), OPC_ALUI);
     let res = match (funct3(word), funct7(word)) {
         (0b000, _) => ADD,
-        (0b001, _) => SLL,
+        (0b001, 0b0000000) => SLL,
         (0b010, _) => SLT,
         (0b011, _) => SLTU,
         (0b100, _) => XOR,
