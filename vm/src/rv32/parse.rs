@@ -123,7 +123,6 @@ fn aop(word: u32) -> Option<AOP> {
     let res = match (funct3(word), funct7(word)) {
         (0b000, 0b0100000) => SUB,
         (0b000, 0b0000000) => ADD,
-        (0b000, _) => return None,
         (0b001, 0b0000000) => SLL,
         (0b010, 0b0000000) => SLT,
         (0b011, 0b0000000) => SLTU,
