@@ -156,7 +156,9 @@ impl CompileOpts {
             dest = format!("{}-{}", dest, uuid);
         }
 
-        let mut cmd = Command::new("cargo");
+        let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());
+        let mut cmd = Command::new(cargo_bin);
+
         cmd.envs(envs).args([
             "build",
             "--package",
