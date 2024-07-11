@@ -85,7 +85,6 @@ impl Prover for HyperNova<Local> {
         Self::new_from_file(&elf_path)
     }
 
-    #[allow(refining_impl_trait)]
     fn run<T, U>(mut self, input: Option<T>) -> Result<View<U>, Self::Error>
     where
         T: Serialize + Sized,

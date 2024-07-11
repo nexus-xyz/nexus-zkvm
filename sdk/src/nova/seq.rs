@@ -59,6 +59,7 @@ pub struct Proof<U: DeserializeOwned> {
 impl Prover for Nova<Local> {
     type Memory = MerkleTrie;
     type Params = PP;
+    type Proof = Proof;
     type Error = Error;
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -83,7 +84,6 @@ impl Prover for Nova<Local> {
         Self::new_from_file(&elf_path)
     }
 
-    #[allow(refining_impl_trait)]
     fn run<T, U>(mut self, input: Option<T>) -> Result<View<U>, Self::Error>
     where
         T: Serialize + Sized,
