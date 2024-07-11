@@ -7,7 +7,7 @@ pub enum BuildError {
     /// The compile options are invalid for the memory limit.
     InvalidMemoryConfiguration,
 
-    /// An error occured reading or writing to the file system.
+    /// An error occurred reading or writing to the file system.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
@@ -42,6 +42,20 @@ impl Display for TapeError {
         match self {
             Self::SerializationError(error) => write!(f, "{}", error),
             Self::EncodingError(error) => write!(f, "{}", error),
+        }
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum PathError {
+    /// Invalid encoding used for path.
+    EncodingError,
+}
+
+impl Display for PathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EncodingError => write!(f, "provided path has invalid encoding for use with filesystem")
         }
     }
 }

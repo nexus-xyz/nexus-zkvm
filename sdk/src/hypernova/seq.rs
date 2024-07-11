@@ -12,7 +12,7 @@ use nexus_core::prover::hypernova::pp::{gen_vm_pp, load_pp, save_pp, test_pp::ge
 use nexus_core::prover::hypernova::prove_seq;
 use nexus_core::prover::hypernova::types::IVCProof;
 
-use crate::error::{BuildError, TapeError};
+use crate::error::{BuildError, TapeError, PathError};
 use nexus_core::prover::hypernova::error::ProofError;
 
 // re-exports
@@ -29,19 +29,23 @@ const K: usize = 64;
 /// Errors that occur while proving using Nova.
 #[derive(Debug, Error)]
 pub enum Error {
-    /// An error occured during parameter generation, execution, proving, or proof verification for the zkVM.
+    /// An error occurred during parameter generation, execution, proving, or proof verification for the zkVM.
     #[error(transparent)]
     ProofError(#[from] ProofError),
 
-    /// An error occured building the guest program dynamically.
+    /// An error occurred building the guest program dynamically.
     #[error(transparent)]
     BuildError(#[from] BuildError),
 
-    /// An error occured reading or writing to the file system.
+    /// An error occurred reading or writing to the filesystem.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
-    /// An error occured reading or writing to the zkVM input/output tapes.
+    /// An error occurred trying to parse a path for use with the filesystem.
+    #[error(transparent)]
+    PathError(#[from] PathError),
+
+    /// An error occurred reading or writing to the zkVM input/output tapes.
     #[error(transparent)]
     TapeError(#[from] TapeError),
 }
@@ -143,11 +147,19 @@ impl Parameters for PP {
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
-        Ok(load_pp(path.to_str().unwrap()).map_err(ProofError::from)?)
+        if let Some(path_str) = path.to_str() {
+            return Ok(load_pp(path_str).map_err(ProofError::from)?);
+        }
+
+        Err(Self::Error::PathError(crate::error::PathError::EncodingError))
     }
 
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error> {
-        Ok(save_pp(pp, path.to_str().unwrap()).map_err(ProofError::from)?)
+        if let Some(path_str) = path.to_str() {
+            return Ok(save_pp(pp, path_str).map_err(ProofError::from)?);
+        }
+
+        Err(Self::Error::PathError(crate::error::PathError::EncodingError))
     }
 }
 
