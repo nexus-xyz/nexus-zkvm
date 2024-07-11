@@ -487,6 +487,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=34", "opcode=51", "f3=4"); // xor
     cs.nand("J=34", "f7"); // f7 == 0 if xor
     cs.mul("J=35", "opcode=51", "f3=5a"); // srl
+    cs.nand("J=35", "f7"); // f7 == 0 if srl
     cs.mul("J=36", "opcode=51", "f3=5b"); // sra
     cs.mul("J=37", "opcode=51", "f3=6"); // or
     cs.mul("J=38", "opcode=51", "f3=7"); // and
