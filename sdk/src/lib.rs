@@ -10,6 +10,9 @@ pub mod nova;
 mod traits;
 pub use traits::*;
 
+/// Access the outputs of zkVM executions.
+pub mod views;
+
 /// Configure the dynamic compilation of guest programs.
 pub mod compile;
 

@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::compile::*;
+use crate::error::*;
 
 /// A compute resource.
 pub trait Compute {}
@@ -11,28 +12,12 @@ pub trait Compute {}
 pub enum Local {}
 impl Compute for Local {}
 
-/// A view capturing the output of a zkVM execution.
-pub struct View<U: DeserializeOwned> {
-    pub(crate) output: U,
-    pub(crate) logs: Vec<String>,
-}
-
-impl<U: DeserializeOwned> View<U> {
-    /// Get the logging output of the zkVM.
-    pub fn logs(&self) -> &Vec<String> {
-        &self.logs
-    }
-
-    /// Get the contents of the output tape written by the zkVM execution.
-    pub fn output(&self) -> &U {
-        &self.output
-    }
-}
-
 /// A prover (and runner) for the zkVM.
 pub trait Prover {
     type Memory;
     type Params: Parameters;
+    type View: Viewable;
+    type Proof: Verifiable;
     type Error;
 
     /// Construct a new proving instance from raw ELF bytes.
@@ -55,21 +40,31 @@ pub trait Prover {
         Self: Sized,
         Self::Error: From<std::io::Error>;
 
-    /// Run the zkVM on input of type `T` and return a view of the execution output by deserializing the output tape as of type `U`.
-    fn run<T, U>(self, input: Option<T>) -> Result<View<U>, Self::Error>
+    /// Run the zkVM and return a view of the execution output.
+    fn run(self) -> Result<Self::View, Self::Error>
     where
-        T: Serialize + Sized,
-        U: DeserializeOwned;
+        Self: Sized,
+    {
+        Self::run_with_input::<()>(self, &())
+    }
 
-    /// Prove the zkVM on input of type `T` and return a verifiable proof, along with a view of the execution output by deserializing the output tape as of type `U`.
-    fn prove<T, U>(
+    /// Run the zkVM on input of type `T` and return a view of the execution output.
+    fn run_with_input<T: Serialize + Sized>(self, input: &T) -> Result<Self::View, Self::Error>;
+
+    /// Run the zkVM and return a verifiable proof, along with a view of the execution output.
+    fn prove(self, pp: &Self::Params) -> Result<Self::Proof, Self::Error>
+    where
+        Self: Sized,
+    {
+        Self::prove_with_input::<()>(self, pp, &())
+    }
+
+    /// Run the zkVM on input of type `T` and return a verifiable proof, along with a view of the execution output.
+    fn prove_with_input<T: Serialize + Sized>(
         self,
         pp: &Self::Params,
-        input: Option<T>,
-    ) -> Result<impl Verifiable, Self::Error>
-    where
-        T: Serialize + Sized,
-        U: DeserializeOwned;
+        input: &T,
+    ) -> Result<Self::Proof, Self::Error>;
 }
 
 /// A parameter set used for proving and verifying.
@@ -93,17 +88,26 @@ pub trait Parameters {
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error>;
 }
 
-/// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
-pub trait Verifiable {
-    type Params: Parameters;
-    type Error;
-    type Output;
+/// A view capturing the output of the machine.
+pub trait Viewable {
+    /// Get the contents of the output tape written by the zkVM execution by deserializing the output tape as of type `U`.
+    fn output<U: DeserializeOwned>(&self) -> Result<U, TapeError>;
 
     /// Get the logging output of the zkVM.
     fn logs(&self) -> &Vec<String>;
+}
 
-    /// Get the contents of the output tape written by the zkVM execution.
-    fn output(&self) -> &Self::Output;
+/// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
+pub trait Verifiable {
+    type Params: Parameters;
+    type View: Viewable;
+    type Error;
+
+    /// Get the contents of the output tape written by the zkVM execution by deserializing the output tape as of type `U`.
+    fn output<U: DeserializeOwned>(&self) -> Result<U, Self::Error>;
+
+    /// Get the logging output of the zkVM.
+    fn logs(&self) -> &Vec<String>;
 
     /// Verify the proof of an execution.
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error>;

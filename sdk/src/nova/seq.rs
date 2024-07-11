@@ -1,5 +1,6 @@
 use crate::compile;
 use crate::traits::*;
+use crate::views::UncheckedView;
 
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
@@ -55,14 +56,18 @@ pub struct Nova<C: Compute = Local> {
 }
 
 /// A verifiable proof of a zkVM execution. Also contains a view capturing the output of the machine.
-pub struct Proof<U: DeserializeOwned> {
+///
+/// **Warning**: The proof contains an _unchecked_ view. Please review [`UncheckedView`].
+pub struct Proof {
     proof: IVCProof,
-    view: View<U>,
+    view: UncheckedView,
 }
 
 impl Prover for Nova<Local> {
     type Memory = MerkleTrie;
     type Params = PP;
+    type View = UncheckedView;
+    type Proof = Proof;
     type Error = Error;
 
     fn new(elf_bytes: &[u8]) -> Result<Self, Self::Error> {
@@ -87,24 +92,20 @@ impl Prover for Nova<Local> {
         Self::new_from_file(&elf_path)
     }
 
-    fn run<T, U>(mut self, input: Option<T>) -> Result<View<U>, Self::Error>
+    fn run_with_input<T>(mut self, input: &T) -> Result<Self::View, Self::Error>
     where
         T: Serialize + Sized,
-        U: DeserializeOwned,
     {
-        if let Some(inp) = input {
-            self.vm.syscalls.set_input(
-                postcard::to_stdvec(&inp)
-                    .map_err(TapeError::from)?
-                    .as_slice(),
-            )
-        }
+        self.vm.syscalls.set_input(
+            postcard::to_stdvec(input)
+                .map_err(TapeError::from)?
+                .as_slice(),
+        );
 
         eval(&mut self.vm, false, false).map_err(ProofError::from)?;
 
-        Ok(View {
-            output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
-                .map_err(TapeError::from)?,
+        Ok(Self::View {
+            output: self.vm.syscalls.get_output(),
             logs: self
                 .vm
                 .syscalls
@@ -116,27 +117,26 @@ impl Prover for Nova<Local> {
         })
     }
 
-    #[allow(refining_impl_trait)]
-    fn prove<T, U>(mut self, pp: &Self::Params, input: Option<T>) -> Result<Proof<U>, Self::Error>
+    fn prove_with_input<T>(
+        mut self,
+        pp: &Self::Params,
+        input: &T,
+    ) -> Result<Self::Proof, Self::Error>
     where
         T: Serialize + Sized,
-        U: DeserializeOwned,
     {
-        if let Some(inp) = input {
-            self.vm.syscalls.set_input(
-                postcard::to_stdvec(&inp)
-                    .map_err(TapeError::from)?
-                    .as_slice(),
-            )
-        }
+        self.vm.syscalls.set_input(
+            postcard::to_stdvec(input)
+                .map_err(TapeError::from)?
+                .as_slice(),
+        );
 
         let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
 
-        Ok(Proof {
+        Ok(Self::Proof {
             proof: prove_seq(pp, tr).map_err(ProofError::from)?,
-            view: View {
-                output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
-                    .map_err(TapeError::from)?,
+            view: Self::View {
+                output: self.vm.syscalls.get_output(),
                 logs: self
                     .vm
                     .syscalls
@@ -196,17 +196,17 @@ impl Generate for PP {
     }
 }
 
-impl<U: DeserializeOwned> Verifiable for Proof<U> {
+impl Verifiable for Proof {
     type Params = PP;
+    type View = UncheckedView;
     type Error = Error;
-    type Output = U;
 
-    fn logs(&self) -> &Vec<String> {
-        self.view.logs()
+    fn output<U: DeserializeOwned>(&self) -> Result<U, Self::Error> {
+        Ok(Self::View::output::<U>(&self.view)?)
     }
 
-    fn output(&self) -> &Self::Output {
-        self.view.output()
+    fn logs(&self) -> &Vec<String> {
+        Self::View::logs(&self.view)
     }
 
     fn verify(&self, pp: &Self::Params) -> Result<(), Self::Error> {

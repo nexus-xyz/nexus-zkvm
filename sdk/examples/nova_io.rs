@@ -33,12 +33,12 @@ fn main() {
 
     print!("Proving execution of vm...");
     let proof = prover
-        .prove::<Input, Output>(&pp, Some(input))
+        .prove_with_input::<Input>(&pp, &input)
         .expect("failed to prove program");
 
-    println!(" output is {}!", proof.output());
+    println!(" output is {}!", proof.output::<Output>().expect("failed to deserialize output"));
 
-    println!(">>>>> Logging\n{}<<<<<", proof.logs());
+    println!(">>>>> Logging\n{}<<<<<", proof.logs().join("\n"));
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");
