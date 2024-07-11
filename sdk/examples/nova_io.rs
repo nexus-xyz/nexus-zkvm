@@ -36,7 +36,12 @@ fn main() {
         .prove_with_input::<Input>(&pp, &input)
         .expect("failed to prove program");
 
-    println!(" output is {}!", proof.output::<Output>().expect("failed to deserialize output"));
+    println!(
+        " output is {}!",
+        proof
+            .output::<Output>()
+            .expect("failed to deserialize output")
+    );
 
     println!(">>>>> Logging\n{}<<<<<", proof.logs().join("\n"));
 
