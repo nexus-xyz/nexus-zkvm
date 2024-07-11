@@ -207,6 +207,9 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     cs.set_var("immA", immA(inst));
     cs.set_var("lowA", shamt(inst));
     cs.set_var("f7", funct7(inst));
+    let thirty_two = F::new(BigInt([32, 0, 0, 0]));
+    let j = cs.new_var("f7-32");
+    cs.w[j] = *cs.get_var("f7") - thirty_two;
 
     // function 3
     selector(cs, "f3", 8, funct3(inst));
@@ -287,6 +290,9 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         b[0] = ONE;
         c[cs.var("f7")] = ONE;
     });
+
+    // f7 - 32
+    cs.addi("f7", "f7-32", thirty_two);
 
     // sign bit
     let sb = cs.var("inst_31");
@@ -478,6 +484,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=29", "opcode=51", "f3=0a"); // add
     cs.nand("J=29", "f7"); // f7 == 0 if add
     cs.mul("J=30", "opcode=51", "f3=0b"); // sub
+    cs.nand("J=30", "f7-32"); // f7 == 32 if sub
     cs.mul("J=31", "opcode=51", "f3=1"); // sll
     cs.nand("J=31", "f7"); // f7 == 0 if sll
     cs.mul("J=32", "opcode=51", "f3=2"); // slt
@@ -489,6 +496,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=35", "opcode=51", "f3=5a"); // srl
     cs.nand("J=35", "f7"); // f7 == 0 if srl
     cs.mul("J=36", "opcode=51", "f3=5b"); // sra
+    cs.nand("J=36", "f7-32"); // f7 == 32 if sra
     cs.mul("J=37", "opcode=51", "f3=6"); // or
     cs.nand("J=37", "f7"); // f7 == 0 if or
     cs.mul("J=38", "opcode=51", "f3=7"); // and
