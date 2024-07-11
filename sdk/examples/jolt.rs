@@ -4,7 +4,7 @@ const PACKAGE: &str = "example";
 const EXAMPLE: &str = "noecall";
 
 fn main() {
-    let opts = CompileOpts::new(PACKAGE, EXAMPLE);
+    let opts = CompileOpts::new_with_custom_binary(PACKAGE, EXAMPLE);
 
     // defaults to local proving
     let prover: Jolt<Local> = Jolt::compile(&opts).expect("failed to load program");

@@ -43,7 +43,19 @@ pub struct CompileOpts {
 
 impl CompileOpts {
     /// Setup options for dynamic compilation.
-    pub fn new(package: &str, binary: &str) -> Self {
+    pub fn new(package: &str) -> Self {
+        Self {
+            package: package.to_string(),
+            binary: package.to_string(),
+            debug: false,
+            //native: false,
+            unique: false,
+            memlimit: None,
+        }
+    }
+
+    /// Setup options for dynamic compilation, using non-default binary name.
+    pub fn new_with_custom_binary(package: &str, binary: &str) -> Self {
         Self {
             package: package.to_string(),
             binary: binary.to_string(),

@@ -5,13 +5,12 @@ use nexus_sdk::{
 };
 
 const PACKAGE: &str = "example";
-const EXAMPLE: &str = "example"; // `main.rs` of `example` package compiles to binary `example`
 
 fn main() {
     println!("Setting up Nova public parameters...");
     let pp: PP = PP::generate().expect("failed to generate parameters");
 
-    let mut opts = CompileOpts::new(PACKAGE, EXAMPLE);
+    let mut opts = CompileOpts::new(PACKAGE);
     opts.set_memlimit(8); // use an 8mb memory
 
     println!("Compiling guest program...");
