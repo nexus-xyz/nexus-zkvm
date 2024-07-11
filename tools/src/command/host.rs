@@ -18,7 +18,9 @@ pub fn handle_command(args: HostArgs) -> anyhow::Result<()> {
 }
 
 fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
-    let host_str = host_path.to_str().context("path is not a valid UTF-8 string")?;
+    let host_str = host_path
+        .to_str()
+        .context("path is not a valid UTF-8 string")?;
 
     let guest_path = host_path.join("src").join("guest");
     let guest_str = guest_path.to_str().unwrap();
@@ -72,10 +74,17 @@ fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
     )?;
 
     // src/main.rs
-    fs::write(host_path.join("src/main.rs"),
-              HOST_TEMPLATE_SRC_MAIN
-              .replace("const PACKAGE: &str = \"example\"", "const PACKAGE: &str = \"guest\"")
-              .replace("const EXAMPLE: &str = \"example\"", "const EXAMPLE: &str = \"guest\"")
+    fs::write(
+        host_path.join("src/main.rs"),
+        HOST_TEMPLATE_SRC_MAIN
+            .replace(
+                "const PACKAGE: &str = \"example\"",
+                "const PACKAGE: &str = \"guest\"",
+            )
+            .replace(
+                "const EXAMPLE: &str = \"example\"",
+                "const EXAMPLE: &str = \"guest\"",
+            ),
     )?;
 
     cargo(None, ["new", guest_str])?;
@@ -90,15 +99,7 @@ fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
     )?;
 
     // add postcard because it is used for (de)serializing from/to the input/output tapes
-    cargo(
-        Some(&guest_path),
-        [
-            "add",
-            "postcard",
-            "-F",
-            "alloc",
-        ],
-    )?;
+    cargo(Some(&guest_path), ["add", "postcard", "-F", "alloc"])?;
 
     let mut fp2 = fs::OpenOptions::new()
         .append(true)
@@ -120,7 +121,10 @@ fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
     // guest/.cargo/config.toml
     let guest_config_path = guest_path.join(".cargo");
     fs::create_dir_all(&guest_config_path)?;
-    fs::write(guest_config_path.join("config.toml"), GUEST_TEMPLATE_CARGO_CONFIG)?;
+    fs::write(
+        guest_config_path.join("config.toml"),
+        GUEST_TEMPLATE_CARGO_CONFIG,
+    )?;
 
     // guest/src/main.rs
     fs::write(guest_path.join("src/main.rs"), GUEST_TEMPLATE_SRC_MAIN)?;

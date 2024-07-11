@@ -6,8 +6,8 @@ use nexus_core::config::{Config, MiscConfig};
 use super::ENV;
 
 pub mod compress;
-pub mod new;
 pub mod host;
+pub mod new;
 pub mod prove;
 pub mod public_params;
 pub mod request;
@@ -21,7 +21,7 @@ mod jolt;
 pub enum Command {
     /// Create a new Nexus package at <path>.
     New(new::NewArgs),
-     /// Create a new host/guest Nexus package at <path>.
+    /// Create a new host/guest Nexus package at <path>.
     Host(host::HostArgs),
     /// Run a binary with the Nexus VM.
     Run(run::RunArgs),
