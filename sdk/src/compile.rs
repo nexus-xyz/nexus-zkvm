@@ -48,7 +48,7 @@ impl CompileOpts {
             package: package.to_string(),
             binary: binary.to_string(),
             debug: false,
-            native: false,
+            //native: false,
             unique: false,
             memlimit: None,
         }

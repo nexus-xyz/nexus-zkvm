@@ -1,6 +1,6 @@
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::compile::*;
 
@@ -41,7 +41,7 @@ pub trait Prover {
         Self: Sized;
 
     /// Construct a new proving instance by reading an ELF file.
-    fn new_from_file(path: &PathBuf) -> Result<Self, Self::Error>
+    fn new_from_file<P: AsRef<Path>>(path: &P) -> Result<Self, Self::Error>
     where
         Self: Sized,
         Self::Error: From<std::io::Error>,
