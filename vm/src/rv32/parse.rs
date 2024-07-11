@@ -119,19 +119,36 @@ fn sop(word: u32) -> Option<SOP> {
 // parsing of arithmetic operations pg. 18-20
 
 fn aop(word: u32) -> Option<AOP> {
-    let res = match (opcode(word), funct3(word), funct7(word)) {
-        (0b0110011, 0b000, 0b0100000) => SUB,
-        (0b0110011, 0b000, 0b0000000) => ADD,
-        (0b0110011, 0b000, _) => return None,
-        (_, 0b000, _) => ADD,
-        (_, 0b001, _) => SLL,
-        (_, 0b010, _) => SLT,
-        (_, 0b011, _) => SLTU,
-        (_, 0b100, _) => XOR,
-        (_, 0b101, 0b0000000) => SRL,
-        (_, 0b101, 0b0100000) => SRA,
-        (_, 0b110, _) => OR,
-        (_, 0b111, _) => AND,
+    assert_eq!(opcode(word), OPC_ALU);
+    let res = match (funct3(word), funct7(word)) {
+        (0b000, 0b0100000) => SUB,
+        (0b000, 0b0000000) => ADD,
+        (0b000, _) => return None,
+        (0b001, _) => SLL,
+        (0b010, _) => SLT,
+        (0b011, _) => SLTU,
+        (0b100, _) => XOR,
+        (0b101, 0b0000000) => SRL,
+        (0b101, 0b0100000) => SRA,
+        (0b110, _) => OR,
+        (0b111, _) => AND,
+        _ => return None,
+    };
+    Some(res)
+}
+
+fn aopi(word: u32) -> Option<AOP> {
+    assert_eq!(opcode(word), OPC_ALUI);
+    let res = match (funct3(word), funct7(word)) {
+        (0b000, _) => ADD,
+        (0b001, _) => SLL,
+        (0b010, _) => SLT,
+        (0b011, _) => SLTU,
+        (0b100, _) => XOR,
+        (0b101, 0b0000000) => SRL,
+        (0b101, 0b0100000) => SRA,
+        (0b110, _) => OR,
+        (0b111, _) => AND,
         _ => return None,
     };
     Some(res)
@@ -207,7 +224,7 @@ pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
         },
 
         OPC_ALUI => ALUI {
-            aop: aop(word)?,
+            aop: aopi(word)?,
             rd: rd(word),
             rs1: rs1(word),
             imm: immA(word),
