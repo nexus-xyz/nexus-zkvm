@@ -138,16 +138,16 @@ fn aop(word: u32) -> Option<AOP> {
 
 fn aopi(word: u32) -> Option<AOP> {
     assert_eq!(opcode(word), OPC_ALUI);
-    let res = match (funct3(word), funct7(word)) {
-        (0b000, _ /* funct7 bits encode immediate value in ADDI */) => ADD,
-        (0b001, 0b0000000) => SLL,
-        (0b010, _ /* funct7 bits encode immediate value in SLTI */) => SLT,
-        (0b011, _ /* funct7 bits encode immediate value in SLTUI */) => SLTU,
-        (0b100, _ /* funct7 bits encode immediate value in XORI */) => XOR,
-        (0b101, 0b0000000) => SRL,
-        (0b101, 0b0100000) => SRA,
-        (0b110, _ /* funct7 bits encode immediate value in ORI */) => OR,
-        (0b111, _ /* funct7 bits encode immediate value in ANDI */) => AND,
+    let res = match (funct3(word), funct7(word) /* imm[11:5] */) {
+        (0b000, _ /* imm[11:5] can be any */) => ADD,
+        (0b001, 0b0000000 /* SLLI requires special value in imm[11:5] */) => SLL,
+        (0b010, _ /* imm[11:5] can be any */) => SLT,
+        (0b011, _ /* imm[11:5] can be any */) => SLTU,
+        (0b100, _ /* imm[11:5] can be any */) => XOR,
+        (0b101, 0b0000000 /* SRLI requires special value in imm[11:5] */) => SRL,
+        (0b101, 0b0100000 /* SRAI requires special value in imm[11:5] */) => SRA,
+        (0b110, _ /* imm[11:5] can be any */) => OR,
+        (0b111, _ /* imm[11:5] can be any */) => AND,
         _ => return None,
     };
     Some(res)
