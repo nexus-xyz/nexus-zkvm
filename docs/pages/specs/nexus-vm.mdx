@@ -97,6 +97,11 @@ Table: Binary Encoding of Nexus Virtual Machine Instructions, where $*^m$ denote
 
 The notation $\langle i_x \rangle$ each denote immediate values, interpreted the same way as $x$-immediate values of 32-bit RISC-V architecture. Some immediate values (type B and S) occupy discontiguous positions, so their fragments are written as $\langle i_\texttt{x0} \rangle$ and $\langle i_\texttt{x1} \rangle$. $\langle i_\texttt{SH} \rangle$ denotes a 5-bit long immediate value.
 
+$i_\texttt{U}$ and $i_\texttt{J}$ contain 20 bits.
+$i_\texttt{I}$ contains 12 bits.
+$i_\texttt{S0}$ and $i_\texttt{B0}$ contain 5 bits.
+$i_\texttt{S1}$ and $i_\texttt{B1}$ contain 7 bits.
+
 | Instruction mnemonic| Arguments | Binary Encodings (left: most significant bit) |
 | -------- | -------- | -------- |
 | $\textbf{lui}$ | $rd$ $i$ | $\begin{array}{lll} \langle i_\texttt{U} \rangle & \langle d \rangle & \texttt{0b\_011\_0111} \end{array}$ |
