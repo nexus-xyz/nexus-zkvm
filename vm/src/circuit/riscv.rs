@@ -206,6 +206,10 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
     cs.set_var("immJ", immJ(inst));
     cs.set_var("immA", immA(inst));
     cs.set_var("lowA", shamt(inst));
+    cs.set_var("f7", funct7(inst));
+    let thirty_two = F::new(BigInt([32, 0, 0, 0]));
+    let j = cs.new_var("f7-32");
+    cs.w[j] = *cs.get_var("f7") - thirty_two;
 
     // function 3
     selector(cs, "f3", 8, funct3(inst));
@@ -275,6 +279,20 @@ fn parse_imm(cs: &mut R1CS, inst: u32) {
         b[0] = ONE;
         c[cs.var("f3")] = ONE;
     });
+
+    // function7
+    cs.constraint(|cs, a, b, c| {
+        let mut pow = ONE;
+        for i in 25..32 {
+            a[cs.var(&format!("inst_{i}"))] = pow;
+            pow *= TWO;
+        }
+        b[0] = ONE;
+        c[cs.var("f7")] = ONE;
+    });
+
+    // f7 - 32
+    cs.addi("f7", "f7-32", thirty_two);
 
     // sign bit
     let sb = cs.var("inst_31");
@@ -433,6 +451,7 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_eq("J=2", "opcode=23"); // auipc
     cs.set_eq("J=3", "opcode=111"); // jal
     cs.set_eq("J=4", "opcode=103"); // jalr
+    cs.nand("f3", "opcode=103");
 
     cs.mul("J=5", "opcode=99", "f3=0"); // beq
     cs.mul("J=6", "opcode=99", "f3=1"); // bne
@@ -454,24 +473,37 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=19", "opcode=19", "f3=0"); // addi
     cs.set_var("J=20", 0); // subi does not exist
     cs.mul("J=21", "opcode=19", "f3=1"); // slli
+    cs.nand("J=21", "f7"); // f7 (technicallly imm[11:5]) == 0 if slli
     cs.mul("J=22", "opcode=19", "f3=2"); // slti
     cs.mul("J=23", "opcode=19", "f3=3"); // sltui
     cs.mul("J=24", "opcode=19", "f3=4"); // xori
     cs.mul("J=25", "opcode=19", "f3=5a"); // srli
+    cs.nand("J=25", "f7"); // f7 (technically imm[11:5]) == 0 if srli
     cs.mul("J=26", "opcode=19", "f3=5b"); // srai
+    cs.nand("J=26", "f7-32"); // f7 (technically imm[11:5]) == 32 if srai
     cs.mul("J=27", "opcode=19", "f3=6"); // ori
     cs.mul("J=28", "opcode=19", "f3=7"); // andi
 
     cs.mul("J=29", "opcode=51", "f3=0a"); // add
+    cs.nand("J=29", "f7"); // f7 == 0 if add
     cs.mul("J=30", "opcode=51", "f3=0b"); // sub
+    cs.nand("J=30", "f7-32"); // f7 == 32 if sub
     cs.mul("J=31", "opcode=51", "f3=1"); // sll
+    cs.nand("J=31", "f7"); // f7 == 0 if sll
     cs.mul("J=32", "opcode=51", "f3=2"); // slt
+    cs.nand("J=32", "f7"); // f7 == 0 if slt
     cs.mul("J=33", "opcode=51", "f3=3"); // sltu
+    cs.nand("J=33", "f7"); // f7 == 0 if sltu
     cs.mul("J=34", "opcode=51", "f3=4"); // xor
+    cs.nand("J=34", "f7"); // f7 == 0 if xor
     cs.mul("J=35", "opcode=51", "f3=5a"); // srl
+    cs.nand("J=35", "f7"); // f7 == 0 if srl
     cs.mul("J=36", "opcode=51", "f3=5b"); // sra
+    cs.nand("J=36", "f7-32"); // f7 == 32 if sra
     cs.mul("J=37", "opcode=51", "f3=6"); // or
+    cs.nand("J=37", "f7"); // f7 == 0 if or
     cs.mul("J=38", "opcode=51", "f3=7"); // and
+    cs.nand("J=38", "f7"); // f7 == 0 if and
 
     cs.set_eq("J=39", "opcode=15"); // fence
 

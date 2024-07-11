@@ -119,17 +119,35 @@ fn sop(word: u32) -> Option<SOP> {
 // parsing of arithmetic operations pg. 18-20
 
 fn aop(word: u32) -> Option<AOP> {
-    let res = match (opcode(word), funct3(word), funct7(word)) {
-        (0b0110011, 0b000, 0b0100000) => SUB,
-        (_, 0b000, _) => ADD,
-        (_, 0b001, _) => SLL,
-        (_, 0b010, _) => SLT,
-        (_, 0b011, _) => SLTU,
-        (_, 0b100, _) => XOR,
-        (_, 0b101, 0b0000000) => SRL,
-        (_, 0b101, 0b0100000) => SRA,
-        (_, 0b110, _) => OR,
-        (_, 0b111, _) => AND,
+    assert_eq!(opcode(word), OPC_ALU);
+    let res = match (funct3(word), funct7(word)) {
+        (0b000, 0b0100000) => SUB,
+        (0b000, 0b0000000) => ADD,
+        (0b001, 0b0000000) => SLL,
+        (0b010, 0b0000000) => SLT,
+        (0b011, 0b0000000) => SLTU,
+        (0b100, 0b0000000) => XOR,
+        (0b101, 0b0000000) => SRL,
+        (0b101, 0b0100000) => SRA,
+        (0b110, 0b0000000) => OR,
+        (0b111, 0b0000000) => AND,
+        _ => return None,
+    };
+    Some(res)
+}
+
+fn aopi(word: u32) -> Option<AOP> {
+    assert_eq!(opcode(word), OPC_ALUI);
+    let res = match (funct3(word), funct7(word) /* imm[11:5] */) {
+        (0b000, _ /* imm[11:5] can be any */) => ADD,
+        (0b001, 0b0000000 /* SLLI requires special value in imm[11:5] */) => SLL,
+        (0b010, _ /* imm[11:5] can be any */) => SLT,
+        (0b011, _ /* imm[11:5] can be any */) => SLTU,
+        (0b100, _ /* imm[11:5] can be any */) => XOR,
+        (0b101, 0b0000000 /* SRLI requires special value in imm[11:5] */) => SRL,
+        (0b101, 0b0100000 /* SRAI requires special value in imm[11:5] */) => SRA,
+        (0b110, _ /* imm[11:5] can be any */) => OR,
+        (0b111, _ /* imm[11:5] can be any */) => AND,
         _ => return None,
     };
     Some(res)
@@ -162,18 +180,28 @@ mod opcodes {
 }
 pub use opcodes::*;
 
-// parse a 32-bit word as an instruction
+fn assert_option(exp: bool) -> Option<()> {
+    if exp {
+        Some(())
+    } else {
+        None
+    }
+}
 
+// parse a 32-bit word as an instruction
 pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
     let inst = match opcode(word) {
         OPC_LUI => LUI { rd: rd(word), imm: immU(word) },
         OPC_AUIPC => AUIPC { rd: rd(word), imm: immU(word) },
         OPC_JAL => JAL { rd: rd(word), imm: immJ(word) },
-        OPC_JALR => JALR {
-            rd: rd(word),
-            rs1: rs1(word),
-            imm: immI(word),
-        },
+        OPC_JALR => {
+            assert_option(funct3(word) == 0)?;
+            JALR {
+                rd: rd(word),
+                rs1: rs1(word),
+                imm: immI(word),
+            }
+        }
         OPC_BR => BR {
             bop: bop(word)?,
             rs1: rs1(word),
@@ -195,7 +223,7 @@ pub(crate) fn parse_u32(word: u32) -> Option<RV32> {
         },
 
         OPC_ALUI => ALUI {
-            aop: aop(word)?,
+            aop: aopi(word)?,
             rd: rd(word),
             rs1: rs1(word),
             imm: immA(word),

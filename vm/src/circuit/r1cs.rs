@@ -233,6 +233,14 @@ impl R1CS {
         });
     }
 
+    // at least one of the variables is zero
+    pub fn nand(&mut self, v0: &str, v1: &str) {
+        self.constraint(|cs, a, b, _c| {
+            a[cs.var(v0)] = ONE;
+            b[cs.var(v1)] = ONE;
+        })
+    }
+
     #[allow(dead_code)]
     pub fn merge(&mut self, cs: &Self) {
         let left_len = self.w.len();
