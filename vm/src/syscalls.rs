@@ -63,7 +63,6 @@ impl Syscalls {
             } else {
                 self.log_buffer.push(nxt);
             }
-
         } else if num == 2 {
             // read_from_private_input
             match self.input.pop_front() {
