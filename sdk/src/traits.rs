@@ -14,12 +14,12 @@ impl Compute for Local {}
 /// A view capturing the output of a zkVM execution.
 pub struct View<U: DeserializeOwned> {
     pub(crate) output: U,
-    pub(crate) logs: String,
+    pub(crate) logs: Vec<String>,
 }
 
 impl<U: DeserializeOwned> View<U> {
     /// Get the logging output of the zkVM.
-    pub fn logs(&self) -> &String {
+    pub fn logs(&self) -> &Vec<String> {
         &self.logs
     }
 
@@ -100,7 +100,7 @@ pub trait Verifiable {
     type Output;
 
     /// Get the logging output of the zkVM.
-    fn logs(&self) -> &String;
+    fn logs(&self) -> &Vec<String>;
 
     /// Get the contents of the output tape written by the zkVM execution.
     fn output(&self) -> &Self::Output;

@@ -13,7 +13,7 @@ use crate::{
 #[derive(Default)]
 pub struct Syscalls {
     to_stdout: bool,
-    log_buffer: Vec<u8>,
+    log_buffer: Vec<Vec<u8>>,
     input: VecDeque<u8>,
     output: Vec<u8>,
 }
@@ -35,7 +35,7 @@ impl Syscalls {
         self.output.clone()
     }
 
-    pub fn get_log_buffer(&mut self) -> Vec<u8> {
+    pub fn get_log_buffer(&mut self) -> Vec<Vec<u8>> {
         self.log_buffer.clone()
     }
 
@@ -48,18 +48,22 @@ impl Syscalls {
 
         if num == 1 {
             // write_log
+            let mut nxt: Vec<u8> = vec![];
+
             for addr in inp1..inp1 + inp2 {
                 let b = memory.load(LOP::LBU, addr)?.0;
-                self.log_buffer.push(b as u8);
+                nxt.push(b as u8);
             }
 
             if self.to_stdout {
                 let mut stdout = std::io::stdout();
-                stdout.write_all(self.log_buffer.as_slice())?;
+                stdout.write_all(nxt.as_slice())?;
 
                 let _ = stdout.flush();
-                self.log_buffer.clear();
+            } else {
+                self.log_buffer.push(nxt);
             }
+
         } else if num == 2 {
             // read_from_private_input
             match self.input.pop_front() {

@@ -107,7 +107,11 @@ impl Prover for HyperNova<Local> {
         Ok(View {
             output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
                 .map_err(TapeError::from)?,
-            logs: String::from_utf8(self.vm.syscalls.get_log_buffer()).map_err(TapeError::from)?,
+            logs: self.vm.syscalls.get_log_buffer()
+                    .into_iter()
+                    .map(String::from_utf8)
+                    .collect::<Result<Vec<_>,_>>()
+                    .map_err(TapeError::from)?,
         })
     }
 
@@ -132,7 +136,10 @@ impl Prover for HyperNova<Local> {
             view: View {
                 output: postcard::from_bytes::<U>(self.vm.syscalls.get_output().as_slice())
                     .map_err(TapeError::from)?,
-                logs: String::from_utf8(self.vm.syscalls.get_log_buffer())
+                logs: self.vm.syscalls.get_log_buffer()
+                    .into_iter()
+                    .map(String::from_utf8)
+                    .collect::<Result<Vec<_>,_>>()
                     .map_err(TapeError::from)?,
             },
         })
@@ -186,7 +193,7 @@ impl<U: DeserializeOwned> Verifiable for Proof<U> {
     type Error = Error;
     type Output = U;
 
-    fn logs(&self) -> &String {
+    fn logs(&self) -> &Vec<String> {
         self.view.logs()
     }
 
