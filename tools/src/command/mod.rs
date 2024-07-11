@@ -7,6 +7,7 @@ use super::ENV;
 
 pub mod compress;
 pub mod new;
+pub mod host;
 pub mod prove;
 pub mod public_params;
 pub mod request;
@@ -20,6 +21,8 @@ mod jolt;
 pub enum Command {
     /// Create a new Nexus package at <path>.
     New(new::NewArgs),
+     /// Create a new host/guest Nexus package at <path>.
+    Host(host::HostArgs),
     /// Run a binary with the Nexus VM.
     Run(run::RunArgs),
     /// Compute proof of program execution.
@@ -42,6 +45,7 @@ pub fn handle_command(cmd: Command) -> anyhow::Result<()> {
 
     match cmd {
         Command::New(args) => new::handle_command(args),
+        Command::Host(args) => host::handle_command(args),
         Command::Run(args) => run::handle_command(args),
         Command::Prove(args) => prove::handle_command(args),
         Command::Request(args) => request::handle_command(args),
