@@ -67,7 +67,7 @@ ark-poly = "0.4.0"
 ark-poly-commit = "0.4.0"
 
 ark-bn254 = "0.4.0"
-ark-grumpkin = "0.4.0"
+ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-pallas = "0.4.0"
 ark-vesta = "0.4.0"
 ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
@@ -87,7 +87,6 @@ ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "
 
 # note bls is using a different commit from the other curves
 ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
