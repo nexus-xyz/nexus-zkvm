@@ -36,7 +36,7 @@ pub struct CompileOpts {
     /// The binary produced by the build that should be loaded into the zkVM after successful compilation.
     pub binary: String,
     debug: bool,
-    native: bool,
+    //native: bool,
     unique: bool,
     pub(crate) memlimit: Option<usize>, // in mb
 }
@@ -59,10 +59,13 @@ impl CompileOpts {
         self.debug = debug;
     }
 
-    /// Set dynamic compilation to build for the native (host machine) target, rather than for the zkVM.
-    pub fn set_native_build(&mut self, native: bool) {
-        self.native = native;
-    }
+    // NOTE: SDK should be enhanced to support native building once feature parity is achieved for the runtime.
+    //   (see, https://github.com/nexus-xyz/nexus-zkvm/pull/195#discussion_r1646697743)
+    //
+    // /// Set dynamic compilation to build for the native (host machine) target, rather than for the zkVM.
+    // pub fn set_native_build(&mut self, native: bool) {
+    //     self.native = native;
+    // }
 
     /// Set dynamic compilation to run a unique build that neither overwrites prior builds nor will be overwritten by future builds. May be used to concurrently build different versions of the same binary.
     ///
@@ -125,11 +128,13 @@ impl CompileOpts {
             "panic=abort",
         ];
 
-        let target = if self.native {
-            "native"
-        } else {
-            "riscv32i-unknown-none-elf"
-        };
+        // (see comment above on `set_native_build`)
+        //
+        // let target = if self.native {
+        //     "native"
+        // } else {
+        //     "riscv32i-unknown-none-elf"
+        // };
 
         let profile = if self.debug {
             "debug"
@@ -159,8 +164,10 @@ impl CompileOpts {
             prog,
             "--target-dir",
             &dest,
-            "--target",
-            target,
+            // (see comment above on `set_native_build`)
+            //
+            // "--target",
+            // target,
             "--profile",
             profile,
         ]);
