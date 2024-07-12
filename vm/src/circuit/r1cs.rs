@@ -610,6 +610,18 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_set_bit() {
+        let mut cs = R1CS::default();
+        cs.set_bit("b0", false);
+        cs.set_bit("b1", true);
+        cs.eqi("b0", ZERO);
+        cs.eqi("b1", ONE);
+        cs.addi("b1", "b0", ONE);
+        cs.mul("b0", "b1", "b0");
+        assert!(cs.is_sat());
+    }
+
     fn test_mem(set: &[u32]) {
         for &x in set {
             let mut cs = R1CS::default();

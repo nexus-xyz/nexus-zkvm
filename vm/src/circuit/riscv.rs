@@ -417,7 +417,7 @@ fn parse_shamt(cs: &mut R1CS, Y: u32) {
 fn parse_J(cs: &mut R1CS, J: u32) {
     cs.set_var("J", J);
     for j in 1..=RV32::MAX_J {
-        cs.set_var(&format!("J={j}"), (j == J).into());
+        cs.set_bit(&format!("J={j}"), j == J);
     }
 
     // used by ALU instructions
@@ -520,6 +520,15 @@ fn parse_J(cs: &mut R1CS, J: u32) {
     cs.mul("J=40", "opcode=115", "ecall"); // ecall
     cs.mul("J=41", "opcode=115", "inst_20"); // ebreak
     cs.mul("J=42", "opcode=115", "inst_12"); // unimp
+
+    // One of J=? variables hold
+    cs.constraint(|cs, a, b, c| {
+        for j in 1..=RV32::MAX_J {
+            a[cs.var(&format!("J={j}"))] = ONE;
+        }
+        b[0] = ONE;
+        c[0] = ONE;
+    });
 
     cs.seal();
 }
