@@ -18,7 +18,7 @@ _start:
     la gp, __global_pointer$
     .option pop
 
-    la sp, __memory_top - 4
+    la sp, __memory_top - 4 /* start growing the stack (down) from here */
     mv fp, sp
 
     jal ra, _get_stack_size
@@ -44,7 +44,7 @@ abort:
 alloc_:
     lw s0, _heap
     add a0, a0, s0
-    bgeu a0, sp, abort
+    bgeu a0, sp, abort /* if requesting memory used by the stack, abort */ 
     la s1, _heap
     sw a0, 0(s1)
     mv a0, s0

@@ -43,6 +43,10 @@ unsafe impl GlobalAlloc for Heap {
 }
 
 /// Stack size setup (_get_stack_size)
+///
+/// Because the stack will grow down from this point, and if the heap requests memory
+/// being used by the stack then the runtime will panic, this value also functions as
+/// the memory limit for the guest program execution more generally.
 #[doc(hidden)]
 #[link_section = ".init.rust"]
 #[export_name = "_get_stack_size"]
