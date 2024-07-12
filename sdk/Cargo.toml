@@ -16,3 +16,6 @@ nexus-core = { path = "../core", features = ["prover_nova", "prover_jolt", "prov
 postcard = { version = "1.0.8", features = ["alloc"] }
 uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
 thiserror = "1.0.61"
+
+[lib]
+doctest = false
