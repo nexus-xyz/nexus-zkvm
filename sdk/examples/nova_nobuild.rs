@@ -29,7 +29,7 @@ fn main() {
     println!("Proving execution of vm...");
     let proof = prover.prove(&pp).expect("failed to prove program");
 
-    println!(">>>>> Logging\n{}<<<<<", proof.logs().join("\n"));
+    println!(">>>>> Logging\n{}<<<<<", proof.logs().join(""));
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");

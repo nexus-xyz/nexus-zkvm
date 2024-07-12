@@ -43,7 +43,7 @@ fn main() {
             .expect("failed to deserialize output")
     );
 
-    println!(">>>>> Logging\n{}<<<<<", proof.logs().join("\n"));
+    println!(">>>>> Logging\n{}<<<<<", proof.logs().join(""));
 
     print!("Verifying execution...");
     proof.verify(&pp).expect("failed to verify proof");

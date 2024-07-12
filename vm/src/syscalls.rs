@@ -61,7 +61,7 @@ impl Syscalls {
 
                 let _ = stdout.flush();
             } else {
-                self.log_buffer.push(nxt);
+                self.log_buffer.push(nxt.clone());
             }
         } else if num == 2 {
             // read_from_private_input
