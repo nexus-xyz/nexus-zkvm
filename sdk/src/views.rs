@@ -4,10 +4,8 @@ use serde::de::DeserializeOwned;
 
 /// A view capturing the unchecked output of a zkVM execution.
 ///
-/// By _unchecked_, it is meant that although the zkVM proves that the
-/// guest program correctly wrote to the output tape, there is not any
-/// guarantee that the return of `output()` are those values that were
-/// written.
+/// By _unchecked_, it is meant that although the zkVM proves that the guest program correctly wrote to the output tape, there is no cryptographic
+/// guarantee that the return of `output()` as accessed by the host program contains the same values that were written.
 ///
 /// Support for checked views is under active development.
 pub struct UncheckedView {
