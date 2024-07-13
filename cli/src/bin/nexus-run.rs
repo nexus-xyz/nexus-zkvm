@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
-use nexus_tools::command::run;
+use nexus_cli::command::run;
 
 #[derive(Debug, Parser)]
 pub struct Args {

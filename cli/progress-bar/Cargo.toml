@@ -1,5 +1,5 @@
 [package]
-name = "nexus-tui"
+name = "nexus-progress-bar"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -11,4 +11,4 @@ publish.workspace = true
 
 [dependencies]
 anyhow = "1.0"
-superconsole = { git = "https://github.com/facebookincubator/superconsole.git", rev = "8254a5c" }
+superconsole = "0.2"

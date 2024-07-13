@@ -20,6 +20,7 @@ use nexus_core::config::{
     Config,
 };
 use nexus_core::prover::nova::types::{ComPCDNode, ComProof, IVCProof, PCDNode};
+use nexus_progress_bar::TerminalHandle;
 
 #[derive(Debug, Args)]
 pub struct VerifyArgs {
@@ -100,7 +101,7 @@ fn verify_proof_compressed(
     .context("path is not utf-8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
     let params = {
         let mut ctx = term
             .context("Loading")
@@ -179,7 +180,7 @@ fn verify_proof(
     .context("path is not utf8")?
     .to_owned();
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
     let mut ctx = term.context("Verifying").on_step(move |_step| {
         match nova_impl {
             NovaImpl::Parallel => "root",
@@ -192,7 +193,7 @@ fn verify_proof(
 
     let result = match nova_impl {
         NovaImpl::Parallel => {
-            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let mut iterm = TerminalHandle::new_enabled();
             let params = {
                 let mut term_ctx = iterm
                     .context("Loading")
@@ -207,7 +208,7 @@ fn verify_proof(
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::ParallelCompressible => {
-            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let mut iterm = TerminalHandle::new_enabled();
             let params = {
                 let mut term_ctx = iterm
                     .context("Loading")
@@ -222,7 +223,7 @@ fn verify_proof(
             root.verify(&params).map_err(anyhow::Error::from)
         }
         NovaImpl::Sequential => {
-            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let mut iterm = TerminalHandle::new_enabled();
             let params = {
                 let mut term_ctx = iterm
                     .context("Loading")

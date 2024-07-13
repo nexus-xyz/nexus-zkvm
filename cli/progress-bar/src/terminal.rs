@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 
-use super::{action::Action, component::FmtDuration, thread as tui_thread};
+use super::{action::Action, component::FmtDuration, thread as bg_thread};
 
 /// Terminal output mode.
 #[derive(Debug, Copy, Clone)]
@@ -14,7 +14,7 @@ pub enum Mode {
 pub struct TerminalHandle(Option<TerminalHandleInner>);
 
 struct TerminalHandleInner {
-    thread: tui_thread::ThreadHandle,
+    thread: bg_thread::ThreadHandle,
     ctx_sender: Option<mpsc::Sender<()>>,
 }
 
@@ -27,7 +27,7 @@ impl Default for TerminalHandleInner {
 impl TerminalHandleInner {
     pub fn new() -> Self {
         Self {
-            thread: tui_thread::ThreadHandle::new(),
+            thread: bg_thread::ThreadHandle::new(),
             ctx_sender: None,
         }
     }

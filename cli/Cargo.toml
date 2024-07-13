@@ -1,5 +1,5 @@
 [package]
-name = "nexus-tools"
+name = "cargo-nexus"
 authors = { workspace = true }
 version = { workspace = true }
 edition = { workspace = true }
@@ -9,6 +9,10 @@ publish = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
 default-run = "cargo-nexus"
+
+[lib]
+name = "nexus_cli"
+path = "src/lib.rs"
 
 [[bin]]
 name = "cargo-nexus"
@@ -33,6 +37,6 @@ cargo_metadata = "0.18.1"
 clap.workspace = true
 
 nexus-core = { path = "../core", features = ["prover_jolt"] }
-nexus-tui = { path = "./tui" }
+nexus-progress-bar = { path = "./progress-bar" }
 
 ark-serialize.workspace = true

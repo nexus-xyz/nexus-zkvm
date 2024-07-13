@@ -8,6 +8,7 @@ use nexus_core::prover::jolt::{
     types::{JoltCommitments, JoltProof},
     VM,
 };
+use nexus_progress_bar::TerminalHandle;
 
 use anyhow::Context;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
@@ -21,7 +22,7 @@ pub fn prove(path: &Path) -> anyhow::Result<()> {
     let bytes = std::fs::read(path)?;
     let vm: VM<MerkleTrie> = parse::parse_elf(&bytes)?;
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
 
     // preprocess bytecode
     let bytecode_size = vm.bytecode_size();
@@ -46,7 +47,7 @@ pub fn prove(path: &Path) -> anyhow::Result<()> {
         start.elapsed(),
     );
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
     // prove
     let mut ctx = term
         .context("Proving")
@@ -89,7 +90,7 @@ pub fn verify(proof_path: &Path, prove_args: CommonProveArgs) -> anyhow::Result<
     let bytes = std::fs::read(path)?;
     let vm: VM<MerkleTrie> = parse::parse_elf(&bytes)?;
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
 
     // preprocess bytecode
     let bytecode_size = vm.bytecode_size();
