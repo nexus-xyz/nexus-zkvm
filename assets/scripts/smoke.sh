@@ -49,7 +49,7 @@ error_handler() {
 }
 trap 'error_handler ${LINENO}' ERR
 
-cargo build --release --package nexus-tools --bin cargo-nexus
+cargo build --release --package cargo-nexus --bin cargo-nexus
 ./target/release/cargo-nexus nexus new $PROJECT_NAME
 cp $1 $PROJECT_NAME/src/main.rs
 cd $PROJECT_NAME
