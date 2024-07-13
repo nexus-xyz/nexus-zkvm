@@ -20,9 +20,7 @@ ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
 
-nexus-nova = { path = "../nova", default-features = false, features = [
-    "spartan", # nova doesn't currently compile when spartan is disabled
-] }
+nexus-nova = { path = "../nova", default-features = false }
 
 [features]
 default = ["parallel", "spartan"]

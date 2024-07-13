@@ -63,7 +63,6 @@ use crate::{
 
 mod augmented;
 
-#[cfg(feature = "spartan")]
 pub mod compression;
 
 use augmented::{

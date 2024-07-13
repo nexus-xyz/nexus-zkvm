@@ -10,7 +10,6 @@ pub enum Error {
     R1CS(R1CSError),
     Synthesis(ark_relations::r1cs::SynthesisError),
 
-    #[cfg(any(test, feature = "spartan"))]
     InvalidPublicInput,
 }
 
@@ -31,7 +30,6 @@ impl Display for Error {
         match self {
             Self::R1CS(error) => write!(f, "{}", error),
             Self::Synthesis(error) => write!(f, "{}", error),
-            #[cfg(any(test, feature = "spartan"))]
             Self::InvalidPublicInput => write!(f, "invalid public input"),
         }
     }
@@ -42,7 +40,6 @@ impl ark_std::error::Error for Error {
         match self {
             Self::R1CS(error) => error.source(),
             Self::Synthesis(error) => error.source(),
-            #[cfg(any(test, feature = "spartan"))]
             Self::InvalidPublicInput => None,
         }
     }

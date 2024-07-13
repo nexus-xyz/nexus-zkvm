@@ -23,7 +23,6 @@ pub enum Error {
     HNFolding(HNFoldingError),
     Synthesis(ark_relations::r1cs::SynthesisError),
 
-    #[cfg(any(test, feature = "spartan"))]
     InvalidPublicInput,
     PolyCommitmentSetup,
 }
@@ -59,7 +58,6 @@ impl Display for Error {
             Self::CCS(error) => write!(f, "{}", error),
             Self::HNFolding(error) => write!(f, "{}", error),
             Self::Synthesis(error) => write!(f, "{}", error),
-            #[cfg(any(test, feature = "spartan"))]
             Self::InvalidPublicInput => write!(f, "invalid public input"),
             Self::PolyCommitmentSetup => write!(f, "error during polycommitment setup"),
         }
@@ -73,7 +71,6 @@ impl ark_std::error::Error for Error {
             Self::CCS(error) => error.source(),
             Self::HNFolding(error) => error.source(),
             Self::Synthesis(error) => error.source(),
-            #[cfg(any(test, feature = "spartan"))]
             Self::InvalidPublicInput => None,
             Self::PolyCommitmentSetup => None,
         }

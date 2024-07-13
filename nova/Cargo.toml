@@ -18,25 +18,25 @@ ark-relations.workspace = true
 ark-r1cs-std.workspace = true
 ark-serialize.workspace = true
 ark-poly.workspace = true
-ark-poly-commit = { workspace = true, optional = true }
+ark-poly-commit = { workspace = true }
 
-ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
+ark_spartan = { path = "../spartan", package = "ark-spartan", default-features = false }
 
-merlin = { version = "3.0.0", optional = true }
+merlin = { version = "3.0.0" }
 sha3 = { workspace = true }
 rand_chacha = "0.3.1"
 
 tracing = { version = "0.1", default-features = false }
 rayon = { version = "1.8.0", optional = true }
 
-ff = { version = "0.13.0", optional = true }
-hex = { workspace = true, optional = true }
+ff = { version = "0.13.0" }
+hex = { workspace = true }
 
-halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20", optional = true }
-halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves.git", rev = "8e4cb9f0c66c864e8ca25da07f50ae95f664a5b7", optional = true }
+halo2_proofs = { git = "https://github.com/privacy-scaling-explorations/halo2.git", tag = "v2023_04_20" }
+halo2curves = { git = "https://github.com/privacy-scaling-explorations/halo2curves.git", rev = "8e4cb9f0c66c864e8ca25da07f50ae95f664a5b7" }
 
 [features]
-default = ["parallel", "spartan"]
+default = ["parallel"]
 parallel = [
    "rayon",
    "ark-ff/parallel",
@@ -44,15 +44,7 @@ parallel = [
    "ark-std/parallel",
    "ark-crypto-primitives/parallel",
    "ark-r1cs-std/parallel",
-]
-spartan = [
-   "ark-poly-commit",
-   "ark_spartan",
-   "merlin",
-   "ff",
-   "hex",
-   "halo2_proofs",
-   "halo2curves",
+   "ark_spartan/parallel",
 ]
 
 [dev-dependencies]

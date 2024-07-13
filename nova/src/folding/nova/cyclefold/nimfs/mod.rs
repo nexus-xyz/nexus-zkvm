@@ -242,7 +242,6 @@ where
         Ok((proof, (folded_U, folded_W), (U_secondary, W_secondary)))
     }
 
-    #[cfg(any(test, feature = "spartan"))]
     pub fn verify(
         &self,
         config: &RO::Config,
