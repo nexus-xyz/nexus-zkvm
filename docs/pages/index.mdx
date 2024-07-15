@@ -52,6 +52,8 @@ The Nexus zkVM can prove any computation. For a Rust program:
 ```rust
 #![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
+use nexus_rt::println;
+
 fn fib(n: u32) -> u32 {
     match n {
         0 => 0,
@@ -65,6 +67,7 @@ fn main() {
     let n = 7;
     let result = fib(n);
     assert_eq!(result, 13);
+    println!("fib({}) = {}", n, result);
 }
 ```
 
