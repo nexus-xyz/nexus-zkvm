@@ -24,21 +24,19 @@ mod riscv32 {
     }
 
     /// Read an object off the private input tape
+    ///
+    /// exhausts the private input tape, so can only be used once
     pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
         let inp: u32 = 0;
         let mut out: u32 = 0;
 
-        let mut bytes = alloc::vec::Vec::<u8>::new();
-
-        while out != u32::MAX {
-            ecall!(2, inp, inp, out);
-            bytes.push(out.to_le_bytes()[0])
-        }
-
+        let bytes: Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
         postcard::from_bytes::<T>(bytes.as_slice())
     }
 
     /// Read a byte from the private input tape
+    ///
+    /// exhausts the private input tape, so can only be used once
     pub fn read_from_private_input() -> Option<u8> {
         let inp: u32 = 0;
         let mut out: u32;
@@ -56,7 +54,7 @@ mod riscv32 {
         let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
         let mut _out: u32;
 
-        ecall!(3, ser.as_slice().as_ptr(), ser.len(), _out);
+        write_to_output(set.as_slice())
     }
 
     /// Write a slice to the output tape
@@ -110,8 +108,26 @@ macro_rules! println {
 #[cfg(not(target_arch = "riscv32"))]
 pub use std::{print, println};
 
+/// Read an object off the private input tape
+#[cfg(not(target_arch = "riscv32"))]
+pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
+    panic!("private input is not available outside of NexusVM")
+}
+
 /// Read a byte from the private input tape
 #[cfg(not(target_arch = "riscv32"))]
 pub fn read_from_private_input() -> Option<u8> {
     panic!("private input is not available outside of NexusVM")
+}
+
+/// Write an object to the output tape
+#[cfg(not(target_arch = "riscv32"))]
+pub fn write_output<T: Serialize + ?Sized>(val: &T) {
+    panic!("output is not available outside of NexusVM")
+}
+
+/// Write a slice to the output taoe
+#[cfg(not(target_arch = "riscv32"))]
+pub fn write_to_output(b: &[u8]) {
+    panic!("output is not available outside of NexusVM")
 }
