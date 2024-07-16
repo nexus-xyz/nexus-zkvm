@@ -33,6 +33,8 @@ If you're interested in our implementation of folding schemes, check the [`nexus
 
 First, install Rust: https://www.rust-lang.org/tools/install.
 
+Also, make sure you have a working version of [cmake](https://cmake.org/).
+
 With the RISC-V target:
 
 ```shell

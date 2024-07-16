@@ -1,7 +1,5 @@
 //! Nexus Virtual Machine Host API
 
-#![doc = include_str!("../README.md")]
-
 /// Configurations
 pub mod config {
     pub use nexus_config::{Config, MiscConfig};

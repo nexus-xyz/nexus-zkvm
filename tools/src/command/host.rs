@@ -33,8 +33,6 @@ fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
-            "--branch",
-            "simple-sdk",
             "nexus-sdk",
         ],
     )?;

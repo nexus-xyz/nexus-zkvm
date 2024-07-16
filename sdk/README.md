@@ -8,6 +8,8 @@ A simple, misuse-resistant SDK for programmatic use of the Nexus zkVM.
 
 First, install Rust: [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install).
 
+Also, make sure you have a working version of [cmake](https://cmake.org/).
+
 With the RISC-V target:
 
 ```shell
@@ -186,7 +188,7 @@ and a host program like
 ```rust
 use nexus_sdk::{compile::CompileOpts, jolt::Jolt, Local};
 
-const PACKAGE: &str = "gust";
+const PACKAGE: &str = "guest";
 
 fn main() {
     let opts = CompileOpts::new(PACKAGE);

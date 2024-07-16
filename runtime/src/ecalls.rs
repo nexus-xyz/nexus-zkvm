@@ -35,8 +35,6 @@ mod riscv32 {
     }
 
     /// Read a byte from the private input tape
-    ///
-    /// exhausts the private input tape, so can only be used once
     pub fn read_from_private_input() -> Option<u8> {
         let inp: u32 = 0;
         let mut out: u32;
