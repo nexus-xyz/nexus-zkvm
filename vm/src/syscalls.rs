@@ -10,31 +10,33 @@ use crate::{
 };
 
 /// Holds information related to syscall implementation.
+#[derive(Default)]
 pub struct Syscalls {
-    output_enable: bool,
+    to_stdout: bool,
+    log_buffer: Vec<Vec<u8>>,
     input: VecDeque<u8>,
-}
-
-impl Default for Syscalls {
-    fn default() -> Self {
-        Self {
-            output_enable: true,
-            input: VecDeque::new(),
-        }
-    }
+    output: Vec<u8>,
 }
 
 impl Syscalls {
-    pub fn enable_output(&mut self) {
-        self.output_enable = true;
+    pub fn enable_stdout(&mut self) {
+        self.to_stdout = true;
     }
 
-    pub fn disable_output(&mut self) {
-        self.output_enable = false;
+    pub fn disable_stdout(&mut self) {
+        self.to_stdout = false;
     }
 
     pub fn set_input(&mut self, slice: &[u8]) {
         self.input = slice.to_owned().into();
+    }
+
+    pub fn get_output(&mut self) -> Vec<u8> {
+        self.output.clone()
+    }
+
+    pub fn get_log_buffer(&mut self) -> Vec<Vec<u8>> {
+        self.log_buffer.clone()
     }
 
     pub fn syscall(&mut self, pc: u32, regs: [u32; 32], memory: &impl Memory) -> Result<u32> {
@@ -42,26 +44,41 @@ impl Syscalls {
         let inp1 = regs[11]; // a1 = x11
         let inp2 = regs[12]; // a2 = x12
 
-        let mut out = 0x0;
+        let mut ret = 0x0;
 
         if num == 1 {
             // write_log
-            let mut stdout = std::io::stdout();
+            let mut nxt: Vec<u8> = vec![];
+
             for addr in inp1..inp1 + inp2 {
                 let b = memory.load(LOP::LBU, addr)?.0;
-                stdout.write_all(&[b as u8])?;
+                nxt.push(b as u8);
             }
-            let _ = stdout.flush();
+
+            if self.to_stdout {
+                let mut stdout = std::io::stdout();
+                stdout.write_all(nxt.as_slice())?;
+
+                let _ = stdout.flush();
+            } else {
+                self.log_buffer.push(nxt.clone());
+            }
         } else if num == 2 {
             // read_from_private_input
             match self.input.pop_front() {
-                Some(b) => out = b as u32,
-                None => out = u32::MAX, // out of range of possible u8 inputs
+                Some(b) => ret = b as u32,
+                None => ret = u32::MAX, // out of range of possible u8 inputs
+            }
+        } else if num == 3 {
+            // write_to_output
+            for addr in inp1..inp1 + inp2 {
+                let b = memory.load(LOP::LBU, addr)?.0;
+                self.output.push(b as u8);
             }
         } else {
             return Err(UnknownECall(pc, num));
         }
 
-        Ok(out)
+        Ok(ret)
     }
 }

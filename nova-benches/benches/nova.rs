@@ -73,7 +73,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
             recursive_snark = recursive_snark.prove_step(&pp, &step_circuit).unwrap();
 
             // verify the recursive snark at each step of recursion
-            let res = recursive_snark.verify(&pp, i + 1);
+            let res = recursive_snark.verify_steps(&pp, i + 1);
             assert!(res.is_ok());
         }
 
@@ -90,7 +90,7 @@ fn bench_recursive_snark(c: &mut Criterion) {
         group.bench_function("Verify", |b| {
             b.iter(|| {
                 black_box(&recursive_snark)
-                    .verify(black_box(&pp), black_box(NUM_WARMUP_STEPS))
+                    .verify_steps(black_box(&pp), black_box(NUM_WARMUP_STEPS))
                     .unwrap();
             });
         });

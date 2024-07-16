@@ -1,5 +1,5 @@
 [package]
-name = "nexus-rt"
+name = "nexus-sdk"
 authors = { workspace = true }
 version = { workspace = true }
 edition = { workspace = true }
@@ -10,6 +10,12 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-nexus-rt-macros = { path = "macros", version = "0.1.0" }
+serde.workspace = true
+
+nexus-core = { path = "../core", features = ["prover_nova", "prover_jolt", "prover_hypernova"] }
 postcard = { version = "1.0.8", features = ["alloc"] }
-serde = { version = "1.0", default-features = false }
+uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
+thiserror = "1.0.61"
+
+[lib]
+doctest = false
