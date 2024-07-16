@@ -67,7 +67,7 @@ fn sha3_keccakf(st: &mut [u64; 25]) {
         for i in 0..24 {
             let j: u32 = keccakf_piln[i];
             bc[0] = st[j as usize];
-            st[j as usize] = rotl64(t, keccakf_rotc[i as usize]);
+            st[j as usize] = rotl64(t, keccakf_rotc[i]);
             t = bc[0];
         }
 
@@ -114,7 +114,7 @@ fn sha3_update(c: &mut Sha3, data: &[u8]) {
     let mut j = c.pt;
     for i in 0..len {
         unsafe {
-            c.data.b[j as usize] ^= data[i as usize];
+            c.data.b[j as usize] ^= data[i];
         }
         j += 1;
         if j >= c.rsiz {

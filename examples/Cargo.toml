@@ -11,3 +11,8 @@ categories = { workspace = true }
 
 [dependencies]
 nexus-rt = { path = "../runtime" }
+
+[lints.clippy]
+print_with_newline = { level = "allow", priority = 0 }
+needless_range_loop = { level = "allow", priority = 0 }
+manual_memcpy = { level = "allow", priority = 0 }
