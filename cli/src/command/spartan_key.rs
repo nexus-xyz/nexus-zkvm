@@ -8,6 +8,7 @@ use anyhow::Context;
 
 use nexus_core::config::{vm as vm_config, Config};
 use nexus_core::prover::nova::{srs::get_min_srs_size, types::ComPP};
+use nexus_progress_bar::TerminalHandle;
 
 use super::public_params::{format_params_file, format_srs_file};
 use crate::{command::cache_path, LOG_TARGET};
@@ -135,7 +136,7 @@ fn spartan_setup_to_file(key_path: &Path, pp_path: &Path, srs_path: &Path) -> an
         path =?srs_path_str,
         "Reading the SRS",
     );
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
     let srs = {
         let mut term_ctx = term.context("Loading").on_step(|_step| "SRS".into());
         let _guard = term_ctx.display_step();

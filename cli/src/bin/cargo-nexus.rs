@@ -1,5 +1,5 @@
 use clap::Parser;
-use nexus_tools::{command, setup_logger, Cli};
+use nexus_cli::{command, setup_logger, Cli};
 
 fn main() -> anyhow::Result<()> {
     let _guard = setup_logger();

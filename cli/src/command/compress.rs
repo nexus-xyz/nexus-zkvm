@@ -4,6 +4,7 @@ use anyhow::Context;
 use clap::Args;
 
 use nexus_core::config::{vm as vm_config, Config};
+use nexus_progress_bar::TerminalHandle;
 
 use super::{public_params::format_params_file, spartan_key::SetupArgs};
 
@@ -104,7 +105,7 @@ pub fn compress_proof(args: CompressArgs) -> anyhow::Result<()> {
         return Err(io::Error::from(io::ErrorKind::NotFound).into());
     };
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
 
     let proof = {
         let mut context = term.context("Loading").on_step(|_step| "proof".into());

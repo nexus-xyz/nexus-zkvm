@@ -11,6 +11,7 @@ use nexus_core::config::{
 };
 use nexus_core::prover::nova::srs::{get_min_srs_size, test_srs::gen_test_srs_to_file};
 use nexus_core::prover::nova::types::{ComPP, ParPP, SeqPP, SRS};
+use nexus_progress_bar::TerminalHandle;
 
 use crate::{command::cache_path, LOG_TARGET};
 
@@ -80,7 +81,7 @@ fn setup_params_to_file(
 ) -> anyhow::Result<()> {
     let path = path.to_str().context("path is not valid utf8")?;
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
 
     let _ = match nova_impl {
         vm_config::NovaImpl::Sequential => {

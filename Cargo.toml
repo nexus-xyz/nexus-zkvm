@@ -4,8 +4,8 @@ members = [
     "runtime",
     "examples",
     "vm",
-    "tools",
-    "tools/tui",
+    "cli",
+    "cli/progress-bar",
     "config",
     "config/serde_wrapper",
     "network",
@@ -19,7 +19,7 @@ members = [
 ]
 default-members = [
     "vm",
-    "tools",
+    "cli",
     "network",
     "nova",
     "runtime",

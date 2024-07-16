@@ -7,6 +7,7 @@ use anyhow::Context;
 use clap::Args;
 
 use nexus_core::config::{vm as vm_config, Config};
+use nexus_progress_bar::TerminalHandle;
 
 use crate::{
     command::{
@@ -179,7 +180,7 @@ fn local_prove(
     let current_dir = std::env::current_dir()?;
     let proof_path = current_dir.join("nexus-proof");
 
-    let mut term = nexus_tui::TerminalHandle::new_enabled();
+    let mut term = TerminalHandle::new_enabled();
 
     let tr = nexus_core::prover::nova::init_circuit_trace(trace)?;
     let num_steps = tr.steps();
@@ -229,7 +230,7 @@ fn local_prove(
             assert!((num_steps + 1).is_power_of_two());
 
             let state = {
-                let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+                let mut iterm = TerminalHandle::new_enabled();
                 let mut term_ctx = iterm
                     .context("Loading")
                     .on_step(|_step| "public parameters".into());
@@ -277,7 +278,7 @@ fn local_prove(
         vm_config::NovaImpl::ParallelCompressible => {
             assert!((num_steps + 1).is_power_of_two());
 
-            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let mut iterm = TerminalHandle::new_enabled();
             let state = {
                 let mut term_ctx = iterm
                     .context("Loading")
@@ -324,7 +325,7 @@ fn local_prove(
             nexus_core::prover::nova::save_proof(root, &proof_path)?;
         }
         vm_config::NovaImpl::Sequential => {
-            let mut iterm = nexus_tui::TerminalHandle::new_enabled();
+            let mut iterm = TerminalHandle::new_enabled();
             let state = {
                 let mut term_ctx = iterm
                     .context("Loading")
