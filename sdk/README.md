@@ -6,11 +6,11 @@ A simple, misuse-resistant SDK for programmatic use of the Nexus zkVM.
 
 ### 1. Install the Nexus zkVM
 
-First, install Rust: [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install).
+First, install Rust: https://www.rust-lang.org/tools/install.
 
 Also, make sure you have a working version of [cmake](https://cmake.org/).
 
-With the RISC-V target:
+Next, install the RISC-V target:
 
 ```shell
 rustup target add riscv32i-unknown-none-elf
