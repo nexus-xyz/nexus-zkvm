@@ -206,6 +206,8 @@ fn main() {
 }
 ```
 
+To see more example of using the SDK, check out [the examples folder](./examples/).
+
 ## Learn More
 
 Also check out the documentation at [docs.nexus.xyz](https://docs.nexus.xyz), or join our [Telegram](https://t.me/nexus_zkvm) chat to discuss!
