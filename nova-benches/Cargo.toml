@@ -15,19 +15,16 @@ ark-vesta = "0.4.0"
 ark-bn254 = "0.4.0"
 ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
 
-ark_spartan = { path = "../spartan", package = "ark-spartan", optional = true }
+ark_spartan = { path = "../spartan", package = "ark-spartan" }
 
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
 
-nexus-nova = { path = "../nova", default-features = false, features = [
-    "spartan", # nova doesn't currently compile when spartan is disabled
-] }
+nexus-nova = { path = "../nova", default-features = false }
 
 [features]
-default = ["parallel", "spartan"]
+default = ["parallel"]
 parallel = ["nexus-nova/parallel"]
-spartan = ["ark_spartan"]
 
 [[bench]]
 name = "nova"

@@ -175,7 +175,6 @@ where
         ))
     }
 
-    #[cfg(any(test, feature = "spartan"))]
     pub fn verify_as_subprotocol<C: PolyCommitmentScheme<G>>(
         &self,
         random_oracle: &mut RO,

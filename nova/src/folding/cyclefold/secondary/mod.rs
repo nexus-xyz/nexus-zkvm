@@ -159,7 +159,7 @@ where
         }
     }
 }
-#[cfg(any(test, feature = "spartan"))]
+
 macro_rules! parse_projective {
     ($X:expr) => {
         match &$X[..3] {
@@ -181,7 +181,6 @@ where
     G2: SWCurveConfig,
     C2: CommitmentScheme<Projective<G2>>,
 {
-    #[cfg(any(test, feature = "spartan"))]
     pub(crate) fn parse_secondary_io<G1>(&self) -> Option<Circuit<G1>>
     where
         G2::BaseField: PrimeField,
