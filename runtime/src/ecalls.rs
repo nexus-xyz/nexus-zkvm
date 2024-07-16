@@ -30,7 +30,7 @@ mod riscv32 {
         let inp: u32 = 0;
         let mut out: u32 = 0;
 
-        let bytes: Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
+        let bytes: alloc::vec::Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
         postcard::from_bytes::<T>(bytes.as_slice())
     }
 
@@ -52,7 +52,7 @@ mod riscv32 {
         let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
         let mut _out: u32;
 
-        write_to_output(set.as_slice())
+        write_to_output(ser.as_slice())
     }
 
     /// Write a slice to the output tape
