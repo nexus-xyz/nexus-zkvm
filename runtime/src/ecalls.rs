@@ -27,9 +27,6 @@ mod riscv32 {
     ///
     /// exhausts the private input tape, so can only be used once
     pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
-        let inp: u32 = 0;
-        let mut out: u32 = 0;
-
         let bytes: alloc::vec::Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
         postcard::from_bytes::<T>(bytes.as_slice())
     }
@@ -108,7 +105,7 @@ pub use std::{print, println};
 
 /// Read an object off the private input tape
 #[cfg(not(target_arch = "riscv32"))]
-pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
+pub fn read_private_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
     panic!("private input is not available outside of NexusVM")
 }
 
@@ -120,12 +117,12 @@ pub fn read_from_private_input() -> Option<u8> {
 
 /// Write an object to the output tape
 #[cfg(not(target_arch = "riscv32"))]
-pub fn write_output<T: Serialize + ?Sized>(val: &T) {
+pub fn write_output<T: serde::Serialize + ?Sized>(_: &T) {
     panic!("output is not available outside of NexusVM")
 }
 
 /// Write a slice to the output taoe
 #[cfg(not(target_arch = "riscv32"))]
-pub fn write_to_output(b: &[u8]) {
+pub fn write_to_output(_: &[u8]) {
     panic!("output is not available outside of NexusVM")
 }

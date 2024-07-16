@@ -22,6 +22,7 @@ default-members = [
     "cli",
     "network",
     "nova",
+    "runtime",
     "spartan",
     "core",
     "sdk",
