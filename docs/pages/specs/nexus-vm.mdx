@@ -29,9 +29,9 @@ The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions
 
 Both $M$ and $R$ are finite maps. The keys of $M$ are addresses in the range $\{0,\ldots, 2^{32}-1\}$. The values of $M$ are 8-bit bytes. The keys of $R$ are register selectors from the set $\{x_0\ldots x_{31}\}$. The values of $R$ are 32-bit words. By design, updates to register $x_0$ are ignored and the value of $R[x_0]$ is always zero.
 
-The current implementation of the Nexus VM does not yet support public inputs. Also, we remark that specific implementations of the Nexus VM may choose memory sizes smaller than $2^{32}$ for efficiency reasons.
+The current implementation of the Nexus VM does not yet support providing public inputs at runtime. Also, we remark that during compilation the Nexus VM may be configured to use memory sizes smaller than $2^{32}$ for efficiency reasons.
 
-At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The private input tape contains private inputs for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial input data for the program.
+At initialization, all the general-purpose registers are set to 0. The program counter $pc$ is set to $\mathtt{0x0000}$. The private input tape contains the byte-encoded private input for the program. Since $pc$ is initially $\mathtt{0x0000}$, the first instruction to be executed will be the one stored at the position $\mathtt{0x0000}$ of the memory. Since the program code resides in the same area as the data, the initial memory can contain not only the program code but also some initial public input data for the program.
 
 The program counter $pc$ is always advanced by 4 bytes after the execution of each instruction, unless the instruction itself sets the value of $pc$. Moreover, the Nexus VM enforces 4-byte memory alignment for the program counter by checking that $pc$ is a multiple of 4 when reading an instruction.
 
@@ -167,7 +167,7 @@ Nevertheless, we will soon be switching to a *non-uniform* computation model bas
 
 The main advantage of using precompiles is that it maintains a developer-friendly CPU abstraction while efficiently allowing for the addition of more complex functions.
 
-We intend to eventually support user-defined precompiles that could be provided as input to the Nexus zkVM. We expect to first implement these special functions as part of the Nexus VM instruction set.
+We intend to eventually support user-defined precompiles that could be provided as extensions of the Nexus zkVM. We expect to first implement these special functions as part of the Nexus VM instruction set.
 
 ### References
 

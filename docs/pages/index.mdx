@@ -47,7 +47,7 @@ The Nexus zkVM (zero-knowledge virtual machine) is a modular, extensible, open-s
 
 ## Proving Computation
 
-The Nexus zkVM can prove any computation. Here is a simple example with a Rust program:
+The Nexus zkVM can prove any computation. For a Rust program:
 
 ```rust
 #![cfg_attr(target_arch = "riscv32", no_std, no_main)]
@@ -71,7 +71,7 @@ fn main() {
 }
 ```
 
-A zero-knowledge proof of its correct execution is as easy as running:
+Generating a zero-knowledge proof of its correct execution is as easy as running:
 
 ```bash
 cargo nexus prove
