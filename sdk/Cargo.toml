@@ -1,0 +1,21 @@
+[package]
+name = "nexus-sdk"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+serde.workspace = true
+
+nexus-core = { path = "../core", features = ["prover_nova", "prover_jolt", "prover_hypernova"] }
+postcard = { version = "1.0.8", features = ["alloc"] }
+uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
+thiserror = "1.0.61"
+
+[lib]
+doctest = false

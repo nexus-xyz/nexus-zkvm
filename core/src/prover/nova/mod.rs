@@ -58,7 +58,7 @@ pub fn load_proof<P: CanonicalDeserialize>(path: &Path) -> Result<P, ProofError>
 pub(crate) type Trace = nexus_vm::trace::Trace<<MerkleTrie as Memory>::Proof>;
 
 pub fn run(opts: &VMOpts, pow: bool) -> Result<Trace, ProofError> {
-    Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, false)?)
+    Ok(nexus_vm::trace_vm::<MerkleTrie>(opts, pow, true, false)?)
 }
 
 pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
@@ -225,7 +225,7 @@ mod tests {
         let params = SeqPP::setup(ro_config, &circuit, &(), &())?;
 
         let proof = prove_seq(&params, trace)?;
-        assert!(proof.verify(&params, proof.step_num() as _).is_ok());
+        assert!(proof.verify(&params).is_ok());
 
         Ok(())
     }

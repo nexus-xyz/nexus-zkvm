@@ -1,4 +1,5 @@
 {
-    "quick-start": "Quick Start",
+    "cli-quick-start": "CLI Quick Start",
+    "sdk-quick-start": "SDK Quick Start",
     "configuring-prover": "Configuring the Prover"
 }

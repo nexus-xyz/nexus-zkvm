@@ -382,7 +382,7 @@ mod test {
         for (name, f_code, f_result) in MACHINES {
             println!("Testing machine {name}");
             let mut vm: NexusVM<MerkleTrie> = assemble(&f_code());
-            eval(&mut vm, false).unwrap();
+            eval(&mut vm, false, false).unwrap();
             let regs = f_result();
             assert_eq!(regs, vm.regs);
         }

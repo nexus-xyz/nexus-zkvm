@@ -1,0 +1,110 @@
+---
+title: "Nexus zkVM CLI Quick Start"
+lang: en-US
+description: "Quick start a Nexus project using the CLI"
+image: "/nexus-head.png"
+---
+
+import Image from "next/image";
+
+import { Steps } from "nextra/components";
+
+## CLI Quick Start
+
+<Steps>
+
+### 1. Install the Nexus zkVM
+
+First, install Rust: [Rust Install Instructions](https://www.rust-lang.org/tools/install).
+
+Also, make sure you have a working version of [cmake](https://cmake.org/).
+
+Next, install the RISC-V target:
+
+```shell
+rustup target add riscv32i-unknown-none-elf
+```
+
+Then, install the Nexus zkVM:
+
+```shell
+cargo install --git https://github.com/nexus-xyz/nexus-zkvm nexus-tools --tag 'v1.0.0'
+```
+
+Verify the installation:
+
+```shell
+cargo nexus --help
+```
+
+This should print the available CLI commands.
+
+### 2. Create a new Nexus project
+
+```shell
+cargo nexus new nexus-project
+```
+
+And change directory to the new project:
+
+```shell
+cd nexus-project
+```
+
+This will create a new Rust project with the following structure:
+
+```shell
+./nexus-project
+├── Cargo.lock
+├── Cargo.toml
+└── src
+    └── main.rs
+```
+
+And an example zkVM Rust program in `./src/main.rs`:
+
+```rust
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
+
+use nexus_rt::write_log;
+
+#[nexus_rt::main]
+fn main() {
+    write_log("Hello, World!\n");
+}
+```
+
+### 3. Run your program
+
+```shell
+cargo nexus run
+```
+
+You should see the program print:
+
+```shell
+"Hello, World!"
+```
+
+### 3. Prove your program
+
+Generate a zero-knowledge proof for your Rust program using the Nexus zkVM.
+
+```shell
+cargo nexus prove
+```
+
+This will generate a proof, and store it in `./nexus-proof`.
+
+### 4. Verify your proof
+
+Finally, load and verify the proof:
+
+```shell
+cargo nexus verify
+```
+
+You should see the program print `Verifying Proof...` and
+finally `Finished` when complete.
+
+</Steps>

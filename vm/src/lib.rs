@@ -113,8 +113,12 @@ pub fn load_vm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
 }
 
 /// Evaluate a program starting from a given machine state
-pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
+pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool, verbose: bool) -> Result<()> {
     if show {
+        vm.syscalls.enable_stdout();
+    }
+
+    if verbose {
         println!("\nExecution:");
         println!(
             "{:7} {:8} {:32} {:>8} {:>8}",
@@ -157,9 +161,9 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool) -> Result<()> {
 }
 
 /// Load and run an ELF file
-pub fn run_vm<M: Memory>(vm: &VMOpts, show: bool) -> Result<()> {
+pub fn run_vm<M: Memory>(vm: &VMOpts, show: bool, verbose: bool) -> Result<()> {
     let mut vm: NexusVM<M> = load_vm(vm)?;
-    eval(&mut vm, show)
+    eval(&mut vm, show, verbose)
 }
 
 /// Load and run an ELF file, then return the execution trace
@@ -167,17 +171,22 @@ pub fn trace_vm<M: Memory>(
     opts: &VMOpts,
     pow: bool,
     show: bool,
+    verbose: bool,
 ) -> Result<Trace<M::Proof>, NexusVMError> {
     let mut vm = load_vm::<M>(opts)?;
 
     if show {
+        vm.syscalls.enable_stdout();
+    }
+
+    if verbose {
         println!("Executing program...");
     }
 
     let start = Instant::now();
     let trace = trace::<M>(&mut vm, opts.k, pow)?;
 
-    if show {
+    if verbose {
         println!(
             "Executed {} instructions in {:?}. {} bytes used by trace.",
             trace.k * trace.blocks.len(),
