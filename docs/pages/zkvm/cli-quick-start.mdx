@@ -1,7 +1,7 @@
 ---
-title: "Nexus zkVM Quick Start"
+title: "Nexus zkVM CLI Quick Start"
 lang: en-US
-description: "Quick start a Nexus project"
+description: "Quick start a Nexus project using the CLI"
 image: "/nexus-head.png"
 ---
 
@@ -9,7 +9,7 @@ import Image from "next/image";
 
 import { Steps } from "nextra/components";
 
-## Quick Start
+## CLI Quick Start
 
 <Steps>
 
@@ -17,13 +17,13 @@ import { Steps } from "nextra/components";
 
 First, install Rust: [Rust Install Instructions](https://www.rust-lang.org/tools/install).
 
+Also, make sure you have a working version of [cmake](https://cmake.org/).
+
 Next, install the RISC-V target:
 
 ```shell
 rustup target add riscv32i-unknown-none-elf
 ```
-
-Also, make sure you have a working version of [cmake](https://cmake.org).
 
 Then, install the Nexus zkVM:
 
@@ -37,7 +37,7 @@ Verify the installation:
 cargo nexus --help
 ```
 
-This should print all the available commands.
+This should print the available CLI commands.
 
 ### 2. Create a new Nexus project
 

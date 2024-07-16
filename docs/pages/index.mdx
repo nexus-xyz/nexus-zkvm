@@ -43,7 +43,7 @@ import { Callout } from 'nextra/components'
 
 The Nexus zkVM (zero-knowledge virtual machine) is a modular, extensible, open-source, highly-parallelized, prover-optimized, contributor-friendly, [zkVM](specs/zkvm-overview.mdx) written in Rust, focused on performance and security.
 
-[Nexus zkVM v1.0.0](https://github.com/nexus-xyz/nexus-zkvm/releases/tag/v1.0.0) is the current stable release, implementing the zkVM component of the [Nexus 1.0](https://nexus-xyz.github.io/assets/nexus_whitepaper.pdf) system.
+[Nexus zkVM v0.2.0](https://github.com/nexus-xyz/nexus-zkvm/releases/tag/v0.2.0) is the current stable release, implementing the zkVM component of the Nexus 2.0 system.
 
 ## Proving Computation
 
@@ -51,6 +51,8 @@ The Nexus zkVM can prove any computation. For a Rust program:
 
 ```rust
 #![cfg_attr(target_arch = "riscv32", no_std, no_main)]
+
+use nexus_rt::println;
 
 fn fib(n: u32) -> u32 {
     match n {
@@ -65,6 +67,7 @@ fn main() {
     let n = 7;
     let result = fib(n);
     assert_eq!(result, 13);
+    println!("fib({}) = {}", n, result);
 }
 ```
 

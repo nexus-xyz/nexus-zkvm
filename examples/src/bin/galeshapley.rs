@@ -22,9 +22,9 @@ fn stable_matching(
         let prefs = &employer_prefs[next];
 
         for c in prefs {
-            if candidates.contains(&c) {
+            if candidates.contains(c) {
                 hires[next] = Some(*c);
-                assert!(candidates.remove(&c));
+                assert!(candidates.remove(c));
 
                 break;
             } else {

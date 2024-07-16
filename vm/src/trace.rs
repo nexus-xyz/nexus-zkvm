@@ -352,7 +352,7 @@ mod test {
         // should fail because of appended UNIMP
         vm.set_max_trace_len(10);
 
-        let result = eval(&mut vm, false);
+        let result = eval(&mut vm, false, false);
         assert!(matches!(
             result,
             Err(NexusVMError::MaxTraceLengthExceeded(len)) if len == 10
