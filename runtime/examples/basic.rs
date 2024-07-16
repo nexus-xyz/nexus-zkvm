@@ -3,9 +3,9 @@
 // optional, for use of collections, etc.
 extern crate alloc;
 
-use nexus_rt::print;
+use nexus_rt::println;
 
 #[nexus_rt::main]
 fn main() {
-    print!("Hello World\n");
+    println!("Hello World");
 }
