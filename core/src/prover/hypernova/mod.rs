@@ -76,4 +76,25 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn prove_verify_test_machine() -> Result<(), ProofError> {
+        use nexus_vm::{machines::MACHINES, trace_vm};
+        let public_params =
+            pp::test_pp::gen_vm_test_pp(16).expect("error generating public parameters");
+        for (name, _f_code, _f_result) in MACHINES {
+            let vm_opts = VMOpts {
+                k: 16,
+                machine: Some(name.to_string()),
+                file: None,
+            };
+            let trace = trace_vm::<MerkleTrie>(&vm_opts, false, false, false).unwrap();
+            let proof = prove_seq(&public_params, trace)
+                .unwrap_or_else(|_| panic!("error proving {}", name));
+            proof
+                .verify(&public_params)
+                .unwrap_or_else(|_| panic!("error verifying {}", name))
+        }
+        Ok(())
+    }
 }
