@@ -20,6 +20,7 @@ pub const MACHINES: &[TestMachine] = &[
     ("ldst", ldst_code, ldst_result, Vec::new),
     ("shift", shift_code, shift_result, Vec::new),
     ("sub", sub_code, sub_result, Vec::new),
+    ("priv", priv_code, priv_result, priv_input),
 ];
 
 /// Lookup and initialize a test VM by name
@@ -383,6 +384,32 @@ fn sub_result() -> Regs {
     regs.x[2] = -1i32 as u32;
     regs.x[4] = 1;
     regs.x[10] = 1;
+    regs
+}
+
+// Test reading private input
+fn priv_code() -> Vec<u32> {
+    vec![
+        0b_0000_0000_0010_1001_0000_1001_0001_0011, // addi x18, x18, 2
+        0b_0000_0000_0000_0000_0000_0001_1111_0011, // ecall x3
+        0b_0000_0000_0000_0000_0000_0010_0111_0011, // ecall x4
+        0b_0000_0000_0000_0000_0000_0010_1111_0011, // ecall x5
+        0xc0001073,                                 //  unimp
+    ]
+}
+
+fn priv_input() -> Vec<u8> {
+    [42, 43, 44].to_vec()
+}
+
+// Expected result of running the priv VM.
+fn priv_result() -> Regs {
+    let mut regs = Regs::default();
+    regs.pc = 4 * 4;
+    regs.x[18] = 2;
+    regs.x[3] = 42;
+    regs.x[4] = 43;
+    regs.x[5] = 44;
     regs
 }
 
