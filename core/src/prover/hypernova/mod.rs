@@ -82,7 +82,7 @@ mod tests {
         use nexus_vm::{machines::MACHINES, trace_vm};
         let public_params =
             pp::test_pp::gen_vm_test_pp(16).expect("error generating public parameters");
-        for (name, _f_code, _f_result) in MACHINES {
+        for (name, _f_code, _f_result, _f_input) in MACHINES {
             let vm_opts = VMOpts {
                 k: 16,
                 machine: Some(name.to_string()),
