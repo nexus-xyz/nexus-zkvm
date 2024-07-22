@@ -6,33 +6,49 @@
 use super::{memory::Memory, rv32::SOP};
 use crate::{NexusVM, Regs};
 
+type TestMachine<'a> = (&'a str, fn() -> Vec<u32>, fn() -> Regs, fn() -> Vec<u8>);
+
 /// An array of test machines, useful for debugging and developemnt.
 #[allow(clippy::type_complexity)]
-pub const MACHINES: &[(&str, fn() -> Vec<u32>, fn() -> Regs)] = &[
-    ("nop10", || nop_code(10), || nop_result(10)),
-    ("loop10", || loop_code(10), || loop_result(10)),
-    ("fib31", fib31_code, fib31_result),
-    ("bitop", bitop_code, bitop_result),
-    ("branch", branch_code, branch_result),
-    ("jump", jump_code, jump_result),
-    ("ldst", ldst_code, ldst_result),
-    ("shift", shift_code, shift_result),
-    ("sub", sub_code, sub_result),
+pub const MACHINES: &[TestMachine] = &[
+    ("nop10", || nop_code(10), || nop_result(10), Vec::new),
+    ("loop10", || loop_code(10), || loop_result(10), Vec::new),
+    ("fib31", fib31_code, fib31_result, Vec::new),
+    ("bitop", bitop_code, bitop_result, Vec::new),
+    ("branch", branch_code, branch_result, Vec::new),
+    ("jump", jump_code, jump_result, Vec::new),
+    ("ldst", ldst_code, ldst_result, Vec::new),
+    ("shift", shift_code, shift_result, Vec::new),
+    ("sub", sub_code, sub_result, Vec::new),
+    ("priv", priv_code, priv_result, priv_input),
 ];
 
 /// Lookup and initialize a test VM by name
 pub fn lookup_test_machine<M: Memory>(name: &str) -> Option<NexusVM<M>> {
-    Some(assemble(&lookup_test_code(name)?))
+    let test_code = &lookup_test_code(name)?;
+    let test_input = &lookup_test_input(name)?;
+    let mut vm = assemble(test_code);
+    vm.syscalls.set_input(test_input);
+    Some(vm)
+}
+
+fn lookup_test(name: &str) -> Option<&TestMachine> {
+    for m @ (n, _, _, _) in MACHINES {
+        if *n == name {
+            return Some(m);
+        }
+    }
+    None
 }
 
 /// Lookup a test code sequence by name
 pub fn lookup_test_code(name: &str) -> Option<Vec<u32>> {
-    for (n, f, _) in MACHINES {
-        if *n == name {
-            return Some(f());
-        }
-    }
-    None
+    lookup_test(name).map(|(_, f, _, _)| f())
+}
+
+/// Lookup a test input vector by name
+pub fn lookup_test_input(name: &str) -> Option<Vec<u8>> {
+    lookup_test(name).map(|(_, _, _, i)| i())
 }
 
 fn assemble<M: Memory>(words: &[u32]) -> NexusVM<M> {
@@ -371,6 +387,32 @@ fn sub_result() -> Regs {
     regs
 }
 
+// Test reading private input
+fn priv_code() -> Vec<u32> {
+    vec![
+        0b_0000_0000_0010_1001_0000_1001_0001_0011, // addi x18, x18, 2
+        0b_0000_0000_0000_0000_0000_0001_1111_0011, // ecall x3
+        0b_0000_0000_0000_0000_0000_0010_0111_0011, // ecall x4
+        0b_0000_0000_0000_0000_0000_0010_1111_0011, // ecall x5
+        0xc0001073,                                 //  unimp
+    ]
+}
+
+fn priv_input() -> Vec<u8> {
+    [42, 43, 44].to_vec()
+}
+
+// Expected result of running the priv VM.
+fn priv_result() -> Regs {
+    let mut regs = Regs::default();
+    regs.pc = 4 * 4;
+    regs.x[18] = 2;
+    regs.x[3] = 42;
+    regs.x[4] = 43;
+    regs.x[5] = 44;
+    regs
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -379,9 +421,10 @@ mod test {
 
     #[test]
     fn test_machines() {
-        for (name, f_code, f_result) in MACHINES {
+        for (name, f_code, f_result, f_input) in MACHINES {
             println!("Testing machine {name}");
             let mut vm: NexusVM<MerkleTrie> = assemble(&f_code());
+            vm.syscalls.set_input(&f_input());
             eval(&mut vm, false, false).unwrap();
             let regs = f_result();
             assert_eq!(regs, vm.regs);
