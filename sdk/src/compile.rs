@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::fmt::Display;
 use std::fs;
 use std::io;
@@ -133,6 +134,14 @@ impl CompileOpts {
     }
 
     pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
+        Self::build_with_input::<()>(self, prover, &())
+    }
+
+    pub(crate) fn build_with_input<T: Serialize>(
+        &mut self,
+        prover: &ForProver,
+        input: &T,
+    ) -> Result<PathBuf, BuildError> {
         let linker_path = self.set_linker(prover)?;
 
         let rust_flags = [
@@ -164,6 +173,40 @@ impl CompileOpts {
         if self.unique {
             let uuid = Uuid::new_v4();
             dest = format!("{}-{}", dest, uuid);
+        }
+
+        // todo: might be nice to use bincode here once it supports no_std
+        let input_bytes = postcard::to_stdvec(input).map_err(BuildError::InputError)?;
+
+        if input_bytes.len() > 0 {
+            let mut mkdir = Command::new("mkdir");
+
+            mkdir.args(["-p", &dest]);
+
+            let res = mkdir.output()?;
+
+            if !res.status.success() {
+                io::stderr().write_all(&res.stderr)?;
+                return Err(BuildError::IOError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "unable to write compile time public input into build directory",
+                )));
+            }
+
+            match fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .open([dest.clone(), String::from(".input.in")].join("/"))
+            {
+                Ok(mut fp) => {
+                    if let Err(e) = fp.write_all(input_bytes.as_slice()) {
+                        return Err(e).map_err(BuildError::IOError);
+                    };
+                }
+                Err(e) => {
+                    return Err(e).map_err(BuildError::IOError);
+                }
+            }
         }
 
         let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());

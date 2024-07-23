@@ -13,6 +13,7 @@ use nexus_core::prover::jolt::{
 use crate::error::{BuildError, TapeError};
 
 use std::marker::PhantomData;
+use serde::Serialize;
 
 /// Errors that occur while proving using Jolt.
 #[derive(Debug, Error)]
@@ -50,12 +51,16 @@ pub struct Proof {
 }
 
 impl Jolt<Local> {
-    /// Construct a new proving instance through dynamic compilation (see [`compile`]).
     pub fn compile(opts: &compile::CompileOpts) -> Result<Self, Error> {
+        Self::compile_with_input::<()>(opts, &())
+    }
+
+    /// Construct a new proving instance through dynamic compilation (see [`compile`]).
+    pub fn compile_with_input<T: Serialize>(opts: &compile::CompileOpts, input: &T) -> Result<Self, Error> {
         let mut iopts = opts.to_owned();
 
         let elf_path = iopts
-            .build(&compile::ForProver::Jolt)
+            .build_with_input(&compile::ForProver::Jolt, input)
             .map_err(BuildError::from)?;
 
         Ok(Jolt::<Local> {
