@@ -8,6 +8,11 @@ pub fn main(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error>
     let func: ItemFn = syn::parse2(input)?;
     let memlimit = parse_memory_limit(args)?;
 
+    #[cfg(feature = "jolt-io")]
+    if memlimit != -1 {
+        return Err(Error::new("compiling for jolt does not permit customizing the memory limit"));
+    }
+
     let fn_sig = &func.sig;
     if &fn_sig.ident != "main" {
         return Err(Error::new_spanned(

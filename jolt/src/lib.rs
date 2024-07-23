@@ -6,7 +6,7 @@
 
 #![allow(clippy::type_complexity)]
 
-use jolt_common::rv_trace as jolt_rv;
+pub use jolt_common::rv_trace as jolt_rv;
 use jolt_core::{
     jolt::vm::{
         bytecode::BytecodeRow as JoltBytecodeRow,

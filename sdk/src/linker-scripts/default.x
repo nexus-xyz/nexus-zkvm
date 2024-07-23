@@ -20,6 +20,7 @@ SECTIONS
   {
     /* Must be called __global_pointer$ for linker relaxations to work. */
     __global_pointer$ = . + 0x800;
+    _jolt = 0x00;
     *(.srodata .srodata.*);
     *(.rodata .rodata.*);
     *(.sdata .sdata.* .sdata2 .sdata2.*);
