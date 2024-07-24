@@ -27,7 +27,7 @@ The Nexus Virtual Machine has a *von Neumann* architecture, storing instructions
 ![An abstraction of the Nexus Virtual Machine](/images/nvm-architecture.svg)
 </center>
 
-Both $M$ and $R$ are finite maps. The keys of $M$ are addresses in the range $\{0,\ldots, 2^{32}-1\}$. The values of $M$ are 8-bit bytes. The keys of $R$ are register selectors from the set $\{x_0\ldots x_{31}\}$. The values of $R$ are 32-bit words. By design, updates to register $x_0$ are ignored and the value of $R[x_0]$ is always zero.
+Both $M$ and $R$ are finite maps. The keys of $M$ are addresses in the range $\{0,\ldots, 2^{32}-1\}$. The values of $M$ are 8-bit bytes. The keys of $R$ are register selectors from the set $\{x_0\ldots x_{31}\}$. The values of $R$ are 32-bit words. A word (resp. a halfword) is represented as four (resp. two) consecutive bytes in little endian.  By design, updates to register $x_0$ are ignored and the value of $R[x_0]$ is always zero.
 
 The current implementation of the Nexus VM does not yet support providing public inputs at runtime. Also, we remark that during compilation the Nexus VM may be configured to use memory sizes smaller than $2^{32}$ for efficiency reasons.
 
