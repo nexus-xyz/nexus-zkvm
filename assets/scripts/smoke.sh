@@ -1,17 +1,14 @@
-#! /bin/bash
-
+#!/bin/bash
 # This script follows steps written in README.md
 # Using the rust file specified as the unique argument.
-
 # Call at the top directory of the nexus-zkvm project
 # For example:
 # ./assets/scripts/smoke.sh examples/src/bin/fib3.rs
-
 # Every command needs to succeed
 set -e
 
-ORIGINAL_DIR=`pwd`
-PROJECT_NAME="nexus-project-ci"
+ORIGINAL_DIR=$(pwd)
+PROJECT_NAME="/tmp/nexus-project-ci"
 
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <file.rs>"
@@ -24,7 +21,7 @@ if [ ! -f "$1" ]; then
     exit 1
 fi
 
-if [ -e $PROJECT_NAME ]; then
+if [ -e "$PROJECT_NAME" ]; then
     echo "Error: Directory '$PROJECT_NAME' already exists."
     exit 1
 fi
@@ -34,28 +31,33 @@ set -x
 cp -n Cargo.toml Cargo.toml.bkp
 
 cleanup() {
-    cd $ORIGINAL_DIR
-    rm -rf $PROJECT_NAME
+    cd "$ORIGINAL_DIR"
+    rm -rf "$PROJECT_NAME"
     if [ -f Cargo.toml.bkp ]; then
         mv -f Cargo.toml.bkp Cargo.toml
     fi
 }
+
 trap cleanup SIGINT
 
 error_handler() {
-    echo "Error occured in smoke.sh: : ${1}. Exiting."
+    echo "Error occurred in smoke.sh on line ${1}. Exiting."
     cleanup
     exit 1
 }
-trap 'error_handler ${LINENO}' ERR
+
+trap 'error_handler $LINENO' ERR
 
 cargo build --release --package cargo-nexus --bin cargo-nexus
-./target/release/cargo-nexus nexus new $PROJECT_NAME
-cp $1 $PROJECT_NAME/src/main.rs
-cd $PROJECT_NAME
+./target/release/cargo-nexus nexus new "$PROJECT_NAME"
+cp "$1" "$PROJECT_NAME/src/main.rs"
+cd "$PROJECT_NAME"
+
 # Link the test program to the latest runtime code
-sed 's#git = "https://github.com/nexus-xyz/nexus-zkvm.git"#path = "../runtime"#' Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
-../target/release/cargo-nexus nexus run
-../target/release/cargo-nexus nexus prove
-../target/release/cargo-nexus nexus verify
+sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGINAL_DIR/runtime\"#" Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
+
+"$ORIGINAL_DIR/target/release/cargo-nexus" nexus run
+"$ORIGINAL_DIR/target/release/cargo-nexus" nexus prove
+"$ORIGINAL_DIR/target/release/cargo-nexus" nexus verify
+
 cleanup
