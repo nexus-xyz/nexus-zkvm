@@ -41,6 +41,7 @@ SECTIONS
     *(.sbss .sbss.* .bss .bss.*);
     . = ALIGN(4);
     _ebss = .;
+    _end = .;
   }
 
   /* Dynamic relocations are unsupported. This section is only used to detect
