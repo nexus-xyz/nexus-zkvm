@@ -2,8 +2,8 @@ ENTRY(_start);
 
 SECTIONS
 {
-  __memory_top = 0x80400000;
-  . = 0x80000000;
+  __memory_top = 0x400000;
+  . = 0;
 
   .text : ALIGN(4)
   {
@@ -36,6 +36,7 @@ SECTIONS
     *(.sbss .sbss.* .bss .bss.*);
     . = ALIGN(4);
     _ebss = .;
+    _end = .;
   }
 
   /* Dynamic relocations are unsupported. This section is only used to detect
