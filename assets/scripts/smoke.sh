@@ -53,6 +53,8 @@ cargo build --release --package cargo-nexus --bin cargo-nexus
 ./target/release/cargo-nexus nexus new $PROJECT_NAME
 cp $1 $PROJECT_NAME/src/main.rs
 cd $PROJECT_NAME
+# Link the test program to the latest runtime code
+sed 's#git = "https://github.com/nexus-xyz/nexus-zkvm.git"#path = "../runtime"#' Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
 ../target/release/cargo-nexus nexus run
 ../target/release/cargo-nexus nexus prove
 ../target/release/cargo-nexus nexus verify
