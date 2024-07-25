@@ -1,8 +1,9 @@
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::Error;
 
-use nexus_core::prover::jolt::MemoryLayout;
+use jolt_common::rv_trace::MemoryLayout;
 
-#[cfg(feature = "jolt-io")]
 pub fn setup() -> Result<TokenStream, Error> {
 
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
@@ -14,11 +15,11 @@ pub fn setup() -> Result<TokenStream, Error> {
     let max_input_len = attributes.max_input_size as usize;
     let max_output_len = attributes.max_output_size as usize;
 
-    quote! {
+    Ok(quote! {
         fn __nexus__fetch_at_offset<'a>(exhaust: bool) -> &'a Option<[u8]> {
-            static mut offset: usize = 0;
+            static mut OFFSET: usize = 0;
 
-            if offset >= max_input_len {
+            if OFFSET >= max_input_len {
                 return None;
             }
 
@@ -28,12 +29,12 @@ pub fn setup() -> Result<TokenStream, Error> {
             if exhaust {
                 unsafe {
                     input_slice = core::slice::from_raw_parts(input_ptr, #max_input_len);
-                    offset = #max_input_len;
+                    OFFSET = #max_input_len;
                 }
             } else {
                 unsafe {
                     input_slice = core::slice::from_raw_parts(input_ptr, 1);
-                    offset += 1;
+                    OFFSET += 1;
                 }
             }
 
@@ -51,5 +52,5 @@ pub fn setup() -> Result<TokenStream, Error> {
         pub fn read_from_compile_input() -> Option<u8> {
             __nexus__fetch_at_offset(false).map(|s| s[0])
         }
-    }
+    })
 }

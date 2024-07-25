@@ -1,8 +1,10 @@
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
+use quote::quote;
+use syn::Error;
 
 #[cfg(not(feature = "jolt-io"))]
-pub fn setup() -> TokenStream {
-    quote! {}
+pub fn setup() -> Result<TokenStream, Error> {
+    Ok(quote! {})
 }
 
 mod jolt;
