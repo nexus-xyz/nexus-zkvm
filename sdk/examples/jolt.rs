@@ -1,10 +1,11 @@
-use nexus_sdk::{compile::CompileOpts, jolt::Jolt, Local};
+2use nexus_sdk::{compile::CompileOpts, jolt::Jolt, Local};
 
 const PACKAGE: &str = "example";
 const EXAMPLE: &str = "noecall";
 
 fn main() {
-    let opts = CompileOpts::new_with_custom_binary(PACKAGE, EXAMPLE);
+    let mut opts = CompileOpts::new_with_custom_binary(PACKAGE, EXAMPLE);
+    opts.set_verbose(true);
 
     // defaults to local proving
     let prover: Jolt<Local> = Jolt::compile_with_input::<u32>(&opts, &5_u32).expect("failed to load program");

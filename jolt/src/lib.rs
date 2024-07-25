@@ -13,7 +13,8 @@ use jolt_core::{
         rv32i_vm::{self, RV32ISubtables, C, M, RV32I},
         Jolt, JoltTraceStep,
     },
-    poly::{commitment::hyrax::HyraxScheme, field::JoltField},
+    field::JoltField,
+    poly::commitment::hyrax::HyraxScheme,
     utils::thread::unsafe_allocate_zero_vec,
 };
 

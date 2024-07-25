@@ -2,12 +2,32 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Error;
 
-use jolt_common::rv_trace::MemoryLayout;
+use jolt_common::{attributes::Attributes, rv_trace::MemoryLayout};
+
+fn parse_jolt_attributes() -> Result<(String, Attributes), Error> {
+
+    println!("{:?}", std::env::var_os("CARGO_TARGET_DIR"));
+
+    let memory_size = jolt_common::constants::DEFAULT_MEMORY_SIZE;
+    let stack_size = jolt_common::constants::DEFAULT_STACK_SIZE;
+    let max_input_size = jolt_common::constants::DEFAULT_MAX_INPUT_SIZE;
+    let max_output_size = jolt_common::constants::DEFAULT_MAX_OUTPUT_SIZE;
+
+    Ok((String::from(""),
+        Attributes {
+            wasm: false,
+            memory_size,
+            stack_size,
+            max_input_size,
+            max_output_size,
+        })
+    )
+}
 
 pub fn setup() -> Result<TokenStream, Error> {
 
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
-    let attributes = parse_jolt_attributes();
+    let (_, attributes) = parse_jolt_attributes()?;
     let memory_layout =
         MemoryLayout::new(attributes.max_input_size, attributes.max_output_size);
     let input_start = memory_layout.input_start;

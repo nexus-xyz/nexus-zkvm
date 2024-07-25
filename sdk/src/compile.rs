@@ -36,6 +36,7 @@ pub struct CompileOpts {
     pub package: String,
     /// The binary produced by the build that should be loaded into the zkVM after successful compilation.
     pub binary: String,
+    verbose: bool,
     debug: bool,
     //native: bool,
     unique: bool,
@@ -48,6 +49,7 @@ impl CompileOpts {
         Self {
             package: package.to_string(),
             binary: package.to_string(),
+            verbose: false,
             debug: false,
             //native: false,
             unique: false,
@@ -60,11 +62,19 @@ impl CompileOpts {
         Self {
             package: package.to_string(),
             binary: binary.to_string(),
+            verbose: false,
             debug: false,
             //native: false,
             unique: false,
             memlimit: None,
         }
+    }
+
+    /// Set dynamic compilation to always print the output of rustc when building the guest program.
+    ///
+    /// Even without this flag set the output of rustc will be printed for a failed build.
+    pub fn set_verbose(&mut self, verbose: bool) {
+        self.verbose = verbose;
     }
 
     /// Set dynamic compilation to build the guest program in a debug profile.
@@ -228,8 +238,11 @@ impl CompileOpts {
 
         let res = cmd.output()?;
 
-        if !res.status.success() {
+        if self.verbose || !res.status.success() {
             io::stderr().write_all(&res.stderr)?;
+        }
+
+        if !res.status.success() {
             return Err(BuildError::CompilerError);
         }
 
