@@ -11,6 +11,11 @@ categories = { workspace = true }
 
 [dependencies]
 nexus-rt = { path = "../runtime" }
+postcard = { version = "1.0.8", features = ["alloc"] }
+serde = { version = "1.0", default-features = false }
+
+[features]
+jolt-io = ["nexus-rt/jolt-io"]
 
 [lints.clippy]
 print_with_newline = { level = "allow", priority = 0 }

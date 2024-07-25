@@ -1,6 +1,7 @@
 pub use core::fmt::Write;
 
-#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+//#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+#[cfg(all(target_arch = "riscv32"))]
 mod riscv32 {
     extern crate alloc;
     use serde::{de::DeserializeOwned, Serialize};
@@ -70,7 +71,8 @@ mod riscv32 {
 }
 
 /// Prints to the VM terminal
-#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+//#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+#[cfg(all(target_arch = "riscv32"))]
 #[macro_export]
 macro_rules! print {
     ($($as:tt)*) => {
@@ -83,7 +85,8 @@ macro_rules! print {
 }
 
 /// Prints to the VM terminal, with a newline
-#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+//#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+#[cfg(all(target_arch = "riscv32"))]
 #[macro_export]
 macro_rules! println {
     () => {
@@ -98,14 +101,18 @@ macro_rules! println {
     };
 }
 
-#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+//#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
+#[cfg(all(target_arch = "riscv32"))]
 pub use riscv32::*;
 
-mod jolt;
-mod native;
+//#[cfg(all(target_arch = "riscv32", feature = "jolt-io"))]
+//mod jolt;
 
-#[cfg(all(target_arch = "riscv32", feature = "jolt-io"))]
-pub use jolt::*;
+//#[cfg(all(target_arch = "riscv32", feature = "jolt-io"))]
+//pub use jolt::*;
+
+#[cfg(not(target_arch = "riscv32"))]
+mod native;
 
 #[cfg(not(target_arch = "riscv32"))]
 pub use native::*;

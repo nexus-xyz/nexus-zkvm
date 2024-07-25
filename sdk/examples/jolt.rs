@@ -1,4 +1,4 @@
-2use nexus_sdk::{compile::CompileOpts, jolt::Jolt, Local};
+use nexus_sdk::{compile::CompileOpts, jolt::Jolt, Local};
 
 const PACKAGE: &str = "example";
 const EXAMPLE: &str = "noecall";

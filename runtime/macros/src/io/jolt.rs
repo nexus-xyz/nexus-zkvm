@@ -36,41 +36,52 @@ pub fn setup() -> Result<TokenStream, Error> {
     let max_output_len = attributes.max_output_size as usize;
 
     Ok(quote! {
-        fn __nexus__fetch_at_offset<'a>(exhaust: bool) -> &'a Option<[u8]> {
-            static mut OFFSET: usize = 0;
+        fn __nexus__fetch_at_offset<'a>(exhaust: bool) -> (bool, &'a [u8]) {
+            unsafe {
+                static mut OFFSET: usize = 0;
 
-            if OFFSET >= max_input_len {
-                return None;
-            }
+                if OFFSET >= #max_input_len {
+                    return (false, &[]);
+                }
 
-            let input_ptr = (#input_start as *const u8).offset(OFFSET);
+                let input_ptr = (#input_start as *const u8).offset(OFFSET as isize);
 
-            let mut input_slice;
-            if exhaust {
-                unsafe {
+                let mut input_slice;
+                if exhaust {
                     input_slice = core::slice::from_raw_parts(input_ptr, #max_input_len);
                     OFFSET = #max_input_len;
-                }
-            } else {
-                unsafe {
+                } else {
                     input_slice = core::slice::from_raw_parts(input_ptr, 1);
                     OFFSET += 1;
                 }
-            }
 
-            Some(input_slice)
+                (true, input_slice)
+            }
         }
 
-        pub fn read_compile_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
-            if let Some(slice) = __nexus__fetch_at_offset(true) {
-                postcard::take_from_bytes::<T>(slice)
+        pub fn read_compile_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
+            let mut ret;
+            unsafe {
+                ret = __nexus__fetch_at_offset(true);
             }
 
-            Err(postcard::Error::DeserializeUnexpectedEnd)
+            match ret {
+                (true, slice) => postcard::take_from_bytes::<T>(slice).map(|(v, _)| v),
+                (false, slice) => Err(postcard::Error::DeserializeUnexpectedEnd),
+            }
         }
 
         pub fn read_from_compile_input() -> Option<u8> {
-            __nexus__fetch_at_offset(false).map(|s| s[0])
+            let mut ret;
+
+            unsafe {
+                ret = __nexus__fetch_at_offset(false);
+            }
+
+            match ret {
+                (true, slice) => Some(slice[0]),
+                (false, _) => None,
+            }
         }
     })
 }

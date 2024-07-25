@@ -11,7 +11,7 @@ use uuid::Uuid;
 pub use crate::error::BuildError;
 
 #[doc(hidden)]
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub enum ForProver {
     #[default]
     Default,
@@ -222,7 +222,7 @@ impl CompileOpts {
         let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());
         let mut cmd = Command::new(cargo_bin);
 
-        cmd.envs(envs).args([
+        let base_args = [
             "build",
             "--package",
             self.package.as_str(),
@@ -234,10 +234,21 @@ impl CompileOpts {
             target,
             "--profile",
             profile,
-        ]);
+        ];
 
-        let res = cmd.output()?;
+        let mut args = vec![];
+        args.extend(base_args);
 
+        if prover == &ForProver::Jolt {
+            args.extend(["--features", "jolt-io"]);
+        }
+
+        if self.verbose {
+            args.extend(["--verbose"]);
+        }
+
+        let res = cmd.envs(envs).args(&args).output()?;
+        
         if self.verbose || !res.status.success() {
             io::stderr().write_all(&res.stderr)?;
         }

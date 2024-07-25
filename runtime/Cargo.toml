@@ -14,5 +14,8 @@ nexus-rt-macros = { path = "macros", version = "0.1.0" }
 postcard = { version = "1.0.8", features = ["alloc"] }
 serde = { version = "1.0", default-features = false }
 
+[features]
+jolt-io = ["nexus-rt-macros/jolt-io"]
+
 [lib]
 doctest = false
