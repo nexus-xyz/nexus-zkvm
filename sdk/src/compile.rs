@@ -151,11 +151,7 @@ impl CompileOpts {
         // };
         let target = "riscv32i-unknown-none-elf";
 
-        let profile = if self.debug {
-            "debug"
-        } else {
-            "release-unoptimized"
-        };
+        let profile = if self.debug { "debug" } else { "release" };
 
         let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
         let prog = self.binary.as_str();
