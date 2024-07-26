@@ -8,7 +8,7 @@ fn main() {
     opts.set_verbose(true);
 
     // defaults to local proving
-    let prover: Jolt<Local> = Jolt::compile_with_input::<u32>(&opts, &5_u32).expect("failed to load program");
+    let prover: Jolt<Local> = Jolt::compile(&opts).expect("failed to load program");
 
     println!("Proving execution of vm...");
     let proof = prover.prove().expect("failed to prove program");

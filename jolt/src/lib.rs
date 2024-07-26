@@ -7,6 +7,9 @@
 #![allow(clippy::type_complexity)]
 
 pub use jolt_common::rv_trace as jolt_rv;
+pub use jolt_common::attributes as jolt_attributes;
+pub use jolt_common::constants as jolt_constants;
+
 use jolt_core::{
     jolt::vm::{
         bytecode::BytecodeRow as JoltBytecodeRow,

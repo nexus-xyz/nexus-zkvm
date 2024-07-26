@@ -1,12 +1,15 @@
 use serde::Serialize;
-use std::fmt::Display;
-use std::fs;
-use std::io;
-use std::io::Write;
-use std::path::PathBuf;
-use std::process::Command;
-use std::str::FromStr;
+use std::{
+    fmt::Display,
+    fs,
+    io::{self, Write},
+    path::PathBuf,
+    process::Command,
+    str::FromStr,
+};
 use uuid::Uuid;
+
+use nexus_core::prover::jolt::Attributes;
 
 pub use crate::error::BuildError;
 
@@ -144,22 +147,7 @@ impl CompileOpts {
     }
 
     pub(crate) fn build(&mut self, prover: &ForProver) -> Result<PathBuf, BuildError> {
-        Self::build_with_input::<()>(self, prover, &())
-    }
-
-    pub(crate) fn build_with_input<T: Serialize>(
-        &mut self,
-        prover: &ForProver,
-        input: &T,
-    ) -> Result<PathBuf, BuildError> {
         let linker_path = self.set_linker(prover)?;
-
-        let rust_flags = [
-            "-C",
-            &format!("link-arg=-T{}", linker_path.display()),
-            "-C",
-            "panic=abort",
-        ];
 
         // (see comment above on `set_native_build`)
         //
@@ -172,9 +160,6 @@ impl CompileOpts {
 
         let profile = if self.debug { "debug" } else { "release" };
 
-        let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
-        let prog = self.binary.as_str();
-
         let mut dest = match std::env::var_os("OUT_DIR") {
             Some(path) => path.into_string().unwrap(),
             None => "/tmp/nexus-target".into(),
@@ -185,12 +170,23 @@ impl CompileOpts {
             dest = format!("{}-{}", dest, uuid);
         }
 
-        // todo: might be nice to use bincode here once it supports no_std
-        let input_bytes = postcard::to_stdvec(input).map_err(BuildError::InputError)?;
+        if prover == &ForProver::Jolt {
+            let memory_size = nexus_core::prover::jolt::constants::DEFAULT_MEMORY_SIZE;
+            let stack_size = nexus_core::prover::jolt::constants::DEFAULT_STACK_SIZE;
+            let max_input_size = nexus_core::prover::jolt::constants::DEFAULT_MAX_INPUT_SIZE;
+            let max_output_size = nexus_core::prover::jolt::constants::DEFAULT_MAX_OUTPUT_SIZE;
 
-        if input_bytes.len() > 0 {
+            let attr = Attributes {
+                wasm: false,
+                memory_size,
+                stack_size,
+                max_input_size,
+                max_output_size,
+            };
+
+            let attr_bytes = postcard::to_stdvec(&attr).map_err(BuildError::ConfigError)?;
+
             let mut mkdir = Command::new("mkdir");
-
             mkdir.args(["-p", &dest]);
 
             let res = mkdir.output()?;
@@ -199,17 +195,17 @@ impl CompileOpts {
                 io::stderr().write_all(&res.stderr)?;
                 return Err(BuildError::IOError(std::io::Error::new(
                     std::io::ErrorKind::Other,
-                    "unable to write compile time public input into build directory",
+                    "unable to write configuration into build destectory",
                 )));
             }
 
             match fs::OpenOptions::new()
                 .write(true)
                 .create(true)
-                .open([dest.clone(), String::from(".input.in")].join("/"))
+                .open([dest.clone(), String::from("attr.in")].join("/"))
             {
                 Ok(mut fp) => {
-                    if let Err(e) = fp.write_all(input_bytes.as_slice()) {
+                    if let Err(e) = fp.write_all(attr_bytes.as_slice()) {
                         return Err(e).map_err(BuildError::IOError);
                     };
                 }
@@ -219,8 +215,7 @@ impl CompileOpts {
             }
         }
 
-        let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());
-        let mut cmd = Command::new(cargo_bin);
+        let prog = self.binary.as_str();
 
         let base_args = [
             "build",
@@ -247,8 +242,31 @@ impl CompileOpts {
             args.extend(["--verbose"]);
         }
 
+        let rust_flags = [
+            "-C",
+            &format!("link-arg=-T{}", linker_path.display()),
+            "-C",
+            "panic=abort",
+            // HACK: We need to get the attr path to the proc_macro builders.
+            //       The "right" way to do this is to use a build script, but
+            //       in our case it'll be user facing and might well confuse,
+            //       especially as the user can want to write/use their own.
+            //
+            //       The ideal way to do this will be to use `--set-env` once
+            //       stabilized with a custom environment variable. While not
+            //       ideal, for the moment we can instead pass it through cfg
+            //       and then parse it out of CARGO_ENCODED_RUSTFLAGS to use.
+            "--cfg",
+            &format!("compile_config_dir=\"{}\"", &dest)
+        ];
+
+        let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
+
+        let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());
+
+        let mut cmd = Command::new(cargo_bin);
         let res = cmd.envs(envs).args(&args).output()?;
-        
+
         if self.verbose || !res.status.success() {
             io::stderr().write_all(&res.stderr)?;
         }

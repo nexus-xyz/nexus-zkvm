@@ -11,9 +11,9 @@ pub enum BuildError {
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
-    /// An error occurred generating the compile time public input.
+    /// An error occurred generating the compile time configuration.
     #[error(transparent)]
-    InputError(#[from] postcard::Error),
+    ConfigError(#[from] postcard::Error),
 
     /// The compilation process failed.
     CompilerError,
@@ -26,7 +26,7 @@ impl Display for BuildError {
                 write!(f, "invalid memory configuration for selected prover")
             }
             Self::IOError(error) => write!(f, "{}", error),
-            Self::InputError(error) => write!(f, "{}", error),
+            Self::ConfigError(error) => write!(f, "{}", error),
             Self::CompilerError => write!(f, "unable to compile using rustc"),
         }
     }

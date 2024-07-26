@@ -14,5 +14,5 @@ strum = "0.25.0"
 ark-bn254 = "0.4"
 
 # latest commit on arkworks-compat
-jolt-core = { git = "https://github.com/nexus-xyz/jolt", rev = "570e00a" }
-jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "570e00a", package = "common" }
+jolt-core = { git = "https://github.com/nexus-xyz/jolt", rev = "b653696" }
+jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "b653696", package = "common" }

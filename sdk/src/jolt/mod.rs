@@ -52,11 +52,6 @@ pub struct Proof {
 
 impl Jolt<Local> {
     pub fn compile(opts: &compile::CompileOpts) -> Result<Self, Error> {
-        Self::compile_with_input::<()>(opts, &())
-    }
-
-    /// Construct a new proving instance through dynamic compilation (see [`compile`]).
-    pub fn compile_with_input<T: Serialize>(opts: &compile::CompileOpts, input: &T) -> Result<Self, Error> {
         let mut iopts = opts.to_owned();
 
         let elf_path = iopts
