@@ -154,7 +154,7 @@ impl CompileOpts {
         let profile = if self.debug {
             "debug"
         } else {
-            "release-unoptimized"
+            "release"
         };
 
         let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
