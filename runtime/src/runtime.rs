@@ -1,6 +1,6 @@
 // Nexus VM runtime environment
 // Note: adapted from riscv-rt, which was adapted from cortex-m.
-
+use crate::alloc::sys_alloc_aligned;
 use core::alloc::{GlobalAlloc, Layout};
 use core::panic::PanicInfo;
 
@@ -30,14 +30,7 @@ static HEAP: Heap = Heap;
 
 unsafe impl GlobalAlloc for Heap {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        extern "C" {
-            fn alloc_(size: usize) -> *mut u8;
-        }
-
-        let sz = layout.size();
-        let sz = (sz + 3) & !3;
-
-        alloc_(sz)
+        sys_alloc_aligned(layout.size(), layout.align())
     }
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
 }
