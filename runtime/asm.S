@@ -39,14 +39,3 @@ run:
 abort:
     li a0, 1     /* indicate error */
     unimp
-
-.globl alloc_
-alloc_:
-    lw s0, _heap
-    add a0, a0, s0
-    bltu a0, s0, abort /* if addition overflows, abort */
-    bgeu a0, sp, abort /* if requesting memory used by the stack, abort */ 
-    la s1, _heap
-    sw a0, 0(s1)
-    mv a0, s0
-    ret
