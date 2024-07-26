@@ -55,7 +55,7 @@ pub struct LocalProveArgs {
 #[derive(Debug, Args)]
 pub struct CommonProveArgs {
     /// Build artifacts with the specified profile. "release-unoptimized" is default.
-    #[arg(long, default_value = "release-unoptimized")]
+    #[arg(long, default_value = "release")]
     pub profile: String,
 
     /// Name of the bin target to run.
