@@ -28,14 +28,9 @@ fi
 
 set -x
 
-cp -n Cargo.toml Cargo.toml.bkp
-
 cleanup() {
     cd "$ORIGINAL_DIR"
     rm -rf "$PROJECT_NAME"
-    if [ -f Cargo.toml.bkp ]; then
-        mv -f Cargo.toml.bkp Cargo.toml
-    fi
 }
 
 trap cleanup SIGINT
