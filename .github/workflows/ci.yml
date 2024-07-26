@@ -57,3 +57,11 @@ jobs:
       - run: rustup target add riscv32i-unknown-none-elf
       - run: assets/scripts/smoke.sh examples/src/bin/fib3.rs
       - run: assets/scripts/smoke.sh examples/src/bin/hello.rs
+
+  test-sdk:
+    needs: check-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup target add riscv32i-unknown-none-elf
+      - run: assets/scripts/test_sdk.sh examples/src/bin/hello.rs

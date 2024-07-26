@@ -3,12 +3,12 @@
 # Using the rust file specified as the unique argument.
 # Call at the top directory of the nexus-zkvm project
 # For example:
-# ./assets/scripts/smoke.sh examples/src/bin/fib3.rs
+# ./assets/scripts/test_sdk.sh examples/src/bin/fib3.rs
 # Every command needs to succeed
 set -e
 
 ORIGINAL_DIR=$(pwd)
-PROJECT_NAME="/tmp/nexus-project-ci"
+PROJECT_NAME="/tmp/nexus-host-ci"
 
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <file.rs>"
@@ -43,16 +43,17 @@ error_handler() {
 
 trap 'error_handler $LINENO' ERR
 
+# Builds current cargo-nexus tool from current commit
 cargo build --release --package cargo-nexus --bin cargo-nexus
-./target/release/cargo-nexus nexus new "$PROJECT_NAME"
-cp "$1" "$PROJECT_NAME/src/main.rs"
+./target/release/cargo-nexus nexus host "$PROJECT_NAME"
+# Copy the test source file to guest program
+cp "$1" "$PROJECT_NAME/src/guest/src/main.rs"
 cd "$PROJECT_NAME"
 
-# Link the test program to the latest runtime code
-sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGINAL_DIR/runtime\"#" Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
+# Link the test program to the current sdk commit
+sed -e "s#nexus-sdk = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.0\" }#nexus-sdk = { path = \"$ORIGINAL_DIR/sdk\"}#" Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
 
-"$ORIGINAL_DIR/target/release/cargo-nexus" nexus run
-"$ORIGINAL_DIR/target/release/cargo-nexus" nexus prove
-"$ORIGINAL_DIR/target/release/cargo-nexus" nexus verify
+cargo update
+cargo run --release
 
 cleanup
