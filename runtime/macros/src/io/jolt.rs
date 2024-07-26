@@ -1,41 +1,38 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Error;
+use std::io::Read;
+
+use regex::Regex;
 
 use jolt_common::{attributes::Attributes, rv_trace::MemoryLayout};
 
 fn parse_jolt_attributes() -> Result<Attributes, Error> {
 
-    // HACK: We need to get the input path to the proc_macro builder.
-    //       The "right" way to do this is to use a build script, but
-    //       in our case it'll be user facing and might well confuse,
-    //       especially as the user can want to write/use their own.
-    //
-    //       A better way to do this will be to use `--set-env` once
-    //       it stabilizes, but for now by passing it through cfg we
-    //       can parse it out of the CARGO_ENCODED_RUSTFLAGS env var
-    //       and use it.
+    let re = Regex::new(r#"compile_config_dir="(?<path>[^"]*)"#).unwrap();
+    let sta = std::env::var_os("CARGO_ENCODED_RUSTFLAGS").unwrap();
+    let stb = sta.as_os_str().to_str().unwrap();
 
-    let mark = "--cfgcompile_config_dir=";
+    eprintln!("{}", stb);
+    let cp = re.captures(stb).unwrap();
 
-    let rust_flags = std::env::var_os("CARGO_ENCODED_RUSTFLAGS").ok_or()?;
-    let path_loc = rust_flags.find(mark).ok_or()?;
-    let path = rust_flags[path_loc + mark.len()..].to_string();
+    let path = cp.name("path").unwrap().as_str();
 
-    match fs::OpenOptions::new()
+    match std::fs::OpenOptions::new()
         .read(true)
-        .open([path.clone(), String::from(".attr.in")].join("/"))
+        .open(path)
     {
         Ok(mut fp) => {
             let mut attr_bytes = Vec::new();
-            fp.read_to_end(&mut attr_bytes).ok_or()?;
+            fp.read_to_end(&mut attr_bytes).unwrap();//.ok_or()?;
 
-            let attr = postcard::from_bytes::<Attributes>(attr_bytes.as_slice()).ok_or()?;
+            let attr = postcard::from_bytes::<Attributes>(attr_bytes.as_slice()).unwrap();//ok_or()?;
 
             Ok(attr)
         },
         Err(e) => {
-            return Err(e).map_err(BuildError::IOError);
+            panic!("foo")
+            //return Err(e).map_err(BuildError::IOError);
         },
     }
 }
@@ -73,7 +70,7 @@ pub fn setup() -> Result<TokenStream, Error> {
             (true, input_slice)
         }
 
-        pub fn read_compile_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
+        pub fn read_public_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
             let mut ret;
             unsafe {
                 ret = __nexus__fetch_at_offset(true);
@@ -85,7 +82,7 @@ pub fn setup() -> Result<TokenStream, Error> {
             }
         }
 
-        pub fn read_from_compile_input() -> Option<u8> {
+        pub fn read_from_public_input() -> Option<u8> {
             let mut ret;
 
             unsafe {

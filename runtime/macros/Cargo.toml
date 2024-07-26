@@ -10,7 +10,9 @@ proc-macro = true
 quote = "1.0"
 proc-macro2 = "1.0"
 syn = { version = "1.0", features = ["full"] }
+postcard = { version = "1.0.8", features = ["alloc"] }
 jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "b653696", package = "common" }
+regex = { version = "1.10.5", default-features = false }
 
 [dev-dependencies]
 trybuild = { version = "1.0.49", features = ["diff"] }
