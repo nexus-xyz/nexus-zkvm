@@ -7,7 +7,7 @@ const EXAMPLE_NAME: &str = "example";
 
 const TARGET_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../target/riscv32i-unknown-none-elf/release-unoptimized"
+    "/../target/riscv32i-unknown-none-elf/release"
 );
 
 fn main() {
@@ -15,8 +15,8 @@ fn main() {
     if path.try_exists().is_err() {
         panic!(
             "{}{} was not found, make sure to compile the program \
-             with `cd examples && cargo build --release-unoptimized --bin {}`",
-            "target/riscv32i-unknown-none-elf/release-unoptimized/", EXAMPLE_NAME, EXAMPLE_NAME,
+             with `cd examples && cargo build --release --bin {}`",
+            "target/riscv32i-unknown-none-elf/release/", EXAMPLE_NAME, EXAMPLE_NAME,
         );
     }
 
