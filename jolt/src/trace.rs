@@ -79,6 +79,7 @@ fn init_trace_row<M: Memory>(
             rd_post_val: None,
         },
         memory_state: memory_state(vm, inst),
+        advice_value: None,
     }
 }
 
