@@ -121,16 +121,19 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool, verbose: bool) -> Result<
     if verbose {
         println!("\nExecution:");
         println!(
-            "{:7} {:8} {:32} {:>8} {:>8}",
-            "pc", "mem[pc]", "inst", "Z", "PC"
+            "{:7} {:8} {:32} {:>8} {:>8} {:>8}",
+            "pc", "mem[pc]", "inst", "Z", "PC", "Cycles"
         );
     }
     let t = std::time::Instant::now();
 
     loop {
         eval_inst(vm)?;
-        if show {
-            println!("{:50} {:8x} {:8x}", vm.inst, vm.Z, vm.regs.pc);
+        if verbose {
+            println!(
+                "{:50} {:8x} {:8x} {:8}",
+                vm.inst, vm.Z, vm.regs.pc, vm.cycle_count
+            );
         }
         if vm.inst.inst == RV32::UNIMP {
             break;
@@ -147,7 +150,7 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool, verbose: bool) -> Result<
         println!();
     }
 
-    if show {
+    if verbose {
         println!("\nFinal Machine State: pc: {:x}", vm.regs.pc);
         table("x", &vm.regs.x);
 
@@ -156,6 +159,30 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool, verbose: bool) -> Result<
             vm.trace_len,
             t.elapsed()
         );
+    }
+
+    if !vm.cycle_tracker.is_empty() {
+        // Print out the benchmark cycles in a tree-like structure
+        println!("Execution Summary:");
+        println!("└── Total program cycles: {}", vm.cycle_count);
+
+        // Sort the functions by cycle count in descending order
+        let mut sorted_functions: Vec<_> = vm.cycle_tracker.iter().collect();
+        sorted_functions.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+
+        for (idx, (fn_name, (clk, cnt))) in sorted_functions.iter().enumerate() {
+            let percentage = clk * 100 / vm.cycle_count;
+            let prefix = if idx == sorted_functions.len() - 1 {
+                "└── "
+            } else {
+                "├── "
+            };
+            println!(
+                "    {} '{}': {} cycles ({}% of total)",
+                prefix, fn_name, clk, percentage
+            );
+            assert_eq!(*cnt, 0);
+        }
     }
     Ok(())
 }

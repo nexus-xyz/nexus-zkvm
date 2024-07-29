@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup target add riscv32i-unknown-none-elf
-      - run: assets/scripts/smoke.sh examples/src/bin/fib3.rs
+      - run: assets/scripts/smoke.sh examples/src/bin/fib3_profiling.rs
       - run: assets/scripts/smoke.sh examples/src/bin/hello.rs
 
   test-sdk:
