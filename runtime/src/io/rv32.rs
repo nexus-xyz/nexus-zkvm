@@ -1,6 +1,6 @@
 pub use core::fmt::Write;
 
-#[cfg(target_arch = "riscv32")]
+#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
 mod riscv32 {
     extern crate alloc;
     use serde::{de::DeserializeOwned, Serialize};
@@ -8,7 +8,6 @@ mod riscv32 {
     // To simplify calling out to the environment, we keep the
     // argument registers intact, and place the function number
     // in s2 (rust will not allow us to use s0 or s1).
-
     macro_rules! ecall {
         ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
             unsafe {
@@ -44,6 +43,16 @@ mod riscv32 {
         } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
     }
 
+    /// Read an object off the public input tape
+    pub fn read_public_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
+        panic!("public input is not available when not proving with Jolt")
+    }
+
+    /// Read a byte from the public input tape
+    pub fn read_from_public_input() -> Option<u8> {
+        panic!("public input is not available when not proving with Jolt")
+    }
+
     /// Write an object to the output tape
     pub fn write_output<T: Serialize + ?Sized>(val: &T) {
         let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
@@ -74,11 +83,12 @@ mod riscv32 {
         }
     }
 }
-#[cfg(target_arch = "riscv32")]
+
+#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
 pub use riscv32::*;
 
 /// Prints to the VM terminal
-#[cfg(target_arch = "riscv32")]
+#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
 #[macro_export]
 macro_rules! print {
     ($($as:tt)*) => {
@@ -91,7 +101,7 @@ macro_rules! print {
 }
 
 /// Prints to the VM terminal, with a newline
-#[cfg(target_arch = "riscv32")]
+#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
 #[macro_export]
 macro_rules! println {
     () => {
@@ -104,31 +114,4 @@ macro_rules! println {
         )
         .unwrap()
     };
-}
-
-#[cfg(not(target_arch = "riscv32"))]
-pub use std::{print, println};
-
-/// Read an object off the private input tape
-#[cfg(not(target_arch = "riscv32"))]
-pub fn read_private_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
-    panic!("private input is not available outside of NexusVM")
-}
-
-/// Read a byte from the private input tape
-#[cfg(not(target_arch = "riscv32"))]
-pub fn read_from_private_input() -> Option<u8> {
-    panic!("private input is not available outside of NexusVM")
-}
-
-/// Write an object to the output tape
-#[cfg(not(target_arch = "riscv32"))]
-pub fn write_output<T: serde::Serialize + ?Sized>(_: &T) {
-    panic!("output is not available outside of NexusVM")
-}
-
-/// Write a slice to the output tape
-#[cfg(not(target_arch = "riscv32"))]
-pub fn write_to_output(_: &[u8]) {
-    panic!("output is not available outside of NexusVM")
 }

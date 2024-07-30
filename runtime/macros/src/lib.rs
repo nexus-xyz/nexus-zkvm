@@ -1,5 +1,6 @@
 use proc_macro::TokenStream;
 
+pub mod io;
 mod entry;
 mod parse_args;
 mod profile;

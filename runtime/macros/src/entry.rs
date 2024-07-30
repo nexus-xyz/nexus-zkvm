@@ -6,7 +6,7 @@ use super::parse_args::parse_memory_limit;
 
 pub fn main(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
     let func: ItemFn = syn::parse2(input)?;
-    let memlimit = parse_memory_limit(args.clone)?;
+    let memlimit = parse_memory_limit(args.clone())?;
 
     #[cfg(feature = "jolt-io")]
     if memlimit != -1 {
