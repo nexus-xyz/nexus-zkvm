@@ -1,3 +1,4 @@
+use chrono::{Datelike, Local, Timelike};
 use std::{
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -12,12 +13,38 @@ where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
 {
-    let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());
+    let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_| "cargo".into());
+    let flamegraph = std::env::var("FLAMEGRAPH").map_or(false, |value| value == "1");
+    let mut command = if flamegraph {
+        let samply_bin = std::env::var("SAMPLY").unwrap_or_else(|_| "samply".into());
+        let mut cmd = Command::new(samply_bin);
 
-    let status = Command::new(cargo_bin)
+        let now = Local::now();
+        let output_file = format!(
+            "profile_{:04}{:02}{:02}_{:02}{:02}.json",
+            now.year(),
+            now.month(),
+            now.day(),
+            now.hour(),
+            now.minute()
+        );
+        cmd.args([
+            "record",
+            "--save-only",
+            "--output",
+            &output_file,
+            &cargo_bin,
+        ]);
+        cmd
+    } else {
+        Command::new(cargo_bin)
+    };
+
+    let status = command
         .args(args)
-        .current_dir(dir.unwrap_or(Path::new(".")))
+        .current_dir(dir.unwrap_or_else(|| Path::new(".")))
         .status()?;
+
     if !status.success() {
         anyhow::bail!("cargo didn't exit successfully: {status}")
     }
