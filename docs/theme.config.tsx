@@ -55,7 +55,7 @@ const config: DocsThemeConfig = {
         <meta name="twitter:title" content={frontMatter.title || "Nexus Docs"} />
         <meta name="twitter:description" content="Enabling the Verifiable Internet. The Nexus zkVM is a modular, extensible, open-source, highly parallelized zkVM, written in Rust." />
         <meta name="twitter:image" content="https://nexus-xyz.github.io/assets/NEXUS_social-card.png" />
-
+        
       </>
     );
   },
