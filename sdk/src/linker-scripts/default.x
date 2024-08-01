@@ -2,6 +2,11 @@ ENTRY(_start);
 
 SECTIONS
 {
+  /* Set the default size of the stack.                                                 */
+  /*                                                                                    */
+  /* Because the stack will grow down from this point, and if the heap requests memory  */
+  /* being used by the stack then the runtime will panic, this value also functions as  */
+  /* the memory limit for the guest program execution more generally.                   */
   __memory_top = {MEMORY_LIMIT};
   . = 0;
 
@@ -36,6 +41,7 @@ SECTIONS
     *(.sbss .sbss.* .bss .bss.*);
     . = ALIGN(4);
     _ebss = .;
+    _end = .;
   }
 
   /* Dynamic relocations are unsupported. This section is only used to detect
