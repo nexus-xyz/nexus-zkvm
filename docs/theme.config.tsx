@@ -50,10 +50,10 @@ const config: DocsThemeConfig = {
         <meta property="og:description" content="Enabling the Verifiable Internet. The Nexus zkVM is a modular, extensible, open-source, highly parallelized zkVM, written in Rust." />
         <meta property="og:image" content="https://nexus-xyz.github.io/assets/NEXUS_social-card.png" />
         <link rel="icon" href="/favicon.ico" type="image/x-icon"></link>
-        <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:title" content={frontMatter.title || "Nexus Docs"} />
-        <meta property="twitter:description" content="Enabling the Verifiable Internet. The Nexus zkVM is a modular, extensible, open-source, highly parallelized zkVM, written in Rust." />
-        <meta property="twitter:image" content="https://nexus-xyz.github.io/assets/NEXUS_social-card.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={frontMatter.title || "Nexus Docs"} />
+        <meta name="twitter:description" content="Enabling the Verifiable Internet. The Nexus zkVM is a modular, extensible, open-source, highly parallelized zkVM, written in Rust." />
+        <meta name="twitter:image" content="https://nexus-xyz.github.io/assets/NEXUS_social-card.png" />
         
       </>
     );
