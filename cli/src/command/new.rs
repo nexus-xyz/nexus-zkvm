@@ -76,4 +76,6 @@ const TEMPLATE_SRC_MAIN: &str = include_str!(concat!(examples_dir!(), "/src/main
 const RUST_TOOLCHAIN: &str = r#"[toolchain]
 channel = "1.77.0"
 targets = ["riscv32i-unknown-none-elf"]
+# If your IDE using LSP that requires rust-analyzer, uncomment the following line.
+# components = ["rust-analyzer"]
 "#;
