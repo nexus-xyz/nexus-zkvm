@@ -35,13 +35,7 @@ First, install Rust: https://www.rust-lang.org/tools/install.
 
 Also, make sure you have a working version of [cmake](https://cmake.org/).
 
-Next, install the RISC-V target:
-
-```shell
-rustup target add riscv32i-unknown-none-elf
-```
-
-Then, install the Nexus zkVM:
+Next, install the Nexus zkVM:
 
 ```shell
 cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus --tag 'v0.2.0'
