@@ -48,10 +48,10 @@ cp "$1" "$PROJECT_NAME/src/guest/src/main.rs"
 
 function update_dependencies() {
     # Link host SDK in Cargo.toml to the current SDK commit
-    sed -i.bak "s#nexus-sdk = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.0\" }#nexus-sdk = { path = \"$ORIGINAL_DIR/sdk\"}#" Cargo.toml
+    sed -i.bak "s#nexus-sdk = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.1\" }#nexus-sdk = { path = \"$ORIGINAL_DIR/sdk\"}#" Cargo.toml
     cd src/guest
     # Link guest runtime in Cargo.toml to the current commit runtime
-    sed -i.bak "s#nexus-rt = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.0\" }#nexus-rt = { path = \"$ORIGINAL_DIR/runtime\" }#" Cargo.toml
+    sed -i.bak "s#nexus-rt = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.1\" }#nexus-rt = { path = \"$ORIGINAL_DIR/runtime\" }#" Cargo.toml
     cd ../../
 }
 
