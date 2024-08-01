@@ -31,7 +31,7 @@ exclude = ["nova-benches"]
 
 [workspace.package]
 edition = "2021"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["The Nexus Team <hello@nexus.xyz>"]
 homepage = "https://nexus.xyz/"
 repository = "https://github.com/nexus-xyz/nexus-zkvm/"
