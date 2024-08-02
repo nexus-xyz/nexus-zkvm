@@ -20,7 +20,8 @@ pub fn handle_command(args: HostArgs) -> anyhow::Result<()> {
     let rev = args.rev;
     let mut tag = args.tag;
 
-    if rev.is_none() && tag.is_none() { // default to current release
+    if rev.is_none() && tag.is_none() {
+        // default to current release
         tag = Some(String::from("0.2.1"));
     }
 
@@ -37,6 +38,9 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     let guest_path = host_path.join("src").join("guest");
     let guest_str = guest_path.to_str().unwrap();
 
+    let arg = if rev.is_some() { "--rev" } else { "--tag" };
+    let ver = if rev.is_some() { &rev.unwrap() } else { &tag.unwrap() };
+
     // run cargo to setup project
     cargo(None, ["new", host_str])?;
     cargo(
@@ -45,12 +49,8 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
-            if rev.is_some() { "--rev" } else { "--tag" },
-            if rev.is_some() {
-                &rev.unwrap()
-            } else {
-                &tag.unwrap()
-            },
+            arg,
+            ver,
             "nexus-sdk",
         ],
     )?;
@@ -110,12 +110,8 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
-            if rev.is_some() { "--rev" } else { "--tag" },
-            if rev.is_some() {
-                &rev.unwrap()
-            } else {
-                &tag.unwrap()
-            },
+            arg,
+            rev,
             "nexus-rt",
         ],
     )?;
