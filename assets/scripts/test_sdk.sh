@@ -43,6 +43,7 @@ function create_nexus_project() {
         ./target/release/cargo-nexus nexus host "$PROJECT_NAME"
     else
         ./target/release/cargo-nexus nexus host "$PROJECT_NAME" --rev "${GITHUB_SHA}"
+    fi
 }
 
 function copy_test_file() {
