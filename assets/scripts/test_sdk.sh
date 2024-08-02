@@ -42,7 +42,7 @@ function create_nexus_project() {
     if [[ -z "${GITHUB_SHA}" ]]; then
         ./target/release/cargo-nexus nexus host "$PROJECT_NAME"
     else
-        ./target/release/cargo-nexus nexus host "$PROJECT_NAME" -- --rev "${GITHUB_SHA}"
+        ./target/release/cargo-nexus nexus host "$PROJECT_NAME" --rev "${GITHUB_SHA}"
     fi
 }
 

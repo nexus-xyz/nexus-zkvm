@@ -9,9 +9,9 @@ use crate::utils::cargo;
 pub struct HostArgs {
     #[arg(name = "path")]
     pub path: PathBuf,
-    #[arg(name = "rev", conflicts_with = "tag")]
+    #[arg(long, name = "rev", conflicts_with = "tag")]
     pub rev: Option<String>,
-    #[arg(name = "tag", conflicts_with = "rev")]
+    #[arg(long, name = "tag", conflicts_with = "rev")]
     pub tag: Option<String>,
 }
 
