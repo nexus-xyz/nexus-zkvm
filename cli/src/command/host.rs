@@ -39,11 +39,7 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     let guest_str = guest_path.to_str().unwrap();
 
     let arg = if rev.is_some() { "--rev" } else { "--tag" };
-    let ver = if let Some(v) = rev {
-        v
-    } else {
-        tag.unwrap()
-    };
+    let ver = if let Some(v) = rev { v } else { tag.unwrap() };
 
     // run cargo to setup project
     cargo(None, ["new", host_str])?;
