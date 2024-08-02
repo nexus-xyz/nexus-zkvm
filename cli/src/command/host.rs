@@ -39,10 +39,10 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     let guest_str = guest_path.to_str().unwrap();
 
     let arg = if rev.is_some() { "--rev" } else { "--tag" };
-    let ver = if rev.is_some() {
-        &rev.unwrap()
+    let ver = if let Some(v) = rev {
+        v
     } else {
-        &tag.unwrap()
+        tag.unwrap()
     };
 
     // run cargo to setup project
@@ -53,8 +53,8 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
-            arg,
-            ver,
+            &arg,
+            &ver,
             "nexus-sdk",
         ],
     )?;
@@ -114,8 +114,8 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
-            arg,
-            ver,
+            &arg,
+            &ver,
             "nexus-rt",
         ],
     )?;
