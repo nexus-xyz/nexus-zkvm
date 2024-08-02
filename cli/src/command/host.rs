@@ -20,7 +20,7 @@ pub fn handle_command(args: HostArgs) -> anyhow::Result<()> {
     let rev = args.rev;
     let mut tag = args.tag;
 
-    if rev.is_none() && tag.is_none() {
+    if rev.is_none() && tag.is_none() { // default to current release
         tag = Some(String::from("0.2.1"));
     }
 
@@ -47,9 +47,9 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "https://github.com/nexus-xyz/nexus-zkvm.git",
             if rev.is_some() { "--rev" } else { "--tag" },
             if rev.is_some() {
-                rev.unwrap()
+                &rev.unwrap()
             } else {
-                tag.unwrap()
+                &tag.unwrap()
             },
             "nexus-sdk",
         ],
@@ -112,9 +112,9 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "https://github.com/nexus-xyz/nexus-zkvm.git",
             if rev.is_some() { "--rev" } else { "--tag" },
             if rev.is_some() {
-                rev.unwrap()
+                &rev.unwrap()
             } else {
-                tag.unwrap()
+                &tag.unwrap()
             },
             "nexus-rt",
         ],
