@@ -15,7 +15,9 @@ members = [
     "spartan",
     "core",
     "jolt",
-    "sdk",
+    "sdk", 
+    "macro",
+    "macro/profiler",
 ]
 default-members = [
     "vm",
