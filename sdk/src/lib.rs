@@ -19,3 +19,6 @@ pub mod compile;
 
 /// Contains error types for SDK-specific interfaces.
 pub mod error;
+
+/// Development macros for for zkVM host functions.
+pub use nexus_macro;
