@@ -17,5 +17,9 @@ postcard = { version = "1.0.8", features = ["alloc"] }
 uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
 thiserror = "1.0.61"
 
+[dev-dependencies]
+nexus-macro = { path = "../macro" }
+nexus-profiler = { path = "../macro/profiler" }
+
 [lib]
 doctest = false
