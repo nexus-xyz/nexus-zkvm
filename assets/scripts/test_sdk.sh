@@ -47,12 +47,22 @@ cp "$1" "$PROJECT_NAME/src/guest/src/main.rs"
 }
 
 function update_dependencies() {
-    # Link host SDK in Cargo.toml to the current SDK commit
-    sed -i.bak "s#nexus-sdk = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.1\" }#nexus-sdk = { path = \"$ORIGINAL_DIR/sdk\"}#" Cargo.toml
-    cd src/guest
-    # Link guest runtime in Cargo.toml to the current commit runtime
-    sed -i.bak "s#nexus-rt = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.1\" }#nexus-rt = { path = \"$ORIGINAL_DIR/runtime\" }#" Cargo.toml
-    cd ../../
+    printenv
+    if [[ -z "${GITHUB_SHA}" ]]; then
+       # Link host SDK in Cargo.toml to the most recent SDK release
+       sed -i.bak "s#nexus-sdk = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.1\" }#nexus-sdk = { path = \"$ORIGINAL_DIR/sdk\"}#" Cargo.toml
+       cd src/guest
+       # Link guest runtime in Cargo.toml to the most recent release runtime
+       sed -i.bak "s#nexus-rt = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"0.2.1\" }#nexus-rt = { path = \"$ORIGINAL_DIR/runtime\" }#" Cargo.toml
+       cd ../../
+    else
+        # If running on Github CI, link host SDK in Cargo.toml to the current commit
+       sed -i.bak "s#nexus-sdk = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"${GITHUB_SHA}\" }#nexus-sdk = { path = \"$ORIGINAL_DIR/sdk\"}#" Cargo.toml
+       cd src/guest
+       # If running on Github CI, link guest runtime in Cargo.toml to the current commit runtime
+       sed -i.bak "s#nexus-rt = { git = \"https://github.com/nexus-xyz/nexus-zkvm.git\", version = \"${GITHUB_SHA}\" }#nexus-rt = { path = \"$ORIGINAL_DIR/runtime\" }#" Cargo.toml
+       cd ../../
+    fi
 }
 
 function run_project() {
