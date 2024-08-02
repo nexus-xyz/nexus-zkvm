@@ -115,7 +115,7 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
             arg,
-            rev,
+            ver,
             "nexus-rt",
         ],
     )?;
