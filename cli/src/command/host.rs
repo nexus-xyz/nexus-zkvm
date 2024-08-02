@@ -9,21 +9,37 @@ use crate::utils::cargo;
 pub struct HostArgs {
     #[arg(name = "path")]
     pub path: PathBuf,
+    #[arg(long, name = "rev", conflicts_with = "tag")]
+    pub rev: Option<String>,
+    #[arg(long, name = "tag", conflicts_with = "rev")]
+    pub tag: Option<String>,
 }
 
 pub fn handle_command(args: HostArgs) -> anyhow::Result<()> {
     let path = args.path;
+    let rev = args.rev;
+    let mut tag = args.tag;
 
-    setup_crate(path)
+    if rev.is_none() && tag.is_none() {
+        // default to current release
+        tag = Some(String::from("0.2.1"));
+    }
+
+    setup_crate(path, rev, tag)
 }
 
-fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
+fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> anyhow::Result<()> {
+    assert!(rev.is_some() || tag.is_some());
+
     let host_str = host_path
         .to_str()
         .context("path is not a valid UTF-8 string")?;
 
     let guest_path = host_path.join("src").join("guest");
     let guest_str = guest_path.to_str().unwrap();
+
+    let arg = if rev.is_some() { "--rev" } else { "--tag" };
+    let ver = if let Some(v) = rev { v } else { tag.unwrap() };
 
     // run cargo to setup project
     cargo(None, ["new", host_str])?;
@@ -33,6 +49,8 @@ fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
+            arg,
+            &ver,
             "nexus-sdk",
         ],
     )?;
@@ -92,6 +110,8 @@ fn setup_crate(host_path: PathBuf) -> anyhow::Result<()> {
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
+            arg,
+            &ver,
             "nexus-rt",
         ],
     )?;
