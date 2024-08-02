@@ -46,7 +46,11 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
             if rev.is_some() { "--rev" } else { "--tag" },
-            if rev.is_some() { rev.unwrap() } else { tag.unwrap() },
+            if rev.is_some() {
+                rev.unwrap()
+            } else {
+                tag.unwrap()
+            },
             "nexus-sdk",
         ],
     )?;
@@ -107,7 +111,11 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
             if rev.is_some() { "--rev" } else { "--tag" },
-            if rev.is_some() { rev.unwrap() } else { tag.unwrap() },
+            if rev.is_some() {
+                rev.unwrap()
+            } else {
+                tag.unwrap()
+            },
             "nexus-rt",
         ],
     )?;
