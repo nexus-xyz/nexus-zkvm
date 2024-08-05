@@ -8,14 +8,11 @@ ark-ff = "0.4.0"
 ark-relations = { version = "0.4.0" }
 ark-r1cs-std = { version = "0.4.0" }
 ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
-ark-std = "0.4.0"
 
 ark-pallas = "0.4.0"
 ark-vesta = "0.4.0"
 ark-bn254 = "0.4.0"
 ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-
-ark_spartan = { path = "../spartan", package = "ark-spartan" }
 
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }

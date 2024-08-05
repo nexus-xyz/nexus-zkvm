@@ -65,3 +65,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup target add riscv32i-unknown-none-elf
       - run: assets/scripts/test_sdk.sh examples/src/bin/hello.rs
+
+  detect-unused-crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bnjbvr/cargo-machete@main
