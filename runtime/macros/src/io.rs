@@ -1,6 +1,6 @@
-use proc_macro::TokenStream;
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::Error;
+use syn::{Error, ItemMod, parse::Parse};
 use std::io::Read;
 
 use regex::Regex;
@@ -8,7 +8,7 @@ use regex::Regex;
 use jolt_common::{attributes::Attributes, rv_trace::MemoryLayout};
 
 // second entry is max_log_size
-type ExtAttributes = (Attributes, u32);
+type ExtAttributes = (Attributes, u64);
 
 fn parse_jolt_attributes() -> Result<ExtAttributes, Error> {
 
@@ -40,16 +40,16 @@ fn parse_jolt_attributes() -> Result<ExtAttributes, Error> {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Parse)]
 pub enum Segments {
     PublicInput,
     PublicOutput,
     PublicLogging,
 }
 
-#[proc_macro_attribute]
-pub fn read_segment(args: TokenStream, input: TokenStream) -> TokenStream {
-    assert_eq!(syn::parse2<Segments>(args).unwrap(), Segments::PublicInput);
+pub(crate) fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
+    let segment = syn::parse2::<Segments>(args)?;
+    assert_eq!(segment, Segments::PublicInput);
 
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
     let (attributes, max_log_size) = parse_jolt_attributes()?;
@@ -87,26 +87,34 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     })?;
 
-    assert!(module.content.is_some());
-    module.content.1.push(inner);
+    if let Some((_, entries)) = &mut module.content {
+        entries.push(syn::Item::from(inner));
+    } else {
+        return Err(Error::new_spanned(
+            &input,
+            "unable to extend empty module",
+        ));
+    }
 
     Ok(quote! {
         #module
     })
 }
 
-#[proc_macro_attribute]
-pub fn write_segment(args: TokenStream, input: TokenStream) -> TokenStream {
+
+pub(crate) fn write_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
+    let segment = syn::parse2::<Segments>(args)?;
+
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
     let (attributes, max_log_size) = parse_jolt_attributes()?;
     let memory_layout =
         MemoryLayout::new(attributes.max_input_size, attributes.max_output_size + max_log_size);
 
-    let (segment_start, max_segment_len) = match syn::parse2<Segments>(args).unwrap() {
+    let (segment_start, max_segment_len) = match segment {
         Segments::PublicOutput => (memory_layout.output_start, attributes.max_output_size),
         Segments::PublicLogging => (attributes.max_output_size, attributes.max_output_size + max_log_size),
         _ => panic!("unknown write segment")
-    }
+    };
 
     let module: ItemMod = syn::parse2(input)?;
 
@@ -130,8 +138,14 @@ pub fn write_segment(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     })?;
 
-    assert!(module.content.is_some());
-    module.content.1.push(inner);
+    if let Some((_, entries)) = &mut module.content {
+        entries.push(syn::Item::from(inner));
+    } else {
+        return Err(Error::new_spanned(
+            &input,
+            "unable to extend empty module",
+        ));
+    }
 
     Ok(quote! {
         #module

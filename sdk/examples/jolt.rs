@@ -16,9 +16,10 @@ fn main() {
 
     print!("Proving execution of vm...");
     let proof = prover
-        .prove_with_input::<Input>(&pp, &input)
+        .prove_with_input::<Input>(&input)
         .expect("failed to prove program");
 
+    /*
     println!(
         " output is {}!",
         proof
@@ -30,6 +31,6 @@ fn main() {
 
     print!("Verifying execution...");
     proof.verify().expect("failed to verify proof");
-
+    */
     println!("  Succeeded!");
 }

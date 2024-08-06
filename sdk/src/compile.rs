@@ -11,7 +11,7 @@ use uuid::Uuid;
 use nexus_core::prover::jolt::Attributes;
 
 // second entry is max_log_size
-type ExtAttributes = (Attributes, u32);
+type ExtAttributes = (Attributes, u64);
 
 pub use crate::error::BuildError;
 

@@ -17,7 +17,7 @@ mod riscv32 {
         panic!("private input is not available when not proving with Jolt")
     }
 
-    #[nexus_rt_macros::io::read_segment(nexus_rt_macros::io::segments::PublicInput)]
+    #[nexus_rt_macros::read_segment(nexus_rt_macros::io::segments::PublicInput)]
     mod public_input {
         /// Read an object from the public input
         ///
@@ -50,7 +50,7 @@ mod riscv32 {
     }
     pub use public_input::{read_public_input, read_from_public_input};
 
-    #[nexus_rt_macros::io::write_segment(nexus_rt_macros::io::segments::PublicOutput)]
+    #[nexus_rt_macros::write_segment(nexus_rt_macros::io::segments::PublicOutput)]
     mod public_output {
         /// Write an object to the output
         pub fn write_output<T: Serialize + ?Sized>(val: &T) {
@@ -74,7 +74,7 @@ mod riscv32 {
     }
     pub use public_output::{write_output, write_to_output};
 
-    #[nexus_rt_macros::io::write_segment(nexus_rt_macros::io::segments::PublicLogging)]
+    #[nexus_rt_macros::write_segment(nexus_rt_macros::io::segments::PublicLogging)]
     mod logging {
         /// Prints to the VM terminal
         #[macro_export]

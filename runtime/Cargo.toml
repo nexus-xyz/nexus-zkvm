@@ -16,3 +16,6 @@ serde = { version = "1.0", default-features = false }
 
 [lib]
 doctest = false
+
+[features]
+jolt-io = ["nexus-rt-macros/jolt-io"]

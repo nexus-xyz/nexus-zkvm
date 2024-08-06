@@ -19,3 +19,4 @@ manual_memcpy = { level = "allow", priority = 0 }
 
 [features]
 cycles = []
+jolt-io = ["nexus-rt/jolt-io"]

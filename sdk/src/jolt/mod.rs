@@ -1,6 +1,7 @@
 use crate::compile;
 use crate::traits::*;
 
+use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use thiserror::Error;
 
@@ -65,8 +66,17 @@ impl Jolt<Local> {
         })
     }
 
+
     /// Prove the zkVM and return a verifiable proof.
-    pub fn prove(self) -> Result<Proof, Error> {
+    pub fn prove_with_input<T>(
+        mut self,
+        input: &T,
+    ) -> Result<Proof, Error>
+    where
+        T: Serialize + Sized,
+    {
+        // todo: set input
+        
         let pre = preprocess(&self.vm);
         let tr = trace(self.vm).map_err(ProofError::from)?;
 
