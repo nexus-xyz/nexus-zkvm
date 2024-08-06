@@ -17,11 +17,11 @@ mod riscv32 {
         panic!("private input is not available when not proving with Jolt")
     }
 
-    /// Read an object from the public input
-    ///
-    /// exhausts the public input, so can only be used once
     #[nexus_rt_macros::io::read_segment(nexus_rt_macros::io::segments::PublicInput)]
     mod public_input {
+        /// Read an object from the public input
+        ///
+        /// exhausts the public input, so can only be used once
         pub fn read_public_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
             let mut ret;
             unsafe {
@@ -29,8 +29,8 @@ mod riscv32 {
             }
 
             match ret {
-                (true, slice) => postcard::take_from_bytes::<T>(slice).map(|(v, _)| v),
-                (false, slice) => Err(postcard::Error::DeserializeUnexpectedEnd),
+                Some(bytes) => postcard::take_from_bytes::<T>(bytes.as_slice()).map(|(v, _)| v),
+                None => Err(postcard::Error::DeserializeUnexpectedEnd),
             }
         }
 
@@ -43,8 +43,8 @@ mod riscv32 {
             }
 
             match ret {
-                (true, slice) => Some(slice[0]),
-                (false, _) => None,
+                Some(bytes) => Some(bytes[0]),
+                None => None,
             }
         }
     }
@@ -55,29 +55,44 @@ mod riscv32 {
         /// Write an object to the output
         pub fn write_output<T: Serialize + ?Sized>(val: &T) {
             let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
-            let mut _out: u32;
 
             write_to_output(ser.as_slice())
         }
 
         /// Write a slice to the output tape
         pub fn write_to_output(b: &[u8]) {
-            let mut _out: u32;
-            ecall!(3, b.as_ptr(), b.len(), _out);
+            let mut succ;
+
+            unsafe {
+                succ = __inner::set_at_offset(b);
+            }
+
+            if !succ {
+                panic!("Output memory segment is too small");
+            }
         }
     }
     pub use public_output::{write_output, write_to_output};
 
+    #[nexus_rt_macros::io::write_segment(nexus_rt_macros::io::segments::PublicLogging)]
     mod logging {
         /// Prints to the VM terminal
         #[macro_export]
         macro_rules! print {
             ($($as:tt)*) => {
-                __inner::set_at_offset(&[
-                    core::format_args!($($as)*).as_bytes(),
-                    &[0x00], // add null-termination
-                ].concat())
-            };
+                let mut succ;
+
+                unsafe {
+                    succ = __inner::set_at_offset(&[
+                        core::format_args!($($as)*).as_bytes(),
+                        &[0x00], // add null-termination
+                    ].concat());
+                }
+
+                if !succ {
+                    panic!("Logging memory segment is too small");
+                }
+            }
         }
 
         /// Prints to the VM terminal, with a newline
@@ -87,10 +102,19 @@ mod riscv32 {
                 nexus_rt::print!("\n")
             };
             ($($as:tt)*) => {
-                __inner::set_at_offset(&[
-                    core::format_args!("{}\n", core::format_args!($($as)*)).as_bytes(),
-                    &[0x00], // add null-termination
-                ].concat())
+                let mut succ;
+
+                unsafe {
+                    succ = __inner::set_at_offset(&[
+                        core::format_args!("{}\n", core::format_args!($($as)*)).as_bytes(),
+                        &[0x00], // add null-termination
+                    ].concat());
+                }
+
+                if !succ {
+                    panic!("Logging memory segment is too small");
+                }
+
             };
         }
     }

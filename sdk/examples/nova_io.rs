@@ -6,7 +6,7 @@ use nexus_sdk::{
 type Input = (u32, u32);
 type Output = i32;
 
-const EXAMPLE_NAME: &str = "input_output";
+const EXAMPLE_NAME: &str = "private_io";
 
 const TARGET_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),

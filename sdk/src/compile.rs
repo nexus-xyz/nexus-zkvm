@@ -10,6 +10,9 @@ use uuid::Uuid;
 
 use nexus_core::prover::jolt::Attributes;
 
+// second entry is max_log_size
+type ExtAttributes = (Attributes, u32);
+
 pub use crate::error::BuildError;
 
 #[doc(hidden)]
@@ -218,14 +221,17 @@ impl CompileOpts {
             let stack_size = nexus_core::prover::jolt::constants::DEFAULT_STACK_SIZE;
             let max_input_size = nexus_core::prover::jolt::constants::DEFAULT_MAX_INPUT_SIZE;
             let max_output_size = nexus_core::prover::jolt::constants::DEFAULT_MAX_OUTPUT_SIZE;
+            let max_log_size = nexus_core::prover::jolt::constants::DEFAULT_MAX_OUTPUT_SIZE;
 
-            let attr = Attributes {
-                wasm: false,
-                memory_size,
-                stack_size,
-                max_input_size,
+            let attr: ExtAttributes = (
+                Attributes {
+                    wasm: false,
+                    memory_size,
+                    stack_size,
+                    max_input_size,
                 max_output_size,
-            };
+                }, max_log_size
+            );
             let attr_bytes = postcard::to_stdvec(&attr).map_err(BuildError::ConfigError)?;
 
             let mut mkdir = Command::new("mkdir");
