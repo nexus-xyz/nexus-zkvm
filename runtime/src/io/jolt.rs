@@ -1,7 +1,5 @@
-pub use core::fmt::Write;
-
-#[cfg(target_arch = "riscv32", feature = "jolt-io")]
-mod riscv32 {
+#[cfg(all(target_arch = "riscv32", feature = "jolt-io"))]
+mod jolt {
     extern crate alloc;
     use serde::{de::DeserializeOwned, Serialize};
 
@@ -17,12 +15,14 @@ mod riscv32 {
         panic!("private input is not available when not proving with Jolt")
     }
 
-    #[nexus_rt_macros::read_segment(nexus_rt_macros::io::segments::PublicInput)]
+    #[nexus_rt_macros::read_segment(PublicInput)]
     mod public_input {
+        use super::*;
+
         /// Read an object from the public input
         ///
         /// exhausts the public input, so can only be used once
-        pub fn read_public_input<T: serde::de::DeserializeOwned>() -> Result<T, postcard::Error> {
+        pub fn read_public_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
             let mut ret;
             unsafe {
                 ret = __inner::fetch_at_offset(true);
@@ -50,8 +50,10 @@ mod riscv32 {
     }
     pub use public_input::{read_public_input, read_from_public_input};
 
-    #[nexus_rt_macros::write_segment(nexus_rt_macros::io::segments::PublicOutput)]
+    #[nexus_rt_macros::write_segment(PublicOutput)]
     mod public_output {
+        use super::*;
+
         /// Write an object to the output
         pub fn write_output<T: Serialize + ?Sized>(val: &T) {
             let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
@@ -74,8 +76,24 @@ mod riscv32 {
     }
     pub use public_output::{write_output, write_to_output};
 
-    #[nexus_rt_macros::write_segment(nexus_rt_macros::io::segments::PublicLogging)]
+    #[nexus_rt_macros::write_segment(PublicLogging)]
     mod logging {
+        /// Write a string to the output console (if any).
+        pub fn write_log(s: &str) {
+            let mut succ;
+
+            unsafe {
+                succ = __inner::set_at_offset(&[
+                    s.as_bytes(),
+                    &[0x00], // add null-termination
+                ].concat());
+            }
+
+            if !succ {
+                panic!("Logging memory segment is too small");
+            }
+        }
+
         /// Prints to the VM terminal
         #[macro_export]
         macro_rules! print {
@@ -118,8 +136,8 @@ mod riscv32 {
             };
         }
     }
-    pub use logging::{print, println};
+    pub use logging::{write_log};
 }
 
-#[cfg(target_arch = "riscv32", feature = "jolt-io")]
+#[cfg(all(target_arch = "riscv32", feature = "jolt-io"))]
 pub use jolt::*;

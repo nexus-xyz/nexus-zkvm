@@ -11,5 +11,5 @@ mod alloc;
 
 pub use nexus_rt_macros::{main, profile};
 
-mod ecalls;
-pub use ecalls::*;
+mod io;
+pub use io::*;

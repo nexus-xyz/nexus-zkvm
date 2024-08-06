@@ -1,9 +1,8 @@
-pub use core::fmt::Write;
-
-#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
+#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
 mod riscv32 {
     extern crate alloc;
     use serde::{de::DeserializeOwned, Serialize};
+    use core::fmt::Write;
 
     // To simplify calling out to the environment, we keep the
     // argument registers intact, and place the function number
@@ -84,11 +83,11 @@ mod riscv32 {
     }
 }
 
-#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
+#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
 pub use riscv32::*;
 
 /// Prints to the VM terminal
-#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
+#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
 #[macro_export]
 macro_rules! print {
     ($($as:tt)*) => {
@@ -101,7 +100,7 @@ macro_rules! print {
 }
 
 /// Prints to the VM terminal, with a newline
-#[cfg(target_arch = "riscv32", not(feature = "jolt-io"))]
+#[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
 #[macro_export]
 macro_rules! println {
     () => {
