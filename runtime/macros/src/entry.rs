@@ -12,7 +12,7 @@ pub fn main(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error>
     if memlimit != -1 {
         return Err(Error::new_spanned(
             &args,
-            "compiling for jolt does not permit customizing the memory limit",
+            "compiling for jolt does not permit customizing the memory limit by macro",
         ));
     }
 
