@@ -50,62 +50,52 @@ mod riscv32 {
     }
     pub use public_input::{read_public_input, read_from_public_input};
 
-    /// Write an object to the output
     #[nexus_rt_macros::io::write_segment(nexus_rt_macros::io::segments::PublicOutput)]
-    pub fn write_output<T: Serialize + ?Sized>(val: &T) {
-        let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
-        let mut _out: u32;
+    mod public_output {
+        /// Write an object to the output
+        pub fn write_output<T: Serialize + ?Sized>(val: &T) {
+            let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
+            let mut _out: u32;
 
-        write_to_output(ser.as_slice())
-    }
+            write_to_output(ser.as_slice())
+        }
 
-    /// Write a slice to the output tape
-    #[nexus_rt_macros::io::write_segment(nexus_rt_macros::io::segments::PublicOutput)]
-    pub fn write_to_output(b: &[u8]) {
-        let mut _out: u32;
-        ecall!(3, b.as_ptr(), b.len(), _out);
-    }
-
-    /// An empty type representing the VM terminal
-    pub struct NexusLog;
-
-    #[nexus_rt_macros::io::write_segment(nexus_rt_macros::io::segments::PublicLogging)]
-    impl core::fmt::Write for NexusLog {
-        fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-            write_log(s);
-            Ok(())
+        /// Write a slice to the output tape
+        pub fn write_to_output(b: &[u8]) {
+            let mut _out: u32;
+            ecall!(3, b.as_ptr(), b.len(), _out);
         }
     }
+    pub use public_output::{write_output, write_to_output};
+
+    mod logging {
+        /// Prints to the VM terminal
+        #[macro_export]
+        macro_rules! print {
+            ($($as:tt)*) => {
+                __inner::set_at_offset(&[
+                    core::format_args!($($as)*).as_bytes(),
+                    &[0x00], // add null-termination
+                ].concat())
+            };
+        }
+
+        /// Prints to the VM terminal, with a newline
+        #[macro_export]
+        macro_rules! println {
+            () => {
+                nexus_rt::print!("\n")
+            };
+            ($($as:tt)*) => {
+                __inner::set_at_offset(&[
+                    core::format_args!("{}\n", core::format_args!($($as)*)).as_bytes(),
+                    &[0x00], // add null-termination
+                ].concat())
+            };
+        }
+    }
+    pub use logging::{print, println};
 }
 
 #[cfg(target_arch = "riscv32", feature = "jolt-io")]
 pub use jolt::*;
-
-/// Prints to the VM terminal
-#[cfg(target_arch = "riscv32", feature = "jolt-io")]
-#[macro_export]
-macro_rules! print {
-    ($($as:tt)*) => {
-        <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
-            &mut nexus_rt::NexusLog,
-            core::format_args!($($as)*),
-        )
-        .unwrap()
-    }
-}
-
-/// Prints to the VM terminal, with a newline
-#[cfg(target_arch = "riscv32", feature = "jolt-io")]
-#[macro_export]
-macro_rules! println {
-    () => {
-        nexus_rt::print!("\n")
-    };
-    ($($as:tt)*) => {
-        <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
-            &mut nexus_rt::NexusLog,
-            core::format_args!("{}\n", core::format_args!($($as)*)),
-        )
-        .unwrap()
-    };
-}
