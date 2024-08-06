@@ -76,6 +76,13 @@ pub trait Memory: Default {
         Ok((cl.load(lop, addr)?, path))
     }
 
+    /// Load n bytes from an address
+    fn load_n(&self, address: u32, len: u32) -> Result<Vec<u8>> {
+        (address..address + len)
+            .map(|addr| self.load(LOP::LBU, addr).map(|b| b.0 as u8))
+            .collect()
+    }
+
     /// perform store according to `sop`
     fn store(&mut self, sop: SOP, addr: u32, val: u32) -> Result<Self::Proof> {
         self.update(addr, |cl| cl.store(sop, addr, val))

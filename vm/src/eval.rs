@@ -4,10 +4,12 @@ use crate::{
     error::*,
     memory::Memory,
     rv32::{parse::*, *},
-    syscalls::Syscalls,
+    syscalls::{SyscallCode, Syscalls},
 };
 
-use std::collections::HashSet;
+use crate::NexusVMError;
+
+use std::collections::{HashMap, HashSet};
 
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
@@ -39,6 +41,11 @@ pub struct NexusVM<M: Memory> {
     ///
     /// Does include executing UNIMP instruction.
     pub max_trace_len: Option<usize>,
+
+    /// The cycle count for execution trace.
+    pub cycle_count: u64,
+    /// The cycles tracker label: (func_name, (cycle_count, counter))
+    pub cycle_tracker: HashMap<String, (u64, u32)>,
 }
 
 /// ISA defined registers
@@ -65,6 +72,7 @@ impl<M: Memory> NexusVM<M> {
 
         vm.regs.pc = pc;
         vm.instruction_sets = HashSet::new();
+        vm.cycle_count = 0;
 
         vm
     }
@@ -186,6 +194,48 @@ fn alu_op(aop: AOP, x: u32, y: u32) -> u32 {
     }
 }
 
+fn handle_profile_cycles(vm: &mut NexusVM<impl Memory>) -> Result<()> {
+    let label = vm
+        .syscalls
+        .get_label()
+        .and_then(|s| std::str::from_utf8(&s).ok().map(|s| s.to_owned()))
+        .ok_or(NexusVMError::InvalidProfileLabel)?;
+
+    let fn_name = label
+        .split('#')
+        .last()
+        .ok_or(NexusVMError::InvalidProfileLabel)?
+        .to_owned();
+
+    match label.chars().next() {
+        Some('^') => start_profile(vm, fn_name),
+        Some('$') => end_profile(vm, fn_name)?,
+        _ => return Err(NexusVMError::InvalidProfileLabel),
+    }
+
+    Ok(())
+}
+
+fn start_profile(vm: &mut NexusVM<impl Memory>, fn_name: String) {
+    vm.cycle_tracker
+        .entry(fn_name)
+        .or_insert((vm.cycle_count, 0))
+        .1 += 1;
+}
+
+fn end_profile(vm: &mut NexusVM<impl Memory>, fn_name: String) -> Result<()> {
+    let (clk, counter) = vm
+        .cycle_tracker
+        .get_mut(&fn_name)
+        .ok_or(NexusVMError::InvalidProfileLabel)?;
+
+    *counter -= 1;
+    if *counter == 0 {
+        *clk = vm.cycle_count - *clk;
+    }
+    Ok(())
+}
+
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
     if vm
@@ -277,11 +327,31 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
         ECALL { rd } => {
             RD = rd;
             vm.Z = vm.syscalls.syscall(vm.regs.pc, vm.regs.x, &vm.mem)?;
+            // Profile cycles
+            if vm.regs.x[18] == SyscallCode::ProfileCycles as u32 {
+                handle_profile_cycles(vm)?;
+            }
         }
         UNIMP => {
             PC = vm.inst.pc;
         }
     }
+
+    // Counts cycles per instruction kind.
+    // In RISC-V:
+    // - Memory instructions are 3 cycles
+    // - Branch instructions are 2 cycles
+    // - ALU/ALUI/JAR/LUI/AUIPC instructions are 1 cycle
+    // - System call instruction are 4 cycles
+    // - Unknown instruction is 0 cycle
+    let cycles = match vm.inst.inst {
+        LOAD { .. } | STORE { .. } => 3,
+        BR { .. } => 2,
+        LUI { .. } | AUIPC { .. } | JAL { .. } | JALR { .. } | ALUI { .. } | ALU { .. } => 1,
+        ECALL { .. } => 4,
+        EBREAK { .. } => 4,
+        _ => 0,
+    };
 
     if PC == 0 {
         PC = add32(vm.inst.pc, vm.inst.len);
@@ -289,5 +359,6 @@ pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
     vm.set_reg(RD, vm.Z);
     vm.regs.pc = PC;
     vm.trace_len += 1;
+    vm.cycle_count += cycles;
     Ok(())
 }

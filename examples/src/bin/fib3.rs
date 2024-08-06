@@ -1,6 +1,5 @@
 // Used in the CI as a small example that uses memory store
-#![no_std]
-#![no_main]
+#![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
 fn fib(n: u32) -> u32 {
     match n {

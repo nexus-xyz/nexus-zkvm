@@ -58,6 +58,12 @@ mod riscv32 {
         ecall!(3, b.as_ptr(), b.len(), _out);
     }
 
+    /// Bench cycles with input is function name
+    pub fn cycle_count_ecall(s: &str) {
+        let mut _out: u32;
+        ecall!(5, s.as_ptr(), s.len(), _out);
+    }
+
     /// An empty type representing the VM terminal
     pub struct NexusLog;
 
@@ -121,7 +127,7 @@ pub fn write_output<T: serde::Serialize + ?Sized>(_: &T) {
     panic!("output is not available outside of NexusVM")
 }
 
-/// Write a slice to the output taoe
+/// Write a slice to the output tape
 #[cfg(not(target_arch = "riscv32"))]
 pub fn write_to_output(_: &[u8]) {
     panic!("output is not available outside of NexusVM")

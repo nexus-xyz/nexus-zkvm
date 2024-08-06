@@ -46,6 +46,10 @@ pub enum NexusVMError {
     /// Reached the limit of executed instructions.
     #[error("reached maximum number of executed instructions: {0}")]
     MaxTraceLengthExceeded(usize),
+
+    /// Benchmark labels are invalid.
+    #[error("Labels are invalid.")]
+    InvalidProfileLabel,
 }
 
 /// Result type for VM functions that can produce errors

@@ -9,7 +9,7 @@ pub use runtime::*;
 #[cfg(target_arch = "riscv32")]
 mod alloc;
 
-pub use nexus_rt_macros::main;
+pub use nexus_rt_macros::{main, profile};
 
 mod ecalls;
 pub use ecalls::*;
