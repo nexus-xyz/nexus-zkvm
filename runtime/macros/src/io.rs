@@ -125,8 +125,8 @@ pub fn write_segment(args: TokenStream, input: TokenStream) -> Result<TokenStrea
                     return false;
                 }
 
-                let segment_ptr = (#segment_start as *const u8).byte_offset(OFFSET as isize);
-                segment_ptr.write_bytes(bytes, bytes.len());
+                let segment_ptr = (#segment_start as *mut u8).byte_offset(OFFSET as isize);
+                core::ptr::copy(bytes.as_ptr(), segment_ptr, bytes.len());
                 OFFSET += bytes.len();
 
                 true

@@ -23,7 +23,7 @@ mod jolt {
         ///
         /// exhausts the public input, so can only be used once
         pub fn read_public_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
-            let mut ret;
+            let ret;
             unsafe {
                 ret = __inner::fetch_at_offset(true);
             }
@@ -36,8 +36,7 @@ mod jolt {
 
         /// Read a byte from the public input
         pub fn read_from_public_input() -> Option<u8> {
-            let mut ret;
-
+            let ret;
             unsafe {
                 ret = __inner::fetch_at_offset(false);
             }
@@ -63,8 +62,7 @@ mod jolt {
 
         /// Write a slice to the output tape
         pub fn write_to_output(b: &[u8]) {
-            let mut succ;
-
+            let succ;
             unsafe {
                 succ = __inner::set_at_offset(b);
             }
@@ -80,8 +78,7 @@ mod jolt {
     mod logging {
         /// Write a string to the output console (if any).
         pub fn write_log(s: &str) {
-            let mut succ;
-
+            let succ;
             unsafe {
                 succ = __inner::set_at_offset(&[
                     s.as_bytes(),
@@ -98,8 +95,7 @@ mod jolt {
         #[macro_export]
         macro_rules! print {
             ($($as:tt)*) => {
-                let mut succ;
-
+                let succ;
                 unsafe {
                     succ = __inner::set_at_offset(&[
                         core::format_args!($($as)*).as_bytes(),
@@ -120,8 +116,7 @@ mod jolt {
                 nexus_rt::print!("\n")
             };
             ($($as:tt)*) => {
-                let mut succ;
-
+                let succ;
                 unsafe {
                     succ = __inner::set_at_offset(&[
                         core::format_args!("{}\n", core::format_args!($($as)*)).as_bytes(),
