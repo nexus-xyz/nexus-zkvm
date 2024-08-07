@@ -10,32 +10,34 @@ use jolt_common::{attributes::Attributes, rv_trace::MemoryLayout};
 // second entry is max_log_size
 type ExtAttributes = (Attributes, u64);
 
-fn parse_jolt_attributes() -> Result<ExtAttributes, Error> {
+fn parse_jolt_attributes(input: &TokenStream) -> Result<ExtAttributes, Error> {
+    let err = Error::new_spanned(
+        input,
+        "unable to find or parse jolt io configuration",
+    );
 
-    let re = Regex::new(r#"compile_config_dir="(?<path>[^"]*)"#).unwrap();
-    let sta = std::env::var_os("CARGO_ENCODED_RUSTFLAGS").unwrap();
-    let stb = sta.as_os_str().to_str().unwrap();
+    let regex = Regex::new(r#"compile_config_dir="(?<path>[^"]*)"#).map_err(|_| err.clone())?;
 
-    eprintln!("{}", stb);
-    let cp = re.captures(stb).unwrap();
+    let raw_flags = std::env::var_os("CARGO_ENCODED_RUSTFLAGS").ok_or_else(|| err.clone())?;
+    let flags = raw_flags.as_os_str().to_str().ok_or_else(|| err.clone())?;
 
-    let path = cp.name("path").unwrap().as_str();
+    let capture = regex.captures(flags).ok_or_else(|| err.clone())?;
+    let path = capture.name("path").ok_or_else(|| err.clone())?;
 
     match std::fs::OpenOptions::new()
         .read(true)
-        .open(path)
+        .open(path.as_str())
     {
         Ok(mut fp) => {
             let mut attr_bytes = Vec::new();
-            fp.read_to_end(&mut attr_bytes).unwrap();//.ok_or()?;
+            fp.read_to_end(&mut attr_bytes).map_err(|_| err.clone())?;
 
-            let attr = postcard::from_bytes::<ExtAttributes>(attr_bytes.as_slice()).unwrap();//ok_or()?;
+            let attr = postcard::from_bytes::<ExtAttributes>(attr_bytes.as_slice()).map_err(|_| err.clone())?;
 
             Ok(attr)
         },
-        Err(e) => {
-            panic!("foo")
-            //return Err(e).map_err(BuildError::IOError);
+        Err(_) => {
+            return Err(err);
         },
     }
 }
@@ -45,7 +47,7 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream
     assert_eq!(&args.to_string(), "PublicInput");
 
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
-    let (attributes, max_log_size) = parse_jolt_attributes()?;
+    let (attributes, max_log_size) = parse_jolt_attributes(&input)?;
     let memory_layout =
         MemoryLayout::new(attributes.max_input_size, attributes.max_output_size + max_log_size);
     let segment_start = memory_layout.input_start;
@@ -97,8 +99,9 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream
 
 
 pub fn write_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
+
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
-    let (attributes, max_log_size) = parse_jolt_attributes()?;
+    let (attributes, max_log_size) = parse_jolt_attributes(&input)?;
     let memory_layout =
         MemoryLayout::new(attributes.max_input_size, attributes.max_output_size + max_log_size);
 
