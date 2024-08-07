@@ -5,7 +5,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use thiserror::Error;
 
-use nexus_core::nvm::memory::MerkleTrie;
+use nexus_core::nvm::memory::Jolt as JoltMem;
 use nexus_core::prover::jolt::types::{JoltCommitments, JoltPreprocessing, JoltProof};
 use nexus_core::prover::jolt::{
     parse_elf, preprocess, prove, trace, verify, Error as ProofError, VM as JoltVM,
@@ -39,7 +39,7 @@ pub enum Error {
 ///
 /// An experimental implementation, which does not implement the [`Prover`] trait due to missing functionality.
 pub struct Jolt<C: Compute = Local> {
-    vm: JoltVM<MerkleTrie>,
+    vm: JoltVM<JoltMem>,
     _compute: PhantomData<C>,
 }
 
@@ -60,7 +60,7 @@ impl Jolt<Local> {
             .map_err(BuildError::from)?;
 
         Ok(Jolt::<Local> {
-            vm: parse_elf::<MerkleTrie>(fs::read(elf_path)?.as_slice())
+            vm: parse_elf::<JoltMem>(fs::read(elf_path)?.as_slice())
                 .map_err(ProofError::from)?,
             _compute: PhantomData,
         })

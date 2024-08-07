@@ -293,9 +293,9 @@ pub fn parse_inst(pc: u32, mem: &[u8]) -> Result<Inst> {
         return Err(PartialInstruction(pc));
     }
 
-    if sz != 4 {
-        return Err(InvalidSize(pc, sz));
-    }
+    //if sz != 4 {
+    //    return Err(InvalidSize(pc, sz));
+    //}
 
     let word = ((mem[3] as u32) << 24)
         | ((mem[2] as u32) << 16)
@@ -305,7 +305,7 @@ pub fn parse_inst(pc: u32, mem: &[u8]) -> Result<Inst> {
     let word = translate_nexus(word);
 
     match parse_u32(word) {
-        None => Err(InvalidInstruction(pc, word)),
+        None => { println!("{:b}", word); Err(InvalidInstruction(pc, word)) },
         Some(inst) => Ok(Inst { pc, len: sz, word, inst }),
     }
 }

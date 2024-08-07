@@ -1,6 +1,7 @@
 //! Virtual Machine Memory
 
 pub mod cacheline;
+pub mod jolt;
 pub mod paged;
 pub mod path;
 pub mod trie;
@@ -53,7 +54,7 @@ pub trait Memory: Default {
     /// Query the cacheline at `addr`
     fn query(&self, addr: u32) -> (&CacheLine, Self::Proof);
 
-    /// Updatee the cacheline at `addr` using the function `f`.
+    /// Update the cacheline at `addr` using the function `f`.
     fn update<F>(&mut self, addr: u32, f: F) -> Result<Self::Proof>
     where
         F: Fn(&mut CacheLine) -> Result<()>;

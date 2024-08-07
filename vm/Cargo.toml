@@ -10,6 +10,8 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
+jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "b653696", package = "common" }
+
 clap.workspace = true
 elf.workspace = true
 serde.workspace = true
