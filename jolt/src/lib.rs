@@ -6,17 +6,17 @@
 
 #![allow(clippy::type_complexity)]
 
-pub use jolt_common::rv_trace as jolt_rv;
 pub use jolt_common::attributes as jolt_attributes;
 pub use jolt_common::constants as jolt_constants;
+pub use jolt_common::rv_trace as jolt_rv;
 
 use jolt_core::{
+    field::JoltField,
     jolt::vm::{
         bytecode::BytecodeRow as JoltBytecodeRow,
         rv32i_vm::{self, RV32ISubtables, C, M, RV32I},
         Jolt, JoltTraceStep,
     },
-    field::JoltField,
     poly::commitment::hyrax::HyraxScheme,
     utils::thread::unsafe_allocate_zero_vec,
 };

@@ -229,8 +229,9 @@ impl CompileOpts {
                     memory_size,
                     stack_size,
                     max_input_size,
-                max_output_size,
-                }, max_log_size
+                    max_output_size,
+                },
+                max_log_size,
             );
             let attr_bytes = postcard::to_stdvec(&attr).map_err(BuildError::ConfigError)?;
 

@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 
-mod io;
 mod entry;
+mod io;
 mod parse_args;
 mod profile;
 

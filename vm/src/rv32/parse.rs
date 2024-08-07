@@ -305,7 +305,10 @@ pub fn parse_inst(pc: u32, mem: &[u8]) -> Result<Inst> {
     let word = translate_nexus(word);
 
     match parse_u32(word) {
-        None => { println!("{:b}", word); Err(InvalidInstruction(pc, word)) },
+        None => {
+            println!("{:b}", word);
+            Err(InvalidInstruction(pc, word))
+        }
         Some(inst) => Ok(Inst { pc, len: sz, word, inst }),
     }
 }

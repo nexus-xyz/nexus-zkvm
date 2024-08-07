@@ -60,23 +60,18 @@ impl Jolt<Local> {
             .map_err(BuildError::from)?;
 
         Ok(Jolt::<Local> {
-            vm: parse_elf::<JoltMem>(fs::read(elf_path)?.as_slice())
-                .map_err(ProofError::from)?,
+            vm: parse_elf::<JoltMem>(fs::read(elf_path)?.as_slice()).map_err(ProofError::from)?,
             _compute: PhantomData,
         })
     }
 
-
     /// Prove the zkVM and return a verifiable proof.
-    pub fn prove_with_input<T>(
-        mut self,
-        input: &T,
-    ) -> Result<Proof, Error>
+    pub fn prove_with_input<T>(mut self, input: &T) -> Result<Proof, Error>
     where
         T: Serialize + Sized,
     {
         // todo: set input
-        
+
         let pre = preprocess(&self.vm);
         let tr = trace(self.vm).map_err(ProofError::from)?;
 

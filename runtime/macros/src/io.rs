@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Error, ItemMod};
 use std::io::Read;
+use syn::{Error, ItemMod};
 
 use regex::Regex;
 
@@ -11,10 +11,7 @@ use jolt_common::{attributes::Attributes, rv_trace::MemoryLayout};
 type ExtAttributes = (Attributes, u64);
 
 fn parse_jolt_attributes(input: &TokenStream) -> Result<ExtAttributes, Error> {
-    let err = Error::new_spanned(
-        input,
-        "unable to find or parse jolt io configuration",
-    );
+    let err = Error::new_spanned(input, "unable to find or parse jolt io configuration");
 
     let regex = Regex::new(r#"compile_config_dir="(?<path>[^"]*)"#).map_err(|_| err.clone())?;
 
@@ -24,21 +21,19 @@ fn parse_jolt_attributes(input: &TokenStream) -> Result<ExtAttributes, Error> {
     let capture = regex.captures(flags).ok_or_else(|| err.clone())?;
     let path = capture.name("path").ok_or_else(|| err.clone())?;
 
-    match std::fs::OpenOptions::new()
-        .read(true)
-        .open(path.as_str())
-    {
+    match std::fs::OpenOptions::new().read(true).open(path.as_str()) {
         Ok(mut fp) => {
             let mut attr_bytes = Vec::new();
             fp.read_to_end(&mut attr_bytes).map_err(|_| err.clone())?;
 
-            let attr = postcard::from_bytes::<ExtAttributes>(attr_bytes.as_slice()).map_err(|_| err.clone())?;
+            let attr = postcard::from_bytes::<ExtAttributes>(attr_bytes.as_slice())
+                .map_err(|_| err.clone())?;
 
             Ok(attr)
-        },
+        }
         Err(_) => {
             return Err(err);
-        },
+        }
     }
 }
 
@@ -48,8 +43,10 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream
 
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
     let (attributes, max_log_size) = parse_jolt_attributes(&input)?;
-    let memory_layout =
-        MemoryLayout::new(attributes.max_input_size, attributes.max_output_size + max_log_size);
+    let memory_layout = MemoryLayout::new(
+        attributes.max_input_size,
+        attributes.max_output_size + max_log_size,
+    );
     let segment_start = memory_layout.input_start;
     let max_segment_len = attributes.max_input_size as usize;
 
@@ -85,10 +82,7 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream
     if let Some((_, entries)) = &mut module.content {
         entries.push(syn::Item::Verbatim(inner));
     } else {
-        return Err(Error::new_spanned(
-            &input,
-            "unable to extend empty module",
-        ));
+        return Err(Error::new_spanned(&input, "unable to extend empty module"));
     }
 
     Ok(quote! {
@@ -96,19 +90,25 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream
     })
 }
 
-
 pub fn write_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream, Error> {
-
     // see: https://github.com/a16z/jolt/blob/main/jolt-sdk/macros/src/lib.rs#L276
     let (attributes, max_log_size) = parse_jolt_attributes(&input)?;
-    let memory_layout =
-        MemoryLayout::new(attributes.max_input_size, attributes.max_output_size + max_log_size);
+    let memory_layout = MemoryLayout::new(
+        attributes.max_input_size,
+        attributes.max_output_size + max_log_size,
+    );
 
     // todo: would be nice to replace these with an enum, but limited by export limitations of `proc-macro` crate types
     let (segment_start, max_segment_len) = match args.to_string().as_str() {
-        "PublicOutput" => (memory_layout.output_start, attributes.max_output_size as usize),
-        "PublicLogging" => (attributes.max_output_size, (attributes.max_output_size + max_log_size) as usize),
-        _ => panic!("unknown write segment")
+        "PublicOutput" => (
+            memory_layout.output_start,
+            attributes.max_output_size as usize,
+        ),
+        "PublicLogging" => (
+            attributes.max_output_size,
+            (attributes.max_output_size + max_log_size) as usize,
+        ),
+        _ => panic!("unknown write segment"),
     };
 
     let mut module: ItemMod = syn::parse2(input.clone())?;
@@ -135,10 +135,7 @@ pub fn write_segment(args: TokenStream, input: TokenStream) -> Result<TokenStrea
     if let Some((_, entries)) = &mut module.content {
         entries.push(syn::Item::Verbatim(inner));
     } else {
-        return Err(Error::new_spanned(
-            &input,
-            "unable to extend empty module",
-        ));
+        return Err(Error::new_spanned(&input, "unable to extend empty module"));
     }
 
     Ok(quote! {

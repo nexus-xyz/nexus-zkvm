@@ -1,15 +1,40 @@
-use jolt_common::rv_trace::JoltDevice;
+use jolt_common::{constants, rv_trace::JoltDevice};
 
 use super::cacheline::CacheLine;
-use super::Memory;
 use super::paged::{Paged, UncheckedMemory};
+use super::Memory;
 use crate::error::Result;
 
 /// A simple memory combined with a Jolt IO interface.
-#[derive(Default)]
 pub struct Jolt {
     ram: Paged,
     io: JoltDevice,
+}
+
+impl Default for Jolt {
+    fn default() -> Self {
+        Self {
+            ram: Paged::default(),
+            io: JoltDevice::new(
+                constants::DEFAULT_MAX_INPUT_SIZE,
+                constants::DEFAULT_MAX_OUTPUT_SIZE * 2,
+            ),
+        }
+    }
+}
+
+impl Jolt {
+    fn convert_read_address(&self, address: u64) -> usize {
+        (address - self.io.memory_layout.input_start) as usize
+    }
+
+    fn convert_write_address(&self, address: u64) -> usize {
+        (address - self.io.memory_layout.output_start) as usize
+    }
+
+    fn convert_ram_address(&self, address: u64) -> usize {
+        (address - self.io.memory_layout.ram_witness_offset) as usize
+    }
 }
 
 impl Memory for Jolt {
@@ -17,13 +42,23 @@ impl Memory for Jolt {
     type Proof = UncheckedMemory;
 
     fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
-        let int_addr = self.io.convert_read_address(addr);
+        if !self.io.is_input(addr as u64) {
+            let int_addr = self.convert_ram_address(addr as u64);
+            return self.ram.query(int_addr as u32);
+        }
+        let int_addr = self.convert_read_address(addr as u64);
 
         if self.io.inputs.len() <= int_addr {
-            self.ram.query(addr)
+            let cl = CacheLine::ZERO;
+            (&cl, UncheckedMemory { data: cl.scalars() })
         } else {
-            let x = self.io.inputs[int_addr];
-            (x, UncheckedMemory { data: x.scalars() })
+            let st = (int_addr >> 12) + ((int_addr >> 5) & 0x7f);
+
+            let sl = [0; 32];
+            sl.clone_from_slice(&self.io.outputs[st..st + 32]);
+
+            let cl = CacheLine::from(sl);
+            (&cl, UncheckedMemory { data: cl.scalars() })
         }
     }
 
@@ -31,18 +66,37 @@ impl Memory for Jolt {
     where
         F: Fn(&mut CacheLine) -> Result<()>,
     {
-        if addr == self.io.memory_layout.panic {
+        if addr as u64 == self.io.memory_layout.panic {
             self.io.panic = true;
             return Err();
         }
-        let int_addr = self.io.convert_write_address(addr);
 
-        if self.io.outputs.len() <= int_addr {
-            return self.ram.update(int_addr + 1, f);
+        if !self.io.is_output(addr as u64) {
+            let int_addr = self.convert_ram_address(addr as u64);
+            return self.ram.update(int_addr as u32, f);
         }
 
-        f(&mut self.io.outputs[int_addr])?;
-        Ok(UncheckedMemory { data: self.io.outputs[int_addr].scalars() })
-    }
+        let int_addr = self.convert_write_address(addr as u64);
 
+        if self.io.outputs.len() <= int_addr {
+            self.io.outputs.resize(int_addr + 1, 0);
+        }
+
+        let st = (int_addr >> 12) + ((int_addr >> 5) & 0x7f);
+
+        let sl = [0; 32];
+        sl.clone_from_slice(&self.io.outputs[st..st + 32]);
+
+        let cl = CacheLine::from(sl);
+        f(&mut cl)?;
+
+        let mut tail = self.io.outputs.split_off(st + 32);
+        self.io.outputs.truncate(st);
+        self.io.outputs.extend_from_slice(&cl.bytes);
+        self.io.outputs.append(&mut tail);
+
+        Ok(UncheckedMemory {
+            data: cl.scalars(),
+        })
+    }
 }
