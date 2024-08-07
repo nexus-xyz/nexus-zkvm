@@ -1,6 +1,6 @@
-mod rv32;
 mod jolt;
 mod native;
+mod rv32;
 
 #[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
 pub use rv32::*;

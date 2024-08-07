@@ -1,8 +1,8 @@
 #[cfg(all(target_arch = "riscv32", not(feature = "jolt-io")))]
 mod riscv32 {
     extern crate alloc;
-    use serde::{de::DeserializeOwned, Serialize};
     use core::fmt::Write;
+    use serde::{de::DeserializeOwned, Serialize};
 
     // To simplify calling out to the environment, we keep the
     // argument registers intact, and place the function number

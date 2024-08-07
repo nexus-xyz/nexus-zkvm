@@ -61,7 +61,6 @@ pub fn read_segment(args: TokenStream, input: TokenStream) -> Result<TokenStream
             extern crate alloc;
             static mut OFFSET: usize = 0;
 
-            #[no_mangle]
             pub unsafe fn fetch_at_offset(exhaust: bool) -> Option<alloc::vec::Vec<u8>> {
                 if OFFSET >= #max_segment_len {
                     return None;
@@ -119,7 +118,6 @@ pub fn write_segment(args: TokenStream, input: TokenStream) -> Result<TokenStrea
         mod __inner {
             static mut OFFSET: usize = 0;
 
-            #[no_mangle]
             pub unsafe fn set_at_offset(bytes: &[u8]) -> bool {
                 if OFFSET + bytes.len() >= #max_segment_len {
                     return false;

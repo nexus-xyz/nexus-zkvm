@@ -47,7 +47,7 @@ mod jolt {
             }
         }
     }
-    pub use public_input::{read_public_input, read_from_public_input};
+    pub use public_input::{read_from_public_input, read_public_input};
 
     #[nexus_rt_macros::write_segment(PublicOutput)]
     mod public_output {
@@ -76,14 +76,17 @@ mod jolt {
 
     #[nexus_rt_macros::write_segment(PublicLogging)]
     mod logging {
-        /// Write a string to the output console (if any).
+        /// Write a string to the output memory segment (if large enough).
         pub fn write_log(s: &str) {
             let succ;
             unsafe {
-                succ = __inner::set_at_offset(&[
-                    s.as_bytes(),
-                    &[0x00], // add null-termination
-                ].concat());
+                succ = __inner::set_at_offset(
+                    &[
+                        s.as_bytes(),
+                        &[0x00], // add null-termination
+                    ]
+                    .concat(),
+                );
             }
 
             if !succ {
@@ -91,21 +94,25 @@ mod jolt {
             }
         }
 
-        /// Prints to the VM terminal
+        /// An empty type representing the logging memory segment
+        pub struct NexusLog;
+
+        impl core::fmt::Write for NexusLog {
+            fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+                write_log(s);
+                Ok(())
+            }
+        }
+
+        /// Write to the logging memory segment
         #[macro_export]
         macro_rules! print {
             ($($as:tt)*) => {
-                let succ;
-                unsafe {
-                    succ = __inner::set_at_offset(&[
-                        core::format_args!($($as)*).as_bytes(),
-                        &[0x00], // add null-termination
-                    ].concat());
-                }
-
-                if !succ {
-                    panic!("Logging memory segment is too small");
-                }
+                <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
+                    &mut nexus_rt::NexusLog,
+                    core::format_args!($($as)*),
+                )
+                    .unwrap()
             }
         }
 
@@ -116,22 +123,15 @@ mod jolt {
                 nexus_rt::print!("\n")
             };
             ($($as:tt)*) => {
-                let succ;
-                unsafe {
-                    succ = __inner::set_at_offset(&[
-                        core::format_args!("{}\n", core::format_args!($($as)*)).as_bytes(),
-                        &[0x00], // add null-termination
-                    ].concat());
-                }
-
-                if !succ {
-                    panic!("Logging memory segment is too small");
-                }
-
+                <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
+                    &mut nexus_rt::NexusLog,
+                    core::format_args!("{}\n", core::format_args!($($as)*)),
+                )
+                    .unwrap()
             };
         }
     }
-    pub use logging::{write_log};
+    pub use logging::{write_log, NexusLog};
 }
 
 #[cfg(all(target_arch = "riscv32", feature = "jolt-io"))]
