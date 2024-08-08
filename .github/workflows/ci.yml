@@ -70,3 +70,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: bnjbvr/cargo-machete@main
+
+  bench-riscv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install valgrind
+        run: sudo apt-get install -y valgrind
+      - name: Install iai-callgrind-runner
+        run: |
+            version=$(cargo metadata --format-version=1 |\
+            jq '.packages[] | select(.name == "iai-callgrind").version' |\
+            tr -d '"'
+            )
+            cargo install iai-callgrind-runner --version $version
+      - name: Run benchmarks
+        run: |
+            cargo bench --bench riscv_machine
+
