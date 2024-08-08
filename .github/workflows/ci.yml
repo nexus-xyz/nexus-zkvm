@@ -88,3 +88,11 @@ jobs:
         run: |
             cargo bench --bench riscv_machine
 
+  bench-nova-public-params:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run benchmarks
+        run: |
+            cargo bench --bench nova_public_parameter_generation
+
