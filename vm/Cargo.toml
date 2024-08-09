@@ -22,3 +22,10 @@ ark-relations.workspace = true
 ark-serialize.workspace = true
 ark-r1cs-std.workspace = true
 ark-bn254.workspace = true
+
+[dev-dependencies]
+iai-callgrind = "0.13.0"
+
+[[bench]]
+name = "riscv_machine"
+harness = false
