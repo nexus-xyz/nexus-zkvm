@@ -8,54 +8,32 @@ on:
       - main
 
 jobs:
-  check-fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-      - run: cargo fmt --all --check
-      - run: cd nova-benches && cargo fmt --check
-
   check-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-          target: riscv32i-unknown-none-elf
-      - run: cargo check --all-features
-      - run: cargo check --all-features --examples
+      - name: Install tooling and use Rust cache
+        uses: ./.github/actions/rust-cache
+      - run: cargo fmt --all --check
       - run: cargo check -p example --target=riscv32i-unknown-none-elf
-      - run: cd nova-benches && cargo check --benches
+      - run: cargo check --bins --examples --tests --benches --all-features
 
-  cargo-clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-      - run: cargo clippy --all-targets --all-features
-
-  test:
+  cargo-test:
     needs: check-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: stable
-      - run: cargo test -r --all-features
+      - name: Install tooling and use Rust cache
+        uses: ./.github/actions/rust-cache
+      - run: cargo test --bins --examples --all-features
 
   test-smoke:
     needs: check-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup target add riscv32i-unknown-none-elf
+      - name: Install tooling and use Rust cache
+        uses: ./.github/actions/rust-cache
       - run: assets/scripts/smoke.sh examples/src/bin/fib3_profiling.rs
 
   test-sdk:
@@ -63,7 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup target add riscv32i-unknown-none-elf
+      - name: Install tooling and use Rust cache
+        uses: ./.github/actions/rust-cache
       - run: assets/scripts/test_sdk.sh examples/src/bin/fib3_profiling.rs
 
   detect-unused-crate:

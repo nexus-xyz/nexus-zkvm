@@ -1,0 +1,12 @@
+name: Rust toolchain
+description: Set up Rust toolchain
+runs:
+  using: composite
+  steps:
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        components: rustfmt, clippy
+        target: riscv32i-unknown-none-elf
+    - uses: Swatinem/rust-cache@v2
