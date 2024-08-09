@@ -23,7 +23,7 @@ fn main() {
     // HyperNova relies on an structured reference string (SRS).
     // So we use a testing setup call that generates one for us.
     println!("Setting up testing HyperNova public parameters...");
-    let pp: PP = PP::generate_for_testing().expect("failed to generate parameters");
+    let pp: PP = PP::generate_for_testing(32).expect("failed to generate parameters");
 
     // defaults to local proving
     let prover: HyperNova<Local> = HyperNova::new_from_file(&path).expect("failed to load program");

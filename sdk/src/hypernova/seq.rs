@@ -155,8 +155,8 @@ impl Prover for HyperNova<Local> {
 impl Parameters for PP {
     type Error = Error;
 
-    fn generate_for_testing() -> Result<Self, Self::Error> {
-        Ok(gen_vm_test_pp(K).map_err(ProofError::from)?)
+    fn generate_for_testing(k: usize) -> Result<Self, Self::Error> {
+        Ok(gen_vm_test_pp(k).map_err(ProofError::from)?)
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
