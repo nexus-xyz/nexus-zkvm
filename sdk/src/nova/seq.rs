@@ -1,5 +1,6 @@
 use crate::compile;
 use crate::traits::*;
+use crate::utils;
 use crate::views::UncheckedView;
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -21,9 +22,6 @@ use nexus_core::prover::nova::error::ProofError;
 pub use nexus_core::prover::nova::types::SeqPP as PP;
 
 use std::marker::PhantomData;
-
-// hard-coded number of vm instructions to pack per recursion step
-const K: usize = 64;
 
 /// Errors that occur while proving using Nova.
 #[derive(Debug, Error)]
@@ -130,8 +128,8 @@ impl Prover for Nova<Local> {
                 .map_err(TapeError::from)?
                 .as_slice(),
         );
-
-        let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
+        let k = utils::determine_k();
+        let tr = trace(&mut self.vm, k, false).map_err(ProofError::from)?;
 
         Ok(Self::Proof {
             proof: prove_seq(pp, tr).map_err(ProofError::from)?,
@@ -154,7 +152,8 @@ impl Parameters for PP {
     type Error = Error;
 
     fn generate_for_testing() -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
+        let k = utils::determine_k();
+        Ok(gen_vm_pp(k, &()).map_err(ProofError::from)?)
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
@@ -192,7 +191,8 @@ impl Generate for PP {
     type Error = Error;
 
     fn generate() -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
+        let k = utils::determine_k();
+        Ok(gen_vm_pp(k, &()).map_err(ProofError::from)?)
     }
 }
 
