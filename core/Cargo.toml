@@ -36,13 +36,21 @@ ark-grumpkin.workspace = true
 [features]
 default = ["parallel", "prover_nova"]
 parallel = [
-   "ark-ff/parallel",
-   "ark-ec/parallel",
-   "ark-std/parallel",
-   "ark-crypto-primitives/parallel",
-   "ark-r1cs-std/parallel",
-   "nexus-nova/parallel",
+    "ark-ff/parallel",
+    "ark-ec/parallel",
+    "ark-std/parallel",
+    "ark-crypto-primitives/parallel",
+    "ark-r1cs-std/parallel",
+    "nexus-nova/parallel",
 ]
 prover_hypernova = ["dep:nexus-nova", "dep:spartan"]
 prover_nova = ["dep:nexus-nova", "dep:spartan"]
 prover_jolt = ["dep:nexus-jolt"]
+
+
+[dev-dependencies]
+iai-callgrind = "0.12.2"
+
+[[bench]]
+name = "riscv_machine"
+harness = false
