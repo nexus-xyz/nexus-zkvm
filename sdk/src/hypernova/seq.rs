@@ -1,5 +1,6 @@
 use crate::compile;
 use crate::traits::*;
+use crate::utils;
 use crate::views::UncheckedView;
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -23,9 +24,6 @@ pub use nexus_core::prover::hypernova::types::PP;
 pub use nexus_core::prover::hypernova::types::SRS;
 
 use std::marker::PhantomData;
-
-// hard-coded number of vm instructions to pack per recursion step
-const K: usize = 64;
 
 /// Errors that occur while proving using Nova.
 #[derive(Debug, Error)]
@@ -132,8 +130,8 @@ impl Prover for HyperNova<Local> {
                 .map_err(TapeError::from)?
                 .as_slice(),
         );
-
-        let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
+        let k = utils::determine_k();
+        let tr = trace(&mut self.vm, k, false).map_err(ProofError::from)?;
 
         Ok(Self::Proof {
             proof: prove_seq(pp, tr).map_err(ProofError::from)?,
@@ -156,7 +154,8 @@ impl Parameters for PP {
     type Error = Error;
 
     fn generate_for_testing() -> Result<Self, Self::Error> {
-        Ok(gen_vm_test_pp(K).map_err(ProofError::from)?)
+        let k = utils::determine_k();
+        Ok(gen_vm_test_pp(k).map_err(ProofError::from)?)
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
@@ -194,7 +193,8 @@ impl Generate for PP {
     type Error = Error;
 
     fn generate(srs: &SRS) -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, srs, &()).map_err(ProofError::from)?)
+        let k = utils::determine_k();
+        Ok(gen_vm_pp(k, srs, &()).map_err(ProofError::from)?)
     }
 }
 

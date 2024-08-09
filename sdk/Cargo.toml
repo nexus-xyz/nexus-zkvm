@@ -17,6 +17,7 @@ nexus-macro = { path = "../macro" }
 postcard = { version = "1.0.8", features = ["alloc"] }
 uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
 thiserror = "1.0.61"
+sysinfo = {version = "0.31.2", features = ["system"]}
 
 [dev-dependencies]
 nexus-profiler = { path = "../macro/profiler" }

@@ -1,6 +1,8 @@
 #![allow(clippy::needless_doctest_main)]
 #![doc = include_str!("../README.md")]
 
+mod utils;
+
 /// Interface into proving with [HyperNova](https://eprint.iacr.org/2023/573).
 pub mod hypernova;
 /// Experimental interface into proving with [Jolt](https://jolt.a16zcrypto.com/).
