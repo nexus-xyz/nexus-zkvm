@@ -81,6 +81,14 @@ impl NodeData {
     }
 
     #[inline]
+    fn take(&self) -> CacheLine {
+        match self {
+            Leaf { val } => *val,
+            _ => unreachable!(),
+        }
+    }
+
+    #[inline]
     fn left(&self) -> &Option<Box<Node>> {
         match self {
             Branch { left, .. } => left,
@@ -97,6 +105,7 @@ impl NodeData {
     }
 }
 
+#[allow(dead_code)]
 impl Node {
     // descend into a child, allocating if necessary
     fn descend(&mut self, left: bool, leaf: bool) -> &mut Box<Node> {
@@ -124,6 +133,14 @@ impl Node {
         match node {
             None => &CacheLine::ZERO,
             Some(n) => n.data.leaf(),
+        }
+    }
+
+    // return raw leaf value, or default if not allocated
+    fn take(node: &Option<Box<Node>>) -> CacheLine {
+        match node {
+            None => CacheLine::ZERO,
+            Some(n) => n.data.take(),
         }
     }
 
@@ -164,7 +181,7 @@ impl MerkleTrie {
 
     /// Query the tree at `addr` returning the `CacheLine` (and `Path` if hashes enabled).
     /// The default CacheLine is returned if the tree is unpopulated at `addr`.
-    pub fn query(&self, addr: u32) -> (&CacheLine, Path) {
+    pub fn query(&self, addr: u32) -> (CacheLine, Path) {
         let addr = addr.reverse_bits();
         let mut auth = Vec::new();
         let cl = self.query_inner(&self.root, &mut auth, 0, addr);
@@ -178,9 +195,9 @@ impl MerkleTrie {
         auth: &mut Vec<(bool, Digest)>,
         level: usize,
         addr: u32,
-    ) -> &CacheLine {
+    ) -> CacheLine {
         if level == CACHE_LOG {
-            return Node::leaf(node);
+            return Node::take(node);
         }
 
         let level = level + 1;
@@ -256,7 +273,7 @@ impl Default for MerkleTrie {
 impl Memory for MerkleTrie {
     type Proof = Path;
 
-    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
+    fn query(&self, addr: u32) -> (CacheLine, Self::Proof) {
         self.query(addr)
     }
 

@@ -52,7 +52,7 @@ pub trait Memory: Default {
     type Proof: MemoryProof;
 
     /// Query the cacheline at `addr`
-    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof);
+    fn query(&self, addr: u32) -> (CacheLine, Self::Proof);
 
     /// Update the cacheline at `addr` using the function `f`.
     fn update<F>(&mut self, addr: u32, f: F) -> Result<Self::Proof>

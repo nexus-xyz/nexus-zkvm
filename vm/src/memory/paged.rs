@@ -57,14 +57,14 @@ impl MemoryProof for UncheckedMemory {
 impl Memory for Paged {
     type Proof = UncheckedMemory;
 
-    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
+    fn query(&self, addr: u32) -> (CacheLine, Self::Proof) {
         let page = addr >> 12;
         let offset = ((addr >> 5) & 0x7f) as usize;
 
         const ZERO: CacheLine = CacheLine { words: [0; 8] };
         let cl = match self.tree.get(&page) {
-            None => &ZERO,
-            Some(arr) => &arr[offset],
+            None => ZERO,
+            Some(arr) => arr[offset],
         };
         (cl, UncheckedMemory { data: cl.scalars() })
     }

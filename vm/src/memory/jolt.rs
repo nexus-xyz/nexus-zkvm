@@ -41,7 +41,7 @@ impl Memory for Jolt {
     // the Jolt prover will generate its own memory proofs, so we don't need to provide them
     type Proof = UncheckedMemory;
 
-    fn query(&self, addr: u32) -> (&CacheLine, Self::Proof) {
+    fn query(&self, addr: u32) -> (CacheLine, Self::Proof) {
         if !self.io.is_input(addr as u64) {
             let int_addr = self.convert_ram_address(addr as u64);
             return self.ram.query(int_addr as u32);
@@ -50,15 +50,15 @@ impl Memory for Jolt {
 
         if self.io.inputs.len() <= int_addr {
             let cl = CacheLine::ZERO;
-            (&cl, UncheckedMemory { data: cl.scalars() })
+            (cl, UncheckedMemory { data: cl.scalars() })
         } else {
             let st = (int_addr >> 12) + ((int_addr >> 5) & 0x7f);
 
-            let sl = [0; 32];
+            let mut sl = [0; 32];
             sl.clone_from_slice(&self.io.outputs[st..st + 32]);
 
             let cl = CacheLine::from(sl);
-            (&cl, UncheckedMemory { data: cl.scalars() })
+            (cl, UncheckedMemory { data: cl.scalars() })
         }
     }
 
@@ -68,7 +68,11 @@ impl Memory for Jolt {
     {
         if addr as u64 == self.io.memory_layout.panic {
             self.io.panic = true;
-            return Err();
+
+            let sl = [0; 32];
+            let cl = CacheLine::from(sl);
+
+            return Ok(UncheckedMemory { data: cl.scalars() });
         }
 
         if !self.io.is_output(addr as u64) {
@@ -84,15 +88,15 @@ impl Memory for Jolt {
 
         let st = (int_addr >> 12) + ((int_addr >> 5) & 0x7f);
 
-        let sl = [0; 32];
+        let mut sl = [0; 32];
         sl.clone_from_slice(&self.io.outputs[st..st + 32]);
 
-        let cl = CacheLine::from(sl);
+        let mut cl = CacheLine::from(sl);
         f(&mut cl)?;
 
         let mut tail = self.io.outputs.split_off(st + 32);
         self.io.outputs.truncate(st);
-        self.io.outputs.extend_from_slice(&cl.bytes);
+        unsafe { self.io.outputs.extend_from_slice(&cl.bytes) };
         self.io.outputs.append(&mut tail);
 
         Ok(UncheckedMemory {
