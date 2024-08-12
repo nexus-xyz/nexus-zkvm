@@ -24,16 +24,16 @@ impl Default for Jolt {
 }
 
 impl Jolt {
-    fn convert_read_address(&self, address: u64) -> usize {
-        (address - self.io.memory_layout.input_start) as usize
+    fn convert_read_addr(&self, addr: u64) -> usize {
+        (addr - self.io.memory_layout.input_start) as usize
     }
 
-    fn convert_write_address(&self, address: u64) -> usize {
-        (address - self.io.memory_layout.output_start) as usize
+    fn convert_write_addr(&self, addr: u64) -> usize {
+        (addr - self.io.memory_layout.output_start) as usize
     }
 
-    fn convert_ram_address(&self, address: u64) -> usize {
-        (address - self.io.memory_layout.ram_witness_offset) as usize
+    fn is_ram(&self, addr: u64) -> bool {
+        !self.io.is_input(addr as u64) && !self.io.is_output(addr as u64) && !self.io.is_panic(addr as u64)
     }
 }
 
@@ -42,13 +42,12 @@ impl Memory for Jolt {
     type Proof = UncheckedMemory;
 
     fn query(&self, addr: u32) -> (CacheLine, Self::Proof) {
-        if !self.io.is_input(addr as u64) {
-            let int_addr = self.convert_ram_address(addr as u64);
-            return self.ram.query(int_addr as u32);
+        if self.is_ram(addr as u64) {
+            return self.ram.query(addr);
         }
-        let int_addr = self.convert_read_address(addr as u64);
+        let int_addr = self.convert_read_addr(addr as u64);
 
-        if self.io.inputs.len() <= int_addr {
+        if !self.io.is_input(addr as u64) || self.io.inputs.len() <= int_addr {
             let cl = CacheLine::ZERO;
             (cl, UncheckedMemory { data: cl.scalars() })
         } else {
@@ -75,12 +74,11 @@ impl Memory for Jolt {
             return Ok(UncheckedMemory { data: cl.scalars() });
         }
 
-        if !self.io.is_output(addr as u64) {
-            let int_addr = self.convert_ram_address(addr as u64);
-            return self.ram.update(int_addr as u32, f);
+        if !self.is_ram(addr as u64) {
+            return self.ram.update(addr, f);
         }
 
-        let int_addr = self.convert_write_address(addr as u64);
+        let int_addr = self.convert_write_addr(addr as u64);
 
         if self.io.outputs.len() <= int_addr {
             self.io.outputs.resize(int_addr + 1, 0);
