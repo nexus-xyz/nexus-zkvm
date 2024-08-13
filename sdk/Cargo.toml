@@ -12,7 +12,11 @@ categories = { workspace = true }
 [dependencies]
 serde.workspace = true
 
-nexus-core = { path = "../core", features = ["prover_nova", "prover_jolt", "prover_hypernova"] }
+nexus-core = { path = "../core", features = [
+    "prover_nova",
+    "prover_jolt",
+    "prover_hypernova",
+] }
 nexus-macro = { path = "../macro" }
 postcard = { version = "1.0.8", features = ["alloc"] }
 uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
@@ -20,6 +24,13 @@ thiserror = "1.0.61"
 
 [dev-dependencies]
 nexus-profiler = { path = "../macro/profiler" }
+criterion = "0.5.1"
+iai-callgrind = "0.12.2"
 
 [lib]
 doctest = false
+
+[[bench]]
+name = "nova_public_parameter_generation"
+harness = false
+
