@@ -4,7 +4,7 @@ type Input = (u32, u32);
 type Output = i32;
 
 const PACKAGE: &str = "example";
-const EXAMPLE: &str = "fib";
+const EXAMPLE: &str = "public_io";
 
 fn main() {
     let opts = CompileOpts::new_with_custom_binary(PACKAGE, EXAMPLE);
