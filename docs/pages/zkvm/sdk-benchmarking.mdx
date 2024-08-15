@@ -1,0 +1,182 @@
+---
+title: "Nexus zkVM SDK Benchmark"
+lang: en-US
+description: "Benchmark your Nexus project using the SDK"
+image: "/nexus-head.png"
+---
+
+import Image from "next/image";
+
+import { Steps } from "nextra/components";
+
+## Reproducible Proving and Verification
+
+<Steps>
+
+This example demonstrates how to use the Nexus SDK to generate proving and verification keys, compile a guest program, prove its execution, and verify the proof. The example uses the `guest` package as an example guest program.
+
+The `src/main.rs` at host side is as follows:
+
+```rust
+use nexus_sdk::{
+    compile::CompileOpts,
+    nova::seq::{Generate, Nova, PP},
+    Local, Prover, Verifiable,
+};
+
+const PACKAGE: &str = "guest";
+
+fn generate_pp_and_compile() -> (PP, Nova<Local>) {
+    let pp: PP = PP::generate().expect("failed to generate parameters");
+
+    let mut opts = CompileOpts::new(PACKAGE);
+    opts.set_memlimit(8); // use an 8mb memory
+
+    let prover: Nova<Local> = Nova::compile(&opts).expect("failed to compile guest program");
+
+    (pp, prover)
+}
+
+fn prove_execution(pp: &PP, prover: Nova<Local>) -> nexus_sdk::nova::seq::Proof {
+    let proof: nexus_sdk::nova::seq::Proof = prover.prove(pp).expect("failed to prove program");
+
+    proof
+}
+
+fn verify_execution(pp: &PP, proof: &nexus_sdk::nova::seq::Proof) {
+    proof.verify(pp).expect("failed to verify proof");
+}
+
+fn main() {
+    use std::time::Instant;
+
+    let start = Instant::now();
+    let (pp, prover) = generate_pp_and_compile();
+    let duration = start.elapsed();
+    println!(
+        "Time taken to generate PP and compile: {:.2} seconds",
+        duration.as_secs_f64()
+    );
+
+    let start = Instant::now();
+    let proof = prove_execution(&pp, prover);
+    let duration = start.elapsed();
+    println!(
+        "Time taken to prove execution: {:.2} seconds",
+        duration.as_secs_f64()
+    );
+
+    let start = Instant::now();
+    verify_execution(&pp, &proof);
+    let duration = start.elapsed();
+    println!(
+        "Time taken to verify execution: {:.2} seconds",
+        duration.as_secs_f64()
+    );
+}
+```
+
+The `src/guest/src/main.rs` at guest side is as follows:
+
+```rust
+#![no_std]
+#![no_main]
+
+#[nexus_rt::profile]
+fn fibonacci(n: u32) -> u32 {
+    fib(n)
+}
+
+fn fib(n: u32) -> u32 {
+    match n {
+        0 => 0,
+        1 => 1,
+        _ => fib(n - 1) + fib(n - 2),
+    }
+}
+
+
+
+#[nexus_rt::main]
+fn main() {
+    let n = 13;
+    assert_eq!(233, fibonacci(n));
+}
+```
+
+## Build flags
+
+
+In this example, we use the `-C target-cpu=apple-m1` flag to build the host program for the M1 chip.
+If you are using different CPUs, you can replace `apple-m1` with the corresponding CPU name.
+
+```rust 
+RUSTFLAGS='-C target-cpu=apple-m1' cargo build --release --package cargo-nexus --bin cargo-nexus
+```
+
+## Fibonacci benchmark
+
+The results below are obtained in 2024-08 on a MacBook Air M1 with 16 Gb of RAM.
+
+### RISC-V Cycles count
+
+Run command at `src/guest/` directory: `cargo-nexus nexus run 2>/dev/null`
+
+
+| n-th Fibonacci | Fibonacci (cycles)       | % of total | Cycle count overhead | Total program cycles |
+|----------------|--------------------------|------------|----------------------|----------------------|
+| 1              | 132                      | 42%        | 178                  | 310                  |
+| 1              | 237                      | 57%        | 178                  | 415                  |
+| 2              | 349                      | 66%        | 178                  | 527                  |
+| 3              | 566                      | 76%        | 178                  | 744                  |
+| 5              | 895                      | 83%        | 178                  | 1073                 |
+| 8              | 1441                     | 89%        | 178                  | 1619                 |
+| 13             | 2316                     | 92%        | 178                  | 2494                 |
+| 21             | 3737                     | 95%        | 178                  | 3915                 |
+| 34             | 6033                     | 97%        | 178                  | 6211                 |
+| 55             | 9750                     | 98%        | 178                  | 9928                 |
+| 89             | 15763                    | 98%        | 178                  | 15941                |
+| 144            | 25493                    | 99%        | 178                  | 25671                |
+| 233            | 41236                    | 99%        | 178                  | 41414                |
+
+
+
+### Execution time
+
+Prove command at the root directory: `cargo run --release 2>/dev/null`
+
+| n-th Fibonacci | Generate PP and Compile (seconds) | Prove (seconds) | Verify (seconds) | Total Time (seconds)|
+|----------------|-----------------------------------|-----------------|------------------|---------------------|
+| 1              | 20.94                             | 1.27            | 0.79             | 25                  |
+| 1              | 27.88                             | 4.21            | 1.39             | 34                  |
+| 2              | 28.82                             | 10.40           | 1.70             | 42                  |
+| 3              | 26.22                             | 14.67           | 1.51             | 43                  |
+| 5              | 25.03                             | 21.55           | 1.64             | 49                  |
+| 8              | 24.99                             | 33.51           | 1.63             | 61                  |
+| 13             | 24.99                             | 77.45           | 2.03             | 105                 |
+| 21             | 22.62                             | 96.93           | 1.74             | 123                 |
+| 34             | 25.10                             | 145.54          | 1.72             | 207                 |
+| 55             | 25.13                             | 235.26          | 1.73             | 263                 |
+| 89             | 24.83                             | 384.73          | 1.71             | 412                 |
+| 144            | 25.28                             | 629.38          | 1.88             | 658                 |
+| 233            | 25.22                             | 1028.26         | 1.78             | 1056                |
+
+
+### Graphs
+
+The graphs below illustrate the correlation between RISC-V cycles and prover time for the Fibonacci sequence calculation.
+
+1. The number in each bar represents the total execution time in seconds, which includes:
+   - Generating Public Parameters
+   - Proving
+   - Verifying
+2. Verification time is negligible compared to the prover time.
+
+3. Public parameters generation time remains constant at approximately 25 seconds across all iterations.
+
+
+<center>
+![Correlation between RISC-V cycles and Prover time](/images/fibonacci_performance.svg)
+</center>
+
+</Steps>
