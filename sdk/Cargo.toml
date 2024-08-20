@@ -20,6 +20,11 @@ thiserror = "1.0.61"
 
 [dev-dependencies]
 nexus-profiler = { path = "../macro/profiler" }
+criterion = "0.5.1"
 
 [lib]
 doctest = false
+
+[[bench]]
+name = "nova_public_parameter_generation"
+harness = false
