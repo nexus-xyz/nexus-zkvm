@@ -117,7 +117,17 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     )?;
 
     // add postcard because it is used for (de)serializing from/to the input/output tapes
-    cargo(Some(&guest_path), ["add", "postcard", "-F", "alloc"])?;
+    // Hardcode postcard version to 1.0.8
+    cargo(
+        Some(&guest_path),
+        [
+            "add",
+            "postcard@1.0.8",
+            "-F",
+            "alloc",
+            "--no-default-features",
+        ],
+    )?;
 
     let mut fp2 = fs::OpenOptions::new()
         .append(true)
