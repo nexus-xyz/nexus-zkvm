@@ -52,6 +52,12 @@ cp "$1" "$PROJECT_NAME/src/guest/src/main.rs"
 
 function run_project() {
 cargo update
+
+# Test the cycles feature inside the guest project
+pushd src/guest
+cargo nexus run
+popd
+
 cargo run --release
 }
 
