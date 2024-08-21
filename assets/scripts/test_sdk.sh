@@ -2,7 +2,8 @@
 set -e
 
 ORIGINAL_DIR=$(pwd)
-PROJECT_NAME="/tmp/nexus-host-ci"
+PROJECT_NAME="/tmp/nexus-host-ci1"
+CARGO_NEXUS="$(pwd)/target/release/cargo-nexus"
 
 function usage() {
     echo "Usage: $0 <file.rs>"
@@ -40,9 +41,9 @@ cargo build --release --package cargo-nexus --bin cargo-nexus
 
 function create_nexus_project() {
     if [[ -z "${GITHUB_SHA}" ]]; then
-        ./target/release/cargo-nexus nexus host "$PROJECT_NAME"
+        $CARGO_NEXUS nexus host "$PROJECT_NAME"
     else
-        ./target/release/cargo-nexus nexus host "$PROJECT_NAME" --rev "${GITHUB_SHA}"
+        $CARGO_NEXUS nexus host "$PROJECT_NAME" --rev "${GITHUB_SHA}"
     fi
 }
 
@@ -52,6 +53,12 @@ cp "$1" "$PROJECT_NAME/src/guest/src/main.rs"
 
 function run_project() {
 cargo update
+
+# Test the cycles feature inside the guest project
+pushd src/guest
+$CARGO_NEXUS nexus run
+popd
+
 cargo run --release
 }
 
