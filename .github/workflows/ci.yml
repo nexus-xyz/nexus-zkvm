@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches:
       - main
@@ -70,3 +71,46 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: bnjbvr/cargo-machete@main
+
+  bench-riscv:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'benchmark') || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install valgrind
+        run: sudo apt-get install -y valgrind
+      - name: Install iai-callgrind-runner
+        run: |
+            version=$(cargo metadata --format-version=1 |\
+            jq '.packages[] | select(.name == "iai-callgrind").version' |\
+            tr -d '"'
+            )
+            cargo install iai-callgrind-runner --version $version
+      - uses: bencherdev/bencher@main
+      - name: Run benchmarks with Bencher
+        run: |
+          bencher run \
+            --project bench-risc-v-trace \
+            --token '${{ secrets.BENCHER_API_TOKEN }}' \
+            --branch '${{ github.head_ref || github.ref_name }}' \
+            --testbed ubuntu-latest \
+            --adapter rust_iai_callgrind \
+            --err \
+            cargo bench --bench riscv_machine
+
+  bench-nova-public-params:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'benchmark') || github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run benchmarks
+        run: |
+          bencher run \
+            --project bench-nova-public-parameter \
+            --token '${{ secrets.BENCHER_API_TOKEN }}' \
+            --branch '${{ github.head_ref || github.ref_name }}' \
+            --testbed ubuntu-latest \
+            --adapter rust_iai_callgrind \
+            --err \
+            cargo bench --bench nova_public_parameter_generation
+
