@@ -90,3 +90,13 @@ jobs:
         run: |
             cargo bench --bench riscv_machine
 
+  bench-nova-public-params:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'benchmark')
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run benchmarks
+        run: |
+            cd nova-benches/
+            cargo bench --bench nova_public_parameter_generation
+

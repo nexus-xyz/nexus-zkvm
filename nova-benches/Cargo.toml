@@ -28,6 +28,10 @@ name = "nova"
 harness = false
 
 [[bench]]
+name = "nova_public_parameter_generation"
+harness = false
+
+[[bench]]
 name = "hypernova"
 harness = false
 

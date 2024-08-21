@@ -4,6 +4,7 @@ use ark_relations::r1cs::{ConstraintSystemRef, SynthesisError};
 use nexus_nova::StepCircuit;
 use std::marker::PhantomData;
 
+#[allow(dead_code)]
 pub const NUM_WARMUP_STEPS: usize = 10;
 
 pub struct NonTrivialTestCircuit<F> {
