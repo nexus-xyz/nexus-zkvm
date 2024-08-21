@@ -23,7 +23,7 @@ pub use nexus_core::prover::nova::types::SeqPP as PP;
 use std::marker::PhantomData;
 
 // hard-coded number of vm instructions to pack per recursion step
-const K: usize = 64;
+const K: usize = 16;
 
 /// Errors that occur while proving using Nova.
 #[derive(Debug, Error)]
