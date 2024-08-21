@@ -1,0 +1,213 @@
+---
+title: "Nexus zkVM Benchmark"
+lang: en-US
+description: "Benchmark your Nexus project using the SDK"
+image: "/nexus-head.png"
+---
+
+import Image from "next/image";
+
+## Benchmark Host and Guest program
+
+### Prerequisite
+
+Before you start, please [install the latest Nexus zkVM and create a Nexus host project](https://docs.nexus.xyz/zkvm/sdk-quick-start).
+
+This benchmark demonstrates the performance of Nexus zkVM using a Fibonacci sequence calculation as an example. We'll analyze both the guest program's RISC-V cycle count and the host program's execution time for various Fibonacci sequence lengths.
+
+After running `cargo nexus host benchmark`, a new Rust `benchmark` project directory is created with the following structure:
+
+```
+./benchmark
+├── Cargo.lock
+├── Cargo.toml
+└── src
+    ├── guest
+    │   ├── Cargo.toml
+    │   ├── rust-toolchain.toml
+    │   └── src
+    │       └── main.rs
+    └── main.rs
+```
+
+The guest program is located in `src/guest/src/main.rs`, and the host program is located in `src/main.rs`.
+
+
+### Host program
+
+Let's modify the host program `src/main.rs` as follows:
+
+```rust
+use nexus_sdk::{
+    compile::CompileOpts,
+    nova::seq::{Generate, Nova, PP},
+    Local, Prover, Verifiable,
+};
+
+const PACKAGE: &str = "guest";
+
+fn generate_pp_and_compile() -> (PP, Nova<Local>) {
+    let pp: PP = PP::generate().expect("failed to generate parameters");
+    let opts = CompileOpts::new(PACKAGE);
+
+    let prover: Nova<Local> = Nova::compile(&opts).expect("failed to compile guest program");
+
+    (pp, prover)
+}
+
+fn prove_execution(pp: &PP, prover: Nova<Local>) -> nexus_sdk::nova::seq::Proof {
+    prover.prove(pp).expect("failed to prove program")
+}
+
+fn verify_execution(pp: &PP, proof: &nexus_sdk::nova::seq::Proof) {
+    proof.verify(pp).expect("failed to verify proof");
+}
+
+fn main() {
+    use std::time::Instant;
+
+    let start = Instant::now();
+    let (pp, prover) = generate_pp_and_compile();
+    let duration = start.elapsed();
+    println!(
+        "Time taken to generate PP and compile: {:.2} seconds",
+        duration.as_secs_f64()
+    );
+
+    let start = Instant::now();
+    let proof = prove_execution(&pp, prover);
+    let duration = start.elapsed();
+    println!(
+        "Time taken to prove execution: {:.2} seconds",
+        duration.as_secs_f64()
+    );
+
+    let start = Instant::now();
+    verify_execution(&pp, &proof);
+    let duration = start.elapsed();
+    println!(
+        "Time taken to verify execution: {:.2} seconds",
+        duration.as_secs_f64()
+    );
+}
+```
+
+### Guest program
+
+And the guest program in `src/guest/src/main.rs` is as follows:
+
+```rust
+#![no_std]
+#![no_main]
+
+#[nexus_rt::profile]
+fn fibonacci(n: u32) -> u32 {
+    fib(n)
+}
+
+fn fib(n: u32) -> u32 {
+    match n {
+        0 => 0,
+        1 => 1,
+        _ => fib(n - 1) + fib(n - 2),
+    }
+}
+
+#[nexus_rt::main]
+fn main() {
+    let n = 5;
+    assert_eq!(5, fibonacci(n));
+}
+```
+
+`#[nexus_rt::profile]` macro is used to profile a function in the guest program.
+
+### Fibonacci benchmark
+
+The results below were obtained in 2024-08 on a MacBook Air M1 with 16 Gb of RAM.
+
+#### Profile guest RISC-V Cycles count
+
+In the `src/guest/` directory, run the command: `cargo nexus run 2>/dev/null`
+
+Using the `#[nexus_rt::profile]` macro, the example output from `cargo nexus run` for the 10th Fibonacci number is:
+
+```
+The 10-th Fibonacci number is: 55
+└── Total program cycles: 9928
+    └──  'src/guest/src/main.rs:profile': 9750 cycles (98% of total)
+```
+
+
+| n-th Fibonacci | Fibonacci (cycles)       | % of total | Cycle count overhead | Total program cycles |
+|----------------|--------------------------|------------|----------------------|----------------------|
+| 1              | 132                      | 42%        | 178                  | 310                  |
+| 1              | 237                      | 57%        | 178                  | 415                  |
+| 2              | 349                      | 66%        | 178                  | 527                  |
+| 3              | 566                      | 76%        | 178                  | 744                  |
+| 5              | 895                      | 83%        | 178                  | 1073                 |
+| 8              | 1441                     | 89%        | 178                  | 1619                 |
+| 13             | 2316                     | 92%        | 178                  | 2494                 |
+| 21             | 3737                     | 95%        | 178                  | 3915                 |
+| 34             | 6033                     | 97%        | 178                  | 6211                 |
+| 55             | 9750                     | 98%        | 178                  | 9928                 |
+| 89             | 15763                    | 98%        | 178                  | 15941                |
+| 144            | 25493                    | 99%        | 178                  | 25671                |
+| 233            | 41236                    | 99%        | 178                  | 41414                |
+
+
+
+#### Profile host execution time
+
+In the root directory, run the command: `cargo run --release 2>/dev/null`
+
+| n-th Fibonacci | Generate PP and Compile (seconds) | Prove (seconds) | Verify (seconds) | Total Time (seconds)|
+|----------------|-----------------------------------|-----------------|------------------|---------------------|
+| 1              | 20.94                             | 1.27            | 0.79             | 25                  |
+| 1              | 27.88                             | 4.21            | 1.39             | 34                  |
+| 2              | 28.82                             | 10.40           | 1.70             | 42                  |
+| 3              | 26.22                             | 14.67           | 1.51             | 43                  |
+| 5              | 25.03                             | 21.55           | 1.64             | 49                  |
+| 8              | 24.99                             | 33.51           | 1.63             | 61                  |
+| 13             | 24.99                             | 77.45           | 2.03             | 105                 |
+| 21             | 22.62                             | 96.93           | 1.74             | 123                 |
+| 34             | 25.10                             | 145.54          | 1.72             | 207                 |
+| 55             | 25.13                             | 235.26          | 1.73             | 263                 |
+| 89             | 24.83                             | 384.73          | 1.71             | 412                 |
+| 144            | 25.28                             | 629.38          | 1.88             | 658                 |
+| 233            | 25.22                             | 1028.26         | 1.78             | 1056                |
+
+
+#### Plotting the host and guest results
+
+The graphs below illustrate the relationship between guest RISC-V cycles and host prover time for the Fibonacci sequence calculation.
+
+Key observations:
+
+1. Total execution time (represented by the number in each bar) includes:
+
+- Public Parameters Generation
+- Proving
+- Verification
+
+2. Performance breakdown:
+
+- Verification time is negligible compared to proving time.
+- Public parameters generation remains consistent at ~25 seconds across all iterations.
+- Proving time increases significantly with the size of the Fibonacci sequence.
+- Guest program optimization is crucial, as RISC-V cycles directly impact overall proving time.
+
+<center>
+![Correlation between RISC-V cycles and Prover time](/images/fibonacci_performance.svg)
+</center>
+
+
+### Suggestions for Developers
+
+Based on the benchmark results, here are some key takeaways and suggestions for developers working with Nexus zkVM:
+
+1. **Optimize Guest Programs**: Focus on minimizing RISC-V cycles in your guest programs. The benchmark clearly shows that the number of RISC-V cycles directly impacts overall proving time, which is the most significant component of total execution time.
+
+2. **Consider Algorithm Efficiency**: When working on computationally demanding scenarios, prioritize efficient algorithm design and implementation. The Fibonacci sequence example demonstrates how complexity can quickly escalate proving time.
+
+3. **Profile Regularly**: Regularly profile your Nexus zkVM projects using tools like `#[nexus_rt::profile]` to identify performance bottlenecks and opportunities for optimization.
