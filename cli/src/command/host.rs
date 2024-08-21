@@ -116,6 +116,18 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
         ],
     )?;
 
+    // add postcard because it is used for (de)serializing from/to the input/output tapes
+    cargo(
+        Some(&guest_path),
+        [
+            "add",
+            "postcard@1.0.10",
+            "-F",
+            "alloc",
+            "--no-default-features",
+        ],
+    )?;
+
     let mut fp2 = fs::OpenOptions::new()
         .append(true)
         .open(guest_path.join("Cargo.toml"))?;
