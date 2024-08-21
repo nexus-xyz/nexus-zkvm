@@ -13,3 +13,4 @@ pub use nexus_rt_macros::{main, profile};
 
 mod ecalls;
 pub use ecalls::*;
+pub use postcard::*;
