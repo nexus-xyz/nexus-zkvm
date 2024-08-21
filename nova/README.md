@@ -6,7 +6,7 @@ Collection of folding schemes implementations using [arkworks](https://arkworks.
 - SuperNova[^2]
 - HyperNova[^3]
 
-Compared to original implementation of Nova by Microsoft research – https://github.com/microsoft/Nova, we use CycleFold[^4], at the cost of bigger verifier's circuit.
+The original implementation of Nova, from which we have adopted some utility functions, is due to Microsoft Research – https://github.com/microsoft/Nova. Compared to it, our implementation uses CycleFold[^4], at the cost of bigger verifier's circuit.
 
 ## Code structure
 
