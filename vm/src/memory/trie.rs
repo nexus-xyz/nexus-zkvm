@@ -50,7 +50,9 @@ impl Node {
     fn new_leaf() -> Self {
         Self {
             digest: Digest::default(),
-            data: Leaf { val: CacheLine::default() },
+            data: Leaf {
+                val: CacheLine::default(),
+            },
         }
     }
 
@@ -58,7 +60,10 @@ impl Node {
     fn new_node() -> Self {
         Self {
             digest: Digest::default(),
-            data: Branch { left: None, right: None },
+            data: Branch {
+                left: None,
+                right: None,
+            },
         }
     }
 }
@@ -101,7 +106,11 @@ impl Node {
     // descend into a child, allocating if necessary
     fn descend(&mut self, left: bool, leaf: bool) -> &mut Box<Node> {
         // descending into a leaf node is an fatal error.
-        let Node { data: Branch { left: l, right: r }, .. } = self else {
+        let Node {
+            data: Branch { left: l, right: r },
+            ..
+        } = self
+        else {
             panic!()
         };
         let node = if left { l } else { r };
@@ -203,7 +212,9 @@ impl MerkleTrie {
         if self.root.is_none() {
             self.root = Some(Box::new(Node::new_node()));
         }
-        let Some(ref mut b) = self.root else { unreachable!() };
+        let Some(ref mut b) = self.root else {
+            unreachable!()
+        };
 
         // Note: root is never accessed through self in update_inner,
         // so we can safely make the following optimization
@@ -249,7 +260,11 @@ impl Default for MerkleTrie {
     fn default() -> Self {
         let params = poseidon_config();
         let zeros = compute_zeros(&params).unwrap();
-        Self { root: None, zeros, params }
+        Self {
+            root: None,
+            zeros,
+            params,
+        }
     }
 }
 
@@ -276,7 +291,9 @@ mod test {
     #[test]
     #[should_panic]
     fn node_missing() {
-        let data = Leaf { val: CacheLine::default() };
+        let data = Leaf {
+            val: CacheLine::default(),
+        };
         let _ = data.left();
     }
 
@@ -284,7 +301,10 @@ mod test {
     fn node_alloc() {
         let mut node = Node::new_node();
         match node.data {
-            Branch { left: None, right: None } => (),
+            Branch {
+                left: None,
+                right: None,
+            } => (),
             _ => panic!(),
         }
 

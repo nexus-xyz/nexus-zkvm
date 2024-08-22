@@ -80,6 +80,8 @@ impl Memory for Paged {
             .entry(page)
             .or_insert_with(|| [CacheLine::default(); 128]);
         f(&mut arr[offset])?;
-        Ok(UncheckedMemory { data: arr[offset].scalars() })
+        Ok(UncheckedMemory {
+            data: arr[offset].scalars(),
+        })
     }
 }

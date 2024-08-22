@@ -268,7 +268,11 @@ pub mod test {
         let zeros = compute_zeros(params).unwrap();
         let auth = zeros[1..].iter().rev().map(|f| (true, *f)).collect();
         let leaf = CacheLine::default().scalars();
-        Path { root: zeros[0], leaf, auth }
+        Path {
+            root: zeros[0],
+            leaf,
+            auth,
+        }
     }
 
     #[test]

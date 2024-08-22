@@ -681,7 +681,12 @@ fn jal(cs: &mut R1CS, _vm: &Witness<impl MemoryProof>) {
 }
 
 fn jalr(cs: &mut R1CS, _vm: &Witness<impl MemoryProof>) {
-    const J: u32 = (JALR { rd: 0, rs1: 0, imm: 0 }).index_j();
+    const J: u32 = (JALR {
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
 
     cs.set_eq(&format!("Z{J}"), "pc+4");
     cs.set_eq(&format!("PC{J}"), "X+I");
@@ -700,22 +705,46 @@ fn alu(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
 
     bitops(cs, vm);
 
-    let start = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
-    let end = (ALU { aop: AND, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let start = (ALUI {
+        aop: ADD,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
+    let end = (ALU {
+        aop: AND,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     for j in start..=end {
         cs.set_eq(&format!("PC{j}"), "pc+4");
     }
 }
 
 fn add(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    const J: u32 = (ALU { aop: ADD, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    const J: u32 = (ALU {
+        aop: ADD,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
 
     add_cir(cs, "X+Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X+Y");
 }
 
 fn addi(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    const J: u32 = (ALUI { aop: ADD, rd: 0, rs1: 0, imm: 0 }).index_j();
+    const J: u32 = (ALUI {
+        aop: ADD,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
 
     add_cir(cs, "X+I", "X", "I", vm.X, vm.I);
     cs.set_eq(&format!("Z{J}"), "X+I");
@@ -846,30 +875,66 @@ fn sub_cir(cs: &mut R1CS, z_name: &str, x_name: &str, y_name: &str, x: u32, y: u
 }
 
 fn sub(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    const J: u32 = (ALU { aop: SUB, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    const J: u32 = (ALU {
+        aop: SUB,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
 
     sub_cir(cs, "X-Y", "X", "Y", vm.X, vm.Y);
     cs.set_eq(&format!("Z{J}"), "X-Y");
 }
 
 fn subi(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    const J: u32 = (ALUI { aop: SUB, rd: 0, rs1: 0, imm: 0 }).index_j();
+    const J: u32 = (ALUI {
+        aop: SUB,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
 
     sub_cir(cs, "X-I", "X", "I", vm.X, vm.I);
     cs.set_eq(&format!("Z{J}"), "X-I");
 }
 
 fn slt(cs: &mut R1CS) {
-    let J = (ALUI { aop: SLT, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: SLT,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "X<sI");
 
-    let J = (ALUI { aop: SLTU, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: SLTU,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "X<I");
 
-    let J = (ALU { aop: SLT, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: SLT,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "X<sY");
 
-    let J = (ALU { aop: SLTU, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: SLTU,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "X<Y");
 }
 
@@ -911,22 +976,58 @@ fn branch(cs: &mut R1CS, J: u32, cond_name: &str, inverse_cond_name: &str) {
 }
 
 fn br(cs: &mut R1CS) {
-    let J = (BR { bop: BEQ, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (BR {
+        bop: BEQ,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     branch(cs, J, "X=Y", "X!=Y");
 
-    let J = (BR { bop: BNE, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (BR {
+        bop: BNE,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     branch(cs, J, "X!=Y", "X=Y");
 
-    let J = (BR { bop: BLT, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (BR {
+        bop: BLT,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     branch(cs, J, "X<sY", "X>=sY");
 
-    let J = (BR { bop: BGE, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (BR {
+        bop: BGE,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     branch(cs, J, "X>=sY", "X<sY");
 
-    let J = (BR { bop: BLTU, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (BR {
+        bop: BLTU,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     branch(cs, J, "X<Y", "X>=Y");
 
-    let J = (BR { bop: BGEU, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (BR {
+        bop: BGEU,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     branch(cs, J, "X>=Y", "X<Y");
 }
 
@@ -1121,23 +1222,53 @@ fn load(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     cs.to_bits("X+I", addr);
     load_select(cs, "X+I", "read_mem", addr, false);
 
-    let J = (LOAD { lop: LW, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (LOAD {
+        lop: LW,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "read_mem32");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 
-    let J = (LOAD { lop: LHU, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (LOAD {
+        lop: LHU,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "read_mem16");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 
-    let J = (LOAD { lop: LBU, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (LOAD {
+        lop: LBU,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "read_mem8");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 
-    let J = (LOAD { lop: LB, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (LOAD {
+        lop: LB,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     sx8(cs, &format!("Z{J}"), "read_mem8");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 
-    let J = (LOAD { lop: LH, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (LOAD {
+        lop: LH,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     sx16(cs, &format!("Z{J}"), "read_mem16");
     cs.set_eq(&format!("PC{J}"), "pc+4");
 }
@@ -1152,7 +1283,13 @@ fn store(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
 }
 
 fn store_word(cs: &mut R1CS) {
-    let J = (STORE { sop: SW, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (STORE {
+        sop: SW,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
     // relate Y and write_mem32 only when the J-value is this one
@@ -1168,7 +1305,13 @@ fn store_word(cs: &mut R1CS) {
 }
 
 fn store_half(cs: &mut R1CS) {
-    let J = (STORE { sop: SH, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (STORE {
+        sop: SH,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
     // relate Y's bits and write_mem16 only when the J-value is this one
@@ -1192,7 +1335,13 @@ fn store_half(cs: &mut R1CS) {
 }
 
 fn store_byte(cs: &mut R1CS) {
-    let J = (STORE { sop: SB, rs1: 0, rs2: 0, imm: 0 }).index_j();
+    let J = (STORE {
+        sop: SB,
+        rs1: 0,
+        rs2: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_var(&format!("Z{J}"), 0);
     cs.set_eq(&format!("PC{J}"), "pc+4");
     // relate Y's bits and write_mem8 only when the J-value is this one
@@ -1343,22 +1492,58 @@ fn shift_left(cs: &mut R1CS, output: &str, X: u32, I: u32) {
 fn shift(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
     selector(cs, "shamt", 32, vm.shamt);
 
-    let J = (ALUI { aop: SLL, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: SLL,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     shift_left(cs, &format!("Z{J}"), vm.X, vm.shamt);
 
-    let J = (ALUI { aop: SRL, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: SRL,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, false);
 
-    let J = (ALUI { aop: SRA, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: SRA,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, true);
 
-    let J = (ALU { aop: SLL, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: SLL,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     shift_left(cs, &format!("Z{J}"), vm.X, vm.shamt);
 
-    let J = (ALU { aop: SRL, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: SRL,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, false);
 
-    let J = (ALU { aop: SRA, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: SRA,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     shift_right(cs, &format!("Z{J}"), vm.X, vm.shamt, true);
 }
 
@@ -1398,24 +1583,60 @@ fn bitops(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
         cs.mul(&format!("X&I_{i}"), &format!("X_{i}"), &format!("I_{i}"));
     }
 
-    let J = (ALUI { aop: AND, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: AND,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "X&I");
 
-    let J = (ALU { aop: AND, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: AND,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     cs.set_eq(&format!("Z{J}"), "X&Y");
 
     // or
-    let J = (ALUI { aop: OR, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: OR,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     bitop(cs, &format!("Z{J}"), "I", vm.X | vm.I, MINUS);
 
-    let J = (ALU { aop: OR, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: OR,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     bitop(cs, &format!("Z{J}"), "Y", vm.X | vm.Y, MINUS);
 
     // xor
-    let J = (ALUI { aop: XOR, rd: 0, rs1: 0, imm: 0 }).index_j();
+    let J = (ALUI {
+        aop: XOR,
+        rd: 0,
+        rs1: 0,
+        imm: 0,
+    })
+    .index_j();
     bitop(cs, &format!("Z{J}"), "I", vm.X ^ vm.I, F::from(-2));
 
-    let J = (ALU { aop: XOR, rd: 0, rs1: 0, rs2: 0 }).index_j();
+    let J = (ALU {
+        aop: XOR,
+        rd: 0,
+        rs1: 0,
+        rs2: 0,
+    })
+    .index_j();
     bitop(cs, &format!("Z{J}"), "Y", vm.X ^ vm.Y, F::from(-2));
 }
 

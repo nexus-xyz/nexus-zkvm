@@ -57,7 +57,10 @@ impl Default for R1CS {
 impl R1CS {
     #[inline]
     pub fn input_range(&self) -> Range<usize> {
-        Range { start: 1, end: 1 + self.arity }
+        Range {
+            start: 1,
+            end: 1 + self.arity,
+        }
     }
 
     #[inline]

@@ -70,7 +70,11 @@ impl<P: MemoryProof> Trace<P> {
         self.blocks.chunks(n).map(move |bs| {
             let start = index;
             index += n;
-            Trace { k: self.k, start, blocks: bs.to_vec() }
+            Trace {
+                k: self.k,
+                start,
+                blocks: bs.to_vec(),
+            }
         })
     }
 
@@ -135,7 +139,10 @@ fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
 
 // Generate a `Block` by evaluating `k` steps of `vm`.
 fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
-    let mut block = Block { regs: vm.regs.clone(), steps: Vec::new() };
+    let mut block = Block {
+        regs: vm.regs.clone(),
+        steps: Vec::new(),
+    };
 
     for _ in 0..k {
         block.steps.push(step(vm)?);
@@ -149,7 +156,11 @@ fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
 /// rounded up to the nearest power of two by inserting UNIMP
 /// instructions.
 pub fn trace<M: Memory>(vm: &mut NexusVM<M>, k: usize, pow: bool) -> Result<Trace<M::Proof>> {
-    let mut trace = Trace { k, start: 0, blocks: Vec::new() };
+    let mut trace = Trace {
+        k,
+        start: 0,
+        blocks: Vec::new(),
+    };
 
     loop {
         let block = k_step(vm, k)?;
@@ -222,7 +233,11 @@ pub struct BlockIter<'a, P: MemoryProof> {
 
 impl<P: MemoryProof> BlockIter<'_, P> {
     fn new(b: &Block<P>) -> BlockIter<'_, P> {
-        BlockIter { regs: b.regs.clone(), block: b, index: 0 }
+        BlockIter {
+            regs: b.regs.clone(),
+            block: b,
+            index: 0,
+        }
     }
 }
 

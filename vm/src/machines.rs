@@ -72,7 +72,10 @@ pub fn nop_code(k: usize) -> Vec<u32> {
 }
 
 fn nop_result(k: usize) -> Regs {
-    Regs { pc: k as u32 * 4, ..Regs::default() }
+    Regs {
+        pc: k as u32 * 4,
+        ..Regs::default()
+    }
 }
 
 /// Create a VM which loops k times

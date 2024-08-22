@@ -134,7 +134,12 @@ fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
             ..
         }, Inst {
             pc: pc2,
-            inst: RV32::JALR { rd: rd2, rs1, imm: imm2 },
+            inst:
+                RV32::JALR {
+                    rd: rd2,
+                    rs1,
+                    imm: imm2,
+                },
             ..
         }, ..]
             if rd1 == rs1 =>
@@ -145,13 +150,22 @@ fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
                     pc: *pc1,
                     len: 4,
                     word: 0,
-                    inst: RV32::ALUI { aop: AOP::ADD, rd: 0, rs1: 0, imm: 0 },
+                    inst: RV32::ALUI {
+                        aop: AOP::ADD,
+                        rd: 0,
+                        rs1: 0,
+                        imm: 0,
+                    },
                 },
                 Inst {
                     pc: *pc2,
                     len: 4,
                     word: 0,
-                    inst: RV32::JALR { rd: *rd2, rs1: 0, imm: target },
+                    inst: RV32::JALR {
+                        rd: *rd2,
+                        rs1: 0,
+                        imm: target,
+                    },
                 },
             ])
         }
