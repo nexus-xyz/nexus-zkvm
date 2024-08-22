@@ -1,8 +1,0 @@
-blank_issues_enabled: true
-contact_links:
-  - name: Telegram Chat
-    url: https://t.me/nexus_zkvm
-    about: Ask questions and discuss with other developers in real-time.
-  - name: Discussions
-    url: https://github.com/nexus-xyz/nexus-zkvm/discussions
-    about: Use GitHub discussions for message-board style questions and discussions.

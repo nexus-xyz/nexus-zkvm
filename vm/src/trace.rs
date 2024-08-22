@@ -13,56 +13,45 @@
 //! step contained in the block. The witnesses can be reconstructed
 //! by iterating over the steps in the block.
 
-use crate::circuit::F;
 use crate::error::Result;
 use crate::eval::{eval_inst, NexusVM, Regs};
-use crate::memory::{Memory, MemoryProof};
+use crate::memory::Memory;
 use crate::rv32::{parse::*, RV32::UNIMP};
 
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
 /// Represents a program trace.
-#[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Trace<P: MemoryProof> {
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct Trace {
     /// Steps per fold/block.
     pub k: usize,
     /// First block in this (sub)trace.
     pub start: usize,
     /// The blocks contained in this trace.
-    pub blocks: Vec<Block<P>>,
+    pub blocks: Vec<Block>,
 }
 
 /// A seqeunce of program steps.
-#[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Block<P: MemoryProof> {
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct Block {
     /// Starting register file for this block.
     pub regs: Regs,
     /// Sequence of `k` steps contained in this block.
-    pub steps: Vec<Step<P>>,
+    pub steps: Vec<Step>,
 }
 
 /// A program step.
-#[derive(Default, Clone, Serialize, Deserialize, CanonicalSerialize, CanonicalDeserialize)]
-pub struct Step<P: MemoryProof> {
+#[derive(Default, Clone, Serialize, Deserialize)]
+pub struct Step {
     /// Encoded NexusVM instruction.
     pub inst: u32,
     /// Result of instruction evaluation.
     pub Z: u32,
     /// Next program counter, for jump and branch instructions.
     pub PC: Option<u32>,
-    /// Merkle proof for instruction at pc.
-    #[serde(with = "crate::ark_serde")]
-    pub pc_proof: P,
-    /// Merkle proof for read instructions.
-    #[serde(with = "crate::ark_serde")]
-    pub read_proof: Option<P>,
-    /// Merkle proof for write instructions.
-    #[serde(with = "crate::ark_serde")]
-    pub write_proof: Option<P>,
 }
 
-impl<P: MemoryProof> Trace<P> {
+impl Trace {
     /// Split a trace into subtraces with `n` blocks each. Note, the
     /// final subtrace may contain fewer than `n` blocks.
     pub fn split_by(&self, n: usize) -> impl Iterator<Item = Self> + '_ {
@@ -79,7 +68,7 @@ impl<P: MemoryProof> Trace<P> {
     }
 
     /// Return block with index `n`, if it is contained in this (sub)trace.
-    pub fn block(&self, n: usize) -> Option<&Block<P>> {
+    pub fn block(&self, n: usize) -> Option<&Block> {
         if self.start > n || self.start + self.blocks.len() <= n {
             return None;
         }
@@ -95,19 +84,6 @@ impl<P: MemoryProof> Trace<P> {
         })
     }
 
-    /// Return the circuit input for block at index `n`.
-    /// This vector is compatible with the step circuit.
-    pub fn input(&self, n: usize) -> Option<Vec<F>> {
-        let b = self.block(n)?;
-        let mut v = Vec::new();
-        v.push(F::from(b.regs.pc));
-        for x in b.regs.x {
-            v.push(F::from(x));
-        }
-        v.push(b.steps[0].pc_proof.commit());
-        Some(v)
-    }
-
     /// Estimate the size, in bytes, of this trace.
     pub fn estimate_size(&self) -> usize {
         use std::mem::size_of_val as sizeof;
@@ -119,7 +95,7 @@ impl<P: MemoryProof> Trace<P> {
 }
 
 // Generate a `Step` by evaluating the next instruction of `vm`.
-fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
+fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step> {
     let pc = vm.regs.pc;
     eval_inst(vm)?;
     let step = Step {
@@ -130,15 +106,12 @@ fn step<M: Memory>(vm: &mut NexusVM<M>) -> Result<Step<M::Proof>> {
         } else {
             Some(vm.regs.pc)
         },
-        pc_proof: vm.pc_proof.clone(),
-        read_proof: vm.read_proof.clone(),
-        write_proof: vm.write_proof.clone(),
     };
     Ok(step)
 }
 
 // Generate a `Block` by evaluating `k` steps of `vm`.
-fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
+fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block> {
     let mut block = Block {
         regs: vm.regs.clone(),
         steps: Vec::new(),
@@ -155,7 +128,7 @@ fn k_step<M: Memory>(vm: &mut NexusVM<M>, k: usize) -> Result<Block<M::Proof>> {
 /// per block. If `pow` is true, the number of blocks will be
 /// rounded up to the nearest power of two by inserting UNIMP
 /// instructions.
-pub fn trace<M: Memory>(vm: &mut NexusVM<M>, k: usize, pow: bool) -> Result<Trace<M::Proof>> {
+pub fn trace<M: Memory>(vm: &mut NexusVM<M>, k: usize, pow: bool) -> Result<Trace> {
     let mut trace = Trace {
         k,
         start: 0,
@@ -182,7 +155,7 @@ pub fn trace<M: Memory>(vm: &mut NexusVM<M>, k: usize, pow: bool) -> Result<Trac
 
 /// Witness for a single VM step.
 #[derive(Default, Debug)]
-pub struct Witness<P: MemoryProof> {
+pub struct Witness {
     /// Initial register file.
     pub regs: Regs,
     /// Instruction being executed.
@@ -202,37 +175,31 @@ pub struct Witness<P: MemoryProof> {
     pub Z: u32,
     /// Program counter.
     pub PC: u32,
-    /// Proof for reading instruction at pc.
-    pub pc_proof: P,
-    /// Proof for load instructions.
-    pub read_proof: P,
-    /// Proof for store instructions.
-    pub write_proof: P,
 }
 
-impl<P: MemoryProof> Block<P> {
-    pub fn iter(&self) -> BlockIter<'_, P> {
+impl Block {
+    pub fn iter(&self) -> BlockIter<'_> {
         BlockIter::new(self)
     }
 }
 
-impl<'a, P: MemoryProof> IntoIterator for &'a Block<P> {
-    type Item = Witness<P>;
-    type IntoIter = BlockIter<'a, P>;
+impl<'a> IntoIterator for &'a Block {
+    type Item = Witness;
+    type IntoIter = BlockIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-pub struct BlockIter<'a, P: MemoryProof> {
+pub struct BlockIter<'a> {
     regs: Regs,
-    block: &'a Block<P>,
+    block: &'a Block,
     index: usize,
 }
 
-impl<P: MemoryProof> BlockIter<'_, P> {
-    fn new(b: &Block<P>) -> BlockIter<'_, P> {
+impl BlockIter<'_> {
+    fn new(b: &Block) -> BlockIter<'_> {
         BlockIter {
             regs: b.regs.clone(),
             block: b,
@@ -241,8 +208,8 @@ impl<P: MemoryProof> BlockIter<'_, P> {
     }
 }
 
-impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
-    type Item = Witness<P>;
+impl Iterator for BlockIter<'_> {
+    type Item = Witness;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index >= self.block.steps.len() {
@@ -263,9 +230,6 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
         } else {
             self.regs.pc + 4
         };
-        w.pc_proof = s.pc_proof.clone();
-        w.read_proof = s.read_proof.as_ref().unwrap_or(&w.pc_proof).clone();
-        w.write_proof = s.write_proof.as_ref().unwrap_or(&w.read_proof).clone();
 
         self.regs.pc = w.PC;
         if w.rd > 0 {
@@ -276,8 +240,8 @@ impl<P: MemoryProof> Iterator for BlockIter<'_, P> {
     }
 }
 
-fn parse_alt<P: MemoryProof>(regs: &Regs, word: u32) -> Witness<P> {
-    let mut w = Witness::<P>::default();
+fn parse_alt(regs: &Regs, word: u32) -> Witness {
+    let mut w = Witness::default();
 
     match opcode(word) {
         OPC_LUI => {
@@ -330,58 +294,4 @@ fn parse_alt<P: MemoryProof>(regs: &Regs, word: u32) -> Witness<P> {
         _ => (),
     };
     w
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::{
-        eval,
-        machines::{loop_vm, nop_vm},
-        memory::paged::Paged,
-        memory::trie::MerkleTrie,
-        NexusVMError,
-    };
-
-    // basic check that tracing and iteration succeeds
-    fn trace_test_machine(mut nvm: NexusVM<impl Memory>) {
-        let tr = trace(&mut nvm, 1, false).unwrap();
-        let mut pc = 0u32;
-        for b in tr.blocks {
-            for w in b.iter() {
-                pc = w.regs.pc;
-            }
-        }
-        assert_eq!(nvm.regs.pc, pc);
-    }
-
-    #[test]
-    fn trace_test_machines() {
-        trace_test_machine(loop_vm::<Paged>(5));
-        trace_test_machine(loop_vm::<MerkleTrie>(5));
-    }
-
-    #[test]
-    fn run_with_trace_limit() {
-        let mut vm = nop_vm::<MerkleTrie>(10);
-        // should fail because of appended UNIMP
-        vm.set_max_trace_len(10);
-
-        let result = eval(&mut vm, false, false);
-        assert!(matches!(
-            result,
-            Err(NexusVMError::MaxTraceLengthExceeded(len)) if len == 10
-        ));
-
-        // try with trace
-        let k = 1;
-        let mut vm = nop_vm::<MerkleTrie>(10);
-        vm.set_max_trace_len(10);
-
-        let result = trace(&mut vm, k, false);
-        assert!(matches!(
-            result,
-            Err(NexusVMError::MaxTraceLengthExceeded(len)) if len == 10
-        ));
-    }
 }

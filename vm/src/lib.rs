@@ -5,18 +5,12 @@
 
 pub mod error;
 pub mod eval;
-pub mod machines;
 pub mod rv32;
 
-pub mod syscalls;
 pub mod trace;
 
-mod ark_serde;
 pub mod memory;
 
-pub mod circuit;
-
-use clap::Args;
 use elf::{abi::PT_LOAD, endian::LittleEndian, ElfBytes};
 use std::fs::read;
 use std::path::PathBuf;
@@ -27,9 +21,6 @@ use eval::*;
 use memory::*;
 use rv32::*;
 use trace::*;
-
-// don't break API
-pub use machines::{loop_vm, nop_vm};
 
 // re-export
 #[doc(hidden)]
@@ -73,73 +64,18 @@ pub fn parse_elf<M: Memory>(bytes: &[u8]) -> Result<NexusVM<M>> {
     init_vm(&file, bytes)
 }
 
-/// A structure describing a VM to load.
-/// This structure can be used with clap.
-#[derive(Default, Debug, Args)]
-pub struct VMOpts {
-    /// Instructions per step
-    #[arg(short, name = "k", default_value = "1")]
-    pub k: usize,
-
-    /// Use a named test machine
-    #[arg(group = "vm", long, long_help(list_machines()))]
-    pub machine: Option<String>,
-
-    /// Input file, RISC-V 32i ELF
-    #[arg(group = "vm", required = true)]
-    pub file: Option<std::path::PathBuf>,
-}
-
-fn list_machines() -> String {
-    let ms = machines::MACHINES
-        .iter()
-        .map(|m| m.0.to_string())
-        .collect::<Vec<String>>()
-        .join(", ");
-    "Use a named machine: ".to_string() + &ms
-}
-
-/// Load the VM described by `opts`
-pub fn load_vm<M: Memory>(opts: &VMOpts) -> Result<NexusVM<M>> {
-    if let Some(m) = &opts.machine {
-        if let Some(vm) = machines::lookup_test_machine(m) {
-            Ok(vm)
-        } else {
-            Err(NexusVMError::UnknownMachine(m.clone()))
-        }
-    } else {
-        load_elf(opts.file.as_ref().unwrap())
-    }
-}
-
 /// Evaluate a program starting from a given machine state
-pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool, verbose: bool) -> Result<()> {
-    if show {
-        vm.syscalls.enable_stdout();
-    }
-
-    if verbose {
-        println!("\nExecution:");
-        println!(
-            "{:7} {:8} {:32} {:>8} {:>8} {:>8}",
-            "pc", "mem[pc]", "inst", "Z", "PC", "Cycles"
-        );
-    }
-    let t = std::time::Instant::now();
+pub fn eval(vm: &mut NexusVM<impl Memory>) -> Result<()> {
+    let _t = std::time::Instant::now();
 
     loop {
         eval_inst(vm)?;
-        if verbose {
-            println!(
-                "{:50} {:8x} {:8x} {:8}",
-                vm.inst, vm.Z, vm.regs.pc, vm.cycle_count
-            );
-        }
         if vm.inst.inst == RV32::UNIMP {
             break;
         }
     }
 
+    #[allow(dead_code)]
     fn table(name: &str, mem: &[u32]) {
         for (i, w) in mem.iter().enumerate() {
             print!("  {}{:02}: {:8x}", name, i, w);
@@ -150,77 +86,17 @@ pub fn eval(vm: &mut NexusVM<impl Memory>, show: bool, verbose: bool) -> Result<
         println!();
     }
 
-    if verbose {
-        println!("\nFinal Machine State: pc: {:x}", vm.regs.pc);
-        table("x", &vm.regs.x);
-
-        println!(
-            "Executed {} instructions in {:?}",
-            vm.trace_len,
-            t.elapsed()
-        );
-    }
-
-    if !vm.cycle_tracker.is_empty() {
-        // Print out the benchmark cycles in a tree-like structure
-        println!("Execution Summary:");
-        println!("└── Total program cycles: {}", vm.cycle_count);
-
-        // Sort the functions by cycle count in descending order
-        let mut sorted_functions: Vec<_> = vm.cycle_tracker.iter().collect();
-        sorted_functions.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
-
-        for (idx, (fn_name, (clk, cnt))) in sorted_functions.iter().enumerate() {
-            let percentage = clk * 100 / vm.cycle_count;
-            let prefix = if idx == sorted_functions.len() - 1 {
-                "└── "
-            } else {
-                "├── "
-            };
-            println!(
-                "    {} '{}': {} cycles ({}% of total)",
-                prefix, fn_name, clk, percentage
-            );
-            assert_eq!(*cnt, 0);
-        }
-    }
     Ok(())
-}
-
-/// Load and run an ELF file
-pub fn run_vm<M: Memory>(vm: &VMOpts, show: bool, verbose: bool) -> Result<()> {
-    let mut vm: NexusVM<M> = load_vm(vm)?;
-    eval(&mut vm, show, verbose)
 }
 
 /// Load and run an ELF file, then return the execution trace
 pub fn trace_vm<M: Memory>(
-    opts: &VMOpts,
+    vm: &mut NexusVM<M>,
+    k: usize,
     pow: bool,
-    show: bool,
-    verbose: bool,
-) -> Result<Trace<M::Proof>, NexusVMError> {
-    let mut vm = load_vm::<M>(opts)?;
-
-    if show {
-        vm.syscalls.enable_stdout();
-    }
-
-    if verbose {
-        println!("Executing program...");
-    }
-
-    let start = Instant::now();
-    let trace = trace::<M>(&mut vm, opts.k, pow)?;
-
-    if verbose {
-        println!(
-            "Executed {} instructions in {:?}. {} bytes used by trace.",
-            trace.k * trace.blocks.len(),
-            start.elapsed(),
-            &trace.estimate_size(),
-        );
-    }
+) -> Result<Trace, NexusVMError> {
+    let _start = Instant::now();
+    let trace = trace(vm, k, pow)?;
 
     Ok(trace)
 }
