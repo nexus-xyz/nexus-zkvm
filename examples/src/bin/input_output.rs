@@ -4,7 +4,7 @@ use nexus_rt::{Error, println, read_private_input, write_output};
 
 #[nexus_rt::main]
 fn main() {
-    let input:Result<(u32, u32), Error> = read_private_input::<(u32, u32)>();
+    let input: Result<(u32, u32), Error> = read_private_input::<(u32, u32)>();
 
     let mut z: i32 = -1;
     if let Ok((x, y)) = input {
