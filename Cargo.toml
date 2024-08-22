@@ -1,0 +1,79 @@
+[workspace]
+resolver = "2"
+members = [
+    "vm",
+]
+default-members = [
+    "vm",
+]
+
+[workspace.package]
+edition = "2021"
+version = "0.2.3"
+authors = ["The Nexus Team <hello@nexus.xyz>"]
+homepage = "https://nexus.xyz/"
+repository = "https://github.com/nexus-xyz/nexus-zkvm/"
+keywords = ["nexus", "zero-knowledge", "zkvm", "cryptography", "proofs"]
+categories = ["cryptography"]
+publish = false
+
+[workspace.dependencies]
+clap = { version = "4.3", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+elf = { version = "0.7", default-features = false, features = ["std"] }
+
+jsonrpsee = { version = "0.23", default-features = false }
+
+sha3 = { version = "0.10", default-features = false }
+hex = { version = "0.4.3" }
+
+ark-crypto-primitives = { version = "0.4.0", features = [
+    "r1cs",
+    "sponge",
+    "crh",
+    "merkle_tree",
+] }
+ark-std = "0.4.0"
+
+ark-relations = { version = "0.4.0" }
+ark-r1cs-std = { version = "0.4.0" }
+
+ark-ff = "0.4.0"
+ark-ec = { version = "0.4.0", default-features = false }
+ark-serialize = { version = "0.4.0", features = ["derive"] }
+ark-poly = "0.4.0"
+ark-poly-commit = "0.4.0"
+
+ark-bn254 = "0.4.0"
+ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-pallas = "0.4.0"
+ark-vesta = "0.4.0"
+ark-test-curves = { version = "0.4.2", features = ["bls12_381_curve"] }
+
+[patch.crates-io]
+ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
+
+ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
+
+ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+ark-test-curves = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
+
+ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "12f5529" }
+
+# note bls is using a different commit from the other curves
+ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }
+
+[profile.release]
+codegen-units = 1
+lto = true
+
+[profile.bench]
+inherits = "release"
+debug = true

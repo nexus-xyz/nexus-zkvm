@@ -1,0 +1,31 @@
+[package]
+name = "nexus-vm"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+clap.workspace = true
+elf.workspace = true
+serde.workspace = true
+thiserror = "1.0"
+
+ark-ff.workspace = true
+ark-crypto-primitives.workspace = true
+ark-std.workspace = true
+ark-relations.workspace = true
+ark-serialize.workspace = true
+ark-r1cs-std.workspace = true
+ark-bn254.workspace = true
+
+[dev-dependencies]
+iai-callgrind = "0.13.0"
+
+[[bench]]
+name = "riscv_machine"
+harness = false
