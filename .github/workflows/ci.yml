@@ -12,28 +12,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install tooling and use Rust cache
-        uses: ./.github/actions/rust-cache
+      - name: Setup Rust cache and install tooling
+        uses: ./.github/actions/rust-setup
       - run: cargo fmt --all --check
       - run: cargo check -p example --target=riscv32i-unknown-none-elf
       - run: cargo check --bins --examples --tests --benches --all-features
+      - run: cd nova-benches && cargo check --benches
 
   cargo-test:
     needs: check-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install tooling and use Rust cache
-        uses: ./.github/actions/rust-cache
-      - run: cargo test --bins --examples --all-features
+      - name: Setup Rust cache and install tooling
+        uses: ./.github/actions/rust-setup
+      - run: cargo test -r --bins --examples --all-features
 
   test-smoke:
     needs: check-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install tooling and use Rust cache
-        uses: ./.github/actions/rust-cache
+      - name: Setup Rust cache and install tooling
+        uses: ./.github/actions/rust-setup
       - run: assets/scripts/smoke.sh examples/src/bin/fib3_profiling.rs
 
   test-sdk:
@@ -41,8 +42,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install tooling and use Rust cache
-        uses: ./.github/actions/rust-cache
+      - name: Setup Rust cache and install tooling
+        uses: ./.github/actions/rust-setup
       - run: assets/scripts/test_sdk.sh examples/src/bin/fib3_profiling.rs
 
   detect-unused-crate:
