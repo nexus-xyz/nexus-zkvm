@@ -52,6 +52,7 @@ jobs:
       - uses: bnjbvr/cargo-machete@main
 
   bench-riscv:
+    needs: check-build
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'benchmark')
     steps:
@@ -70,6 +71,7 @@ jobs:
             cargo bench --bench riscv_machine
 
   bench-nova-public-params:
+    needs: check-build
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'benchmark')
     steps:
