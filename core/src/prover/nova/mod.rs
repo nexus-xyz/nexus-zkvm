@@ -66,6 +66,30 @@ pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
     Ok(tr)
 }
 
+#[cfg(feature = "partial_prove")]
+pub fn prove_partial_seq(
+    pp: &SeqPP,
+    trace: Trace,
+    start: usize,
+    len: usize,
+) -> Result<IVCProof, ProofError> {
+    let tr = init_circuit_trace(trace)?;
+
+    let end = start + len;
+    if end >= tr.steps() {
+        return Err(ProofError::InvalidIndex(tr.steps()));
+    }
+
+    let z_st = tr.input(start)?;
+    let mut proof = IVCProof::new(&z_st);
+
+    for _ in start..end {
+        proof = prove_seq_step(Some(proof), pp, &tr)?;
+    }
+
+    Ok(proof)
+}
+
 pub fn prove_seq(pp: &SeqPP, trace: Trace) -> Result<IVCProof, ProofError> {
     let tr = init_circuit_trace(trace)?;
 
