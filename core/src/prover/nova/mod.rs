@@ -66,6 +66,7 @@ pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
     Ok(tr)
 }
 
+// nb: feature-gated as only relevant for testing
 #[cfg(feature = "partial_prove")]
 pub fn prove_partial_seq(
     pp: &SeqPP,

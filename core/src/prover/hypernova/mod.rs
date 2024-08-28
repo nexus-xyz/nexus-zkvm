@@ -32,6 +32,7 @@ pub fn init_circuit_trace(trace: Trace) -> Result<SC, ProofError> {
     super::nova::init_circuit_trace(trace).map_err(ProofError::from)
 }
 
+// nb: feature-gated as only relevant for testing
 #[cfg(feature = "partial_prove")]
 pub fn prove_partial_seq(
     pp: &PP,
