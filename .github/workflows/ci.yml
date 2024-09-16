@@ -12,37 +12,38 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          components: rustfmt
+          toolchain: nightly-2024-01-04
       - run: cargo fmt --all --check
 
   check-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-          target: riscv32i-unknown-none-elf
-      - run: cargo check --all-features
+          toolchain: nightly-2024-01-04
+      - run: cargo check --all-features --all-targets
       - run: cargo check --all-features --examples
 
   cargo-clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-      - run: cargo clippy --all-targets --all-features
+          components: clippy
+          toolchain: nightly-2024-01-04
+      - run: cargo clippy --no-deps --all-targets --all-features
 
   test:
     needs: check-build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: nightly-2024-01-04
       - run: cargo test -r --all-features
