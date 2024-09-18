@@ -54,7 +54,7 @@ where
 
     columns
         .into_iter()
-        .zip(domains.into_iter())
+        .zip(domains)
         .map(|(col, domain)| {
             let mut col = coset_order_to_circle_domain_order(col.as_slice());
 
