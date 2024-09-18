@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use clap::Parser;
-use nexus_vm_prover::types::BooleanValue;
+use nexus_vm_prover::{types::BooleanValue, utils};
 use num_traits::{One as _, Zero as _};
 use stwo_prover::{
     constraint_framework::{
@@ -9,16 +9,15 @@ use stwo_prover::{
     },
     core::{
         air::Component as _,
-        backend::simd::{column::BaseColumn, SimdBackend},
+        backend::simd::SimdBackend,
         channel::Blake2sChannel,
-        fields::{m31::BaseField, Field},
+        fields::m31::BaseField,
         pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig},
         poly::{
             circle::{CanonicCoset, CircleEvaluation, PolyOps as _},
             BitReversedOrder,
         },
         prover::{prove, verify},
-        utils::bit_reverse,
         vcs::blake2_merkle::Blake2sMerkleChannel,
         ColumnVec,
     },
@@ -152,23 +151,6 @@ fn main() {
     );
 }
 
-fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
-    let mut circle_domain_order = Vec::with_capacity(values.len());
-    let n = values.len();
-
-    let half_len = n / 2;
-
-    for i in 0..half_len {
-        circle_domain_order.push(values[i << 1]);
-    }
-
-    for i in 0..half_len {
-        circle_domain_order.push(values[n - 1 - (i << 1)]);
-    }
-
-    circle_domain_order
-}
-
 impl Fib {
     pub const fn new(rows_log2: u32) -> Self {
         Self {
@@ -181,63 +163,53 @@ impl Fib {
         &self,
         seed: BaseField,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let domain = CanonicCoset::new(self.rows_log2).circle_domain();
+        utils::generate_trace(
+            [self.rows_log2, self.rows_log2],
+            |cols, seed| {
+                let (a, b) = cols.split_at_mut(1);
 
-        let mut a = vec![BaseField::zero(); self.rows];
-        let mut b = vec![BaseField::zero(); self.rows];
+                let a = &mut a[0];
+                let b = &mut b[0];
 
-        // initialize row 0
-        a[0] = seed;
-        b[0] = seed;
+                // initialize row 0
+                a[0] = seed;
+                b[0] = seed;
 
-        // execute the fibonacci program
-        for i in 1..self.rows {
-            b[i] = a[i - 1] + b[i - 1];
-            a[i] = b[i - 1];
-        }
-
-        // evaluate the columns to the domain
-        let mut a = coset_order_to_circle_domain_order(a.as_slice());
-        let mut b = coset_order_to_circle_domain_order(b.as_slice());
-
-        bit_reverse(&mut a);
-        bit_reverse(&mut b);
-
-        let a = BaseColumn::from_iter(a);
-        let b = BaseColumn::from_iter(b);
-
-        let a = CircleEvaluation::new(domain, a);
-        let b = CircleEvaluation::new(domain, b);
-
-        vec![a, b]
+                // execute the fibonacci program
+                for i in 1..a.len() {
+                    b[i] = a[i - 1] + b[i - 1];
+                    a[i] = b[i - 1];
+                }
+            },
+            seed,
+        )
     }
 
     pub fn aux_trace(
         &self,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let zero = BaseField::zero();
-        let one = BaseField::one();
-        let domain = CanonicCoset::new(self.rows_log2).circle_domain();
+        utils::generate_trace(
+            [self.rows_log2, self.rows_log2],
+            |cols, _| {
+                let zero = BaseField::zero();
+                let one = BaseField::one();
+                let (is_first, is_first_neg) = cols.split_at_mut(1);
 
-        let mut is_first = vec![BaseField::zero(); self.rows];
-        let mut is_first_neg = vec![BaseField::one(); self.rows];
+                let is_first = &mut is_first[0];
+                let is_first_neg = &mut is_first_neg[0];
 
-        is_first[0] = one;
-        is_first_neg[0] = zero;
+                // initialize row 0
+                is_first[0] = one;
+                is_first_neg[0] = zero;
 
-        let mut is_first = coset_order_to_circle_domain_order(is_first.as_slice());
-        let mut is_first_neg = coset_order_to_circle_domain_order(is_first_neg.as_slice());
-
-        bit_reverse(&mut is_first);
-        bit_reverse(&mut is_first_neg);
-
-        let is_first = BaseColumn::from_iter(is_first);
-        let is_first_neg = BaseColumn::from_iter(is_first_neg);
-
-        let is_first = CircleEvaluation::new(domain, is_first);
-        let is_first_neg = CircleEvaluation::new(domain, is_first_neg);
-
-        vec![is_first, is_first_neg]
+                // execute the fibonacci program
+                for i in 1..is_first.len() {
+                    is_first[i] = zero;
+                    is_first_neg[i] = one;
+                }
+            },
+            (),
+        )
     }
 }
 

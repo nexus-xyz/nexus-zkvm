@@ -1,4 +1,8 @@
-# Nexus zkVM Examples
+# Nexus zkVM Prover
+
+This serves as the foundation of the zkVM, tasked with capturing and synthesizing the execution trace into a succinct, zero-knowledge proof.
+
+## Examples
 
 #### Fibonacci (prover)
 
@@ -6,8 +10,8 @@ In this example, we demonstrate the use of STWO to create a Fibonacci program th
 
 ```
 cargo run --release \
-    -p nexus-examples \
-    --bin fibonacci -- \
+    -p nexus-vm-prover \
+    --example fibonacci -- \
     -r 6
 ```
 
