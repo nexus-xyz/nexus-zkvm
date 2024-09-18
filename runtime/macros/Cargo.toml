@@ -1,0 +1,24 @@
+[package]
+name = "nexus-rt-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-crate = "3.1.0"
+syn = { version = "2.0", features = ["full"] }
+tempdir = { version = "0.3.7" , optional = true }
+
+[[test]]
+name = "macro_expansion_tests"
+path = "macro_expansion_tests/test.rs"
+
+[features]
+testing = ["tempdir"]
+default = []
+
+

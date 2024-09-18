@@ -46,4 +46,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2024-01-04
+
+      - name: Install cargo-expand
+        run: cargo install cargo-expand
+
+      - name: Add RISC-V target
+        run: rustup target add riscv32i-unknown-none-elf
+
       - run: cargo test -r --all-features
+      - run: cargo test --package nexus-rt-macros --test macro_expansion_tests test_expansion --features testing

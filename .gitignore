@@ -1,0 +1,16 @@
+target
+Cargo.lock
+
+# editors
+.*.swp
+/.idea/*
+.config.env
+
+# public parameter files
+*.zst
+
+# proof file
+nexus-proof
+
+# macos
+.DS_Store
