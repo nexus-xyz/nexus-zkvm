@@ -16,3 +16,17 @@ cargo run --release \
 ```
 
 The argument supplied with `-r` is the `log2` of the total row count, which will generate a table containing `2^r` rows.
+
+#### Permutation (prover)
+
+In this example, we demonstrate the use of STWO to check many pairs of numbers are permutations.
+
+```
+cargo run --release \
+    -p nexus-vm-prover \
+    --example permutation -- \
+    -r 10
+```
+
+The argument supplied with `-r` is the `log2` of the total row count, which will generate a table containing `2^r` rows.
+

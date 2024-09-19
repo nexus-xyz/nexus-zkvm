@@ -10,7 +10,8 @@ use stwo_prover::core::{
     ColumnVec,
 };
 
-fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
+// TODO: remove 'pub' after using generate_trace in the permutation example
+pub fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
     let mut circle_domain_order = Vec::with_capacity(values.len());
     let n = values.len();
 
