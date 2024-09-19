@@ -1,13 +1,7 @@
 [workspace]
 resolver = "2"
-members = [
-    "runtime",
-    "prover",
-]
-default-members = [
-    "runtime",
-    "prover",
-]
+members = ["runtime", "prover", "vm"]
+default-members = ["runtime", "prover", "vm"]
 
 [workspace.package]
 edition = "2021"

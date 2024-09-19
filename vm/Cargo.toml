@@ -1,0 +1,15 @@
+[package]
+name = "nexus-vm"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
+
+[dependencies]
+elf = "0.7"
+thiserror = "1.0"
+rrs-lib = { git = "https://github.com/GregAC/rrs/" }
