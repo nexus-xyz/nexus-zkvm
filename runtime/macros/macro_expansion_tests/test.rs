@@ -2,12 +2,12 @@
 use std::{path::PathBuf, process::Command};
 
 #[cfg(feature = "testing")]
-use tempdir::TempDir;
+use tempfile::{tempdir, TempDir};
 
 /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
 fn create_tmp_dir() -> TempDir {
     // Create a temporary directory.
-    let tmp_dir = TempDir::new("macro-expansion").expect("Failed to create temporary directory");
+    let tmp_dir = tempdir().expect("Failed to create temporary directory");
     let tmp_dir_path = tmp_dir.path().join("expansion");
     let tmp_dir_str = tmp_dir_path.to_str().unwrap();
 
@@ -71,7 +71,10 @@ fn apply_proc_macro(tmp_project_path: PathBuf, test: String) -> (String, String)
         .output()
         .expect("Failed to run test");
 
-    assert!(output.status.success());
+    if !output.status.success() {
+        eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
+        panic!("cargo expand failed for RISC-V target");
+    }
 
     let expanded_riscv = String::from_utf8_lossy(&output.stdout);
 
