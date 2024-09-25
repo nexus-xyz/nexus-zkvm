@@ -19,16 +19,14 @@ use array2d::Array2D;
 use byte_unit::Byte;
 use clap::Parser;
 // TODO: figure out a safe way to expose the is_first column to the verifier
-use itertools::{zip_eq, Itertools};
+use itertools::Itertools;
 use num_traits::{One, Zero};
 use std::{
-    array,
-    ops::{Mul, Sub},
     panic,
     time::{Duration, Instant},
 };
 
-use nexus_vm_prover::utils::coset_order_to_circle_domain_order;
+use nexus_vm_prover::utils::{coset_order_to_circle_domain_order, EvalAtRowExtra, PermElements};
 use stwo_prover::{
     constraint_framework::{
         assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
@@ -43,7 +41,7 @@ use stwo_prover::{
             },
             Column,
         },
-        channel::{Blake2sChannel, Channel},
+        channel::Blake2sChannel,
         fields::{
             m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords, FieldExpOps,
         },
@@ -62,43 +60,6 @@ use stwo_prover::{
 
 // Maybe useful for other examples
 
-// This is very similar to LookupElement in logup.rs.
-// I'm avoiding logup.rs because it's not randomized preprocessed AIR.
-// logup.rs puts claimed_sum (which is not a low-degree polynomial) as constant into constraints.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PermElements<const N: usize> {
-    pub z: SecureField,
-    pub alpha: SecureField,
-    alpha_powers: [SecureField; N],
-}
-impl<const N: usize> PermElements<N> {
-    pub fn draw(channel: &mut impl Channel) -> Self {
-        let [z, alpha] = channel.draw_felts(2).try_into().unwrap();
-        let mut cur = SecureField::one();
-        let alpha_powers = std::array::from_fn(|_| {
-            let res = cur;
-            cur *= alpha;
-            res
-        });
-        Self {
-            z,
-            alpha,
-            alpha_powers,
-        }
-    }
-
-    // The iterator needs to return [N] elements. Avoiding a slice because no need of
-    // contiguous memory.
-    pub fn combine<F: Copy, EF, I: IntoIterator<Item = F>>(&self, values: I) -> EF
-    where
-        EF: Copy + Zero + From<F> + From<SecureField> + Mul<F, Output = EF> + Sub<EF, Output = EF>,
-    {
-        zip_eq(values, self.alpha_powers).fold(EF::zero(), |acc, (value, power)| {
-            acc + EF::from(power) * value
-        }) - EF::from(self.z)
-    }
-}
-
 fn to_bitreverse_eval_base_columns(base_column: &BaseColumn) -> BaseColumn {
     let mut eval = coset_order_to_circle_domain_order(base_column.as_slice());
     bit_reverse(&mut eval);
@@ -112,15 +73,6 @@ fn reorder_secure_column_by_coords_for_eval(
     bit_reverse(&mut c_circle_domain);
     SecureColumnByCoords::<SimdBackend>::from_iter(c_circle_domain)
 }
-
-trait EvalAtRowExtra: EvalAtRow {
-    /// Returns the mask values of offset zero for the next C columns in the interaction zero.
-    fn next_trace_masks<const C: usize>(&mut self) -> [Self::F; C] {
-        array::from_fn(|_i| self.next_trace_mask())
-    }
-}
-
-impl<T: EvalAtRow> EvalAtRowExtra for T {}
 
 trait IterBaseField {
     fn iter_base_field(&self) -> impl Iterator<Item = BaseField>;
