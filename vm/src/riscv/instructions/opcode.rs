@@ -3,8 +3,61 @@
 use std::fmt::Display;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
+pub struct Opcode {
+    raw: u32,
+    builtin: Option<BuiltinOpcode>,
+    name: &'static str,
+}
+
+impl Opcode {
+    pub fn new(opcode: u32, name: &'static str) -> Self {
+        Self {
+            raw: opcode,
+            builtin: None,
+            name,
+        }
+    }
+
+    pub fn is_builtin(&self) -> bool {
+        self.builtin.is_some()
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+}
+
+impl From<BuiltinOpcode> for Opcode {
+    fn from(opcode: BuiltinOpcode) -> Self {
+        Self {
+            raw: opcode.raw(),
+            builtin: Some(opcode),
+            name: opcode.mnemonic(),
+        }
+    }
+}
+
+impl TryInto<BuiltinOpcode> for Opcode {
+    type Error = crate::error::VMError;
+
+    fn try_into(self) -> Result<BuiltinOpcode, Self::Error> {
+        if !self.is_builtin() {
+            return Err(Self::Error::FailureProcessingKnownInstruction(self));
+        }
+
+        Ok(self.builtin.unwrap())
+    }
+}
+
+impl Display for Opcode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.name())
+    }
+}
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
 #[allow(clippy::upper_case_acronyms)]
-pub enum Opcode {
+pub enum BuiltinOpcode {
     // R-type instructions
     ADD,  // Add
     SUB,  // Subtract
@@ -73,82 +126,137 @@ pub enum Opcode {
 
     // Placeholder for unimplemented instructions
     UNIMPL,
-
-    // Custom instruction placeholders
-    // The Opcode enum is designed to be 1 byte for memory efficiency.
-    // RISC-V 32IM uses 50 opcodes, leaving space for up to 206 custom instructions.
-    // Custom instructions can be numbered from 0 to 205.
-    CUSTOM0,
-    CUSTOM1,
-    CUSTOM2,
 }
 
-impl Opcode {
+impl BuiltinOpcode {
     fn mnemonic(&self) -> &'static str {
         match self {
-            Opcode::ADD => "add",
-            Opcode::SUB => "sub",
-            Opcode::SLL => "sll",
-            Opcode::SLT => "slt",
-            Opcode::SLTU => "sltu",
-            Opcode::XOR => "xor",
-            Opcode::SRL => "srl",
-            Opcode::SRA => "sra",
-            Opcode::OR => "or",
-            Opcode::AND => "and",
+            BuiltinOpcode::ADD => "add",
+            BuiltinOpcode::SUB => "sub",
+            BuiltinOpcode::SLL => "sll",
+            BuiltinOpcode::SLT => "slt",
+            BuiltinOpcode::SLTU => "sltu",
+            BuiltinOpcode::XOR => "xor",
+            BuiltinOpcode::SRL => "srl",
+            BuiltinOpcode::SRA => "sra",
+            BuiltinOpcode::OR => "or",
+            BuiltinOpcode::AND => "and",
 
-            Opcode::MUL => "mul",
-            Opcode::MULH => "mulh",
-            Opcode::MULHSU => "mulhsu",
-            Opcode::MULHU => "mulhu",
-            Opcode::DIV => "div",
-            Opcode::DIVU => "divu",
-            Opcode::REM => "rem",
-            Opcode::REMU => "remu",
+            BuiltinOpcode::MUL => "mul",
+            BuiltinOpcode::MULH => "mulh",
+            BuiltinOpcode::MULHSU => "mulhsu",
+            BuiltinOpcode::MULHU => "mulhu",
+            BuiltinOpcode::DIV => "div",
+            BuiltinOpcode::DIVU => "divu",
+            BuiltinOpcode::REM => "rem",
+            BuiltinOpcode::REMU => "remu",
 
-            Opcode::ADDI => "addi",
-            Opcode::SLTI => "slti",
-            Opcode::SLTIU => "sltiu",
-            Opcode::XORI => "xori",
-            Opcode::ORI => "ori",
-            Opcode::ANDI => "andi",
-            Opcode::SLLI => "slli",
-            Opcode::SRLI => "srli",
-            Opcode::SRAI => "srai",
-            Opcode::LB => "lb",
-            Opcode::LH => "lh",
-            Opcode::LW => "lw",
-            Opcode::LBU => "lbu",
-            Opcode::LHU => "lhu",
-            Opcode::JALR => "jalr",
-            Opcode::ECALL => "ecall",
-            Opcode::EBREAK => "ebreak",
-            Opcode::FENCE => "fence",
+            BuiltinOpcode::ADDI => "addi",
+            BuiltinOpcode::SLTI => "slti",
+            BuiltinOpcode::SLTIU => "sltiu",
+            BuiltinOpcode::XORI => "xori",
+            BuiltinOpcode::ORI => "ori",
+            BuiltinOpcode::ANDI => "andi",
+            BuiltinOpcode::SLLI => "slli",
+            BuiltinOpcode::SRLI => "srli",
+            BuiltinOpcode::SRAI => "srai",
+            BuiltinOpcode::LB => "lb",
+            BuiltinOpcode::LH => "lh",
+            BuiltinOpcode::LW => "lw",
+            BuiltinOpcode::LBU => "lbu",
+            BuiltinOpcode::LHU => "lhu",
+            BuiltinOpcode::JALR => "jalr",
+            BuiltinOpcode::ECALL => "ecall",
+            BuiltinOpcode::EBREAK => "ebreak",
+            BuiltinOpcode::FENCE => "fence",
 
-            Opcode::SB => "sb",
-            Opcode::SH => "sh",
-            Opcode::SW => "sw",
+            BuiltinOpcode::SB => "sb",
+            BuiltinOpcode::SH => "sh",
+            BuiltinOpcode::SW => "sw",
 
-            Opcode::BEQ => "beq",
-            Opcode::BNE => "bne",
-            Opcode::BLT => "blt",
-            Opcode::BGE => "bge",
-            Opcode::BLTU => "bltu",
-            Opcode::BGEU => "bgeu",
+            BuiltinOpcode::BEQ => "beq",
+            BuiltinOpcode::BNE => "bne",
+            BuiltinOpcode::BLT => "blt",
+            BuiltinOpcode::BGE => "bge",
+            BuiltinOpcode::BLTU => "bltu",
+            BuiltinOpcode::BGEU => "bgeu",
 
-            Opcode::LUI => "lui",
-            Opcode::AUIPC => "auipc",
+            BuiltinOpcode::LUI => "lui",
+            BuiltinOpcode::AUIPC => "auipc",
 
-            Opcode::JAL => "jal",
+            BuiltinOpcode::JAL => "jal",
 
-            Opcode::NOP => "nop",
+            BuiltinOpcode::NOP => "nop",
 
             _ => "unimp",
         }
     }
+
+    fn raw(&self) -> u32 {
+        match self {
+            BuiltinOpcode::ADD => 0b0110011,
+            BuiltinOpcode::SUB => 0b0110011,
+            BuiltinOpcode::SLL => 0b0110011,
+            BuiltinOpcode::SLT => 0b0110011,
+            BuiltinOpcode::SLTU => 0b0110011,
+            BuiltinOpcode::XOR => 0b0110011,
+            BuiltinOpcode::SRL => 0b0110011,
+            BuiltinOpcode::SRA => 0b0110011,
+            BuiltinOpcode::OR => 0b0110011,
+            BuiltinOpcode::AND => 0b0110011,
+
+            BuiltinOpcode::MUL => 0b0110011,
+            BuiltinOpcode::MULH => 0b0110011,
+            BuiltinOpcode::MULHSU => 0b0110011,
+            BuiltinOpcode::MULHU => 0b0110011,
+            BuiltinOpcode::DIV => 0b0110011,
+            BuiltinOpcode::DIVU => 0b0110011,
+            BuiltinOpcode::REM => 0b0110011,
+            BuiltinOpcode::REMU => 0b0110011,
+
+            BuiltinOpcode::ADDI => 0b0010011,
+            BuiltinOpcode::SLTI => 0b0010011,
+            BuiltinOpcode::SLTIU => 0b0010011,
+            BuiltinOpcode::XORI => 0b0010011,
+            BuiltinOpcode::ORI => 0b0010011,
+            BuiltinOpcode::ANDI => 0b0010011,
+            BuiltinOpcode::SLLI => 0b0010011,
+            BuiltinOpcode::SRLI => 0b0010011,
+            BuiltinOpcode::SRAI => 0b0010011,
+            BuiltinOpcode::LB => 0b0000011,
+            BuiltinOpcode::LH => 0b0000011,
+            BuiltinOpcode::LW => 0b0000011,
+            BuiltinOpcode::LBU => 0b0000011,
+            BuiltinOpcode::LHU => 0b0000011,
+            BuiltinOpcode::JALR => 0b1100111,
+            BuiltinOpcode::ECALL => 0b1110011,
+            BuiltinOpcode::EBREAK => 0b1110011,
+            BuiltinOpcode::FENCE => 0b0001111,
+
+            BuiltinOpcode::SB => 0b0100011,
+            BuiltinOpcode::SH => 0b0100011,
+            BuiltinOpcode::SW => 0b0100011,
+
+            BuiltinOpcode::BEQ => 0b1100011,
+            BuiltinOpcode::BNE => 0b1100011,
+            BuiltinOpcode::BLT => 0b1100011,
+            BuiltinOpcode::BGE => 0b1100011,
+            BuiltinOpcode::BLTU => 0b1100011,
+            BuiltinOpcode::BGEU => 0b1100011,
+
+            BuiltinOpcode::LUI => 0b0110111,
+            BuiltinOpcode::AUIPC => 0b0010111,
+
+            BuiltinOpcode::JAL => 0b1101111,
+
+            BuiltinOpcode::NOP => 0b0010011,
+
+            _ => 0b000000,
+        }
+    }
 }
 
-impl Display for Opcode {
+impl Display for BuiltinOpcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.mnemonic())
     }
@@ -160,33 +268,31 @@ mod tests {
 
     #[test]
     fn test_opcode_mnemonic() {
-        assert_eq!(Opcode::ADD.mnemonic(), "add");
-        assert_eq!(Opcode::SUB.mnemonic(), "sub");
-        assert_eq!(Opcode::SLL.mnemonic(), "sll");
-        assert_eq!(Opcode::MUL.mnemonic(), "mul");
-        assert_eq!(Opcode::ADDI.mnemonic(), "addi");
-        assert_eq!(Opcode::LB.mnemonic(), "lb");
-        assert_eq!(Opcode::SB.mnemonic(), "sb");
-        assert_eq!(Opcode::BEQ.mnemonic(), "beq");
-        assert_eq!(Opcode::LUI.mnemonic(), "lui");
-        assert_eq!(Opcode::JAL.mnemonic(), "jal");
-        assert_eq!(Opcode::UNIMPL.mnemonic(), "unimp");
-        assert_eq!(Opcode::CUSTOM0.mnemonic(), "unimp");
+        assert_eq!(BuiltinOpcode::ADD.mnemonic(), "add");
+        assert_eq!(BuiltinOpcode::SUB.mnemonic(), "sub");
+        assert_eq!(BuiltinOpcode::SLL.mnemonic(), "sll");
+        assert_eq!(BuiltinOpcode::MUL.mnemonic(), "mul");
+        assert_eq!(BuiltinOpcode::ADDI.mnemonic(), "addi");
+        assert_eq!(BuiltinOpcode::LB.mnemonic(), "lb");
+        assert_eq!(BuiltinOpcode::SB.mnemonic(), "sb");
+        assert_eq!(BuiltinOpcode::BEQ.mnemonic(), "beq");
+        assert_eq!(BuiltinOpcode::LUI.mnemonic(), "lui");
+        assert_eq!(BuiltinOpcode::JAL.mnemonic(), "jal");
+        assert_eq!(BuiltinOpcode::UNIMPL.mnemonic(), "unimp");
     }
 
     #[test]
     fn test_opcode_display() {
-        assert_eq!(format!("{}", Opcode::ADD), "add");
-        assert_eq!(format!("{}", Opcode::SUB), "sub");
-        assert_eq!(format!("{}", Opcode::SLL), "sll");
-        assert_eq!(format!("{}", Opcode::MUL), "mul");
-        assert_eq!(format!("{}", Opcode::ADDI), "addi");
-        assert_eq!(format!("{}", Opcode::LB), "lb");
-        assert_eq!(format!("{}", Opcode::SB), "sb");
-        assert_eq!(format!("{}", Opcode::BEQ), "beq");
-        assert_eq!(format!("{}", Opcode::LUI), "lui");
-        assert_eq!(format!("{}", Opcode::JAL), "jal");
-        assert_eq!(format!("{}", Opcode::UNIMPL), "unimp");
-        assert_eq!(format!("{}", Opcode::CUSTOM0), "unimp");
+        assert_eq!(format!("{}", BuiltinOpcode::ADD), "add");
+        assert_eq!(format!("{}", BuiltinOpcode::SUB), "sub");
+        assert_eq!(format!("{}", BuiltinOpcode::SLL), "sll");
+        assert_eq!(format!("{}", BuiltinOpcode::MUL), "mul");
+        assert_eq!(format!("{}", BuiltinOpcode::ADDI), "addi");
+        assert_eq!(format!("{}", BuiltinOpcode::LB), "lb");
+        assert_eq!(format!("{}", BuiltinOpcode::SB), "sb");
+        assert_eq!(format!("{}", BuiltinOpcode::BEQ), "beq");
+        assert_eq!(format!("{}", BuiltinOpcode::LUI), "lui");
+        assert_eq!(format!("{}", BuiltinOpcode::JAL), "jal");
+        assert_eq!(format!("{}", BuiltinOpcode::UNIMPL), "unimp");
     }
 }

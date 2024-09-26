@@ -2,10 +2,10 @@ use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
 
@@ -21,7 +21,7 @@ implement_arithmetic_executor!(AddInstruction, |a: u32, b: u32| a.wrapping_add(b
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{Instruction, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_add_instruction() {
@@ -31,7 +31,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(Opcode::ADD, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::ADD),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
 
         let mut instruction = AddInstruction::decode(&bare_instruction, &cpu.registers);
         // Execute the add instruction
@@ -50,7 +56,13 @@ mod tests {
         cpu.registers.write(Register::X1, u32::MAX);
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(Opcode::ADD, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::ADD),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
 
         let mut instruction = AddInstruction::decode(&bare_instruction, &cpu.registers);
 

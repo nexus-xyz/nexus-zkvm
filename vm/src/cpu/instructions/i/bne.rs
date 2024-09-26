@@ -1,10 +1,10 @@
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::Instruction,
 };
 
@@ -14,23 +14,14 @@ pub struct BneInstruction {
     imm: u32,
 }
 
-impl InstructionExecutor for BneInstruction {
-    type InstructionState = Self;
-    type Result = Result<Option<u32>>;
+impl InstructionState for BneInstruction {
+    type Result = Option<u32>;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
-        Self {
-            rs1: registers[ins.op_a],
-            rs2: registers[ins.op_b],
-            imm: ins.op_c,
-        }
-    }
-
-    fn memory_read(&mut self, _: &Memory) -> Self::Result {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut Memory) -> Self::Result {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
@@ -45,11 +36,23 @@ impl InstructionExecutor for BneInstruction {
     }
 }
 
+impl InstructionExecutor for BneInstruction {
+    type InstructionState = Self;
+
+    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+        Self {
+            rs1: registers[ins.op_a],
+            rs2: registers[ins.op_b],
+            imm: ins.op_c,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
     #[test]
     fn test_bne_branch_taken() {
@@ -60,7 +63,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(Opcode::BNE, 1, 2, 0x100, InstructionType::BType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::BNE),
+            1,
+            2,
+            0x100,
+            InstructionType::BType,
+        );
 
         let mut instruction = BneInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -81,7 +90,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(Opcode::BNE, 1, 2, 0x100, InstructionType::BType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::BNE),
+            1,
+            2,
+            0x100,
+            InstructionType::BType,
+        );
 
         let mut instruction = BneInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -102,7 +117,13 @@ mod tests {
         cpu.registers.write(Register::X1, 5);
         cpu.registers.write(Register::X2, 6);
 
-        let bare_instruction = Instruction::new(Opcode::BNE, 1, 2, 0, InstructionType::BType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::BNE),
+            1,
+            2,
+            0,
+            InstructionType::BType,
+        );
 
         let mut instruction = BneInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -125,7 +146,13 @@ mod tests {
 
         // Use a negative offset (-0x100)
         let offset = (!256u32).wrapping_add(1);
-        let bare_instruction = Instruction::new(Opcode::BNE, 1, 2, offset, InstructionType::BType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::BNE),
+            1,
+            2,
+            offset,
+            InstructionType::BType,
+        );
 
         let mut instruction = BneInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -145,7 +172,13 @@ mod tests {
         // Set a value in a register
         cpu.registers.write(Register::X1, 25);
 
-        let bare_instruction = Instruction::new(Opcode::BNE, 1, 1, 0x100, InstructionType::BType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::BNE),
+            1,
+            1,
+            0x100,
+            InstructionType::BType,
+        );
 
         let mut instruction = BneInstruction::decode(&bare_instruction, &cpu.registers);
 

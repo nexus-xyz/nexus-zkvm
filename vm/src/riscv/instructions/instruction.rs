@@ -11,7 +11,7 @@
 
 use std::fmt::Display;
 
-use super::Opcode;
+use super::{BuiltinOpcode, Opcode};
 use crate::riscv::instructions::macros::{
     impl_b_type_instructions, impl_i_type_instructions, impl_i_type_shamt_instructions,
     impl_r_type_instructions, impl_s_type_instructions, impl_systemcall_instructions,
@@ -63,17 +63,21 @@ impl Instruction {
 
     /// Returns true if the instruction is a branch or jump instruction.
     pub(crate) fn is_branch_or_jump_instruction(&self) -> bool {
-        matches!(
-            self.opcode,
-            Opcode::BEQ
-                | Opcode::BNE
-                | Opcode::BLT
-                | Opcode::BGE
-                | Opcode::BLTU
-                | Opcode::BGEU
-                | Opcode::JAL
-                | Opcode::JALR
-        )
+        if let Ok(opcode) = self.opcode.try_into() {
+            matches!(
+                opcode,
+                BuiltinOpcode::BEQ
+                    | BuiltinOpcode::BNE
+                    | BuiltinOpcode::BLT
+                    | BuiltinOpcode::BGE
+                    | BuiltinOpcode::BLTU
+                    | BuiltinOpcode::BGEU
+                    | BuiltinOpcode::JAL
+                    | BuiltinOpcode::JALR
+            )
+        } else {
+            false
+        }
     }
 
     /// Creates a new instruction from an R-type instruction.
@@ -93,7 +97,7 @@ impl Instruction {
         // Detect NOP instruction
         Self::new(
             if rd == 0 && rs1 == 0 && imm == 0 {
-                Opcode::NOP
+                Opcode::from(BuiltinOpcode::NOP)
             } else {
                 opcode
             },
@@ -139,79 +143,92 @@ impl Instruction {
 
     /// Creates a new unimplemented instruction.
     pub(crate) fn unimp() -> Self {
-        Self::new(Opcode::UNIMPL, 0, 0, 0, InstructionType::Unimpl)
+        Self::new(
+            Opcode::from(BuiltinOpcode::UNIMPL),
+            0,
+            0,
+            0,
+            InstructionType::Unimpl,
+        )
     }
 
     // Helper methods for string representation of different instruction types
-    fn r_type_to_string(&self) -> String {
+    fn r_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
         let rs1 = self.op_b;
         let rs2 = Register::from(self.op_c as u8);
-        format!("{} {}, {}, {}", self.opcode, rd, rs1, rs2)
+        format!("{} {}, {}, {}", opcode, rd, rs1, rs2)
     }
 
-    fn i_type_to_string(&self) -> String {
+    fn i_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
         let rs1 = self.op_b;
         let imm12 = self.op_c as i32;
-        match self.opcode {
-            Opcode::NOP | Opcode::EBREAK | Opcode::ECALL => self.opcode.to_string(),
-            Opcode::JALR => match (rd, rs1, imm12) {
+        match opcode {
+            BuiltinOpcode::NOP | BuiltinOpcode::EBREAK | BuiltinOpcode::ECALL => {
+                self.opcode.to_string()
+            }
+            BuiltinOpcode::JALR => match (rd, rs1, imm12) {
                 (Register::X0, Register::X1, 0) => "ret".to_string(),
                 (Register::X0, _, 0) => format!("jr {}", rs1),
                 (Register::X1, _, 0) => format!("{} {}", self.opcode, rs1),
-                _ => format!("{} {}, {}, {}", self.opcode, rd, rs1, imm12),
+                _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
-            Opcode::JAL => match rd {
+            BuiltinOpcode::JAL => match rd {
                 Register::X0 => format!("j {}", imm12),
-                Register::X1 => format!("{} {}", self.opcode, imm12),
-                _ => format!("{} {}, {}, {}", self.opcode, rd, rs1, imm12),
+                Register::X1 => format!("{} {}", opcode, imm12),
+                _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
-            Opcode::ADDI => match (rs1, imm12) {
+            BuiltinOpcode::ADDI => match (rs1, imm12) {
                 (Register::X0, _) => format!("li {}, {}", rd, imm12),
                 (_, 0) => format!("mv {}, {}", rd, rs1),
-                _ => format!("{} {}, {}, {}", self.opcode, rd, rs1, imm12),
+                _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
-            _ => format!("{} {}, {}, {}", self.opcode, rd, rs1, imm12),
+            _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
         }
     }
 
-    fn s_type_to_string(&self) -> String {
+    fn s_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rs2 = self.op_a;
         let rs1 = self.op_b;
         let imm12 = self.op_c as i32;
-        format!("{} {}, {}({})", self.opcode, rs2, imm12, rs1)
+        format!("{} {}, {}({})", opcode, rs2, imm12, rs1)
     }
 
-    fn b_type_to_string(&self) -> String {
+    fn b_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rs1 = self.op_a;
         let rs2 = self.op_b;
         let imm12 = self.op_c as i32;
-        format!("{} {}, {}, 0x{:x}", self.opcode, rs1, rs2, imm12)
+        format!("{} {}, {}, 0x{:x}", opcode, rs1, rs2, imm12)
     }
 
-    fn u_type_to_string(&self) -> String {
+    fn u_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
         let imm20 = self.op_c;
-        format!("{} {}, 0x{:x}", self.opcode, rd, imm20)
+        format!("{} {}, 0x{:x}", opcode, rd, imm20)
     }
 
-    fn j_type_to_string(&self) -> String {
+    fn j_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
         let imm20 = self.op_b as i32;
-        format!("{} {}, 0x{:x}", self.opcode, rd, imm20)
+        format!("{} {}, 0x{:x}", opcode, rd, imm20)
     }
 }
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // todo: handle not well-known opcodes
+        assert!(self.opcode.is_builtin());
+
         let output = match self.ins_type {
-            InstructionType::BType => self.b_type_to_string(),
-            InstructionType::IType | InstructionType::ITypeShamt => self.i_type_to_string(),
-            InstructionType::JType => self.j_type_to_string(),
-            InstructionType::RType => self.r_type_to_string(),
-            InstructionType::SType => self.s_type_to_string(),
-            InstructionType::UType => self.u_type_to_string(),
+            InstructionType::BType => self.b_type_to_string(self.opcode.try_into().unwrap()),
+            InstructionType::IType | InstructionType::ITypeShamt => {
+                self.i_type_to_string(self.opcode.try_into().unwrap())
+            }
+            InstructionType::JType => self.j_type_to_string(self.opcode.try_into().unwrap()),
+            InstructionType::RType => self.r_type_to_string(self.opcode.try_into().unwrap()),
+            InstructionType::SType => self.s_type_to_string(self.opcode.try_into().unwrap()),
+            InstructionType::UType => self.u_type_to_string(self.opcode.try_into().unwrap()),
             InstructionType::Unimpl => self.opcode.to_string(),
         };
 
@@ -228,81 +245,81 @@ impl InstructionProcessor for InstructionDecoder {
 
     // Implementations for R-type instructions
     impl_r_type_instructions! {
-        process_add => Opcode::ADD,
-        process_sub => Opcode::SUB,
-        process_sll => Opcode::SLL,
-        process_slt => Opcode::SLT,
-        process_sltu => Opcode::SLTU,
-        process_xor => Opcode::XOR,
-        process_srl => Opcode::SRL,
-        process_sra => Opcode::SRA,
-        process_or => Opcode::OR,
-        process_and => Opcode::AND,
-        process_mul => Opcode::MUL,
-        process_mulh => Opcode::MULH,
-        process_mulhsu => Opcode::MULHSU,
-        process_mulhu => Opcode::MULHU,
-        process_div => Opcode::DIV,
-        process_divu => Opcode::DIVU,
-        process_rem => Opcode::REM,
-        process_remu => Opcode::REMU,
+        process_add => Opcode::from(BuiltinOpcode::ADD),
+        process_sub => Opcode::from(BuiltinOpcode::SUB),
+        process_sll => Opcode::from(BuiltinOpcode::SLL),
+        process_slt => Opcode::from(BuiltinOpcode::SLT),
+        process_sltu => Opcode::from(BuiltinOpcode::SLTU),
+        process_xor => Opcode::from(BuiltinOpcode::XOR),
+        process_srl => Opcode::from(BuiltinOpcode::SRL),
+        process_sra => Opcode::from(BuiltinOpcode::SRA),
+        process_or => Opcode::from(BuiltinOpcode::OR),
+        process_and => Opcode::from(BuiltinOpcode::AND),
+        process_mul => Opcode::from(BuiltinOpcode::MUL),
+        process_mulh => Opcode::from(BuiltinOpcode::MULH),
+        process_mulhsu => Opcode::from(BuiltinOpcode::MULHSU),
+        process_mulhu => Opcode::from(BuiltinOpcode::MULHU),
+        process_div => Opcode::from(BuiltinOpcode::DIV),
+        process_divu => Opcode::from(BuiltinOpcode::DIVU),
+        process_rem => Opcode::from(BuiltinOpcode::REM),
+        process_remu => Opcode::from(BuiltinOpcode::REMU),
     }
 
     // Implementations for I-type instructions
     impl_i_type_instructions! {
-        process_addi => Opcode::ADDI,
-        process_slti => Opcode::SLTI,
-        process_sltui => Opcode::SLTIU,
-        process_xori => Opcode::XORI,
-        process_ori => Opcode::ORI,
-        process_andi => Opcode::ANDI,
-        process_lb => Opcode::LB,
-        process_lh => Opcode::LH,
-        process_lw => Opcode::LW,
-        process_lbu => Opcode::LBU,
-        process_lhu => Opcode::LHU,
+        process_addi => Opcode::from(BuiltinOpcode::ADDI),
+        process_slti => Opcode::from(BuiltinOpcode::SLTI),
+        process_sltui => Opcode::from(BuiltinOpcode::SLTIU),
+        process_xori => Opcode::from(BuiltinOpcode::XORI),
+        process_ori => Opcode::from(BuiltinOpcode::ORI),
+        process_andi => Opcode::from(BuiltinOpcode::ANDI),
+        process_lb => Opcode::from(BuiltinOpcode::LB),
+        process_lh => Opcode::from(BuiltinOpcode::LH),
+        process_lw => Opcode::from(BuiltinOpcode::LW),
+        process_lbu => Opcode::from(BuiltinOpcode::LBU),
+        process_lhu => Opcode::from(BuiltinOpcode::LHU),
     }
 
     // Implementations for I-type instructions with shift amount
     impl_i_type_shamt_instructions! {
-        process_slli => Opcode::SLLI,
-        process_srli => Opcode::SRLI,
-        process_srai => Opcode::SRAI,
+        process_slli => Opcode::from(BuiltinOpcode::SLLI),
+        process_srli => Opcode::from(BuiltinOpcode::SRLI),
+        process_srai => Opcode::from(BuiltinOpcode::SRAI),
     }
 
     // Implementations for system call instructions
     impl_systemcall_instructions! {
-        process_ebreak => Opcode::EBREAK,
-        process_ecall => Opcode::ECALL,
+        process_ebreak => Opcode::from(BuiltinOpcode::EBREAK),
+        process_ecall => Opcode::from(BuiltinOpcode::ECALL),
     }
 
     // Implementations for S-type instructions
     impl_s_type_instructions! {
-        process_sb => Opcode::SB,
-        process_sh => Opcode::SH,
-        process_sw => Opcode::SW,
+        process_sb => Opcode::from(BuiltinOpcode::SB),
+        process_sh => Opcode::from(BuiltinOpcode::SH),
+        process_sw => Opcode::from(BuiltinOpcode::SW),
     }
 
     // Implementations for B-type instructions
     impl_b_type_instructions! {
-        process_beq => Opcode::BEQ,
-        process_bne => Opcode::BNE,
-        process_blt => Opcode::BLT,
-        process_bge => Opcode::BGE,
-        process_bltu => Opcode::BLTU,
-        process_bgeu => Opcode::BGEU,
+        process_beq => Opcode::from(BuiltinOpcode::BEQ),
+        process_bne => Opcode::from(BuiltinOpcode::BNE),
+        process_blt => Opcode::from(BuiltinOpcode::BLT),
+        process_bge => Opcode::from(BuiltinOpcode::BGE),
+        process_bltu => Opcode::from(BuiltinOpcode::BLTU),
+        process_bgeu => Opcode::from(BuiltinOpcode::BGEU),
     }
 
     // Implementations for U-type instructions
     impl_u_type_instructions! {
-        process_lui => Opcode::LUI,
-        process_auipc => Opcode::AUIPC,
+        process_lui => Opcode::from(BuiltinOpcode::LUI),
+        process_auipc => Opcode::from(BuiltinOpcode::AUIPC),
     }
 
     // Implementations for J-type instructions
     fn process_jal(&mut self, dec_insn: JType) -> Self::InstructionResult {
         Instruction::new(
-            Opcode::JAL,
+            Opcode::from(BuiltinOpcode::JAL),
             dec_insn.rd as _,
             0,
             dec_insn.imm as _,
@@ -312,7 +329,7 @@ impl InstructionProcessor for InstructionDecoder {
 
     fn process_jalr(&mut self, dec_insn: IType) -> Self::InstructionResult {
         Instruction::new(
-            Opcode::JALR,
+            Opcode::from(BuiltinOpcode::JALR),
             dec_insn.rd as _,
             dec_insn.rs1 as _,
             dec_insn.imm as _,

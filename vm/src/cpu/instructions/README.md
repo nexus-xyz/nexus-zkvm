@@ -1,8 +1,8 @@
-# Adding a Custom Instruction to RISC-V 32IM to CPU
+# Adding a New Instruction to RISC-V 32IM to CPU
 
 ## Overview
 
-This guide explains how to add a custom instruction to RISC-V 32IM CPU. 
+This guide explains how to add a new instruction to RISC-V 32IM CPU.
 
 
 Any instruction in the CPU is abstracted via Trait `InstructionExecutor`.
@@ -21,29 +21,28 @@ pub trait InstructionExecutor {
     fn execute(&mut self);
 
     /// Performs memory access for load operations.
-    fn memory_read(&mut self, memory: &Memory) -> Self::Result;
+    fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<Self::Result>;
 
     /// Performs memory access for store operations.
-    fn memory_write(&self, memory: &mut Memory) -> Self::Result;
+    fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<Self::Result>;
 
     /// Updates the CPU state with the result of the instruction execution.
     fn write_back(&self, cpu: &mut Cpu);
 }
 ```
 
-For example, a custom instruction can perform all 5 steps above, or at least a `decode()` and one of `execute()`, `memory_read()`, `memory_write()`, `write_back()`. 
-
+For example, a new instruction can perform all 5 steps above, or at least a `decode()` and one of `execute()`, `memory_read()`, `memory_write()`, `write_back()`.
 
 ## Example: Adding f(x) = a * x + b
 
-Let's add a custom instruction that computes f(x) = a * x + b, where x is a private input.
+Let's add a new instruction that computes f(x) = a * x + b, where x is a private input.
 
-### 1. Define the custom instruction struct
+### 1. Define the new instruction struct
 
-The instruction `f(x) = a * x + b` can be represented as `rd = rs1 * x + rs2`, we assume the instruction type is `InstructionType::RType`. 
+The instruction `f(x) = a * x + b` can be represented as `rd = rs1 * x + rs2`, we assume the instruction type is `InstructionType::RType`.
 
 ```rust
-pub struct CustomInstruction {
+pub struct NewInstruction {
     rd: (Register, u32),
     rs1: u32,
     rs2: u32,
@@ -53,12 +52,12 @@ pub struct CustomInstruction {
 }
 ```
 
-### 2. Implement the `InstructionExecutor` trait for the custom instruction
+### 2. Implement the `InstructionExecutor` trait for the new instruction
 
-The CPU must realize the behavior of the custom instruction, which can be described by implement the `InstructionExecutor` trait for the custom instruction.
+The CPU must realize the behavior of the new instruction, which can be described by implement the `InstructionExecutor` trait for the new instruction.
 
 ```rust
-impl InstructionExecutor for CustomInstruction {
+impl InstructionExecutor for NewInstruction {
     type InstructionState = Self;
     type Result = ();
 
@@ -71,7 +70,7 @@ impl InstructionExecutor for CustomInstruction {
         }
     }
 
-    fn memory_read(&mut self, memory: &Memory) -> Self::Result {
+    fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<Self::Result> {
         // Read the secret from memory
         self.secret_data = memory.read_data(self.secret_addr, MemAccessSize::Word)?;
     }
@@ -85,7 +84,7 @@ impl InstructionExecutor for CustomInstruction {
         self.secret_data = self.secret_data.wrapping_add(0xCAFEBABE);
     }
 
-    fn memory_write(&self, memory: &mut Memory) -> Self::Result {
+    fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<Self::Result> {
         // Write the updated secret data back to memory
         memory.write_data(self.secret_addr, MemAccessSize::Word, self.secret_data)?;
 
@@ -99,7 +98,7 @@ impl InstructionExecutor for CustomInstruction {
     }
 ```
 
-Here are the steps to implement the `InstructionExecutor` trait for the custom instruction:
+Here are the steps to implement the `InstructionExecutor` trait for the new instruction:
 
 1. `decode` function:
    - Extracts operands `(rd, rs1, rs2)` from the instruction.
@@ -119,4 +118,3 @@ Here are the steps to implement the `InstructionExecutor` trait for the custom i
 
 5. `write_back` function:
    - Writes the result (stored in rd) back to the CPU's register file.
-

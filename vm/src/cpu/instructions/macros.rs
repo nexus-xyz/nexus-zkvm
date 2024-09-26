@@ -1,8 +1,30 @@
 macro_rules! implement_arithmetic_executor {
     ($name:ident, $operation:expr) => {
+        impl InstructionState for $name {
+            type Result = Option<()>;
+
+            fn execute(&mut self) {
+                #[allow(clippy::redundant_closure_call)]
+                {
+                    self.rd.1 = $operation(self.rs1, self.rs2);
+                }
+            }
+
+            fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+                Ok(None)
+            }
+
+            fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+                Ok(None)
+            }
+
+            fn write_back(&self, cpu: &mut Cpu) {
+                cpu.registers.write(self.rd.0, self.rd.1);
+            }
+        }
+
         impl InstructionExecutor for $name {
             type InstructionState = Self;
-            type Result = Result<Option<()>>;
 
             fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
                 Self {
@@ -14,48 +36,20 @@ macro_rules! implement_arithmetic_executor {
                     },
                 }
             }
-
-            fn execute(&mut self) {
-                #[allow(clippy::redundant_closure_call)]
-                {
-                    self.rd.1 = $operation(self.rs1, self.rs2);
-                }
-            }
-
-            fn memory_read(&mut self, _: &Memory) -> Self::Result {
-                Ok(None)
-            }
-
-            fn memory_write(&self, _: &mut Memory) -> Self::Result {
-                Ok(None)
-            }
-
-            fn write_back(&self, cpu: &mut Cpu) {
-                cpu.registers.write(self.rd.0, self.rd.1);
-            }
         }
     };
 }
 
 macro_rules! implement_store_instruction {
     ($name:ident, $size:expr) => {
-        impl InstructionExecutor for $name {
-            type InstructionState = Self;
-            type Result = Result<Option<u32>>;
+        impl InstructionState for $name {
+            type Result = Option<u32>;
 
-            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
-                Self {
-                    rd: registers[ins.op_a],
-                    rs1: registers[ins.op_b],
-                    imm: ins.op_c,
-                }
-            }
-
-            fn memory_read(&mut self, _: &Memory) -> Self::Result {
+            fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
                 Ok(None)
             }
 
-            fn memory_write(&self, memory: &mut Memory) -> Self::Result {
+            fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<Self::Result> {
                 let address = self
                     .rs1
                     .checked_add(self.imm)
@@ -68,24 +62,27 @@ macro_rules! implement_store_instruction {
 
             fn write_back(&self, _: &mut Cpu) {}
         }
+
+        impl InstructionExecutor for $name {
+            type InstructionState = Self;
+
+            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+                Self {
+                    rd: registers[ins.op_a],
+                    rs1: registers[ins.op_b],
+                    imm: ins.op_c,
+                }
+            }
+        }
     };
 }
 
 macro_rules! implement_load_instruction {
     ($name:ident, $size:expr, $sign_extend:expr, $result_type:ty) => {
-        impl InstructionExecutor for $name {
-            type InstructionState = Self;
-            type Result = Result<$result_type>;
+        impl InstructionState for $name {
+            type Result = $result_type;
 
-            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
-                Self {
-                    rd: (ins.op_a, registers[ins.op_a]),
-                    rs1: registers[ins.op_b],
-                    imm: ins.op_c,
-                }
-            }
-
-            fn memory_read(&mut self, memory: &Memory) -> Self::Result {
+            fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<Self::Result> {
                 let address = self
                     .rs1
                     .checked_add(self.imm)
@@ -105,7 +102,7 @@ macro_rules! implement_load_instruction {
                 Ok(self.rd.1 as $result_type)
             }
 
-            fn memory_write(&self, _: &mut Memory) -> Self::Result {
+            fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
                 Ok(0 as $result_type)
             }
 
@@ -113,6 +110,18 @@ macro_rules! implement_load_instruction {
 
             fn write_back(&self, cpu: &mut Cpu) {
                 cpu.registers.write(self.rd.0, self.rd.1);
+            }
+        }
+
+        impl InstructionExecutor for $name {
+            type InstructionState = Self;
+
+            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+                Self {
+                    rd: (ins.op_a, registers[ins.op_a]),
+                    rs1: registers[ins.op_b],
+                    imm: ins.op_c,
+                }
             }
         }
     };

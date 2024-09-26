@@ -1,10 +1,10 @@
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
 
@@ -14,26 +14,14 @@ pub struct SraInstruction {
     rs2: u32,
 }
 
-impl InstructionExecutor for SraInstruction {
-    type InstructionState = Self;
-    type Result = Result<Option<()>>;
+impl InstructionState for SraInstruction {
+    type Result = Option<()>;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
-        Self {
-            rd: (ins.op_a, registers[ins.op_a]),
-            rs1: registers[ins.op_b],
-            rs2: match ins.ins_type {
-                InstructionType::RType => registers[Register::from(ins.op_c as u8)],
-                _ => ins.op_c,
-            },
-        }
-    }
-
-    fn memory_read(&mut self, _: &Memory) -> Self::Result {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut Memory) -> Self::Result {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
@@ -53,10 +41,25 @@ impl InstructionExecutor for SraInstruction {
     }
 }
 
+impl InstructionExecutor for SraInstruction {
+    type InstructionState = Self;
+
+    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+        Self {
+            rd: (ins.op_a, registers[ins.op_a]),
+            rs1: registers[ins.op_b],
+            rs2: match ins.ins_type {
+                InstructionType::RType => registers[Register::from(ins.op_c as u8)],
+                _ => ins.op_c,
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::riscv::{InstructionType, Opcode};
+    use crate::riscv::{BuiltinOpcode, InstructionType, Opcode};
 
     #[test]
     fn test_sra_small_positive() {
@@ -65,7 +68,13 @@ mod tests {
             .write(Register::X1, 0b0000_0000_0000_0000_0000_0000_0001_1010); // 26
         cpu.registers.write(Register::X2, 2);
 
-        let bare_instruction = Instruction::new(Opcode::SRA, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SRA),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -84,7 +93,13 @@ mod tests {
             .write(Register::X1, 0b1000_0000_0000_0000_0000_0000_0000_0000); // 2^31
         cpu.registers.write(Register::X2, 4);
 
-        let bare_instruction = Instruction::new(Opcode::SRA, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SRA),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -103,7 +118,13 @@ mod tests {
             .write(Register::X1, 0b1111_1111_1111_1111_1111_1111_1111_1000); // -8
         cpu.registers.write(Register::X2, 2);
 
-        let bare_instruction = Instruction::new(Opcode::SRA, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SRA),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -122,7 +143,13 @@ mod tests {
             .write(Register::X1, 0b1010_1010_1010_1010_1010_1010_1010_1010);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(Opcode::SRA, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SRA),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -141,7 +168,13 @@ mod tests {
             .write(Register::X1, 0b1000_0000_0000_0000_0000_0000_0000_0000); // 2^31
         cpu.registers.write(Register::X2, 31);
 
-        let bare_instruction = Instruction::new(Opcode::SRA, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SRA),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -160,7 +193,13 @@ mod tests {
             .write(Register::X1, 0b1000_0000_0000_0000_0000_0000_0000_0000); // 2^31
         cpu.registers.write(Register::X2, 33); // Should be equivalent to shifting by 1
 
-        let bare_instruction = Instruction::new(Opcode::SRA, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SRA),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();

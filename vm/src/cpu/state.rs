@@ -4,7 +4,8 @@
 //! needed to emulate a RISC-V processor.
 
 use super::registerfile::{RegisterFile, PC};
-use crate::memory::Memory;
+use crate::error::Result;
+use crate::memory::MemoryProcessor;
 use crate::riscv::Instruction;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
@@ -22,24 +23,8 @@ pub struct Cpu {
     pub snapshot: (RegisterFile, PC),
 }
 
-/// Trait defining the execution stages of a RISC-V instruction.
-///
-/// This trait represents a simplified instruction cycle, excluding the fetch stage.
-/// It includes decode, execute, memory access, and write-back stages.
-pub trait InstructionExecutor {
-    /// Represents the intermediate state of an instruction during execution.
-    type InstructionState;
+pub trait InstructionState {
     type Result;
-
-    /// Decodes the instruction and prepares operands.
-    ///
-    /// # Arguments
-    /// * `ins` - The instruction to be decoded.
-    /// * `regs` - The current state of the CPU registers.
-    ///
-    /// # Returns
-    /// An `InstructionState` containing the decoded instruction information.
-    fn decode(ins: &Instruction, regs: &RegisterFile) -> Self::InstructionState;
 
     /// Executes the instruction's operation.
     ///
@@ -56,7 +41,7 @@ pub trait InstructionExecutor {
     ///
     /// # Returns
     /// A `Result` indicating the outcome of the memory access operation.
-    fn memory_read(&mut self, memory: &Memory) -> Self::Result;
+    fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<Self::Result>;
 
     /// Performs memory access for store operations.
     ///
@@ -66,7 +51,7 @@ pub trait InstructionExecutor {
     ///
     /// # Returns
     /// A `Result` indicating the outcome of the memory access operation.
-    fn memory_write(&self, memory: &mut Memory) -> Self::Result;
+    fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<Self::Result>;
 
     /// Updates the CPU state with the result of the instruction execution.
     ///
@@ -76,4 +61,44 @@ pub trait InstructionExecutor {
     /// * `self` - The current instruction state.
     /// * `cpu` - Mutable reference to the CPU state.
     fn write_back(&self, cpu: &mut Cpu);
+}
+
+/// Trait defining the execution stages of a RISC-V instruction.
+///
+/// This trait represents a simplified instruction cycle, excluding the fetch stage.
+/// It includes decode, execute, memory access, and write-back stages.
+pub trait InstructionExecutor {
+    type InstructionState: InstructionState;
+
+    /// Decodes the instruction and prepares operands.
+    ///
+    /// # Arguments
+    /// * `ins` - The instruction to be decoded.
+    /// * `regs` - The current state of the CPU registers.
+    ///
+    /// # Returns
+    /// An `InstructionState` containing the decoded instruction information.
+    fn decode(ins: &Instruction, regs: &RegisterFile) -> Self::InstructionState;
+
+    /// Evaluates the constructed executor
+    ///
+    /// # Arguments
+    /// * `cpu` - Mutable reference to the CPU state.
+    /// * `memory` - Immutable reference to the memory subsystem.
+    /// * `ins` - The instruction to be decoded.
+    ///
+    /// # Returns
+    /// A `Result` indicating the whether the instruction was executed successfully.
+    fn evaluator<M: MemoryProcessor>(
+        cpu: &mut Cpu,
+        memory: &mut M,
+        ins: &Instruction,
+    ) -> Result<()> {
+        let mut executor: Self::InstructionState = Self::decode(ins, &cpu.registers);
+        executor.memory_read(memory)?;
+        executor.execute();
+        executor.memory_write(memory)?;
+        executor.write_back(cpu);
+        Ok(())
+    }
 }

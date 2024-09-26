@@ -1,4 +1,4 @@
 mod executor;
-mod instructions;
+mod registry;
 
 pub use executor::Emulator;

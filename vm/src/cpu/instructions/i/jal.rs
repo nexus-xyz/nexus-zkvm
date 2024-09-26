@@ -1,10 +1,10 @@
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, Register},
 };
 
@@ -13,22 +13,14 @@ pub struct JalInstruction {
     imm: u32,
 }
 
-impl InstructionExecutor for JalInstruction {
-    type InstructionState = Self;
-    type Result = Result<Option<u32>>;
+impl InstructionState for JalInstruction {
+    type Result = Option<u32>;
 
-    fn decode(ins: &Instruction, _: &RegisterFile) -> Self {
-        Self {
-            rd: ins.op_a,
-            imm: ins.op_c,
-        }
-    }
-
-    fn memory_read(&mut self, _: &Memory) -> Self::Result {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut Memory) -> Self::Result {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
@@ -40,29 +32,31 @@ impl InstructionExecutor for JalInstruction {
     }
 }
 
+impl InstructionExecutor for JalInstruction {
+    type InstructionState = Self;
+
+    fn decode(ins: &Instruction, _: &RegisterFile) -> Self {
+        Self {
+            rd: ins.op_a,
+            imm: ins.op_c,
+        }
+    }
+}
+
 pub struct JalrInstruction {
     rd: Register,
     rs1: u32,
     imm: u32,
 }
 
-impl InstructionExecutor for JalrInstruction {
-    type InstructionState = Self;
-    type Result = Result<Option<u32>>;
+impl InstructionState for JalrInstruction {
+    type Result = Option<u32>;
 
-    fn decode(ins: &Instruction, register: &RegisterFile) -> Self {
-        Self {
-            rd: ins.op_a,
-            rs1: register[ins.op_b],
-            imm: ins.op_c,
-        }
-    }
-
-    fn memory_read(&mut self, _: &Memory) -> Self::Result {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut Memory) -> Self::Result {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
@@ -75,11 +69,23 @@ impl InstructionExecutor for JalrInstruction {
     }
 }
 
+impl InstructionExecutor for JalrInstruction {
+    type InstructionState = Self;
+
+    fn decode(ins: &Instruction, register: &RegisterFile) -> Self {
+        Self {
+            rd: ins.op_a,
+            rs1: register[ins.op_b],
+            imm: ins.op_c,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
     #[test]
     fn test_jal_positive_offset() {
@@ -88,7 +94,13 @@ mod tests {
 
         // Use a positive offset (0x100)
         let offset = 0x100;
-        let bare_instruction = Instruction::new(Opcode::JAL, 1, 0, offset, InstructionType::JType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::JAL),
+            1,
+            0,
+            offset,
+            InstructionType::JType,
+        );
         let instruction = JalInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jal instruction
@@ -108,7 +120,13 @@ mod tests {
 
         // Use a negative offset (-0x100)
         let offset = (!256u32).wrapping_add(1);
-        let bare_instruction = Instruction::new(Opcode::JAL, 2, 0, offset, InstructionType::JType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::JAL),
+            2,
+            0,
+            offset,
+            InstructionType::JType,
+        );
         let instruction = JalInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jal instruction
@@ -131,7 +149,13 @@ mod tests {
 
         // Use a positive offset (0x100)
         let offset = 0x100;
-        let bare_instruction = Instruction::new(Opcode::JALR, 2, 1, offset, InstructionType::IType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::JALR),
+            2,
+            1,
+            offset,
+            InstructionType::IType,
+        );
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
@@ -154,7 +178,13 @@ mod tests {
 
         // Use a negative offset (-0x100)
         let offset = (!256u32).wrapping_add(1);
-        let bare_instruction = Instruction::new(Opcode::JALR, 3, 1, offset, InstructionType::IType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::JALR),
+            3,
+            1,
+            offset,
+            InstructionType::IType,
+        );
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
@@ -174,7 +204,13 @@ mod tests {
 
         // Use x0 as rs1 (should always be 0)
         let offset = 0x100;
-        let bare_instruction = Instruction::new(Opcode::JALR, 4, 0, offset, InstructionType::IType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::JALR),
+            4,
+            0,
+            offset,
+            InstructionType::IType,
+        );
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction

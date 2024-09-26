@@ -2,10 +2,10 @@ use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
 
@@ -49,7 +49,7 @@ implement_arithmetic_executor!(MulhsuInstruction, |a: u32, b: u32| {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
     #[test]
     fn test_mulh_positive_numbers() {
@@ -59,7 +59,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x7FFFFFFF); // 2^31 - 1
         cpu.registers.write(Register::X2, 0x7FFFFFFF); // 2^31 - 1
 
-        let bare_instruction = Instruction::new(Opcode::MULH, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULH),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -78,7 +84,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x80000000); // -2^31
         cpu.registers.write(Register::X2, 0x80000000); // -2^31
 
-        let bare_instruction = Instruction::new(Opcode::MULH, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULH),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -97,7 +109,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x7FFFFFFF); // 2^31 - 1
         cpu.registers.write(Register::X2, 0x80000000); // -2^31
 
-        let bare_instruction = Instruction::new(Opcode::MULH, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULH),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -116,7 +134,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(Opcode::MULH, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULH),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -135,7 +159,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // 2^32 - 1
         cpu.registers.write(Register::X2, 0xFFFFFFFF); // 2^32 - 1
 
-        let bare_instruction = Instruction::new(Opcode::MULHU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -154,7 +184,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // 2^32 - 1
         cpu.registers.write(Register::X2, 2);
 
-        let bare_instruction = Instruction::new(Opcode::MULHU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -173,7 +209,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x80000000); // 2^31
         cpu.registers.write(Register::X2, 0x80000000); // 2^31
 
-        let bare_instruction = Instruction::new(Opcode::MULHU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -192,7 +234,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(Opcode::MULHU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -211,7 +259,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0);
         cpu.registers.write(Register::X2, 0xFFFFFFFF);
 
-        let bare_instruction = Instruction::new(Opcode::MULHU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -229,7 +283,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x7FFFFFFF); // 2^31 - 1 (largest positive signed 32-bit integer)
         cpu.registers.write(Register::X2, 0xFFFFFFFF); // 2^32 - 1 (largest unsigned 32-bit integer)
 
-        let bare_instruction = Instruction::new(Opcode::MULHSU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHSU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -247,7 +307,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x80000000); // -2^31 (smallest negative signed 32-bit integer)
         cpu.registers.write(Register::X2, 0xFFFFFFFF); // 2^32 - 1 (largest unsigned 32-bit integer)
 
-        let bare_instruction = Instruction::new(Opcode::MULHSU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHSU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -265,7 +331,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10); // Small positive signed number
         cpu.registers.write(Register::X2, 20); // Small unsigned number
 
-        let bare_instruction = Instruction::new(Opcode::MULHSU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHSU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -283,7 +355,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFB); // -5 in two's complement
         cpu.registers.write(Register::X2, 20); // Small unsigned number
 
-        let bare_instruction = Instruction::new(Opcode::MULHSU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MULHSU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();

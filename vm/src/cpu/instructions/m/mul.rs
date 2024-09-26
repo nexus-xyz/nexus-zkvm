@@ -2,10 +2,10 @@ use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
 
@@ -24,7 +24,7 @@ implement_arithmetic_executor!(
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
     #[test]
     fn test_mul_positive_numbers() {
@@ -33,7 +33,13 @@ mod tests {
         cpu.registers.write(Register::X1, 5);
         cpu.registers.write(Register::X2, 7);
 
-        let bare_instruction = Instruction::new(Opcode::MUL, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MUL),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -49,7 +55,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFB); // -5 in two's complement
         cpu.registers.write(Register::X2, 0xFFFFFFF9); // -7 in two's complement
 
-        let bare_instruction = Instruction::new(Opcode::MUL, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MUL),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -65,7 +77,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, (!2u32).wrapping_add(1)); // -2 in two's complement
 
-        let bare_instruction = Instruction::new(Opcode::MUL, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MUL),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -81,7 +99,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x80000000); // -2^31
         cpu.registers.write(Register::X2, 2);
 
-        let bare_instruction = Instruction::new(Opcode::MUL, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MUL),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -97,7 +121,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(Opcode::MUL, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MUL),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -113,7 +143,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0x7FFFFFFF); // 2^31 - 1
         cpu.registers.write(Register::X2, 2);
 
-        let bare_instruction = Instruction::new(Opcode::MUL, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::MUL),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();

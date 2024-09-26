@@ -2,10 +2,10 @@ use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
 
@@ -21,7 +21,7 @@ implement_arithmetic_executor!(OrInstruction, |a: u32, b: u32| a | b);
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{Instruction, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_or_instruction() {
@@ -31,7 +31,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0b1010);
         cpu.registers.write(Register::X2, 0b1100);
 
-        let bare_instruction = Instruction::new(Opcode::OR, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::OR),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
 
         let mut instruction = OrInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -51,7 +57,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xABCDEF12);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(Opcode::OR, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::OR),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
 
         let mut instruction = OrInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -71,7 +83,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xABCDEF12);
         cpu.registers.write(Register::X2, 0xFFFFFFFF);
 
-        let bare_instruction = Instruction::new(Opcode::OR, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::OR),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
 
         let mut instruction = OrInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -90,7 +108,13 @@ mod tests {
         // Set initial register value
         cpu.registers.write(Register::X1, 0xAA55AA55);
 
-        let bare_instruction = Instruction::new(Opcode::OR, 1, 1, 1, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::OR),
+            1,
+            1,
+            1,
+            InstructionType::RType,
+        );
 
         let mut instruction = OrInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -110,7 +134,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xAAAAAAAA);
         cpu.registers.write(Register::X2, 0x55555555);
 
-        let bare_instruction = Instruction::new(Opcode::OR, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::OR),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
 
         let mut instruction = OrInstruction::decode(&bare_instruction, &cpu.registers);
 

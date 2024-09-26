@@ -1,10 +1,10 @@
 use crate::{
     cpu::{
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::Result,
-    memory::Memory,
+    memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
 
@@ -14,26 +14,14 @@ pub struct SltInstruction {
     rs2: u32,
 }
 
-impl InstructionExecutor for SltInstruction {
-    type InstructionState = Self;
-    type Result = Result<Option<()>>;
+impl InstructionState for SltInstruction {
+    type Result = Option<()>;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
-        Self {
-            rd: (ins.op_a, registers[ins.op_a]),
-            rs1: registers[ins.op_b],
-            rs2: match ins.ins_type {
-                InstructionType::RType => registers[Register::from(ins.op_c as u8)],
-                _ => ins.op_c,
-            },
-        }
-    }
-
-    fn memory_read(&mut self, _: &Memory) -> Self::Result {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut Memory) -> Self::Result {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
@@ -51,15 +39,8 @@ impl InstructionExecutor for SltInstruction {
     }
 }
 
-pub struct SltuInstruction {
-    rd: (Register, u32),
-    rs1: u32,
-    rs2: u32,
-}
-
-impl InstructionExecutor for SltuInstruction {
+impl InstructionExecutor for SltInstruction {
     type InstructionState = Self;
-    type Result = Result<Option<()>>;
 
     fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
         Self {
@@ -71,12 +52,22 @@ impl InstructionExecutor for SltuInstruction {
             },
         }
     }
+}
 
-    fn memory_read(&mut self, _: &Memory) -> Self::Result {
+pub struct SltuInstruction {
+    rd: (Register, u32),
+    rs1: u32,
+    rs2: u32,
+}
+
+impl InstructionState for SltuInstruction {
+    type Result = Option<()>;
+
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut Memory) -> Self::Result {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
         Ok(None)
     }
 
@@ -89,10 +80,25 @@ impl InstructionExecutor for SltuInstruction {
     }
 }
 
+impl InstructionExecutor for SltuInstruction {
+    type InstructionState = Self;
+
+    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+        Self {
+            rd: (ins.op_a, registers[ins.op_a]),
+            rs1: registers[ins.op_b],
+            rs2: match ins.ins_type {
+                InstructionType::RType => registers[Register::from(ins.op_c as u8)],
+                _ => ins.op_c,
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::riscv::{InstructionType, Opcode};
+    use crate::riscv::{BuiltinOpcode, InstructionType, Opcode};
 
     #[test]
     fn test_slt_positive() {
@@ -100,7 +106,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(Opcode::SLT, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SLT),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -115,7 +127,13 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(Opcode::SLT, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SLT),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -130,7 +148,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // -1 in two's complement
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(Opcode::SLT, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SLT),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -145,7 +169,13 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(Opcode::SLTU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SLTU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -160,7 +190,13 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(Opcode::SLTU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SLTU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -175,7 +211,13 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // Maximum unsigned 32-bit value
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(Opcode::SLTU, 3, 1, 2, InstructionType::RType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SLTU),
+            3,
+            1,
+            2,
+            InstructionType::RType,
+        );
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();

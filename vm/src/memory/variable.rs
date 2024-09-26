@@ -2,38 +2,18 @@ use std::collections::BTreeMap;
 
 use crate::error::{Result, VMError};
 
-use super::MemoryProcessor;
+use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor};
 
-#[derive(Debug, Clone, Copy)]
-/// Represents the size of memory access operations.
-/// The value of enum is for efficient masking purpose.
-pub enum MemAccessSize {
-    Byte = 0,
-    HalfWord = 1,
-    Word = 3,
-}
-
-// Helper function to get shift and mask for different access sizes
-fn get_shift_and_mask(size: MemAccessSize, address: u32) -> (u32, u32) {
-    match size {
-        MemAccessSize::Byte => ((address & 0x3) * 8, 0xff),
-        MemAccessSize::HalfWord => ((address & 0x2) * 8, 0xffff),
-        MemAccessSize::Word => (0, 0xffffffff),
-    }
-}
-
-// TODO: this is just a simpe temporary memory implementation and will be replaced with a more sophisticated one
 #[derive(Debug, Default)]
-pub struct Memory(pub BTreeMap<u32, u32>);
+pub struct VariableMemory(BTreeMap<u32, u32>);
 
-impl From<BTreeMap<u32, u32>> for Memory {
+impl From<BTreeMap<u32, u32>> for VariableMemory {
     fn from(map: BTreeMap<u32, u32>) -> Self {
         Self(map)
     }
 }
 
-impl MemoryProcessor for Memory {
-    type Result = Result<u32>;
+impl MemoryProcessor for VariableMemory {
     /// Writes data to memory.
     ///
     /// # Arguments
@@ -45,7 +25,7 @@ impl MemoryProcessor for Memory {
     /// # Returns
     ///
     /// The value written to memory, or an error if the operation failed.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Self::Result {
+    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32> {
         let (shift, mask) = get_shift_and_mask(size, address);
 
         // Check for alignment
@@ -67,8 +47,17 @@ impl MemoryProcessor for Memory {
         Ok((*value >> shift) & mask)
     }
 
-    // Read data from memory
-    fn read(&self, address: u32, size: MemAccessSize) -> Self::Result {
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32> {
         let (shift, mask) = get_shift_and_mask(size, address);
 
         if address & size as u32 != 0 {
@@ -91,7 +80,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_byte() {
-        let mut memory = Memory::default();
+        let mut memory = VariableMemory::default();
 
         // Write bytes at different alignments
         assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
@@ -111,7 +100,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_halfword() {
-        let mut memory = Memory::default();
+        let mut memory = VariableMemory::default();
 
         // Write halfwords at aligned addresses
         assert_eq!(
@@ -142,7 +131,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_word() {
-        let mut memory = Memory::default();
+        let mut memory = VariableMemory::default();
 
         // Write a word at an aligned address
         assert_eq!(
@@ -184,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_overwrite() {
-        let mut memory = Memory::default();
+        let mut memory = VariableMemory::default();
 
         // Write a word
         assert_eq!(
@@ -207,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_invalid_read() {
-        let memory = Memory::default();
+        let memory = VariableMemory::default();
 
         // Read from an uninitialized address
         assert_eq!(

@@ -15,9 +15,5 @@ pub use m::{
     MulhuInstruction, RemInstruction, RemuInstruction,
 };
 
-// Custom instruction
-mod custom;
-pub use custom::CustomInstruction;
-
 // Macro implementations
-mod macros;
+pub(crate) mod macros;

@@ -37,9 +37,9 @@ pub enum VMError {
     #[error("Duplicate Opcode/Instruction")]
     DuplicateInstruction(Opcode),
 
-    // Unable to lock instruction executor
-    #[error("Unable to lock instruction executor")]
-    InstructionExecutorLockError(String),
+    // Unable to process a known instruction, either builtin or precompile
+    #[error("Unable to process a known instruction")]
+    FailureProcessingKnownInstruction(Opcode),
 }
 
 /// Result type for VM functions that can produce errors

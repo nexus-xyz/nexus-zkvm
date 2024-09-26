@@ -2,10 +2,10 @@ use crate::{
     cpu::{
         instructions::macros::implement_load_instruction,
         registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor},
+        state::{Cpu, InstructionExecutor, InstructionState},
     },
     error::{Result, VMError},
-    memory::{MemAccessSize, Memory, MemoryProcessor},
+    memory::{MemAccessSize, MemoryProcessor},
     riscv::{Instruction, Register},
 };
 
@@ -21,11 +21,11 @@ implement_load_instruction!(LwInstruction, MemAccessSize::Word, false, u32);
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::memory::Memory;
-    use crate::riscv::{Instruction, InstructionType, Opcode, Register};
+    use crate::memory::VariableMemory;
+    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
-    fn setup_memory() -> Memory {
-        let mut memory = Memory::default();
+    fn setup_memory() -> VariableMemory {
+        let mut memory = VariableMemory::default();
         // Set up some test values in memory
         memory
             .write(0x1000, MemAccessSize::Word, 0xFFFFFFFF)
@@ -43,7 +43,13 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(Opcode::LW, 2, 1, 0, InstructionType::IType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::LW),
+            2,
+            1,
+            0,
+            InstructionType::IType,
+        );
         let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -59,7 +65,13 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(Opcode::LW, 2, 1, 12, InstructionType::IType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::LW),
+            2,
+            1,
+            12,
+            InstructionType::IType,
+        );
         let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -75,7 +87,13 @@ mod tests {
 
         cpu.registers.write(Register::X1, u32::MAX);
 
-        let bare_instruction = Instruction::new(Opcode::LW, 2, 1, 1, InstructionType::IType);
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::LW),
+            2,
+            1,
+            1,
+            InstructionType::IType,
+        );
         let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
 
         assert!(instruction.memory_read(&memory).is_err());
