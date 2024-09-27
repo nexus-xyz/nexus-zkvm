@@ -41,15 +41,3 @@ cargo run \
 ```
 
 The `--n-th` argument specifies which Fibonacci number is calculated. `--rows-log2` specifies the length of the computation trace.
-
-#### Addition (prover)
-
-In this example, we compute the fibonacci numbers using a small machine that does different things according to the current program counter:
-
-```
-cargo run \
-    -p nexus-vm-prover \
-    --example nanofib -- --n-th 300 --rows-log2 11
-```
-
-The `--n-th` argument specifies which Fibonacci number is calculated. `--rows-log2` specifies the length of the computation trace.

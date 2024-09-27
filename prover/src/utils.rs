@@ -14,6 +14,7 @@
 use std::{
     array,
     collections::HashMap,
+    hash::Hash,
     ops::{Mul, Sub},
 };
 
@@ -287,4 +288,69 @@ impl<const N: usize> PermElements<N> {
             acc + EF::from(power) * value
         }) - EF::from(self.z)
     }
+}
+
+pub const WORD_SIZE: usize = 4;
+
+pub trait MachineChip<T> {
+    // Called on each row during main trace generation
+    fn fill_main_trace(
+        r1_val: [u8; WORD_SIZE],
+        r2_val: [u8; WORD_SIZE],
+        rd_val: &mut [u8; WORD_SIZE],
+        rd_idx: usize,
+        cols: &mut [&mut [BaseField]],
+        row_idx: usize,
+        col_names: &ColumnNameMap<T>,
+    );
+    // Called on each row during constraint evaluation
+    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+        cols: &std::collections::HashMap<T, Vec<<E as EvalAtRow>::F>>,
+        eval: &mut E,
+    );
+}
+
+use impl_trait_for_tuples::impl_for_tuples;
+#[impl_for_tuples(1, 12)]
+impl<T> MachineChip<T> for Tuple {
+    fn fill_main_trace(
+        r1_val: [u8; WORD_SIZE],
+        r2_val: [u8; WORD_SIZE],
+        rd_val: &mut [u8; WORD_SIZE],
+        rd_idx: usize,
+        cols: &mut [&mut [BaseField]],
+        row_idx: usize,
+        col_names: &ColumnNameMap<T>,
+    ) {
+        for_tuples!( #( Tuple::fill_main_trace(r1_val, r2_val, rd_val, rd_idx, cols, row_idx, col_names); )* );
+    }
+    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+        cols: &std::collections::HashMap<T, Vec<<E as EvalAtRow>::F>>,
+        eval: &mut E,
+    ) {
+        for_tuples!( #( Tuple::add_constraints(cols, eval); )* );
+    }
+}
+
+pub fn write_word<T: Eq + Hash>(
+    val: [u8; WORD_SIZE],
+    dst: &T,
+    cols: &mut [&mut [BaseField]],
+    col_names: &ColumnNameMap<T>,
+    row_idx: usize,
+) {
+    for i in 0..WORD_SIZE {
+        cols[col_names.nth_col(dst, i)][row_idx] = BaseField::from(val[i] as u32);
+    }
+}
+
+pub fn write_u32<T: Eq + Hash>(
+    val: u32,
+    dst: &T,
+    cols: &mut [&mut [BaseField]],
+    col_names: &ColumnNameMap<T>,
+    row_idx: usize,
+) {
+    let val: [u8; WORD_SIZE] = val.to_le_bytes();
+    write_word(val, dst, cols, col_names, row_idx);
 }
