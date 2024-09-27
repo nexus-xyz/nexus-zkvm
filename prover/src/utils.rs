@@ -148,26 +148,26 @@ impl<T: Eq + PartialEq + std::hash::Hash> ColumnNameMap<T> {
             finalized: false,
         }
     }
-    pub fn allocate(mut self, name: &T, size: usize) -> Self
+    pub fn allocate(mut self, name: T, size: usize) -> Self
     where
-        T: Clone,
+        T: Copy,
     {
         assert!(!self.finalized);
         let range = self.next..self.next + size;
         self.next += size;
-        let overwritten = self.map.insert(name.clone(), range.clone());
+        let overwritten = self.map.insert(name, range.clone());
         debug_assert!(overwritten.is_none());
-        self.ranges.push((name.clone(), range));
+        self.ranges.push((name, range));
         self
     }
     pub fn allocate_bulk<I>(mut self, bulk: I) -> Self
     where
         I: IntoIterator<Item = (T, usize)>,
-        T: Clone,
+        T: Copy,
     {
         assert!(!self.finalized);
         for (name, size) in bulk {
-            self = self.allocate(&name, size);
+            self = self.allocate(name, size);
         }
         self
     }
