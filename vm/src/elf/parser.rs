@@ -32,6 +32,7 @@ use elf::{
     ElfBytes,
 };
 use std::collections::{BTreeMap, HashMap};
+use std::fmt;
 
 use super::error::{ParserError, Result};
 
@@ -58,12 +59,25 @@ pub const WORD_SIZE: u32 = 4;
 /// When building the section map, only these sections and their variants are considered.
 /// Section names starting with any of these prefixes are included (e.g., .text1, .data2).
 /// All other sections are ignored during parsing.
-const ALLOWED_SECTIONS: [&str; 6] = [".text", ".data", ".sdata", ".rodata", ".init", ".fini"];
+const ALLOWED_SECTIONS: [&str; 8] = [
+    ".text", ".data", ".sdata", ".rodata", ".init", ".fini", ".bss", ".sbss",
+];
 
+#[derive(Debug, Clone, Copy)]
 enum WordType {
     Instruction,
     ReadOnlyData,
     Data,
+}
+
+impl fmt::Display for WordType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WordType::Instruction => write!(f, "Instruction"),
+            WordType::ReadOnlyData => write!(f, "Read-Only Data"),
+            WordType::Data => write!(f, "Data"),
+        }
+    }
 }
 
 /// Validates the ELF file header to ensure it meets the required specifications.
@@ -130,7 +144,7 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
 
     // Ensure the 0 < file_size <= mem_size and the total size does not exceed the maximum memory size
     if (0 < file_size) && (file_size <= mem_size) && (file_size + offset < MAXIMUM_MEMORY_SIZE) {
-        Ok((virtual_address, offset, mem_size))
+        Ok((virtual_address, offset, file_size))
     } else {
         Err(ParserError::SegmentSizeExceedsMemorySize)
     }
@@ -191,8 +205,6 @@ fn parse_segment_content(
     memory_image: &mut BTreeMap<u32, u32>,
 ) -> Result<()> {
     let is_executable_segment = (segment.p_flags & abi::PF_X) != 0;
-    let is_data_segment = (segment.p_flags & abi::PF_W) != 0;
-
     let (virtual_address, offset, file_size) = parse_segment_info(segment)?;
 
     for address in (0..file_size).step_by(WORD_SIZE as _) {
@@ -226,13 +238,11 @@ fn parse_segment_content(
                 && segment_offset < *end as u32
         }) {
             Some(WordType::ReadOnlyData)
-        } else if is_data_segment
-            && section_map.iter().any(|(prefix, (start, end))| {
-                (!prefix.starts_with(".text") && !prefix.starts_with(".rodata"))
-                    && *start as u32 <= segment_offset
-                    && segment_offset < *end as u32
-            })
-        {
+        } else if section_map.iter().any(|(prefix, (start, end))| {
+            (!prefix.starts_with(".text") && !prefix.starts_with(".rodata"))
+                && *start as u32 <= segment_offset
+                && segment_offset < *end as u32
+        }) {
             Some(WordType::Data)
         } else {
             None
@@ -268,8 +278,18 @@ fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64,
     println!("  Memory Size: {} bytes", segment.p_memsz);
     println!("  Flags: 0x{:08x}", segment.p_flags);
     println!("  Alignment: 0x{:016x}", segment.p_align);
+    println!(
+        "  LOADABLE: 0x{:08x} -> 0x{:08x}",
+        segment.p_offset,
+        segment.p_offset + segment.p_filesz
+    );
+
     for (key, (start, end)) in section_map {
-        println!("Section {}: {} -> {}", key, start, end);
+        if !(*end < segment.p_offset
+            || *start > segment.p_offset + segment.p_offset + segment.p_filesz)
+        {
+            println!("Section {}: 0x{:08x} -> 0x{:08x}", key, start, end);
+        }
     }
 }
 
