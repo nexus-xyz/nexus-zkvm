@@ -5,21 +5,33 @@ mod riscv32 {
     extern crate alloc;
     use serde::{de::DeserializeOwned, Serialize};
 
-    // To simplify calling out to the environment, we keep the
-    // argument registers intact, and place the function ident
-    // in s2 (rust will not allow us to use s0 or s1).
+    /// Syscall code is placed in register a7.
+    /// Parameters are input from registers a0 to a6.
+    /// The return value is placed in register a0.
     macro_rules! ecall {
-        ($n:literal,$inp1:expr,$inp2:expr,$out:expr) => {
+        ($n:expr,$inp1:expr,$inp2:expr,$inp3:expr,$out:expr) => {
             unsafe {
-                core::arch::asm!("ecall", in("s2") $n, in("a1") $inp1, in("a2") $inp2, out("a0") $out)
+                core::arch::asm!("ecall", in("a7") $n, inout("a0") $inp1 => $out, in("a1") $inp2, in("a2") $inp3)
             }
         }
     }
 
     /// Write a string to the output console (if any).
-    pub fn write_log(s: &str) {
-        let mut _out: u32;
-        ecall!(1, s.as_ptr(), s.len(), _out);
+    pub fn write_log(s: &str) -> u32 {
+        let mut out: u32;
+        let syscode = 512;
+        let fd = 1;
+        let buf_ptr = s.as_ptr();
+        let buf_len = s.len();
+        ecall!(syscode, fd, buf_ptr, buf_len, out);
+        out
+    }
+
+    /// Exit the program with the given exit code.
+    pub fn exit(exit_code: i32) {
+        let mut _out: i32;
+        let syscode = 513;
+        ecall!(syscode, exit_code, 0, 0, _out);
     }
 
     /// Read an object off the private input tape
@@ -34,7 +46,8 @@ mod riscv32 {
     fn read_from_private_input() -> Option<u8> {
         let inp: u32 = 0;
         let mut out: u32;
-        ecall!(2, inp, inp, out);
+        let syscode = 1024;
+        ecall!(syscode, inp, inp, 0, out);
 
         if out == u32::MAX {
             None
@@ -70,7 +83,10 @@ mod riscv32 {
     /// Bench cycles, where input is the function name
     pub fn cycle_count_ecall(s: &str) {
         let mut _out: u32;
-        ecall!(3, s.as_ptr(), s.len(), _out);
+        let syscode = 1025;
+        let buf = s.as_ptr();
+        let len = s.len();
+        ecall!(syscode, buf, len, 0, _out);
     }
 
     /// An empty type representing the debug VM terminal
@@ -136,6 +152,10 @@ mod native {
 
     pub fn write_log<UNUSABLE: RequiresRV32Target>(_s: &str) {
         unimplemented!()
+    }
+
+    pub fn exit(exit_code: i32) -> ! {
+        std::process::exit(exit_code)
     }
 
     pub fn read_private_input<UNUSABLE: RequiresRV32Target, T: DeserializeOwned>(

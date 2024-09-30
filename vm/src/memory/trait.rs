@@ -48,4 +48,10 @@ pub trait MemoryProcessor: Default {
     ///
     /// Returns a `Result` indicating success or failure of the write operation.
     fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32>;
+
+    /// Reads multiple bytes from memory at the specified address, built on top of `read`.
+    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>>;
+
+    /// Writes multiple bytes to memory at the specified address, built on top of `write`.
+    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<()>;
 }

@@ -33,7 +33,7 @@
 //! use nexus_vm::emulator::Emulator;
 //!
 //! // Load an ELF file
-//! let elf_file = ElfFile::from_path("test/hello.elf").expect("Unable to load ELF file");
+//! let elf_file = ElfFile::from_path("test/helloworld.elf").expect("Unable to load ELF file");
 //!
 //! // Create an emulator instance
 //! let mut emulator = Emulator::from_elf(elf_file);
@@ -65,7 +65,7 @@
 //! ```
 //!
 
-use std::collections::{btree_map, BTreeMap};
+use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
 
 use super::registry::InstructionExecutorRegistry;
 use crate::{
@@ -74,6 +74,7 @@ use crate::{
     error::{Result, VMError},
     memory::{FixedMemory, VariableMemory},
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode},
+    system::SyscallInstruction,
 };
 
 #[derive(Debug)]
@@ -90,8 +91,11 @@ pub struct Emulator {
     // The writable memory image
     pub data_memory: VariableMemory,
 
+    // The private input memory FIFO queues.
+    pub private_input_memory: VecDeque<u8>,
+
     // The global clock counter
-    global_clock: usize,
+    pub global_clock: usize,
 
     // Basic block cache to improve performance
     basic_block_cache: BTreeMap<u32, BasicBlock>,
@@ -101,6 +105,9 @@ pub struct Emulator {
 
     // The entrypoint of the program
     entrypoint: u32,
+
+    /// The cycles tracker: (name, (cycle_count, occurrence))
+    pub cycle_tracker: HashMap<String, (usize, usize)>,
 }
 
 impl Default for Emulator {
@@ -110,10 +117,12 @@ impl Default for Emulator {
             instruction_memory: FixedMemory::new(1024),
             instruction_executor: InstructionExecutorRegistry::default(),
             data_memory: VariableMemory::default(),
+            private_input_memory: VecDeque::default(),
             global_clock: 0,
             basic_block_cache: BTreeMap::default(),
             base_address: 0,
             entrypoint: 0,
+            cycle_tracker: HashMap::new(),
         }
     }
 }
@@ -121,8 +130,8 @@ impl Default for Emulator {
 impl Emulator {
     pub fn from_elf(elf: ElfFile) -> Self {
         // We assume the compiler will make sure that there is no execution code
-        // in the readonly memory region, thus, we simplify the memory model by
-        // concatenating the rom_image and ram_image into a single memory image.
+        // in the readonly memory region (elf.rom_image), thus, we simplify the memory
+        // model by concatenating the rom_image and ram_image into a single memory image.
         let mut combined_memory = elf.ram_image;
         combined_memory.extend(elf.rom_image);
         let mut emulator = Self {
@@ -136,6 +145,23 @@ impl Emulator {
         emulator
     }
 
+    /// Execute a system call instruction
+    ///
+    /// 1. Decode the system call parameters from register a0-a6
+    /// 2. Read necessary data from memory
+    /// 3. Execute the system call, modify the emulator if necessary
+    /// 4. Write results back to memory
+    /// 5. Update CPU state, the return result is stored in register a0
+    fn execute_syscall(&mut self, bare_instruction: &Instruction) -> Result<()> {
+        let mut syscall_instruction = SyscallInstruction::decode(bare_instruction, &self.cpu)?;
+        syscall_instruction.memory_read(&self.data_memory)?;
+        syscall_instruction.execute(self)?;
+        syscall_instruction.memory_write(&mut self.data_memory)?;
+        syscall_instruction.write_back(&mut self.cpu);
+
+        Ok(())
+    }
+
     /// Executes a single RISC-V instruction.
     ///
     /// 1. Retrieves the instruction executor function for the given opcode via HashMap.
@@ -143,7 +169,9 @@ impl Emulator {
     /// 3. Updates the program counter (PC) if the instruction is not a branch or jump.
     /// 4. Increments the global clock.
     fn execute_instruction(&mut self, bare_instruction: &Instruction) -> Result<()> {
-        if let Some(executor) = self
+        if bare_instruction.is_system_instruction() {
+            self.execute_syscall(bare_instruction)?;
+        } else if let Some(executor) = self
             .instruction_executor
             .into_variable_memory(&bare_instruction.opcode)
         {
@@ -211,6 +239,12 @@ impl Emulator {
     pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<()> {
         self.instruction_executor.add_opcode::<IE>(op)
     }
+
+    /// Set Private Input to the private input memory
+    pub fn set_private_input(mut self, private_input: VecDeque<u8>) -> Self {
+        self.private_input_memory = private_input;
+        self
+    }
 }
 
 #[cfg(test)]
@@ -221,10 +255,13 @@ mod tests {
 
     #[test]
     fn test_emulate_instructions() {
-        let elf_file = ElfFile::from_path("test/hello.elf").expect("Unable to load ELF file");
+        let elf_file = ElfFile::from_path("test/helloworld.elf").expect("Unable to load ELF file");
         let mut emulator = Emulator::from_elf(elf_file);
 
-        assert_eq!(emulator.execute(), Err(VMError::VMStopped))
+        assert_eq!(
+            emulator.execute(),
+            Err(VMError::UnimplementedInstruction(48))
+        );
     }
 
     #[test]
@@ -271,5 +308,13 @@ mod tests {
         emulator.execute_basic_block(&basic_block).unwrap();
 
         assert_eq!(emulator.cpu.registers[31.into()], 1346269);
+    }
+
+    #[test]
+    fn test_set_private_input() {
+        let private_input = VecDeque::from(vec![1, 2, 3, 4, 5]);
+        let emulator_with_input = Emulator::default().set_private_input(private_input.clone());
+
+        assert_eq!(emulator_with_input.private_input_memory, private_input);
     }
 }

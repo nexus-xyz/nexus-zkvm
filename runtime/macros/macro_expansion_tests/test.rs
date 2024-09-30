@@ -58,6 +58,10 @@ fn apply_proc_macro(tmp_project_path: PathBuf, test: String) -> (String, String)
         .output()
         .expect("Failed to run test");
 
+    if !output.status.success() {
+        eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
+        panic!("cargo expand failed for RISC-V target");
+    }
     assert!(output.status.success());
 
     let expanded_native = String::from_utf8_lossy(&output.stdout);

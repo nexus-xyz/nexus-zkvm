@@ -25,6 +25,10 @@ impl Opcode {
     pub fn name(&self) -> &'static str {
         self.name
     }
+
+    pub fn raw(&self) -> u32 {
+        self.raw
+    }
 }
 
 impl From<BuiltinOpcode> for Opcode {
@@ -51,7 +55,7 @@ impl TryInto<BuiltinOpcode> for Opcode {
 
 impl Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.name())
+        f.write_str(self.name())
     }
 }
 

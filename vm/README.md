@@ -80,9 +80,7 @@ vm/
 │       │   └── utils.rs
 │       └── mod.rs
 └── test
-    ├── hello.elf
-    ├── pi.elf
-    └── puzzle.elf
+    └── helloworld.elf
 ```
 
 Here's a rewrite of the explanation for the RISC-V Virtual Machine project structure:
@@ -129,7 +127,7 @@ The project is organized into several key modules:
 
 
 5. `src/system`: Handles system-level operations
-   - `syscall.rs`: Implements system calls
+   - `syscall.rs`: Implements system calls.
 
 6. `src/emulator/`: Core emulation logic
    - `executor.rs`: Central component for RISC-V instruction execution

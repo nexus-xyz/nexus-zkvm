@@ -29,9 +29,13 @@ pub enum VMError {
     #[error("Unimplemented instruction")]
     UnimplementedInstruction(u32),
 
-    // VM has stoped
+    // VM has stopped
     #[error("VM has stopped")]
     VMStopped,
+
+    // VM has exited
+    #[error("VM has exited")]
+    VMExited,
 
     // Duplicate Opcode and Instruction
     #[error("Duplicate Opcode/Instruction")]
@@ -40,6 +44,14 @@ pub enum VMError {
     // Unable to process a known instruction, either builtin or precompile
     #[error("Unable to process a known instruction")]
     FailureProcessingKnownInstruction(Opcode),
+
+    // Unimplemented syscall
+    #[error("Unimplemented syscall")]
+    UnimplementedSyscall(u32, u32),
+
+    // Invalid Profile Label
+    #[error("Invalid profile label")]
+    InvalidProfileLabel,
 }
 
 /// Result type for VM functions that can produce errors

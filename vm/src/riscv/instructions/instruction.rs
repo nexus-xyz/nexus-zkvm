@@ -80,6 +80,15 @@ impl Instruction {
         }
     }
 
+    // Returns true if the instruction is a system instruction
+    pub(crate) fn is_system_instruction(&self) -> bool {
+        if let Ok(opcode) = self.opcode.try_into() {
+            matches!(opcode, BuiltinOpcode::ECALL | BuiltinOpcode::EBREAK)
+        } else {
+            false
+        }
+    }
+
     /// Creates a new instruction from an R-type instruction.
     fn from_r_type(opcode: Opcode, dec_insn: RType) -> Self {
         Self::new(

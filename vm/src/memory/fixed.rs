@@ -103,6 +103,21 @@ impl MemoryProcessor for FixedMemory {
 
         Ok((self.vec[aligned_address] >> shift) & mask)
     }
+
+    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>> {
+        let mut data = vec![0; size];
+        for (i, byte) in data.iter_mut().enumerate().take(size) {
+            *byte = self.read(address + i as u32, MemAccessSize::Byte)? as u8;
+        }
+        Ok(data)
+    }
+
+    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<()> {
+        for (i, &byte) in data.iter().enumerate() {
+            self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -245,5 +260,48 @@ mod tests {
             memory.write(0x100004, MemAccessSize::Word, 0xABCD1234),
             Err(VMError::InvalidMemoryAccess(0x100004))
         );
+    }
+
+    #[test]
+    fn test_function_read_write_bytes() {
+        let mut memory = FixedMemory::new(0x10000);
+
+        // Test write_bytes
+        let data = vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE];
+        assert!(memory.write_bytes(0x1000, &data).is_ok());
+
+        // Test read_bytes
+        let result = memory.read_bytes(0x1000, 5);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), data);
+
+        // Test reading more bytes than written
+        let result = memory.read_bytes(0x1000, 8);
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x00, 0x00, 0x00]
+        );
+
+        // Test writing and reading across word boundaries
+        let data = vec![0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88];
+        assert!(memory.write_bytes(0x1002, &data).is_ok());
+
+        let result = memory.read_bytes(0x1000, 10);
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            vec![0xAA, 0xBB, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88]
+        );
+
+        // Test reading individual bytes after write_bytes
+        assert_eq!(memory.read(0x1002, MemAccessSize::Byte), Ok(0x11));
+        assert_eq!(memory.read(0x1003, MemAccessSize::Byte), Ok(0x22));
+        assert_eq!(memory.read(0x1004, MemAccessSize::Byte), Ok(0x33));
+        assert_eq!(memory.read(0x1005, MemAccessSize::Byte), Ok(0x44));
+
+        // Test reading words after write_bytes
+        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x2211BBAA));
+        assert_eq!(memory.read(0x1004, MemAccessSize::Word), Ok(0x66554433));
     }
 }
