@@ -163,53 +163,45 @@ impl Fib {
         &self,
         seed: BaseField,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        utils::generate_trace(
-            [self.rows_log2, self.rows_log2],
-            |cols, seed| {
-                let (a, b) = cols.split_at_mut(1);
+        utils::generate_trace([self.rows_log2, self.rows_log2], |cols| {
+            let (a, b) = cols.split_at_mut(1);
 
-                let a = &mut a[0];
-                let b = &mut b[0];
+            let a = &mut a[0];
+            let b = &mut b[0];
 
-                // initialize row 0
-                a[0] = seed;
-                b[0] = seed;
+            // initialize row 0
+            a[0] = seed;
+            b[0] = seed;
 
-                // execute the fibonacci program
-                for i in 1..a.len() {
-                    b[i] = a[i - 1] + b[i - 1];
-                    a[i] = b[i - 1];
-                }
-            },
-            seed,
-        )
+            // execute the fibonacci program
+            for i in 1..a.len() {
+                b[i] = a[i - 1] + b[i - 1];
+                a[i] = b[i - 1];
+            }
+        })
     }
 
     pub fn aux_trace(
         &self,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        utils::generate_trace(
-            [self.rows_log2, self.rows_log2],
-            |cols, _| {
-                let zero = BaseField::zero();
-                let one = BaseField::one();
-                let (is_first, is_first_neg) = cols.split_at_mut(1);
+        utils::generate_trace([self.rows_log2, self.rows_log2], |cols| {
+            let zero = BaseField::zero();
+            let one = BaseField::one();
+            let (is_first, is_first_neg) = cols.split_at_mut(1);
 
-                let is_first = &mut is_first[0];
-                let is_first_neg = &mut is_first_neg[0];
+            let is_first = &mut is_first[0];
+            let is_first_neg = &mut is_first_neg[0];
 
-                // initialize row 0
-                is_first[0] = one;
-                is_first_neg[0] = zero;
+            // initialize row 0
+            is_first[0] = one;
+            is_first_neg[0] = zero;
 
-                // execute the fibonacci program
-                for i in 1..is_first.len() {
-                    is_first[i] = zero;
-                    is_first_neg[i] = one;
-                }
-            },
-            (),
-        )
+            // execute the fibonacci program
+            for i in 1..is_first.len() {
+                is_first[i] = zero;
+                is_first_neg[i] = one;
+            }
+        })
     }
 }
 

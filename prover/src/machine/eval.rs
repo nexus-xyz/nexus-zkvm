@@ -183,7 +183,7 @@ impl<C: MachineChip<ColumnName>> EvalMachine<C> {
     ) -> Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         utils::generate_trace(
             [self.rows_log2; 1 /* is_first */ + 3 /* xor(a,b,result) */],
-            |cols, ()| {
+            |cols| {
                 cols[0][0] = 1.into(); // is_first
                 for a in 0..256 {
                     for b in 0..256 {
@@ -194,7 +194,6 @@ impl<C: MachineChip<ColumnName>> EvalMachine<C> {
                     }
                 }
             },
-            (),
         )
     }
     pub fn interaction_trace(

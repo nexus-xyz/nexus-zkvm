@@ -62,7 +62,7 @@ pub fn main_trace<Chips: MachineChip<ColumnName>>(
     let mut ret_vv = Vec::new();
     let ret_vc = utils::generate_trace(
         std::iter::repeat(rows_log2).take(col_names.num_columns()),
-        |cols, _| {
+        |cols| {
             // Fill Clk column
             for row_idx in 0..1 << rows_log2 {
                 let clk_val: [u8; WORD_SIZE] = clk_on_row(row_idx).to_le_bytes();
@@ -167,7 +167,6 @@ pub fn main_trace<Chips: MachineChip<ColumnName>>(
             }
             ret_vv = cols.iter().map(|c| c.to_vec()).collect();
         },
-        (),
     );
     (ret_vc, ret_vv)
 }

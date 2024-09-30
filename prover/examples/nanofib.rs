@@ -91,149 +91,141 @@ impl Nanofib {
         n_th as u64 * 5 + 1
     }
     fn main_trace(&self) -> Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        utils::generate_trace(
-            [self.n_rows_log2; Self::N_COLUMNS],
-            |cols, ()| {
-                let [r1, r2, r3, r4, pc, pc_not0, pc_not0_a, pc_not0_b, pc_not1, pc_not1_a, pc_not1_b, pc_not2, pc_not2_a, pc_not2_b, pc_not3, pc_not3_a, pc_not3_b, pc_not4, pc_not4_a, pc_not4_b, pc_not5, pc_not5_a, pc_not5_b, r4_not0, r4_not0_a, r4_not0_b, is_pc_four] =
-                    cols
-                else {
-                    assert!(
-                        false,
-                        "Wrong number of registers: forgot to add/remove a column?"
-                    );
-                    return; // never reached; silencing the compiler
+        utils::generate_trace([self.n_rows_log2; Self::N_COLUMNS], |cols| {
+            let [r1, r2, r3, r4, pc, pc_not0, pc_not0_a, pc_not0_b, pc_not1, pc_not1_a, pc_not1_b, pc_not2, pc_not2_a, pc_not2_b, pc_not3, pc_not3_a, pc_not3_b, pc_not4, pc_not4_a, pc_not4_b, pc_not5, pc_not5_a, pc_not5_b, r4_not0, r4_not0_a, r4_not0_b, is_pc_four] =
+                cols
+            else {
+                assert!(
+                    false,
+                    "Wrong number of registers: forgot to add/remove a column?"
+                );
+                return; // never reached; silencing the compiler
+            };
+            let one: BaseField = 1.into();
+            // Set initial value
+            r2[0] = one;
+            r4[0] = (self.n_th - 1).into();
+
+            let n_rows = 2_usize.pow(self.n_rows_log2);
+            let rows = 0..n_rows;
+            for row in rows {
+                // Some aux variables
+                pc_not0[row] = if pc[row] == 0.into() { 0.into() } else { one };
+                r4_not0[row] = if r4[row] == 0.into() { 0.into() } else { one };
+                pc_not1[row] = if pc[row] == 1.into() { 0.into() } else { one };
+                pc_not2[row] = if pc[row] == 2.into() { 0.into() } else { one };
+                pc_not3[row] = if pc[row] == 3.into() { 0.into() } else { one };
+                pc_not4[row] = if pc[row] == 4.into() { 0.into() } else { one };
+                pc_not5[row] = if pc[row] == 5.into() { 0.into() } else { one };
+                pc_not0_a[row] = if pc[row] == 0.into() {
+                    one
+                } else {
+                    one / pc[row]
                 };
-                let one: BaseField = 1.into();
-                // Set initial value
-                r2[0] = one;
-                r4[0] = (self.n_th - 1).into();
+                r4_not0_a[row] = if r4[row] == 0.into() {
+                    one
+                } else {
+                    one / r4[row]
+                };
+                pc_not1_a[row] = if pc[row] == 1.into() {
+                    one
+                } else {
+                    one / (pc[row] - one)
+                };
+                pc_not2_a[row] = if pc[row] == 2.into() {
+                    one
+                } else {
+                    one / (pc[row] - BaseField::from(2))
+                };
+                pc_not3_a[row] = if pc[row] == 3.into() {
+                    one
+                } else {
+                    one / (pc[row] - BaseField::from(3))
+                };
+                pc_not4_a[row] = if pc[row] == 4.into() {
+                    one
+                } else {
+                    one / (pc[row] - BaseField::from(4))
+                };
+                pc_not5_a[row] = if pc[row] == 5.into() {
+                    one
+                } else {
+                    one / (pc[row] - BaseField::from(5))
+                };
+                pc_not0_b[row] = if pc[row] == 0.into() { one } else { pc[row] };
+                r4_not0_b[row] = if r4[row] == 0.into() { one } else { r4[row] };
+                pc_not1_b[row] = if pc[row] == 1.into() {
+                    one
+                } else {
+                    pc[row] - one
+                };
+                pc_not2_b[row] = if pc[row] == 2.into() {
+                    one
+                } else {
+                    pc[row] - BaseField::from(2)
+                };
+                pc_not3_b[row] = if pc[row] == 3.into() {
+                    one
+                } else {
+                    pc[row] - BaseField::from(3)
+                };
+                pc_not4_b[row] = if pc[row] == 4.into() {
+                    one
+                } else {
+                    pc[row] - BaseField::from(4)
+                };
+                pc_not5_b[row] = if pc[row] == 5.into() {
+                    one
+                } else {
+                    pc[row] - BaseField::from(5)
+                };
 
-                let n_rows = 2_usize.pow(self.n_rows_log2);
-                let rows = 0..n_rows;
-                for row in rows {
-                    // Some aux variables
-                    pc_not0[row] = if pc[row] == 0.into() { 0.into() } else { one };
-                    r4_not0[row] = if r4[row] == 0.into() { 0.into() } else { one };
-                    pc_not1[row] = if pc[row] == 1.into() { 0.into() } else { one };
-                    pc_not2[row] = if pc[row] == 2.into() { 0.into() } else { one };
-                    pc_not3[row] = if pc[row] == 3.into() { 0.into() } else { one };
-                    pc_not4[row] = if pc[row] == 4.into() { 0.into() } else { one };
-                    pc_not5[row] = if pc[row] == 5.into() { 0.into() } else { one };
-                    pc_not0_a[row] = if pc[row] == 0.into() {
-                        one
-                    } else {
-                        one / pc[row]
-                    };
-                    r4_not0_a[row] = if r4[row] == 0.into() {
-                        one
-                    } else {
-                        one / r4[row]
-                    };
-                    pc_not1_a[row] = if pc[row] == 1.into() {
-                        one
-                    } else {
-                        one / (pc[row] - one)
-                    };
-                    pc_not2_a[row] = if pc[row] == 2.into() {
-                        one
-                    } else {
-                        one / (pc[row] - BaseField::from(2))
-                    };
-                    pc_not3_a[row] = if pc[row] == 3.into() {
-                        one
-                    } else {
-                        one / (pc[row] - BaseField::from(3))
-                    };
-                    pc_not4_a[row] = if pc[row] == 4.into() {
-                        one
-                    } else {
-                        one / (pc[row] - BaseField::from(4))
-                    };
-                    pc_not5_a[row] = if pc[row] == 5.into() {
-                        one
-                    } else {
-                        one / (pc[row] - BaseField::from(5))
-                    };
-                    pc_not0_b[row] = if pc[row] == 0.into() { one } else { pc[row] };
-                    r4_not0_b[row] = if r4[row] == 0.into() { one } else { r4[row] };
-                    pc_not1_b[row] = if pc[row] == 1.into() {
-                        one
-                    } else {
-                        pc[row] - one
-                    };
-                    pc_not2_b[row] = if pc[row] == 2.into() {
-                        one
-                    } else {
-                        pc[row] - BaseField::from(2)
-                    };
-                    pc_not3_b[row] = if pc[row] == 3.into() {
-                        one
-                    } else {
-                        pc[row] - BaseField::from(3)
-                    };
-                    pc_not4_b[row] = if pc[row] == 4.into() {
-                        one
-                    } else {
-                        pc[row] - BaseField::from(4)
-                    };
-                    pc_not5_b[row] = if pc[row] == 5.into() {
-                        one
-                    } else {
-                        pc[row] - BaseField::from(5)
-                    };
+                // Set aux variable for degree reduction
+                is_pc_four[row] =
+                    (one - pc_not4[row]) * (one - if row == n_rows - 1 { one } else { zero() });
 
-                    // Set aux variable for degree reduction
-                    is_pc_four[row] =
-                        (one - pc_not4[row]) * (one - if row == n_rows - 1 { one } else { zero() });
-
-                    // Skip below in the last row because it will try to access over the end.
-                    if row == n_rows - 1 {
-                        continue;
-                    }
-                    // By default the next row is the same as the current row
-                    r1[row + 1] = r1[row];
-                    r2[row + 1] = r2[row];
-                    r3[row + 1] = r3[row];
-                    r4[row + 1] = r4[row];
-                    pc[row + 1] = pc[row] + one;
-                    // With the following exceptions
-                    if pc[row] == 0.into() {
-                        // pc == 0 means { r3 <- r1 + r2; pc++; }
-                        r3[row + 1] = r1[row] + r2[row];
-                    } else if pc[row] == 1.into() {
-                        // pc == 1 means { r1 <- r2; pc++; }
-                        r1[row + 1] = r2[row];
-                    } else if pc[row] == 2.into() {
-                        // pc == 2 means { r2 <- r3; pc++; }
-                        r2[row + 1] = r3[row];
-                    } else if pc[row] == 3.into() {
-                        // pc == 3 means { r4 <- r4 - 1; pc++; }
-                        r4[row + 1] = r4[row] - one;
-                    } else if pc[row] == 4.into() {
-                        // pc == 4 means { if r4 != 0 { pc <- 0; } else { pc++; } }
-                        if r4[row] != 0.into() {
-                            pc[row + 1] = 0.into();
-                        }
-                    } else if pc[row] == 5.into() {
-                        // pc == 5 means { /* Don't increment pc and stay there */}
-                        pc[row + 1] = pc[row];
-                    } else {
-                        panic!("Invalid pc value");
-                    }
+                // Skip below in the last row because it will try to access over the end.
+                if row == n_rows - 1 {
+                    continue;
                 }
-                debug_assert_eq!(r3[2_usize.pow(self.n_rows_log2) - 1], self.expected);
-            },
-            (),
-        )
+                // By default the next row is the same as the current row
+                r1[row + 1] = r1[row];
+                r2[row + 1] = r2[row];
+                r3[row + 1] = r3[row];
+                r4[row + 1] = r4[row];
+                pc[row + 1] = pc[row] + one;
+                // With the following exceptions
+                if pc[row] == 0.into() {
+                    // pc == 0 means { r3 <- r1 + r2; pc++; }
+                    r3[row + 1] = r1[row] + r2[row];
+                } else if pc[row] == 1.into() {
+                    // pc == 1 means { r1 <- r2; pc++; }
+                    r1[row + 1] = r2[row];
+                } else if pc[row] == 2.into() {
+                    // pc == 2 means { r2 <- r3; pc++; }
+                    r2[row + 1] = r3[row];
+                } else if pc[row] == 3.into() {
+                    // pc == 3 means { r4 <- r4 - 1; pc++; }
+                    r4[row + 1] = r4[row] - one;
+                } else if pc[row] == 4.into() {
+                    // pc == 4 means { if r4 != 0 { pc <- 0; } else { pc++; } }
+                    if r4[row] != 0.into() {
+                        pc[row + 1] = 0.into();
+                    }
+                } else if pc[row] == 5.into() {
+                    // pc == 5 means { /* Don't increment pc and stay there */}
+                    pc[row + 1] = pc[row];
+                } else {
+                    panic!("Invalid pc value");
+                }
+            }
+            debug_assert_eq!(r3[2_usize.pow(self.n_rows_log2) - 1], self.expected);
+        })
     }
     fn constant_trace(&self) -> Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        utils::generate_trace(
-            [self.n_rows_log2; 1],
-            |cols, ()| {
-                cols[0][0] = 1.into(); // is_first
-            },
-            (),
-        )
+        utils::generate_trace([self.n_rows_log2; 1], |cols| {
+            cols[0][0] = 1.into(); // is_first
+        })
     }
 }
 

@@ -53,14 +53,13 @@ pub fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
     circle_domain_order
 }
 
-pub fn generate_trace<L, F, A>(
+pub fn generate_trace<L, F>(
     log_sizes: L,
     execution: F,
-    args: A,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>
 where
     L: IntoIterator<Item = u32>,
-    F: FnOnce(&mut [&mut [BaseField]], A),
+    F: FnOnce(&mut [&mut [BaseField]]),
 {
     let (mut columns, domains): (Vec<_>, Vec<_>) = log_sizes
         .into_iter()
@@ -76,7 +75,7 @@ where
     // asserts the user cannot mutate the number of rows
     let mut cols: Vec<_> = columns.iter_mut().map(|c| c.as_mut_slice()).collect();
 
-    execution(cols.as_mut_slice(), args);
+    execution(cols.as_mut_slice());
 
     columns
         .into_iter()
