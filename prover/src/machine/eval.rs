@@ -202,7 +202,7 @@ impl<C: MachineChip<ColumnName>> EvalMachine<C> {
     ) -> Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         utils::generate_secure_field_trace(
             [self.rows_log2; 12 /* TODO: automate column counting */],
-            |cols, ()| {
+            |cols| {
                 // Split cols into single SecureField columns
                 // use_denom_inv needs to be four columns for each limb
                 let (use_denom, cols) = cols.split_at_mut(4);
@@ -268,7 +268,6 @@ impl<C: MachineChip<ColumnName>> EvalMachine<C> {
                 // Assert zero on the last row
                 debug_assert_eq!(sum[n_rows - 1], SecureField::zero());
             },
-            (),
         )
     }
 }

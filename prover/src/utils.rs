@@ -94,14 +94,13 @@ where
 
 // Similar to generate_trace() but with SecureField matrix
 // Especially useful for Montgomery batch inversion.
-pub fn generate_secure_field_trace<L, F, A>(
+pub fn generate_secure_field_trace<L, F>(
     log_sizes: L, // each element is the height of a SecureField column = four BaseField columns
     execution: F,
-    args: A,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>
 where
     L: IntoIterator<Item = u32>,
-    F: FnOnce(&mut [&mut [SecureField]], A),
+    F: FnOnce(&mut [&mut [SecureField]]),
 {
     let (mut columns, domains): (Vec<_>, Vec<_>) = log_sizes
         .into_iter()
@@ -117,7 +116,7 @@ where
     // asserts the user cannot mutate the number of rows
     let mut cols: Vec<_> = columns.iter_mut().map(|c| c.as_mut_slice()).collect();
 
-    execution(cols.as_mut_slice(), args);
+    execution(cols.as_mut_slice());
 
     columns
         .into_iter()
