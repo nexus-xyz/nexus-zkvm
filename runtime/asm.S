@@ -12,6 +12,7 @@
 .option nopic
 .section .init, "ax"
 .global _start
+.extern __memory_top
 _start:
     .option push
     .option norelax

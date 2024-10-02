@@ -46,3 +46,6 @@ pub unsafe extern "C" fn start_rust(a0: u32, a1: u32, a2: u32) -> u32 {
     }
     main(a0, a1, a2)
 }
+
+#[no_mangle]
+pub static __memory_top: u32 = 0x8040_0000;

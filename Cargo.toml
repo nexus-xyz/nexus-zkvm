@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["runtime", "prover", "vm", "precompiles"]
+members = ["runtime", "prover", "vm", "precompiles", "tests/testing-framework"]
 default-members = ["runtime", "prover", "vm"]
 
 [workspace.package]

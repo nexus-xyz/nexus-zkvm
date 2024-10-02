@@ -206,7 +206,7 @@ impl Emulator {
         if let btree_map::Entry::Vacant(e) = self.basic_block_cache.entry(pc) {
             let address = (pc - self.base_address) / WORD_SIZE;
             let block = decode_until_end_of_a_block(
-                &self.instruction_memory.segment(address as usize, None),
+                self.instruction_memory.segment(address as usize, None),
             );
             if block.is_empty() {
                 return Err(VMError::VMStopped);

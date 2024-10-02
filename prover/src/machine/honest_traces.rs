@@ -83,9 +83,9 @@ pub fn main_trace<Chips: MachineChip<RegisterMachineColumns>>(
             for row_idx in 0..1 << rows_log2 {
                 // Fill r1_idx, r2_idx, and rd_idx randomly
                 // TODO: parse instruction
-                let r1_idx: usize = rng.gen_range(0..NUM_REGISTERS as usize);
-                let r2_idx: usize = rng.gen_range(0..NUM_REGISTERS as usize);
-                let rd_idx: usize = rng.gen_range(0..NUM_REGISTERS as usize);
+                let r1_idx: usize = rng.gen_range(0..NUM_REGISTERS);
+                let r2_idx: usize = rng.gen_range(0..NUM_REGISTERS);
+                let rd_idx: usize = rng.gen_range(0..NUM_REGISTERS);
                 // Read input values
                 // TODO: add register memory checking
                 let (r1_val, r1_read_event) = regs.read(r1_idx, r1_timestamp(row_idx));

@@ -211,14 +211,14 @@ impl Default for InstructionExecutorRegistry {
 impl InstructionExecutorRegistry {
     pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<()> {
         self.precompiles
-            .insert(op.clone(), register_instruction_executor!(IE::evaluator))
-            .ok_or(VMError::DuplicateInstruction(op.clone()))
+            .insert(*op, register_instruction_executor!(IE::evaluator))
+            .ok_or(VMError::DuplicateInstruction(*op))
             .map(|_| ())
     }
 
     #[allow(dead_code)] // temp till second pass memory is done
     pub fn into_fixed_memory(&self, op: &Opcode) -> Option<InstructionExecutorFn<FixedMemory>> {
-        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(op.clone()) {
+        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
             let idx = opcode as usize;
             if idx > self.builtins.len() {
                 return None;
@@ -238,7 +238,7 @@ impl InstructionExecutorRegistry {
         &self,
         op: &Opcode,
     ) -> Option<InstructionExecutorFn<VariableMemory>> {
-        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(op.clone()) {
+        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
             let idx = opcode as usize;
             if idx > self.builtins.len() {
                 return None;
