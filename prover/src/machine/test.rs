@@ -36,16 +36,20 @@
 // TODO: write somewhere in the trace, the final values and timestamps of registers.
 // TODO: calculate register memory check logup sum
 
+use std::iter;
+
+use num_traits::One as _;
 use rand::rngs;
 use strum::IntoEnumIterator;
 use stwo_prover::{
     constraint_framework::{
-        assert_constraints, FrameworkComponent, FrameworkEval as _, TraceLocationAllocator,
+        assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
     },
     core::{
         air::Component,
         backend::simd::SimdBackend,
         channel::Blake2sChannel,
+        fields::m31::BaseField,
         pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig},
         poly::circle::{CanonicCoset, PolyOps},
         prover::{prove, verify},
@@ -56,12 +60,12 @@ use stwo_prover::{
 use crate::{
     machine::{
         chips::{add::AddChip, sub::SubChip, xor::XorChip},
-        eval::EvalMachine,
+        eval::{constraint_increment, EvalMachine},
         honest_traces::main_trace,
         register_file::AddMachineRegisterFile,
         types::{column_sizes, ColumnName},
     },
-    utils::{ColumnNameMap, PermElements},
+    utils::{self, ColumnNameMap, EvalAtRowExtra as _, PermElements, WORD_SIZE},
 };
 
 #[test]
@@ -93,7 +97,7 @@ fn test_machine() {
     // Draw permutation element
     let xor_perm_element = PermElements::draw(prover_channel);
     let machine = EvalMachine::<Chips> {
-        rows_log2: rows_log2,
+        rows_log2,
         cols: column_names,
         xor_perm_element,
         _phantom: std::marker::PhantomData,
@@ -149,4 +153,250 @@ fn test_machine() {
     .expect("proof verification failed");
 
     println!("{} machine cycles proved and verified", 1 << rows_log2);
+}
+
+#[test]
+fn constraint_increment_works() {
+    // setup trace
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub enum Cols {
+        Value,
+        Carry,
+    }
+
+    let rows_log2 = 16;
+    let increment_value = 4;
+
+    let column_names: ColumnNameMap<Cols> = ColumnNameMap::new()
+        .allocate_bulk([(Cols::Value, WORD_SIZE), (Cols::Carry, WORD_SIZE)])
+        .finalize();
+
+    let num_cols = column_names.num_columns();
+    let trace = utils::generate_trace(iter::repeat(rows_log2).take(num_cols), |cols| {
+        let (vc, cols) = cols.split_at_mut(WORD_SIZE);
+        let (cc, _) = cols.split_at_mut(WORD_SIZE);
+
+        // fill the pc trace with increment on word size
+        let mut value = [0u8; WORD_SIZE];
+        let mut value_aux = [0u8; WORD_SIZE];
+        let mut increment;
+
+        for i in 0..vc[0].len() {
+            for j in 0..WORD_SIZE {
+                vc[j][i] = BaseField::from_u32_unchecked(value[j] as u32);
+                cc[j][i] = BaseField::from_u32_unchecked(value_aux[j] as u32);
+            }
+
+            increment = increment_value;
+
+            for j in 0..WORD_SIZE {
+                let (x, o) = value[j].overflowing_add(increment);
+
+                value[j] = x;
+                value_aux[j] = o as u8;
+                increment = value_aux[j];
+            }
+        }
+    });
+
+    // set the is_first column
+    let aux = utils::generate_trace([rows_log2], |cols| {
+        cols[0][0] = BaseField::one();
+    });
+
+    pub struct Increment {
+        pub rows_log2: u32,
+        pub increment_value: u8,
+        pub cols: ColumnNameMap<Cols>,
+    }
+
+    impl FrameworkEval for Increment {
+        fn log_size(&self) -> u32 {
+            self.rows_log2
+        }
+
+        fn max_constraint_log_degree_bound(&self) -> u32 {
+            self.log_size() + 1
+        }
+
+        fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
+            let [prev_cols, cols] = eval.lookup_trace_masks_with_offsets(&self.cols, 0, [-1, 0]);
+            let [is_first] = eval.next_interaction_mask(1, [0]);
+
+            constraint_increment(
+                self.increment_value,
+                &Cols::Carry,
+                &Cols::Value,
+                &cols,
+                &mut eval,
+                is_first,
+                &prev_cols,
+            );
+
+            eval
+        }
+    }
+
+    // setup protocol
+
+    let config = PcsConfig::default();
+    let coset = CanonicCoset::new(rows_log2 + 1 + config.fri_config.log_blowup_factor)
+        .circle_domain()
+        .half_coset;
+    let twiddles = SimdBackend::precompute_twiddles(coset);
+
+    let prover_channel = &mut Blake2sChannel::default();
+    let prover_commitment_scheme =
+        &mut CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
+
+    // commit traces
+
+    let mut tree_builder = prover_commitment_scheme.tree_builder();
+    tree_builder.extend_evals(trace);
+    tree_builder.commit(prover_channel);
+
+    let mut tree_builder = prover_commitment_scheme.tree_builder();
+    tree_builder.extend_evals(aux);
+    tree_builder.commit(prover_channel);
+
+    // Sanity check
+
+    let traces = prover_commitment_scheme
+        .trees
+        .as_ref()
+        .map(|t| t.polynomials.to_vec());
+
+    assert_constraints(&traces, CanonicCoset::new(rows_log2), |evaluator| {
+        Increment {
+            rows_log2,
+            increment_value,
+            cols: column_names.clone(),
+        }
+        .evaluate(evaluator);
+    });
+}
+
+#[test]
+fn constraint_increment_u32_wrap_works() {
+    // setup trace
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub enum Cols {
+        Value,
+        Carry,
+    }
+
+    let rows_log2 = 5;
+    let increment_value = 4;
+
+    let column_names: ColumnNameMap<Cols> = ColumnNameMap::new()
+        .allocate_bulk([(Cols::Value, WORD_SIZE), (Cols::Carry, WORD_SIZE)])
+        .finalize();
+
+    let num_cols = column_names.num_columns();
+    let trace = utils::generate_trace(iter::repeat(rows_log2).take(num_cols), |cols| {
+        let (vc, cols) = cols.split_at_mut(WORD_SIZE);
+        let (cc, _) = cols.split_at_mut(WORD_SIZE);
+
+        // fill the pc trace with increment on word size
+        let mut value = [0xffu8; WORD_SIZE];
+        let mut value_aux = [0u8; WORD_SIZE];
+        let mut increment;
+
+        value[0] = 0xf8;
+
+        for i in 0..vc[0].len() {
+            for j in 0..WORD_SIZE {
+                vc[j][i] = BaseField::from_u32_unchecked(value[j] as u32);
+                cc[j][i] = BaseField::from_u32_unchecked(value_aux[j] as u32);
+            }
+
+            increment = increment_value;
+
+            for j in 0..WORD_SIZE {
+                let (x, o) = value[j].overflowing_add(increment);
+
+                value[j] = x;
+                value_aux[j] = o as u8;
+                increment = value_aux[j];
+            }
+        }
+    });
+
+    // set the is_first column
+    let aux = utils::generate_trace([rows_log2], |cols| {
+        cols[0][0] = BaseField::one();
+    });
+
+    pub struct Increment {
+        pub rows_log2: u32,
+        pub increment_value: u8,
+        pub cols: ColumnNameMap<Cols>,
+    }
+
+    impl FrameworkEval for Increment {
+        fn log_size(&self) -> u32 {
+            self.rows_log2
+        }
+
+        fn max_constraint_log_degree_bound(&self) -> u32 {
+            self.log_size() + 1
+        }
+
+        fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
+            let [prev_cols, cols] = eval.lookup_trace_masks_with_offsets(&self.cols, 0, [-1, 0]);
+            let [is_first] = eval.next_interaction_mask(1, [0]);
+
+            constraint_increment(
+                self.increment_value,
+                &Cols::Carry,
+                &Cols::Value,
+                &cols,
+                &mut eval,
+                is_first,
+                &prev_cols,
+            );
+
+            eval
+        }
+    }
+
+    // setup protocol
+
+    let config = PcsConfig::default();
+    let coset = CanonicCoset::new(rows_log2 + 1 + config.fri_config.log_blowup_factor)
+        .circle_domain()
+        .half_coset;
+    let twiddles = SimdBackend::precompute_twiddles(coset);
+
+    let prover_channel = &mut Blake2sChannel::default();
+    let prover_commitment_scheme =
+        &mut CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
+
+    // commit traces
+
+    let mut tree_builder = prover_commitment_scheme.tree_builder();
+    tree_builder.extend_evals(trace);
+    tree_builder.commit(prover_channel);
+
+    let mut tree_builder = prover_commitment_scheme.tree_builder();
+    tree_builder.extend_evals(aux);
+    tree_builder.commit(prover_channel);
+
+    // Sanity check
+
+    let traces = prover_commitment_scheme
+        .trees
+        .as_ref()
+        .map(|t| t.polynomials.to_vec());
+
+    assert_constraints(&traces, CanonicCoset::new(rows_log2), |evaluator| {
+        Increment {
+            rows_log2,
+            increment_value,
+            cols: column_names.clone(),
+        }
+        .evaluate(evaluator);
+    });
 }

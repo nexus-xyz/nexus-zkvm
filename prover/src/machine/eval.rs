@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash};
+
 use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{EvalAtRow, FrameworkEval},
@@ -16,29 +18,74 @@ use crate::utils::{EvalAtRowExtra, WORD_SIZE};
 
 use ColumnName::*;
 
-fn constraint_increment<E: stwo_prover::constraint_framework::EvalAtRow>(
-    f_of: impl Fn(u32) -> <E as EvalAtRow>::F,
-    increment: u32,
-    carry_flag: &ColumnName,
-    incremented: &ColumnName,
-    cols: &std::collections::HashMap<ColumnName, Vec<<E as EvalAtRow>::F>>,
+/// Enforces the column to be an increment of the provided delta.
+///
+/// Here is a valid table example assuming a word size and increment delta of 4
+/// ```text
+/// (incremented, carry)
+/// ([00,00,00,00],[00,00,00,00])
+/// ([04,00,00,00],[00,00,00,00])
+/// ([08,00,00,00],[00,00,00,00])
+/// ...
+/// ([fc,00,00,00],[00,00,00,00])
+/// ([00,01,00,00],[01,00,00,00])
+/// ([04,01,00,00],[00,00,00,00])
+/// ...
+/// ([fc,ff,00,00],[00,00,00,00])
+/// ([00,00,01,00],[01,01,00,00])
+/// ([04,00,01,00],[00,00,00,00])
+/// ```
+///
+/// This is a wrapping addition. For the example above:
+/// ```text
+/// (incremented, carry)
+/// ([fc,ff,ff,ff],[00,00,00,00])
+/// ([00,00,00,00],[01,01,01,01])
+/// ([04,00,00,00],[00,00,00,00])
+/// ```
+pub fn constraint_increment<E, K>(
+    delta: u8,
+    carry: &K,
+    incremented: &K,
+    current_row: &HashMap<K, Vec<<E as EvalAtRow>::F>>,
     eval: &mut E,
-    is_first: <E as EvalAtRow>::F,
-    prev_cols: &std::collections::HashMap<ColumnName, Vec<<E as EvalAtRow>::F>>,
-) {
-    assert!(increment < 256);
-    (0..WORD_SIZE).for_each(|i| {
-        let pc_carry: E::F = if i == 0 {
-            f_of(increment) // Increment
-        } else {
-            cols[carry_flag][i - 1]
-        };
+    is_first_row: <E as EvalAtRow>::F,
+    previous_row: &HashMap<K, Vec<<E as EvalAtRow>::F>>,
+) where
+    E: EvalAtRow,
+    K: Eq + hash::Hash,
+{
+    let one = E::F::one();
+    let value = BaseField::from_u32_unchecked(delta as u32);
+    let value = E::F::from(value);
+    let overflow = BaseField::from_u32_unchecked(256);
+    let overflow = E::F::from(overflow);
+
+    for i in 0..WORD_SIZE {
+        // assert the first row carry is zeroed
+        eval.add_constraint(is_first_row * current_row[carry][i]);
+
+        // assert the carry column is boolean
+        eval.add_constraint(current_row[carry][i] * (current_row[carry][i] - one));
+    }
+
+    // first row should be incremented
+    eval.add_constraint(
+        (one - is_first_row)
+            * (current_row[incremented][0] - value - previous_row[incremented][0]
+                + overflow * current_row[carry][0]),
+    );
+
+    // the other columns should add the carry of the previous iteration
+    for i in 1..WORD_SIZE {
         eval.add_constraint(
-            (E::F::one() - is_first)
-                * (pc_carry + prev_cols[incremented][i]
-                    - (cols[incremented][i] + f_of(256) * cols[carry_flag][i])),
+            (one - is_first_row)
+                * (current_row[incremented][i]
+                    - current_row[carry][i - 1]
+                    - previous_row[incremented][i]
+                    + overflow * current_row[carry][i]),
         );
-    });
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -89,19 +136,10 @@ impl<Chips: MachineChip<ColumnName>> FrameworkEval for EvalMachine<Chips> {
             ); // Clk starts from four
         }
         // Constraint pc increment
-        constraint_increment(
-            f_of,
-            4,
-            &PcCarryFlag,
-            &Pc,
-            &cols,
-            &mut eval,
-            is_first,
-            &prev_cols,
-        );
+        constraint_increment(4, &PcCarryFlag, &Pc, &cols, &mut eval, is_first, &prev_cols);
+
         // Constraint Clk increment
         constraint_increment(
-            f_of,
             4,
             &ClkCarryFlag,
             &Clk,
