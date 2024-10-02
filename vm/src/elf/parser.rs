@@ -225,12 +225,13 @@ fn parse_segment_content(
                 .try_into()
                 .unwrap(),
         );
-
+        // println!("{:08x}: segment_offset -> {:08x}", segment_offset, segment_offset + WORD_SIZE);
         // Determine the type of word based on the segment and section information
         let word_type = if is_executable_segment
             && section_map.iter().any(|(prefix, (_, end))| {
                 prefix.starts_with(".text") && segment_offset < *end as u32
             }) {
+            
             Some(WordType::Instruction)
         } else if section_map.iter().any(|(prefix, (start, end))| {
             prefix.starts_with(".rodata")
@@ -247,6 +248,9 @@ fn parse_segment_content(
         } else {
             None
         };
+
+        
+        println!("{:08x} -> {:08x}: {:?}", segment_offset, segment_offset+4, word_type);
 
         match word_type {
             Some(WordType::Instruction) => instructions.push(word),

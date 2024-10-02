@@ -1,6 +1,6 @@
 mod test {
     use nexus_vm::elf::ElfFile;
-    use nexus_vm::riscv::decode_instructions;
+    use nexus_vm::riscv::{decode_instructions, decode_until_end_of_a_block};
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
 
@@ -77,6 +77,15 @@ mod test {
         std::fs::read(elf_file).expect("Failed to read elf file")
     }
 
+    #[allow(dead_code)]
+    fn debug_elf_file(elf: &ElfFile) {
+        dbg!(elf.instructions.len());
+        dbg!(elf.entry);
+        dbg!(elf.base);
+        dbg!(elf.ram_image.len());
+        dbg!(elf.rom_image.len());
+    }
+
     #[test]
     fn test_compile() {
         let tests = vec!["simple"];
@@ -102,23 +111,23 @@ mod test {
 
             const WORD_SIZE: u32 = 4;
             let elf = ElfFile::from_path(&elf_path).expect("Unable to load ELF from path");
-            let entry_instruction = (elf.entry - elf.base) / WORD_SIZE;
+            let entry_instruction = (elf.entry - elf.base)/WORD_SIZE;
 
+            debug_elf_file(&elf);
             dbg!(entry_instruction);
-            dbg!(elf.entry);
-            dbg!(elf.instructions.len());
-            dbg!(elf.base);
 
-            let want_instructions = 1; // TODO: change
-                                       // TODO: print out the instructions/trace to expectations file so can verify consistency (@duc-nx)
-            let program = decode_instructions(
-                &elf.instructions
-                    [entry_instruction as usize..(entry_instruction + want_instructions) as usize],
-            );
+            let program = decode_instructions(&elf.instructions);
 
-            for block in program.blocks.iter() {
-                println!("{}", block);
-            }
+            // let want_instructions = 1; // TODO: change
+            // TODO: print out the instructions/trace to expectations file so can verify consistency (@duc-nx)
+            // let program =
+            //     decode_until_end_of_a_block(&elf.instructions[entry_instruction as usize..]);
+
+            println!("{}", program);
+
+            // for block in program.iter() {
+            //     println!("{}", block);
+            // }
         }
     }
 }
