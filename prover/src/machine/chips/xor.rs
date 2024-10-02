@@ -1,15 +1,17 @@
+use std::collections::HashMap;
+
 use crate::{
-    machine::types::ColumnName,
+    machine::types::RegisterMachineColumns,
     utils::{ColumnNameMap, MachineChip, WORD_SIZE},
 };
 
 use num_traits::{One as _, Zero as _};
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
-use ColumnName::*;
+use RegisterMachineColumns::*;
 
 pub struct XorChip;
 
-impl MachineChip<ColumnName> for XorChip {
+impl MachineChip<RegisterMachineColumns> for XorChip {
     fn fill_main_trace(
         r1_val: [u8; WORD_SIZE],
         r2_val: [u8; WORD_SIZE],
@@ -17,7 +19,7 @@ impl MachineChip<ColumnName> for XorChip {
         rd_idx: usize,
         cols: &mut [&mut [BaseField]],
         row_idx: usize,
-        col_names: &ColumnNameMap<ColumnName>,
+        col_names: &ColumnNameMap<RegisterMachineColumns>,
     ) {
         if cols[col_names.nth_col(&IsXor, 0)][row_idx] == BaseField::zero() {
             return;
@@ -45,7 +47,7 @@ impl MachineChip<ColumnName> for XorChip {
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        _cols: &std::collections::HashMap<ColumnName, Vec<<E as EvalAtRow>::F>>,
+        _cols: &HashMap<RegisterMachineColumns, Vec<<E as EvalAtRow>::F>>,
         _eval: &mut E,
     ) {
         // Currently dealt with directly in the main evaluate() function.

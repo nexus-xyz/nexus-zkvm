@@ -1,8 +1,11 @@
 use rand::{distributions::Standard, prelude::Distribution, Rng};
+use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-#[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, Hash)]
-pub enum ColumnName {
+use crate::utils::{ColumnNameItem, WORD_SIZE};
+
+#[derive(Clone, Copy, Debug, EnumIter, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub enum RegisterMachineColumns {
     Clk, // start from 4, increments by 4
     ClkCarryFlag,
     Pc,
@@ -29,38 +32,45 @@ pub enum ColumnName {
     CarryFlag,
     XorMultiplicity,
 }
-use ColumnName::*;
 
-use crate::utils::WORD_SIZE;
+impl ColumnNameItem for RegisterMachineColumns {
+    type Iter = RegisterMachineColumnsIter;
 
-pub fn column_sizes(column_name: &ColumnName) -> usize {
-    match column_name {
-        Clk => WORD_SIZE,
-        ClkCarryFlag => WORD_SIZE,
-        Pc => WORD_SIZE,
-        PcCarryFlag => WORD_SIZE,
-        IsAdd => 1,
-        IsSub => 1,
-        IsXor => 1,
-        R1Idx => 1,
-        R2Idx => 1,
-        RdIdx => 1,
-        RdIdxNonzero => 1,
-        RdIdxNonzeroW => 1,
-        RdIdxNonzeroZ => 1,
-        R1Val => WORD_SIZE,
-        R2Val => WORD_SIZE,
-        RdVal => WORD_SIZE,
-        RdValWritten => WORD_SIZE,
-        R1PrevTimeStamp => WORD_SIZE,
-        R1PrevValue => WORD_SIZE,
-        R2PrevTimeStamp => WORD_SIZE,
-        R2PrevValue => WORD_SIZE,
-        RdPrevValue => WORD_SIZE,
-        RdPrevTimeStamp => WORD_SIZE,
-        CarryFlag => WORD_SIZE,
-        XorMultiplicity => 1,
-        // Avoid _ and let the compiler detect missing entries.
+    fn items() -> Self::Iter {
+        Self::iter()
+    }
+
+    fn size(&self) -> usize {
+        use RegisterMachineColumns::*;
+
+        match self {
+            Clk => WORD_SIZE,
+            ClkCarryFlag => WORD_SIZE,
+            Pc => WORD_SIZE,
+            PcCarryFlag => WORD_SIZE,
+            IsAdd => 1,
+            IsSub => 1,
+            IsXor => 1,
+            R1Idx => 1,
+            R2Idx => 1,
+            RdIdx => 1,
+            RdIdxNonzero => 1,
+            RdIdxNonzeroW => 1,
+            RdIdxNonzeroZ => 1,
+            R1Val => WORD_SIZE,
+            R2Val => WORD_SIZE,
+            RdVal => WORD_SIZE,
+            RdValWritten => WORD_SIZE,
+            R1PrevTimeStamp => WORD_SIZE,
+            R1PrevValue => WORD_SIZE,
+            R2PrevTimeStamp => WORD_SIZE,
+            R2PrevValue => WORD_SIZE,
+            RdPrevValue => WORD_SIZE,
+            RdPrevTimeStamp => WORD_SIZE,
+            CarryFlag => WORD_SIZE,
+            XorMultiplicity => 1,
+            // Avoid _ and let the compiler detect missing entries.
+        }
     }
 }
 

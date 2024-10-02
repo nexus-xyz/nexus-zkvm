@@ -1,5 +1,7 @@
 // TODO: move more of these into chips
 
+use std::iter;
+
 use num_traits::One;
 use rand::Rng;
 use stwo_prover::core::{
@@ -13,10 +15,10 @@ use crate::utils::{self, write_u32, write_word, ColumnNameMap, MachineChip, WORD
 use super::{
     consts::NUM_REGISTERS,
     register_file::AddMachineRegisterFile,
-    types::{ColumnName, Instruction},
+    types::{Instruction, RegisterMachineColumns},
 };
 
-use ColumnName::*;
+use RegisterMachineColumns::*;
 
 fn clk_on_row(row_idx: usize) -> u32 {
     assert!(row_idx + 1 < 1 << 30); // Overflow check
@@ -36,9 +38,9 @@ fn fill_carry_flags(
     row_idx: usize,
     prev_val: [u8; 4],
     increment: u32,
-    filled_column: &ColumnName,
+    filled_column: &RegisterMachineColumns,
     cols: &mut [&mut [BaseField]],
-    col_names: &ColumnNameMap<ColumnName>,
+    col_names: &ColumnNameMap<RegisterMachineColumns>,
 ) {
     assert!(increment < 256);
     if row_idx != 0 {
@@ -50,18 +52,18 @@ fn fill_carry_flags(
     }
 }
 
-pub fn main_trace<Chips: MachineChip<ColumnName>>(
+pub fn main_trace<Chips: MachineChip<RegisterMachineColumns>>(
     rng: &mut impl Rng,
     regs: &mut AddMachineRegisterFile,
     rows_log2: u32,
-    col_names: &ColumnNameMap<ColumnName>,
+    col_names: &ColumnNameMap<RegisterMachineColumns>,
 ) -> (
     Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     Vec<Vec<BaseField>>,
 ) {
     let mut ret_vv = Vec::new();
     let ret_vc = utils::generate_trace(
-        std::iter::repeat(rows_log2).take(col_names.num_columns()),
+        iter::repeat(rows_log2).take(col_names.total_columns()),
         |cols| {
             // Fill Clk column
             for row_idx in 0..1 << rows_log2 {

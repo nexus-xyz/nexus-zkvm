@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash};
+use std::{collections::HashMap, hash, marker};
 
 use num_traits::{One, Zero};
 use stwo_prover::{
@@ -10,13 +10,11 @@ use stwo_prover::{
     },
 };
 
-use crate::utils::{self, ColumnNameMap, MachineChip, PermElements};
+use crate::utils::{self, ColumnNameMap, EvalAtRowExtra, MachineChip, PermElements, WORD_SIZE};
 
-use super::{consts::N_XOR_TUPLE, types::ColumnName};
+use super::{consts::N_XOR_TUPLE, types::RegisterMachineColumns};
 
-use crate::utils::{EvalAtRowExtra, WORD_SIZE};
-
-use ColumnName::*;
+use RegisterMachineColumns::*;
 
 /// Enforces the column to be an increment of the provided delta.
 ///
@@ -69,7 +67,7 @@ pub fn constraint_increment<E, K>(
         eval.add_constraint(current_row[carry][i] * (current_row[carry][i] - one));
     }
 
-    // first row should be incremented
+    // first column should be incremented
     eval.add_constraint(
         (one - is_first_row)
             * (current_row[incremented][0] - value - previous_row[incremented][0]
@@ -89,14 +87,14 @@ pub fn constraint_increment<E, K>(
 }
 
 #[derive(Clone, Debug)]
-pub struct EvalMachine<C: MachineChip<ColumnName>> {
+pub struct EvalMachine<C: MachineChip<RegisterMachineColumns>> {
     pub rows_log2: u32,
-    pub cols: ColumnNameMap<ColumnName>,
+    pub cols: ColumnNameMap<RegisterMachineColumns>,
     pub xor_perm_element: PermElements<{ N_XOR_TUPLE }>,
-    pub _phantom: std::marker::PhantomData<C>,
+    pub _phantom: marker::PhantomData<C>,
 }
 
-impl<Chips: MachineChip<ColumnName>> FrameworkEval for EvalMachine<Chips> {
+impl<Chips: MachineChip<RegisterMachineColumns>> FrameworkEval for EvalMachine<Chips> {
     fn log_size(&self) -> u32 {
         self.rows_log2
     }
@@ -215,7 +213,20 @@ impl<Chips: MachineChip<ColumnName>> FrameworkEval for EvalMachine<Chips> {
         eval
     }
 }
-impl<C: MachineChip<ColumnName>> EvalMachine<C> {
+impl<C: MachineChip<RegisterMachineColumns>> EvalMachine<C> {
+    pub fn new(
+        rows_log2: u32,
+        cols: ColumnNameMap<RegisterMachineColumns>,
+        xor_perm_element: PermElements<{ N_XOR_TUPLE }>,
+    ) -> Self {
+        Self {
+            rows_log2,
+            cols,
+            xor_perm_element,
+            _phantom: marker::PhantomData,
+        }
+    }
+
     pub fn constant_trace(
         &self,
     ) -> Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {

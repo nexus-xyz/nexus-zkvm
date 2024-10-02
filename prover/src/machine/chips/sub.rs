@@ -1,16 +1,18 @@
+use std::collections::HashMap;
+
 use num_traits::{One as _, Zero as _};
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use crate::{
-    machine::types::ColumnName,
+    machine::types::RegisterMachineColumns,
     utils::{ColumnNameMap, MachineChip, WORD_SIZE},
 };
 
-use ColumnName::*;
+use RegisterMachineColumns::*;
 
 pub struct SubChip;
 
-impl MachineChip<ColumnName> for SubChip {
+impl MachineChip<RegisterMachineColumns> for SubChip {
     fn fill_main_trace(
         r1_val: [u8; WORD_SIZE],
         r2_val: [u8; WORD_SIZE],
@@ -18,7 +20,7 @@ impl MachineChip<ColumnName> for SubChip {
         rd_idx: usize,
         cols: &mut [&mut [BaseField]],
         row_idx: usize,
-        col_names: &ColumnNameMap<ColumnName>,
+        col_names: &ColumnNameMap<RegisterMachineColumns>,
     ) {
         if cols[col_names.nth_col(&IsSub, 0)][row_idx] == BaseField::zero() {
             return;
@@ -65,7 +67,7 @@ impl MachineChip<ColumnName> for SubChip {
         }
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        cols: &std::collections::HashMap<ColumnName, Vec<<E as EvalAtRow>::F>>,
+        cols: &HashMap<RegisterMachineColumns, Vec<<E as EvalAtRow>::F>>,
         eval: &mut E,
     ) {
         let f_of = |x: u32| -> E::F {

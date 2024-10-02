@@ -36,11 +36,12 @@
 // TODO: write somewhere in the trace, the final values and timestamps of registers.
 // TODO: calculate register memory check logup sum
 
-use std::iter;
+use std::{iter, marker};
 
 use num_traits::One as _;
 use rand::rngs;
 use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 use stwo_prover::{
     constraint_framework::{
         assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
@@ -63,18 +64,16 @@ use crate::{
         eval::{constraint_increment, EvalMachine},
         honest_traces::main_trace,
         register_file::AddMachineRegisterFile,
-        types::{column_sizes, ColumnName},
+        types::RegisterMachineColumns,
     },
-    utils::{self, ColumnNameMap, EvalAtRowExtra as _, PermElements, WORD_SIZE},
+    utils::{self, ColumnNameItem, ColumnNameMap, EvalAtRowExtra as _, PermElements, WORD_SIZE},
 };
 
 #[test]
 fn test_machine() {
     let rows_log2 = 16;
     debug_assert!(rows_log2 >= 16); // XOR lookup table takes 2^16 rows
-    let column_names: ColumnNameMap<ColumnName> = ColumnNameMap::new()
-        .allocate_bulk(ColumnName::iter().map(|x| (x, column_sizes(&x))))
-        .finalize();
+    let column_names: ColumnNameMap<RegisterMachineColumns> = ColumnNameMap::new();
     let config = PcsConfig::default();
     let coset = CanonicCoset::new(rows_log2 + 1 + config.fri_config.log_blowup_factor)
         .circle_domain()
@@ -100,7 +99,7 @@ fn test_machine() {
         rows_log2,
         cols: column_names,
         xor_perm_element,
-        _phantom: std::marker::PhantomData,
+        _phantom: marker::PhantomData,
     };
 
     // Interaction trace.
@@ -159,20 +158,32 @@ fn test_machine() {
 fn constraint_increment_works() {
     // setup trace
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
     pub enum Cols {
         Value,
         Carry,
     }
 
+    impl ColumnNameItem for Cols {
+        type Iter = ColsIter;
+
+        fn items() -> Self::Iter {
+            Self::iter()
+        }
+
+        fn size(&self) -> usize {
+            match self {
+                Cols::Value => WORD_SIZE,
+                Cols::Carry => WORD_SIZE,
+            }
+        }
+    }
+
     let rows_log2 = 16;
     let increment_value = 4;
 
-    let column_names: ColumnNameMap<Cols> = ColumnNameMap::new()
-        .allocate_bulk([(Cols::Value, WORD_SIZE), (Cols::Carry, WORD_SIZE)])
-        .finalize();
-
-    let num_cols = column_names.num_columns();
+    let column_names: ColumnNameMap<Cols> = ColumnNameMap::new();
+    let num_cols = column_names.total_columns();
     let trace = utils::generate_trace(iter::repeat(rows_log2).take(num_cols), |cols| {
         let (vc, cols) = cols.split_at_mut(WORD_SIZE);
         let (cc, _) = cols.split_at_mut(WORD_SIZE);
@@ -281,20 +292,32 @@ fn constraint_increment_works() {
 fn constraint_increment_u32_wrap_works() {
     // setup trace
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, EnumIter)]
     pub enum Cols {
         Value,
         Carry,
     }
 
+    impl ColumnNameItem for Cols {
+        type Iter = ColsIter;
+
+        fn items() -> Self::Iter {
+            Self::iter()
+        }
+
+        fn size(&self) -> usize {
+            match self {
+                Cols::Value => WORD_SIZE,
+                Cols::Carry => WORD_SIZE,
+            }
+        }
+    }
+
     let rows_log2 = 5;
     let increment_value = 4;
 
-    let column_names: ColumnNameMap<Cols> = ColumnNameMap::new()
-        .allocate_bulk([(Cols::Value, WORD_SIZE), (Cols::Carry, WORD_SIZE)])
-        .finalize();
-
-    let num_cols = column_names.num_columns();
+    let column_names: ColumnNameMap<Cols> = ColumnNameMap::new();
+    let num_cols = column_names.total_columns();
     let trace = utils::generate_trace(iter::repeat(rows_log2).take(num_cols), |cols| {
         let (vc, cols) = cols.split_at_mut(WORD_SIZE);
         let (cc, _) = cols.split_at_mut(WORD_SIZE);

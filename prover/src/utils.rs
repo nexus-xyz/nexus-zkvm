@@ -13,9 +13,9 @@
 
 use std::{
     array,
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     hash::Hash,
-    ops::{Mul, Sub},
+    ops::{self, Mul, Sub},
 };
 
 use itertools::zip_eq;
@@ -130,71 +130,75 @@ where
         .collect()
 }
 
-// Give names to columns, example usage in addition.rs
+pub trait ColumnNameItem: Copy + Eq + PartialEq + PartialOrd + Ord + Hash {
+    type Iter: IntoIterator<Item = Self>;
+
+    fn items() -> Self::Iter;
+    fn size(&self) -> usize;
+}
+
+/// A map from a column name to a range within the constraint system.
 #[derive(Clone, Debug)]
 pub struct ColumnNameMap<T> {
     next: usize,
-    map: HashMap<T, std::ops::Range<usize>>,
-    ranges: Vec<(T, std::ops::Range<usize>)>,
-    finalized: bool,
+    map: BTreeMap<T, ops::Range<usize>>, // use of btreemap to preserve order
 }
-impl<T: Eq + PartialEq + std::hash::Hash> ColumnNameMap<T> {
-    pub fn new() -> Self {
-        Self {
-            next: 0,
-            map: HashMap::new(),
-            ranges: Vec::new(),
-            finalized: false,
-        }
-    }
-    pub fn allocate(mut self, name: T, size: usize) -> Self
-    where
-        T: Copy,
-    {
-        assert!(!self.finalized);
-        let range = self.next..self.next + size;
-        self.next += size;
-        let overwritten = self.map.insert(name, range.clone());
-        debug_assert!(overwritten.is_none());
-        self.ranges.push((name, range));
-        self
-    }
-    pub fn allocate_bulk<I>(mut self, bulk: I) -> Self
-    where
-        I: IntoIterator<Item = (T, usize)>,
-        T: Copy,
-    {
-        assert!(!self.finalized);
-        for (name, size) in bulk {
-            self = self.allocate(name, size);
-        }
-        self
-    }
-    pub fn finalize(mut self) -> Self {
-        self.finalized = true;
-        self
-    }
-    pub fn num_columns(&self) -> usize {
-        assert!(self.finalized);
-        self.next
-    }
-    pub fn get(&self, name: &T) -> &std::ops::Range<usize> {
-        assert!(self.finalized);
-        self.map.get(name).unwrap()
-    }
-    pub fn nth_col(&self, name: &T, i: usize) -> usize {
-        assert!(self.finalized);
-        assert!(i < self.get(name).end - self.get(name).start);
-        self.get(name).start + i
-    }
-    pub fn ranges(&self) -> &[(T, std::ops::Range<usize>)] {
-        assert!(self.finalized);
-        &self.ranges
-    }
-}
-impl<T: Eq + PartialEq + std::hash::Hash> Default for ColumnNameMap<T> {
+
+impl<T: ColumnNameItem> Default for ColumnNameMap<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<T: ColumnNameItem> ops::Deref for ColumnNameMap<T> {
+    type Target = BTreeMap<T, ops::Range<usize>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl<T: ColumnNameItem> ColumnNameMap<T> {
+    /// Creates a new map instance from the provided static type.
+    pub fn new() -> Self {
+        let mut next = 0;
+        let map = T::items()
+            .into_iter()
+            .map(|col| {
+                let size = col.size();
+                let range = next..next + size;
+
+                next += size;
+
+                (col, range)
+            })
+            .collect();
+
+        Self { next, map }
+    }
+
+    /// Returns the total number of allocated columns.
+    pub const fn total_columns(&self) -> usize {
+        self.next
+    }
+
+    /// Extracts the nth element as offset of the given column
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the column doesn't exist on the map, or if the provided offset is not
+    /// within its bounds.
+    pub fn nth_col(&self, name: &T, offset: usize) -> usize {
+        let range = &self[name];
+
+        assert!(offset < range.end - range.start);
+
+        range.start + offset
+    }
+
+    /// Returns an order-sensitive iterator of ranges.
+    pub fn ranges(&self) -> impl Iterator<Item = (&T, &ops::Range<usize>)> {
+        self.map.iter()
     }
 }
 
@@ -217,17 +221,14 @@ pub trait EvalAtRowExtra: EvalAtRow {
     /// Returns a hashmap containing a looked up value under each variable name
     /// in the given `IndexAllocator`.
     /// Needs to be called before any column is fetched.
-    fn lookup_trace_masks<T: Clone + Eq + std::hash::Hash>(
+    fn lookup_trace_masks<T: ColumnNameItem>(
         &mut self,
         names: &ColumnNameMap<T>,
     ) -> HashMap<T, Vec<Self::F>> {
         let [masks] = self.lookup_trace_masks_with_offsets(names, 0, [0]);
         masks
     }
-    fn lookup_trace_masks_with_offsets<
-        T: Clone + Eq + PartialEq + std::hash::Hash,
-        const N: usize,
-    >(
+    fn lookup_trace_masks_with_offsets<T: ColumnNameItem, const N: usize>(
         &mut self,
         names: &ColumnNameMap<T>,
         interaction: usize,
@@ -264,7 +265,7 @@ impl<const N: usize> PermElements<N> {
     pub fn draw(channel: &mut impl Channel) -> Self {
         let [z, alpha] = channel.draw_felts(2).try_into().unwrap();
         let mut cur = SecureField::one();
-        let alpha_powers = std::array::from_fn(|_| {
+        let alpha_powers = array::from_fn(|_| {
             let res = cur;
             cur *= alpha;
             res
@@ -303,7 +304,7 @@ pub trait MachineChip<T> {
     );
     // Called on each row during constraint evaluation
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        cols: &std::collections::HashMap<T, Vec<<E as EvalAtRow>::F>>,
+        cols: &HashMap<T, Vec<<E as EvalAtRow>::F>>,
         eval: &mut E,
     );
 }
@@ -323,14 +324,14 @@ impl<T> MachineChip<T> for Tuple {
         for_tuples!( #( Tuple::fill_main_trace(r1_val, r2_val, rd_val, rd_idx, cols, row_idx, col_names); )* );
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        cols: &std::collections::HashMap<T, Vec<<E as EvalAtRow>::F>>,
+        cols: &HashMap<T, Vec<<E as EvalAtRow>::F>>,
         eval: &mut E,
     ) {
         for_tuples!( #( Tuple::add_constraints(cols, eval); )* );
     }
 }
 
-pub fn write_word<T: Eq + Hash>(
+pub fn write_word<T: ColumnNameItem>(
     val: [u8; WORD_SIZE],
     dst: &T,
     cols: &mut [&mut [BaseField]],
@@ -342,7 +343,7 @@ pub fn write_word<T: Eq + Hash>(
     }
 }
 
-pub fn write_u32<T: Eq + Hash>(
+pub fn write_u32<T: ColumnNameItem>(
     val: u32,
     dst: &T,
     cols: &mut [&mut [BaseField]],
