@@ -1,8 +1,9 @@
 mod test {
     use nexus_vm::elf::ElfFile;
-    use nexus_vm::riscv::{decode_instructions, decode_until_end_of_a_block};
+    use nexus_vm::riscv::{decode_instructions, decode_until_end_of_a_block, Register};
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
+    use nexus_vm::emulator::Emulator;
 
     /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
     fn create_tmp_dir() -> TempDir {
@@ -128,6 +129,24 @@ mod test {
             // for block in program.iter() {
             //     println!("{}", block);
             // }
+        }
+    }
+
+
+    #[test]
+    fn test_add() {
+        let tests = vec![10, 15];
+        const WORD_SIZE: u32 = 4;
+
+        for test in tests {
+            let name = format!("add_{test}");
+
+            let elf_path = format!("../integration_tests/{name}.elf");
+            let elf = ElfFile::from_path(&elf_path).expect("Unable to load ELF from path");
+
+            let mut emulator = Emulator::from_elf(elf);
+            emulator.execute();
+            assert_eq!(emulator.cpu.registers.read(Register::X10), test);
         }
     }
 }
