@@ -12,6 +12,3 @@ publish.workspace = true
 [dependencies]
 tempfile = "3.13.0"
 nexus-vm = { path = "../../vm" }
-
-[features]
-generate_expectations = []

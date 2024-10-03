@@ -1,9 +1,9 @@
 mod test {
     use nexus_vm::elf::ElfFile;
-    use nexus_vm::riscv::{decode_instructions, decode_until_end_of_a_block, Register};
+    use nexus_vm::emulator::Emulator;
+    use nexus_vm::riscv::Register;
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
-    use nexus_vm::emulator::Emulator;
 
     /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
     fn create_tmp_dir() -> TempDir {
@@ -39,8 +39,8 @@ mod test {
         tmp_dir
     }
 
-    /// Compile the test file for (riscv, native) targets.
-    fn compile(tmp_project_path: PathBuf, test: String) -> Vec<u8> {
+    /// Compile the test file.
+    fn compile_to_elf(tmp_project_path: PathBuf, test: &str) -> Vec<u8> {
         // Overwrite the main.rs file with the test file.
         let test_file = format!("../integration_tests/{test}.rs");
         let main_file = format!("{}/src/main.rs", tmp_project_path.clone().to_str().unwrap());
@@ -59,7 +59,7 @@ mod test {
             .arg("build")
             .arg("--target")
             .arg("riscv32i-unknown-none-elf")
-            .env("RUSTFLAGS", "-C opt-level=0") // TODO: can remove this for more complicated tests
+            .env("RUSTFLAGS", "-C opt-level=0") // Disable optimizations.
             .output()
             .expect("Failed to run test");
 
@@ -78,75 +78,35 @@ mod test {
         std::fs::read(elf_file).expect("Failed to read elf file")
     }
 
-    #[allow(dead_code)]
-    fn debug_elf_file(elf: &ElfFile) {
-        dbg!(elf.instructions.len());
-        dbg!(elf.entry);
-        dbg!(elf.base);
-        dbg!(elf.ram_image.len());
-        dbg!(elf.rom_image.len());
-    }
-
     #[test]
-    fn test_compile() {
-        let tests = vec!["simple"];
+    fn test_fib() {
+        // Test names and expected results.
+        let test_names = vec!["fib_10", "fib_20", "fib_40"];
+        let test_results = vec![55, 6765, 102334155];
+
+        // Set up the temporary directories for intermediate project setup.
         let tmp_dir = &create_tmp_dir();
         let tmp_project_path = tmp_dir.path().join("integration");
 
-        for test in tests {
-            let elf_contents = compile(tmp_project_path.clone(), test.to_string());
+        // Check that the tests compile and execute correctly.
+        for (test_name, result) in test_names.iter().zip(test_results.iter()) {
+            // Compile the test file.
+            let elf_contents = compile_to_elf(tmp_project_path.clone(), test_name.clone());
 
-            #[cfg(feature = "generate_expectations")]
-            {
-                std::fs::write(format!("../integration_tests/{test}.elf"), &elf_contents)
-                    .expect("Failed to write file");
-            }
+            // Save the elf file for debugging purposes.
+            let elf_path = format!("../integration_tests/{test_name}.elf");
+            std::fs::write(&elf_path, &elf_contents).expect("Failed to write file");
 
-            // Read the expected output.
-            let elf_path = format!("../integration_tests/{test}.elf");
-            let expected_elf = std::fs::read(&elf_path).expect("Failed to read file");
-
-            // Compare the outputs, stripping out any differences in line endings.
-            // TODO: might not need this here.
-            assert_eq!(elf_contents, expected_elf);
-
-            const WORD_SIZE: u32 = 4;
-            let elf = ElfFile::from_path(&elf_path).expect("Unable to load ELF from path");
-            let entry_instruction = (elf.entry - elf.base)/WORD_SIZE;
-
-            debug_elf_file(&elf);
-            dbg!(entry_instruction);
-
-            let program = decode_instructions(&elf.instructions);
-
-            // let want_instructions = 1; // TODO: change
-            // TODO: print out the instructions/trace to expectations file so can verify consistency (@duc-nx)
-            // let program =
-            //     decode_until_end_of_a_block(&elf.instructions[entry_instruction as usize..]);
-
-            println!("{}", program);
-
-            // for block in program.iter() {
-            //     println!("{}", block);
-            // }
-        }
-    }
-
-
-    #[test]
-    fn test_add() {
-        let tests = vec![10, 15];
-        const WORD_SIZE: u32 = 4;
-
-        for test in tests {
-            let name = format!("add_{test}");
-
-            let elf_path = format!("../integration_tests/{name}.elf");
+            // Parse the elf file.
             let elf = ElfFile::from_path(&elf_path).expect("Unable to load ELF from path");
 
+            // Execute the elf file using the emulator.
             let mut emulator = Emulator::from_elf(elf);
-            emulator.execute();
-            assert_eq!(emulator.cpu.registers.read(Register::X10), test);
+            let _res = emulator.execute(); // Ends on unimplemented instruction.
+
+            // Check that the result is correct.
+            // Will remove this hacky check later once I/O is working.
+            assert_eq!(emulator.cpu.registers.read(Register::X12), *result);
         }
     }
 }
