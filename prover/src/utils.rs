@@ -15,22 +15,25 @@ use std::{
     array,
     collections::{BTreeMap, HashMap},
     hash::Hash,
+    iter,
     ops::{self, Mul, Sub},
 };
 
 use itertools::zip_eq;
 use num_traits::{One, Zero};
 use stwo_prover::{
-    constraint_framework::EvalAtRow,
+    constraint_framework::{assert_constraints, EvalAtRow, FrameworkEval},
     core::{
         backend::simd::{column::BaseColumn, SimdBackend},
-        channel::Channel,
+        channel::{Blake2sChannel, Channel},
         fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords, Field},
+        pcs::{CommitmentSchemeProver, PcsConfig},
         poly::{
-            circle::{CanonicCoset, CircleEvaluation},
+            circle::{CanonicCoset, CircleEvaluation, PolyOps as _},
             BitReversedOrder,
         },
         utils::bit_reverse,
+        vcs::blake2_merkle::Blake2sMerkleChannel,
         ColumnVec,
     },
 };
@@ -200,6 +203,43 @@ impl<T: ColumnNameItem> ColumnNameMap<T> {
     pub fn ranges(&self) -> impl Iterator<Item = (&T, &ops::Range<usize>)> {
         self.map.iter()
     }
+
+    /// Creates a map of columns to slices.
+    ///
+    /// Note: `self` is not strictly needed, but it is convenient as it will avoid
+    /// redundant type casting.
+    pub fn named_slices<V>(mut values: &mut [V]) -> ColumnNameSlices<T, V> {
+        let mut map = HashMap::new();
+
+        for col in T::items() {
+            let mid = col.size();
+
+            let (a, b) = values.split_at_mut(mid);
+            values = b;
+
+            map.insert(col, a);
+        }
+
+        ColumnNameSlices { map }
+    }
+}
+
+pub struct ColumnNameSlices<'a, T: ColumnNameItem, V> {
+    map: HashMap<T, &'a mut [V]>,
+}
+
+impl<'a, T: ColumnNameItem, V> ops::Index<T> for ColumnNameSlices<'a, T, V> {
+    type Output = [V];
+
+    fn index(&self, index: T) -> &Self::Output {
+        self.map[&index]
+    }
+}
+
+impl<'a, T: ColumnNameItem, V> ops::IndexMut<T> for ColumnNameSlices<'a, T, V> {
+    fn index_mut(&mut self, index: T) -> &mut Self::Output {
+        self.map.get_mut(&index).unwrap()
+    }
 }
 
 // An extension trait for `EvalAtRow` that provides additional methods.
@@ -352,4 +392,77 @@ pub fn write_u32<T: ColumnNameItem>(
 ) {
     let val: [u8; WORD_SIZE] = val.to_le_bytes();
     write_word(val, dst, cols, col_names, row_idx);
+}
+
+pub trait AssertionCircuit {
+    type Columns: ColumnNameItem;
+
+    fn rows_log2() -> u32;
+    fn traces(&self) -> Vec<impl FnOnce(&mut [&mut [BaseField]])>;
+    fn eval<E: EvalAtRow>(&self, eval: E) -> E;
+
+    fn assert_constraints(&self) {
+        let column_names: ColumnNameMap<Self::Columns> = ColumnNameMap::new();
+        let num_cols = column_names.total_columns();
+
+        let traces: Vec<_> = self
+            .traces()
+            .into_iter()
+            .map(|trace| {
+                generate_trace(iter::repeat(Self::rows_log2()).take(num_cols), |cols| {
+                    trace(cols)
+                })
+            })
+            .collect();
+
+        struct Circuit<T: AssertionCircuit> {
+            rows_log2: u32,
+            t: T,
+        }
+
+        impl<T: AssertionCircuit> FrameworkEval for Circuit<T> {
+            fn log_size(&self) -> u32 {
+                self.rows_log2
+            }
+
+            fn max_constraint_log_degree_bound(&self) -> u32 {
+                self.log_size() + 1
+            }
+
+            fn evaluate<E: EvalAtRow>(&self, eval: E) -> E {
+                self.t.eval(eval)
+            }
+        }
+
+        // setup protocol
+
+        let config = PcsConfig::default();
+        let coset = CanonicCoset::new(Self::rows_log2() + 1 + config.fri_config.log_blowup_factor)
+            .circle_domain()
+            .half_coset;
+        let twiddles = SimdBackend::precompute_twiddles(coset);
+
+        let prover_channel = &mut Blake2sChannel::default();
+        let prover_commitment_scheme =
+            &mut CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
+
+        // commit traces
+
+        for trace in traces {
+            let mut tree_builder = prover_commitment_scheme.tree_builder();
+            tree_builder.extend_evals(trace);
+            tree_builder.commit(prover_channel);
+        }
+
+        // Sanity check
+
+        let traces = prover_commitment_scheme
+            .trees
+            .as_ref()
+            .map(|t| t.polynomials.to_vec());
+
+        assert_constraints(&traces, CanonicCoset::new(Self::rows_log2()), |evaluator| {
+            self.eval(evaluator);
+        });
+    }
 }
