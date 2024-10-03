@@ -4,6 +4,7 @@ SECTIONS
 {
   __memory_top = 0x80400000;
   . = 0x80000000;
+
   .text : ALIGN(4)
   {
     KEEP(*(.init));
