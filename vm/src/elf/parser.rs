@@ -229,7 +229,7 @@ fn parse_segment_content(
         // Determine the type of word based on the segment and section information
         let word_type = if is_executable_segment
             && section_map.iter().any(|(prefix, (_, end))| {
-                prefix.starts_with(".text") && segment_offset < *end as u32
+                (prefix.starts_with(".text") || prefix.starts_with(".init") || prefix.starts_with(".fini")) && segment_offset < *end as u32
             }) {
             
             Some(WordType::Instruction)
