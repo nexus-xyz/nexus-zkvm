@@ -44,6 +44,7 @@ mod test {
         // Overwrite the main.rs file with the test file.
         let test_file = format!("../integration_tests/{test}.rs");
         let main_file = format!("{}/src/main.rs", tmp_project_path.clone().to_str().unwrap());
+        let target = "riscv32i-unknown-none-elf";
 
         let mut output = Command::new("cp")
             .arg(test_file)
@@ -58,20 +59,20 @@ mod test {
             .current_dir(tmp_project_path.clone())
             .arg("build")
             .arg("--target")
-            .arg("riscv32i-unknown-none-elf")
+            .arg(target)
             .env("RUSTFLAGS", "-C opt-level=0") // Disable optimizations.
             .output()
             .expect("Failed to run test");
 
         if !output.status.success() {
             eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
-            panic!("cargo expand failed for RISC-V target");
+            panic!("cargo build failed for RISC-V target");
         }
         assert!(output.status.success());
 
         // Read the elf file to bytes.
         let elf_file = format!(
-            "{}/target/riscv32i-unknown-none-elf/debug/integration",
+            "{}/target/{target}/debug/integration",
             tmp_project_path.clone().to_str().unwrap()
         );
 
