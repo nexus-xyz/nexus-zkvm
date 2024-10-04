@@ -51,6 +51,6 @@ jobs:
         run: cargo install cargo-expand
 
       - name: Add RISC-V target
-        run: rustup target add riscv32i-unknown-none-elf
+        run: rustup target add riscv32im-unknown-none-elf
 
       - run: cargo test -r --all --all-features
