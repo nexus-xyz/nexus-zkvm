@@ -44,7 +44,7 @@ mod test {
         // Overwrite the main.rs file with the test file.
         let test_file = format!("../integration_tests/{test}.rs");
         let main_file = format!("{}/src/main.rs", tmp_project_path.clone().to_str().unwrap());
-        let target = "riscv32im-unknown-none-elf";
+        let target = "riscv32i-unknown-none-elf";
 
         let mut output = Command::new("cp")
             .arg(test_file)

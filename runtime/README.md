@@ -11,7 +11,7 @@ installed.  If you do no have the RISC-V target installed,
 you can install it with `rustup`:
 
 ```
-rustup target add riscv32im-unknown-none-elf
+rustup target add riscv32i-unknown-none-elf
 ```
 
 Once your compiler is setup, the easiest way to start a new
@@ -35,9 +35,9 @@ be:
 
 ```
 [build]
-target = "riscv32im-unknown-none-elf"
+target = "riscv32i-unknown-none-elf"
 
-[target.riscv32im-unknown-none-elf]
+[target.riscv32i-unknown-none-elf]
 rustflags = [
   "-C", "link-arg=-Tlinker-scripts/default.x",
 ]

@@ -1,2 +1,2 @@
 [toolchain]
-channel = "1.81.0" # As per STWO requirements
+channel = "nightly-2024-01-04" # As per STWO requirements
