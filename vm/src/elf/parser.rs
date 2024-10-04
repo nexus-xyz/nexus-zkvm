@@ -225,7 +225,7 @@ fn parse_segment_content(
                 .try_into()
                 .unwrap(),
         );
-        
+
         // Determine the type of word based on the segment and section information
         let word_type = if is_executable_segment
             && section_map.iter().any(|(prefix, (_, end))| {
