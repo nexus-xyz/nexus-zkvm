@@ -6,7 +6,10 @@ use std::path::PathBuf;
 
 fn main() {
     let target = env::var("TARGET").unwrap();
-    if !target.starts_with("riscv32i-") && !target.starts_with("riscv32imc-") {
+    if !target.starts_with("riscv32i-")
+        && !target.starts_with("riscv32im-")
+        && !target.starts_with("riscv32imc-")
+    {
         return;
     }
 
