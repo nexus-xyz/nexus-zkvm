@@ -272,7 +272,7 @@ mod tests {
 
         assert_eq!(
             emulator.execute(),
-            Err(VMError::UnimplementedInstruction(71128))
+            Err(VMError::UnimplementedInstruction(71512))
         );
     }
 
