@@ -1,3 +1,4 @@
+#[cfg(test)]
 mod test {
     use nexus_vm::elf::ElfFile;
     use nexus_vm::emulator::Emulator;
@@ -40,14 +41,13 @@ mod test {
     }
 
     /// Compile the test file.
-    fn compile_to_elf(tmp_project_path: PathBuf, test: &str) -> Vec<u8> {
+    fn compile_to_elf(tmp_project_path: PathBuf, test_path: &str) -> Vec<u8> {
         // Overwrite the main.rs file with the test file.
-        let test_file = format!("../integration_tests/{test}.rs");
         let main_file = format!("{}/src/main.rs", tmp_project_path.clone().to_str().unwrap());
         let target = "riscv32i-unknown-none-elf";
 
         let mut output = Command::new("cp")
-            .arg(test_file)
+            .arg(test_path)
             .arg(main_file)
             .output()
             .expect("Failed to copy test file");
@@ -92,10 +92,12 @@ mod test {
         // Check that the tests compile and execute correctly.
         for (test_name, result) in test_names.iter().zip(test_results.iter()) {
             // Compile the test file.
-            let elf_contents = compile_to_elf(tmp_project_path.clone(), test_name.clone());
+            let test_dir_path = "../integration-tests";
+            let test_path = format!("{test_dir_path}/{test_name}.rs");
+            let elf_contents = compile_to_elf(tmp_project_path.clone(), &test_path);
 
             // Save the elf file for debugging purposes.
-            let elf_path = format!("../integration_tests/{test_name}.elf");
+            let elf_path = format!("{test_dir_path}/{test_name}.elf");
             std::fs::write(&elf_path, &elf_contents).expect("Failed to write file");
 
             // Parse the elf file.

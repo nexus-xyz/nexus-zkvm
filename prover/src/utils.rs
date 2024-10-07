@@ -280,10 +280,7 @@ pub trait EvalAtRowExtra: EvalAtRow {
             for _ in 0..size {
                 let masks = self.next_interaction_mask(interaction, offsets);
                 for (i, mask) in masks.iter().enumerate() {
-                    values[i]
-                        .entry(name.clone())
-                        .or_insert_with(Vec::new)
-                        .push(*mask);
+                    values[i].entry(*name).or_insert_with(Vec::new).push(*mask);
                 }
             }
         }

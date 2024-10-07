@@ -266,13 +266,13 @@ mod tests {
 
     #[test]
     fn test_emulate_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("../tests/integration_tests/fib_10.elf")
+        let elf_file = ElfFile::from_path("../tests/integration-tests/fib_10.elf")
             .expect("Unable to load ELF file");
         let mut emulator = Emulator::from_elf(elf_file);
 
         assert_eq!(
             emulator.execute(),
-            Err(VMError::UnimplementedInstruction(71512))
+            Err(VMError::UnimplementedInstruction(71128))
         );
     }
 

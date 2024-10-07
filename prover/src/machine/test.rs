@@ -84,7 +84,7 @@ fn constraint_increment_works() {
 #[test]
 fn constraint_increment_u32_wrap_works() {
     ConstraintIncrementCircuit {
-        initial_value: array::from_fn(|i| (i == 0).then_some(0xf8).unwrap_or(0xff)),
+        initial_value: array::from_fn(|i| if i == 0 { 0xf8 } else { 0xff }),
         increment_value: 4,
     }
     .assert_constraints();
