@@ -1,11 +1,11 @@
 use crate::{
-    cpu::{
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
-    },
-    error::Result,
+    cpu::state::{InstructionExecutor, InstructionState},
     memory::MemoryProcessor,
     riscv::{Instruction, Register},
+};
+use nexus_common::{
+    cpu::{Processor, Registers},
+    error::MemoryError,
 };
 
 pub struct JalInstruction {
@@ -16,26 +16,27 @@ pub struct JalInstruction {
 impl InstructionState for JalInstruction {
     type Result = Option<u32>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut Cpu) {
-        cpu.registers.write(self.rd, cpu.pc.value + 4);
-        cpu.pc.jal(self.imm);
+    fn write_back(&self, cpu: &mut impl Processor) {
+        let next_addr = cpu.pc().value + 4;
+        cpu.registers_mut().write(self.rd, next_addr);
+        cpu.pc_mut().jal(self.imm);
     }
 }
 
 impl InstructionExecutor for JalInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, _: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, _: &impl Registers) -> Self {
         Self {
             rd: ins.op_a,
             imm: ins.op_c,
@@ -52,27 +53,27 @@ pub struct JalrInstruction {
 impl InstructionState for JalrInstruction {
     type Result = Option<u32>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut Cpu) {
-        let tmp = cpu.pc.value;
-        cpu.pc.jalr(self.rs1, self.imm);
-        cpu.registers.write(self.rd, tmp + 4);
+    fn write_back(&self, cpu: &mut impl Processor) {
+        let tmp = cpu.pc().value;
+        cpu.pc_mut().jalr(self.rs1, self.imm);
+        cpu.registers_mut().write(self.rd, tmp + 4);
     }
 }
 
 impl InstructionExecutor for JalrInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, register: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, register: &impl Registers) -> Self {
         Self {
             rd: ins.op_a,
             rs1: register[ins.op_b],

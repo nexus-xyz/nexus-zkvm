@@ -1,4 +1,4 @@
-use crate::error::{Result, VMError};
+use nexus_common::error::MemoryError;
 
 use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor};
 
@@ -43,17 +43,17 @@ impl MemoryProcessor for FixedMemory {
     /// # Returns
     ///
     /// The value written to memory, or an error if the operation failed.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32> {
+    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError> {
         let (shift, mask) = get_shift_and_mask(size, address);
 
         // Check for alignment
         if address & size as u32 != 0 {
-            return Err(VMError::UnalignedMemoryWrite(address));
+            return Err(MemoryError::UnalignedMemoryWrite(address));
         }
 
         // Error if address is outside reserved space
         if address >= self.max_len as u32 {
-            return Err(VMError::InvalidMemoryAccess(address));
+            return Err(MemoryError::InvalidMemoryAccess(address));
         }
 
         // Align to word boundary
@@ -82,16 +82,16 @@ impl MemoryProcessor for FixedMemory {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32> {
+    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
         let (shift, mask) = get_shift_and_mask(size, address);
 
         if address & size as u32 != 0 {
-            return Err(VMError::UnalignedMemoryRead(address));
+            return Err(MemoryError::UnalignedMemoryRead(address));
         }
 
         // Error if address is outside reserved space
         if address >= self.max_len as u32 {
-            return Err(VMError::InvalidMemoryAccess(address));
+            return Err(MemoryError::InvalidMemoryAccess(address));
         }
 
         // Align to word boundary
@@ -104,7 +104,7 @@ impl MemoryProcessor for FixedMemory {
         Ok((self.vec[aligned_address] >> shift) & mask)
     }
 
-    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>> {
+    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
         let mut data = vec![0; size];
         for (i, byte) in data.iter_mut().enumerate().take(size) {
             *byte = self.read(address + i as u32, MemAccessSize::Byte)? as u8;
@@ -112,7 +112,7 @@ impl MemoryProcessor for FixedMemory {
         Ok(data)
     }
 
-    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<()> {
+    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
         for (i, &byte) in data.iter().enumerate() {
             self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
         }
@@ -122,6 +122,8 @@ impl MemoryProcessor for FixedMemory {
 
 #[cfg(test)]
 mod tests {
+    use nexus_common::error::MemoryError;
+
     use super::*;
 
     #[test]
@@ -165,13 +167,13 @@ mod tests {
         // Write to an unaligned address
         assert_eq!(
             memory.write(0x1001, MemAccessSize::HalfWord, 0x3456),
-            Err(VMError::UnalignedMemoryWrite(0x1001))
+            Err(MemoryError::UnalignedMemoryWrite(0x1001))
         );
 
         // Read from an unaligned address
         assert_eq!(
             memory.read(0x1001, MemAccessSize::HalfWord),
-            Err(VMError::UnalignedMemoryRead(0x1001))
+            Err(MemoryError::UnalignedMemoryRead(0x1001))
         );
     }
 
@@ -191,29 +193,29 @@ mod tests {
         // Write to an unaligned address
         assert_eq!(
             memory.write(0x1001, MemAccessSize::Word, 0xEF678901),
-            Err(VMError::UnalignedMemoryWrite(0x1001))
+            Err(MemoryError::UnalignedMemoryWrite(0x1001))
         );
         assert_eq!(
             memory.write(0x1002, MemAccessSize::Word, 0xEF678901),
-            Err(VMError::UnalignedMemoryWrite(0x1002))
+            Err(MemoryError::UnalignedMemoryWrite(0x1002))
         );
         assert_eq!(
             memory.write(0x1003, MemAccessSize::Word, 0xEF678901),
-            Err(VMError::UnalignedMemoryWrite(0x1003))
+            Err(MemoryError::UnalignedMemoryWrite(0x1003))
         );
 
         // Read from an unaligned address
         assert_eq!(
             memory.read(0x1001, MemAccessSize::Word),
-            Err(VMError::UnalignedMemoryRead(0x1001))
+            Err(MemoryError::UnalignedMemoryRead(0x1001))
         );
         assert_eq!(
             memory.read(0x1002, MemAccessSize::Word),
-            Err(VMError::UnalignedMemoryRead(0x1002))
+            Err(MemoryError::UnalignedMemoryRead(0x1002))
         );
         assert_eq!(
             memory.read(0x1003, MemAccessSize::Word),
-            Err(VMError::UnalignedMemoryRead(0x1003))
+            Err(MemoryError::UnalignedMemoryRead(0x1003))
         );
     }
 
@@ -247,7 +249,7 @@ mod tests {
         // Read from an address out of the reserved memory
         assert_eq!(
             memory.read(0x100004, MemAccessSize::Word),
-            Err(VMError::InvalidMemoryAccess(0x100004))
+            Err(MemoryError::InvalidMemoryAccess(0x100004))
         );
     }
 
@@ -258,7 +260,7 @@ mod tests {
         // Write to an address out of the reserved memory
         assert_eq!(
             memory.write(0x100004, MemAccessSize::Word, 0xABCD1234),
-            Err(VMError::InvalidMemoryAccess(0x100004))
+            Err(MemoryError::InvalidMemoryAccess(0x100004))
         );
     }
 

@@ -2,6 +2,10 @@
 
 use std::fmt::Display;
 
+use variant_count::VariantCount;
+
+use crate::error::OpcodeError;
+
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct Opcode {
     raw: u32,
@@ -42,11 +46,11 @@ impl From<BuiltinOpcode> for Opcode {
 }
 
 impl TryInto<BuiltinOpcode> for Opcode {
-    type Error = crate::error::VMError;
+    type Error = OpcodeError;
 
     fn try_into(self) -> Result<BuiltinOpcode, Self::Error> {
         if !self.is_builtin() {
-            return Err(Self::Error::FailureProcessingKnownInstruction(self));
+            return Err(Self::Error::OpcodeNotBuiltin(self));
         }
 
         Ok(self.builtin.unwrap())
@@ -59,7 +63,7 @@ impl Display for Opcode {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash, VariantCount)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum BuiltinOpcode {
     // R-type instructions

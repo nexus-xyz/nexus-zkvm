@@ -11,6 +11,8 @@ publish.workspace = true
 
 [dependencies]
 elf = "0.7"
-thiserror = "1.0"
+nexus-common = { path = "../common" }
 once_cell = "1.19"
 rrs-lib = { git = "https://github.com/GregAC/rrs/" }
+thiserror = "1.0"
+variant_count = "1.1"

@@ -1,11 +1,11 @@
 use crate::{
-    cpu::{
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
-    },
-    error::Result,
+    cpu::state::{InstructionExecutor, InstructionState},
     memory::MemoryProcessor,
     riscv::{Instruction, Register},
+};
+use nexus_common::{
+    cpu::{Processor, Registers},
+    error::MemoryError,
 };
 
 pub struct LuiInstruction {
@@ -16,25 +16,25 @@ pub struct LuiInstruction {
 impl InstructionState for LuiInstruction {
     type Result = Option<u32>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut Cpu) {
-        cpu.registers.write(self.rd, self.imm << 12);
+    fn write_back(&self, cpu: &mut impl Processor) {
+        cpu.registers_mut().write(self.rd, self.imm << 12);
     }
 }
 
 impl InstructionExecutor for LuiInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, _: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, _: &impl Registers) -> Self {
         Self {
             rd: ins.op_a,
             imm: ins.op_c,

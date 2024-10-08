@@ -1,6 +1,8 @@
 use std::fmt::Display;
 use std::ops::Index;
 
+use nexus_common::cpu::Registers;
+
 use crate::riscv::Register;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
@@ -12,8 +14,10 @@ impl RegisterFile {
     pub fn new() -> Self {
         Self::default()
     }
+}
 
-    pub fn read(&self, reg: Register) -> u32 {
+impl Registers for RegisterFile {
+    fn read(&self, reg: Register) -> u32 {
         if reg == Register::X0 {
             0 // X0 is hardwired to zero
         } else {
@@ -21,7 +25,7 @@ impl RegisterFile {
         }
     }
 
-    pub fn write(&mut self, reg: Register, value: u32) {
+    fn write(&mut self, reg: Register, value: u32) {
         if reg != Register::X0 {
             self.registers[reg as usize] = value;
         }
@@ -83,65 +87,5 @@ impl Display for RegisterFile {
 
         writeln!(f, "+--------+------------+--------+------------+--------+------------+--------+------------+")?;
         Ok(())
-    }
-}
-
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PC {
-    pub value: u32,
-}
-
-const fn sign_extension(imm: u32, bits: u32) -> u32 {
-    let mask = 1u32 << (bits - 1);
-    let value = imm & ((1u32 << bits) - 1); // Ensure we only use the specified number of bits
-    if value & mask != 0 {
-        // If the sign bit is set, extend with 1s
-        value | !((1u32 << bits) - 1)
-    } else {
-        // If the sign bit is not set, extend with 0s
-        value
-    }
-}
-
-// Sign extension for Branch (13-bit immediate)
-const fn sign_extension_branch(imm: u32) -> u32 {
-    sign_extension(imm, 13)
-}
-
-// Sign extension for JAL (21-bit immediate)
-const fn sign_extension_jal(imm: u32) -> u32 {
-    sign_extension(imm, 21)
-}
-
-// Sign extension for JALR (12-bit immediate)
-const fn sign_extension_jalr(imm: u32) -> u32 {
-    sign_extension(imm, 12)
-}
-
-impl PC {
-    // Increment PC by 4 bytes (standard instruction length)
-    pub fn step(&mut self) {
-        self.value = self.value.wrapping_add(4);
-    }
-
-    // Branch: Add immediate value to PC
-    pub fn branch(&mut self, imm: u32) {
-        self.value = self.value.wrapping_add(sign_extension_branch(imm));
-    }
-
-    // Jump and Link: Add immediate value to PC
-    pub fn jal(&mut self, imm: u32) {
-        self.value = self.value.wrapping_add(sign_extension_jal(imm));
-    }
-
-    // Jump and Link Register: Set PC to rs1 + imm
-    pub fn jalr(&mut self, rs1: u32, imm: u32) {
-        self.value = rs1.wrapping_add(sign_extension_jalr(imm));
-    }
-}
-
-impl PartialEq<u32> for PC {
-    fn eq(&self, other: &u32) -> bool {
-        self.value == *other
     }
 }

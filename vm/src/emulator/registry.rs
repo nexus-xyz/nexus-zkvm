@@ -33,16 +33,14 @@
 //!
 //! ```rust
 //! use nexus_vm::{
-//!     cpu::{Cpu,
-//!           RegisterFile,
-//!           InstructionState,
-//!           InstructionExecutor,
-//!     },
+//!     cpu::{Cpu, RegisterFile},
 //!     memory::MemoryProcessor,
 //!     emulator::Emulator,
 //!     riscv::{Register, Opcode, Instruction, InstructionType},
 //!     error::Result
 //! };
+//! use nexus_common::cpu::{InstructionState, InstructionExecutor, Processor, Registers};
+//! use nexus_common::error::MemoryError;
 //!
 //! pub struct CustomInstruction {
 //!     rd: (Register, u32),
@@ -57,23 +55,23 @@
 //!         self.rd.1 = 2 * self.rs1 + self.rs2;
 //!     }
 //!
-//!     fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+//!     fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
 //!         Ok(None)
 //!     }
 //!
-//!     fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+//!     fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
 //!         Ok(None)
 //!     }
 //!
-//!     fn write_back(&self, cpu: &mut Cpu) {
-//!         cpu.registers.write(self.rd.0, self.rd.1);
+//!     fn write_back(&self, cpu: &mut impl Processor) {
+//!         cpu.registers_mut().write(self.rd.0, self.rd.1);
 //!     }
 //! }
 //!
 //! impl InstructionExecutor for CustomInstruction {
 //!     type InstructionState = Self;
 //!
-//!     fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+//!     fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
 //!         Self {
 //!             rd: (ins.op_a, registers[ins.op_a]),
 //!             rs1: registers[ins.op_b],
@@ -98,25 +96,31 @@
 //! Execution functions return a `Result<()>`, allowing for proper error propagation throughout the emulator.
 //! The `add_opcode` method also returns a `Result`, indicating success or failure in adding the new opcode.
 
+use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
+
 use crate::{
-    cpu::{instructions, Cpu, InstructionExecutor},
+    cpu::{instructions, Cpu},
     error::{Result, VMError},
     memory::{FixedMemory, MemoryProcessor, VariableMemory},
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
 use std::collections::HashMap;
 
-pub type InstructionExecutorFn<M> = fn(&mut Cpu, &mut M, &Instruction) -> Result<()>;
+pub type InstructionExecutorFn<M> = fn(&mut Cpu, &mut M, &Instruction) -> Result<(), MemoryError>;
 
-fn unimpl<M: MemoryProcessor>(cpu: &mut Cpu, _memory: &mut M, _ins: &Instruction) -> Result<()> {
-    Err(VMError::UnimplementedInstruction(cpu.pc.value))
-}
-
-fn nop<M: MemoryProcessor>(_cpu: &mut Cpu, _memory: &mut M, _ins: &Instruction) -> Result<()> {
+fn nop<M: MemoryProcessor>(
+    _cpu: &mut Cpu,
+    _memory: &mut M,
+    _ins: &Instruction,
+) -> Result<(), MemoryError> {
     Ok(())
 }
 
-fn ecall<M: MemoryProcessor>(_cpu: &mut Cpu, _memory: &mut M, _ins: &Instruction) -> Result<()> {
+fn ecall<M: MemoryProcessor>(
+    _cpu: &mut Cpu,
+    _memory: &mut M,
+    _ins: &Instruction,
+) -> Result<(), MemoryError> {
     // TODO: implement syscall.rs
     Ok(())
 }
@@ -143,7 +147,7 @@ pub struct InstructionExecutorFns(
 
 #[derive(Debug)]
 pub struct InstructionExecutorRegistry {
-    builtins: [InstructionExecutorFns; 50],
+    builtins: [Option<InstructionExecutorFns>; BuiltinOpcode::VARIANT_COUNT],
     precompiles: HashMap<Opcode, InstructionExecutorFns>,
 }
 
@@ -152,56 +156,146 @@ impl Default for InstructionExecutorRegistry {
         Self {
             builtins: [
                 // nb: must have same ordering as Opcode enum
-                register_instruction_executor!(instructions::AddInstruction::evaluator), // add
-                register_instruction_executor!(instructions::SubInstruction::evaluator), // sub
-                register_instruction_executor!(instructions::SllInstruction::evaluator), // sll
-                register_instruction_executor!(instructions::SltInstruction::evaluator), // slt
-                register_instruction_executor!(instructions::SltuInstruction::evaluator), // sltu
-                register_instruction_executor!(instructions::XorInstruction::evaluator), // xor
-                register_instruction_executor!(instructions::SraInstruction::evaluator), // srl
-                register_instruction_executor!(instructions::SraInstruction::evaluator), // sra
-                register_instruction_executor!(instructions::OrInstruction::evaluator),  // or
-                register_instruction_executor!(instructions::AndInstruction::evaluator), // and
-                register_instruction_executor!(instructions::MulInstruction::evaluator), // mul
-                register_instruction_executor!(instructions::MulhInstruction::evaluator), // mulh
-                register_instruction_executor!(instructions::MulhsuInstruction::evaluator), // mulhsu
-                register_instruction_executor!(instructions::MulhuInstruction::evaluator),  // mulhu
-                register_instruction_executor!(instructions::DivInstruction::evaluator),    // div
-                register_instruction_executor!(instructions::DivuInstruction::evaluator),   // divu
-                register_instruction_executor!(instructions::RemInstruction::evaluator),    // rem
-                register_instruction_executor!(instructions::RemuInstruction::evaluator),   // remu
-                register_instruction_executor!(instructions::AddInstruction::evaluator),    // addi
-                register_instruction_executor!(instructions::SllInstruction::evaluator),    // slli
-                register_instruction_executor!(instructions::SltInstruction::evaluator),    // slti
-                register_instruction_executor!(instructions::SltuInstruction::evaluator),   // sltiu
-                register_instruction_executor!(instructions::XorInstruction::evaluator),    // xori
-                register_instruction_executor!(instructions::SrlInstruction::evaluator),    // srli
-                register_instruction_executor!(instructions::SraInstruction::evaluator),    // srai
-                register_instruction_executor!(instructions::OrInstruction::evaluator),     // ori
-                register_instruction_executor!(instructions::AndInstruction::evaluator),    // andi
-                register_instruction_executor!(instructions::LbInstruction::evaluator),     // lb
-                register_instruction_executor!(instructions::LhInstruction::evaluator),     // lh
-                register_instruction_executor!(instructions::LwInstruction::evaluator),     // lw
-                register_instruction_executor!(instructions::LbuInstruction::evaluator),    // lbu
-                register_instruction_executor!(instructions::LhuInstruction::evaluator),    // lhu
-                register_instruction_executor!(instructions::JalrInstruction::evaluator),   // jalr
-                register_instruction_executor!(ecall),                                      // ecall
-                register_instruction_executor!(unimpl), // ebreak
-                register_instruction_executor!(unimpl), // fence
-                register_instruction_executor!(instructions::SbInstruction::evaluator), // sb
-                register_instruction_executor!(instructions::ShInstruction::evaluator), // sh
-                register_instruction_executor!(instructions::SwInstruction::evaluator), // sw
-                register_instruction_executor!(instructions::BeqInstruction::evaluator), // beq
-                register_instruction_executor!(instructions::BneInstruction::evaluator), // bne
-                register_instruction_executor!(instructions::BltInstruction::evaluator), // blt
-                register_instruction_executor!(instructions::BgeInstruction::evaluator), // bge
-                register_instruction_executor!(instructions::BltuInstruction::evaluator), // bltu
-                register_instruction_executor!(instructions::BgeuInstruction::evaluator), // bgeu
-                register_instruction_executor!(instructions::LuiInstruction::evaluator), // lui
-                register_instruction_executor!(instructions::AuipcInstruction::evaluator), // auipc
-                register_instruction_executor!(instructions::JalInstruction::evaluator), // jal
-                register_instruction_executor!(nop),    // nop
-                register_instruction_executor!(unimpl), // unimpl
+                Some(register_instruction_executor!(
+                    instructions::AddInstruction::evaluator
+                )), // add
+                Some(register_instruction_executor!(
+                    instructions::SubInstruction::evaluator
+                )), // sub
+                Some(register_instruction_executor!(
+                    instructions::SllInstruction::evaluator
+                )), // sll
+                Some(register_instruction_executor!(
+                    instructions::SltInstruction::evaluator
+                )), // slt
+                Some(register_instruction_executor!(
+                    instructions::SltuInstruction::evaluator
+                )), // sltu
+                Some(register_instruction_executor!(
+                    instructions::XorInstruction::evaluator
+                )), // xor
+                Some(register_instruction_executor!(
+                    instructions::SraInstruction::evaluator
+                )), // srl
+                Some(register_instruction_executor!(
+                    instructions::SraInstruction::evaluator
+                )), // sra
+                Some(register_instruction_executor!(
+                    instructions::OrInstruction::evaluator
+                )), // or
+                Some(register_instruction_executor!(
+                    instructions::AndInstruction::evaluator
+                )), // and
+                Some(register_instruction_executor!(
+                    instructions::MulInstruction::evaluator
+                )), // mul
+                Some(register_instruction_executor!(
+                    instructions::MulhInstruction::evaluator
+                )), // mulh
+                Some(register_instruction_executor!(
+                    instructions::MulhsuInstruction::evaluator
+                )), // mulhsu
+                Some(register_instruction_executor!(
+                    instructions::MulhuInstruction::evaluator
+                )), // mulhu
+                Some(register_instruction_executor!(
+                    instructions::DivInstruction::evaluator
+                )), // div
+                Some(register_instruction_executor!(
+                    instructions::DivuInstruction::evaluator
+                )), // divu
+                Some(register_instruction_executor!(
+                    instructions::RemInstruction::evaluator
+                )), // rem
+                Some(register_instruction_executor!(
+                    instructions::RemuInstruction::evaluator
+                )), // remu
+                Some(register_instruction_executor!(
+                    instructions::AddInstruction::evaluator
+                )), // addi
+                Some(register_instruction_executor!(
+                    instructions::SllInstruction::evaluator
+                )), // slli
+                Some(register_instruction_executor!(
+                    instructions::SltInstruction::evaluator
+                )), // slti
+                Some(register_instruction_executor!(
+                    instructions::SltuInstruction::evaluator
+                )), // sltiu
+                Some(register_instruction_executor!(
+                    instructions::XorInstruction::evaluator
+                )), // xori
+                Some(register_instruction_executor!(
+                    instructions::SrlInstruction::evaluator
+                )), // srli
+                Some(register_instruction_executor!(
+                    instructions::SraInstruction::evaluator
+                )), // srai
+                Some(register_instruction_executor!(
+                    instructions::OrInstruction::evaluator
+                )), // ori
+                Some(register_instruction_executor!(
+                    instructions::AndInstruction::evaluator
+                )), // andi
+                Some(register_instruction_executor!(
+                    instructions::LbInstruction::evaluator
+                )), // lb
+                Some(register_instruction_executor!(
+                    instructions::LhInstruction::evaluator
+                )), // lh
+                Some(register_instruction_executor!(
+                    instructions::LwInstruction::evaluator
+                )), // lw
+                Some(register_instruction_executor!(
+                    instructions::LbuInstruction::evaluator
+                )), // lbu
+                Some(register_instruction_executor!(
+                    instructions::LhuInstruction::evaluator
+                )), // lhu
+                Some(register_instruction_executor!(
+                    instructions::JalrInstruction::evaluator
+                )), // jalr
+                Some(register_instruction_executor!(ecall)), // ecall
+                None,                                        // ebreak
+                None,                                        // fence
+                Some(register_instruction_executor!(
+                    instructions::SbInstruction::evaluator
+                )), // sb
+                Some(register_instruction_executor!(
+                    instructions::ShInstruction::evaluator
+                )), // sh
+                Some(register_instruction_executor!(
+                    instructions::SwInstruction::evaluator
+                )), // sw
+                Some(register_instruction_executor!(
+                    instructions::BeqInstruction::evaluator
+                )), // beq
+                Some(register_instruction_executor!(
+                    instructions::BneInstruction::evaluator
+                )), // bne
+                Some(register_instruction_executor!(
+                    instructions::BltInstruction::evaluator
+                )), // blt
+                Some(register_instruction_executor!(
+                    instructions::BgeInstruction::evaluator
+                )), // bge
+                Some(register_instruction_executor!(
+                    instructions::BltuInstruction::evaluator
+                )), // bltu
+                Some(register_instruction_executor!(
+                    instructions::BgeuInstruction::evaluator
+                )), // bgeu
+                Some(register_instruction_executor!(
+                    instructions::LuiInstruction::evaluator
+                )), // lui
+                Some(register_instruction_executor!(
+                    instructions::AuipcInstruction::evaluator
+                )), // auipc
+                Some(register_instruction_executor!(
+                    instructions::JalInstruction::evaluator
+                )), // jal
+                Some(register_instruction_executor!(nop)),   // nop
+                None,                                        // unimpl
             ],
             precompiles: HashMap::<Opcode, InstructionExecutorFns>::new(),
         }
@@ -209,7 +303,7 @@ impl Default for InstructionExecutorRegistry {
 }
 
 impl InstructionExecutorRegistry {
-    pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<()> {
+    pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<(), VMError> {
         self.precompiles
             .insert(*op, register_instruction_executor!(IE::evaluator))
             .ok_or(VMError::DuplicateInstruction(*op))
@@ -217,40 +311,47 @@ impl InstructionExecutorRegistry {
     }
 
     #[allow(dead_code)] // temp till second pass memory is done
-    pub fn into_fixed_memory(&self, op: &Opcode) -> Option<InstructionExecutorFn<FixedMemory>> {
+    pub fn get_instruction_executor_for_fixed_memory(
+        &self,
+        op: &Opcode,
+    ) -> Result<InstructionExecutorFn<FixedMemory>> {
         if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
             let idx = opcode as usize;
-            if idx > self.builtins.len() {
-                return None;
-            }
 
-            Some(self.builtins[idx].0)
+            // Safety: the length of `builtins` is statically guaranteed to be equal to the number
+            // of variants in `BuiltinOpcode`.
+            self.builtins[idx]
+                .as_ref()
+                .map(|fns| fns.0)
+                .ok_or_else(|| VMError::UnimplementedInstruction(op.raw()))
         } else {
             if let Some(fns) = self.precompiles.get(op) {
-                return Some(fns.0);
+                return Ok(fns.0);
             }
 
-            None
+            Err(VMError::UnsupportedInstruction(op.raw()))
         }
     }
 
-    pub fn into_variable_memory(
+    pub fn get_instruction_executor_for_variable_memory(
         &self,
         op: &Opcode,
-    ) -> Option<InstructionExecutorFn<VariableMemory>> {
+    ) -> Result<InstructionExecutorFn<VariableMemory>> {
         if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
             let idx = opcode as usize;
-            if idx > self.builtins.len() {
-                return None;
-            }
 
-            Some(self.builtins[idx].1)
+            // Safety: the length of `builtins` is statically guaranteed to be equal to the number
+            // of variants in `BuiltinOpcode`.
+            self.builtins[idx]
+                .as_ref()
+                .map(|fns| fns.1)
+                .ok_or_else(|| VMError::UnimplementedInstruction(op.raw()))
         } else {
             if let Some(fns) = self.precompiles.get(op) {
-                return Some(fns.1);
+                return Ok(fns.1);
             }
 
-            None
+            Err(VMError::UnsupportedInstruction(op.raw()))
         }
     }
 }

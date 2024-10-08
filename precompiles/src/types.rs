@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::collections::HashMap;
 
 /// The type corresponding to a function that precompile implementations can call to read from VM
 /// memory. Returns the word at the given address, which must be word-aligned.
@@ -25,60 +25,18 @@ pub type EvalFn =
     extern "C" fn(rs1: u32, rs2: u32, mem_read: MemReadFn, mem_write: MemWriteFn) -> u64;
 
 pub struct PrecompileMetadata {
-    author: String,
-    name: String,
-    version_major: u32,
-    version_minor: u32,
-    version_patch: u32,
-    digest: [u8; 32],
-    error_map: HashMap<u32, String>,
+    _author: String,
+    _name: String,
+    _version_major: u32,
+    _version_minor: u32,
+    _version_patch: u32,
+    _digest: [u8; 32],
+    _error_map: HashMap<u32, String>,
 }
 
 /// A precompile, loaded and useful to the VM for execution and proving. The VM's runtime mostly
 /// cares about being able to call `eval`, and the prover cares about being able to access the
 /// precompile's circuits.
-pub struct Precompile {
-    runtime_eval_fn: EvalFn,
-    metadata: PrecompileMetadata,
-    circuit: (),
-}
-
-impl Precompile {
-    /// Load a precompile from a precompile manifest located at the given path.
-    pub fn from_manifest_file<P: AsRef<Path>>(path: P) {
-        todo!()
-    }
-
-    pub fn eval(
-        &self,
-        rs1: u32,
-        rs2: u32,
-        mem_read: MemReadFn,
-        mem_write: MemWriteFn,
-    ) -> Result<Option<u32>, u32> {
-        let result = (self.runtime_eval_fn)(rs1, rs2, mem_read, mem_write);
-
-        let high = (result >> 32) as u32;
-        let success = (high & 0b1) == 0b0;
-        let writeback = (high & 0b10) == 0b10;
-        let low = result as u32;
-
-        if success {
-            if writeback {
-                Ok(Some(low))
-            } else {
-                Ok(None)
-            }
-        } else {
-            Err(low)
-        }
-    }
-
-    pub fn metadata(&self) -> &PrecompileMetadata {
-        &self.metadata
-    }
-
-    pub fn circuit(&self) -> &() {
-        &self.circuit
-    }
+pub trait ProvablePrecompile {
+    fn circuit(&self);
 }

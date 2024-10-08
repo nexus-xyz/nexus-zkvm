@@ -1,13 +1,10 @@
 use crate::cpu::instructions::macros::implement_store_instruction;
 use crate::{
-    cpu::{
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
-    },
-    error::{Result, VMError},
+    cpu::state::{InstructionExecutor, InstructionState},
     memory::{MemAccessSize, MemoryProcessor},
     riscv::Instruction,
 };
+use nexus_common::cpu::{Processor, Registers};
 
 pub struct ShInstruction {
     rd: u32,
@@ -19,6 +16,8 @@ implement_store_instruction!(ShInstruction, MemAccessSize::HalfWord);
 
 #[cfg(test)]
 mod tests {
+    use nexus_common::error::MemoryError;
+
     use super::*;
     use crate::cpu::state::Cpu;
     use crate::memory::VariableMemory;
@@ -124,7 +123,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            VMError::UnalignedMemoryWrite(0x1001)
+            MemoryError::UnalignedMemoryWrite(0x1001)
         ));
     }
 
@@ -149,7 +148,7 @@ mod tests {
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
-            VMError::AddressCalculationOverflow
+            MemoryError::AddressCalculationOverflow
         ));
     }
 

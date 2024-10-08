@@ -10,23 +10,29 @@ macro_rules! implement_arithmetic_executor {
                 }
             }
 
-            fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+            fn memory_read(
+                &mut self,
+                _: &impl MemoryProcessor,
+            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
                 Ok(None)
             }
 
-            fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+            fn memory_write(
+                &self,
+                _: &mut impl MemoryProcessor,
+            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
                 Ok(None)
             }
 
-            fn write_back(&self, cpu: &mut Cpu) {
-                cpu.registers.write(self.rd.0, self.rd.1);
+            fn write_back(&self, cpu: &mut impl Processor) {
+                cpu.registers_mut().write(self.rd.0, self.rd.1);
             }
         }
 
         impl InstructionExecutor for $name {
             type InstructionState = Self;
 
-            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+            fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
                 Self {
                     rd: (ins.op_a, registers[ins.op_a]),
                     rs1: registers[ins.op_b],
@@ -45,28 +51,34 @@ macro_rules! implement_store_instruction {
         impl InstructionState for $name {
             type Result = Option<u32>;
 
-            fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+            fn memory_read(
+                &mut self,
+                _: &impl MemoryProcessor,
+            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
                 Ok(None)
             }
 
-            fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<Self::Result> {
+            fn memory_write(
+                &self,
+                memory: &mut impl MemoryProcessor,
+            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
                 let address = self
                     .rs1
                     .checked_add(self.imm)
-                    .ok_or(VMError::AddressCalculationOverflow)?;
+                    .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?;
                 let value = memory.write(address, $size, self.rd)?;
                 Ok(Some(value))
             }
 
             fn execute(&mut self) {}
 
-            fn write_back(&self, _: &mut Cpu) {}
+            fn write_back(&self, _: &mut impl Processor) {}
         }
 
         impl InstructionExecutor for $name {
             type InstructionState = Self;
 
-            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+            fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
                 Self {
                     rd: registers[ins.op_a],
                     rs1: registers[ins.op_b],
@@ -82,11 +94,14 @@ macro_rules! implement_load_instruction {
         impl InstructionState for $name {
             type Result = $result_type;
 
-            fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<Self::Result> {
+            fn memory_read(
+                &mut self,
+                memory: &impl MemoryProcessor,
+            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
                 let address = self
                     .rs1
                     .checked_add(self.imm)
-                    .ok_or(VMError::AddressCalculationOverflow)?;
+                    .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?;
                 let value = memory.read(address, $size)?;
 
                 self.rd.1 = if $sign_extend {
@@ -102,21 +117,24 @@ macro_rules! implement_load_instruction {
                 Ok(self.rd.1 as $result_type)
             }
 
-            fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+            fn memory_write(
+                &self,
+                _: &mut impl nexus_common::memory::MemoryProcessor,
+            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
                 Ok(0 as $result_type)
             }
 
             fn execute(&mut self) {}
 
-            fn write_back(&self, cpu: &mut Cpu) {
-                cpu.registers.write(self.rd.0, self.rd.1);
+            fn write_back(&self, cpu: &mut impl Processor) {
+                cpu.registers_mut().write(self.rd.0, self.rd.1);
             }
         }
 
         impl InstructionExecutor for $name {
             type InstructionState = Self;
 
-            fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+            fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
                 Self {
                     rd: (ins.op_a, registers[ins.op_a]),
                     rs1: registers[ins.op_b],

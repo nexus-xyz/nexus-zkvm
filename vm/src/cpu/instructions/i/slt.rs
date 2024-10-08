@@ -1,11 +1,11 @@
 use crate::{
-    cpu::{
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
-    },
-    error::Result,
+    cpu::state::{InstructionExecutor, InstructionState},
     memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
+};
+use nexus_common::{
+    cpu::{Processor, Registers},
+    error::MemoryError,
 };
 
 pub struct SltInstruction {
@@ -17,11 +17,11 @@ pub struct SltInstruction {
 impl InstructionState for SltInstruction {
     type Result = Option<()>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
@@ -34,15 +34,15 @@ impl InstructionState for SltInstruction {
         };
     }
 
-    fn write_back(&self, cpu: &mut Cpu) {
-        cpu.registers.write(self.rd.0, self.rd.1);
+    fn write_back(&self, cpu: &mut impl Processor) {
+        cpu.registers_mut().write(self.rd.0, self.rd.1);
     }
 }
 
 impl InstructionExecutor for SltInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
         Self {
             rd: (ins.op_a, registers[ins.op_a]),
             rs1: registers[ins.op_b],
@@ -63,11 +63,11 @@ pub struct SltuInstruction {
 impl InstructionState for SltuInstruction {
     type Result = Option<()>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
@@ -75,15 +75,15 @@ impl InstructionState for SltuInstruction {
         self.rd.1 = if self.rs1 < self.rs2 { 1 } else { 0 };
     }
 
-    fn write_back(&self, cpu: &mut Cpu) {
-        cpu.registers.write(self.rd.0, self.rd.1);
+    fn write_back(&self, cpu: &mut impl Processor) {
+        cpu.registers_mut().write(self.rd.0, self.rd.1);
     }
 }
 
 impl InstructionExecutor for SltuInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
         Self {
             rd: (ins.op_a, registers[ins.op_a]),
             rs1: registers[ins.op_b],
@@ -98,7 +98,10 @@ impl InstructionExecutor for SltuInstruction {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::riscv::{BuiltinOpcode, InstructionType, Opcode};
+    use crate::{
+        cpu::Cpu,
+        riscv::{BuiltinOpcode, InstructionType, Opcode},
+    };
 
     #[test]
     fn test_slt_positive() {

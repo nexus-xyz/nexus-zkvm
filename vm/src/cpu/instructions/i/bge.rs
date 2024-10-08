@@ -1,11 +1,11 @@
 use crate::{
-    cpu::{
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
-    },
-    error::Result,
+    cpu::state::{InstructionExecutor, InstructionState},
     memory::MemoryProcessor,
     riscv::Instruction,
+};
+use nexus_common::{
+    cpu::{Processor, Registers},
+    error::MemoryError,
 };
 
 pub struct BgeInstruction {
@@ -17,21 +17,21 @@ pub struct BgeInstruction {
 impl InstructionState for BgeInstruction {
     type Result = Option<u32>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut Cpu) {
+    fn write_back(&self, cpu: &mut impl Processor) {
         if (self.rs1 as i32) >= (self.rs2 as i32) {
-            cpu.pc.branch(self.imm);
+            cpu.pc_mut().branch(self.imm);
         } else {
-            cpu.pc.step();
+            cpu.pc_mut().step();
         }
     }
 }
@@ -39,7 +39,7 @@ impl InstructionState for BgeInstruction {
 impl InstructionExecutor for BgeInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
         Self {
             rs1: registers[ins.op_a],
             rs2: registers[ins.op_b],
@@ -57,21 +57,21 @@ pub struct BgeuInstruction {
 impl InstructionState for BgeuInstruction {
     type Result = Option<u32>;
 
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result> {
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
         Ok(None)
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut Cpu) {
+    fn write_back(&self, cpu: &mut impl Processor) {
         if self.rs1 >= self.rs2 {
-            cpu.pc.branch(self.imm);
+            cpu.pc_mut().branch(self.imm);
         } else {
-            cpu.pc.step();
+            cpu.pc_mut().step();
         }
     }
 }
@@ -79,7 +79,7 @@ impl InstructionState for BgeuInstruction {
 impl InstructionExecutor for BgeuInstruction {
     type InstructionState = Self;
 
-    fn decode(ins: &Instruction, registers: &RegisterFile) -> Self {
+    fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
         Self {
             rs1: registers[ins.op_a],
             rs2: registers[ins.op_b],

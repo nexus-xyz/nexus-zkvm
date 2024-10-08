@@ -1,7 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["runtime", "prover", "vm", "precompiles", "tests/testing-framework"]
-default-members = ["runtime", "prover", "vm"]
+members = [
+    "runtime",
+    "prover",
+    "vm",
+    "precompiles",
+    "common",
+    "tests/testing-framework",
+]
+default-members = ["runtime", "prover", "vm", "precompiles", "common"]
 
 [workspace.package]
 edition = "2021"

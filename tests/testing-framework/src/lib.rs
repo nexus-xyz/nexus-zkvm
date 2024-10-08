@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    use nexus_common::cpu::Registers;
     use nexus_vm::elf::ElfFile;
     use nexus_vm::emulator::Emulator;
     use nexus_vm::riscv::Register;

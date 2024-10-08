@@ -1,13 +1,12 @@
 use crate::{
     cpu::{
         instructions::macros::implement_load_instruction,
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
+        state::{InstructionExecutor, InstructionState},
     },
-    error::{Result, VMError},
     memory::{MemAccessSize, MemoryProcessor},
     riscv::{Instruction, Register},
 };
+use nexus_common::cpu::{Processor, Registers};
 
 pub struct LhInstruction {
     rd: (Register, u32),

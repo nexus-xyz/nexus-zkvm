@@ -1,5 +1,5 @@
 [package]
-name = "nexus_precompiles"
+name = "nexus-precompiles"
 edition.workspace = true
 version.workspace = true
 authors.workspace = true
@@ -9,6 +9,5 @@ keywords.workspace = true
 categories.workspace = true
 publish.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+nexus-common = { path = "../common" }

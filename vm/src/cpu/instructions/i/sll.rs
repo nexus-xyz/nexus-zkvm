@@ -1,13 +1,10 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
-    cpu::{
-        registerfile::RegisterFile,
-        state::{Cpu, InstructionExecutor, InstructionState},
-    },
-    error::Result,
+    cpu::state::{InstructionExecutor, InstructionState},
     memory::MemoryProcessor,
     riscv::{Instruction, InstructionType, Register},
 };
+use nexus_common::cpu::{Processor, Registers};
 
 pub struct SllInstruction {
     rd: (Register, u32),

@@ -67,9 +67,11 @@
 
 use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
 
+use nexus_common::cpu::InstructionExecutor;
+
 use super::registry::InstructionExecutorRegistry;
 use crate::{
-    cpu::{Cpu, InstructionExecutor},
+    cpu::Cpu,
     elf::{ElfFile, WORD_SIZE},
     error::{Result, VMError},
     memory::{FixedMemory, VariableMemory},
@@ -171,13 +173,17 @@ impl Emulator {
     fn execute_instruction(&mut self, bare_instruction: &Instruction) -> Result<()> {
         if bare_instruction.is_system_instruction() {
             self.execute_syscall(bare_instruction)?;
-        } else if let Some(executor) = self
-            .instruction_executor
-            .into_variable_memory(&bare_instruction.opcode)
-        {
-            executor(&mut self.cpu, &mut self.data_memory, bare_instruction)?;
         } else {
-            return Err(VMError::UnimplementedInstruction(self.cpu.pc.value));
+            match self
+                .instruction_executor
+                .get_instruction_executor_for_variable_memory(&bare_instruction.opcode)
+            {
+                Ok(executor) => executor(&mut self.cpu, &mut self.data_memory, bare_instruction)?,
+                Err(VMError::UnimplementedInstruction(inst)) => {
+                    return Err(VMError::UnimplementedInstructionAt(inst, self.cpu.pc.value));
+                }
+                Err(e) => return Err(e),
+            }
         }
 
         if !bare_instruction.is_branch_or_jump_instruction() {
@@ -236,7 +242,7 @@ impl Emulator {
     }
 
     /// Adds a new opcode and its corresponding execution function to the emulator.
-    pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<()> {
+    pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<(), VMError> {
         self.instruction_executor.add_opcode::<IE>(op)
     }
 
@@ -260,7 +266,7 @@ mod tests {
 
         assert_eq!(
             emulator.execute(),
-            Err(VMError::UnimplementedInstruction(48))
+            Err(VMError::UnimplementedInstructionAt(0, 48))
         );
     }
 
@@ -272,7 +278,7 @@ mod tests {
 
         assert_eq!(
             emulator.execute(),
-            Err(VMError::UnimplementedInstruction(71128))
+            Err(VMError::UnimplementedInstructionAt(0, 71128))
         );
     }
 

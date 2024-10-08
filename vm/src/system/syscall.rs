@@ -22,6 +22,8 @@
 //! system.
 use std::collections::{hash_map, VecDeque};
 
+use nexus_common::cpu::Registers;
+
 use crate::{
     cpu::Cpu,
     emulator::Emulator,
@@ -157,12 +159,12 @@ impl SyscallInstruction {
         let label = String::from_utf8_lossy(&buf).to_string();
         let (marker, fn_name) = label
             .split_once('#')
-            .ok_or(VMError::InvalidProfileLabel)?
+            .ok_or_else(|| VMError::InvalidProfileLabel(label.clone()))?
             .to_owned();
 
         // Ensure the marker is either '^' (start) or '$' (end)
         if !matches!(marker, "^" | "$") {
-            return Err(VMError::InvalidProfileLabel);
+            return Err(VMError::InvalidProfileLabel(label));
         }
 
         // Get or create an entry in the cycle tracker for this function

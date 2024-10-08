@@ -1,4 +1,4 @@
-use crate::error::Result;
+use crate::error::MemoryError;
 
 #[derive(Debug, Clone, Copy)]
 /// Represents the size of memory access operations.
@@ -10,7 +10,7 @@ pub enum MemAccessSize {
 }
 
 // Helper function to get shift and mask for different access sizes
-pub(crate) fn get_shift_and_mask(size: MemAccessSize, address: u32) -> (u32, u32) {
+pub fn get_shift_and_mask(size: MemAccessSize, address: u32) -> (u32, u32) {
     match size {
         MemAccessSize::Byte => ((address & 0x3) * 8, 0xff),
         MemAccessSize::HalfWord => ((address & 0x2) * 8, 0xffff),
@@ -34,7 +34,7 @@ pub trait MemoryProcessor: Default {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32>;
+    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError>;
 
     /// Writes a value to memory at the specified address.
     ///
@@ -47,11 +47,11 @@ pub trait MemoryProcessor: Default {
     /// # Returns
     ///
     /// Returns a `Result` indicating success or failure of the write operation.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32>;
+    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError>;
 
     /// Reads multiple bytes from memory at the specified address, built on top of `read`.
-    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>>;
+    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError>;
 
     /// Writes multiple bytes to memory at the specified address, built on top of `write`.
-    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<()>;
+    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError>;
 }
