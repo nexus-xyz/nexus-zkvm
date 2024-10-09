@@ -1,37 +1,63 @@
+use crate::elf::WORD_SIZE;
 use nexus_common::error::MemoryError;
+use std::marker::PhantomData;
 
-use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor};
+use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor, Mode, NA, RO, RW, WO};
 
-#[derive(Debug, Default)]
-pub struct FixedMemory {
-    max_len: usize,
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct FixedMemory<M: Mode> {
+    pub base_address: u32,
+    pub max_len: usize,
     vec: Vec<u32>,
+    __mode: PhantomData<M>,
 }
 
-impl FixedMemory {
-    pub fn new(max_len: usize) -> Self {
-        Self {
+impl<M: Mode> FixedMemory<M> {
+    pub fn new(base_address: u32, max_len: usize) -> Self {
+        FixedMemory::<M> {
+            base_address,
             max_len,
             vec: Vec::<u32>::new(),
+            __mode: PhantomData,
         }
     }
 
-    pub fn from_vec(max_len: usize, vec: Vec<u32>) -> Self {
-        vec.to_owned().truncate(max_len);
+    pub fn from_vec(base_address: u32, max_len: usize, vec: Vec<u32>) -> Self {
+        vec.to_owned().truncate(max_len / WORD_SIZE as usize);
 
-        Self { max_len, vec }
+        FixedMemory::<M> {
+            base_address,
+            max_len,
+            vec,
+            __mode: PhantomData,
+        }
     }
 
-    pub fn segment(&self, start: usize, end: Option<usize>) -> &[u32] {
-        if let Some(e) = end {
-            &self.vec[start..e]
+    pub fn from_slice(base_address: u32, max_len: usize, slice: &[u32]) -> Self {
+        let mut vec = slice.to_vec();
+        vec.truncate(max_len / WORD_SIZE as usize);
+
+        FixedMemory::<M> {
+            base_address,
+            max_len,
+            vec,
+            __mode: PhantomData,
+        }
+    }
+
+    pub fn segment(&self, start: u32, end: Option<u32>) -> &[u32] {
+        let s = (start - self.base_address) / WORD_SIZE;
+
+        if let Some(mut e) = end {
+            e -= self.base_address;
+            &self.vec[s as usize..e as usize]
         } else {
-            &self.vec[start..]
+            &self.vec[s as usize..]
         }
     }
 }
 
-impl MemoryProcessor for FixedMemory {
+impl<M: Mode> FixedMemory<M> {
     /// Writes data to memory.
     ///
     /// # Arguments
@@ -43,25 +69,37 @@ impl MemoryProcessor for FixedMemory {
     /// # Returns
     ///
     /// The value written to memory, or an error if the operation failed.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError> {
-        let (shift, mask) = get_shift_and_mask(size, address);
-
-        // Check for alignment
-        if address & size as u32 != 0 {
-            return Err(MemoryError::UnalignedMemoryWrite(address));
+    fn execute_write(
+        &mut self,
+        raw_address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<u32, MemoryError> {
+        // Error if address is outside reserved space
+        if raw_address < self.base_address as u32 {
+            return Err(MemoryError::InvalidMemoryAccess(raw_address));
         }
+
+        let address = raw_address - self.base_address;
 
         // Error if address is outside reserved space
         if address >= self.max_len as u32 {
-            return Err(MemoryError::InvalidMemoryAccess(address));
+            return Err(MemoryError::InvalidMemoryAccess(raw_address));
+        }
+
+        // Check for alignment
+        if address & size as u32 != 0 {
+            return Err(MemoryError::UnalignedMemoryWrite(raw_address));
         }
 
         // Align to word boundary
         let aligned_address = (address & !0x3) as usize;
+        let (shift, mask) = get_shift_and_mask(size, address);
+
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
 
-        if self.vec.len() < aligned_address {
+        if self.vec.len() <= aligned_address {
             self.vec.resize_with(1 + aligned_address, Default::default);
             self.vec[aligned_address] = data;
         } else {
@@ -82,41 +120,177 @@ impl MemoryProcessor for FixedMemory {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
-        let (shift, mask) = get_shift_and_mask(size, address);
-
-        if address & size as u32 != 0 {
-            return Err(MemoryError::UnalignedMemoryRead(address));
+    fn execute_read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+        // Error if address is outside reserved space
+        if raw_address < self.base_address as u32 {
+            return Err(MemoryError::InvalidMemoryAccess(raw_address));
         }
+
+        let address = raw_address - self.base_address;
 
         // Error if address is outside reserved space
         if address >= self.max_len as u32 {
-            return Err(MemoryError::InvalidMemoryAccess(address));
+            return Err(MemoryError::InvalidMemoryAccess(raw_address));
+        }
+
+        // Check for alignment
+        if address & size as u32 != 0 {
+            return Err(MemoryError::UnalignedMemoryRead(raw_address));
         }
 
         // Align to word boundary
         let aligned_address = (address & !0x3) as usize;
+        let (shift, mask) = get_shift_and_mask(size, address);
 
-        if self.vec.len() < aligned_address {
+        if self.vec.len() <= aligned_address {
             return Ok(u32::default());
         }
 
         Ok((self.vec[aligned_address] >> shift) & mask)
     }
+}
 
-    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
-        let mut data = vec![0; size];
-        for (i, byte) in data.iter_mut().enumerate().take(size) {
-            *byte = self.read(address + i as u32, MemAccessSize::Byte)? as u8;
-        }
-        Ok(data)
+impl MemoryProcessor for FixedMemory<RW> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<u32, MemoryError> {
+        FixedMemory::execute_write(self, raw_address, size, value)
     }
 
-    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
-        for (i, &byte) in data.iter().enumerate() {
-            self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
-        }
-        Ok(())
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+        FixedMemory::execute_read(self, raw_address, size)
+    }
+}
+
+impl MemoryProcessor for FixedMemory<RO> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        _size: MemAccessSize,
+        _value: u32,
+    ) -> Result<u32, MemoryError> {
+        Err(MemoryError::UnauthorizedWrite(raw_address))
+    }
+
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+        FixedMemory::execute_read(self, raw_address, size)
+    }
+}
+
+impl MemoryProcessor for FixedMemory<WO> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<u32, MemoryError> {
+        FixedMemory::execute_write(self, raw_address, size, value)
+    }
+
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<u32, MemoryError> {
+        Err(MemoryError::UnauthorizedRead(raw_address))
+    }
+}
+
+impl MemoryProcessor for FixedMemory<NA> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        _size: MemAccessSize,
+        _value: u32,
+    ) -> Result<u32, MemoryError> {
+        Err(MemoryError::UnauthorizedWrite(raw_address))
+    }
+
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<u32, MemoryError> {
+        Err(MemoryError::UnauthorizedRead(raw_address))
     }
 }
 
@@ -128,7 +302,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_byte() {
-        let mut memory = FixedMemory::new(0x100000);
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Write bytes at different alignments
         assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
@@ -148,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_halfword() {
-        let mut memory = FixedMemory::new(0x100000);
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Write halfwords at aligned addresses
         assert_eq!(
@@ -179,7 +353,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_word() {
-        let mut memory = FixedMemory::new(0x100000);
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Write a word at an aligned address
         assert_eq!(
@@ -221,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_overwrite() {
-        let mut memory = FixedMemory::new(0x100000);
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Write a word
         assert_eq!(
@@ -244,29 +418,29 @@ mod tests {
 
     #[test]
     fn test_invalid_read() {
-        let memory = FixedMemory::new(0x100000);
+        let memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Read from an address out of the reserved memory
         assert_eq!(
-            memory.read(0x100004, MemAccessSize::Word),
-            Err(MemoryError::InvalidMemoryAccess(0x100004))
+            memory.read(0x1020, MemAccessSize::Word),
+            Err(MemoryError::InvalidMemoryAccess(0x1020))
         );
     }
 
     #[test]
     fn test_invalid_write() {
-        let mut memory = FixedMemory::new(0x100000);
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Write to an address out of the reserved memory
         assert_eq!(
-            memory.write(0x100004, MemAccessSize::Word, 0xABCD1234),
-            Err(MemoryError::InvalidMemoryAccess(0x100004))
+            memory.write(0x1020, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::InvalidMemoryAccess(0x1020))
         );
     }
 
     #[test]
     fn test_function_read_write_bytes() {
-        let mut memory = FixedMemory::new(0x10000);
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x16);
 
         // Test write_bytes
         let data = vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE];
@@ -305,5 +479,43 @@ mod tests {
         // Test reading words after write_bytes
         assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x2211BBAA));
         assert_eq!(memory.read(0x1004, MemAccessSize::Word), Ok(0x66554433));
+    }
+
+    #[test]
+    fn test_unpermitted_read() {
+        let memory = FixedMemory::<WO>::new(0x1000, 0x16);
+
+        // Read from an address in a write-only memory
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Err(MemoryError::UnauthorizedRead(0x1000))
+        );
+
+        let memory = FixedMemory::<NA>::new(0x1000, 0x16);
+
+        // Read from an address in a no-access memory
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Err(MemoryError::UnauthorizedRead(0x1000))
+        );
+    }
+
+    #[test]
+    fn test_unpermitted_write() {
+        let mut memory = FixedMemory::<RO>::new(0x1000, 0x16);
+
+        // Write to an address in a read-only memory
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::UnauthorizedWrite(0x1000))
+        );
+
+        let mut memory = FixedMemory::<NA>::new(0x1000, 0x16);
+
+        // Write to an address in a no-access memory
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::UnauthorizedWrite(0x1000))
+        );
     }
 }

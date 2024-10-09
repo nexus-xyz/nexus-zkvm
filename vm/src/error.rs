@@ -10,6 +10,10 @@ pub enum VMError {
     #[error("Unimplemented syscall: opcode=0x{0:08X}, pc=0x{1:08X}")]
     UnimplementedSyscall(u32, u32),
 
+    // Invalid memory layout
+    #[error("Invalid memory layout")]
+    InvalidMemoryLayout,
+
     // VM has stopped
     #[error("VM has stopped")]
     VMStopped,

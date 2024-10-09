@@ -17,4 +17,26 @@ pub enum MemoryError {
     // Address calculation overflow
     #[error("Address calculation overflow")]
     AddressCalculationOverflow,
+
+    // Attempted to read a write-only memory address
+    #[error(
+        "Unauthorized read access: Attempted to read from write-only memory at address 0x{0:08X}"
+    )]
+    UnauthorizedRead(u32),
+
+    // Attempted to write a read-only memory address
+    #[error(
+        "Unauthorized write access: Attempted to write to read-only memory at address 0x{0:08X}"
+    )]
+    UnauthorizedWrite(u32),
+
+    // Tried to access an unknown memory
+    #[error("Memory access error: Attempted to access undefined memory region")]
+    UndefinedMemoryRegion,
+
+    // Multiple memories report owning the same address
+    #[error(
+        "Memory overlap detected: Multiple memory regions claim ownership of the same address"
+    )]
+    MemoryOverlap,
 }

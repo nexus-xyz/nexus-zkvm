@@ -28,11 +28,11 @@ implement_load_instruction!(LbuInstruction, MemAccessSize::Byte, false, u8);
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::memory::VariableMemory;
+    use crate::memory::{VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
-    fn setup_memory() -> VariableMemory {
-        let mut memory = VariableMemory::default();
+    fn setup_memory() -> VariableMemory<RW> {
+        let mut memory = VariableMemory::<RW>::default();
         memory.write(0x1000, MemAccessSize::Byte, 0xFF).unwrap();
         memory.write(0x1001, MemAccessSize::Byte, 0x80).unwrap();
         memory.write(0x1002, MemAccessSize::Byte, 0x7F).unwrap();

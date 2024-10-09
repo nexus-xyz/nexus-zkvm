@@ -6,8 +6,7 @@
 //! ## Key Components
 //!
 //! - `InstructionExecutorFn`: A generic type alias for the instruction execution function signature.
-//! - `InstructionExecutorFns`: A tuple type of `InstructionExecutorFn`s monomorphized to specific memory models
-//! - `InstructionExecutorRegistry`: A struct containing `InstructionExecutorFns` for use during emulation.
+//! - `InstructionExecutorRegistry`: A struct containing `InstructionExecutorFn`s for use during emulation.
 //!
 //! ## Instruction Categories
 //!
@@ -35,7 +34,7 @@
 //! use nexus_vm::{
 //!     cpu::{Cpu, RegisterFile},
 //!     memory::MemoryProcessor,
-//!     emulator::Emulator,
+//!     emulator::{Emulator, HarvardEmulator},
 //!     riscv::{Register, Opcode, Instruction, InstructionType},
 //!     error::Result
 //! };
@@ -84,7 +83,7 @@
 //! }
 //!
 //! let custom_opcode = Opcode::new(0b1111111, "test");
-//! let mut emulator = Emulator::default().add_opcode::<CustomInstruction>(&custom_opcode);
+//! let mut emulator = HarvardEmulator::default().add_opcode::<CustomInstruction>(&custom_opcode);
 //! ```
 //!
 //! Note:
@@ -101,7 +100,7 @@ use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
 use crate::{
     cpu::{instructions, Cpu},
     error::{Result, VMError},
-    memory::{FixedMemory, MemoryProcessor, VariableMemory},
+    memory::{FixedMemory, MemoryProcessor, UnifiedMemory, VariableMemory, RO, WO},
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
 use std::collections::HashMap;
@@ -125,30 +124,18 @@ fn ecall<M: MemoryProcessor>(
     Ok(())
 }
 
-// Note: The instruction executor function is generic over the memory type, but Rust requires that function pointers
-//       be specifically instantiated. This functionally becomes a time-space tradeoff, where we could use dynamic
-//       dispatch in order to avoid having to instantiate the executors multiple times for each memory type. However
-//       we choose to pay more in terms of space (redundant compiletime instantiation) in order to have more efficient
-//       execution with static dispatch, since the VM can only support 256 instructions at once anyway.
 macro_rules! register_instruction_executor {
     ($func: path) => {
-        InstructionExecutorFns(
-            $func as InstructionExecutorFn<FixedMemory>,
-            $func as InstructionExecutorFn<VariableMemory>,
-        )
+        $func as InstructionExecutorFn<UnifiedMemory>
     };
 }
 
 #[derive(Debug)]
-pub struct InstructionExecutorFns(
-    pub InstructionExecutorFn<FixedMemory>,
-    pub InstructionExecutorFn<VariableMemory>,
-);
-
-#[derive(Debug)]
 pub struct InstructionExecutorRegistry {
-    builtins: [Option<InstructionExecutorFns>; BuiltinOpcode::VARIANT_COUNT],
-    precompiles: HashMap<Opcode, InstructionExecutorFns>,
+    builtins: [Option<InstructionExecutorFn<UnifiedMemory>>; BuiltinOpcode::VARIANT_COUNT],
+    precompiles: HashMap<Opcode, InstructionExecutorFn<UnifiedMemory>>,
+    read_input: Option<(Opcode, InstructionExecutorFn<FixedMemory<RO>>)>,
+    write_output: Option<(Opcode, InstructionExecutorFn<VariableMemory<WO>>)>,
 }
 
 impl Default for InstructionExecutorRegistry {
@@ -297,7 +284,9 @@ impl Default for InstructionExecutorRegistry {
                 Some(register_instruction_executor!(nop)),   // nop
                 None,                                        // unimpl
             ],
-            precompiles: HashMap::<Opcode, InstructionExecutorFns>::new(),
+            precompiles: HashMap::<Opcode, InstructionExecutorFn<UnifiedMemory>>::new(),
+            read_input: None,   // todo: hardcode in static rin opcode
+            write_output: None, // todo: hardcode in static wot opcode
         }
     }
 }
@@ -310,48 +299,47 @@ impl InstructionExecutorRegistry {
             .map(|_| ())
     }
 
-    #[allow(dead_code)] // temp till second pass memory is done
-    pub fn get_instruction_executor_for_fixed_memory(
-        &self,
-        op: &Opcode,
-    ) -> Result<InstructionExecutorFn<FixedMemory>> {
+    pub fn get(&self, op: &Opcode) -> Result<InstructionExecutorFn<UnifiedMemory>> {
         if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
             let idx = opcode as usize;
 
             // Safety: the length of `builtins` is statically guaranteed to be equal to the number
             // of variants in `BuiltinOpcode`.
-            self.builtins[idx]
-                .as_ref()
-                .map(|fns| fns.0)
-                .ok_or_else(|| VMError::UnimplementedInstruction(op.raw()))
+            self.builtins[idx].ok_or_else(|| VMError::UnimplementedInstruction(op.raw()))
         } else {
-            if let Some(fns) = self.precompiles.get(op) {
-                return Ok(fns.0);
+            if let Some(func) = self.precompiles.get(op) {
+                return Ok(*func);
             }
 
             Err(VMError::UnsupportedInstruction(op.raw()))
         }
     }
 
-    pub fn get_instruction_executor_for_variable_memory(
+    #[allow(dead_code)] // until first-pass is done
+    pub fn get_for_read_input(
         &self,
         op: &Opcode,
-    ) -> Result<InstructionExecutorFn<VariableMemory>> {
-        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
-            let idx = opcode as usize;
-
-            // Safety: the length of `builtins` is statically guaranteed to be equal to the number
-            // of variants in `BuiltinOpcode`.
-            self.builtins[idx]
-                .as_ref()
-                .map(|fns| fns.1)
-                .ok_or_else(|| VMError::UnimplementedInstruction(op.raw()))
-        } else {
-            if let Some(fns) = self.precompiles.get(op) {
-                return Ok(fns.1);
+    ) -> Result<InstructionExecutorFn<FixedMemory<RO>>> {
+        if let Some(rin) = self.read_input {
+            if *op == rin.0 {
+                return Ok(rin.1);
             }
-
-            Err(VMError::UnsupportedInstruction(op.raw()))
         }
+
+        Err(VMError::UnsupportedInstruction(op.raw()))
+    }
+
+    #[allow(dead_code)] // until first-pass is done
+    pub fn get_for_write_output(
+        &self,
+        op: &Opcode,
+    ) -> Result<InstructionExecutorFn<VariableMemory<WO>>> {
+        if let Some(wot) = self.write_output {
+            if *op == wot.0 {
+                return Ok(wot.1);
+            }
+        }
+
+        Err(VMError::UnsupportedInstruction(op.raw()))
     }
 }

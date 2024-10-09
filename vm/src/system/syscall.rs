@@ -26,7 +26,7 @@ use nexus_common::cpu::Registers;
 
 use crate::{
     cpu::Cpu,
-    emulator::Emulator,
+    emulator::{Executor, LinearMemoryLayout},
     error::{Result, VMError},
     memory::MemoryProcessor,
     riscv::{BuiltinOpcode, Instruction, Register},
@@ -40,6 +40,8 @@ pub enum SyscallCode {
     // zkVM specific syscall opcodes start from 1024
     ReadFromPrivateInput = 1024,
     CycleCount = 1025,
+    OverwriteStackPointer = 1026,
+    OverwriteHeapPointer = 1027,
 }
 
 impl SyscallCode {
@@ -49,6 +51,8 @@ impl SyscallCode {
             513 => SyscallCode::Exit,
             1024 => SyscallCode::ReadFromPrivateInput,
             1025 => SyscallCode::CycleCount,
+            1026 => SyscallCode::OverwriteStackPointer,
+            1027 => SyscallCode::OverwriteHeapPointer,
             _ => return Err(VMError::UnimplementedSyscall(value, pc)),
         };
         Ok(code)
@@ -62,6 +66,8 @@ impl From<SyscallCode> for u32 {
             SyscallCode::Exit => 513,
             SyscallCode::ReadFromPrivateInput => 1024,
             SyscallCode::CycleCount => 1025,
+            SyscallCode::OverwriteStackPointer => 1026,
+            SyscallCode::OverwriteHeapPointer => 1027,
         }
     }
 }
@@ -152,8 +158,14 @@ impl SyscallInstruction {
     /// This function reads a label from memory, processes it, and updates the cycle tracker
     /// in the emulator. The label format should be "<marker>#<function_name>", where
     /// marker is either '^' (start) or '$' (end), marker is inspired from Regular Expression.
-    fn execute_cyclecount(&mut self, emulator: &mut Emulator, buf: u32, buflen: u32) -> Result<()> {
-        let buf = emulator.data_memory.read_bytes(buf, buflen as _)?;
+    fn execute_cyclecount(
+        &mut self,
+        executor: &mut Executor,
+        memory: &impl MemoryProcessor,
+        buf: u32,
+        buflen: u32,
+    ) -> Result<()> {
+        let buf = memory.read_bytes(buf, buflen as _)?;
 
         // Convert buffer to string and split it into marker and function name
         let label = String::from_utf8_lossy(&buf).to_string();
@@ -168,7 +180,7 @@ impl SyscallInstruction {
         }
 
         // Get or create an entry in the cycle tracker for this function
-        let entry = emulator.cycle_tracker.entry(fn_name.to_string());
+        let entry = executor.cycle_tracker.entry(fn_name.to_string());
 
         match (marker, entry) {
             ("^", hash_map::Entry::Occupied(mut entry)) => {
@@ -182,13 +194,13 @@ impl SyscallInstruction {
                 *occurrence -= 1;
                 if *occurrence == 0 {
                     // If this is the last occurrence, calculate total cycles
-                    *total_cycles = emulator.global_clock - *total_cycles;
+                    *total_cycles = executor.global_clock - *total_cycles;
                 }
                 self.result.1 = 0;
             }
             ("^", hash_map::Entry::Vacant(entry)) => {
                 // Start marker for a new entry: initialize with current clock and occurrence of 1
-                entry.insert((emulator.global_clock, 1));
+                entry.insert((executor.global_clock, 1));
                 self.result.1 = 0;
             }
             ("$", hash_map::Entry::Vacant(_)) => {
@@ -203,11 +215,33 @@ impl SyscallInstruction {
 
     fn execute_read_from_private_input(
         &mut self,
-        private_input_memory: &mut VecDeque<u8>,
+        private_input_tape: &mut VecDeque<u8>,
     ) -> Result<()> {
-        self.result.1 = private_input_memory
+        self.result.1 = private_input_tape
             .pop_front()
             .map_or(u32::MAX, |v| v as u32);
+        Ok(())
+    }
+
+    fn execute_overwrite_stack_pointer(
+        &mut self,
+        memory_layout: Option<LinearMemoryLayout>,
+    ) -> Result<()> {
+        if let Some(layout) = memory_layout {
+            self.result = (Register::X2, layout.stack_top());
+        }
+
+        Ok(())
+    }
+
+    fn execute_overwrite_heap_pointer(
+        &mut self,
+        memory_layout: Option<LinearMemoryLayout>,
+    ) -> Result<()> {
+        if let Some(layout) = memory_layout {
+            self.result.1 = layout.heap_start();
+        }
+
         Ok(())
     }
 
@@ -220,25 +254,30 @@ impl SyscallInstruction {
     ///
     /// This function performs the following operations:
     /// 1. Reads CPU registers
-    /// 2. Interacts with fields in the `Emulator` struct, but not CPU and memory.
+    /// 2. Interacts with fields in the `Emulator` struct, and reads but does not write to memory.
     ///
     /// Note:
     /// - Any modifications to CPU registers must be done using the `write_back` function.
     /// - Any modifications to memory must be done using the `memory_write` function.
     /// `Result<()>` - Ok if the syscall executed successfully, or an error if it failed
-    pub fn execute(&mut self, emulator: &mut Emulator) -> Result<()> {
+    pub fn execute(
+        &mut self,
+        executor: &mut Executor,
+        memory: &impl MemoryProcessor,
+        memory_layout: Option<LinearMemoryLayout>,
+    ) -> Result<()> {
         match self.code {
             SyscallCode::Write => {
                 let fd = self.args[0];
                 let buf = self.args[1];
                 let count = self.args[2];
-                self.execute_write(&emulator.data_memory, fd, buf, count)
+                self.execute_write(memory, fd, buf, count)
             }
 
             SyscallCode::CycleCount => {
                 let buf = self.args[0];
                 let buflen = self.args[1];
-                self.execute_cyclecount(emulator, buf, buflen)
+                self.execute_cyclecount(executor, memory, buf, buflen)
             }
 
             SyscallCode::Exit => {
@@ -247,8 +286,14 @@ impl SyscallInstruction {
             }
 
             SyscallCode::ReadFromPrivateInput => {
-                self.execute_read_from_private_input(&mut emulator.private_input_memory)
+                self.execute_read_from_private_input(&mut executor.private_input_tape)
             }
+
+            SyscallCode::OverwriteStackPointer => {
+                self.execute_overwrite_stack_pointer(memory_layout)
+            }
+
+            SyscallCode::OverwriteHeapPointer => self.execute_overwrite_heap_pointer(memory_layout),
         }
     }
 
@@ -266,10 +311,17 @@ impl SyscallInstruction {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::emulator::HarvardEmulator;
+    use crate::memory::{VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, InstructionType, Opcode};
 
-    fn setup_emulator() -> Emulator {
-        Emulator::default()
+    fn setup_emulator() -> HarvardEmulator {
+        let mut emul = HarvardEmulator::default();
+        emul.data_memory
+            .add_variable(VariableMemory::<RW>::default())
+            .unwrap();
+
+        emul
     }
 
     #[test]
@@ -292,9 +344,12 @@ mod tests {
         syscall_instruction
             .execute_write(&emulator.data_memory, fd, buf_addr, buf_len as _)
             .expect("Failed to execute write syscall");
-        syscall_instruction.write_back(&mut emulator.cpu);
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
 
-        assert_eq!(emulator.cpu.registers.read(Register::X10), buf_len as u32);
+        assert_eq!(
+            emulator.executor.cpu.registers.read(Register::X10),
+            buf_len as u32
+        );
     }
 
     #[test]
@@ -317,9 +372,12 @@ mod tests {
         syscall_instruction
             .execute_write(&emulator.data_memory, fd, buf_addr, buf_len as _)
             .expect("Failed to execute write syscall");
-        syscall_instruction.write_back(&mut emulator.cpu);
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
 
-        assert_eq!(emulator.cpu.registers.read(Register::X10), u32::MAX);
+        assert_eq!(
+            emulator.executor.cpu.registers.read(Register::X10),
+            u32::MAX
+        );
     }
 
     #[test]
@@ -333,10 +391,51 @@ mod tests {
         };
 
         let result = syscall_instruction.execute_exit(error_code);
-        syscall_instruction.write_back(&mut emulator.cpu);
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
 
         assert!(matches!(result, Err(VMError::VMExited)));
-        assert_eq!(emulator.cpu.registers.read(Register::X10), error_code);
+        assert_eq!(
+            emulator.executor.cpu.registers.read(Register::X10),
+            error_code
+        );
+    }
+
+    #[test]
+    fn test_execute_overwrite_stack_pointer() {
+        let memory_layout = LinearMemoryLayout::default();
+        let mut emulator = setup_emulator();
+        let mut syscall_instruction = SyscallInstruction {
+            code: SyscallCode::OverwriteStackPointer,
+            result: (Register::X10, 0),
+            args: vec![0, 0, 0, 0, 0, 0, 0],
+        };
+
+        let _ = syscall_instruction.execute_overwrite_stack_pointer(Some(memory_layout));
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
+
+        assert_eq!(
+            emulator.executor.cpu.registers.read(Register::X2),
+            memory_layout.stack_top()
+        );
+    }
+
+    #[test]
+    fn test_execute_overwrite_heap_pointer() {
+        let memory_layout = LinearMemoryLayout::default();
+        let mut emulator = setup_emulator();
+        let mut syscall_instruction = SyscallInstruction {
+            code: SyscallCode::OverwriteStackPointer,
+            result: (Register::X10, 0),
+            args: vec![0, 0, 0, 0, 0, 0, 0],
+        };
+
+        let _ = syscall_instruction.execute_overwrite_heap_pointer(Some(memory_layout));
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
+
+        assert_eq!(
+            emulator.executor.cpu.registers.read(Register::X10),
+            memory_layout.heap_start()
+        );
     }
 
     #[test]
@@ -356,29 +455,39 @@ mod tests {
             .write_bytes(buf_addr, buf)
             .expect("Failed to write to memory");
         syscall_instruction
-            .execute_cyclecount(&mut emulator, buf_addr, buf_len as _)
+            .execute_cyclecount(
+                &mut emulator.executor,
+                &emulator.data_memory,
+                buf_addr,
+                buf_len as _,
+            )
             .expect("Failed to execute cyclecount syscall");
-        syscall_instruction.write_back(&mut emulator.cpu);
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
 
-        assert_eq!(emulator.cpu.registers.read(Register::X10), 0);
-        assert!(emulator.cycle_tracker.contains_key("fib"));
+        assert_eq!(emulator.executor.cpu.registers.read(Register::X10), 0);
+        assert!(emulator.executor.cycle_tracker.contains_key("fib"));
 
         // Test end marker
         let buf = b"$#fib";
         let buf_addr = 0x100;
-        emulator.global_clock = 100;
+        emulator.executor.global_clock = 100;
         emulator
             .data_memory
             .write_bytes(buf_addr, buf)
             .expect("Failed to write to memory");
         syscall_instruction
-            .execute_cyclecount(&mut emulator, buf_addr, buf_len as _)
+            .execute_cyclecount(
+                &mut emulator.executor,
+                &emulator.data_memory,
+                buf_addr,
+                buf_len as _,
+            )
             .expect("Failed to execute cyclecount syscall");
-        syscall_instruction.write_back(&mut emulator.cpu);
+        syscall_instruction.write_back(&mut emulator.executor.cpu);
 
-        assert_eq!(emulator.cpu.registers.read(Register::X10), 0);
-        assert_eq!(emulator.cycle_tracker["fib"].0, 100);
-        assert_eq!(emulator.cycle_tracker["fib"].1, 0);
+        assert_eq!(emulator.executor.cpu.registers.read(Register::X10), 0);
+        assert_eq!(emulator.executor.cycle_tracker["fib"].0, 100);
+        assert_eq!(emulator.executor.cycle_tracker["fib"].1, 0);
     }
 
     #[test]
@@ -407,7 +516,7 @@ mod tests {
 
     #[test]
     fn test_execute_read_from_private_input() {
-        let mut private_input_memory = VecDeque::from(vec![1, 2, 3]);
+        let mut private_input_tape = VecDeque::from(vec![1, 2, 3]);
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::ReadFromPrivateInput,
             result: (Register::X10, 0),
@@ -417,14 +526,14 @@ mod tests {
         // Test reading values
         for expected_value in 1..=3 {
             syscall_instruction
-                .execute_read_from_private_input(&mut private_input_memory)
+                .execute_read_from_private_input(&mut private_input_tape)
                 .expect("Failed to execute read from private input");
             assert_eq!(syscall_instruction.result.1, expected_value);
         }
 
         // Test reading when private input is empty
         syscall_instruction
-            .execute_read_from_private_input(&mut private_input_memory)
+            .execute_read_from_private_input(&mut private_input_tape)
             .expect("Failed to execute read from private input");
         assert_eq!(syscall_instruction.result.1, u32::MAX);
     }

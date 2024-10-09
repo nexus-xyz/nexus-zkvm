@@ -1,5 +1,40 @@
 use crate::error::MemoryError;
 
+/// A trait for permissions modes for memories.
+pub trait Mode {}
+
+/// A read-write indicator type.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub enum RW {
+    #[default]
+    ReadWrite,
+}
+impl Mode for RW {}
+
+/// A read-only indicator type.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub enum RO {
+    #[default]
+    ReadOnly,
+}
+impl Mode for RO {}
+
+/// A write-only indicator type.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub enum WO {
+    #[default]
+    WriteOnly,
+}
+impl Mode for WO {}
+
+/// A no-access indicator type. Useful for associated data and padding.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub enum NA {
+    #[default]
+    NoAccess,
+}
+impl Mode for NA {}
+
 #[derive(Debug, Clone, Copy)]
 /// Represents the size of memory access operations.
 /// The value of enum is for efficient masking purpose.
@@ -50,8 +85,19 @@ pub trait MemoryProcessor: Default {
     fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError>;
 
     /// Reads multiple bytes from memory at the specified address, built on top of `read`.
-    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError>;
+    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
+        let mut data = vec![0; size];
+        for (i, byte) in data.iter_mut().enumerate().take(size) {
+            *byte = self.read(address + i as u32, MemAccessSize::Byte)? as u8;
+        }
+        Ok(data)
+    }
 
     /// Writes multiple bytes to memory at the specified address, built on top of `write`.
-    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError>;
+    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
+        for (i, &byte) in data.iter().enumerate() {
+            self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
+        }
+        Ok(())
+    }
 }

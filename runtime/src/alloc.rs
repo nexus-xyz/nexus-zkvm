@@ -32,7 +32,15 @@ pub unsafe extern "C" fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u
     let mut heap_pos = HEAP_POS;
 
     if heap_pos == 0 {
-        heap_pos = &_end as *const u8 as usize;
+        // check to see if vm has a different place we should expect the heap to be
+        let mut overwrite: u32;
+        core::arch::asm!("ecall", in("a7") 1027, out("a0") overwrite);
+
+        if overwrite > 0 {
+            heap_pos = overwrite as usize;
+        } else {
+            heap_pos = &_end as *const u8 as usize;
+        }
     }
 
     let offset = heap_pos & (align - 1);

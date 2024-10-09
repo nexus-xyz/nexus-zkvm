@@ -2,7 +2,7 @@
 mod test {
     use nexus_common::cpu::Registers;
     use nexus_vm::elf::ElfFile;
-    use nexus_vm::emulator::Emulator;
+    use nexus_vm::emulator::{Emulator, HarvardEmulator};
     use nexus_vm::riscv::Register;
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
@@ -55,13 +55,23 @@ mod test {
 
         assert!(output.status.success());
 
+        let linker_script = std::env::current_dir()
+            .unwrap()
+            .join("../../runtime/linker-scripts/default.x");
+
         // Compile the test file for riscv target.
         output = Command::new("cargo")
             .current_dir(tmp_project_path.clone())
             .arg("build")
             .arg("--target")
             .arg(target)
-            .env("RUSTFLAGS", "-C opt-level=0") // Disable optimizations.
+            .env(
+                "RUSTFLAGS",
+                &format!(
+                    "-C opt-level=0 -C panic=abort -C link-arg=-T{}",
+                    linker_script.display()
+                ),
+            ) // Disable optimizations.
             .output()
             .expect("Failed to run test");
 
@@ -105,12 +115,12 @@ mod test {
             let elf = ElfFile::from_path(&elf_path).expect("Unable to load ELF from path");
 
             // Execute the elf file using the emulator.
-            let mut emulator = Emulator::from_elf(elf);
+            let mut emulator = HarvardEmulator::from_elf(elf, &[], &[]);
             let _res = emulator.execute(); // Ends on unimplemented instruction.
 
             // Check that the result is correct.
             // Will remove this hacky check later once I/O is working.
-            assert_eq!(emulator.cpu.registers.read(Register::X12), *result);
+            assert_eq!(emulator.executor.cpu.registers.read(Register::X12), *result);
         }
     }
 }

@@ -19,7 +19,8 @@ _start:
     la gp, __global_pointer$
     .option pop
 
-    la sp, __memory_top - 4 /* start growing the stack (down) from here */
+    la sp, __memory_top - 4 /* default to growing the stack (down) from here */
+    jal ra, _overwrite_sp   /* but make an ecall to potentially overwrite it */
     mv fp, sp
 
     j run

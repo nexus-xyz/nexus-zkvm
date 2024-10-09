@@ -1,9 +1,12 @@
 ENTRY(_start);
 
+/* nb: when proving we will rebuild the memory model based on the first
+       pass' usages, so there is no cost for a "suboptimal" layout here */
+
 SECTIONS
 {
   __memory_top = 0x80400000;
-  . = 0x80000000;
+  . = 0x1000;
 
   .text : ALIGN(4)
   {
@@ -14,7 +17,6 @@ SECTIONS
   }
 
   . = ALIGN(8);
-  . = .* 2;
 
   .data : ALIGN(4)
   {

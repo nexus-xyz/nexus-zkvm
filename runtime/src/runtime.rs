@@ -35,6 +35,17 @@ unsafe impl GlobalAlloc for Heap {
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
 }
 
+/// ecall to potentially overwrite stack pointer for second pass
+#[doc(hidden)]
+#[link_section = ".init.rust"]
+#[export_name = "_overwrite_sp"]
+pub unsafe extern "C" fn overwrite_sp() {
+    #[cfg(target_arch = "riscv32")]
+    unsafe {
+        core::arch::asm!("ecall", in("a7") 1026);
+    }
+}
+
 /// Rust entry point (_start_rust)
 #[doc(hidden)]
 #[link_section = ".init.rust"]

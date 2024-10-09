@@ -1,19 +1,20 @@
 use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
 use nexus_common::error::MemoryError;
 
-use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor};
+use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor, Mode, RO, RW, WO};
 
-#[derive(Debug, Default)]
-pub struct VariableMemory(BTreeMap<u32, u32>);
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct VariableMemory<M: Mode>(BTreeMap<u32, u32>, PhantomData<M>);
 
-impl From<BTreeMap<u32, u32>> for VariableMemory {
+impl<M: Mode> From<BTreeMap<u32, u32>> for VariableMemory<M> {
     fn from(map: BTreeMap<u32, u32>) -> Self {
-        Self(map)
+        VariableMemory::<M>(map, PhantomData)
     }
 }
 
-impl MemoryProcessor for VariableMemory {
+impl<M: Mode> VariableMemory<M> {
     /// Writes data to memory.
     ///
     /// # Arguments
@@ -25,7 +26,12 @@ impl MemoryProcessor for VariableMemory {
     /// # Returns
     ///
     /// The value written to memory, or an error if the operation failed.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError> {
+    fn execute_write(
+        &mut self,
+        address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<u32, MemoryError> {
         let (shift, mask) = get_shift_and_mask(size, address);
 
         // Check for alignment
@@ -57,7 +63,7 @@ impl MemoryProcessor for VariableMemory {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+    fn execute_read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
         let (shift, mask) = get_shift_and_mask(size, address);
 
         if address & size as u32 != 0 {
@@ -72,20 +78,113 @@ impl MemoryProcessor for VariableMemory {
             .map(|&value| (value >> shift & mask))
             .ok_or(MemoryError::InvalidMemoryAccess(address))
     }
+}
 
-    fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
-        let mut data = vec![0; size];
-        for (i, byte) in data.iter_mut().enumerate().take(size) {
-            *byte = self.read(address + i as u32, MemAccessSize::Byte)? as u8;
-        }
-        Ok(data)
+impl MemoryProcessor for VariableMemory<RW> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<u32, MemoryError> {
+        VariableMemory::execute_write(self, raw_address, size, value)
     }
 
-    fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
-        for (i, &byte) in data.iter().enumerate() {
-            self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
-        }
-        Ok(())
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+        VariableMemory::execute_read(self, raw_address, size)
+    }
+}
+
+impl MemoryProcessor for VariableMemory<RO> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        _size: MemAccessSize,
+        _value: u32,
+    ) -> Result<u32, MemoryError> {
+        Err(MemoryError::UnauthorizedWrite(raw_address))
+    }
+
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+        VariableMemory::execute_read(self, raw_address, size)
+    }
+}
+
+impl MemoryProcessor for VariableMemory<WO> {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(
+        &mut self,
+        raw_address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<u32, MemoryError> {
+        VariableMemory::execute_write(self, raw_address, size, value)
+    }
+
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<u32, MemoryError> {
+        Err(MemoryError::UnauthorizedRead(raw_address))
     }
 }
 
@@ -95,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_byte() {
-        let mut memory = VariableMemory::default();
+        let mut memory = VariableMemory::<RW>::default();
 
         // Write bytes at different alignments
         assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
@@ -115,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_halfword() {
-        let mut memory = VariableMemory::default();
+        let mut memory = VariableMemory::<RW>::default();
 
         // Write halfwords at aligned addresses
         assert_eq!(
@@ -146,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_write_and_read_word() {
-        let mut memory = VariableMemory::default();
+        let mut memory = VariableMemory::<RW>::default();
 
         // Write a word at an aligned address
         assert_eq!(
@@ -188,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_overwrite() {
-        let mut memory = VariableMemory::default();
+        let mut memory = VariableMemory::<RW>::default();
 
         // Write a word
         assert_eq!(
@@ -211,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_invalid_read() {
-        let memory = VariableMemory::default();
+        let memory = VariableMemory::<RW>::default();
 
         // Read from an uninitialized address
         assert_eq!(
@@ -222,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_function_read_write_bytes() {
-        let mut memory = VariableMemory::default();
+        let mut memory = VariableMemory::<RW>::default();
 
         // Test write_bytes
         let data = vec![0xAA, 0xBB, 0xCC, 0xDD, 0xEE];
@@ -261,5 +360,30 @@ mod tests {
         // Test reading words after write_bytes
         assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x2211BBAA));
         assert_eq!(memory.read(0x1004, MemAccessSize::Word), Ok(0x66554433));
+    }
+
+    #[test]
+    fn test_unpermitted_read() {
+        let mut map: BTreeMap<u32, u32> = BTreeMap::new();
+        map.insert(0x1000, 0xABCD1234);
+
+        let memory = VariableMemory::<WO>::from(map);
+
+        // Read from an address in a write-only memory
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Err(MemoryError::UnauthorizedRead(0x1000))
+        );
+    }
+
+    #[test]
+    fn test_unpermitted_write() {
+        let mut memory = VariableMemory::<RO>::default();
+
+        // Write to an address in a read-only memory
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::UnauthorizedWrite(0x1000))
+        );
     }
 }

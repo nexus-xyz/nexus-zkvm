@@ -1,0 +1,676 @@
+use nexus_common::error::MemoryError;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
+use rangemap::RangeMap;
+
+use super::{FixedMemory, MemAccessSize, MemoryProcessor, VariableMemory, NA, RO, RW, WO};
+
+#[derive(Debug, Clone, Eq, PartialEq, FromPrimitive)]
+enum Modes {
+    NA = 0,
+    RO = 1,
+    WO = 2,
+    RW = 3,
+}
+
+// nb: we store outside the map becaues `rangemap::RangeMap` does not support a `get_mut` interface (https://github.com/jeffparsons/rangemap/issues/85)
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct UnifiedMemory {
+    // lookup for correct fixed memory, if any
+    meta: RangeMap<u32, Modes>,
+    // lookup and storage for fixed read-write memories
+    frw: RangeMap<u32, usize>,
+    frw_store: Vec<FixedMemory<RW>>,
+    // lookup and storage for fixed read-only memories
+    fro: RangeMap<u32, usize>,
+    fro_store: Vec<FixedMemory<RO>>,
+    // lookup and storage for fixed write-only memories
+    fwo: RangeMap<u32, usize>,
+    fwo_store: Vec<FixedMemory<WO>>,
+    // lookup and storage for fixed no-access memories
+    fna: RangeMap<u32, usize>,
+    fna_store: Vec<FixedMemory<NA>>,
+    // fallback variable read-write memory for all other addresses
+    vrw: Option<VariableMemory<RW>>,
+}
+
+impl From<VariableMemory<RW>> for UnifiedMemory {
+    fn from(vrw: VariableMemory<RW>) -> Self {
+        Self {
+            meta: RangeMap::new(),
+            frw: RangeMap::new(),
+            frw_store: Vec::new(),
+            fro: RangeMap::new(),
+            fro_store: Vec::new(),
+            fwo: RangeMap::new(),
+            fwo_store: Vec::new(),
+            fna: RangeMap::new(),
+            fna_store: Vec::new(),
+            vrw: Some(vrw),
+        }
+    }
+}
+
+macro_rules! add_fixed {
+    ( $func: ident, $map: ident, $store: ident, $mode: ident ) => {
+        pub fn $func(&mut self, mem: &FixedMemory<$mode>) -> Result<(usize, usize), MemoryError> {
+            let rng = std::ops::Range {
+                start: mem.base_address,
+                end: mem.base_address + mem.max_len as u32,
+            };
+            if self.meta.overlaps(&rng) {
+                return Err(MemoryError::MemoryOverlap);
+            }
+
+            self.meta.insert(rng.clone(), Modes::$mode);
+
+            let idx = self.$store.len();
+            self.$map.insert(rng, idx);
+            self.$store.push(mem.clone());
+
+            Ok((Modes::$mode as usize, idx))
+        }
+    };
+}
+
+impl UnifiedMemory {
+    pub fn add_variable(&mut self, vrw: VariableMemory<RW>) -> Result<(), MemoryError> {
+        if self.vrw.is_some() {
+            return Err(MemoryError::MemoryOverlap);
+        }
+
+        self.vrw = Some(vrw);
+        Ok(())
+    }
+
+    add_fixed!(add_fixed_rw, frw, frw_store, RW);
+    add_fixed!(add_fixed_ro, fro, fro_store, RO);
+    add_fixed!(add_fixed_wo, fwo, fwo_store, WO);
+    add_fixed!(add_fixed_na, fna, fna_store, NA);
+
+    pub fn segment(
+        &self,
+        uidx: (usize, usize),
+        start: u32,
+        end: Option<u32>,
+    ) -> Result<&[u32], MemoryError> {
+        let (store, idx) = uidx;
+
+        match FromPrimitive::from_usize(store) {
+            Some(Modes::RW) => {
+                if idx < self.frw_store.len() {
+                    Ok(&self.frw_store[idx].segment(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::RO) => {
+                if idx < self.fro_store.len() {
+                    Ok(&self.fro_store[idx].segment(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::WO) => {
+                if idx < self.fwo_store.len() {
+                    Ok(&self.fwo_store[idx].segment(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::NA) => {
+                if idx < self.fna_store.len() {
+                    Ok(&self.fna_store[idx].segment(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            _ => Err(MemoryError::UndefinedMemoryRegion),
+        }
+    }
+}
+
+impl MemoryProcessor for UnifiedMemory {
+    /// Writes data to memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to write to.
+    /// * `size` - The size of the write operation.
+    /// * `value` - The value to write.
+    ///
+    /// # Returns
+    ///
+    /// The value written to memory, or an error if the operation failed.
+    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError> {
+        if let Some(meta) = self.meta.get(&address) {
+            // Safety: that address is in meta means unwraps and indexing are safe
+            match meta {
+                Modes::RW => {
+                    return self.frw_store[*self.frw.get(&address).unwrap()]
+                        .write(address, size, value)
+                }
+                Modes::RO => {
+                    return self.fro_store[*self.fro.get(&address).unwrap()]
+                        .write(address, size, value)
+                }
+                Modes::WO => {
+                    return self.fwo_store[*self.fwo.get(&address).unwrap()]
+                        .write(address, size, value)
+                }
+                Modes::NA => {
+                    return self.fna_store[*self.fna.get(&address).unwrap()]
+                        .write(address, size, value)
+                }
+            }
+        } else {
+            if let Some(mut vrw) = self.vrw.take() {
+                // work around lifetime issues
+                let ret = vrw.write(address, size, value);
+                self.vrw = Some(vrw);
+
+                ret
+            } else {
+                return Err(MemoryError::InvalidMemoryAccess(address));
+            }
+        }
+    }
+
+    /// Reads a value from memory at the specified address.
+    ///
+    /// # Arguments
+    ///
+    /// * `address` - The memory address to read from.
+    /// * `size` - The size of the memory access operation.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` containing the read value or an error.
+    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+        if let Some(meta) = self.meta.get(&address) {
+            // that address is in meta means unwraps are safe
+            match meta {
+                Modes::RW => {
+                    return self.frw_store[*self.frw.get(&address).unwrap()].read(address, size)
+                }
+                Modes::RO => {
+                    return self.fro_store[*self.fro.get(&address).unwrap()].read(address, size)
+                }
+                Modes::WO => {
+                    return self.fwo_store[*self.fwo.get(&address).unwrap()].read(address, size)
+                }
+                Modes::NA => {
+                    return self.fna_store[*self.fna.get(&address).unwrap()].read(address, size)
+                }
+            }
+        } else {
+            if let Some(vrw) = &self.vrw {
+                vrw.read(address, size)
+            } else {
+                return Err(MemoryError::InvalidMemoryAccess(address));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn memory_setup() -> UnifiedMemory {
+        let mut memory = UnifiedMemory::default();
+        memory
+            .add_variable(VariableMemory::<RW>::default())
+            .unwrap();
+
+        memory
+            .add_fixed_ro(&FixedMemory::<RO>::from_vec(
+                0,
+                0x1000,
+                vec![0x12EFCDAB; 0x1000],
+            ))
+            .unwrap();
+        memory
+            .add_fixed_rw(&FixedMemory::<RW>::new(0x1000, 0x1000))
+            .unwrap();
+        memory
+            .add_fixed_wo(&FixedMemory::<WO>::new(0x2000, 0x1000))
+            .unwrap();
+        memory
+            .add_fixed_na(&FixedMemory::<NA>::new(0x3000, 0x1000))
+            .unwrap();
+
+        memory
+    }
+
+    #[test]
+    fn test_fixed_rw_write_and_read_byte() {
+        let mut memory = memory_setup();
+
+        // Write bytes at different alignments
+        assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
+        assert_eq!(memory.write(0x1001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
+        assert_eq!(memory.write(0x1002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
+        assert_eq!(memory.write(0x1003, MemAccessSize::Byte, 0x12), Ok(0x12));
+
+        // Read bytes
+        assert_eq!(memory.read(0x1000, MemAccessSize::Byte), Ok(0xAB));
+        assert_eq!(memory.read(0x1001, MemAccessSize::Byte), Ok(0xCD));
+        assert_eq!(memory.read(0x1002, MemAccessSize::Byte), Ok(0xEF));
+        assert_eq!(memory.read(0x1003, MemAccessSize::Byte), Ok(0x12));
+
+        // Read the whole word
+        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x12EFCDAB));
+    }
+
+    #[test]
+    fn test_fixed_rw_write_and_read_halfword() {
+        let mut memory = memory_setup();
+
+        // Write halfwords at aligned addresses
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::HalfWord, 0xABCD),
+            Ok(0xABCD)
+        );
+        assert_eq!(
+            memory.write(0x1002, MemAccessSize::HalfWord, 0xEF12),
+            Ok(0xEF12)
+        );
+
+        // Read halfwords
+        assert_eq!(memory.read(0x1000, MemAccessSize::HalfWord), Ok(0xABCD));
+        assert_eq!(memory.read(0x1002, MemAccessSize::HalfWord), Ok(0xEF12));
+
+        // Write to an unaligned address
+        assert_eq!(
+            memory.write(0x1001, MemAccessSize::HalfWord, 0x3456),
+            Err(MemoryError::UnalignedMemoryWrite(0x1001))
+        );
+
+        // Read from an unaligned address
+        assert_eq!(
+            memory.read(0x1001, MemAccessSize::HalfWord),
+            Err(MemoryError::UnalignedMemoryRead(0x1001))
+        );
+    }
+
+    #[test]
+    fn test_fixed_rw_write_and_read_word() {
+        let mut memory = memory_setup();
+
+        // Write a word at an aligned address
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
+            Ok(0xABCD1234)
+        );
+
+        // Read the word
+        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0xABCD1234));
+
+        // Write to an unaligned address
+        assert_eq!(
+            memory.write(0x1001, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x1001))
+        );
+        assert_eq!(
+            memory.write(0x1002, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x1002))
+        );
+        assert_eq!(
+            memory.write(0x1003, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x1003))
+        );
+
+        // Read from an unaligned address
+        assert_eq!(
+            memory.read(0x1001, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x1001))
+        );
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x1002))
+        );
+        assert_eq!(
+            memory.read(0x1003, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x1003))
+        );
+    }
+
+    #[test]
+    fn test_fixed_rw_overwrite() {
+        let mut memory = memory_setup();
+
+        // Write a word
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
+            Ok(0xABCD1234)
+        );
+
+        // Overwrite with bytes
+        assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
+        assert_eq!(memory.write(0x1001, MemAccessSize::Byte, 0x56), Ok(0x56));
+        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0xABCD56EF));
+
+        // Overwrite with a halfword
+        assert_eq!(
+            memory.write(0x1002, MemAccessSize::HalfWord, 0x7890),
+            Ok(0x7890)
+        );
+        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x789056EF));
+    }
+
+    #[test]
+    fn test_fixed_ro_read_byte() {
+        let memory = memory_setup();
+
+        // Read bytes
+        assert_eq!(memory.read(0x0000, MemAccessSize::Byte), Ok(0xAB));
+        assert_eq!(memory.read(0x0001, MemAccessSize::Byte), Ok(0xCD));
+        assert_eq!(memory.read(0x0002, MemAccessSize::Byte), Ok(0xEF));
+        assert_eq!(memory.read(0x0003, MemAccessSize::Byte), Ok(0x12));
+
+        // Read the whole word
+        assert_eq!(memory.read(0x0000, MemAccessSize::Word), Ok(0x12EFCDAB));
+    }
+
+    #[test]
+    fn test_fixed_ro_read_halfword() {
+        let memory = memory_setup();
+
+        // Read halfwords
+        assert_eq!(memory.read(0x0000, MemAccessSize::HalfWord), Ok(0xCDAB));
+        assert_eq!(memory.read(0x0002, MemAccessSize::HalfWord), Ok(0x12EF));
+
+        // Read from an unaligned address
+        assert_eq!(
+            memory.read(0x0001, MemAccessSize::HalfWord),
+            Err(MemoryError::UnalignedMemoryRead(0x0001))
+        );
+    }
+
+    #[test]
+    fn test_fixed_ro_read_word() {
+        let memory = memory_setup();
+
+        // Read word
+        assert_eq!(memory.read(0x0000, MemAccessSize::Word), Ok(0x12EFCDAB));
+
+        // Read from an unaligned address
+        assert_eq!(
+            memory.read(0x0001, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x0001))
+        );
+        assert_eq!(
+            memory.read(0x0002, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x0002))
+        );
+        assert_eq!(
+            memory.read(0x0003, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x0003))
+        );
+    }
+
+    #[test]
+    fn test_fixed_ro_unpermitted_write() {
+        let mut memory = memory_setup();
+
+        // Write to an address in a read-only memory
+        assert_eq!(
+            memory.write(0x0000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::UnauthorizedWrite(0x0000))
+        );
+    }
+
+    #[test]
+    fn test_fixed_wo_write_byte() {
+        let mut memory = memory_setup();
+
+        // Write bytes at different alignments
+        assert_eq!(memory.write(0x2000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
+        assert_eq!(memory.write(0x2001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
+        assert_eq!(memory.write(0x2002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
+        assert_eq!(memory.write(0x2003, MemAccessSize::Byte, 0x12), Ok(0x12));
+    }
+
+    #[test]
+    fn test_fixed_wo_write_halfword() {
+        let mut memory = memory_setup();
+
+        // Write halfwords at aligned addresses
+        assert_eq!(
+            memory.write(0x2000, MemAccessSize::HalfWord, 0xABCD),
+            Ok(0xABCD)
+        );
+        assert_eq!(
+            memory.write(0x2002, MemAccessSize::HalfWord, 0xEF12),
+            Ok(0xEF12)
+        );
+
+        // Write to an unaligned address
+        assert_eq!(
+            memory.write(0x2001, MemAccessSize::HalfWord, 0x3456),
+            Err(MemoryError::UnalignedMemoryWrite(0x2001))
+        );
+    }
+
+    #[test]
+    fn test_fixed_wo_write_word() {
+        let mut memory = memory_setup();
+
+        // Write a word at an aligned address
+        assert_eq!(
+            memory.write(0x2000, MemAccessSize::Word, 0xABCD1234),
+            Ok(0xABCD1234)
+        );
+
+        // Write to an unaligned address
+        assert_eq!(
+            memory.write(0x2001, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x2001))
+        );
+        assert_eq!(
+            memory.write(0x2002, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x2002))
+        );
+        assert_eq!(
+            memory.write(0x2003, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x2003))
+        );
+    }
+
+    #[test]
+    fn test_fixed_wo_overwrite() {
+        let mut memory = memory_setup();
+
+        // Write a word
+        assert_eq!(
+            memory.write(0x2000, MemAccessSize::Word, 0xABCD1234),
+            Ok(0xABCD1234)
+        );
+
+        // Overwrite with bytes
+        assert_eq!(memory.write(0x2000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
+        assert_eq!(memory.write(0x2001, MemAccessSize::Byte, 0x56), Ok(0x56));
+
+        // Overwrite with a halfword
+        assert_eq!(
+            memory.write(0x2002, MemAccessSize::HalfWord, 0x7890),
+            Ok(0x7890)
+        );
+    }
+
+    #[test]
+    fn test_fixed_wo_unpermitted_read() {
+        let mut memory = memory_setup();
+
+        memory
+            .write(0x2000, MemAccessSize::Word, 0xABCD1234)
+            .unwrap();
+
+        // Read from an address in a write-only memory
+        assert_eq!(
+            memory.read(0x2000, MemAccessSize::Word),
+            Err(MemoryError::UnauthorizedRead(0x2000))
+        );
+    }
+
+    #[test]
+    fn test_fixed_no_unpermitted_write() {
+        let mut memory = memory_setup();
+
+        // Write to an address in a no-access memory
+        assert_eq!(
+            memory.write(0x3000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::UnauthorizedWrite(0x3000))
+        );
+    }
+
+    #[test]
+    fn test_fixed_no_unpermitted_read() {
+        let memory = memory_setup();
+
+        // Read from an address in a no-access memory
+        assert_eq!(
+            memory.read(0x3000, MemAccessSize::Word),
+            Err(MemoryError::UnauthorizedRead(0x3000))
+        );
+    }
+
+    #[test]
+    fn test_variable_write_and_read_byte() {
+        let mut memory = memory_setup();
+
+        // Write bytes at different alignments
+        assert_eq!(memory.write(0x4000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
+        assert_eq!(memory.write(0x4001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
+        assert_eq!(memory.write(0x4002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
+        assert_eq!(memory.write(0x4003, MemAccessSize::Byte, 0x32), Ok(0x32));
+
+        // Read bytes
+        assert_eq!(memory.read(0x4000, MemAccessSize::Byte), Ok(0xAB));
+        assert_eq!(memory.read(0x4001, MemAccessSize::Byte), Ok(0xCD));
+        assert_eq!(memory.read(0x4002, MemAccessSize::Byte), Ok(0xEF));
+        assert_eq!(memory.read(0x4003, MemAccessSize::Byte), Ok(0x32));
+
+        // Read the whole word
+        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0x32EFCDAB));
+    }
+
+    #[test]
+    fn test_variable_write_and_read_halfword() {
+        let mut memory = memory_setup();
+
+        // Write halfwords at aligned addresses
+        assert_eq!(
+            memory.write(0x4000, MemAccessSize::HalfWord, 0xABCD),
+            Ok(0xABCD)
+        );
+        assert_eq!(
+            memory.write(0x4002, MemAccessSize::HalfWord, 0xEF12),
+            Ok(0xEF12)
+        );
+
+        // Read halfwords
+        assert_eq!(memory.read(0x4000, MemAccessSize::HalfWord), Ok(0xABCD));
+        assert_eq!(memory.read(0x4002, MemAccessSize::HalfWord), Ok(0xEF12));
+
+        // Write to an unaligned address
+        assert_eq!(
+            memory.write(0x4001, MemAccessSize::HalfWord, 0x3456),
+            Err(MemoryError::UnalignedMemoryWrite(0x4001))
+        );
+
+        // Read from an unaligned address
+        assert_eq!(
+            memory.read(0x4001, MemAccessSize::HalfWord),
+            Err(MemoryError::UnalignedMemoryRead(0x4001))
+        );
+    }
+
+    #[test]
+    fn test_variable_write_and_read_word() {
+        let mut memory = memory_setup();
+
+        // Write a word at an aligned address
+        assert_eq!(
+            memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
+            Ok(0xABCD1234)
+        );
+
+        // Read the word
+        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0xABCD1234));
+
+        // Write to an unaligned address
+        assert_eq!(
+            memory.write(0x4001, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x4001))
+        );
+        assert_eq!(
+            memory.write(0x4002, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x4002))
+        );
+        assert_eq!(
+            memory.write(0x4003, MemAccessSize::Word, 0xEF678901),
+            Err(MemoryError::UnalignedMemoryWrite(0x4003))
+        );
+
+        // Read from an unaligned address
+        assert_eq!(
+            memory.read(0x4001, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x4001))
+        );
+        assert_eq!(
+            memory.read(0x4002, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x4002))
+        );
+        assert_eq!(
+            memory.read(0x4003, MemAccessSize::Word),
+            Err(MemoryError::UnalignedMemoryRead(0x4003))
+        );
+    }
+
+    #[test]
+    fn test_variable_overwrite() {
+        let mut memory = memory_setup();
+
+        // Write a word
+        assert_eq!(
+            memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
+            Ok(0xABCD1234)
+        );
+
+        // Overwrite with bytes
+        assert_eq!(memory.write(0x4000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
+        assert_eq!(memory.write(0x4001, MemAccessSize::Byte, 0x56), Ok(0x56));
+        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0xABCD56EF));
+
+        // Overwrite with a halfword
+        assert_eq!(
+            memory.write(0x4002, MemAccessSize::HalfWord, 0x7890),
+            Ok(0x7890)
+        );
+        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0x789056EF));
+    }
+
+    #[test]
+    fn test_variable_invalid_read() {
+        let memory = memory_setup();
+
+        // Read from an uninitialized address
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::Word),
+            Err(MemoryError::InvalidMemoryAccess(0x4000))
+        );
+    }
+
+    #[test]
+    fn test_no_variable_write() {
+        let mut memory = UnifiedMemory::default();
+
+        // Write non-existant unified memory
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::InvalidMemoryAccess(0x1000))
+        );
+    }
+}

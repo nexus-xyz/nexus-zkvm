@@ -1,6 +1,9 @@
 target
 Cargo.lock
 
+# test binaries
+*.elf
+
 # editors
 .*.swp
 /.idea/*

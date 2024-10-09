@@ -72,7 +72,7 @@ macro_rules! impl_u_type_instructions {
                     $opcode,
                     dec_insn.rd as _,
                     0,
-                    (dec_insn.imm >> 12) as _,
+                    ((dec_insn.imm as u32) >> 12) as _,
                     InstructionType::UType,
                 )
             }

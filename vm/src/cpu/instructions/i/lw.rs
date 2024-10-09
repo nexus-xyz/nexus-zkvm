@@ -20,11 +20,11 @@ implement_load_instruction!(LwInstruction, MemAccessSize::Word, false, u32);
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::memory::VariableMemory;
+    use crate::memory::{VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
-    fn setup_memory() -> VariableMemory {
-        let mut memory = VariableMemory::default();
+    fn setup_memory() -> VariableMemory<RW> {
+        let mut memory = VariableMemory::<RW>::default();
         // Set up some test values in memory
         memory
             .write(0x1000, MemAccessSize::Word, 0xFFFFFFFF)

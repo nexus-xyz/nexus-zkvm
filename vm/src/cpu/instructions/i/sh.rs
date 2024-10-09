@@ -20,11 +20,11 @@ mod tests {
 
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::memory::VariableMemory;
+    use crate::memory::{VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
-    fn setup_memory() -> VariableMemory {
-        VariableMemory::default()
+    fn setup_memory() -> VariableMemory<RW> {
+        VariableMemory::<RW>::default()
     }
 
     #[test]
