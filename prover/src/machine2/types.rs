@@ -18,6 +18,8 @@ pub enum RegisterMachineColumns {
     OpB,
     /// The address of the third operand of the instruction.
     OpC,
+    /// Additional columns for carrying limbs.
+    CarryFlag,
     /// Is operand op_b an immediate value?
     ImmB, // TODO (vlopes11) is this needed?
     /// Is operand op_c an immediate value?
@@ -69,6 +71,7 @@ impl ColumnNameItem for RegisterMachineColumns {
             RegisterMachineColumns::OpA => WORD_SIZE,
             RegisterMachineColumns::OpB => WORD_SIZE,
             RegisterMachineColumns::OpC => WORD_SIZE,
+            RegisterMachineColumns::CarryFlag => WORD_SIZE,
             RegisterMachineColumns::ImmB => WORD_SIZE,
             RegisterMachineColumns::ImmC => WORD_SIZE,
             RegisterMachineColumns::Word => WORD_SIZE,
