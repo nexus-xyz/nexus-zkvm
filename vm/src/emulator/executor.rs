@@ -446,9 +446,9 @@ impl LinearEmulator {
             }
 
             let data_memory =
-                FixedMemory::<RO>::from_vec(data_start, data.len() * WORD_SIZE as usize, data);
+                FixedMemory::<RW>::from_vec(data_start, data.len() * WORD_SIZE as usize, data);
 
-            let _ = memory.add_fixed_ro(&data_memory).unwrap();
+            let _ = memory.add_fixed_rw(&data_memory).unwrap();
         }
 
         let input_len =
