@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod test {
-    use nexus_common::cpu::Registers;
     use nexus_vm::elf::ElfFile;
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
-    use nexus_vm::riscv::Register;
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
 

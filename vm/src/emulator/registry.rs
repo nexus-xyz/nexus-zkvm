@@ -33,7 +33,7 @@
 //! ```rust
 //! use nexus_vm::{
 //!     cpu::{Cpu, RegisterFile},
-//!     memory::MemoryProcessor,
+//!     memory::{MemoryProcessor, LoadOps, StoreOps},
 //!     emulator::{Emulator, HarvardEmulator},
 //!     riscv::{Register, Opcode, Instruction, InstructionType},
 //!     error::Result
@@ -48,22 +48,22 @@
 //! }
 //!
 //! impl InstructionState for CustomInstruction {
-//!     type Result = Option<()>;
 //!
 //!     fn execute(&mut self) {
 //!         self.rd.1 = 2 * self.rs1 + self.rs2;
 //!     }
 //!
-//!     fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-//!         Ok(None)
+//!     fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+//!         <CustomInstruction as InstructionState>::readless()
 //!     }
 //!
-//!     fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-//!         Ok(None)
+//!     fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+//!         <CustomInstruction as InstructionState>::writeless()
 //!     }
 //!
-//!     fn write_back(&self, cpu: &mut impl Processor) {
+//!     fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
 //!         cpu.registers_mut().write(self.rd.0, self.rd.1);
+//!         Some(self.rd.1)
 //!     }
 //! }
 //!
@@ -100,28 +100,22 @@ use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
 use crate::{
     cpu::{instructions, Cpu},
     error::{Result, VMError},
-    memory::{FixedMemory, MemoryProcessor, UnifiedMemory, VariableMemory, RO, WO},
+    memory::{
+        FixedMemory, LoadOps, MemoryProcessor, StoreOps, UnifiedMemory, VariableMemory, RO, WO,
+    },
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
 use std::collections::HashMap;
 
-pub type InstructionExecutorFn<M> = fn(&mut Cpu, &mut M, &Instruction) -> Result<(), MemoryError>;
+pub type InstructionExecutorFn<M> =
+    fn(&mut Cpu, &mut M, &Instruction) -> Result<(Option<u32>, (LoadOps, StoreOps)), MemoryError>;
 
 fn nop<M: MemoryProcessor>(
     _cpu: &mut Cpu,
     _memory: &mut M,
     _ins: &Instruction,
-) -> Result<(), MemoryError> {
-    Ok(())
-}
-
-fn ecall<M: MemoryProcessor>(
-    _cpu: &mut Cpu,
-    _memory: &mut M,
-    _ins: &Instruction,
-) -> Result<(), MemoryError> {
-    // TODO: implement syscall.rs
-    Ok(())
+) -> Result<(Option<u32>, (LoadOps, StoreOps)), MemoryError> {
+    Ok((None, (LoadOps::new(), StoreOps::new())))
 }
 
 macro_rules! register_instruction_executor {
@@ -242,9 +236,9 @@ impl Default for InstructionExecutorRegistry {
                 Some(register_instruction_executor!(
                     instructions::JalrInstruction::evaluator
                 )), // jalr
-                Some(register_instruction_executor!(ecall)), // ecall
-                None,                                        // ebreak
-                None,                                        // fence
+                None, // ecall, handled by src/system/syscall.rs instead
+                None, // ebreak
+                None, // fence
                 Some(register_instruction_executor!(
                     instructions::SbInstruction::evaluator
                 )), // sb
@@ -281,8 +275,8 @@ impl Default for InstructionExecutorRegistry {
                 Some(register_instruction_executor!(
                     instructions::JalInstruction::evaluator
                 )), // jal
-                Some(register_instruction_executor!(nop)),   // nop
-                None,                                        // unimpl
+                Some(register_instruction_executor!(nop)), // nop
+                None, // unimpl
             ],
             precompiles: HashMap::<Opcode, InstructionExecutorFn<UnifiedMemory>>::new(),
             read_input: None,   // todo: hardcode in static rin opcode

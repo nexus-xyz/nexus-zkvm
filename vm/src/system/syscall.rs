@@ -267,16 +267,26 @@ impl SyscallInstruction {
     ) -> Result<()> {
         match self.code {
             SyscallCode::Write => {
-                let fd = self.args[0];
-                let buf = self.args[1];
-                let count = self.args[2];
-                self.execute_write(memory, fd, buf, count)
+                // no-op on second pass
+                if memory_layout.is_none() {
+                    let fd = self.args[0];
+                    let buf = self.args[1];
+                    let count = self.args[2];
+                    return self.execute_write(memory, fd, buf, count);
+                }
+
+                Ok(())
             }
 
             SyscallCode::CycleCount => {
-                let buf = self.args[0];
-                let buflen = self.args[1];
-                self.execute_cyclecount(executor, memory, buf, buflen)
+                // no-op on second pass
+                if memory_layout.is_none() {
+                    let buf = self.args[0];
+                    let buflen = self.args[1];
+                    return self.execute_cyclecount(executor, memory, buf, buflen);
+                }
+
+                Ok(())
             }
 
             SyscallCode::Exit => {

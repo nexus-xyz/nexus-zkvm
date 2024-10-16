@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -40,9 +40,10 @@ mod tests {
 
         // Execute the xor instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (1010 ^ 1100 = 0110)
+        assert_eq!(res, Some(0b0110));
         assert_eq!(cpu.registers.read(Register::X3), 0b0110);
     }
 
@@ -64,9 +65,10 @@ mod tests {
         let mut instruction = XorInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // XOR with 0 should not change the value
+        assert_eq!(res, Some(0xABCDEF12));
         assert_eq!(cpu.registers.read(Register::X3), 0xABCDEF12);
     }
 
@@ -88,9 +90,10 @@ mod tests {
         let mut instruction = XorInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // XOR with all 1's should flip all bits
+        assert_eq!(res, Some(0x543210ED));
         assert_eq!(cpu.registers.read(Register::X3), 0x543210ED);
     }
 
@@ -111,9 +114,10 @@ mod tests {
         let mut instruction = XorInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // XOR with itself should always result in 0
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X1), 0);
     }
 
@@ -135,9 +139,10 @@ mod tests {
         let mut instruction = XorInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // XOR of alternating bit patterns should result in all 1's
+        assert_eq!(res, Some(0xFFFFFFFF));
         assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFF);
     }
 
@@ -159,7 +164,9 @@ mod tests {
         let mut instruction = XorInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res1 = instruction.write_back(&mut cpu);
+
+        assert_eq!(res1, Some(0xB9F9B96A));
 
         let result1 = cpu.registers.read(Register::X3);
 
@@ -168,9 +175,10 @@ mod tests {
         let mut instruction = XorInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res2 = instruction.write_back(&mut cpu);
 
         // The result should be the same as the first operand
+        assert_eq!(res2, Some(0xABCDEF12));
         assert_eq!(cpu.registers.read(Register::X3), 0xABCDEF12);
     }
 }

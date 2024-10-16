@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::{
@@ -15,14 +15,12 @@ pub struct SraInstruction {
 }
 
 impl InstructionState for SraInstruction {
-    type Result = Option<()>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <SraInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <SraInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {
@@ -36,8 +34,9 @@ impl InstructionState for SraInstruction {
         self.rd.1 = result as u32;
     }
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         cpu.registers_mut().write(self.rd.0, self.rd.1);
+        Some(self.rd.1)
     }
 }
 
@@ -81,8 +80,9 @@ mod tests {
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0b0000_0000_0000_0000_0000_0000_0000_0110));
         assert_eq!(
             cpu.registers.read(Register::X3),
             0b0000_0000_0000_0000_0000_0000_0000_0110
@@ -106,8 +106,9 @@ mod tests {
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0b1111_1000_0000_0000_0000_0000_0000_0000));
         assert_eq!(
             cpu.registers.read(Register::X3),
             0b1111_1000_0000_0000_0000_0000_0000_0000
@@ -131,8 +132,9 @@ mod tests {
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0b1111_1111_1111_1111_1111_1111_1111_1110));
         assert_eq!(
             cpu.registers.read(Register::X3),
             0b1111_1111_1111_1111_1111_1111_1111_1110
@@ -156,8 +158,9 @@ mod tests {
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0b1010_1010_1010_1010_1010_1010_1010_1010));
         assert_eq!(
             cpu.registers.read(Register::X3),
             0b1010_1010_1010_1010_1010_1010_1010_1010
@@ -181,8 +184,9 @@ mod tests {
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0b1111_1111_1111_1111_1111_1111_1111_1111));
         assert_eq!(
             cpu.registers.read(Register::X3),
             0b1111_1111_1111_1111_1111_1111_1111_1111
@@ -206,8 +210,9 @@ mod tests {
         let mut instruction = SraInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0b1100_0000_0000_0000_0000_0000_0000_0000));
         assert_eq!(
             cpu.registers.read(Register::X3),
             0b1100_0000_0000_0000_0000_0000_0000_0000

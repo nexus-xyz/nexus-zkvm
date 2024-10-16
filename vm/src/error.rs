@@ -43,8 +43,8 @@ pub enum VMError {
     #[error("Unimplemented instruction \"{0:08X}\"")]
     UnimplementedInstruction(u32),
 
-    // Unimplemented instruction (with a valid opcode) found at a specific PC.
-    #[error("Unimplemented instruction \"{1:08X}\" at pc=0x{1:08X}")]
+    // Unimplemented instruction (with a valid opcode) found at a specific PC
+    #[error("Unimplemented instruction \"{0:08X}\" at pc=0x{1:08X}")]
     UnimplementedInstructionAt(u32, u32),
 
     // Unsupported instruction (i.e., one with an invalid opcode).

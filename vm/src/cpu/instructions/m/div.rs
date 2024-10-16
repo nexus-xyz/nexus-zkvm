@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -61,8 +61,9 @@ mod tests {
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(6));
         assert_eq!(cpu.registers.read(Register::X3), 6);
     }
 
@@ -82,8 +83,9 @@ mod tests {
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some((-6i32) as u32));
         assert_eq!(cpu.registers.read(Register::X3), (-6i32) as u32);
     }
 
@@ -103,8 +105,9 @@ mod tests {
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some((-1i32) as u32));
         assert_eq!(cpu.registers.read(Register::X3), (-1i32) as u32);
     }
 
@@ -124,8 +127,9 @@ mod tests {
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(i32::MIN as u32));
         assert_eq!(cpu.registers.read(Register::X3), i32::MIN as u32);
     }
 
@@ -145,8 +149,9 @@ mod tests {
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(6));
         assert_eq!(cpu.registers.read(Register::X3), 6);
     }
 
@@ -166,8 +171,9 @@ mod tests {
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x7FFFFFFF));
         assert_eq!(cpu.registers.read(Register::X3), 0x7FFFFFFF);
     }
 
@@ -187,8 +193,9 @@ mod tests {
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(u32::MAX));
         assert_eq!(cpu.registers.read(Register::X3), u32::MAX);
     }
 
@@ -208,8 +215,9 @@ mod tests {
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(1));
         assert_eq!(cpu.registers.read(Register::X3), 1);
     }
 }

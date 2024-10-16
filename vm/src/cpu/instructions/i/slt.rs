@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::{
@@ -15,14 +15,12 @@ pub struct SltInstruction {
 }
 
 impl InstructionState for SltInstruction {
-    type Result = Option<()>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <SltInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <SltInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {
@@ -34,8 +32,9 @@ impl InstructionState for SltInstruction {
         };
     }
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         cpu.registers_mut().write(self.rd.0, self.rd.1);
+        Some(self.rd.1)
     }
 }
 
@@ -61,22 +60,21 @@ pub struct SltuInstruction {
 }
 
 impl InstructionState for SltuInstruction {
-    type Result = Option<()>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <SltuInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <SltuInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {
         self.rd.1 = if self.rs1 < self.rs2 { 1 } else { 0 };
     }
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         cpu.registers_mut().write(self.rd.0, self.rd.1);
+        Some(self.rd.1)
     }
 }
 
@@ -119,8 +117,9 @@ mod tests {
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(1));
         assert_eq!(cpu.registers.read(Register::X3), 1);
     }
 
@@ -140,8 +139,9 @@ mod tests {
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -161,8 +161,9 @@ mod tests {
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(1));
         assert_eq!(cpu.registers.read(Register::X3), 1);
     }
 
@@ -182,8 +183,9 @@ mod tests {
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(1));
         assert_eq!(cpu.registers.read(Register::X3), 1);
     }
 
@@ -203,8 +205,9 @@ mod tests {
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -224,8 +227,9 @@ mod tests {
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 }

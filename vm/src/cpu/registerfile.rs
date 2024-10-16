@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::ops::Index;
 
@@ -5,7 +6,7 @@ use nexus_common::cpu::Registers;
 
 use crate::riscv::Register;
 
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegisterFile {
     registers: [u32; 32],
 }

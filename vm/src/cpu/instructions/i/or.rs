@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -40,9 +40,10 @@ mod tests {
 
         // Execute the or instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (1010 | 1100 = 1110)
+        assert_eq!(res, Some(0b1110));
         assert_eq!(cpu.registers.read(Register::X3), 0b1110);
     }
 
@@ -66,9 +67,10 @@ mod tests {
 
         // Execute the or instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (anything OR 0 should be itself)
+        assert_eq!(res, Some(0xABCDEF12));
         assert_eq!(cpu.registers.read(Register::X3), 0xABCDEF12);
     }
 
@@ -92,9 +94,10 @@ mod tests {
 
         // Execute the or instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (anything OR all 1's should be all 1's)
+        assert_eq!(res, Some(0xFFFFFFFF));
         assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFF);
     }
 
@@ -117,9 +120,10 @@ mod tests {
 
         // Execute the or instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (OR with itself should be itself)
+        assert_eq!(res, Some(0xAA55AA55));
         assert_eq!(cpu.registers.read(Register::X1), 0xAA55AA55);
     }
 
@@ -143,9 +147,10 @@ mod tests {
 
         // Execute the or instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (complementary values should result in all 1's)
+        assert_eq!(res, Some(0xFFFFFFFF));
         assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFF);
     }
 }

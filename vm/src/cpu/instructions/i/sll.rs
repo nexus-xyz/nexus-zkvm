@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -40,9 +40,10 @@ mod tests {
 
         // Execute the sll instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (1 << 3 = 8)
+        assert_eq!(res, Some(0b1000));
         assert_eq!(cpu.registers.read(Register::X3), 0b1000);
     }
 
@@ -64,9 +65,10 @@ mod tests {
         let mut instruction = SllInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Shifting by 0 should not change the value
+        assert_eq!(res, Some(0x1FFFFFFF));
         assert_eq!(cpu.registers.read(Register::X3), 0x1FFFFFFF);
     }
 
@@ -88,9 +90,10 @@ mod tests {
         let mut instruction = SllInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Shifting the highest bit should result in 0
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -112,9 +115,10 @@ mod tests {
         let mut instruction = SllInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Shifting 1 by 31 should result in 0x80000000
+        assert_eq!(res, Some(0x80000000));
         assert_eq!(cpu.registers.read(Register::X3), 0x80000000);
     }
 
@@ -136,10 +140,11 @@ mod tests {
         let mut instruction = SllInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Shifting by 32 or more should be equivalent to shifting by the amount modulo 32
         // In this case, it's equivalent to not shifting at all
+        assert_eq!(res, Some(1));
         assert_eq!(cpu.registers.read(Register::X3), 1);
     }
 }

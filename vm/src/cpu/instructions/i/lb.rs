@@ -3,7 +3,7 @@ use crate::{
         instructions::macros::implement_load_instruction,
         state::{InstructionExecutor, InstructionState},
     },
-    memory::{MemAccessSize, MemoryProcessor},
+    memory::{LoadOp, LoadOps, MemAccessSize, MemoryProcessor, StoreOps},
     riscv::{Instruction, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -57,8 +57,9 @@ mod tests {
         let mut instruction = LbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x0000007F));
         assert_eq!(cpu.registers.read(Register::X2), 0x0000007F);
     }
 
@@ -79,8 +80,9 @@ mod tests {
         let mut instruction = LbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0xFFFFFF80));
         assert_eq!(cpu.registers.read(Register::X2), 0xFFFFFF80); // Sign-extended -128
     }
 
@@ -101,8 +103,9 @@ mod tests {
         let mut instruction = LbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0xFFFFFFFF));
         assert_eq!(cpu.registers.read(Register::X2), 0xFFFFFFFF); // Sign-extended -1
     }
 
@@ -123,8 +126,9 @@ mod tests {
         let mut instruction = LbuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x0000007F));
         assert_eq!(cpu.registers.read(Register::X2), 0x0000007F);
     }
 
@@ -145,8 +149,9 @@ mod tests {
         let mut instruction = LbuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x80));
         assert_eq!(cpu.registers.read(Register::X2), 0x80); // Sign-extended -128
     }
 
@@ -167,8 +172,9 @@ mod tests {
         let mut instruction = LbuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0xFF));
         assert_eq!(cpu.registers.read(Register::X2), 0xFF); // Sign-extended -1
     }
 }

@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -40,9 +40,10 @@ mod tests {
 
         // Execute the and instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (1010 & 1100 = 1000)
+        assert_eq!(res, Some(0b1000));
         assert_eq!(cpu.registers.read(Register::X3), 0b1000);
     }
 
@@ -66,9 +67,10 @@ mod tests {
 
         // Execute the and instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (anything AND 0 should be 0)
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -92,9 +94,10 @@ mod tests {
 
         // Execute the and instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (anything AND all 1's should be itself)
+        assert_eq!(res, Some(0xABCDEF12));
         assert_eq!(cpu.registers.read(Register::X3), 0xABCDEF12);
     }
 
@@ -117,9 +120,10 @@ mod tests {
 
         // Execute the and instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (AND with itself should be itself)
+        assert_eq!(res, Some(0xAA55AA55));
         assert_eq!(cpu.registers.read(Register::X1), 0xAA55AA55);
     }
 }

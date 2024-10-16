@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -40,8 +40,9 @@ mod tests {
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(35));
         assert_eq!(cpu.registers.read(Register::X3), 35);
     }
 
@@ -62,8 +63,9 @@ mod tests {
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(35));
         assert_eq!(cpu.registers.read(Register::X3), 35);
     }
 
@@ -84,8 +86,9 @@ mod tests {
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some((!20u32).wrapping_add(1)));
         assert_eq!(cpu.registers.read(Register::X3), (!20u32).wrapping_add(1)); // -20 in two's complement
     }
 
@@ -106,8 +109,9 @@ mod tests {
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0); // Overflow, result should be truncated
     }
 
@@ -128,8 +132,9 @@ mod tests {
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -150,8 +155,9 @@ mod tests {
         let mut instruction = MulInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0xFFFFFFFE));
         assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFE); // Truncated result
     }
 }

@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 
 use nexus_common::error::MemoryError;
 
-use super::{get_shift_and_mask, MemAccessSize, MemoryProcessor, Mode, RO, RW, WO};
+use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, RO, RW, WO};
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct VariableMemory<M: Mode>(BTreeMap<u32, u32>, PhantomData<M>);
@@ -31,8 +31,8 @@ impl<M: Mode> VariableMemory<M> {
         address: u32,
         size: MemAccessSize,
         value: u32,
-    ) -> Result<u32, MemoryError> {
-        let (shift, mask) = get_shift_and_mask(size, address);
+    ) -> Result<StoreOp, MemoryError> {
+        let (shift, mask) = size.get_shift_and_mask(address);
 
         // Check for alignment
         if address & size as u32 != 0 {
@@ -44,13 +44,24 @@ impl<M: Mode> VariableMemory<M> {
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
 
+        let prev_value = self
+            .0
+            .get(&aligned_address) // Align to word boundary
+            .map(|&value| ((value >> shift) & mask))
+            .unwrap_or(0);
+
         let value = self
             .0
             .entry(aligned_address) // Align to word boundary
             .and_modify(|e| *e = (*e & write_mask) | data)
             .or_insert(data);
 
-        Ok((*value >> shift) & mask)
+        Ok(StoreOp::Op(
+            size,
+            address,
+            (*value >> shift) & mask,
+            prev_value,
+        ))
     }
 
     /// Reads a value from memory at the specified address.
@@ -63,8 +74,8 @@ impl<M: Mode> VariableMemory<M> {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn execute_read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
-        let (shift, mask) = get_shift_and_mask(size, address);
+    fn execute_read(&self, address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
+        let (shift, mask) = size.get_shift_and_mask(address);
 
         if address & size as u32 != 0 {
             return Err(MemoryError::UnalignedMemoryRead(address));
@@ -73,10 +84,13 @@ impl<M: Mode> VariableMemory<M> {
         // Align to word boundary
         let aligned_address = address & !0x3;
 
-        self.0
+        let value = self
+            .0
             .get(&aligned_address) // Align to word boundary
-            .map(|&value| (value >> shift & mask))
-            .ok_or(MemoryError::InvalidMemoryAccess(address))
+            .map(|&value| ((value >> shift) & mask))
+            .ok_or(MemoryError::InvalidMemoryAccess(address))?;
+
+        Ok(LoadOp::Op(size, address, value))
     }
 }
 
@@ -97,7 +111,7 @@ impl MemoryProcessor for VariableMemory<RW> {
         raw_address: u32,
         size: MemAccessSize,
         value: u32,
-    ) -> Result<u32, MemoryError> {
+    ) -> Result<StoreOp, MemoryError> {
         VariableMemory::execute_write(self, raw_address, size, value)
     }
 
@@ -111,7 +125,7 @@ impl MemoryProcessor for VariableMemory<RW> {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         VariableMemory::execute_read(self, raw_address, size)
     }
 }
@@ -133,7 +147,7 @@ impl MemoryProcessor for VariableMemory<RO> {
         raw_address: u32,
         _size: MemAccessSize,
         _value: u32,
-    ) -> Result<u32, MemoryError> {
+    ) -> Result<StoreOp, MemoryError> {
         Err(MemoryError::UnauthorizedWrite(raw_address))
     }
 
@@ -147,7 +161,7 @@ impl MemoryProcessor for VariableMemory<RO> {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+    fn read(&self, raw_address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         VariableMemory::execute_read(self, raw_address, size)
     }
 }
@@ -169,7 +183,7 @@ impl MemoryProcessor for VariableMemory<WO> {
         raw_address: u32,
         size: MemAccessSize,
         value: u32,
-    ) -> Result<u32, MemoryError> {
+    ) -> Result<StoreOp, MemoryError> {
         VariableMemory::execute_write(self, raw_address, size, value)
     }
 
@@ -183,7 +197,7 @@ impl MemoryProcessor for VariableMemory<WO> {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<u32, MemoryError> {
+    fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         Err(MemoryError::UnauthorizedRead(raw_address))
     }
 }
@@ -197,19 +211,46 @@ mod tests {
         let mut memory = VariableMemory::<RW>::default();
 
         // Write bytes at different alignments
-        assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
-        assert_eq!(memory.write(0x1001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
-        assert_eq!(memory.write(0x1002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x1003, MemAccessSize::Byte, 0x12), Ok(0x12));
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Byte, 0xAB),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1000, 0xAB, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x1001, MemAccessSize::Byte, 0xCD),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1001, 0xCD, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x1002, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1002, 0xEF, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x1003, MemAccessSize::Byte, 0x12),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1003, 0x12, 0x00))
+        );
 
         // Read bytes
-        assert_eq!(memory.read(0x1000, MemAccessSize::Byte), Ok(0xAB));
-        assert_eq!(memory.read(0x1001, MemAccessSize::Byte), Ok(0xCD));
-        assert_eq!(memory.read(0x1002, MemAccessSize::Byte), Ok(0xEF));
-        assert_eq!(memory.read(0x1003, MemAccessSize::Byte), Ok(0x12));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1000, 0xAB))
+        );
+        assert_eq!(
+            memory.read(0x1001, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1001, 0xCD))
+        );
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1002, 0xEF))
+        );
+        assert_eq!(
+            memory.read(0x1003, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1003, 0x12))
+        );
 
         // Read the whole word
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x12EFCDAB));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0x12EFCDAB))
+        );
     }
 
     #[test]
@@ -219,16 +260,22 @@ mod tests {
         // Write halfwords at aligned addresses
         assert_eq!(
             memory.write(0x1000, MemAccessSize::HalfWord, 0xABCD),
-            Ok(0xABCD)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x1000, 0xABCD, 0x0000)),
         );
         assert_eq!(
             memory.write(0x1002, MemAccessSize::HalfWord, 0xEF12),
-            Ok(0xEF12)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x1002, 0xEF12, 0x0000)),
         );
 
         // Read halfwords
-        assert_eq!(memory.read(0x1000, MemAccessSize::HalfWord), Ok(0xABCD));
-        assert_eq!(memory.read(0x1002, MemAccessSize::HalfWord), Ok(0xEF12));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x1000, 0xABCD))
+        );
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x1002, 0xEF12))
+        );
 
         // Write to an unaligned address
         assert_eq!(
@@ -250,11 +297,19 @@ mod tests {
         // Write a word at an aligned address
         assert_eq!(
             memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x1000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Read the word
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0xABCD1234));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0xABCD1234))
+        );
 
         // Write to an unaligned address
         assert_eq!(
@@ -292,20 +347,37 @@ mod tests {
         // Write a word
         assert_eq!(
             memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x1000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Overwrite with bytes
-        assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x1001, MemAccessSize::Byte, 0x56), Ok(0x56));
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0xABCD56EF));
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1000, 0xEF, 0x34))
+        );
+        assert_eq!(
+            memory.write(0x1001, MemAccessSize::Byte, 0x56),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1001, 0x56, 0x12))
+        );
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0xABCD56EF))
+        );
 
         // Overwrite with a halfword
         assert_eq!(
             memory.write(0x1002, MemAccessSize::HalfWord, 0x7890),
-            Ok(0x7890)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x1002, 0x7890, 0xABCD)),
         );
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x789056EF));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0x789056EF))
+        );
     }
 
     #[test]
@@ -352,14 +424,32 @@ mod tests {
         );
 
         // Test reading individual bytes after write_bytes
-        assert_eq!(memory.read(0x1002, MemAccessSize::Byte), Ok(0x11));
-        assert_eq!(memory.read(0x1003, MemAccessSize::Byte), Ok(0x22));
-        assert_eq!(memory.read(0x1004, MemAccessSize::Byte), Ok(0x33));
-        assert_eq!(memory.read(0x1005, MemAccessSize::Byte), Ok(0x44));
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1002, 0x11))
+        );
+        assert_eq!(
+            memory.read(0x1003, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1003, 0x22))
+        );
+        assert_eq!(
+            memory.read(0x1004, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1004, 0x33))
+        );
+        assert_eq!(
+            memory.read(0x1005, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1005, 0x44))
+        );
 
         // Test reading words after write_bytes
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x2211BBAA));
-        assert_eq!(memory.read(0x1004, MemAccessSize::Word), Ok(0x66554433));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0x2211BBAA))
+        );
+        assert_eq!(
+            memory.read(0x1004, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1004, 0x66554433))
+        );
     }
 
     #[test]

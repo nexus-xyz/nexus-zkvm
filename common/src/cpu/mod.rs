@@ -4,4 +4,4 @@ mod traits;
 
 pub use pc::PC;
 pub use registers::Registers;
-pub use traits::{InstructionExecutor, InstructionState, Processor};
+pub use traits::{InstructionExecutor, InstructionResult, InstructionState, Processor};

@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -60,9 +60,10 @@ mod tests {
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // 20 % 3 = 2
+        assert_eq!(res, Some(2));
         assert_eq!(cpu.registers.read(Register::X3), 2);
     }
 
@@ -82,10 +83,11 @@ mod tests {
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // -20 % 3 = -2
         // The result is negative because the dividend is negative
+        assert_eq!(res, Some((-2i32) as u32));
         assert_eq!(cpu.registers.read(Register::X3), (-2i32) as u32);
     }
 
@@ -105,9 +107,10 @@ mod tests {
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // When dividing by zero, the result should be the dividend
+        assert_eq!(res, Some(20));
         assert_eq!(cpu.registers.read(Register::X3), 20);
     }
 
@@ -127,10 +130,11 @@ mod tests {
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Special case: MIN_VALUE % -1 should be 0
         // This is because MIN_VALUE / -1 would overflow, so we define the result as 0
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -150,9 +154,10 @@ mod tests {
         let mut instruction = RemuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // 20 % 3 = 2 (unsigned)
+        assert_eq!(res, Some(2));
         assert_eq!(cpu.registers.read(Register::X3), 2);
     }
 
@@ -172,10 +177,11 @@ mod tests {
         let mut instruction = RemuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // 0xFFFFFFFF % 3 = 0
         // This is because 0xFFFFFFFF is 4294967295 in decimal, which is divisible by 3
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
 
@@ -195,9 +201,10 @@ mod tests {
         let mut instruction = RemuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // When dividing by zero, the result should be the dividend
+        assert_eq!(res, Some(20));
         assert_eq!(cpu.registers.read(Register::X3), 20);
     }
 }

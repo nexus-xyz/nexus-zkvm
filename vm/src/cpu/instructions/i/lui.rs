@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, Register},
 };
 use nexus_common::{
@@ -14,20 +14,21 @@ pub struct LuiInstruction {
 }
 
 impl InstructionState for LuiInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <LuiInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <LuiInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
-        cpu.registers_mut().write(self.rd, self.imm << 12);
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
+        let extimm = self.imm << 12;
+        cpu.registers_mut().write(self.rd, extimm);
+
+        Some(extimm)
     }
 }
 
@@ -63,9 +64,10 @@ mod tests {
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the lui instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (0x12345 << 12 = 0x12345000)
+        assert_eq!(res, Some(0x12345000));
         assert_eq!(cpu.registers.read(Register::X1), 0x12345000);
     }
 
@@ -83,9 +85,10 @@ mod tests {
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // With zero immediate, the result should be zero
+        assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X2), 0);
     }
 
@@ -103,9 +106,10 @@ mod tests {
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // 0xFFFFF << 12 = 0xFFFFF000
+        assert_eq!(res, Some(0xFFFFF000));
         assert_eq!(cpu.registers.read(Register::X3), 0xFFFFF000);
     }
 
@@ -126,9 +130,10 @@ mod tests {
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // The LUI instruction should completely overwrite the previous value
+        assert_eq!(res, Some(0x12345000));
         assert_eq!(cpu.registers.read(Register::X4), 0x12345000);
     }
 
@@ -144,7 +149,7 @@ mod tests {
             InstructionType::UType,
         );
         let instruction1 = LuiInstruction::decode(&bare_instruction1, &cpu.registers);
-        instruction1.write_back(&mut cpu);
+        let res1 = instruction1.write_back(&mut cpu);
 
         let bare_instruction2 = Instruction::new(
             Opcode::from(BuiltinOpcode::LUI),
@@ -154,7 +159,10 @@ mod tests {
             InstructionType::UType,
         );
         let instruction2 = LuiInstruction::decode(&bare_instruction2, &cpu.registers);
-        instruction2.write_back(&mut cpu);
+        let res2 = instruction2.write_back(&mut cpu);
+
+        assert_eq!(res1, Some(0x12345000));
+        assert_eq!(res2, Some(0x6789A000));
 
         assert_eq!(cpu.registers.read(Register::X1), 0x12345000);
         assert_eq!(cpu.registers.read(Register::X2), 0x6789A000);
@@ -177,9 +185,10 @@ mod tests {
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // LUI should overwrite the upper 20 bits, leaving lower 12 bits as zero
+        assert_eq!(res, Some(0x12345000));
         assert_eq!(cpu.registers.read(Register::X5), 0x12345000);
     }
 }

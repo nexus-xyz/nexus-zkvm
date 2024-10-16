@@ -65,18 +65,24 @@
 //! ```
 //!
 
+use std::cmp::max;
 use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
 
 use super::{layout::LinearMemoryLayout, registry::InstructionExecutorRegistry};
 use crate::{
-    cpu::Cpu,
+    cpu::{instructions::InstructionResult, Cpu},
     elf::{ElfFile, WORD_SIZE},
     error::{Result, VMError},
-    memory::{FixedMemory, MemoryProcessor, UnifiedMemory, VariableMemory, NA, RO, RW, WO},
+    memory::{
+        FixedMemory, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecords, StoreOps,
+        UnifiedMemory, VariableMemory, NA, RO, RW, WO,
+    },
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode},
     system::SyscallInstruction,
 };
 use nexus_common::cpu::InstructionExecutor;
+
+pub type MemoryTranscript = Vec<MemoryRecords>;
 
 #[derive(Debug, Default)]
 pub struct Executor {
@@ -131,7 +137,7 @@ pub trait Emulator {
         memory: &mut impl MemoryProcessor,
         memory_layout: Option<LinearMemoryLayout>,
         bare_instruction: &Instruction,
-    ) -> Result<()> {
+    ) -> Result<(InstructionResult, MemoryRecords)> {
         let mut syscall_instruction =
             SyscallInstruction::decode(bare_instruction, &mut executor.cpu)?;
         syscall_instruction.memory_read(memory)?;
@@ -139,7 +145,9 @@ pub trait Emulator {
         syscall_instruction.memory_write(memory)?;
         syscall_instruction.write_back(&mut executor.cpu);
 
-        Ok(())
+        // Safety: during the first pass, the Write and CycleCount syscalls can read from memory
+        //         however, during the second pass these are no-ops, so we never need a record
+        Ok((None, MemoryRecords::new()))
     }
 
     /// Executes a single RISC-V instruction.
@@ -148,7 +156,10 @@ pub trait Emulator {
     /// 2. Executes the instruction using the appropriate executor function.
     /// 3. Updates the program counter (PC) if the instruction is not a branch or jump.
     /// 4. Increments the global clock.
-    fn execute_instruction(&mut self, bare_instruction: &Instruction) -> Result<()>;
+    fn execute_instruction(
+        &mut self,
+        bare_instruction: &Instruction,
+    ) -> Result<(InstructionResult, MemoryRecords)>;
 
     /// Fetches or decodes a basic block starting from the current PC.
     ///
@@ -168,23 +179,37 @@ pub trait Emulator {
     fn get_executor_mut(&mut self) -> &mut Executor;
 
     /// Execute an entire basic block.
-    fn execute_basic_block(&mut self, basic_block: &BasicBlock) -> Result<()> {
+    fn execute_basic_block(
+        &mut self,
+        basic_block: &BasicBlock,
+    ) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
         #[cfg(debug_assertions)]
         basic_block.print_with_offset(self.get_executor().cpu.pc.value as usize);
 
+        let mut results: Vec<InstructionResult> = Vec::new();
+        let mut transcript: MemoryTranscript = Vec::new();
+
         // Execute the instructions in the basic block
         for instruction in basic_block.0.iter() {
-            self.execute_instruction(instruction)?;
+            let (res, mem) = self.execute_instruction(instruction)?;
+            results.push(res);
+            transcript.push(mem);
         }
 
-        Ok(())
+        Ok((results, transcript))
     }
 
     /// Execute an entire program.
-    fn execute(&mut self) -> Result<()> {
+    fn execute(&mut self) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
+        let mut results: Vec<InstructionResult> = Vec::new();
+        let mut transcript: MemoryTranscript = Vec::new();
+
         loop {
             let basic_block = self.fetch_block(self.get_executor().cpu.pc.value)?;
-            self.execute_basic_block(&basic_block)?;
+            let (res, mem) = self.execute_basic_block(&basic_block)?;
+
+            results.extend(res);
+            transcript.extend(mem);
         }
     }
 
@@ -264,6 +289,7 @@ impl HarvardEmulator {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
                 base_address: elf.base,
                 entrypoint: elf.entry,
+                global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
             instruction_memory: FixedMemory::<RO>::from_vec(
@@ -291,16 +317,19 @@ impl Emulator for HarvardEmulator {
     /// 2. Executes the instruction using the appropriate executor function.
     /// 3. Updates the program counter (PC) if the instruction is not a branch or jump.
     /// 4. Increments the global clock.
-    fn execute_instruction(&mut self, bare_instruction: &Instruction) -> Result<()> {
+    fn execute_instruction(
+        &mut self,
+        bare_instruction: &Instruction,
+    ) -> Result<(InstructionResult, MemoryRecords)> {
         if bare_instruction.is_system_instruction() {
-            <HarvardEmulator as Emulator>::execute_syscall(
+            let _ = <HarvardEmulator as Emulator>::execute_syscall(
                 &mut self.executor,
                 &mut self.data_memory,
                 None,
                 bare_instruction,
             )?;
         } else {
-            match self
+            let _ = match self
                 .executor
                 .instruction_executor
                 .get(&bare_instruction.opcode)
@@ -317,7 +346,7 @@ impl Emulator for HarvardEmulator {
                     ));
                 }
                 Err(e) => return Err(e),
-            }
+            };
         }
 
         if !bare_instruction.is_branch_or_jump_instruction() {
@@ -330,7 +359,8 @@ impl Emulator for HarvardEmulator {
         // increment the global clock by 1.
         self.executor.global_clock += 1;
 
-        Ok(())
+        // nb: we don't need any sort of operation records from the first pass
+        Ok((None, MemoryRecords::new()))
     }
 
     /// Fetches or decodes a basic block starting from the current PC.
@@ -370,6 +400,9 @@ pub struct LinearEmulator {
     // The unified index for the program instruction memory segment
     instruction_index: (usize, usize),
 
+    // A map of memory addresses to the last timestamp when they were accessed
+    access_timestamps: HashMap<u32, usize>,
+
     // The memory layout
     memory_layout: LinearMemoryLayout,
 
@@ -380,15 +413,17 @@ pub struct LinearEmulator {
 impl LinearEmulator {
     pub fn from_harvard(
         _memory_layout: LinearMemoryLayout,
-        _ad_hash: &[u32],
+        _ad: &[u32],
         _emul: HarvardEmulator,
     ) -> Self {
+        // Reminder!: the output linear memory segment should be pre-populated with the contents of the output
+        //            harvard memory segment, in order to enable an i/o consistency argument like that of Jolt.
         todo!()
     }
 
     pub fn from_elf(
         memory_layout: LinearMemoryLayout,
-        ad_hash: &[u32],
+        ad: &[u32],
         elf: ElfFile,
         public_input: &[u32],
         private_input: &[u8],
@@ -486,12 +521,11 @@ impl LinearEmulator {
         );
         let _ = memory.add_fixed_rw(&stack_memory).unwrap();
 
-        let ad_hash_len = (memory_layout.ad_hash_end() - memory_layout.ad_hash_start()) as usize;
-        assert_eq!(ad_hash_len, ad_hash.len() * WORD_SIZE as usize);
-        if ad_hash_len > 0 {
-            let ad_hash_memory =
-                FixedMemory::<NA>::from_slice(memory_layout.ad_hash_start(), ad_hash_len, ad_hash);
-            let _ = memory.add_fixed_na(&ad_hash_memory).unwrap();
+        let ad_len = (memory_layout.ad_end() - memory_layout.ad_start()) as usize;
+        assert_eq!(ad_len, ad.len() * WORD_SIZE as usize);
+        if ad_len > 0 {
+            let ad_memory = FixedMemory::<NA>::from_slice(memory_layout.ad_start(), ad_len, ad);
+            let _ = memory.add_fixed_na(&ad_memory).unwrap();
         }
 
         let mut emulator = Self {
@@ -499,14 +533,49 @@ impl LinearEmulator {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
                 base_address: code_start,
                 entrypoint: code_start + (elf.entry - elf.base),
+                global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
             instruction_index,
             memory_layout,
             memory,
+            ..Default::default()
         };
         emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
         emulator
+    }
+
+    fn manage_timestamps(&mut self, size: &MemAccessSize, address: &u32) -> usize {
+        let half_aligned_address = address & !0x1;
+        let full_aligned_address = address & !0x3;
+
+        let prev = match size {
+            MemAccessSize::Byte => max(
+                *self.access_timestamps.get(address).unwrap_or(&0),
+                max(
+                    *self
+                        .access_timestamps
+                        .get(&half_aligned_address)
+                        .unwrap_or(&0),
+                    *self
+                        .access_timestamps
+                        .get(&full_aligned_address)
+                        .unwrap_or(&0),
+                ),
+            ),
+            MemAccessSize::HalfWord => max(
+                *self.access_timestamps.get(address).unwrap_or(&0),
+                *self
+                    .access_timestamps
+                    .get(&full_aligned_address)
+                    .unwrap_or(&0),
+            ),
+            MemAccessSize::Word => *self.access_timestamps.get(address).unwrap_or(&0),
+        };
+
+        self.access_timestamps
+            .insert(*address, self.executor.global_clock);
+        prev
     }
 }
 
@@ -517,16 +586,25 @@ impl Emulator for LinearEmulator {
     /// 2. Executes the instruction using the appropriate executor function.
     /// 3. Updates the program counter (PC) if the instruction is not a branch or jump.
     /// 4. Increments the global clock.
-    fn execute_instruction(&mut self, bare_instruction: &Instruction) -> Result<()> {
+    fn execute_instruction(
+        &mut self,
+        bare_instruction: &Instruction,
+    ) -> Result<(InstructionResult, MemoryRecords)> {
+        let res: InstructionResult;
+        let mut memory_records: MemoryRecords;
+
         if bare_instruction.is_system_instruction() {
-            <LinearEmulator as Emulator>::execute_syscall(
+            (res, memory_records) = <LinearEmulator as Emulator>::execute_syscall(
                 &mut self.executor,
                 &mut self.memory,
                 Some(self.memory_layout),
                 bare_instruction,
             )?;
         } else {
-            match self
+            let load_ops: LoadOps;
+            let store_ops: StoreOps;
+
+            (res, (load_ops, store_ops)) = match self
                 .executor
                 .instruction_executor
                 .get(&bare_instruction.opcode)
@@ -541,7 +619,29 @@ impl Emulator for LinearEmulator {
                     ));
                 }
                 Err(e) => return Err(e),
-            }
+            };
+
+            memory_records = MemoryRecords::new();
+
+            load_ops.iter().for_each(|op| {
+                let size = op.get_size();
+                let address = op.get_address();
+
+                memory_records.insert(op.as_record(
+                    self.executor.global_clock,
+                    self.manage_timestamps(&size, &address),
+                ));
+            });
+
+            store_ops.iter().for_each(|op| {
+                let size = op.get_size();
+                let address = op.get_address();
+
+                memory_records.insert(op.as_record(
+                    self.executor.global_clock,
+                    self.manage_timestamps(&size, &address),
+                ));
+            });
         }
 
         if !bare_instruction.is_branch_or_jump_instruction() {
@@ -554,7 +654,7 @@ impl Emulator for LinearEmulator {
         // increment the global clock by 1.
         self.executor.global_clock += 1;
 
-        Ok(())
+        Ok((res, memory_records))
     }
 
     /// Fetches or decodes a basic block starting from the current PC.

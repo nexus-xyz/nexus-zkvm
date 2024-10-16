@@ -15,5 +15,7 @@ pub use m::{
     MulhuInstruction, RemInstruction, RemuInstruction,
 };
 
+pub use nexus_common::cpu::InstructionResult;
+
 // Macro implementations
 pub(crate) mod macros;

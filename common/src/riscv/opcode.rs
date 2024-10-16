@@ -2,11 +2,12 @@
 
 use std::fmt::Display;
 
+use serde::{Deserialize, Serialize};
 use variant_count::VariantCount;
 
 use crate::error::OpcodeError;
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
 pub struct Opcode {
     raw: u32,
     builtin: Option<BuiltinOpcode>,
@@ -63,7 +64,9 @@ impl Display for Opcode {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash, VariantCount)]
+#[derive(
+    Debug, Default, PartialEq, Eq, Clone, Copy, Hash, VariantCount, Serialize, Deserialize,
+)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum BuiltinOpcode {
     // R-type instructions

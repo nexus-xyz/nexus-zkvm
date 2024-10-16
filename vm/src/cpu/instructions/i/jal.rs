@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, Register},
 };
 use nexus_common::{
@@ -14,22 +14,22 @@ pub struct JalInstruction {
 }
 
 impl InstructionState for JalInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <JalInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <JalInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         let next_addr = cpu.pc().value + 4;
         cpu.registers_mut().write(self.rd, next_addr);
         cpu.pc_mut().jal(self.imm);
+
+        Some(next_addr)
     }
 }
 
@@ -51,22 +51,22 @@ pub struct JalrInstruction {
 }
 
 impl InstructionState for JalrInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <JalrInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <JalrInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         let tmp = cpu.pc().value;
         cpu.pc_mut().jalr(self.rs1, self.imm);
         cpu.registers_mut().write(self.rd, tmp + 4);
+
+        Some(tmp + 4)
     }
 }
 
@@ -105,12 +105,13 @@ mod tests {
         let instruction = JalInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jal instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if jump was taken (PC should be updated forwards)
         assert_eq!(cpu.pc.value, 0x1100);
 
         // Check if the link address was stored correctly
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.registers.read(Register::X1), 0x1004);
     }
 
@@ -131,12 +132,13 @@ mod tests {
         let instruction = JalInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jal instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if jump was taken (PC should be updated backwards)
         assert_eq!(cpu.pc.value, 0xF00);
 
         // Check if the link address was stored correctly
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.registers.read(Register::X2), 0x1004);
     }
 
@@ -160,12 +162,13 @@ mod tests {
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if jump was taken (PC should be updated to rs1 + offset)
         assert_eq!(cpu.pc.value, 0x2100);
 
         // Check if the link address was stored correctly
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.registers.read(Register::X2), 0x1004);
     }
 
@@ -189,12 +192,13 @@ mod tests {
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if jump was taken (PC should be updated to rs1 + offset)
         assert_eq!(cpu.pc.value, 0x1F00);
 
         // Check if the link address was stored correctly
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.registers.read(Register::X3), 0x1004);
     }
 
@@ -215,12 +219,13 @@ mod tests {
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if jump was taken (PC should be updated to offset only, since x0 is always 0)
         assert_eq!(cpu.pc.value, 0x100);
 
         // Check if the link address was stored correctly
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.registers.read(Register::X4), 0x1004);
     }
 }

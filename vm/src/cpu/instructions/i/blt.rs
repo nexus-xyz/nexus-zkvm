@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::Instruction,
 };
 use nexus_common::{
@@ -15,24 +15,24 @@ pub struct BltInstruction {
 }
 
 impl InstructionState for BltInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <BltInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <BltInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         if (self.rs1 as i32) < (self.rs2 as i32) {
             cpu.pc_mut().branch(self.imm);
         } else {
             cpu.pc_mut().step();
         }
+
+        Some(cpu.pc().value)
     }
 }
 
@@ -55,24 +55,24 @@ pub struct BltuInstruction {
 }
 
 impl InstructionState for BltuInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <BltuInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <BltuInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         if self.rs1 < self.rs2 {
             cpu.pc_mut().branch(self.imm);
         } else {
             cpu.pc_mut().step();
         }
+
+        Some(cpu.pc().value)
     }
 }
 
@@ -115,9 +115,10 @@ mod tests {
 
         // Execute the blt instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated)
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -142,9 +143,10 @@ mod tests {
 
         // Execute the blt instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -169,9 +171,10 @@ mod tests {
 
         // Execute the blt instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -198,9 +201,10 @@ mod tests {
 
         // Execute the blt instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated backwards)
+        assert_eq!(res, Some(0xF00));
         assert_eq!(cpu.pc.value, 0xF00);
     }
 
@@ -225,9 +229,10 @@ mod tests {
 
         // Execute the blt instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated)
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -252,9 +257,10 @@ mod tests {
 
         // Execute the bltu instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated)
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -279,9 +285,10 @@ mod tests {
 
         // Execute the bltu instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -306,9 +313,10 @@ mod tests {
 
         // Execute the bltu instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -333,10 +341,11 @@ mod tests {
 
         // Execute the bltu instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
         // because 0xFFFFFFFF > 1 in unsigned comparison
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -363,9 +372,10 @@ mod tests {
 
         // Execute the bltu instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated backwards)
+        assert_eq!(res, Some(0xF00));
         assert_eq!(cpu.pc.value, 0xF00);
     }
 }

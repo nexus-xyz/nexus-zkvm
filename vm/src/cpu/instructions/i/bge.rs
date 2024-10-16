@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::Instruction,
 };
 use nexus_common::{
@@ -15,24 +15,24 @@ pub struct BgeInstruction {
 }
 
 impl InstructionState for BgeInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <BgeInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <BgeInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         if (self.rs1 as i32) >= (self.rs2 as i32) {
             cpu.pc_mut().branch(self.imm);
         } else {
             cpu.pc_mut().step();
         }
+
+        Some(cpu.pc().value)
     }
 }
 
@@ -55,24 +55,24 @@ pub struct BgeuInstruction {
 }
 
 impl InstructionState for BgeuInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <BgeuInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <BgeuInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         if self.rs1 >= self.rs2 {
             cpu.pc_mut().branch(self.imm);
         } else {
             cpu.pc_mut().step();
         }
+
+        Some(cpu.pc().value)
     }
 }
 
@@ -112,8 +112,9 @@ mod tests {
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -135,8 +136,9 @@ mod tests {
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -158,9 +160,10 @@ mod tests {
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -182,9 +185,10 @@ mod tests {
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004); // Branch not taken because -1 < 1
     }
 
@@ -207,8 +211,9 @@ mod tests {
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -230,8 +235,9 @@ mod tests {
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100);
     }
 
@@ -253,9 +259,10 @@ mod tests {
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc.value, 0x1004);
     }
 
@@ -277,8 +284,9 @@ mod tests {
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc.value, 0x1100); // Branch taken because 0xFFFFFFFF > 1 in unsigned comparison
     }
 
@@ -303,7 +311,9 @@ mod tests {
         );
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
+
+        assert_eq!(res, Some(0xF00));
         assert_eq!(cpu.pc.value, 0xF00);
 
         // Reset PC
@@ -319,7 +329,9 @@ mod tests {
         );
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
+
+        assert_eq!(res, Some(0xF00));
         assert_eq!(cpu.pc.value, 0xF00);
     }
 }

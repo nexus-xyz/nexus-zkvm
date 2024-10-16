@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_store_instruction;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::{MemAccessSize, MemoryProcessor},
+    memory::{LoadOps, MemAccessSize, MemoryProcessor, StoreOps},
     riscv::Instruction,
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -20,7 +20,7 @@ mod tests {
 
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::memory::{VariableMemory, RW};
+    use crate::memory::{LoadOp, VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
     fn setup_memory() -> VariableMemory<RW> {
@@ -45,8 +45,13 @@ mod tests {
         let instruction = SbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_write(&mut memory).unwrap();
+        let res = instruction.write_back(&mut cpu);
 
-        assert_eq!(memory.read(0x1000, MemAccessSize::Byte).unwrap(), 0x7F);
+        assert_eq!(res, None);
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Byte).unwrap(),
+            LoadOp::Op(MemAccessSize::Byte, 0x1000, 0x7F)
+        );
     }
 
     #[test]
@@ -67,8 +72,13 @@ mod tests {
         let instruction = SbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_write(&mut memory).unwrap();
+        let res = instruction.write_back(&mut cpu);
 
-        assert_eq!(memory.read(0x1001, MemAccessSize::Byte).unwrap(), 0x80);
+        assert_eq!(res, None);
+        assert_eq!(
+            memory.read(0x1001, MemAccessSize::Byte).unwrap(),
+            LoadOp::Op(MemAccessSize::Byte, 0x1001, 0x80)
+        );
     }
 
     #[test]
@@ -89,8 +99,13 @@ mod tests {
         let instruction = SbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_write(&mut memory).unwrap();
+        let res = instruction.write_back(&mut cpu);
 
-        assert_eq!(memory.read(0x1002, MemAccessSize::Byte).unwrap(), 0xFF);
+        assert_eq!(res, None);
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::Byte).unwrap(),
+            LoadOp::Op(MemAccessSize::Byte, 0x1002, 0xFF)
+        );
     }
 
     #[test]

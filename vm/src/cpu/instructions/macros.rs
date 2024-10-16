@@ -1,8 +1,6 @@
 macro_rules! implement_arithmetic_executor {
     ($name:ident, $operation:expr) => {
         impl InstructionState for $name {
-            type Result = Option<()>;
-
             fn execute(&mut self) {
                 #[allow(clippy::redundant_closure_call)]
                 {
@@ -13,19 +11,20 @@ macro_rules! implement_arithmetic_executor {
             fn memory_read(
                 &mut self,
                 _: &impl MemoryProcessor,
-            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
-                Ok(None)
+            ) -> Result<LoadOps, nexus_common::error::MemoryError> {
+                <$name as InstructionState>::readless()
             }
 
             fn memory_write(
                 &self,
                 _: &mut impl MemoryProcessor,
-            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
-                Ok(None)
+            ) -> Result<StoreOps, nexus_common::error::MemoryError> {
+                <$name as InstructionState>::writeless()
             }
 
-            fn write_back(&self, cpu: &mut impl Processor) {
+            fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
                 cpu.registers_mut().write(self.rd.0, self.rd.1);
+                Some(self.rd.1)
             }
         }
 
@@ -49,30 +48,29 @@ macro_rules! implement_arithmetic_executor {
 macro_rules! implement_store_instruction {
     ($name:ident, $size:expr) => {
         impl InstructionState for $name {
-            type Result = Option<u32>;
-
             fn memory_read(
                 &mut self,
                 _: &impl MemoryProcessor,
-            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
-                Ok(None)
+            ) -> Result<LoadOps, nexus_common::error::MemoryError> {
+                <$name as InstructionState>::readless()
             }
 
             fn memory_write(
                 &self,
                 memory: &mut impl MemoryProcessor,
-            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
+            ) -> Result<StoreOps, nexus_common::error::MemoryError> {
                 let address = self
                     .rs1
                     .checked_add(self.imm)
                     .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?;
-                let value = memory.write(address, $size, self.rd)?;
-                Ok(Some(value))
+                Ok(memory.write(address, $size, self.rd)?.into())
             }
 
             fn execute(&mut self) {}
 
-            fn write_back(&self, _: &mut impl Processor) {}
+            fn write_back(&self, _: &mut impl Processor) -> Option<u32> {
+                None
+            }
         }
 
         impl InstructionExecutor for $name {
@@ -92,17 +90,16 @@ macro_rules! implement_store_instruction {
 macro_rules! implement_load_instruction {
     ($name:ident, $size:expr, $sign_extend:expr, $result_type:ty) => {
         impl InstructionState for $name {
-            type Result = $result_type;
-
             fn memory_read(
                 &mut self,
                 memory: &impl MemoryProcessor,
-            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
+            ) -> Result<LoadOps, nexus_common::error::MemoryError> {
                 let address = self
                     .rs1
                     .checked_add(self.imm)
                     .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?;
-                let value = memory.read(address, $size)?;
+                let op = memory.read(address, $size)?;
+                let LoadOp::Op(_, _, value) = op;
 
                 self.rd.1 = if $sign_extend {
                     match $size {
@@ -114,20 +111,21 @@ macro_rules! implement_load_instruction {
                     value
                 };
 
-                Ok(self.rd.1 as $result_type)
+                Ok(op.into())
             }
 
             fn memory_write(
                 &self,
                 _: &mut impl nexus_common::memory::MemoryProcessor,
-            ) -> Result<Self::Result, nexus_common::error::MemoryError> {
-                Ok(0 as $result_type)
+            ) -> Result<StoreOps, nexus_common::error::MemoryError> {
+                <$name as InstructionState>::writeless()
             }
 
             fn execute(&mut self) {}
 
-            fn write_back(&self, cpu: &mut impl Processor) {
+            fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
                 cpu.registers_mut().write(self.rd.0, self.rd.1);
+                Some(self.rd.1)
             }
         }
 

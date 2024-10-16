@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_store_instruction;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::{MemAccessSize, MemoryProcessor},
+    memory::{LoadOps, MemAccessSize, MemoryProcessor, StoreOps},
     riscv::Instruction,
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -20,7 +20,7 @@ mod tests {
 
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::memory::{VariableMemory, RW};
+    use crate::memory::{LoadOp, VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
 
     fn setup_memory() -> VariableMemory<RW> {
@@ -45,10 +45,12 @@ mod tests {
         let instruction = ShInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_write(&mut memory).unwrap();
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, None);
         assert_eq!(
             memory.read(0x1000, MemAccessSize::HalfWord).unwrap(),
-            0x7FFF
+            LoadOp::Op(MemAccessSize::HalfWord, 0x1000, 0x7FFF),
         );
     }
 
@@ -70,10 +72,12 @@ mod tests {
         let instruction = ShInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_write(&mut memory).unwrap();
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, None);
         assert_eq!(
             memory.read(0x1002, MemAccessSize::HalfWord).unwrap(),
-            0x8000
+            LoadOp::Op(MemAccessSize::HalfWord, 0x1002, 0x8000),
         );
     }
 
@@ -95,10 +99,12 @@ mod tests {
         let instruction = ShInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_write(&mut memory).unwrap();
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, None);
         assert_eq!(
             memory.read(0x1004, MemAccessSize::HalfWord).unwrap(),
-            0xFFFF
+            LoadOp::Op(MemAccessSize::HalfWord, 0x1004, 0xFFFF),
         );
     }
 

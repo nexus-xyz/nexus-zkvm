@@ -1,7 +1,7 @@
 use crate::cpu::instructions::macros::implement_arithmetic_executor;
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, InstructionType, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -40,9 +40,10 @@ mod tests {
 
         // Execute the add instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result
+        assert_eq!(res, Some(30));
         assert_eq!(cpu.registers.read(Register::X3), 30);
     }
 
@@ -66,9 +67,10 @@ mod tests {
 
         // Execute the sub instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (should wrap around to u32::MAX)
+        assert_eq!(res, Some(u32::MAX));
         assert_eq!(cpu.registers.read(Register::X3), u32::MAX);
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::Instruction,
 };
 use nexus_common::{
@@ -15,24 +15,24 @@ pub struct BneInstruction {
 }
 
 impl InstructionState for BneInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <BneInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <BneInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         if self.rs1 != self.rs2 {
             cpu.pc_mut().branch(self.imm);
         } else {
             cpu.pc_mut().step();
         }
+
+        Some(cpu.pc().value)
     }
 }
 
@@ -75,9 +75,10 @@ mod tests {
 
         // Execute the bne instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated)
+        assert_eq!(res, Some(0x1100));
         assert_eq!(cpu.pc, 0x1100);
     }
 
@@ -102,9 +103,10 @@ mod tests {
 
         // Execute the bne instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc, 0x1004);
     }
 
@@ -129,9 +131,10 @@ mod tests {
 
         // Execute the bne instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken but PC didn't change due to zero offset
+        assert_eq!(res, Some(0x1000));
         assert_eq!(cpu.pc, 0x1000);
     }
 
@@ -158,9 +161,10 @@ mod tests {
 
         // Execute the bne instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was taken (PC should be updated backwards)
+        assert_eq!(res, Some(0xF00));
         assert_eq!(cpu.pc, 0xF00);
     }
 
@@ -184,9 +188,10 @@ mod tests {
 
         // Execute the bne instruction
         instruction.execute();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check if branch was not taken (PC should step)
+        assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.pc, 0x1004);
     }
 }

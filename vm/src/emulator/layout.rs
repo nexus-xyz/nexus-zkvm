@@ -20,7 +20,7 @@ pub struct LinearMemoryLayout {
     // start of the program memory
     program: u32,
     // start of the associated data hash
-    ad_hash: u32,
+    ad: u32,
     // end of the memory
     end: u32,
 }
@@ -45,7 +45,7 @@ impl LinearMemoryLayout {
         }
 
         // enforce order
-        if self.ad_hash_start() <= self.program_start()
+        if self.ad_start() <= self.program_start()
             || self.program_start() <= self.public_output_start()
             || self.public_output_start() <= self.panic()
             || self.panic() <= self.public_input_start()
@@ -67,7 +67,7 @@ impl LinearMemoryLayout {
         public_input_size: u32,
         public_output_size: u32,
         program_size: u32,
-        ad_hash_size: u32,
+        ad_size: u32,
     ) -> Self {
         let gap = 0x1000 + max_heap_size; // registers take 0x1000 bytes
         let stack_bottom = gap + MEMORY_GAP;
@@ -75,8 +75,8 @@ impl LinearMemoryLayout {
         let panic = stack_top + WORD_SIZE + public_input_size; // stack_top | {input_size} | {input}
         let public_output = panic + WORD_SIZE;
         let program = public_output + public_output_size;
-        let ad_hash = program + program_size;
-        let end = ad_hash + ad_hash_size;
+        let ad = program + program_size;
+        let end = ad + ad_size;
 
         Self {
             gap,
@@ -85,7 +85,7 @@ impl LinearMemoryLayout {
             panic,
             public_output,
             program,
-            ad_hash,
+            ad,
             end,
         }
     }
@@ -96,7 +96,7 @@ impl LinearMemoryLayout {
         public_input_size: u32,
         public_output_size: u32,
         program_size: u32,
-        ad_hash_size: u32,
+        ad_size: u32,
     ) -> Result<Self> {
         let ml = Self::new_unchecked(
             max_heap_size,
@@ -104,7 +104,7 @@ impl LinearMemoryLayout {
             public_input_size,
             public_output_size,
             program_size,
-            ad_hash_size,
+            ad_size,
         );
         ml.validate()?;
 
@@ -171,14 +171,14 @@ impl LinearMemoryLayout {
     }
 
     pub fn program_end(&self) -> u32 {
-        self.ad_hash
+        self.ad
     }
 
-    pub fn ad_hash_start(&self) -> u32 {
-        self.ad_hash
+    pub fn ad_start(&self) -> u32 {
+        self.ad
     }
 
-    pub fn ad_hash_end(&self) -> u32 {
+    pub fn ad_end(&self) -> u32 {
         self.end
     }
 }

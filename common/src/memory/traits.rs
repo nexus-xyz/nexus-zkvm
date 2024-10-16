@@ -1,4 +1,175 @@
 use crate::error::MemoryError;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
+/// Represents the size of memory access operations.
+/// The value of enum is for efficient masking purpose.
+pub enum MemAccessSize {
+    Byte = 0,
+    HalfWord = 1,
+    Word = 3,
+}
+
+impl MemAccessSize {
+    // Helper function to get shift and mask for different access sizes
+    pub fn get_shift_and_mask(&self, address: u32) -> (u32, u32) {
+        match self {
+            MemAccessSize::Byte => ((address & 0x3) * 8, 0xff),
+            MemAccessSize::HalfWord => ((address & 0x2) * 8, 0xffff),
+            MemAccessSize::Word => (0, 0xffffffff),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MemoryRecord {
+    // (size, address, value), timestamp, prev_timestamp
+    LoadRecord((MemAccessSize, u32, u32), u32, u32),
+    // (size, address, value, prev_value), timestamp, prev_timestamp
+    StoreRecord((MemAccessSize, u32, u32, u32), u32, u32),
+}
+pub type MemoryRecords = HashSet<MemoryRecord>;
+
+impl MemoryRecord {
+    pub fn get_timestamp(&self) -> u32 {
+        match self {
+            MemoryRecord::LoadRecord((_, _, _), timestamp, _) => *timestamp,
+            MemoryRecord::StoreRecord((_, _, _, _), timestamp, _) => *timestamp,
+        }
+    }
+
+    pub fn get_prev_timestamp(&self) -> u32 {
+        match self {
+            MemoryRecord::LoadRecord((_, _, _), _, prev_timestamp) => *prev_timestamp,
+            MemoryRecord::StoreRecord((_, _, _, _), _, prev_timestamp) => *prev_timestamp,
+        }
+    }
+
+    pub fn get_address(&self) -> u32 {
+        match self {
+            MemoryRecord::LoadRecord((_, address, _), _, _) => *address,
+            MemoryRecord::StoreRecord((_, address, _, _), _, _) => *address,
+        }
+    }
+
+    pub fn get_value(&self) -> u32 {
+        match self {
+            MemoryRecord::LoadRecord((_, _, value), _, _) => *value,
+            MemoryRecord::StoreRecord((_, _, value, _), _, _) => *value,
+        }
+    }
+
+    pub fn get_prev_value(&self) -> Option<u32> {
+        match self {
+            MemoryRecord::LoadRecord((_, _, _), _, _) => None,
+            MemoryRecord::StoreRecord((_, _, _, prev_value), _, _) => Some(*prev_value),
+        }
+    }
+
+    pub fn get_size(&self) -> MemAccessSize {
+        match self {
+            MemoryRecord::LoadRecord((size, _, _), _, _) => *size,
+            MemoryRecord::StoreRecord((size, _, _, _), _, _) => *size,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum LoadOp {
+    Op(MemAccessSize, u32, u32), // size, address, value
+}
+pub type LoadOps = HashSet<LoadOp>;
+
+impl Into<LoadOps> for LoadOp {
+    fn into(self) -> LoadOps {
+        let mut ops = LoadOps::new();
+        ops.insert(self);
+
+        ops
+    }
+}
+
+impl LoadOp {
+    pub fn as_record(self, timestamp: usize, prev_timestamp: usize) -> MemoryRecord {
+        match self {
+            Self::Op(size, address, value) => MemoryRecord::LoadRecord(
+                (size, address, value),
+                timestamp as u32,
+                prev_timestamp as u32,
+            ),
+        }
+    }
+
+    pub fn get_address(&self) -> u32 {
+        match self {
+            Self::Op(_, address, _) => *address,
+        }
+    }
+
+    pub fn get_value(&self) -> u32 {
+        match self {
+            Self::Op(_, _, value) => *value,
+        }
+    }
+
+    pub fn get_size(&self) -> MemAccessSize {
+        match self {
+            Self::Op(size, _, _) => *size,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum StoreOp {
+    Op(MemAccessSize, u32, u32, u32), // size, address, value, prev_value
+}
+pub type StoreOps = HashSet<StoreOp>;
+
+impl Into<StoreOps> for StoreOp {
+    fn into(self) -> StoreOps {
+        let mut ops = StoreOps::new();
+        ops.insert(self);
+
+        ops
+    }
+}
+
+impl StoreOp {
+    pub fn as_record(self, timestamp: usize, prev_timestamp: usize) -> MemoryRecord {
+        match self {
+            Self::Op(size, address, value, prev_value) => MemoryRecord::StoreRecord(
+                (size, address, value, prev_value),
+                timestamp as u32,
+                prev_timestamp as u32,
+            ),
+        }
+    }
+
+    pub fn get_address(&self) -> u32 {
+        match self {
+            Self::Op(_, address, _, _) => *address,
+        }
+    }
+
+    pub fn get_value(&self) -> u32 {
+        match self {
+            Self::Op(_, _, value, _) => *value,
+        }
+    }
+
+    pub fn get_prev_value(&self) -> u32 {
+        match self {
+            Self::Op(_, _, _, prev_value) => *prev_value,
+        }
+    }
+
+    pub fn get_size(&self) -> MemAccessSize {
+        match self {
+            Self::Op(size, _, _, _) => *size,
+        }
+    }
+}
 
 /// A trait for permissions modes for memories.
 pub trait Mode {}
@@ -35,24 +206,6 @@ pub enum NA {
 }
 impl Mode for NA {}
 
-#[derive(Debug, Clone, Copy)]
-/// Represents the size of memory access operations.
-/// The value of enum is for efficient masking purpose.
-pub enum MemAccessSize {
-    Byte = 0,
-    HalfWord = 1,
-    Word = 3,
-}
-
-// Helper function to get shift and mask for different access sizes
-pub fn get_shift_and_mask(size: MemAccessSize, address: u32) -> (u32, u32) {
-    match size {
-        MemAccessSize::Byte => ((address & 0x3) * 8, 0xff),
-        MemAccessSize::HalfWord => ((address & 0x2) * 8, 0xffff),
-        MemAccessSize::Word => (0, 0xffffffff),
-    }
-}
-
 /// A trait for processing memory operations.
 ///
 /// This trait defines the interface for reading from and writing to memory.
@@ -69,7 +222,7 @@ pub trait MemoryProcessor: Default {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError>;
+    fn read(&self, address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError>;
 
     /// Writes a value to memory at the specified address.
     ///
@@ -82,18 +235,29 @@ pub trait MemoryProcessor: Default {
     /// # Returns
     ///
     /// Returns a `Result` indicating success or failure of the write operation.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError>;
+    fn write(
+        &mut self,
+        address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<StoreOp, MemoryError>;
 
     /// Reads multiple bytes from memory at the specified address, built on top of `read`.
+    ///
+    /// Only used for (unproven) ecalls, so does not return an operation record.
     fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
         let mut data = vec![0; size];
         for (i, byte) in data.iter_mut().enumerate().take(size) {
-            *byte = self.read(address + i as u32, MemAccessSize::Byte)? as u8;
+            match self.read(address + i as u32, MemAccessSize::Byte)? {
+                LoadOp::Op(_, _, v) => *byte = v as u8,
+            };
         }
         Ok(data)
     }
 
     /// Writes multiple bytes to memory at the specified address, built on top of `write`.
+    ///
+    /// Only used for (unproven) ecalls, so does not return an operation record.
     fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
         for (i, &byte) in data.iter().enumerate() {
             self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;

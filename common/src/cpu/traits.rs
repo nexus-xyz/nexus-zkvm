@@ -1,6 +1,9 @@
+use crate::memory::{LoadOps, StoreOps};
 use crate::{error::MemoryError, memory::MemoryProcessor, riscv::instruction::Instruction};
 
 use super::{pc::PC, registers::Registers};
+
+pub type InstructionResult = Option<u32>;
 
 /// Interface that a CPU implementation must provide.
 pub trait Processor {
@@ -16,7 +19,15 @@ pub trait Processor {
 }
 
 pub trait InstructionState {
-    type Result;
+    /// Convenience function for easily implementing `memory_read` for readless instructions.
+    fn readless() -> Result<LoadOps, MemoryError> {
+        Ok(LoadOps::default())
+    }
+
+    /// Convenience function for easily implementing `memory_write` for writeless instructions.
+    fn writeless() -> Result<StoreOps, MemoryError> {
+        Ok(StoreOps::default())
+    }
 
     /// Executes the instruction's operation.
     ///
@@ -33,7 +44,7 @@ pub trait InstructionState {
     ///
     /// # Returns
     /// A `Result` indicating the outcome of the memory access operation.
-    fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<Self::Result, MemoryError>;
+    fn memory_read(&mut self, memory: &impl MemoryProcessor) -> Result<LoadOps, MemoryError>;
 
     /// Performs memory access for store operations.
     ///
@@ -43,7 +54,7 @@ pub trait InstructionState {
     ///
     /// # Returns
     /// A `Result` indicating the outcome of the memory access operation.
-    fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError>;
+    fn memory_write(&self, memory: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError>;
 
     /// Updates the CPU state with the result of the instruction execution.
     ///
@@ -52,7 +63,14 @@ pub trait InstructionState {
     /// # Arguments
     /// * `self` - The current instruction state.
     /// * `cpu` - Mutable reference to the CPU state.
-    fn write_back(&self, cpu: &mut impl Processor);
+    ///
+    /// # Returns
+    /// An `Option<u32>` containing the result of the instruction execution, if any.
+    ///
+    /// This result is intended to simplify the vm <-> prover interface, by not requiring
+    /// the prover to find or reconstruct it from the registers or memory operations in
+    /// order to incorporate it into the witness.
+    fn write_back(&self, cpu: &mut impl Processor) -> InstructionResult;
 }
 
 /// Trait defining the execution stages of a RISC-V instruction.
@@ -80,17 +98,21 @@ pub trait InstructionExecutor {
     /// * `ins` - The instruction to be decoded.
     ///
     /// # Returns
-    /// A `Result` indicating the whether the instruction was executed successfully.
+    /// A `Result` indicating the whether the instruction was executed successfully, and
+    /// containing the instruction result and load/store operations that occurred.
     fn evaluator(
         cpu: &mut impl Processor,
         memory: &mut impl MemoryProcessor,
         ins: &Instruction,
-    ) -> Result<(), MemoryError> {
+    ) -> Result<(InstructionResult, (LoadOps, StoreOps)), MemoryError> {
         let mut executor: Self::InstructionState = Self::decode(ins, cpu.registers());
-        executor.memory_read(memory)?;
+
+        let load_ops = executor.memory_read(memory)?;
         executor.execute();
-        executor.memory_write(memory)?;
-        executor.write_back(cpu);
-        Ok(())
+        let store_ops = executor.memory_write(memory)?;
+
+        let res = executor.write_back(cpu);
+
+        Ok((res, (load_ops, store_ops)))
     }
 }

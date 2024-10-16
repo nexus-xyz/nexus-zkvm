@@ -3,7 +3,9 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rangemap::RangeMap;
 
-use super::{FixedMemory, MemAccessSize, MemoryProcessor, VariableMemory, NA, RO, RW, WO};
+use super::{
+    FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, StoreOp, VariableMemory, NA, RO, RW, WO,
+};
 
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive)]
 enum Modes {
@@ -142,7 +144,12 @@ impl MemoryProcessor for UnifiedMemory {
     /// # Returns
     ///
     /// The value written to memory, or an error if the operation failed.
-    fn write(&mut self, address: u32, size: MemAccessSize, value: u32) -> Result<u32, MemoryError> {
+    fn write(
+        &mut self,
+        address: u32,
+        size: MemAccessSize,
+        value: u32,
+    ) -> Result<StoreOp, MemoryError> {
         if let Some(meta) = self.meta.get(&address) {
             // Safety: that address is in meta means unwraps and indexing are safe
             match meta {
@@ -186,7 +193,7 @@ impl MemoryProcessor for UnifiedMemory {
     /// # Returns
     ///
     /// Returns a `Result` containing the read value or an error.
-    fn read(&self, address: u32, size: MemAccessSize) -> Result<u32, MemoryError> {
+    fn read(&self, address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         if let Some(meta) = self.meta.get(&address) {
             // that address is in meta means unwraps are safe
             match meta {
@@ -248,19 +255,46 @@ mod tests {
         let mut memory = memory_setup();
 
         // Write bytes at different alignments
-        assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
-        assert_eq!(memory.write(0x1001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
-        assert_eq!(memory.write(0x1002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x1003, MemAccessSize::Byte, 0x12), Ok(0x12));
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Byte, 0xAB),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1000, 0xAB, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x1001, MemAccessSize::Byte, 0xCD),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1001, 0xCD, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x1002, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1002, 0xEF, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x1003, MemAccessSize::Byte, 0x12),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1003, 0x12, 0x00))
+        );
 
         // Read bytes
-        assert_eq!(memory.read(0x1000, MemAccessSize::Byte), Ok(0xAB));
-        assert_eq!(memory.read(0x1001, MemAccessSize::Byte), Ok(0xCD));
-        assert_eq!(memory.read(0x1002, MemAccessSize::Byte), Ok(0xEF));
-        assert_eq!(memory.read(0x1003, MemAccessSize::Byte), Ok(0x12));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1000, 0xAB))
+        );
+        assert_eq!(
+            memory.read(0x1001, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1001, 0xCD))
+        );
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1002, 0xEF))
+        );
+        assert_eq!(
+            memory.read(0x1003, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x1003, 0x12))
+        );
 
         // Read the whole word
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x12EFCDAB));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0x12EFCDAB))
+        );
     }
 
     #[test]
@@ -270,16 +304,22 @@ mod tests {
         // Write halfwords at aligned addresses
         assert_eq!(
             memory.write(0x1000, MemAccessSize::HalfWord, 0xABCD),
-            Ok(0xABCD)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x1000, 0xABCD, 0x0000)),
         );
         assert_eq!(
             memory.write(0x1002, MemAccessSize::HalfWord, 0xEF12),
-            Ok(0xEF12)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x1002, 0xEF12, 0x0000)),
         );
 
         // Read halfwords
-        assert_eq!(memory.read(0x1000, MemAccessSize::HalfWord), Ok(0xABCD));
-        assert_eq!(memory.read(0x1002, MemAccessSize::HalfWord), Ok(0xEF12));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x1000, 0xABCD))
+        );
+        assert_eq!(
+            memory.read(0x1002, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x1002, 0xEF12))
+        );
 
         // Write to an unaligned address
         assert_eq!(
@@ -301,11 +341,19 @@ mod tests {
         // Write a word at an aligned address
         assert_eq!(
             memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x1000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Read the word
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0xABCD1234));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0xABCD1234))
+        );
 
         // Write to an unaligned address
         assert_eq!(
@@ -343,20 +391,37 @@ mod tests {
         // Write a word
         assert_eq!(
             memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x1000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Overwrite with bytes
-        assert_eq!(memory.write(0x1000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x1001, MemAccessSize::Byte, 0x56), Ok(0x56));
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0xABCD56EF));
+        assert_eq!(
+            memory.write(0x1000, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1000, 0xEF, 0x34))
+        );
+        assert_eq!(
+            memory.write(0x1001, MemAccessSize::Byte, 0x56),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x1001, 0x56, 0x12))
+        );
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0xABCD56EF))
+        );
 
         // Overwrite with a halfword
         assert_eq!(
             memory.write(0x1002, MemAccessSize::HalfWord, 0x7890),
-            Ok(0x7890)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x1002, 0x7890, 0xABCD)),
         );
-        assert_eq!(memory.read(0x1000, MemAccessSize::Word), Ok(0x789056EF));
+        assert_eq!(
+            memory.read(0x1000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x1000, 0x789056EF))
+        );
     }
 
     #[test]
@@ -364,13 +429,28 @@ mod tests {
         let memory = memory_setup();
 
         // Read bytes
-        assert_eq!(memory.read(0x0000, MemAccessSize::Byte), Ok(0xAB));
-        assert_eq!(memory.read(0x0001, MemAccessSize::Byte), Ok(0xCD));
-        assert_eq!(memory.read(0x0002, MemAccessSize::Byte), Ok(0xEF));
-        assert_eq!(memory.read(0x0003, MemAccessSize::Byte), Ok(0x12));
+        assert_eq!(
+            memory.read(0x0000, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x0000, 0xAB))
+        );
+        assert_eq!(
+            memory.read(0x0001, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x0001, 0xCD))
+        );
+        assert_eq!(
+            memory.read(0x0002, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x0002, 0xEF))
+        );
+        assert_eq!(
+            memory.read(0x0003, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x0003, 0x12))
+        );
 
         // Read the whole word
-        assert_eq!(memory.read(0x0000, MemAccessSize::Word), Ok(0x12EFCDAB));
+        assert_eq!(
+            memory.read(0x0000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x0000, 0x12EFCDAB))
+        );
     }
 
     #[test]
@@ -378,8 +458,14 @@ mod tests {
         let memory = memory_setup();
 
         // Read halfwords
-        assert_eq!(memory.read(0x0000, MemAccessSize::HalfWord), Ok(0xCDAB));
-        assert_eq!(memory.read(0x0002, MemAccessSize::HalfWord), Ok(0x12EF));
+        assert_eq!(
+            memory.read(0x0000, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x0000, 0xCDAB))
+        );
+        assert_eq!(
+            memory.read(0x0002, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x0002, 0x12EF))
+        );
 
         // Read from an unaligned address
         assert_eq!(
@@ -392,8 +478,11 @@ mod tests {
     fn test_fixed_ro_read_word() {
         let memory = memory_setup();
 
-        // Read word
-        assert_eq!(memory.read(0x0000, MemAccessSize::Word), Ok(0x12EFCDAB));
+        // Read the word
+        assert_eq!(
+            memory.read(0x0000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x0000, 0x12EFCDAB))
+        );
 
         // Read from an unaligned address
         assert_eq!(
@@ -426,10 +515,22 @@ mod tests {
         let mut memory = memory_setup();
 
         // Write bytes at different alignments
-        assert_eq!(memory.write(0x2000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
-        assert_eq!(memory.write(0x2001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
-        assert_eq!(memory.write(0x2002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x2003, MemAccessSize::Byte, 0x12), Ok(0x12));
+        assert_eq!(
+            memory.write(0x2000, MemAccessSize::Byte, 0xAB),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x2000, 0xAB, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x2001, MemAccessSize::Byte, 0xCD),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x2001, 0xCD, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x2002, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x2002, 0xEF, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x2003, MemAccessSize::Byte, 0x12),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x2003, 0x12, 0x00))
+        );
     }
 
     #[test]
@@ -439,11 +540,11 @@ mod tests {
         // Write halfwords at aligned addresses
         assert_eq!(
             memory.write(0x2000, MemAccessSize::HalfWord, 0xABCD),
-            Ok(0xABCD)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x2000, 0xABCD, 0x0000)),
         );
         assert_eq!(
             memory.write(0x2002, MemAccessSize::HalfWord, 0xEF12),
-            Ok(0xEF12)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x2002, 0xEF12, 0x0000)),
         );
 
         // Write to an unaligned address
@@ -460,7 +561,12 @@ mod tests {
         // Write a word at an aligned address
         assert_eq!(
             memory.write(0x2000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x2000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Write to an unaligned address
@@ -485,17 +591,28 @@ mod tests {
         // Write a word
         assert_eq!(
             memory.write(0x2000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x2000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Overwrite with bytes
-        assert_eq!(memory.write(0x2000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x2001, MemAccessSize::Byte, 0x56), Ok(0x56));
+        assert_eq!(
+            memory.write(0x2000, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x2000, 0xEF, 0x34))
+        );
+        assert_eq!(
+            memory.write(0x2001, MemAccessSize::Byte, 0x56),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x2001, 0x56, 0x12))
+        );
 
         // Overwrite with a halfword
         assert_eq!(
             memory.write(0x2002, MemAccessSize::HalfWord, 0x7890),
-            Ok(0x7890)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x2002, 0x7890, 0xABCD)),
         );
     }
 
@@ -541,19 +658,46 @@ mod tests {
         let mut memory = memory_setup();
 
         // Write bytes at different alignments
-        assert_eq!(memory.write(0x4000, MemAccessSize::Byte, 0xAB), Ok(0xAB));
-        assert_eq!(memory.write(0x4001, MemAccessSize::Byte, 0xCD), Ok(0xCD));
-        assert_eq!(memory.write(0x4002, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x4003, MemAccessSize::Byte, 0x32), Ok(0x32));
+        assert_eq!(
+            memory.write(0x4000, MemAccessSize::Byte, 0xAB),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x4000, 0xAB, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x4001, MemAccessSize::Byte, 0xCD),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x4001, 0xCD, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x4002, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x4002, 0xEF, 0x00))
+        );
+        assert_eq!(
+            memory.write(0x4003, MemAccessSize::Byte, 0x12),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x4003, 0x12, 0x00))
+        );
 
         // Read bytes
-        assert_eq!(memory.read(0x4000, MemAccessSize::Byte), Ok(0xAB));
-        assert_eq!(memory.read(0x4001, MemAccessSize::Byte), Ok(0xCD));
-        assert_eq!(memory.read(0x4002, MemAccessSize::Byte), Ok(0xEF));
-        assert_eq!(memory.read(0x4003, MemAccessSize::Byte), Ok(0x32));
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x4000, 0xAB))
+        );
+        assert_eq!(
+            memory.read(0x4001, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x4001, 0xCD))
+        );
+        assert_eq!(
+            memory.read(0x4002, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x4002, 0xEF))
+        );
+        assert_eq!(
+            memory.read(0x4003, MemAccessSize::Byte),
+            Ok(LoadOp::Op(MemAccessSize::Byte, 0x4003, 0x12))
+        );
 
         // Read the whole word
-        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0x32EFCDAB));
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x4000, 0x12EFCDAB))
+        );
     }
 
     #[test]
@@ -563,16 +707,22 @@ mod tests {
         // Write halfwords at aligned addresses
         assert_eq!(
             memory.write(0x4000, MemAccessSize::HalfWord, 0xABCD),
-            Ok(0xABCD)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x4000, 0xABCD, 0x0000)),
         );
         assert_eq!(
             memory.write(0x4002, MemAccessSize::HalfWord, 0xEF12),
-            Ok(0xEF12)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x4002, 0xEF12, 0x0000)),
         );
 
         // Read halfwords
-        assert_eq!(memory.read(0x4000, MemAccessSize::HalfWord), Ok(0xABCD));
-        assert_eq!(memory.read(0x4002, MemAccessSize::HalfWord), Ok(0xEF12));
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x4000, 0xABCD))
+        );
+        assert_eq!(
+            memory.read(0x4002, MemAccessSize::HalfWord),
+            Ok(LoadOp::Op(MemAccessSize::HalfWord, 0x4002, 0xEF12))
+        );
 
         // Write to an unaligned address
         assert_eq!(
@@ -594,11 +744,19 @@ mod tests {
         // Write a word at an aligned address
         assert_eq!(
             memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x4000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Read the word
-        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0xABCD1234));
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x4000, 0xABCD1234))
+        );
 
         // Write to an unaligned address
         assert_eq!(
@@ -636,20 +794,37 @@ mod tests {
         // Write a word
         assert_eq!(
             memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
-            Ok(0xABCD1234)
+            Ok(StoreOp::Op(
+                MemAccessSize::Word,
+                0x4000,
+                0xABCD1234,
+                0x00000000
+            )),
         );
 
         // Overwrite with bytes
-        assert_eq!(memory.write(0x4000, MemAccessSize::Byte, 0xEF), Ok(0xEF));
-        assert_eq!(memory.write(0x4001, MemAccessSize::Byte, 0x56), Ok(0x56));
-        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0xABCD56EF));
+        assert_eq!(
+            memory.write(0x4000, MemAccessSize::Byte, 0xEF),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x4000, 0xEF, 0x34))
+        );
+        assert_eq!(
+            memory.write(0x4001, MemAccessSize::Byte, 0x56),
+            Ok(StoreOp::Op(MemAccessSize::Byte, 0x4001, 0x56, 0x12))
+        );
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x4000, 0xABCD56EF))
+        );
 
         // Overwrite with a halfword
         assert_eq!(
             memory.write(0x4002, MemAccessSize::HalfWord, 0x7890),
-            Ok(0x7890)
+            Ok(StoreOp::Op(MemAccessSize::HalfWord, 0x4002, 0x7890, 0xABCD)),
         );
-        assert_eq!(memory.read(0x4000, MemAccessSize::Word), Ok(0x789056EF));
+        assert_eq!(
+            memory.read(0x4000, MemAccessSize::Word),
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x4000, 0x789056EF))
+        );
     }
 
     #[test]
@@ -669,8 +844,8 @@ mod tests {
 
         // Write non-existant unified memory
         assert_eq!(
-            memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
-            Err(MemoryError::InvalidMemoryAccess(0x1000))
+            memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
+            Err(MemoryError::InvalidMemoryAccess(0x4000))
         );
     }
 }

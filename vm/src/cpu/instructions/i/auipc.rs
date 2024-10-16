@@ -1,6 +1,6 @@
 use crate::{
     cpu::state::{InstructionExecutor, InstructionState},
-    memory::MemoryProcessor,
+    memory::{LoadOps, MemoryProcessor, StoreOps},
     riscv::{Instruction, Register},
 };
 use nexus_common::{
@@ -14,21 +14,21 @@ pub struct AuipcInstruction {
 }
 
 impl InstructionState for AuipcInstruction {
-    type Result = Option<u32>;
-
-    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
+        <AuipcInstruction as InstructionState>::readless()
     }
 
-    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<Self::Result, MemoryError> {
-        Ok(None)
+    fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
+        <AuipcInstruction as InstructionState>::writeless()
     }
 
     fn execute(&mut self) {}
 
-    fn write_back(&self, cpu: &mut impl Processor) {
+    fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
         let new_pc = cpu.pc_mut().value.wrapping_add(self.imm << 12);
         cpu.registers_mut().write(self.rd, new_pc);
+
+        Some(new_pc)
     }
 }
 
@@ -65,9 +65,10 @@ mod tests {
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the auipc instruction
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // Check the result (0x1000 + 0x12345000 = 0x12346000)
+        assert_eq!(res, Some(0x12346000));
         assert_eq!(cpu.registers.read(Register::X1), 0x12346000);
     }
 
@@ -86,9 +87,10 @@ mod tests {
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // With zero immediate, the result should be the current PC
+        assert_eq!(res, Some(0x2000));
         assert_eq!(cpu.registers.read(Register::X2), 0x2000);
     }
 
@@ -107,9 +109,10 @@ mod tests {
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // 0x1000 + 0xFFFFF000 = 0xFFFFF000 + 0x1000 = 0x0
+        assert_eq!(res, Some(0x0));
         assert_eq!(cpu.registers.read(Register::X3), 0x0);
     }
 
@@ -128,9 +131,10 @@ mod tests {
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
         // 0xFFFFFFFF + 0x1000 = 0xFFF (with overflow)
+        assert_eq!(res, Some(0xFFF));
         assert_eq!(cpu.registers.read(Register::X4), 0xFFF);
     }
 
@@ -147,7 +151,7 @@ mod tests {
             InstructionType::UType,
         );
         let instruction1 = AuipcInstruction::decode(&bare_instruction1, &cpu.registers);
-        instruction1.write_back(&mut cpu);
+        let res1 = instruction1.write_back(&mut cpu);
 
         cpu.pc.value = 0x2000;
 
@@ -159,7 +163,10 @@ mod tests {
             InstructionType::UType,
         );
         let instruction2 = AuipcInstruction::decode(&bare_instruction2, &cpu.registers);
-        instruction2.write_back(&mut cpu);
+        let res2 = instruction2.write_back(&mut cpu);
+
+        assert_eq!(res1, Some(0x12346000));
+        assert_eq!(res2, Some(0x6789C000));
 
         assert_eq!(cpu.registers.read(Register::X1), 0x12346000);
         assert_eq!(cpu.registers.read(Register::X2), 0x6789C000);

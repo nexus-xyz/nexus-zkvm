@@ -3,7 +3,7 @@ use crate::{
         instructions::macros::implement_load_instruction,
         state::{InstructionExecutor, InstructionState},
     },
-    memory::{MemAccessSize, MemoryProcessor},
+    memory::{LoadOp, LoadOps, MemAccessSize, MemoryProcessor, StoreOps},
     riscv::{Instruction, Register},
 };
 use nexus_common::cpu::{Processor, Registers};
@@ -52,8 +52,9 @@ mod tests {
         let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0xFFFFFFFF));
         assert_eq!(cpu.registers.read(Register::X2), 0xFFFFFFFF);
     }
 
@@ -74,8 +75,9 @@ mod tests {
         let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
-        instruction.write_back(&mut cpu);
+        let res = instruction.write_back(&mut cpu);
 
+        assert_eq!(res, Some(0x00000000));
         assert_eq!(cpu.registers.read(Register::X2), 0x00000000);
     }
 

@@ -39,8 +39,14 @@ unsafe impl GlobalAlloc for Heap {
 #[link_section = ".init.rust"]
 #[export_name = "_overwrite_sp"]
 pub unsafe extern "C" fn overwrite_sp() {
+    // Safety: We do not use the ecall! macro, since we need this ecall to not
+    //         be inside of a Rust function. If it is, then that function will
+    //         be setup on the stack, causing the stack pointer overwriting to
+    //         orphan it and otherwise not comply with the memory layout.
     #[cfg(target_arch = "riscv32")]
-    let _ = ecall!(SYS_OVERWRITE_SP);
+    unsafe {
+        core::arch::asm!("ecall", in("a7") 1026);
+    }
 }
 
 /// Rust entry point (_start_rust).
