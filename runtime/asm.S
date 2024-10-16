@@ -27,10 +27,3 @@ _start:
 
 run:
     jal ra, _start_rust
-    /* halt with result of main in a0 */
-    unimp
-
-.globl abort
-abort:
-    li a0, 1     /* indicate error */
-    unimp

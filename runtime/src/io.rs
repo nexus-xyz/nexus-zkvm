@@ -3,35 +3,29 @@ pub use core::fmt::Write;
 #[cfg(target_arch = "riscv32")]
 mod riscv32 {
     extern crate alloc;
+    use crate::{ecall, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG, SYS_READ_PRIVATE_INPUT};
     use serde::{de::DeserializeOwned, Serialize};
 
-    /// Syscall code is placed in register a7.
-    /// Parameters are input from registers a0 to a6.
-    /// The return value is placed in register a0.
-    macro_rules! ecall {
-        ($n:expr,$inp1:expr,$inp2:expr,$inp3:expr,$out:expr) => {
-            unsafe {
-                core::arch::asm!("ecall", in("a7") $n, inout("a0") $inp1 => $out, in("a1") $inp2, in("a2") $inp3)
-            }
-        }
-    }
-
     /// Write a string to the output console (if any).
-    pub fn write_log(s: &str) -> u32 {
-        let mut out: u32;
-        let syscode = 512;
+    pub fn write_log(s: &str) -> Option<u32> {
         let fd = 1;
         let buf_ptr = s.as_ptr();
         let buf_len = s.len();
-        ecall!(syscode, fd, buf_ptr, buf_len, out);
-        out
+        let out = ecall!(SYS_LOG, fd, ("a1", buf_ptr), ("a2", buf_len));
+        if out == u32::MAX {
+            None
+        } else {
+            Some(out)
+        }
     }
 
     /// Exit the program with the given exit code.
-    pub fn exit(exit_code: i32) {
-        let mut _out: i32;
-        let syscode = 513;
-        ecall!(syscode, exit_code, 0, 0, _out);
+    pub fn exit(exit_code: i32) -> ! {
+        let _ = ecall!(SYS_EXIT, exit_code);
+        // Ecall will trigger exit syscall, so we will never return.
+        unsafe {
+            core::hint::unreachable_unchecked();
+        }
     }
 
     /// Read an object off the private input tape
@@ -44,10 +38,7 @@ mod riscv32 {
 
     /// Read a byte from the private input tape
     fn read_from_private_input() -> Option<u8> {
-        let inp: u32 = 0;
-        let mut out: u32;
-        let syscode = 1024;
-        ecall!(syscode, inp, inp, 0, out);
+        let out = ecall!(SYS_READ_PRIVATE_INPUT);
 
         if out == u32::MAX {
             None
@@ -82,11 +73,9 @@ mod riscv32 {
 
     /// Bench cycles, where input is the function name
     pub fn cycle_count_ecall(s: &str) {
-        let mut _out: u32;
-        let syscode = 1025;
         let buf = s.as_ptr();
         let len = s.len();
-        ecall!(syscode, buf, len, 0, _out);
+        let _ = ecall!(SYS_CYCLE_COUNT, buf, ("a1", len));
     }
 
     /// An empty type representing the debug VM terminal

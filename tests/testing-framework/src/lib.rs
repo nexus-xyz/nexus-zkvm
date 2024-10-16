@@ -101,7 +101,7 @@ mod test {
         let tmp_project_path = tmp_dir.path().join("integration");
 
         // Check that the tests compile and execute correctly.
-        for (test_name, result) in test_names.iter().zip(test_results.iter()) {
+        for (test_name, _result) in test_names.iter().zip(test_results.iter()) {
             // Compile the test file.
             let test_dir_path = "../integration-tests";
             let test_path = format!("{test_dir_path}/{test_name}.rs");
@@ -116,11 +116,10 @@ mod test {
 
             // Execute the elf file using the emulator.
             let mut emulator = HarvardEmulator::from_elf(elf, &[], &[]);
-            let _res = emulator.execute(); // Ends on unimplemented instruction.
+            let res = emulator.execute();
 
-            // Check that the result is correct.
-            // Will remove this hacky check later once I/O is working.
-            assert_eq!(emulator.executor.cpu.registers.read(Register::X12), *result);
+            // Check that the program exits correctly.
+            assert_eq!(res, Err(nexus_vm::error::VMError::VMExited(0)));
         }
     }
 }

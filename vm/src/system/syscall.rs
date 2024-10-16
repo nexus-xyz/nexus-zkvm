@@ -36,7 +36,6 @@ pub enum SyscallCode {
     // Syscall code defines opcodes start from 512
     Write = 512,
     Exit = 513,
-
     // zkVM specific syscall opcodes start from 1024
     ReadFromPrivateInput = 1024,
     CycleCount = 1025,
@@ -150,7 +149,7 @@ impl SyscallInstruction {
     /// This function sets the exit code and signals the VM to terminate execution.
     fn execute_exit(&mut self, error_code: u32) -> Result<()> {
         self.result.1 = error_code;
-        Err(VMError::VMExited)
+        Err(VMError::VMExited(error_code))
     }
 
     /// Executes the cycle count syscall for profiling function execution time.
@@ -393,11 +392,7 @@ mod tests {
         let result = syscall_instruction.execute_exit(error_code);
         syscall_instruction.write_back(&mut emulator.executor.cpu);
 
-        assert!(matches!(result, Err(VMError::VMExited)));
-        assert_eq!(
-            emulator.executor.cpu.registers.read(Register::X10),
-            error_code
-        );
+        assert_eq!(result, Err(VMError::VMExited(error_code)));
     }
 
     #[test]

@@ -346,7 +346,7 @@ impl Emulator for HarvardEmulator {
         if let btree_map::Entry::Vacant(e) = self.executor.basic_block_cache.entry(pc) {
             let block = decode_until_end_of_a_block(&self.instruction_memory.segment(pc, None));
             if block.is_empty() {
-                return Err(VMError::VMStopped);
+                return Err(VMError::VMOutOfInstructions);
             }
             e.insert(block);
         }
@@ -574,7 +574,7 @@ impl Emulator for LinearEmulator {
                 None,
             )?);
             if block.is_empty() {
-                return Err(VMError::VMStopped);
+                return Err(VMError::VMOutOfInstructions);
             }
             e.insert(block);
         }
@@ -612,10 +612,7 @@ mod tests {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
         let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
 
-        assert_eq!(
-            emulator.execute(),
-            Err(VMError::UnimplementedInstructionAt(0, 4128))
-        );
+        assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
     }
 
     #[test]
@@ -681,10 +678,7 @@ mod tests {
         let mut emulator =
             LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], elf_file, &[], &[]);
 
-        assert_eq!(
-            emulator.execute(),
-            Err(VMError::UnimplementedInstructionAt(0, 9445416))
-        );
+        assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
     }
 
     #[test]
