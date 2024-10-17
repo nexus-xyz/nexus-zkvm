@@ -143,10 +143,6 @@ mod native {
         unimplemented!()
     }
 
-    pub fn exit(exit_code: i32) -> ! {
-        std::process::exit(exit_code)
-    }
-
     pub fn read_private_input<UNUSABLE: RequiresRV32Target, T: DeserializeOwned>(
     ) -> Result<T, postcard::Error> {
         unimplemented!()
@@ -166,4 +162,4 @@ mod native {
 pub use native::*;
 
 #[cfg(not(target_arch = "riscv32"))]
-pub use std::{print, println};
+pub use std::{print, println, process::exit};
