@@ -77,7 +77,7 @@ impl<M: Mode> FixedMemory<M> {
         value: u32,
     ) -> Result<StoreOp, MemoryError> {
         // Error if address is outside reserved space
-        if raw_address < self.base_address as u32 {
+        if raw_address < self.base_address {
             return Err(MemoryError::InvalidMemoryAccess(raw_address));
         }
 
@@ -134,7 +134,7 @@ impl<M: Mode> FixedMemory<M> {
     /// Returns a `Result` containing the read value or an error.
     fn execute_read(&self, raw_address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         // Error if address is outside reserved space
-        if raw_address < self.base_address as u32 {
+        if raw_address < self.base_address {
             return Err(MemoryError::InvalidMemoryAccess(raw_address));
         }
 

@@ -101,28 +101,28 @@ impl UnifiedMemory {
         match FromPrimitive::from_usize(store) {
             Some(Modes::RW) => {
                 if idx < self.frw_store.len() {
-                    Ok(&self.frw_store[idx].segment(start, end))
+                    Ok(self.frw_store[idx].segment(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
-                    Ok(&self.fro_store[idx].segment(start, end))
+                    Ok(self.fro_store[idx].segment(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::WO) => {
                 if idx < self.fwo_store.len() {
-                    Ok(&self.fwo_store[idx].segment(start, end))
+                    Ok(self.fwo_store[idx].segment(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
-                    Ok(&self.fna_store[idx].segment(start, end))
+                    Ok(self.fna_store[idx].segment(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
@@ -170,16 +170,14 @@ impl MemoryProcessor for UnifiedMemory {
                         .write(address, size, value)
                 }
             }
-        } else {
-            if let Some(mut vrw) = self.vrw.take() {
-                // work around lifetime issues
-                let ret = vrw.write(address, size, value);
-                self.vrw = Some(vrw);
+        } else if let Some(mut vrw) = self.vrw.take() {
+            // work around lifetime issues
+            let ret = vrw.write(address, size, value);
+            self.vrw = Some(vrw);
 
-                ret
-            } else {
-                return Err(MemoryError::InvalidMemoryAccess(address));
-            }
+            ret
+        } else {
+            return Err(MemoryError::InvalidMemoryAccess(address));
         }
     }
 
@@ -210,12 +208,10 @@ impl MemoryProcessor for UnifiedMemory {
                     return self.fna_store[*self.fna.get(&address).unwrap()].read(address, size)
                 }
             }
+        } else if let Some(vrw) = &self.vrw {
+            vrw.read(address, size)
         } else {
-            if let Some(vrw) = &self.vrw {
-                vrw.read(address, size)
-            } else {
-                return Err(MemoryError::InvalidMemoryAccess(address));
-            }
+            return Err(MemoryError::InvalidMemoryAccess(address));
         }
     }
 }

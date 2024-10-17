@@ -26,13 +26,11 @@ where
 
     let mut decoder = InstructionDecoder;
     match process_instruction(&mut decoder, raw) {
-        Some(op) => return Ok(op.opcode),
-        None => {
-            return Err(de::Error::invalid_value(
-                Unexpected::Unsigned(raw.into()),
-                &"an instruction encoding a known opcode",
-            ))
-        }
+        Some(op) => Ok(op.opcode),
+        None => Err(de::Error::invalid_value(
+            Unexpected::Unsigned(raw.into()),
+            &"an instruction encoding a known opcode",
+        )),
     }
 }
 
@@ -194,7 +192,7 @@ fn step(
 // Generate a `Block` by evaluating `k` steps of `vm`.
 fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
     let mut block = Block {
-        regs: vm.executor.cpu.registers.clone(),
+        regs: vm.executor.cpu.registers,
         steps: Vec::new(),
     };
 
@@ -263,7 +261,7 @@ pub fn k_trace(
         match k_step(&mut vm, k) {
             (Some(block), Ok(())) => trace.blocks.push(block),
             (Some(block), Err(e)) => {
-                if block.steps.len() > 0 {
+                if !block.steps.is_empty() {
                     trace.blocks.push(block);
                 }
 
@@ -281,7 +279,7 @@ pub fn k_trace(
 // Generate a `Block` by evaluating a basic block in the `vm`.
 fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
     let mut block = Block {
-        regs: vm.executor.cpu.registers.clone(),
+        regs: vm.executor.cpu.registers,
         steps: Vec::new(),
     };
 
@@ -340,7 +338,7 @@ pub fn bb_trace(
         match bb_step(&mut vm) {
             (Some(block), Ok(())) => trace.blocks.push(block),
             (Some(block), Err(e)) => {
-                if block.steps.len() > 0 {
+                if !block.steps.is_empty() {
                     trace.blocks.push(block);
                 }
 

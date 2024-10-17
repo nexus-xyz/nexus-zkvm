@@ -18,15 +18,22 @@ mod io;
 pub use io::*;
 pub use postcard;
 
-// Ecall codes.
+// Ecall codes. Allow dead code here because these are only used in the RISC-V runtime, not when
+// compiling for the host.
+#[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_LOG: u32 = 512;
+#[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_EXIT: u32 = 513;
+#[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_READ_PRIVATE_INPUT: u32 = 1024;
+#[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_CYCLE_COUNT: u32 = 1025;
+#[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_OVERWRITE_SP: u32 = 1026;
+#[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_ALLOC_ALIGNED: u32 = 1027;
-
 // Error codes.
+#[cfg(target_arch = "riscv32")]
 pub(crate) const PANIC_ERROR_CODE: u32 = 1;
 
 /// Macro for making an ecall with variable number of parameters:

@@ -81,10 +81,10 @@ pub enum LoadOp {
 }
 pub type LoadOps = HashSet<LoadOp>;
 
-impl Into<LoadOps> for LoadOp {
-    fn into(self) -> LoadOps {
+impl From<LoadOp> for LoadOps {
+    fn from(op: LoadOp) -> Self {
         let mut ops = LoadOps::new();
-        ops.insert(self);
+        ops.insert(op);
 
         ops
     }
@@ -126,10 +126,10 @@ pub enum StoreOp {
 }
 pub type StoreOps = HashSet<StoreOp>;
 
-impl Into<StoreOps> for StoreOp {
-    fn into(self) -> StoreOps {
+impl From<StoreOp> for StoreOps {
+    fn from(op: StoreOp) -> Self {
         let mut ops = StoreOps::new();
-        ops.insert(self);
+        ops.insert(op);
 
         ops
     }

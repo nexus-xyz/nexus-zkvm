@@ -138,8 +138,7 @@ pub trait Emulator {
         memory_layout: Option<LinearMemoryLayout>,
         bare_instruction: &Instruction,
     ) -> Result<(InstructionResult, MemoryRecords)> {
-        let mut syscall_instruction =
-            SyscallInstruction::decode(bare_instruction, &mut executor.cpu)?;
+        let mut syscall_instruction = SyscallInstruction::decode(bare_instruction, &executor.cpu)?;
         syscall_instruction.memory_read(memory)?;
         syscall_instruction.execute(executor, memory, memory_layout)?;
         syscall_instruction.memory_write(memory)?;
@@ -374,7 +373,7 @@ impl Emulator for HarvardEmulator {
     /// if success, return a clone of `BasicBlock` starting at the current PC.
     fn fetch_block(&mut self, pc: u32) -> Result<BasicBlock> {
         if let btree_map::Entry::Vacant(e) = self.executor.basic_block_cache.entry(pc) {
-            let block = decode_until_end_of_a_block(&self.instruction_memory.segment(pc, None));
+            let block = decode_until_end_of_a_block(self.instruction_memory.segment(pc, None));
             if block.is_empty() {
                 return Err(VMError::VMOutOfInstructions);
             }
@@ -668,7 +667,7 @@ impl Emulator for LinearEmulator {
     /// if success, return a clone of `BasicBlock` starting at the current PC.
     fn fetch_block(&mut self, pc: u32) -> Result<BasicBlock> {
         if let btree_map::Entry::Vacant(e) = self.executor.basic_block_cache.entry(pc) {
-            let block = decode_until_end_of_a_block(&self.memory.segment(
+            let block = decode_until_end_of_a_block(self.memory.segment(
                 self.instruction_index,
                 pc,
                 None,
