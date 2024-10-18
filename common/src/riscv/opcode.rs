@@ -1,37 +1,69 @@
 //! The Opcode were extract from this site: <https://www.cs.sfu.ca/~ashriram/Courses/CS295/assets/notebooks/RISCV/RISCV_CARD.pdf>
 
-use std::fmt::Display;
+use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 use variant_count::VariantCount;
 
 use crate::error::OpcodeError;
 
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+/// `Opcode` does not directly correspond to an opcode as defined by RISC-V (which is the 7 least
+/// significant bits of an instruction). Instead, it contains everything necessary to specify a
+/// unique instruction, which may correspond to either a standard RISC-V instruction _or_ a custom
+/// instruction.
+///
+/// The fn3 and fn7 fields are used to differentiate between different instructions with the same
+/// RISC-V opcode.
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub struct Opcode {
-    raw: u32,
-    builtin: Option<BuiltinOpcode>,
-    name: &'static str,
+    /// The opcode as defined by RISC-V (7 least significant bits of an instruction). The MSB is
+    /// always zero.
+    raw: u8,
+
+    /// The `funct3` field of the instruction, if applicable.
+    fn3: SubByte<3>,
+
+    /// The `funct7` field of the instruction, if applicable.
+    fn7: SubByte<7>,
+
+    /// The opcode's identifier - either a standard RISC-V opcode (BuiltinOpcode) or a custom
+    /// instruction name.
+    identifier: OpcodeIdentifier,
 }
 
 impl Opcode {
-    pub fn new(opcode: u32, name: &'static str) -> Self {
+    const OPCODE_MASK: u8 = 0b0111_1111;
+
+    /// Create a new, custom opcode with the given opcode, (optional) funct3/7 values, and name.
+    /// Any non-custom opcode should be created using `Opcode::from` on a `BuiltinOpcode`.
+    pub fn new<T: AsRef<str>>(opcode: u8, fn3: Option<u8>, fn7: Option<u8>, name: T) -> Self {
+        let fn3 = fn3.map_or_else(SubByte::<3>::new_unset, SubByte::<3>::new_set);
+        let fn7 = fn7.map_or_else(SubByte::<7>::new_unset, SubByte::<7>::new_set);
+
         Self {
-            raw: opcode,
-            builtin: None,
-            name,
+            raw: opcode & Self::OPCODE_MASK,
+            fn3,
+            fn7,
+            identifier: OpcodeIdentifier::Custom(name.as_ref().to_string()),
         }
     }
 
     pub fn is_builtin(&self) -> bool {
-        self.builtin.is_some()
+        matches!(self.identifier, OpcodeIdentifier::Builtin(_))
     }
 
-    pub fn name(&self) -> &'static str {
-        self.name
+    pub fn builtin(&self) -> Option<BuiltinOpcode> {
+        match &self.identifier {
+            OpcodeIdentifier::Builtin(builtin) => Some(*builtin),
+            _ => None,
+        }
     }
 
-    pub fn raw(&self) -> u32 {
+    pub fn name(&self) -> &str {
+        self.identifier.name()
+    }
+
+    pub fn raw(&self) -> u8 {
         self.raw
     }
 }
@@ -40,8 +72,9 @@ impl From<BuiltinOpcode> for Opcode {
     fn from(opcode: BuiltinOpcode) -> Self {
         Self {
             raw: opcode.raw(),
-            builtin: Some(opcode),
-            name: opcode.mnemonic(),
+            fn3: opcode.fn3(),
+            fn7: opcode.fn7(),
+            identifier: OpcodeIdentifier::Builtin(opcode),
         }
     }
 }
@@ -50,17 +83,50 @@ impl TryInto<BuiltinOpcode> for Opcode {
     type Error = OpcodeError;
 
     fn try_into(self) -> Result<BuiltinOpcode, Self::Error> {
-        if !self.is_builtin() {
-            return Err(Self::Error::OpcodeNotBuiltin(self));
+        match self.identifier {
+            OpcodeIdentifier::Builtin(builtin) => Ok(builtin),
+            _ => Err(Self::Error::OpcodeNotBuiltin(self)),
         }
-
-        Ok(self.builtin.unwrap())
     }
 }
 
 impl Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.name())
+        f.write_fmt(format_args!(
+            "{}: opcode={:#04X}, fn3={}, fn7={}",
+            self.identifier.name(),
+            self.raw,
+            self.fn3,
+            self.fn7,
+        ))
+    }
+}
+
+impl Default for Opcode {
+    fn default() -> Self {
+        Self {
+            raw: 0,
+            fn3: SubByte::<3>::new_unset(),
+            fn7: SubByte::<7>::new_unset(),
+            identifier: OpcodeIdentifier::None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
+enum OpcodeIdentifier {
+    Builtin(BuiltinOpcode),
+    Custom(String),
+    None,
+}
+
+impl OpcodeIdentifier {
+    fn name(&self) -> &str {
+        match self {
+            OpcodeIdentifier::Builtin(builtin) => builtin.mnemonic(),
+            OpcodeIdentifier::Custom(name) => name,
+            OpcodeIdentifier::None => "None",
+        }
     }
 }
 
@@ -140,70 +206,21 @@ pub enum BuiltinOpcode {
 }
 
 impl BuiltinOpcode {
+    const BUILTIN_NAMES: [&'static str; BuiltinOpcode::VARIANT_COUNT] = [
+        "add", "sub", "sll", "slt", "sltu", "xor", "srl", "sra", "or", "and", "mul", "mulh",
+        "mulhsu", "mulhu", "div", "divu", "rem", "remu", "addi", "slli", "slti", "sltiu", "xori",
+        "srli", "srai", "ori", "andi", "lb", "lh", "lw", "lbu", "lhu", "jalr", "ecall", "ebreak",
+        "fence", "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "lui", "auipc",
+        "jal", "nop", "unimpl",
+    ];
+
     fn mnemonic(&self) -> &'static str {
-        match self {
-            BuiltinOpcode::ADD => "add",
-            BuiltinOpcode::SUB => "sub",
-            BuiltinOpcode::SLL => "sll",
-            BuiltinOpcode::SLT => "slt",
-            BuiltinOpcode::SLTU => "sltu",
-            BuiltinOpcode::XOR => "xor",
-            BuiltinOpcode::SRL => "srl",
-            BuiltinOpcode::SRA => "sra",
-            BuiltinOpcode::OR => "or",
-            BuiltinOpcode::AND => "and",
-
-            BuiltinOpcode::MUL => "mul",
-            BuiltinOpcode::MULH => "mulh",
-            BuiltinOpcode::MULHSU => "mulhsu",
-            BuiltinOpcode::MULHU => "mulhu",
-            BuiltinOpcode::DIV => "div",
-            BuiltinOpcode::DIVU => "divu",
-            BuiltinOpcode::REM => "rem",
-            BuiltinOpcode::REMU => "remu",
-
-            BuiltinOpcode::ADDI => "addi",
-            BuiltinOpcode::SLTI => "slti",
-            BuiltinOpcode::SLTIU => "sltiu",
-            BuiltinOpcode::XORI => "xori",
-            BuiltinOpcode::ORI => "ori",
-            BuiltinOpcode::ANDI => "andi",
-            BuiltinOpcode::SLLI => "slli",
-            BuiltinOpcode::SRLI => "srli",
-            BuiltinOpcode::SRAI => "srai",
-            BuiltinOpcode::LB => "lb",
-            BuiltinOpcode::LH => "lh",
-            BuiltinOpcode::LW => "lw",
-            BuiltinOpcode::LBU => "lbu",
-            BuiltinOpcode::LHU => "lhu",
-            BuiltinOpcode::JALR => "jalr",
-            BuiltinOpcode::ECALL => "ecall",
-            BuiltinOpcode::EBREAK => "ebreak",
-            BuiltinOpcode::FENCE => "fence",
-
-            BuiltinOpcode::SB => "sb",
-            BuiltinOpcode::SH => "sh",
-            BuiltinOpcode::SW => "sw",
-
-            BuiltinOpcode::BEQ => "beq",
-            BuiltinOpcode::BNE => "bne",
-            BuiltinOpcode::BLT => "blt",
-            BuiltinOpcode::BGE => "bge",
-            BuiltinOpcode::BLTU => "bltu",
-            BuiltinOpcode::BGEU => "bgeu",
-
-            BuiltinOpcode::LUI => "lui",
-            BuiltinOpcode::AUIPC => "auipc",
-
-            BuiltinOpcode::JAL => "jal",
-
-            BuiltinOpcode::NOP => "nop",
-
-            _ => "unimp",
-        }
+        // Safety: BUILTIN_NAMES is statically guaranteed to have the same size as the number of
+        // variants for BuiltinOpcode.
+        Self::BUILTIN_NAMES[*self as usize]
     }
 
-    fn raw(&self) -> u32 {
+    fn raw(&self) -> u8 {
         match self {
             BuiltinOpcode::ADD => 0b0110011,
             BuiltinOpcode::SUB => 0b0110011,
@@ -262,7 +279,143 @@ impl BuiltinOpcode {
 
             BuiltinOpcode::NOP => 0b0010011,
 
-            _ => 0b000000,
+            BuiltinOpcode::UNIMPL => 0b000000,
+        }
+    }
+
+    fn fn3(&self) -> SubByte<3> {
+        match self {
+            BuiltinOpcode::ADD | BuiltinOpcode::SUB => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::SLL => SubByte::<3>::new_set(0b001),
+            BuiltinOpcode::SLT => SubByte::<3>::new_set(0b010),
+            BuiltinOpcode::SLTU => SubByte::<3>::new_set(0b011),
+            BuiltinOpcode::XOR => SubByte::<3>::new_set(0b100),
+            BuiltinOpcode::SRL | BuiltinOpcode::SRA => SubByte::<3>::new_set(0b101),
+            BuiltinOpcode::OR => SubByte::<3>::new_set(0b110),
+            BuiltinOpcode::AND => SubByte::<3>::new_set(0b111),
+
+            BuiltinOpcode::MUL => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::MULH => SubByte::<3>::new_set(0b001),
+            BuiltinOpcode::MULHSU => SubByte::<3>::new_set(0b010),
+            BuiltinOpcode::MULHU => SubByte::<3>::new_set(0b011),
+            BuiltinOpcode::DIV => SubByte::<3>::new_set(0b100),
+            BuiltinOpcode::DIVU => SubByte::<3>::new_set(0b101),
+            BuiltinOpcode::REM => SubByte::<3>::new_set(0b110),
+            BuiltinOpcode::REMU => SubByte::<3>::new_set(0b111),
+
+            // n.b. nop is implemented as addi x0, x0, 0
+            BuiltinOpcode::ADDI | BuiltinOpcode::NOP => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::SLTI => SubByte::<3>::new_set(0b010),
+            BuiltinOpcode::SLTIU => SubByte::<3>::new_set(0b011),
+            BuiltinOpcode::XORI => SubByte::<3>::new_set(0b100),
+            BuiltinOpcode::ORI => SubByte::<3>::new_set(0b110),
+            BuiltinOpcode::ANDI => SubByte::<3>::new_set(0b111),
+            BuiltinOpcode::SLLI => SubByte::<3>::new_set(0b001),
+            BuiltinOpcode::SRLI => SubByte::<3>::new_set(0b101),
+            BuiltinOpcode::SRAI => SubByte::<3>::new_set(0b101),
+
+            BuiltinOpcode::LB => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::LH => SubByte::<3>::new_set(0b001),
+            BuiltinOpcode::LW => SubByte::<3>::new_set(0b010),
+            BuiltinOpcode::LBU => SubByte::<3>::new_set(0b100),
+            BuiltinOpcode::LHU => SubByte::<3>::new_set(0b101),
+            BuiltinOpcode::SB => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::SH => SubByte::<3>::new_set(0b001),
+            BuiltinOpcode::SW => SubByte::<3>::new_set(0b010),
+
+            BuiltinOpcode::BEQ => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::BNE => SubByte::<3>::new_set(0b001),
+            BuiltinOpcode::BLT => SubByte::<3>::new_set(0b100),
+            BuiltinOpcode::BGE => SubByte::<3>::new_set(0b101),
+            BuiltinOpcode::BLTU => SubByte::<3>::new_set(0b110),
+            BuiltinOpcode::BGEU => SubByte::<3>::new_set(0b111),
+
+            BuiltinOpcode::JALR => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::JAL => SubByte::<3>::new_unset(),
+
+            BuiltinOpcode::LUI => SubByte::<3>::new_unset(),
+            BuiltinOpcode::AUIPC => SubByte::<3>::new_unset(),
+
+            BuiltinOpcode::ECALL => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::EBREAK => SubByte::<3>::new_set(0b000),
+
+            BuiltinOpcode::FENCE => SubByte::<3>::new_set(0b000),
+
+            // Placeholder for unimplemented instructions should not have a known funct3
+            BuiltinOpcode::UNIMPL => SubByte::<3>::new_unset(),
+        }
+    }
+
+    fn fn7(&self) -> SubByte<7> {
+        match self {
+            BuiltinOpcode::ADD => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SUB => SubByte::<7>::new_set(0b0100000),
+            BuiltinOpcode::SLL => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SLT => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SLTU => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::XOR => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SRL => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SRA => SubByte::<7>::new_set(0b0100000),
+            BuiltinOpcode::OR => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::AND => SubByte::<7>::new_set(0b0000000),
+
+            BuiltinOpcode::MUL => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::MULH => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::MULHSU => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::MULHU => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::DIV => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::DIVU => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::REM => SubByte::<7>::new_set(0b0000001),
+            BuiltinOpcode::REMU => SubByte::<7>::new_set(0b0000001),
+
+            // I-type instructions have no funct7.
+            BuiltinOpcode::ADDI | BuiltinOpcode::NOP => SubByte::<7>::new_unset(),
+            BuiltinOpcode::SLTI => SubByte::<7>::new_unset(),
+            BuiltinOpcode::SLTIU => SubByte::<7>::new_unset(),
+            BuiltinOpcode::XORI => SubByte::<7>::new_unset(),
+            BuiltinOpcode::ORI => SubByte::<7>::new_unset(),
+            BuiltinOpcode::ANDI => SubByte::<7>::new_unset(),
+
+            // These are technically specified as imm[11:5] due to these instructions being I-type,
+            // but they use the same bits as funct7, and for the same purpose, so it's most correct
+            // to treat them as funct7 values here.
+            BuiltinOpcode::SLLI => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SRLI => SubByte::<7>::new_set(0b0000000),
+            BuiltinOpcode::SRAI => SubByte::<7>::new_set(0b0100000),
+
+            // Memory operations are also I-type
+            BuiltinOpcode::LB => SubByte::<7>::new_unset(),
+            BuiltinOpcode::LH => SubByte::<7>::new_unset(),
+            BuiltinOpcode::LW => SubByte::<7>::new_unset(),
+            BuiltinOpcode::LBU => SubByte::<7>::new_unset(),
+            BuiltinOpcode::LHU => SubByte::<7>::new_unset(),
+
+            // S-type instructions have no funct7 either.
+            BuiltinOpcode::SB => SubByte::<7>::new_unset(),
+            BuiltinOpcode::SH => SubByte::<7>::new_unset(),
+            BuiltinOpcode::SW => SubByte::<7>::new_unset(),
+
+            // Same story for B-type, J-type, and U-type instructions, which all have larger
+            // immediates instead of funct7 fields.
+            BuiltinOpcode::BEQ => SubByte::<7>::new_unset(),
+            BuiltinOpcode::BNE => SubByte::<7>::new_unset(),
+            BuiltinOpcode::BLT => SubByte::<7>::new_unset(),
+            BuiltinOpcode::BGE => SubByte::<7>::new_unset(),
+            BuiltinOpcode::BLTU => SubByte::<7>::new_unset(),
+            BuiltinOpcode::BGEU => SubByte::<7>::new_unset(),
+
+            BuiltinOpcode::JALR => SubByte::<7>::new_unset(),
+            BuiltinOpcode::JAL => SubByte::<7>::new_unset(),
+
+            BuiltinOpcode::LUI => SubByte::<7>::new_unset(),
+            BuiltinOpcode::AUIPC => SubByte::<7>::new_unset(),
+
+            BuiltinOpcode::ECALL => SubByte::<7>::new_unset(),
+            BuiltinOpcode::EBREAK => SubByte::<7>::new_unset(),
+
+            BuiltinOpcode::FENCE => SubByte::<7>::new_unset(),
+
+            BuiltinOpcode::UNIMPL => SubByte::<7>::new_unset(),
         }
     }
 }
@@ -270,6 +423,53 @@ impl BuiltinOpcode {
 impl Display for BuiltinOpcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.mnemonic())
+    }
+}
+
+/// Immutable type that behaves as Option<uX> where X is an integer in [1, 7]. Used for reasoning
+/// about sub-byte values extracted from RISC-V instructions.
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Hash, Serialize, Deserialize)]
+pub struct SubByte<const BITS: u8> {
+    value: u8,
+}
+
+impl<const BITS: u8> SubByte<BITS> {
+    const SET_MASK: u8 = 0b1000_0000;
+    const VALUE_MASK: u8 = (1u8 << BITS) - 1;
+
+    /// Create a new OptionalUx with the value set to `value`, a la Option::Some(value).
+    pub fn new_set(value: u8) -> Self {
+        // This assert should evaluate statically to ensure proper use.
+        assert!(BITS >= 1 && BITS <= 7);
+
+        Self {
+            value: (value & Self::VALUE_MASK) | Self::SET_MASK,
+        }
+    }
+
+    /// Create a new OptionalUx with the value unset, a la Option::None.
+    pub fn new_unset() -> Self {
+        // Safety/correctness: the value being 0u8 is represented as 8 0 bits, which makes the most
+        // significant bit 0, corresponding to the unset state.
+        Self { value: 0 }
+    }
+
+    pub fn is_set(&self) -> bool {
+        (self.value & Self::SET_MASK) != 0
+    }
+
+    pub fn value(&self) -> u8 {
+        self.value & Self::VALUE_MASK
+    }
+}
+
+impl<const BITS: u8> Display for SubByte<BITS> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_set() {
+            f.write_fmt(format_args!("Some({:#b})", self.value()))
+        } else {
+            f.write_str("None")
+        }
     }
 }
 
@@ -289,7 +489,7 @@ mod tests {
         assert_eq!(BuiltinOpcode::BEQ.mnemonic(), "beq");
         assert_eq!(BuiltinOpcode::LUI.mnemonic(), "lui");
         assert_eq!(BuiltinOpcode::JAL.mnemonic(), "jal");
-        assert_eq!(BuiltinOpcode::UNIMPL.mnemonic(), "unimp");
+        assert_eq!(BuiltinOpcode::UNIMPL.mnemonic(), "unimpl");
     }
 
     #[test]
@@ -304,6 +504,6 @@ mod tests {
         assert_eq!(format!("{}", BuiltinOpcode::BEQ), "beq");
         assert_eq!(format!("{}", BuiltinOpcode::LUI), "lui");
         assert_eq!(format!("{}", BuiltinOpcode::JAL), "jal");
-        assert_eq!(format!("{}", BuiltinOpcode::UNIMPL), "unimp");
+        assert_eq!(format!("{}", BuiltinOpcode::UNIMPL), "unimpl");
     }
 }

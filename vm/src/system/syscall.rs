@@ -99,10 +99,9 @@ pub struct SyscallInstruction {
 
 impl SyscallInstruction {
     pub fn decode(ins: &Instruction, cpu: &Cpu) -> Result<Self> {
-        let opcode = ins.opcode.try_into()?;
-        if BuiltinOpcode::ECALL != opcode {
-            return Err(VMError::UnimplementedSyscall(
-                ins.opcode.raw(),
+        if !matches!(ins.opcode.builtin(), Some(BuiltinOpcode::ECALL)) {
+            return Err(VMError::InstructionNotSyscall(
+                ins.opcode.clone(),
                 cpu.pc.value,
             ));
         }

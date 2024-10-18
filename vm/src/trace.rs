@@ -1,38 +1,11 @@
-use rrs_lib::process_instruction;
-use serde::{
-    de::{self, Unexpected},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::cpu::{instructions::InstructionResult, RegisterFile};
 use crate::elf::ElfFile;
 use crate::emulator::{Emulator, LinearEmulator, LinearMemoryLayout};
 use crate::error::{Result, VMError};
 use crate::memory::MemoryRecords;
-use crate::riscv::{instructions::InstructionDecoder, Instruction, Opcode};
-
-fn op_ser<S>(op: &Opcode, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_u32(op.raw())
-}
-
-fn op_der<'de, D>(deserializer: D) -> Result<Opcode, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let raw = u32::deserialize(deserializer)?;
-
-    let mut decoder = InstructionDecoder;
-    match process_instruction(&mut decoder, raw) {
-        Some(op) => Ok(op.opcode),
-        None => Err(de::Error::invalid_value(
-            Unexpected::Unsigned(raw.into()),
-            &"an instruction encoding a known opcode",
-        )),
-    }
-}
+use crate::riscv::{Instruction, Opcode};
 
 /// A program step.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -44,7 +17,6 @@ pub struct Step {
     /// Value of program counter after instruction.
     pub next_pc: u32,
     /// Encoded instruction.
-    #[serde(serialize_with = "op_ser", deserialize_with = "op_der")]
     pub op: Opcode,
     /// Result of instruction evaluation.
     pub result: InstructionResult,
@@ -181,7 +153,7 @@ fn step(
         timestamp,
         pc,
         next_pc,
-        op: bare_instruction.opcode,
+        op: bare_instruction.opcode.clone(),
         result,
         memory_records,
     };
@@ -215,7 +187,7 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
                                 timestamp,
                                 pc,
                                 next_pc: pc,
-                                op: instruction.opcode,
+                                op: instruction.opcode.clone(),
                                 result: Some(n),
                                 memory_records: MemoryRecords::default(),
                             });
@@ -297,7 +269,7 @@ fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
                             timestamp,
                             pc,
                             next_pc: pc,
-                            op: instruction.opcode,
+                            op: instruction.opcode.clone(),
                             result: Some(n),
                             memory_records: MemoryRecords::default(),
                         });

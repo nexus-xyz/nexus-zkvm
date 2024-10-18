@@ -82,7 +82,7 @@
 //!     }
 //! }
 //!
-//! let custom_opcode = Opcode::new(0b1111111, "test");
+//! let custom_opcode = Opcode::new(0b1111111, None, None, "test");
 //! let mut emulator = HarvardEmulator::default().add_opcode::<CustomInstruction>(&custom_opcode);
 //! ```
 //!
@@ -288,24 +288,25 @@ impl Default for InstructionExecutorRegistry {
 impl InstructionExecutorRegistry {
     pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<(), VMError> {
         self.precompiles
-            .insert(*op, register_instruction_executor!(IE::evaluator))
-            .ok_or(VMError::DuplicateInstruction(*op))
+            .insert(op.clone(), register_instruction_executor!(IE::evaluator))
+            .ok_or(VMError::DuplicateInstruction(op.clone()))
             .map(|_| ())
     }
 
     pub fn get(&self, op: &Opcode) -> Result<InstructionExecutorFn<UnifiedMemory>> {
-        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(*op) {
+        if let Ok(opcode) = TryInto::<BuiltinOpcode>::try_into(op.clone()) {
             let idx = opcode as usize;
 
             // Safety: the length of `builtins` is statically guaranteed to be equal to the number
             // of variants in `BuiltinOpcode`.
-            self.builtins[idx].ok_or_else(|| VMError::UnimplementedInstruction(op.raw()))
+            #[allow(clippy::unnecessary_lazy_evaluations)]
+            self.builtins[idx].ok_or_else(|| VMError::UnimplementedInstruction(op.clone()))
         } else {
             if let Some(func) = self.precompiles.get(op) {
                 return Ok(*func);
             }
 
-            Err(VMError::UnsupportedInstruction(op.raw()))
+            Err(VMError::UnsupportedInstruction(op.clone()))
         }
     }
 
@@ -314,13 +315,13 @@ impl InstructionExecutorRegistry {
         &self,
         op: &Opcode,
     ) -> Result<InstructionExecutorFn<FixedMemory<RO>>> {
-        if let Some(rin) = self.read_input {
+        if let Some(rin) = self.read_input.as_ref() {
             if *op == rin.0 {
                 return Ok(rin.1);
             }
         }
 
-        Err(VMError::UnsupportedInstruction(op.raw()))
+        Err(VMError::UnsupportedInstruction(op.clone()))
     }
 
     #[allow(dead_code)] // until first-pass is done
@@ -328,12 +329,12 @@ impl InstructionExecutorRegistry {
         &self,
         op: &Opcode,
     ) -> Result<InstructionExecutorFn<VariableMemory<WO>>> {
-        if let Some(wot) = self.write_output {
+        if let Some(wot) = self.write_output.as_ref() {
             if *op == wot.0 {
                 return Ok(wot.1);
             }
         }
 
-        Err(VMError::UnsupportedInstruction(op.raw()))
+        Err(VMError::UnsupportedInstruction(op.clone()))
     }
 }

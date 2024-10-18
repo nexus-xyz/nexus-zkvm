@@ -702,7 +702,10 @@ mod tests {
 
         assert_eq!(
             emulator.execute(),
-            Err(VMError::UnimplementedInstructionAt(0, 48))
+            Err(VMError::UnimplementedInstructionAt(
+                BuiltinOpcode::UNIMPL.into(),
+                48
+            ))
         );
     }
 

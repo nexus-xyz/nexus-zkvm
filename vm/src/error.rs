@@ -6,11 +6,15 @@ use thiserror::Error;
 /// Errors related to VM operations.
 #[derive(Debug, Error, PartialEq)]
 pub enum VMError {
-    // Unimplemented syscall.
-    #[error("Unimplemented syscall: opcode=0x{0:08X}, pc=0x{1:08X}")]
+    // Unimplemented syscall
+    #[error("Unimplemented syscall: opcode={0:08X}, pc=0x{1:08X}")]
     UnimplementedSyscall(u32, u32),
 
-    // Invalid memory layout.
+    // Non-syscall called as a syscall
+    #[error("Instruction called as a syscall: opcode={0}, pc=0x{1:08X}")]
+    InstructionNotSyscall(Opcode, u32),
+
+    // Invalid memory layout
     #[error("Invalid memory layout")]
     InvalidMemoryLayout,
 
@@ -39,17 +43,17 @@ pub enum VMError {
     #[error("Duplicate Opcode/Instruction in registry")]
     DuplicateInstruction(Opcode),
 
-    // Unimplemented instruction (with a valid opcode).
-    #[error("Unimplemented instruction \"{0:08X}\"")]
-    UnimplementedInstruction(u32),
+    // Unimplemented instruction (with a valid opcode)
+    #[error("Unimplemented instruction \"{0}\"")]
+    UnimplementedInstruction(Opcode),
 
     // Unimplemented instruction (with a valid opcode) found at a specific PC
-    #[error("Unimplemented instruction \"{0:08X}\" at pc=0x{1:08X}")]
-    UnimplementedInstructionAt(u32, u32),
+    #[error("Unimplemented instruction \"{0}\" at pc=0x{1:08X}")]
+    UnimplementedInstructionAt(Opcode, u32),
 
-    // Unsupported instruction (i.e., one with an invalid opcode).
-    #[error("Unsupported instruction \"{0:08X}\"")]
-    UnsupportedInstruction(u32),
+    // Unsupported instruction (i.e., one with an invalid opcode)
+    #[error("Unsupported instruction \"{0}\"")]
+    UnsupportedInstruction(Opcode),
 }
 
 /// Result type for VM functions that can produce errors.

@@ -177,7 +177,7 @@ impl MemoryProcessor for UnifiedMemory {
 
             ret
         } else {
-            return Err(MemoryError::InvalidMemoryAccess(address));
+            Err(MemoryError::InvalidMemoryAccess(address))
         }
     }
 
@@ -211,7 +211,7 @@ impl MemoryProcessor for UnifiedMemory {
         } else if let Some(vrw) = &self.vrw {
             vrw.read(address, size)
         } else {
-            return Err(MemoryError::InvalidMemoryAccess(address));
+            Err(MemoryError::InvalidMemoryAccess(address))
         }
     }
 }

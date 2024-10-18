@@ -23,7 +23,7 @@ pub enum InstructionType {
 /// Represents a unified form for all RISC-V instructions.
 ///
 /// This struct uses 8 bytes to store an instruction, keeping it as minimal as possible.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Instruction {
     pub opcode: Opcode,
     pub op_a: Register,
@@ -46,7 +46,7 @@ impl Instruction {
 
     /// Returns true if the instruction is a branch or jump instruction.
     pub fn is_branch_or_jump_instruction(&self) -> bool {
-        if let Ok(opcode) = self.opcode.try_into() {
+        if let Some(opcode) = self.opcode.builtin() {
             matches!(
                 opcode,
                 BuiltinOpcode::BEQ
@@ -65,7 +65,7 @@ impl Instruction {
 
     // Returns true if the instruction is a system instruction
     pub fn is_system_instruction(&self) -> bool {
-        if let Ok(opcode) = self.opcode.try_into() {
+        if let Some(opcode) = self.opcode.builtin() {
             matches!(opcode, BuiltinOpcode::ECALL | BuiltinOpcode::EBREAK)
         } else {
             false
@@ -209,19 +209,20 @@ impl Instruction {
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // todo: handle not well-known opcodes
-        assert!(self.opcode.is_builtin());
-
-        let output = match self.ins_type {
-            InstructionType::BType => self.b_type_to_string(self.opcode.try_into().unwrap()),
-            InstructionType::IType | InstructionType::ITypeShamt => {
-                self.i_type_to_string(self.opcode.try_into().unwrap())
+        let output = if self.opcode.is_builtin() {
+            match self.ins_type {
+                InstructionType::BType => self.b_type_to_string(self.opcode.builtin().unwrap()),
+                InstructionType::IType | InstructionType::ITypeShamt => {
+                    self.i_type_to_string(self.opcode.builtin().unwrap())
+                }
+                InstructionType::JType => self.j_type_to_string(self.opcode.builtin().unwrap()),
+                InstructionType::RType => self.r_type_to_string(self.opcode.builtin().unwrap()),
+                InstructionType::SType => self.s_type_to_string(self.opcode.builtin().unwrap()),
+                InstructionType::UType => self.u_type_to_string(self.opcode.builtin().unwrap()),
+                InstructionType::Unimpl => self.opcode.to_string(),
             }
-            InstructionType::JType => self.j_type_to_string(self.opcode.try_into().unwrap()),
-            InstructionType::RType => self.r_type_to_string(self.opcode.try_into().unwrap()),
-            InstructionType::SType => self.s_type_to_string(self.opcode.try_into().unwrap()),
-            InstructionType::UType => self.u_type_to_string(self.opcode.try_into().unwrap()),
-            InstructionType::Unimpl => self.opcode.to_string(),
+        } else {
+            self.opcode.to_string()
         };
 
         f.write_str(&output)

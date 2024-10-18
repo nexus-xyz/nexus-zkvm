@@ -46,6 +46,7 @@
 //! and instruction-level parallelism detection in RISC-V programs.
 
 use crate::riscv::instructions::{BasicBlock, BasicBlockProgram, Instruction, InstructionDecoder};
+use nexus_common::riscv::{instruction::InstructionType, Opcode};
 use rrs_lib::process_instruction;
 
 /// Decodes RISC-V instructions from an ELF file into basic blocks
@@ -74,11 +75,11 @@ pub fn decode_instructions(u32_instructions: &[u32]) -> BasicBlockProgram {
             current_block = BasicBlock::default();
         }
 
-        // Add the decoded instruction to the current basic block
-        current_block.0.push(decoded_instruction);
-
         // Check if the next instruction should start a new basic block
         start_new_block = decoded_instruction.is_branch_or_jump_instruction();
+
+        // Add the decoded instruction to the current basic block
+        current_block.0.push(decoded_instruction);
     }
 
     // Add the last block if it's not empty
@@ -89,21 +90,86 @@ pub fn decode_instructions(u32_instructions: &[u32]) -> BasicBlockProgram {
     program
 }
 
+#[inline(always)]
+fn extract_opcode(u32_instruction: u32) -> u8 {
+    const OPCODE_MASK: u32 = 0x7F; // 7 least significant bits (6-0)
+    (u32_instruction & OPCODE_MASK) as u8
+}
+
+#[inline(always)]
+fn extract_fn3(u32_instruction: u32) -> u8 {
+    const FN3_MASK: u32 = 0x7000; // bits 14-12
+    const FN3_SHIFT: u32 = 12;
+    ((u32_instruction & FN3_MASK) >> FN3_SHIFT) as u8
+}
+
+#[inline(always)]
+fn extract_fn7(u32_instruction: u32) -> u8 {
+    const FN7_MASK: u32 = 0xFE000000; // 7 most significant bits (31-25)
+    const FN7_SHIFT: u32 = 25;
+    ((u32_instruction & FN7_MASK) >> FN7_SHIFT) as u8
+}
+
+#[inline(always)]
+fn extract_rd(u32_instruction: u32) -> u8 {
+    const RD_MASK: u32 = 0xF80; // bits 11-7
+    const RD_SHIFT: u32 = 7;
+    ((u32_instruction & RD_MASK) >> RD_SHIFT) as u8
+}
+
+#[inline(always)]
+fn extract_rs1(u32_instruction: u32) -> u8 {
+    const RS1_MASK: u32 = 0x000F8000; // bits 19-15
+    const RS1_SHIFT: u32 = 15;
+    ((u32_instruction & RS1_MASK) >> RS1_SHIFT) as u8
+}
+
+#[inline(always)]
+fn extract_rs2(u32_instruction: u32) -> u8 {
+    const RS2_MASK: u32 = 0x01F00000; // bits 24-20
+    const RS2_SHIFT: u32 = 20;
+    ((u32_instruction & RS2_MASK) >> RS2_SHIFT) as u8
+}
+
+const DYNAMIC_RTYPE_OPCODE: u8 = 0b0001011;
+
 pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
     let mut block = BasicBlock::default();
     let mut decoder = InstructionDecoder;
 
     for &u32_instruction in u32_instructions.iter() {
         // Decode the instruction
-        let decoded_instruction =
-            process_instruction(&mut decoder, u32_instruction).unwrap_or_else(Instruction::unimp);
+        let decoded_instruction = process_instruction(&mut decoder, u32_instruction)
+            .unwrap_or_else(|| {
+                // The rrs_lib instruction decoding doesn't have support for custom instructions,
+                // so we need to handle them more as an error condition.
+                let opcode = extract_opcode(u32_instruction);
+
+                // Right now, we only support the single dynamic R-type opcode.
+                if opcode != DYNAMIC_RTYPE_OPCODE {
+                    return Instruction::unimp();
+                }
+
+                let fn3 = extract_fn3(u32_instruction);
+                let fn7 = extract_fn7(u32_instruction);
+                let rd = extract_rd(u32_instruction);
+                let rs1 = extract_rs1(u32_instruction);
+                let rs2 = extract_rs2(u32_instruction);
+
+                let opcode = Opcode::new(opcode, Some(fn3), Some(fn7), "dynamic");
+
+                Instruction::new(opcode, rd, rs1, rs2.into(), InstructionType::RType)
+            });
+
+        let pc_changed = decoded_instruction.is_branch_or_jump_instruction();
 
         block.0.push(decoded_instruction);
 
-        if decoded_instruction.is_branch_or_jump_instruction() {
+        if pc_changed {
             break;
         }
     }
+
     block
 }
 
