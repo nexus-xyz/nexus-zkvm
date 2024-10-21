@@ -4,8 +4,8 @@ use crate::cpu::{instructions::InstructionResult, RegisterFile};
 use crate::elf::ElfFile;
 use crate::emulator::{Emulator, LinearEmulator, LinearMemoryLayout};
 use crate::error::{Result, VMError};
-use crate::memory::MemoryRecords;
-use crate::riscv::{Instruction, Opcode};
+use crate::memory::{MemAccessSize, MemoryProcessor, MemoryRecords};
+use crate::riscv::Instruction;
 
 /// A program step.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -16,8 +16,10 @@ pub struct Step {
     pub pc: u32,
     /// Value of program counter after instruction.
     pub next_pc: u32,
+    /// Raw instruction.
+    pub raw_instruction: u32,
     /// Encoded instruction.
-    pub op: Opcode,
+    pub instruction: Instruction,
     /// Result of instruction evaluation.
     pub result: InstructionResult,
     /// Memory records for instruction evaluation.
@@ -25,7 +27,7 @@ pub struct Step {
 }
 
 /// A sequence of program steps.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Block {
     /// Starting register file for this block.
     pub regs: RegisterFile,
@@ -141,11 +143,12 @@ impl BBTrace {
 // Generate a `Step` by evaluating the next instruction of `vm`.
 fn step(
     vm: &mut LinearEmulator,
-    bare_instruction: &Instruction,
+    raw_instruction: u32,
+    instruction: &Instruction,
     pc: u32,
     timestamp: u32,
 ) -> Result<Step> {
-    let (result, memory_records) = vm.execute_instruction(bare_instruction)?;
+    let (result, memory_records) = vm.execute_instruction(instruction)?;
 
     let next_pc = vm.executor.cpu.pc.value;
 
@@ -153,7 +156,8 @@ fn step(
         timestamp,
         pc,
         next_pc,
-        op: bare_instruction.opcode.clone(),
+        raw_instruction,
+        instruction: instruction.clone(),
         result,
         memory_records,
     };
@@ -180,21 +184,29 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
                     let pc = vm.executor.cpu.pc.value;
                     let timestamp = vm.executor.global_clock as u32;
 
-                    match step(vm, instruction, pc, timestamp) {
-                        Ok(step) => block.steps.push(step),
-                        Err(VMError::VMExited(n)) => {
-                            block.steps.push(Step {
-                                timestamp,
-                                pc,
-                                next_pc: pc,
-                                op: instruction.opcode.clone(),
-                                result: Some(n),
-                                memory_records: MemoryRecords::default(),
-                            });
+                    match vm.memory.read(pc, MemAccessSize::Word) {
+                        Err(e) => return (None::<Block>, Err::<(), VMError>(e.into())),
+                        Ok(instruction_read) => {
+                            let raw_instruction = instruction_read.get_value();
 
-                            return (Some(block), Err(VMError::VMExited(n)));
+                            match step(vm, raw_instruction, instruction, pc, timestamp) {
+                                Ok(step) => block.steps.push(step),
+                                Err(VMError::VMExited(n)) => {
+                                    block.steps.push(Step {
+                                        timestamp,
+                                        pc,
+                                        next_pc: pc,
+                                        raw_instruction,
+                                        instruction: instruction.clone(),
+                                        result: Some(n),
+                                        memory_records: MemoryRecords::default(),
+                                    });
+
+                                    return (Some(block), Err(VMError::VMExited(n)));
+                                }
+                                Err(e) => return (None, Err(e)),
+                            }
                         }
-                        Err(e) => return (None, Err(e)),
                     }
                 }
             }
@@ -262,21 +274,29 @@ fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
                 let pc = vm.executor.cpu.pc.value;
                 let timestamp = vm.executor.global_clock as u32;
 
-                match step(vm, instruction, pc, timestamp) {
-                    Ok(step) => block.steps.push(step),
-                    Err(VMError::VMExited(n)) => {
-                        block.steps.push(Step {
-                            timestamp,
-                            pc,
-                            next_pc: pc,
-                            op: instruction.opcode.clone(),
-                            result: Some(n),
-                            memory_records: MemoryRecords::default(),
-                        });
+                match vm.memory.read(pc, MemAccessSize::Word) {
+                    Err(e) => return (None::<Block>, Err::<(), VMError>(e.into())),
+                    Ok(instruction_read) => {
+                        let raw_instruction = instruction_read.get_value();
 
-                        return (Some(block), Err(VMError::VMExited(n)));
+                        match step(vm, raw_instruction, instruction, pc, timestamp) {
+                            Ok(step) => block.steps.push(step),
+                            Err(VMError::VMExited(n)) => {
+                                block.steps.push(Step {
+                                    timestamp,
+                                    pc,
+                                    next_pc: pc,
+                                    raw_instruction,
+                                    instruction: instruction.clone(),
+                                    result: Some(n),
+                                    memory_records: MemoryRecords::default(),
+                                });
+
+                                return (Some(block), Err(VMError::VMExited(n)));
+                            }
+                            Err(e) => return (None, Err(e)),
+                        }
                     }
-                    Err(e) => return (None, Err(e)),
                 }
             }
         }
@@ -329,7 +349,7 @@ pub fn bb_trace(
 mod tests {
     use super::*;
     use crate::memory::{MemAccessSize, MemoryRecord};
-    use crate::riscv::{BuiltinOpcode, Register};
+    use crate::riscv::{BuiltinOpcode, Opcode, Register};
 
     #[test]
     fn test_k1_trace_nexus_rt_binary() {
@@ -347,7 +367,8 @@ mod tests {
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 9445384);
         assert_eq!(step.next_pc, 9445388);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::AUIPC));
+        assert_eq!(step.raw_instruction, 0x00001197);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
         assert_eq!(step.result, Some(9449480));
         assert!(step.memory_records.is_empty());
 
@@ -362,7 +383,8 @@ mod tests {
         assert_eq!(step.timestamp, 13);
         assert_eq!(step.pc, 9445444);
         assert_eq!(step.next_pc, 9445448);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::SW));
+        assert_eq!(step.raw_instruction, 0x00C10DA3);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
 
@@ -384,7 +406,8 @@ mod tests {
         assert_eq!(step.timestamp, trace.blocks.len() as u32);
         assert_eq!(step.pc, 9445476);
         assert_eq!(step.next_pc, 9445476);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::ECALL));
+        assert_eq!(step.raw_instruction, 0x00812583);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
         assert!(step.memory_records.is_empty());
     }
@@ -405,7 +428,8 @@ mod tests {
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 9445384);
         assert_eq!(step.next_pc, 9445388);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::AUIPC));
+        assert_eq!(step.raw_instruction, 0x00001197);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
         assert_eq!(step.result, Some(9449480));
         assert!(step.memory_records.is_empty());
 
@@ -419,7 +443,8 @@ mod tests {
         assert_eq!(step.timestamp, 13);
         assert_eq!(step.pc, 9445444);
         assert_eq!(step.next_pc, 9445448);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::SW));
+        assert_eq!(step.raw_instruction, 0x00C10DA3);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
 
@@ -432,7 +457,6 @@ mod tests {
             ))
             .is_some());
 
-        // check last block, todo: update to use ecall exit
         let block = trace.block(trace.blocks.len() - 1).unwrap();
 
         assert!(block.steps.len() <= 8);
@@ -445,7 +469,8 @@ mod tests {
         );
         assert_eq!(step.pc, 9445476);
         assert_eq!(step.next_pc, 9445476);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::ECALL));
+        assert_eq!(step.raw_instruction, 0x00812583);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
         assert!(step.memory_records.is_empty());
     }
@@ -465,7 +490,8 @@ mod tests {
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 9445384);
         assert_eq!(step.next_pc, 9445388);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::AUIPC));
+        assert_eq!(step.raw_instruction, 0x00001197);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
         assert_eq!(step.result, Some(9449480));
         assert!(step.memory_records.is_empty());
 
@@ -477,7 +503,8 @@ mod tests {
         assert_eq!(step.timestamp, 13);
         assert_eq!(step.pc, 9445444);
         assert_eq!(step.next_pc, 9445448);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::SW));
+        assert_eq!(step.raw_instruction, 0x00C10DA3);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
 
@@ -490,7 +517,6 @@ mod tests {
             ))
             .is_some());
 
-        // check last block, todo: update to use ecall exit
         let block = trace.block(trace.blocks.len() - 1).unwrap();
 
         assert!(block.steps.len() <= 8);
@@ -499,7 +525,8 @@ mod tests {
 
         assert_eq!(step.pc, 9445476);
         assert_eq!(step.next_pc, 9445476);
-        assert_eq!(step.op, Opcode::from(BuiltinOpcode::ECALL));
+        assert_eq!(step.raw_instruction, 0x00812583);
+        assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
         assert!(step.memory_records.is_empty());
     }

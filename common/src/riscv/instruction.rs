@@ -5,9 +5,10 @@ use crate::riscv::opcode::BuiltinOpcode;
 use super::{register::Register, Opcode};
 
 use rrs_lib::instruction_formats::{BType, IType, ITypeShamt, RType, SType};
+use serde::{Deserialize, Serialize};
 
 /// Represents all supported RISC-V RV32IM instruction types.
-#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum InstructionType {
     RType,
     #[default]
@@ -23,7 +24,7 @@ pub enum InstructionType {
 /// Represents a unified form for all RISC-V instructions.
 ///
 /// This struct uses 8 bytes to store an instruction, keeping it as minimal as possible.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Instruction {
     pub opcode: Opcode,
     pub op_a: Register,
