@@ -1,10 +1,10 @@
 use stwo_prover::constraint_framework::EvalAtRow;
 
-use super::trace::{eval::TraceEval, Traces};
+use super::trace::{eval::TraceEval, Step, Traces};
 
-pub trait MachineChip {
+pub(crate) trait MachineChip {
     /// Called on each row during main trace generation.
-    fn fill_main_trace(rd_idx: usize, traces: &mut Traces, row_idx: usize);
+    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &Step);
 
     /// Called on each row during constraint evaluation.
     ///

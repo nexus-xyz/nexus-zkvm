@@ -1,12 +1,15 @@
-use num_traits::Zero as _;
+use num_traits::Zero;
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+
+use nexus_common::cpu::Registers;
+use nexus_vm::riscv::{BuiltinOpcode, Register};
 
 use crate::{
     machine2::{
         column::Column::{self, *},
         trace::{
             eval::{trace_eval, TraceEval},
-            trace_column, trace_column_mut, Traces,
+            trace_column, trace_column_mut, Step, Traces,
         },
         traits::MachineChip,
     },
@@ -15,32 +18,50 @@ use crate::{
 
 pub struct AddChip;
 impl MachineChip for AddChip {
-    fn fill_main_trace(rd_idx: usize, traces: &mut Traces, row_idx: usize) {
-        // TODO: handle no-op case when rd = 0.
-        assert!(rd_idx != 0);
-
-        let is_add = trace_column!(traces, row_idx, IsAdd);
-        if is_add[0].is_zero() {
+    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &Step) {
+        let step = &vm_step.step;
+        let regs = &vm_step.regs;
+        if !matches!(step.instruction.opcode.builtin(), Some(BuiltinOpcode::ADD)) {
             return;
         }
 
-        // TODO: either main trace or chips should fill `B` and `C` columns
-        let r1_val = trace_column!(traces, row_idx, ValueB);
-        let r2_val = trace_column!(traces, row_idx, ValueC);
+        // TODO: handle no-op case when rd = 0.
+        assert!(step.instruction.op_a != Register::X0);
+        debug_assert! {{
+            let is_add = trace_column!(traces, row_idx, IsAdd);
+            !is_add[0].is_zero()
+        }};
 
-        let mut carry_vals = [0u32; 4];
-        let rd_val = trace_column_mut!(traces, row_idx, ValueA);
+        let rs1 = step.instruction.op_b;
+        let rs2 = step.instruction.op_c;
+
+        let rs1_val = regs.read(rs1);
+        let rs2_val = regs.read(Register::from(
+            u8::try_from(rs2).expect("immediate not supported"),
+        ));
+
+        let rs1_bytes = rs1_val.to_le_bytes();
+        let rs2_bytes = rs2_val.to_le_bytes();
+        let rd_bytes = rs1_val.wrapping_add(rs2_val).to_le_bytes();
+
+        let mut carry_vals = [0u32; WORD_SIZE];
+
         for i in 0..WORD_SIZE {
-            let prev_carry = i.checked_sub(1).map(|j| carry_vals[j]).unwrap_or(0);
-            // set rd_val[i] = (carry + r1_val[j] + r2_val[j]) % 256
-            *rd_val[i] = ((prev_carry + r1_val[i].0 + r2_val[i].0) as u8 as u32).into();
-
-            let carry = (prev_carry + r1_val[i].0 + r2_val[i].0) / 256u32;
-            assert!(carry == 0 || carry == 1);
-            // set carry_flag[i] = (carry + r1_val[i] + r2_val[i]) / 256
-            carry_vals[i] = carry;
+            let prev_carry = i.checked_sub(1).map(|j| carry_vals[j]).unwrap_or(0u32);
+            if rs1_bytes[i] as u32 + rs2_bytes[i] as u32 + prev_carry > 255 {
+                carry_vals[i] = 1
+            }
         }
-        // fill carry values
+        // Assume that values for rs1 and rs2 are filled by cpu.
+        //
+        // let r1_val = trace_column!(traces, row_idx, ValueB);
+        // let r2_val = trace_column!(traces, row_idx, ValueC);
+
+        // fill traces
+        let rd_val = trace_column_mut!(traces, row_idx, ValueA);
+        for (i, b) in rd_bytes.iter().enumerate() {
+            *rd_val[i] = BaseField::from(*b as u32);
+        }
         let carry = trace_column_mut!(traces, row_idx, CarryFlag);
         for (i, c) in carry_vals.iter().enumerate() {
             *carry[i] = BaseField::from(*c);
@@ -77,6 +98,12 @@ impl MachineChip for AddChip {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nexus_common::cpu::Registers;
+    use nexus_vm::{
+        cpu::RegisterFile,
+        riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode},
+        trace as vm_trace,
+    };
     use num_traits::One;
     use stwo_prover::{
         constraint_framework::assert_constraints,
@@ -91,7 +118,6 @@ mod test {
     };
 
     const ROW_IDX: usize = 0;
-    const RD_IDX: usize = 1;
     const LOG_SIZE: u32 = 6;
 
     const VALS: [(u32, u32); 5] = [
@@ -115,6 +141,25 @@ mod test {
         let [r1_val, r2_val, output] = gen_add(rs1val, rs2val);
 
         let mut traces = Traces::new(LOG_SIZE);
+        let inst = Instruction::new(
+            Opcode::from(BuiltinOpcode::ADD),
+            1,
+            2,
+            3,
+            InstructionType::RType,
+        );
+        let mut regs = RegisterFile::new();
+        regs.write(Register::X2, rs1val);
+        regs.write(Register::X3, rs2val);
+
+        let step = Step {
+            step: vm_trace::Step {
+                instruction: inst,
+                result: None,
+                ..Default::default()
+            },
+            regs,
+        };
         *trace_column_mut!(traces, ROW_IDX, IsAdd)[0] = BaseField::one();
 
         let r1_col = trace_column_mut!(traces, ROW_IDX, ValueB);
@@ -125,7 +170,7 @@ mod test {
         for (i, b) in r2_val.iter().enumerate() {
             *r2_col[i] = BaseField::from(*b as u32);
         }
-        AddChip::fill_main_trace(RD_IDX, &mut traces, ROW_IDX);
+        AddChip::fill_main_trace(&mut traces, ROW_IDX, &step);
         (output, traces)
     }
 

@@ -5,6 +5,16 @@ use super::column::Column;
 
 pub mod eval;
 
+use nexus_vm::cpu::RegisterFile;
+
+// Program execution step.
+pub(crate) struct Step {
+    /// Machine registers.
+    pub(crate) regs: RegisterFile,
+    /// Program step.
+    pub(crate) step: nexus_vm::trace::Step,
+}
+
 pub struct Traces(Vec<Vec<BaseField>>);
 
 impl Traces {
