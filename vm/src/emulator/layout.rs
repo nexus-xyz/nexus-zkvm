@@ -1,11 +1,12 @@
 use crate::error::{Result, VMError};
 use crate::WORD_SIZE;
+use serde::{Deserialize, Serialize};
 
 // see runtime
 const MEMORY_GAP: u32 = 0x1000;
 
 // nb: all measurements are in terms of virtual memory
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct LinearMemoryLayout {
     // start of the gap between heap and stack
     gap: u32,

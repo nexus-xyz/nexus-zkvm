@@ -36,6 +36,8 @@ pub struct Block {
 }
 
 pub trait Trace {
+    fn get_memory_layout(&self) -> &LinearMemoryLayout;
+
     fn get_blocks_iter(&self) -> impl Iterator<Item = &Block> + '_;
 
     fn get_start(&self) -> usize;
@@ -49,6 +51,8 @@ pub trait Trace {
 /// Represents a program trace over uniform blocks.
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct UniformTrace {
+    /// Memory layout.
+    pub memory_layout: LinearMemoryLayout,
     /// Steps per block.
     pub k: usize,
     /// First block in this (sub)trace.
@@ -58,6 +62,10 @@ pub struct UniformTrace {
 }
 
 impl Trace for UniformTrace {
+    fn get_memory_layout(&self) -> &LinearMemoryLayout {
+        &self.memory_layout
+    }
+
     fn get_blocks_iter(&self) -> impl Iterator<Item = &Block> + '_ {
         self.blocks.iter()
     }
@@ -71,6 +79,7 @@ impl UniformTrace {
     /// Create a subtrace containing only block `n`.
     pub fn get(&self, n: usize) -> Option<Self> {
         Some(UniformTrace {
+            memory_layout: self.memory_layout.clone(),
             k: self.k,
             start: n,
             blocks: vec![self.block(n)?.clone()],
@@ -85,6 +94,7 @@ impl UniformTrace {
             let start = index;
             index += n;
             UniformTrace {
+                memory_layout: self.memory_layout.clone(),
                 k: self.k,
                 start,
                 blocks: bs.to_vec(),
@@ -105,6 +115,8 @@ impl UniformTrace {
 /// Represents a program trace over basic blocks.
 #[derive(Default, Clone, Serialize, Deserialize)]
 pub struct BBTrace {
+    /// Memory layout.
+    pub memory_layout: LinearMemoryLayout,
     /// First block in this (sub)trace.
     pub start: usize,
     /// The blocks contained in this trace.
@@ -112,6 +124,10 @@ pub struct BBTrace {
 }
 
 impl Trace for BBTrace {
+    fn get_memory_layout(&self) -> &LinearMemoryLayout {
+        &self.memory_layout
+    }
+
     fn get_blocks_iter(&self) -> impl Iterator<Item = &Block> + '_ {
         self.blocks.iter()
     }
@@ -125,6 +141,7 @@ impl BBTrace {
     /// Create a subtrace containing only block `n`.
     pub fn get(&self, n: usize) -> Option<Self> {
         Some(BBTrace {
+            memory_layout: self.memory_layout.clone(),
             start: n,
             blocks: vec![self.block(n)?.clone()],
         })
@@ -134,6 +151,7 @@ impl BBTrace {
     /// final subtrace may contain fewer than `n` blocks.
     pub fn split_by(&self, n: usize) -> impl Iterator<Item = Self> + '_ {
         self.blocks.chunks(n).enumerate().map(move |(i, bs)| Self {
+            memory_layout: self.memory_layout.clone(),
             start: i * n,
             blocks: bs.to_vec(),
         })
@@ -236,6 +254,7 @@ pub fn k_trace(
     );
 
     let mut trace = UniformTrace {
+        memory_layout: vm.memory_layout.clone(),
         k,
         start: 0,
         blocks: Vec::new(),
@@ -322,6 +341,7 @@ pub fn bb_trace(
     );
 
     let mut trace = BBTrace {
+        memory_layout: vm.memory_layout.clone(),
         start: 0,
         blocks: Vec::new(),
     };

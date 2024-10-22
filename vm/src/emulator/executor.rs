@@ -404,7 +404,7 @@ pub struct LinearEmulator {
     access_timestamps: HashMap<u32, usize>,
 
     // The memory layout
-    memory_layout: LinearMemoryLayout,
+    pub memory_layout: LinearMemoryLayout,
 
     // The linear memory
     pub memory: UnifiedMemory,
