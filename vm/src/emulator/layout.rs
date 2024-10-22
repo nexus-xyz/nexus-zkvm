@@ -1,5 +1,5 @@
-use crate::elf::WORD_SIZE;
 use crate::error::{Result, VMError};
+use crate::WORD_SIZE;
 
 // see runtime
 const MEMORY_GAP: u32 = 0x1000;
@@ -40,7 +40,7 @@ impl LinearMemoryLayout {
             return Err(VMError::InvalidMemoryLayout);
         }
 
-        if self.gap_end() - self.gap_start() > MEMORY_GAP + WORD_SIZE {
+        if self.gap_end() - self.gap_start() > MEMORY_GAP + WORD_SIZE as u32 {
             return Err(VMError::InvalidMemoryLayout);
         }
 
@@ -72,8 +72,8 @@ impl LinearMemoryLayout {
         let gap = 0x1000 + max_heap_size; // registers take 0x1000 bytes
         let stack_bottom = gap + MEMORY_GAP;
         let stack_top = stack_bottom + max_stack_size;
-        let panic = stack_top + WORD_SIZE + public_input_size; // stack_top | {input_size} | {input}
-        let public_output = panic + WORD_SIZE;
+        let panic = stack_top + WORD_SIZE as u32 + public_input_size; // stack_top | {input_size} | {input}
+        let public_output = panic + WORD_SIZE as u32;
         let program = public_output + public_output_size;
         let ad = program + program_size;
         let end = ad + ad_size;
@@ -119,11 +119,11 @@ impl LinearMemoryLayout {
     }
 
     pub const fn registers_end(&self) -> u32 {
-        32 * WORD_SIZE
+        32 * WORD_SIZE as u32
     }
 
     pub const fn heap_start(&self) -> u32 {
-        32 * WORD_SIZE
+        32 * WORD_SIZE as u32
     }
 
     pub fn heap_end(&self) -> u32 {
@@ -143,7 +143,7 @@ impl LinearMemoryLayout {
     }
 
     pub fn stack_top(&self) -> u32 {
-        self.stack_top - WORD_SIZE
+        self.stack_top - WORD_SIZE as u32
     }
 
     pub fn public_input_start(&self) -> u32 {

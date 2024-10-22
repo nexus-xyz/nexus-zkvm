@@ -177,7 +177,7 @@ pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
 mod tests {
     use super::*;
     use crate::elf::ElfFile;
-    use crate::elf::WORD_SIZE;
+    use crate::WORD_SIZE;
 
     /// Tests the decoding of instructions from an ELF file
     ///
@@ -239,7 +239,7 @@ mod tests {
         for (file_path, entrypoint) in test_cases.iter() {
             let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");
             assert_eq!(elf.entry, *entrypoint);
-            let entry_instruction = (elf.entry - elf.base) / WORD_SIZE;
+            let entry_instruction = (elf.entry - elf.base) / WORD_SIZE as u32;
             let want_instructions = 200;
             let program = decode_instructions(
                 &elf.instructions
@@ -270,7 +270,7 @@ mod tests {
         for (file_path, entrypoint) in test_cases.iter() {
             let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");
             assert_eq!(elf.entry, *entrypoint);
-            let entry_instruction = (elf.entry - elf.base) / WORD_SIZE;
+            let entry_instruction = (elf.entry - elf.base) / WORD_SIZE as u32;
             let basic_block =
                 decode_until_end_of_a_block(&elf.instructions[entry_instruction as usize..]);
 

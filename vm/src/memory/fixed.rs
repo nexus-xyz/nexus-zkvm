@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::elf::WORD_SIZE;
+use crate::WORD_SIZE;
 use nexus_common::error::MemoryError;
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, NA, RO, RW, WO};
@@ -24,7 +24,7 @@ impl<M: Mode> FixedMemory<M> {
     }
 
     pub fn from_vec(base_address: u32, max_len: usize, vec: Vec<u32>) -> Self {
-        vec.to_owned().truncate(max_len / WORD_SIZE as usize);
+        vec.to_owned().truncate(max_len / WORD_SIZE);
 
         FixedMemory::<M> {
             base_address,
@@ -36,7 +36,7 @@ impl<M: Mode> FixedMemory<M> {
 
     pub fn from_slice(base_address: u32, max_len: usize, slice: &[u32]) -> Self {
         let mut vec = slice.to_vec();
-        vec.truncate(max_len / WORD_SIZE as usize);
+        vec.truncate(max_len / WORD_SIZE);
 
         FixedMemory::<M> {
             base_address,
@@ -47,7 +47,7 @@ impl<M: Mode> FixedMemory<M> {
     }
 
     pub fn segment(&self, start: u32, end: Option<u32>) -> &[u32] {
-        let s = (start - self.base_address) / WORD_SIZE;
+        let s = (start - self.base_address) / WORD_SIZE as u32;
 
         if let Some(mut e) = end {
             e -= self.base_address;

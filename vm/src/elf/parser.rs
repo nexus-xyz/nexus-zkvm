@@ -50,7 +50,7 @@ pub struct ParsedElfData {
 const MAXIMUM_MEMORY_SIZE: u32 = u32::MAX;
 
 /// The size of a word in bytes.
-pub const WORD_SIZE: u32 = 4;
+pub const WORD_SIZE: usize = 4;
 
 /// Defines the allowed sections for Harvard architecture:
 /// - Instruction memory: .text
@@ -138,7 +138,7 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
         .map_err(|_| ParserError::InvalidSegmentOffset)?;
 
     // Ensure the virtual address is word-aligned
-    if virtual_address % WORD_SIZE != 0 {
+    if virtual_address % WORD_SIZE as u32 != 0 {
         return Err(ParserError::UnalignedVirtualAddress);
     }
 
@@ -221,7 +221,7 @@ fn parse_segment_content(
 
         // Read the word from the file data
         let word = u32::from_le_bytes(
-            data[segment_offset as usize..(segment_offset + WORD_SIZE) as usize]
+            data[segment_offset as usize..(segment_offset + WORD_SIZE as u32) as usize]
                 .try_into()
                 .unwrap(),
         );

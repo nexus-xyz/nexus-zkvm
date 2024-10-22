@@ -6,3 +6,5 @@ pub mod memory;
 pub mod riscv;
 pub mod system;
 pub mod trace;
+
+pub use crate::elf::WORD_SIZE;

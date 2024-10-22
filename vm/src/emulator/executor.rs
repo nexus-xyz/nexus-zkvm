@@ -71,7 +71,7 @@ use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
 use super::{layout::LinearMemoryLayout, registry::InstructionExecutorRegistry};
 use crate::{
     cpu::{instructions::InstructionResult, Cpu},
-    elf::{ElfFile, WORD_SIZE},
+    elf::ElfFile,
     error::{Result, VMError},
     memory::{
         FixedMemory, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecords, StoreOps,
@@ -79,6 +79,7 @@ use crate::{
     },
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode},
     system::SyscallInstruction,
+    WORD_SIZE,
 };
 use nexus_common::cpu::InstructionExecutor;
 
@@ -275,7 +276,7 @@ impl HarvardEmulator {
 
             let ro_data_memory = FixedMemory::<RO>::from_vec(
                 ro_data_base_address,
-                ro_data.len() * WORD_SIZE as usize,
+                ro_data.len() * WORD_SIZE,
                 ro_data,
             );
 
@@ -293,12 +294,12 @@ impl HarvardEmulator {
             },
             instruction_memory: FixedMemory::<RO>::from_vec(
                 elf.base,
-                elf.instructions.len() * WORD_SIZE as usize,
+                elf.instructions.len() * WORD_SIZE,
                 elf.instructions,
             ),
             input_memory: FixedMemory::<RO>::from_slice(
                 0,
-                1 + public_input.len() * WORD_SIZE as usize,
+                1 + public_input.len() * WORD_SIZE,
                 &[&[public_input.len() as u32; 1], public_input].concat(),
             ),
             output_memory: VariableMemory::<WO>::default(),
@@ -432,12 +433,12 @@ impl LinearEmulator {
         // nb: unwraps below will never fail for a well-formed elf file, and we've already validated
 
         let code_start = memory_layout.program_start();
-        let ro_data_start = code_start + (elf.instructions.len() as u32 * WORD_SIZE);
+        let ro_data_start = code_start + (elf.instructions.len() * WORD_SIZE) as u32;
         let data_start: u32;
 
         let code_memory = FixedMemory::<RO>::from_vec(
             code_start,
-            elf.instructions.len() * WORD_SIZE as usize,
+            elf.instructions.len() * WORD_SIZE,
             elf.instructions,
         );
         let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
@@ -450,17 +451,14 @@ impl LinearEmulator {
                     - ro_data_base_address as usize
             ];
 
-            data_start = ro_data_start + (ro_data.len() as u32 * WORD_SIZE);
+            data_start = ro_data_start + (ro_data.len() * WORD_SIZE) as u32;
 
             for (addr, &value) in &elf.rom_image {
                 ro_data[(addr - ro_data_base_address) as usize] = value;
             }
 
-            let ro_data_memory = FixedMemory::<RO>::from_vec(
-                ro_data_start,
-                ro_data.len() * WORD_SIZE as usize,
-                ro_data,
-            );
+            let ro_data_memory =
+                FixedMemory::<RO>::from_vec(ro_data_start, ro_data.len() * WORD_SIZE, ro_data);
 
             let _ = memory.add_fixed_ro(&ro_data_memory).unwrap();
         } else {
@@ -479,18 +477,14 @@ impl LinearEmulator {
                 data[(addr - data_base_address) as usize] = value;
             }
 
-            let data_memory =
-                FixedMemory::<RW>::from_vec(data_start, data.len() * WORD_SIZE as usize, data);
+            let data_memory = FixedMemory::<RW>::from_vec(data_start, data.len() * WORD_SIZE, data);
 
             let _ = memory.add_fixed_rw(&data_memory).unwrap();
         }
 
         let input_len =
             (memory_layout.public_input_end() - memory_layout.public_input_start()) as usize;
-        assert_eq!(
-            input_len,
-            WORD_SIZE as usize + (public_input.len() * WORD_SIZE as usize)
-        );
+        assert_eq!(input_len, WORD_SIZE + (public_input.len() * WORD_SIZE));
         if input_len > 0 {
             let input_memory = FixedMemory::<RO>::from_slice(
                 memory_layout.public_input_start(),
@@ -521,7 +515,7 @@ impl LinearEmulator {
         let _ = memory.add_fixed_rw(&stack_memory).unwrap();
 
         let ad_len = (memory_layout.ad_end() - memory_layout.ad_start()) as usize;
-        assert_eq!(ad_len, ad.len() * WORD_SIZE as usize);
+        assert_eq!(ad_len, ad.len() * WORD_SIZE);
         if ad_len > 0 {
             let ad_memory = FixedMemory::<NA>::from_slice(memory_layout.ad_start(), ad_len, ad);
             let _ = memory.add_fixed_na(&ad_memory).unwrap();
