@@ -89,30 +89,30 @@ impl<M: Mode> FixedMemory<M> {
         }
 
         // Check for alignment
-        if address & size as u32 != 0 {
+        if !size.is_aligned(address) {
             return Err(MemoryError::UnalignedMemoryWrite(raw_address));
         }
 
         // Align to word boundary
-        let aligned_address = (address & !0x3) as usize;
+        let aligned_address = (address & !(WORD_SIZE - 1) as u32) as usize;
         let (shift, mask) = size.get_shift_and_mask(address);
 
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
 
-        let prev_value: u32;
+        let prev_value = if self.vec.len() <= aligned_address {
+            // Resize the vector to the next word-aligned size
+            let new_size = ((aligned_address / WORD_SIZE) + 1) * WORD_SIZE;
+            self.vec.resize(new_size, 0);
 
-        if self.vec.len() <= aligned_address {
-            prev_value = 0;
-
-            self.vec.resize_with(1 + aligned_address, Default::default);
-            self.vec[aligned_address] = data;
+            0
         } else {
-            prev_value = (self.vec[aligned_address] >> shift) & mask;
+            (self.vec[aligned_address] >> shift) & mask
+        };
 
-            self.vec[aligned_address] &= write_mask;
-            self.vec[aligned_address] |= data;
-        }
+        // Perform the write operation
+        self.vec[aligned_address] &= write_mask;
+        self.vec[aligned_address] |= data;
 
         Ok(StoreOp::Op(
             size,
@@ -146,12 +146,12 @@ impl<M: Mode> FixedMemory<M> {
         }
 
         // Check for alignment
-        if address & size as u32 != 0 {
+        if !size.is_aligned(address) {
             return Err(MemoryError::UnalignedMemoryRead(raw_address));
         }
 
         // Align to word boundary
-        let aligned_address = (address & !0x3) as usize;
+        let aligned_address = (address & !(WORD_SIZE - 1) as u32) as usize;
         let (shift, mask) = size.get_shift_and_mask(address);
 
         if self.vec.len() <= aligned_address {
@@ -609,5 +609,40 @@ mod tests {
             memory.write(0x1000, MemAccessSize::Word, 0xABCD1234),
             Err(MemoryError::UnauthorizedWrite(0x1000))
         );
+    }
+
+    #[test]
+    fn test_memory_size_alignment() {
+        let mut memory = FixedMemory::<RW>::new(0x1000, 0x100);
+
+        // Initial size should be 0
+        assert_eq!(memory.vec.len(), 0);
+
+        // Write a byte at the start of the memory
+        memory.write(0x1000, MemAccessSize::Byte, 0xAB).unwrap();
+        assert_eq!(memory.vec.len(), 4);
+
+        // Write a byte at an address that would require 2 words
+        memory.write(0x1007, MemAccessSize::Byte, 0xCD).unwrap();
+        assert_eq!(memory.vec.len(), 8);
+
+        // Write a halfword at an address that would require 3 words
+        memory
+            .write(0x100A, MemAccessSize::HalfWord, 0xEF12)
+            .unwrap();
+        assert_eq!(memory.vec.len(), 12);
+
+        // Write a word at an address that would require 5 words
+        memory
+            .write(0x1010, MemAccessSize::Word, 0x12345678)
+            .unwrap();
+        assert_eq!(memory.vec.len(), 20);
+
+        // Write a byte at a far address
+        memory.write(0x10FF, MemAccessSize::Byte, 0xFF).unwrap();
+        assert_eq!(memory.vec.len(), 256);
+
+        // Verify that all sizes are multiples of 4 (word-aligned)
+        assert!(memory.vec.len() % 4 == 0);
     }
 }

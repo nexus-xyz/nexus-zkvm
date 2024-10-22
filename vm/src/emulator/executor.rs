@@ -539,8 +539,8 @@ impl LinearEmulator {
     }
 
     fn manage_timestamps(&mut self, size: &MemAccessSize, address: &u32) -> usize {
-        let half_aligned_address = address & !0x1;
-        let full_aligned_address = address & !0x3;
+        let half_aligned_address = address & !(WORD_SIZE / 2 - 1) as u32;
+        let full_aligned_address = address & !(WORD_SIZE - 1) as u32;
 
         let prev = match size {
             MemAccessSize::Byte => max(

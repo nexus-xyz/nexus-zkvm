@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
 
+use crate::WORD_SIZE;
 use nexus_common::error::MemoryError;
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, RO, RW, WO};
@@ -35,12 +36,12 @@ impl<M: Mode> VariableMemory<M> {
         let (shift, mask) = size.get_shift_and_mask(address);
 
         // Check for alignment
-        if address & size as u32 != 0 {
+        if !size.is_aligned(address) {
             return Err(MemoryError::UnalignedMemoryWrite(address));
         }
 
         // Align to word boundary
-        let aligned_address = address & !0x3;
+        let aligned_address = address & !(WORD_SIZE - 1) as u32;
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
 
@@ -77,12 +78,12 @@ impl<M: Mode> VariableMemory<M> {
     fn execute_read(&self, address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         let (shift, mask) = size.get_shift_and_mask(address);
 
-        if address & size as u32 != 0 {
+        if !size.is_aligned(address) {
             return Err(MemoryError::UnalignedMemoryRead(address));
         }
 
         // Align to word boundary
-        let aligned_address = address & !0x3;
+        let aligned_address = address & !(WORD_SIZE - 1) as u32;
 
         let value = self
             .0

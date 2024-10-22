@@ -20,6 +20,15 @@ impl MemAccessSize {
             MemAccessSize::Word => (0, 0xffffffff),
         }
     }
+
+    // Helper function to check if the input address is aligned or not
+    pub fn is_aligned(&self, address: u32) -> bool {
+        match self {
+            MemAccessSize::Byte => true,
+            MemAccessSize::HalfWord => address & 0x1 == 0,
+            MemAccessSize::Word => address & 0x3 == 0,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
