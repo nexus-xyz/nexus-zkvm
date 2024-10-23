@@ -8,13 +8,14 @@ use super::Column;
 pub struct TraceEval<E: EvalAtRow>(Vec<[E::F; 2]>);
 
 impl<E: EvalAtRow> TraceEval<E> {
-    pub fn new(eval: &mut E) -> Self {
+    pub(crate) fn new(eval: &mut E) -> Self {
         let evals = std::iter::repeat_with(|| eval.next_interaction_mask(0, [-1, 0]))
             .take(Column::COLUMNS_NUM)
             .collect();
         Self(evals)
     }
 
+    #[doc(hidden)]
     pub fn column_eval<const N: usize>(&self, col: Column) -> ([E::F; N], [E::F; N]) {
         assert_eq!(col.size(), N, "column size mismatch");
         let offset = col.offset();

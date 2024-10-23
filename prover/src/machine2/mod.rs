@@ -1,7 +1,81 @@
+use std::marker::PhantomData;
+
+use stwo_prover::{
+    constraint_framework::TraceLocationAllocator,
+    core::{
+        backend::simd::SimdBackend,
+        channel::Blake2sChannel,
+        pcs::{CommitmentSchemeProver, PcsConfig},
+        poly::circle::{CanonicCoset, PolyOps},
+        prover::{prove, ProvingError, StarkProof},
+        vcs::blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
+    },
+};
+
+use nexus_vm::trace::Trace;
+
 pub mod chips;
+pub mod components;
 pub mod trace;
 
 pub mod column;
 pub mod traits;
 
 pub use crate::utils::WORD_SIZE;
+
+use chips::{AddChip, CpuChip};
+use components::{MachineComponent, MachineEval};
+use traits::MachineChip;
+
+pub type Components = (CpuChip, AddChip);
+pub type Proof = StarkProof<Blake2sMerkleHasher>;
+
+pub struct Machine<C = Components> {
+    _phantom_data: PhantomData<C>,
+}
+
+impl<C: MachineChip> Machine<C> {
+    pub fn prove(trace: &impl Trace) -> Result<Proof, ProvingError> {
+        const LOG_SIZE: u32 = 6;
+
+        let config = PcsConfig::default();
+        // Precompute twiddles.
+        let twiddles = SimdBackend::precompute_twiddles(
+            CanonicCoset::new(LOG_SIZE + 1 + config.fri_config.log_blowup_factor)
+                .circle_domain()
+                .half_coset,
+        );
+
+        // Setup protocol.
+        let prover_channel = &mut Blake2sChannel::default();
+        let commitment_scheme =
+            &mut CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(
+                config, &twiddles,
+            );
+
+        // Fill columns.
+        let mut prover_traces = trace::Traces::new(LOG_SIZE);
+        for (row_idx, block) in trace.get_blocks_iter().enumerate() {
+            // k = 1
+            assert_eq!(block.steps.len(), 1);
+
+            let step = trace::Step {
+                step: block.steps[0].clone(),
+                regs: block.regs,
+            };
+            C::fill_main_trace(&mut prover_traces, row_idx, &step);
+        }
+
+        let component = MachineComponent::new(
+            &mut TraceLocationAllocator::default(),
+            MachineEval::<C>::new(LOG_SIZE),
+        );
+        let proof = prove::<SimdBackend, Blake2sMerkleChannel>(
+            &[&component],
+            prover_channel,
+            commitment_scheme,
+        )?;
+
+        Ok(proof)
+    }
+}
