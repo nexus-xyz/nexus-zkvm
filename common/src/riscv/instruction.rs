@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::riscv::opcode::BuiltinOpcode;
+use crate::riscv::{encode_instruction, opcode::BuiltinOpcode};
 
 use super::{register::Register, Opcode};
 
@@ -205,6 +205,11 @@ impl Instruction {
         let rd = self.op_a;
         let imm20 = self.op_b as i32;
         format!("{} {}, 0x{:x}", opcode, rd, imm20)
+    }
+
+    // Encode the instruction struct to binary representation.
+    pub fn encode(&self) -> u32 {
+        encode_instruction(self)
     }
 }
 

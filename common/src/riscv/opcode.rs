@@ -18,13 +18,13 @@ use crate::error::OpcodeError;
 pub struct Opcode {
     /// The opcode as defined by RISC-V (7 least significant bits of an instruction). The MSB is
     /// always zero.
-    raw: u8,
+    pub raw: u8,
 
     /// The `funct3` field of the instruction, if applicable.
-    fn3: SubByte<3>,
+    pub fn3: SubByte<3>,
 
     /// The `funct7` field of the instruction, if applicable.
-    fn7: SubByte<7>,
+    pub fn7: SubByte<7>,
 
     /// The opcode's identifier - either a standard RISC-V opcode (BuiltinOpcode) or a custom
     /// instruction name.
@@ -61,10 +61,6 @@ impl Opcode {
 
     pub fn name(&self) -> &str {
         self.identifier.name()
-    }
-
-    pub fn raw(&self) -> u8 {
-        self.raw
     }
 }
 
