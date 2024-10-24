@@ -142,8 +142,8 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
         return Err(ParserError::UnalignedVirtualAddress);
     }
 
-    // Ensure the 0 < file_size <= mem_size and the total size does not exceed the maximum memory size
-    if (0 < file_size) && (file_size <= mem_size) && (file_size + offset < MAXIMUM_MEMORY_SIZE) {
+    // Ensure file_size <= mem_size and the total size does not exceed the maximum memory size
+    if (file_size <= mem_size) && (file_size + offset < MAXIMUM_MEMORY_SIZE) {
         Ok((virtual_address, offset, file_size))
     } else {
         Err(ParserError::SegmentSizeExceedsMemorySize)
