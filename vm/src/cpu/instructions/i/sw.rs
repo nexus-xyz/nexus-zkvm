@@ -131,5 +131,48 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn test_sw_negative_immediate() {
+        let mut cpu = Cpu::default();
+        let mut memory = setup_memory();
+
+        cpu.registers.write(Register::X1, 0x1001);
+
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SW),
+            2,
+            1,
+            0xFFFFFFFF,
+            InstructionType::SType,
+        );
+
+        let instruction = SwInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction
+            .memory_write(&mut memory)
+            .expect("Memory write failed");
+    }
+
+    #[test]
+    fn test_sw_underflow() {
+        let mut cpu = Cpu::default();
+        let mut memory = setup_memory();
+
+        cpu.registers.write(Register::X1, 0x01);
+
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::SW),
+            2,
+            1,
+            0xFFFFFFFD,
+            InstructionType::SType,
+        );
+
+        let instruction = SwInstruction::decode(&bare_instruction, &cpu.registers);
+
+        let result = instruction.memory_write(&mut memory);
+        assert_eq!(result, Err(MemoryError::AddressCalculationUnderflow));
+    }
+
     // TODO: depending on the memory model, we need to test out of bound memory access
 }

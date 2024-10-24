@@ -22,6 +22,7 @@ mod tests {
     use crate::cpu::state::Cpu;
     use crate::memory::{VariableMemory, RW};
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use nexus_common::error::MemoryError;
 
     fn setup_memory() -> VariableMemory<RW> {
         let mut memory = VariableMemory::<RW>::default();
@@ -98,5 +99,48 @@ mod tests {
         let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
 
         assert!(instruction.memory_read(&memory).is_err());
+    }
+
+    #[test]
+    fn test_lw_negative_immediate() {
+        let mut cpu = Cpu::default();
+        let memory = setup_memory();
+
+        cpu.registers.write(Register::X1, 0x1001);
+
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::LW),
+            2,
+            1,
+            0xFFFFFFFF,
+            InstructionType::IType,
+        );
+
+        let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction
+            .memory_read(&memory)
+            .expect("Memory read failed");
+    }
+
+    #[test]
+    fn test_lw_underflow() {
+        let mut cpu = Cpu::default();
+        let memory = setup_memory();
+
+        cpu.registers.write(Register::X1, 0x01);
+
+        let bare_instruction = Instruction::new(
+            Opcode::from(BuiltinOpcode::LW),
+            2,
+            1,
+            0xFFFFFFFD,
+            InstructionType::IType,
+        );
+
+        let mut instruction = LwInstruction::decode(&bare_instruction, &cpu.registers);
+
+        let result = instruction.memory_read(&memory);
+        assert_eq!(result, Err(MemoryError::AddressCalculationUnderflow));
     }
 }

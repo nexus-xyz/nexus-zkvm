@@ -59,10 +59,15 @@ macro_rules! implement_store_instruction {
                 &self,
                 memory: &mut impl MemoryProcessor,
             ) -> Result<StoreOps, nexus_common::error::MemoryError> {
-                let address = self
-                    .rs1
-                    .checked_add(self.imm)
-                    .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?;
+                let address = if (self.imm as i32) < 0 {
+                    self.rs1
+                        .checked_sub((self.imm as i32).abs() as u32)
+                        .ok_or(nexus_common::error::MemoryError::AddressCalculationUnderflow)?
+                } else {
+                    self.rs1
+                        .checked_add(self.imm as u32)
+                        .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?
+                };
                 Ok(memory.write(address, $size, self.rd)?.into())
             }
 
@@ -94,10 +99,15 @@ macro_rules! implement_load_instruction {
                 &mut self,
                 memory: &impl MemoryProcessor,
             ) -> Result<LoadOps, nexus_common::error::MemoryError> {
-                let address = self
-                    .rs1
-                    .checked_add(self.imm)
-                    .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?;
+                let address = if (self.imm as i32) < 0 {
+                    self.rs1
+                        .checked_sub((self.imm as i32).abs() as u32)
+                        .ok_or(nexus_common::error::MemoryError::AddressCalculationUnderflow)?
+                } else {
+                    self.rs1
+                        .checked_add(self.imm as u32)
+                        .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?
+                };
                 let op = memory.read(address, $size)?;
                 let LoadOp::Op(_, _, value) = op;
 

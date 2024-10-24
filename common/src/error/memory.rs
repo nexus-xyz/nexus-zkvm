@@ -18,6 +18,10 @@ pub enum MemoryError {
     #[error("Address calculation overflow")]
     AddressCalculationOverflow,
 
+    // Address calculation underflow
+    #[error("Address calculation underflow")]
+    AddressCalculationUnderflow,
+
     // Attempted to read a write-only memory address
     #[error(
         "Unauthorized read access: Attempted to read from write-only memory at address 0x{0:08X}"
