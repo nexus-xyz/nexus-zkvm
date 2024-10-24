@@ -92,13 +92,13 @@ impl TryInto<BuiltinOpcode> for Opcode {
 
 impl Display for Opcode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_fmt(format_args!(
-            "{}: opcode={:#04X}, fn3={}, fn7={}",
-            self.identifier.name(),
-            self.raw,
-            self.fn3,
-            self.fn7,
-        ))
+        match self.identifier {
+            OpcodeIdentifier::Custom(ref name) => f.write_fmt(format_args!(
+                "{}: opcode={:#04X}, fn3={}, fn7={}",
+                name, self.raw, self.fn3, self.fn7,
+            )),
+            _ => f.write_str(self.identifier.name()),
+        }
     }
 }
 
