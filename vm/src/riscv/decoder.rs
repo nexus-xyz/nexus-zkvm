@@ -28,7 +28,7 @@
 //!
 //!
 //! // Load an ELF file (implementation of load_elf_file is assumed)
-//! let elf: ElfFile = ElfFile::from_path("test/helloworld.elf").expect("Failed to load ELF from path");
+//! let elf: ElfFile = ElfFile::from_path("test/fib_10.elf").expect("Failed to load ELF from path");
 //!
 //! // Decode instructions into a BasicBlockProgram
 //! let program = decode_instructions(elf.instructions.as_ref());
@@ -189,51 +189,20 @@ mod tests {
     /// 5. Compares the decoded instructions with the expected assembly output
     #[test]
     fn test_decode_instruction_from_elf() {
-        let test_cases = [("test/helloworld.elf", 0)];
+        let test_cases = [("test/fib_10.elf", 4096)];
 
         let gold_test = [
-            "│   0: lw a1, sp, 16",
-            "│   1: addi a2, sp, 36",
-            "│   2: sw a2, 180(sp)",
-            "│   3: lui a0, 0x2",
-            "│   4: addi a0, a0, -1688",
-            "│   5: sw a0, 184(sp)",
-            "│   6: sw a2, 88(sp)",
-            "│   7: sw a0, 92(sp)",
-            "│   8: addi a3, sp, 32",
-            "│   9: sw a3, 188(sp)",
-            "│  10: lui a2, 0x1",
-            "│  11: addi a2, a2, 1692",
-            "│  12: sw a2, 192(sp)",
-            "│  13: sw a3, 96(sp)",
-            "│  14: sw a2, 100(sp)",
-            "│  15: sw a1, 112(sp)",
-            "│  16: addi a1, sp, 112",
-            "│  17: sw a1, 196(sp)",
-            "│  18: sw a0, 200(sp)",
-            "│  19: sw a1, 104(sp)",
-            "│  20: sw a0, 108(sp)",
-            "│  21: lw a1, sp, 88",
-            "│  22: lw a0, sp, 92",
-            "│  23: sw a1, 64(sp)",
-            "│  24: sw a0, 68(sp)",
-            "│  25: lw a1, sp, 96",
-            "│  26: lw a0, sp, 100",
-            "│  27: sw a1, 72(sp)",
-            "│  28: sw a0, 76(sp)",
-            "│  29: lw a1, sp, 104",
-            "│  30: lw a0, sp, 108",
-            "│  31: sw a1, 80(sp)",
-            "│  32: sw a0, 84(sp)",
-            "│  33: lui a0, 0x3",
-            "│  34: addi a1, a0, 1708",
-            "│  35: addi a0, sp, 40",
-            "│  36: sw a0, 8(sp)",
-            "│  37: addi a3, sp, 64",
-            "│  38: li a4, 3",
-            "│  39: mv a2, a4",
-            "│  40: auipc ra, 0x0",
-            "│  41: jalr ra, ra, 556",
+            "│   0: addi sp, sp, -80",
+            "│   1: sw ra, 76(sp)",
+            "│   2: li a1, 0",
+            "│   3: sw a1, 20(sp)",
+            "│   4: li a0, 1",
+            "│   5: sw a0, 24(sp)",
+            "│   6: addi a0, sp, 40",
+            "│   7: sw a0, 16(sp)",
+            "│   8: li a2, 10",
+            "│   9: auipc ra, 0x0",
+            "│  10: jalr ra, ra, -164",
         ];
 
         for (file_path, entrypoint) in test_cases.iter() {
@@ -246,7 +215,7 @@ mod tests {
                     [entry_instruction as usize..(entry_instruction + want_instructions) as usize],
             );
 
-            for (asm, gold_asm) in program[29]
+            for (asm, gold_asm) in program[24]
                 .to_string()
                 .split_terminator('\n')
                 .zip(gold_test)
@@ -258,14 +227,13 @@ mod tests {
 
     #[test]
     fn test_decode_instruction_from_elf_until_end_of_block() {
-        let test_cases = [("test/helloworld.elf", 0)];
+        let test_cases = [("test/fib_10.elf", 4096)];
         let gold_test = [
-            "│   0: auipc gp, 0x4",
-            "│   1: addi gp, gp, -496",
-            "│   2: auipc sp, 0x400",
+            "│   0: auipc gp, 0x1",
+            "│   1: addi gp, gp, -1072",
+            "│   2: auipc sp, 0x803ff",
             "│   3: addi sp, sp, -12",
-            "│   4: mv s0, sp",
-            "│   5: jal ra, 0x0",
+            "│   4: jal ra, 0x0",
         ];
         for (file_path, entrypoint) in test_cases.iter() {
             let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");

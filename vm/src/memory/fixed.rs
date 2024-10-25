@@ -96,23 +96,23 @@ impl<M: Mode> FixedMemory<M> {
         // Align to word boundary
         let aligned_address = (address & !(WORD_SIZE - 1) as u32) as usize;
         let (shift, mask) = size.get_shift_and_mask(address);
+        let word_index = aligned_address / WORD_SIZE;
 
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
 
-        let prev_value = if self.vec.len() <= aligned_address {
+        let prev_value = if self.vec.len() <= word_index {
             // Resize the vector to the next word-aligned size
-            let new_size = ((aligned_address / WORD_SIZE) + 1) * WORD_SIZE;
-            self.vec.resize(new_size, 0);
+            self.vec.resize(word_index + 1, 0);
 
             0
         } else {
-            (self.vec[aligned_address] >> shift) & mask
+            (self.vec[word_index] >> shift) & mask
         };
 
         // Perform the write operation
-        self.vec[aligned_address] &= write_mask;
-        self.vec[aligned_address] |= data;
+        self.vec[word_index] &= write_mask;
+        self.vec[word_index] |= data;
 
         Ok(StoreOp::Op(
             size,
@@ -153,15 +153,16 @@ impl<M: Mode> FixedMemory<M> {
         // Align to word boundary
         let aligned_address = (address & !(WORD_SIZE - 1) as u32) as usize;
         let (shift, mask) = size.get_shift_and_mask(address);
+        let word_index = aligned_address / WORD_SIZE;
 
-        if self.vec.len() <= aligned_address {
+        if self.vec.len() <= word_index {
             return Ok(LoadOp::Op(size, raw_address, u32::default()));
         }
 
         Ok(LoadOp::Op(
             size,
             raw_address,
-            (self.vec[aligned_address] >> shift) & mask,
+            (self.vec[word_index] >> shift) & mask,
         ))
     }
 }
@@ -612,7 +613,7 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_size_alignment() {
+    fn test_memory_size() {
         let mut memory = FixedMemory::<RW>::new(0x1000, 0x100);
 
         // Initial size should be 0
@@ -620,29 +621,26 @@ mod tests {
 
         // Write a byte at the start of the memory
         memory.write(0x1000, MemAccessSize::Byte, 0xAB).unwrap();
-        assert_eq!(memory.vec.len(), 4);
+        assert_eq!(memory.vec.len(), 1);
 
         // Write a byte at an address that would require 2 words
         memory.write(0x1007, MemAccessSize::Byte, 0xCD).unwrap();
-        assert_eq!(memory.vec.len(), 8);
+        assert_eq!(memory.vec.len(), 2);
 
         // Write a halfword at an address that would require 3 words
         memory
             .write(0x100A, MemAccessSize::HalfWord, 0xEF12)
             .unwrap();
-        assert_eq!(memory.vec.len(), 12);
+        assert_eq!(memory.vec.len(), 3);
 
         // Write a word at an address that would require 5 words
         memory
             .write(0x1010, MemAccessSize::Word, 0x12345678)
             .unwrap();
-        assert_eq!(memory.vec.len(), 20);
+        assert_eq!(memory.vec.len(), 5);
 
         // Write a byte at a far address
         memory.write(0x10FF, MemAccessSize::Byte, 0xFF).unwrap();
-        assert_eq!(memory.vec.len(), 256);
-
-        // Verify that all sizes are multiples of 4 (word-aligned)
-        assert!(memory.vec.len() % 4 == 0);
+        assert_eq!(memory.vec.len(), 64);
     }
 }

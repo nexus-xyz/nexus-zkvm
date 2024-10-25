@@ -33,7 +33,7 @@
 //! use nexus_vm::emulator::{Emulator, HarvardEmulator};
 //!
 //! // Load an ELF file
-//! let elf_file = ElfFile::from_path("test/helloworld.elf").expect("Unable to load ELF file");
+//! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
 //!
 //! // Create an emulator instance
 //! let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
@@ -688,20 +688,6 @@ mod tests {
     use super::*;
     use crate::elf::ElfFile;
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode};
-
-    #[test]
-    fn test_harvard_emulate_instructions() {
-        let elf_file = ElfFile::from_path("test/helloworld.elf").expect("Unable to load ELF file");
-        let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
-
-        assert_eq!(
-            emulator.execute(),
-            Err(VMError::UnimplementedInstructionAt(
-                BuiltinOpcode::UNIMPL.into(),
-                48
-            ))
-        );
-    }
 
     #[test]
     fn test_harvard_emulate_nexus_rt_binary() {

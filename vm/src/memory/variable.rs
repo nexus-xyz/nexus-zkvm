@@ -44,16 +44,17 @@ impl<M: Mode> VariableMemory<M> {
         let aligned_address = address & !(WORD_SIZE - 1) as u32;
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
+        let word_index = aligned_address / WORD_SIZE as u32;
 
         let prev_value = self
             .0
-            .get(&aligned_address) // Align to word boundary
+            .get(&word_index) // Align to word boundary
             .map(|&value| ((value >> shift) & mask))
             .unwrap_or(0);
 
         let value = self
             .0
-            .entry(aligned_address) // Align to word boundary
+            .entry(word_index) // Align to word boundary
             .and_modify(|e| *e = (*e & write_mask) | data)
             .or_insert(data);
 
@@ -84,10 +85,11 @@ impl<M: Mode> VariableMemory<M> {
 
         // Align to word boundary
         let aligned_address = address & !(WORD_SIZE - 1) as u32;
+        let word_index = aligned_address / WORD_SIZE as u32;
 
         let value = self
             .0
-            .get(&aligned_address) // Align to word boundary
+            .get(&word_index) // Align to word boundary
             .map(|&value| ((value >> shift) & mask))
             .ok_or(MemoryError::InvalidMemoryAccess(address))?;
 

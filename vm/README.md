@@ -80,7 +80,7 @@ vm/
 │       │   └── utils.rs
 │       └── mod.rs
 └── test
-    └── helloworld.elf
+    └── fib_10.elf
 ```
 
 Here's a rewrite of the explanation for the RISC-V Virtual Machine project structure:

@@ -35,7 +35,7 @@
 //! }
 //!
 //! // Load from file path
-//! let elf_file = ElfFile::from_path("test/helloworld.elf");
+//! let elf_file = ElfFile::from_path("test/fib_10.elf");
 //! ```
 //!
 //! # Note
@@ -165,7 +165,7 @@ mod tests {
 
     #[test]
     fn test_parse_elf_files() {
-        let test_cases = [("test/helloworld.elf", 0, 0, 1729)];
+        let test_cases = [("test/fib_10.elf", 4096, 4096, 244)];
 
         for (file_path, entry_point, base_address, number_of_instruction) in test_cases.iter() {
             let elf = ElfFile::from_path(file_path).unwrap();
