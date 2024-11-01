@@ -143,8 +143,8 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
     }
 
     // Ensure file_size <= mem_size and the total size does not exceed the maximum memory size
-    if (file_size <= mem_size) && (file_size + offset < MAXIMUM_MEMORY_SIZE) {
-        Ok((virtual_address, offset, file_size))
+    if (file_size <= mem_size) && (mem_size + offset < MAXIMUM_MEMORY_SIZE) {
+        Ok((virtual_address, offset, mem_size))
     } else {
         Err(ParserError::SegmentSizeExceedsMemorySize)
     }
@@ -205,9 +205,9 @@ fn parse_segment_content(
     memory_image: &mut BTreeMap<u32, u32>,
 ) -> Result<()> {
     let is_executable_segment = (segment.p_flags & abi::PF_X) != 0;
-    let (virtual_address, offset, file_size) = parse_segment_info(segment)?;
+    let (virtual_address, offset, mem_size) = parse_segment_info(segment)?;
 
-    for address in (0..file_size).step_by(WORD_SIZE as _) {
+    for address in (0..mem_size).step_by(WORD_SIZE as _) {
         // Calculate the memory address for this word
         let memory_address = virtual_address
             .checked_add(address)
