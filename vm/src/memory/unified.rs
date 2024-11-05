@@ -2,6 +2,7 @@ use nexus_common::error::MemoryError;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rangemap::RangeMap;
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 use super::{
     FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, StoreOp, VariableMemory, NA, RO, RW, WO,
@@ -16,7 +17,7 @@ enum Modes {
 }
 
 // nb: we store outside the map becaues `rangemap::RangeMap` does not support a `get_mut` interface (https://github.com/jeffparsons/rangemap/issues/85)
-#[derive(Debug, Default, Clone, Eq, PartialEq)]
+#[derive(Default, Clone, Eq, PartialEq)]
 pub struct UnifiedMemory {
     // lookup for correct fixed memory, if any
     meta: RangeMap<u32, Modes>,
@@ -34,6 +35,80 @@ pub struct UnifiedMemory {
     fna_store: Vec<FixedMemory<NA>>,
     // fallback variable read-write memory for all other addresses
     vrw: Option<VariableMemory<RW>>,
+}
+
+impl Display for UnifiedMemory {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        // Display RangeMap table
+        writeln!(f, "\nMemory Layout:")?;
+        writeln!(f, "┌───────────────┬───────────────┬──────────┐")?;
+        writeln!(f, "│  Start Addr   │   End Addr    │  Mode    │")?;
+        writeln!(f, "├───────────────┼───────────────┼──────────┤")?;
+
+        for (range, mode) in self.meta.iter() {
+            writeln!(
+                f,
+                "│ 0x{:08x}    │ 0x{:08x}    │ {:<8} │",
+                range.start,
+                range.end,
+                format!("{:?}", mode)
+            )?;
+        }
+
+        writeln!(f, "└───────────────┴───────────────┴──────────┘")?;
+
+        Ok(())
+    }
+}
+
+impl Debug for UnifiedMemory {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        Display::fmt(self, f)?;
+
+        // Display Fixed Read-Write Memory
+        if !self.frw_store.is_empty() {
+            writeln!(f, "\nFixed Read-Write Memory:")?;
+            for (i, mem) in self.frw_store.iter().enumerate() {
+                writeln!(f, "Segment {}", i)?;
+                writeln!(f, "{:?}", mem)?;
+            }
+        }
+
+        // Display Fixed Read-Only Memory
+        if !self.fro_store.is_empty() {
+            writeln!(f, "\nFixed Read-Only Memory:")?;
+            for (i, mem) in self.fro_store.iter().enumerate() {
+                writeln!(f, "Segment {}", i)?;
+                writeln!(f, "{:?}", mem)?;
+            }
+        }
+
+        // Display Fixed Write-Only Memory
+        if !self.fwo_store.is_empty() {
+            writeln!(f, "\nFixed Write-Only Memory:")?;
+            for (i, mem) in self.fwo_store.iter().enumerate() {
+                writeln!(f, "Segment {}", i)?;
+                writeln!(f, "{:?}", mem)?;
+            }
+        }
+
+        // Display Fixed No-Access Memory
+        if !self.fna_store.is_empty() {
+            writeln!(f, "\nFixed No-Access Memory:")?;
+            for (i, mem) in self.fna_store.iter().enumerate() {
+                writeln!(f, "Segment {}", i)?;
+                writeln!(f, "{:?}", mem)?;
+            }
+        }
+
+        // Display Variable Read-Write Memory
+        if let Some(vrw) = &self.vrw {
+            writeln!(f, "\nVariable Read-Write Memory:")?;
+            write!(f, "{:?}", vrw)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl From<VariableMemory<RW>> for UnifiedMemory {
