@@ -1,17 +1,47 @@
-use std::marker::PhantomData;
+use std::{fmt::Debug, marker::PhantomData};
 
 use crate::WORD_SIZE;
 use nexus_common::error::MemoryError;
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, NA, RO, RW, WO};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct FixedMemory<M: Mode> {
     pub base_address: u32,
     pub max_len: usize,
     vec: Vec<u32>,
     __mode: PhantomData<M>,
 }
+
+macro_rules! impl_debug_for_fixed_memory {
+    ($mode:ty, $mode_str:expr) => {
+        impl Debug for FixedMemory<$mode> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                writeln!(f, "┌─────────────────────────────────────┐")?;
+                writeln!(f, "│           {} Memory                 │", $mode_str)?;
+                writeln!(f, "├───────────────────┬─────────────────┤")?;
+                writeln!(f, "│     Address       │      Value      │")?;
+                writeln!(f, "├───────────────────┼─────────────────┤")?;
+                for (i, word) in self.vec.iter().enumerate() {
+                    writeln!(
+                        f,
+                        "│ 0x{:08x}        │ 0x{:08x}      │",
+                        self.base_address + i as u32 * WORD_SIZE as u32,
+                        word
+                    )?;
+                }
+                writeln!(f, "└───────────────────┴─────────────────┘")?;
+                Ok(())
+            }
+        }
+    };
+}
+
+// Use the macro for each memory type
+impl_debug_for_fixed_memory!(RO, "RO ");
+impl_debug_for_fixed_memory!(WO, "WO ");
+impl_debug_for_fixed_memory!(RW, "RW ");
+impl_debug_for_fixed_memory!(NA, "NA ");
 
 impl<M: Mode> FixedMemory<M> {
     pub fn new(base_address: u32, max_len: usize) -> Self {
