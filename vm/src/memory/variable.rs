@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::marker::PhantomData;
 
 use crate::WORD_SIZE;
@@ -6,12 +7,29 @@ use nexus_common::error::MemoryError;
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, RO, RW, WO};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Default, Clone, PartialEq, Eq)]
 pub struct VariableMemory<M: Mode>(BTreeMap<u32, u32>, PhantomData<M>);
 
 impl<M: Mode> From<BTreeMap<u32, u32>> for VariableMemory<M> {
     fn from(map: BTreeMap<u32, u32>) -> Self {
         VariableMemory::<M>(map, PhantomData)
+    }
+}
+
+impl<M: Mode> Debug for VariableMemory<M> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        writeln!(f, "┌─────────────────────────────────────┐")?;
+        writeln!(f, "│         Variable Memory             │")?;
+        writeln!(f, "├───────────────────┬─────────────────┤")?;
+        writeln!(f, "│     Address       │      Value      │")?;
+        writeln!(f, "├───────────────────┼─────────────────┤")?;
+
+        for (&address, &value) in self.0.iter() {
+            writeln!(f, "│ 0x{:08x}        │ 0x{:08x}      │", address, value)?;
+        }
+
+        writeln!(f, "└───────────────────┴─────────────────┘")?;
+        Ok(())
     }
 }
 
