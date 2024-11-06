@@ -193,7 +193,37 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
 
     for _ in 0..k {
         match vm.fetch_block(vm.get_executor().cpu.pc.value) {
-            Err(e) => return (None, Err(e)),
+            Err(e) => {
+                // When the block is not fully filled with 'k' instructions,
+                // we still return the block we have,
+                // along with padded UNIMPL instructions to complete the block.
+                // The padded instructions are not executed in the VM.
+                if k > 1 && block.steps.len() < k {
+                    let last_step = block.steps.last().unwrap();
+                    let unimpl_instruction = Instruction::unimpl();
+                    let mut padding_steps = Vec::new();
+
+                    for _ in block.steps.len()..k {
+                        // 1. Increment the global_clock for each padding step.
+                        vm.executor.global_clock += 1;
+
+                        // 2. Repeat the last state, but with the global_clock incremented.
+                        padding_steps.push(Step {
+                            timestamp: vm.executor.global_clock as u32,
+                            pc: last_step.next_pc,
+                            next_pc: last_step.next_pc,
+                            raw_instruction: unimpl_instruction.encode(),
+                            instruction: unimpl_instruction.clone(),
+                            result: None,
+                            memory_records: MemoryRecords::default(),
+                        });
+                    }
+                    // 3. Complete the block with UNIMPL instructions
+                    block.steps.extend(padding_steps);
+                }
+
+                return (Some(block), Err(e));
+            }
             Ok(basic_block) => {
                 for instruction in basic_block.0.iter() {
                     if block.steps.len() == k {
@@ -228,7 +258,15 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
     (Some(block), Ok(()))
 }
 
-/// Trace a program for a given `k`.
+/// Trace a program over an ELF for a given `k`.
+///
+/// This function generates a trace of the program execution using the provided ELF file.
+/// It creates a `UniformTrace` where each block contains `k` steps.
+/// # Note
+///
+/// If a block in the trace is smaller than `k`,
+/// the block will be padded with UNIMPL instruction to reach the size of `k`.
+/// These padded instructions are not executed in the VM.
 pub fn k_trace(
     elf: ElfFile,
     ad_hash: &[u32],
@@ -264,6 +302,36 @@ pub fn k_trace(
 
                 match e {
                     VMError::VMExited(0) => return Ok(trace),
+                    _ => return Err(e),
+                }
+            }
+            (None, Err(e)) => return Err(e),
+            (None, Ok(())) => unreachable!(),
+        }
+    }
+}
+
+/// Similar to `k_trace`, but support Intermediate Representation (IR) as input instead of an ELF file.
+pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<UniformTrace> {
+    let mut vm = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), basic_blocks);
+
+    let mut trace = UniformTrace {
+        memory_layout: vm.memory_layout,
+        k,
+        start: 0,
+        blocks: Vec::new(),
+    };
+
+    loop {
+        match k_step(&mut vm, k) {
+            (Some(block), Ok(())) => trace.blocks.push(block),
+            (Some(block), Err(e)) => {
+                if !block.steps.is_empty() {
+                    trace.blocks.push(block);
+                }
+
+                match e {
+                    VMError::VMExited(0) | VMError::VMOutOfInstructions => return Ok(trace),
                     _ => return Err(e),
                 }
             }
@@ -612,7 +680,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bb_trace_simple_from_basic_block_ir() {
+    fn test_bb_trace_direct_from_basic_block_ir() {
         let basic_blocks = setup_basic_block_ir();
         let trace = bb_trace_direct(&basic_blocks).expect("Failed to create trace");
 
@@ -625,6 +693,80 @@ mod tests {
             last_step.result,
             Some(1346269),
             "Unexpected Fibonacci result"
+        );
+    }
+
+    #[test]
+    fn test_k1_trace_direct_from_basic_block_ir() {
+        let basic_block = setup_basic_block_ir();
+        let k = 1;
+        let trace = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+
+        let first_block = trace.blocks.first().expect("No blocks in trace");
+        let first_step = first_block.steps.first().expect("No steps in trace");
+        assert_eq!(first_step.result, Some(1), "Unexpected Fibonacci result",);
+
+        let last_block = trace.blocks.last().expect("No blocks in trace");
+        let last_step = last_block.steps.last().expect("No steps in trace");
+
+        // The result of 30th Fibonacci number is 1346269
+        assert_eq!(
+            last_step.result,
+            Some(1346269),
+            "Unexpected Fibonacci result"
+        );
+    }
+
+    #[test]
+    fn test_k4_trace_direct_from_basic_block_ir() {
+        let basic_block = setup_basic_block_ir();
+        // For k=4, the trace block is completed by padding with UNIMPL instructions if necessary.
+        let k = 4;
+
+        let trace = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+
+        let first_block = trace.blocks.first().expect("No blocks in trace");
+        let first_step = first_block.steps.first().expect("No steps in trace");
+        assert_eq!(first_step.result, Some(1), "Unexpected Fibonacci result",);
+
+        let last_block = trace.blocks.last().expect("No blocks in trace");
+
+        // The result of 30th Fibonacci number is 1346269
+        assert_eq!(
+            last_block.steps[2].result,
+            Some(1346269),
+            "Unexpected Fibonacci result"
+        );
+        let last_step = last_block.steps.last().expect("No steps in trace");
+
+        // The last step is padded with UNIMPL instruction
+        assert_eq!(
+            last_step.instruction,
+            Instruction::unimpl(),
+            "Unexpected instruction"
+        );
+        assert_eq!(last_step.result, None, "Unexpected Fibonacci result");
+    }
+
+    #[test]
+    fn test_k8_trace_direct_timestamp_tick_after_instruction_ended() {
+        let basic_block = vec![BasicBlock::new(vec![
+            Instruction::nop(),
+            Instruction::nop(),
+        ])];
+
+        let k = 8;
+        let trace = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+
+        let first_block = trace.blocks.first().expect("No blocks in trace");
+        let first_step = first_block.steps.first().expect("No steps in trace");
+        let last_step = first_block.steps.last().expect("No steps in trace");
+        assert_eq!(first_step.timestamp, 1, "Unexpected timestamp");
+        // The timestamp must continue to tick even if the program is ended.
+        assert_eq!(
+            last_step.timestamp,
+            1 + k as u32,
+            "Unexpected timestamp for the last step"
         );
     }
 }
