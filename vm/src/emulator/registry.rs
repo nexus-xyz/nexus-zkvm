@@ -100,23 +100,13 @@ use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
 use crate::{
     cpu::{instructions, Cpu},
     error::{Result, VMError},
-    memory::{
-        FixedMemory, LoadOps, MemoryProcessor, StoreOps, UnifiedMemory, VariableMemory, RO, WO,
-    },
+    memory::{FixedMemory, LoadOps, StoreOps, UnifiedMemory, VariableMemory, RO, WO},
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
 use std::collections::HashMap;
 
 pub type InstructionExecutorFn<M> =
     fn(&mut Cpu, &mut M, &Instruction) -> Result<(Option<u32>, (LoadOps, StoreOps)), MemoryError>;
-
-fn nop<M: MemoryProcessor>(
-    _cpu: &mut Cpu,
-    _memory: &mut M,
-    _ins: &Instruction,
-) -> Result<(Option<u32>, (LoadOps, StoreOps)), MemoryError> {
-    Ok((None, (LoadOps::new(), StoreOps::new())))
-}
 
 macro_rules! register_instruction_executor {
     ($func: path) => {
@@ -275,7 +265,6 @@ impl Default for InstructionExecutorRegistry {
                 Some(register_instruction_executor!(
                     instructions::JalInstruction::evaluator
                 )), // jal
-                Some(register_instruction_executor!(nop)), // nop
                 None, // unimpl
             ],
             precompiles: HashMap::<Opcode, InstructionExecutorFn<UnifiedMemory>>::new(),

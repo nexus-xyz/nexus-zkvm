@@ -87,18 +87,7 @@ impl Instruction {
     /// Creates a new instruction from an I-type instruction.
     pub fn from_i_type(opcode: Opcode, dec_insn: IType) -> Self {
         let (rd, rs1, imm) = (dec_insn.rd as _, dec_insn.rs1 as _, dec_insn.imm as _);
-        // Detect NOP instruction
-        Self::new(
-            if rd == 0 && rs1 == 0 && imm == 0 {
-                Opcode::from(BuiltinOpcode::NOP)
-            } else {
-                opcode
-            },
-            rd,
-            rs1,
-            imm,
-            InstructionType::IType,
-        )
+        Self::new(opcode, rd, rs1, imm, InstructionType::IType)
     }
 
     /// Creates a new instruction from an I-type instruction with a shift amount (shamt).
@@ -147,6 +136,18 @@ impl Instruction {
         )
     }
 
+    /// Creates a new NOP instruction.
+    /// Assembly: Addi x0, x0, 0
+    pub fn nop() -> Self {
+        Self::new(
+            Opcode::from(BuiltinOpcode::ADDI),
+            0,
+            0,
+            0,
+            InstructionType::IType,
+        )
+    }
+
     // Helper methods for string representation of different instruction types
     fn r_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
@@ -160,9 +161,7 @@ impl Instruction {
         let rs1 = self.op_b;
         let imm12 = self.op_c as i32;
         match opcode {
-            BuiltinOpcode::NOP | BuiltinOpcode::EBREAK | BuiltinOpcode::ECALL => {
-                self.opcode.to_string()
-            }
+            BuiltinOpcode::EBREAK | BuiltinOpcode::ECALL => self.opcode.to_string(),
             BuiltinOpcode::JALR => match (rd, rs1, imm12) {
                 (Register::X0, Register::X1, 0) => "ret".to_string(),
                 (Register::X0, _, 0) => format!("jr {}", rs1),
@@ -174,9 +173,10 @@ impl Instruction {
                 Register::X1 => format!("{} {}", opcode, imm12),
                 _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
-            BuiltinOpcode::ADDI => match (rs1, imm12) {
-                (Register::X0, _) => format!("li {}, {}", rd, imm12),
-                (_, 0) => format!("mv {}, {}", rd, rs1),
+            BuiltinOpcode::ADDI => match (rd, rs1, imm12) {
+                (Register::X0, Register::X0, 0) => "nop".to_string(),
+                (_, Register::X0, _) => format!("li {}, {}", rd, imm12),
+                (_, _, 0) => format!("mv {}, {}", rd, rs1),
                 _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
             _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),

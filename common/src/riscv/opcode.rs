@@ -193,15 +193,12 @@ pub enum BuiltinOpcode {
     // J-type instructions
     JAL, // Jump and link
 
-    // NOP instruction
-    #[default]
-    NOP,
-
     // Placeholder for unimplemented instructions
     // UNIMPL instruction is used to represent instructions that are not yet implemented
     // or are intentionally left unimplemented in the current implementation.
     // In the RISC-V specification, this is similar to the UNIMP (unimplemented instruction) concept.
     // Note: This may be updated or replaced if CSR (Control and Status Register) instruction support is added in the future.
+    #[default]
     UNIMPL,
 }
 
@@ -211,7 +208,7 @@ impl BuiltinOpcode {
         "mulhsu", "mulhu", "div", "divu", "rem", "remu", "addi", "slli", "slti", "sltiu", "xori",
         "srli", "srai", "ori", "andi", "lb", "lh", "lw", "lbu", "lhu", "jalr", "ecall", "ebreak",
         "fence", "sb", "sh", "sw", "beq", "bne", "blt", "bge", "bltu", "bgeu", "lui", "auipc",
-        "jal", "nop", "unimpl",
+        "jal", "unimpl",
     ];
 
     fn mnemonic(&self) -> &'static str {
@@ -277,8 +274,6 @@ impl BuiltinOpcode {
 
             BuiltinOpcode::JAL => 0b1101111,
 
-            BuiltinOpcode::NOP => 0b0010011,
-
             BuiltinOpcode::UNIMPL => 0b000000,
         }
     }
@@ -304,7 +299,7 @@ impl BuiltinOpcode {
             BuiltinOpcode::REMU => SubByte::<3>::new_set(0b111),
 
             // n.b. nop is implemented as addi x0, x0, 0
-            BuiltinOpcode::ADDI | BuiltinOpcode::NOP => SubByte::<3>::new_set(0b000),
+            BuiltinOpcode::ADDI => SubByte::<3>::new_set(0b000),
             BuiltinOpcode::SLTI => SubByte::<3>::new_set(0b010),
             BuiltinOpcode::SLTIU => SubByte::<3>::new_set(0b011),
             BuiltinOpcode::XORI => SubByte::<3>::new_set(0b100),
@@ -369,7 +364,7 @@ impl BuiltinOpcode {
             BuiltinOpcode::REMU => SubByte::<7>::new_set(0b0000001),
 
             // I-type instructions have no funct7.
-            BuiltinOpcode::ADDI | BuiltinOpcode::NOP => SubByte::<7>::new_unset(),
+            BuiltinOpcode::ADDI => SubByte::<7>::new_unset(),
             BuiltinOpcode::SLTI => SubByte::<7>::new_unset(),
             BuiltinOpcode::SLTIU => SubByte::<7>::new_unset(),
             BuiltinOpcode::XORI => SubByte::<7>::new_unset(),
