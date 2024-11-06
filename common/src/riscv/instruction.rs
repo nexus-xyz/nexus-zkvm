@@ -135,7 +135,9 @@ impl Instruction {
     }
 
     /// Creates a new unimplemented instruction.
-    pub fn unimp() -> Self {
+    /// When processing an unimplemented instruction, only the opcode is checked,
+    /// and the fields op_a, op_b, and op_c are ignored.
+    pub fn unimpl() -> Self {
         Self::new(
             Opcode::from(BuiltinOpcode::UNIMPL),
             0,

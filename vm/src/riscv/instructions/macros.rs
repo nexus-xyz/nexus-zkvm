@@ -84,7 +84,7 @@ macro_rules! unimplemented_instructions {
     ($($name:ident($($arg:ident: $type:ty)?)),+ $(,)?) => {
         $(
             fn $name(&mut self$(, _: $type)?) -> Self::InstructionResult {
-                Instruction::unimp()
+                Instruction::unimpl()
             }
         )+
     };

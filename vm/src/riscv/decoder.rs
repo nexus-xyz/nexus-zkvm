@@ -65,9 +65,9 @@ pub fn decode_instructions(u32_instructions: &[u32]) -> BasicBlockProgram {
     let mut start_new_block = true;
 
     for &u32_instruction in u32_instructions.iter() {
-        // Decode the instruction
+        // Decode the instruction, if the instruction is unrecognizable, it will be marked as unimplemented.
         let decoded_instruction =
-            process_instruction(&mut decoder, u32_instruction).unwrap_or_else(Instruction::unimp);
+            process_instruction(&mut decoder, u32_instruction).unwrap_or_else(Instruction::unimpl);
 
         // Start a new basic block if necessary
         if start_new_block && !current_block.0.is_empty() {
@@ -147,7 +147,7 @@ pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
 
                 // Right now, we only support the single dynamic R-type opcode.
                 if opcode != DYNAMIC_RTYPE_OPCODE {
-                    return Instruction::unimp();
+                    return Instruction::unimpl();
                 }
 
                 let fn3 = extract_fn3(u32_instruction);

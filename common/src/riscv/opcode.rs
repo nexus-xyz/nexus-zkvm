@@ -198,6 +198,10 @@ pub enum BuiltinOpcode {
     NOP,
 
     // Placeholder for unimplemented instructions
+    // UNIMPL instruction is used to represent instructions that are not yet implemented
+    // or are intentionally left unimplemented in the current implementation.
+    // In the RISC-V specification, this is similar to the UNIMP (unimplemented instruction) concept.
+    // Note: This may be updated or replaced if CSR (Control and Status Register) instruction support is added in the future.
     UNIMPL,
 }
 
