@@ -89,7 +89,7 @@ impl AddChip {
 
 impl MachineChip for AddChip {
     fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
-        if matches!(
+        if !matches!(
             vm_step.step.instruction.opcode.builtin(),
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI)
         ) {
