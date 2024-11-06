@@ -6,7 +6,7 @@ use crate::{
     emulator::{Emulator, LinearEmulator, LinearMemoryLayout},
     error::{Result, VMError},
     memory::MemoryRecords,
-    riscv::Instruction,
+    riscv::{BasicBlock, Instruction},
 };
 
 /// A program step.
@@ -115,7 +115,7 @@ impl UniformTrace {
 }
 
 /// Represents a program trace over basic blocks.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct BBTrace {
     /// Memory layout.
     pub memory_layout: LinearMemoryLayout,
@@ -352,11 +352,42 @@ pub fn bb_trace(
     }
 }
 
+/// Trace a program over basic blocks.
+pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<BBTrace> {
+    let mut vm = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), basic_blocks);
+
+    let mut trace = BBTrace {
+        memory_layout: vm.memory_layout,
+        start: 0,
+        blocks: Vec::new(),
+    };
+
+    loop {
+        match bb_step(&mut vm) {
+            (Some(block), Ok(())) => trace.blocks.push(block),
+            (Some(block), Err(e)) => {
+                if !block.steps.is_empty() {
+                    trace.blocks.push(block);
+                }
+
+                match e {
+                    VMError::VMExited(0) => return Ok(trace),
+                    _ => return Err(e),
+                }
+            }
+            (None, Err(VMError::VMOutOfInstructions)) => return Ok(trace),
+            (None, Err(e)) => return Err(e),
+            (None, Ok(())) => unreachable!(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::memory::{MemAccessSize, MemoryRecord};
     use crate::riscv::{BuiltinOpcode, Opcode, Register};
+    use nexus_common::riscv::instruction::InstructionType;
 
     #[test]
     fn test_k1_trace_nexus_rt_binary() {
@@ -536,5 +567,64 @@ mod tests {
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
         assert!(step.memory_records.is_empty());
+    }
+
+    #[rustfmt::skip]
+    fn setup_basic_block_ir() -> Vec<BasicBlock>
+    {
+        let basic_block = BasicBlock::new(vec![
+            // Set x0 = 0 (default constant), x1 = 1
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
+            // x2 = x1 + x0
+            // x3 = x2 + x1 ... and so on
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 7, 6, 5, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 8, 7, 6, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 9, 8, 7, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 10, 9, 8, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 11, 10, 9, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 12, 11, 10, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 13, 12, 11, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 14, 13, 12, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 14, 13, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 16, 15, 14, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 17, 16, 15, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 18, 17, 16, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 19, 18, 17, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 20, 19, 18, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 21, 20, 19, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 22, 21, 20, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 23, 22, 21, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 24, 23, 22, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 25, 24, 23, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 26, 25, 24, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 27, 26, 25, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 28, 27, 26, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 29, 28, 27, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29, InstructionType::RType),
+        ]);
+        vec![basic_block]
+    }
+
+    #[test]
+    fn test_bb_trace_simple_from_basic_block_ir() {
+        let basic_blocks = setup_basic_block_ir();
+        let trace = bb_trace_direct(&basic_blocks).expect("Failed to create trace");
+
+        let first_step = trace.blocks[0].steps.first().expect("No steps in trace");
+        assert_eq!(first_step.result, Some(1), "Unexpected Fibonacci result",);
+
+        let last_step = trace.blocks[0].steps.last().expect("No steps in trace");
+        // The result of 30th Fibonacci number is 1346269
+        assert_eq!(
+            last_step.result,
+            Some(1346269),
+            "Unexpected Fibonacci result"
+        );
     }
 }

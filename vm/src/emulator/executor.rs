@@ -421,6 +421,16 @@ impl LinearEmulator {
         todo!()
     }
 
+    /// Creates a Linear Emulator from an ELF file.
+    ///
+    /// This function initializes a Linear Emulator with the provided ELF file, memory layout,
+    /// and input data. It sets up the memory segments according to the ELF file structure
+    /// and the specified memory layout.
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the provided ElfFile is not well-formed, or if the memory
+    /// layout is not compatible with the ELF file.
     pub fn from_elf(
         memory_layout: LinearMemoryLayout,
         ad: &[u32],
@@ -526,6 +536,53 @@ impl LinearEmulator {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
                 base_address: code_start,
                 entrypoint: code_start + (elf.entry - elf.base),
+                global_clock: 1, // global_clock = 0 captures initalization for memory records
+                ..Default::default()
+            },
+            instruction_index,
+            memory_layout,
+            memory,
+            ..Default::default()
+        };
+        emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
+        emulator
+    }
+
+    /// Creates a Linear Emulator from a basic block IR, for simple testing purposes.
+    ///
+    /// This function initializes a Linear Emulator with a single basic block of instructions,
+    /// along with the necessary memory layout and input data. It's primarily used for testing
+    /// and simple emulation scenarios.
+    ///
+    /// # Note
+    ///
+    /// This function currently only sets up simple instruction memory. It may be extended
+    /// in the future to support more features and memory configurations.
+    pub fn from_basic_blocks(
+        memory_layout: LinearMemoryLayout,
+        basic_blocks: &Vec<BasicBlock>,
+    ) -> Self {
+        let mut memory = UnifiedMemory::default();
+
+        let mut encoded_basic_blocks = Vec::new();
+        for block in basic_blocks {
+            encoded_basic_blocks.extend(block.encode());
+        }
+
+        // Add basic blocks instructions to memory
+        let code_start = memory_layout.program_start();
+        let code_memory = FixedMemory::<RO>::from_vec(
+            code_start,
+            encoded_basic_blocks.len() * WORD_SIZE,
+            encoded_basic_blocks,
+        );
+
+        let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
+
+        let mut emulator = Self {
+            executor: Executor {
+                base_address: code_start,
+                entrypoint: code_start,
                 global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
@@ -689,17 +746,9 @@ mod tests {
     use crate::elf::ElfFile;
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode};
 
-    #[test]
-    fn test_harvard_emulate_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
-
-        assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
-    }
-
-    #[test]
     #[rustfmt::skip]
-    fn test_harvard_fibonacci() {
+    fn setup_basic_block_ir() -> Vec<BasicBlock>
+    {
         let basic_block = BasicBlock::new(vec![
             // Set x0 = 0 (default constant), x1 = 1
             Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
@@ -736,9 +785,25 @@ mod tests {
             Instruction::new(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28, InstructionType::RType),
             Instruction::new(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29, InstructionType::RType),
         ]);
+        vec![basic_block]
+    }
+
+    #[test]
+    fn test_harvard_emulate_nexus_rt_binary() {
+        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
+
+        assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
+    }
+
+    #[test]
+    fn test_harvard_fibonacci() {
+        let basic_blocks = setup_basic_block_ir();
 
         let mut emulator = HarvardEmulator::default();
-        emulator.execute_basic_block(&basic_block).unwrap();
+        basic_blocks.iter().for_each(|basic_block| {
+            emulator.execute_basic_block(basic_block).unwrap();
+        });
 
         assert_eq!(emulator.executor.cpu.registers[31.into()], 1346269);
     }
@@ -764,47 +829,13 @@ mod tests {
     }
 
     #[test]
-    #[rustfmt::skip]
     fn test_linear_fibonacci() {
-        let basic_block = BasicBlock::new(vec![
-            // Set x0 = 0 (default constant), x1 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
-            // x2 = x1 + x0
-            // x3 = x2 + x1 ... and so on
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 7, 6, 5, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 8, 7, 6, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 9, 8, 7, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 10, 9, 8, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 11, 10, 9, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 12, 11, 10, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 13, 12, 11, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 14, 13, 12, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 14, 13, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 16, 15, 14, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 17, 16, 15, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 18, 17, 16, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 19, 18, 17, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 20, 19, 18, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 21, 20, 19, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 22, 21, 20, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 23, 22, 21, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 24, 23, 22, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 25, 24, 23, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 26, 25, 24, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 27, 26, 25, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 28, 27, 26, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 29, 28, 27, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29, InstructionType::RType),
-        ]);
+        let basic_blocks = setup_basic_block_ir();
 
         let mut emulator = LinearEmulator::default();
-        emulator.execute_basic_block(&basic_block).unwrap();
+        basic_blocks.iter().for_each(|basic_block| {
+            emulator.execute_basic_block(basic_block).unwrap();
+        });
 
         assert_eq!(emulator.executor.cpu.registers[31.into()], 1346269);
     }
@@ -818,5 +849,14 @@ mod tests {
         emulator.set_private_input(&private_input);
 
         assert_eq!(emulator.executor.private_input_tape, private_input_vec);
+    }
+
+    #[test]
+    fn test_linear_from_basic_block() {
+        let basic_blocks = setup_basic_block_ir();
+        let mut emulator =
+            LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_blocks);
+
+        assert_eq!(emulator.execute(), Err(VMError::VMOutOfInstructions));
     }
 }
