@@ -13,6 +13,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::trace::Trace;
+use trace::ProgramStep;
 
 pub mod chips;
 pub mod components;
@@ -59,7 +60,7 @@ impl<C: MachineChip> Machine<C> {
             // k = 1
             assert_eq!(block.steps.len(), 1);
 
-            let step = trace::Step {
+            let step = ProgramStep {
                 step: block.steps[0].clone(),
                 regs: block.regs,
             };

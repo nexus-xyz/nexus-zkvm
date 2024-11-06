@@ -325,8 +325,7 @@ impl<const N: usize> PermElements<N> {
         }) - EF::from(self.z)
     }
 }
-
-pub const WORD_SIZE: usize = 4;
+pub const WORD_SIZE: usize = nexus_vm::WORD_SIZE;
 
 pub trait MachineChip<T> {
     // Called on each row during main trace generation

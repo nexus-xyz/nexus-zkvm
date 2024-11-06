@@ -16,14 +16,14 @@ pub mod utils;
 
 use utils::{bit_reverse, coset_order_to_circle_domain_order};
 
-use nexus_vm::cpu::RegisterFile;
+use nexus_vm::{cpu::RegisterFile, trace::Step};
 
 // Program execution step.
-pub struct Step {
+pub struct ProgramStep {
     /// Machine registers.
     pub(crate) regs: RegisterFile,
     /// Program step.
-    pub(crate) step: nexus_vm::trace::Step,
+    pub(crate) step: Step,
 }
 
 pub struct Traces {
