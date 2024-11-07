@@ -16,16 +16,15 @@ use std::{
     collections::{BTreeMap, HashMap},
     hash::Hash,
     iter,
-    ops::{self, Mul, Sub},
+    ops::{self},
 };
 
-use itertools::zip_eq;
-use num_traits::{One as _, Zero};
+use num_traits::Zero;
 use stwo_prover::{
     constraint_framework::{assert_constraints, EvalAtRow, FrameworkEval},
     core::{
         backend::simd::{column::BaseColumn, SimdBackend},
-        channel::{Blake2sChannel, Channel},
+        channel::Blake2sChannel,
         fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords, Field},
         pcs::{CommitmentSchemeProver, PcsConfig},
         poly::{
@@ -287,43 +286,6 @@ pub trait EvalAtRowExtra: EvalAtRow {
     }
 }
 impl<T: EvalAtRow> EvalAtRowExtra for T {}
-
-// This is very similar to LookupElement in logup.rs.
-// I'm avoiding logup.rs because it's not randomized preprocessed AIR.
-// logup.rs puts claimed_sum (which is not a low-degree polynomial) as constant into constraints.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PermElements<const N: usize> {
-    pub z: SecureField,
-    pub alpha: SecureField,
-    alpha_powers: [SecureField; N],
-}
-impl<const N: usize> PermElements<N> {
-    pub fn draw(channel: &mut impl Channel) -> Self {
-        let [z, alpha] = channel.draw_felts(2).try_into().unwrap();
-        let mut cur = SecureField::one();
-        let alpha_powers = array::from_fn(|_| {
-            let res = cur;
-            cur *= alpha;
-            res
-        });
-        Self {
-            z,
-            alpha,
-            alpha_powers,
-        }
-    }
-
-    // The iterator needs to return [N] elements. Avoiding a slice because no need of
-    // contiguous memory.
-    pub fn combine<F: Copy, EF, I: IntoIterator<Item = F>>(&self, values: I) -> EF
-    where
-        EF: Copy + Zero + From<F> + From<SecureField> + Mul<F, Output = EF> + Sub<EF, Output = EF>,
-    {
-        zip_eq(values, self.alpha_powers).fold(EF::zero(), |acc, (value, power)| {
-            acc + EF::from(power) * value
-        }) - EF::from(self.z)
-    }
-}
 pub const WORD_SIZE: usize = nexus_vm::WORD_SIZE;
 
 pub trait MachineChip<T> {

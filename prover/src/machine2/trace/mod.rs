@@ -119,5 +119,4 @@ macro_rules! trace_column_mut {
     }};
 }
 
-pub(crate) use trace_column;
 pub(crate) use trace_column_mut;

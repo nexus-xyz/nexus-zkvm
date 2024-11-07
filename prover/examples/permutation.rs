@@ -11,8 +11,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This example constrains (a0, a1)s to be a permutation of (b0, b1)s
-// Columns (a0, a1) and (b0, b1) are constrained to be permutations of each other,
+// This example constrains (a0, a1, ...)s to be a permutation of (b0, b1, ...)s
+// Columns (a0, a1, ...) and (b0, b1, ...) are constrained to be permutations of each other,
 // in other words, equals as multisets of M31 * M31 * ... * M31.
 
 use array2d::Array2D;
@@ -26,12 +26,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nexus_vm_prover::utils::{
-    generate_secure_field_trace, generate_trace, EvalAtRowExtra, PermElements,
-};
+use nexus_vm_prover::utils::{generate_secure_field_trace, generate_trace, EvalAtRowExtra};
 use stwo_prover::{
     constraint_framework::{
-        assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
+        assert_constraints, logup::LookupElements, EvalAtRow, FrameworkComponent, FrameworkEval,
+        TraceLocationAllocator,
     },
     core::{
         air::Component,
@@ -91,7 +90,7 @@ const N_TUPLE_ELM: usize = 12;
 pub struct PermEval {
     pub log_n_rows: u32,
     pub base_trace_location: TreeSubspan,
-    pub perm_element: PermElements<N_TUPLE_ELM>,
+    pub perm_element: LookupElements<N_TUPLE_ELM>,
 }
 
 impl FrameworkEval for PermEval {
@@ -124,7 +123,7 @@ impl FrameworkEval for PermEval {
         // FIXME: we are assuming that the verifier knows is_first column, that has not happened yet
 
         // Constraints that determine a_denom_inv
-        eval.add_constraint(self.perm_element.combine::<E::F, E::EF, _>(a) - a_denom);
+        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&a) - a_denom);
         eval.add_constraint(a_denom * a_denom_inv - E::EF::one());
 
         // Constraint that determines a_denom_inv_sum on the first row
@@ -137,7 +136,7 @@ impl FrameworkEval for PermEval {
         );
 
         // Constraints that determine b_denom_inv
-        eval.add_constraint(self.perm_element.combine::<E::F, E::EF, _>(b) - b_denom);
+        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&b) - b_denom);
         eval.add_constraint(b_denom * b_denom_inv - E::EF::one());
 
         // Constraint that determines b_denom_inv_sum on the first row
@@ -193,7 +192,7 @@ fn gen_trace(
 fn gen_interaction_trace(
     log_n_rows: u32,
     basic_trace: &PermCircuitTrace,
-    perm_element: &PermElements<N_TUPLE_ELM>,
+    perm_element: &LookupElements<N_TUPLE_ELM>,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
     let log_sizes = [log_n_rows; 6]; // TODO: number of secure fields instead of 6
     generate_secure_field_trace(log_sizes, |cols| {
@@ -211,7 +210,8 @@ fn gen_interaction_trace(
             .rows_iter()
             .enumerate()
             .for_each(|(row_idx, row_iter)| {
-                let denom = perm_element.combine(row_iter.take(N_TUPLE_ELM).copied()); // TODO: too manual
+                let tuple = row_iter.take(N_TUPLE_ELM).copied().collect_vec();
+                let denom = perm_element.combine(&tuple[..]);
                 a_denom[row_idx] = denom;
             });
         // Add a column of 1/(a + z)'s
@@ -238,8 +238,12 @@ fn gen_interaction_trace(
             .rows_iter()
             .enumerate()
             .for_each(|(row_idx, row_iter)| {
-                let denom =
-                    perm_element.combine(row_iter.skip(N_TUPLE_ELM).take(N_TUPLE_ELM).copied()); // TODO: too manual
+                let tuple = row_iter
+                    .skip(N_TUPLE_ELM)
+                    .take(N_TUPLE_ELM) // FIX: skip and take to choose 'b' is error-prone
+                    .copied()
+                    .collect_vec();
+                let denom = perm_element.combine(&tuple[..]);
                 b_denom[row_idx] = denom;
             });
         // Add a column of 1/(b + z)'s
@@ -305,7 +309,7 @@ fn prove_perm(
     tree_builder.commit(channel);
 
     // Draw permutation element
-    let perm_element = PermElements::draw(channel);
+    let perm_element = LookupElements::draw(channel);
 
     // Interaction trace.
     let trace = gen_interaction_trace(log_n_rows, &basic_trace, &perm_element);

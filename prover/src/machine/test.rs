@@ -44,7 +44,8 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 use stwo_prover::{
     constraint_framework::{
-        assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
+        assert_constraints, logup::LookupElements, EvalAtRow, FrameworkComponent, FrameworkEval,
+        TraceLocationAllocator,
     },
     core::{
         air::Component,
@@ -66,10 +67,7 @@ use crate::{
         register_file::AddMachineRegisterFile,
         types::RegisterMachineColumns,
     },
-    utils::{
-        AssertionCircuit, ColumnNameItem, ColumnNameMap, EvalAtRowExtra as _, PermElements,
-        WORD_SIZE,
-    },
+    utils::{AssertionCircuit, ColumnNameItem, ColumnNameMap, EvalAtRowExtra as _, WORD_SIZE},
 };
 
 #[test]
@@ -115,7 +113,7 @@ fn test_machine() {
     tree_builder.commit(prover_channel);
 
     // Draw permutation element
-    let xor_perm_element = PermElements::draw(prover_channel);
+    let xor_perm_element = LookupElements::draw(prover_channel);
     let machine = EvalMachine::<Chips> {
         rows_log2,
         cols: column_names,

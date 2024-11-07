@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash, marker};
 
 use num_traits::{One, Zero};
 use stwo_prover::{
-    constraint_framework::{EvalAtRow, FrameworkEval},
+    constraint_framework::{logup::LookupElements, EvalAtRow, FrameworkEval},
     core::{
         backend::simd::SimdBackend,
         fields::{m31::BaseField, qm31::SecureField, FieldExpOps},
@@ -10,7 +10,7 @@ use stwo_prover::{
     },
 };
 
-use crate::utils::{self, ColumnNameMap, EvalAtRowExtra, MachineChip, PermElements, WORD_SIZE};
+use crate::utils::{self, ColumnNameMap, EvalAtRowExtra, MachineChip, WORD_SIZE};
 
 use super::{consts::N_XOR_TUPLE, types::RegisterMachineColumns};
 
@@ -90,7 +90,7 @@ pub fn constraint_increment<E, K>(
 pub struct EvalMachine<C: MachineChip<RegisterMachineColumns>> {
     pub rows_log2: u32,
     pub cols: ColumnNameMap<RegisterMachineColumns>,
-    pub xor_perm_element: PermElements<{ N_XOR_TUPLE }>,
+    pub xor_perm_element: LookupElements<{ N_XOR_TUPLE }>,
     pub _phantom: marker::PhantomData<C>,
 }
 
@@ -167,7 +167,7 @@ impl<Chips: MachineChip<RegisterMachineColumns>> FrameworkEval for EvalMachine<C
             eval.add_constraint(
                 E::EF::from(cols[&IsXor][0])
                     * E::EF::from(cols[&RdIdxNonzero][0])
-                    * (self.xor_perm_element.combine::<E::F, E::EF, _>([
+                    * (self.xor_perm_element.combine::<E::F, E::EF>(&[
                         cols[&R1Val][i],
                         cols[&R2Val][i],
                         cols[&RdVal][i],
@@ -183,7 +183,7 @@ impl<Chips: MachineChip<RegisterMachineColumns>> FrameworkEval for EvalMachine<C
             table_denom_inv_m
                 * (self
                     .xor_perm_element
-                    .combine::<E::F, E::EF, _>([xor_a, xor_b, xor_result])
+                    .combine::<E::F, E::EF>(&[xor_a, xor_b, xor_result])
                     - table_denom),
         );
         // constraint table_denom_inv
@@ -217,7 +217,7 @@ impl<C: MachineChip<RegisterMachineColumns>> EvalMachine<C> {
     pub fn new(
         rows_log2: u32,
         cols: ColumnNameMap<RegisterMachineColumns>,
-        xor_perm_element: PermElements<{ N_XOR_TUPLE }>,
+        xor_perm_element: LookupElements<{ N_XOR_TUPLE }>,
     ) -> Self {
         Self {
             rows_log2,
@@ -269,7 +269,7 @@ impl<C: MachineChip<RegisterMachineColumns>> EvalMachine<C> {
                             == BaseField::one()
                     {
                         for i in 0..WORD_SIZE {
-                            use_denom[i][row_idx] = self.xor_perm_element.combine([
+                            use_denom[i][row_idx] = self.xor_perm_element.combine(&[
                                 base_trace[self.cols.nth_col(&R1Val, i)][row_idx],
                                 base_trace[self.cols.nth_col(&R2Val, i)][row_idx],
                                 base_trace[self.cols.nth_col(&RdVal, i)][row_idx],
@@ -284,7 +284,7 @@ impl<C: MachineChip<RegisterMachineColumns>> EvalMachine<C> {
                     (0..256).for_each(|b| {
                         let result = a ^ b;
                         let idx = a * 256 + b;
-                        table_denom[idx] = self.xor_perm_element.combine([
+                        table_denom[idx] = self.xor_perm_element.combine(&[
                             BaseField::from(a),
                             BaseField::from(b),
                             BaseField::from(result),
