@@ -51,6 +51,9 @@ pub enum Column {
     /// The value of operand a.
     #[size = 4]
     ValueA,
+    /// The value of operand a to be written (zero if destination register index is zero).
+    #[size = 4]
+    ValueAEffective,
     /// The current timestamp for a.
     #[size = 4]
     TsA,
