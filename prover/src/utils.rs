@@ -20,7 +20,7 @@ use std::{
 };
 
 use itertools::zip_eq;
-use num_traits::{One, Zero};
+use num_traits::{One as _, Zero};
 use stwo_prover::{
     constraint_framework::{assert_constraints, EvalAtRow, FrameworkEval},
     core::{
@@ -38,8 +38,7 @@ use stwo_prover::{
     },
 };
 
-// TODO: remove 'pub' after using generate_trace in the permutation example
-pub fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
+fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
     let mut circle_domain_order = Vec::with_capacity(values.len());
     let n = values.len();
 

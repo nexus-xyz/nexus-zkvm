@@ -26,25 +26,18 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nexus_vm_prover::utils::{coset_order_to_circle_domain_order, EvalAtRowExtra, PermElements};
+use nexus_vm_prover::utils::{
+    generate_secure_field_trace, generate_trace, EvalAtRowExtra, PermElements,
+};
 use stwo_prover::{
     constraint_framework::{
         assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
     },
     core::{
         air::Component,
-        backend::{
-            simd::{
-                column::{BaseColumn, SecureColumn},
-                m31::LOG_N_LANES,
-                SimdBackend,
-            },
-            Column,
-        },
+        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
         channel::Blake2sChannel,
-        fields::{
-            m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords, FieldExpOps,
-        },
+        fields::{m31::BaseField, qm31::SecureField, FieldExpOps},
         fri::FriConfig,
         pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeSubspan},
         poly::{
@@ -52,28 +45,12 @@ use stwo_prover::{
             BitReversedOrder,
         },
         prover::{prove, verify, StarkProof},
-        utils::bit_reverse,
         vcs::blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
         ColumnVec,
     },
 };
 
 // Maybe useful for other examples
-
-fn to_bitreverse_eval_base_columns(base_column: &BaseColumn) -> BaseColumn {
-    let mut eval = coset_order_to_circle_domain_order(base_column.as_slice());
-    bit_reverse(&mut eval);
-    BaseColumn::from_iter(eval)
-}
-
-fn reorder_secure_column_by_coords_for_eval(
-    column: &mut SecureColumnByCoords<SimdBackend>,
-) -> SecureColumnByCoords<SimdBackend> {
-    let mut c_circle_domain = coset_order_to_circle_domain_order(column.to_vec().as_slice());
-    bit_reverse(&mut c_circle_domain);
-    SecureColumnByCoords::<SimdBackend>::from_iter(c_circle_domain)
-}
-
 trait IterBaseField {
     fn iter_base_field(&self) -> impl Iterator<Item = BaseField>;
 }
@@ -191,19 +168,26 @@ impl IterBaseField for PermCircuitTraceStep {
 }
 
 struct PermCircuitTrace {
-    pub inner: Array2D<BaseField>,
+    pub log_sizes: Vec<u32>,
+    pub table: Array2D<BaseField>,
 }
 
-pub fn gen_trace(
-    log_size: u32,
-    circuit: &[BaseColumn; N_TUPLE_ELM * 2],
+fn gen_trace(
+    basic_trace: &PermCircuitTrace,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-    let domain = CanonicCoset::new(log_size).circle_domain();
-
-    circuit
-        .iter()
-        .map(|eval| CircleEvaluation::new(domain, to_bitreverse_eval_base_columns(eval)))
-        .collect()
+    generate_trace(basic_trace.log_sizes.clone(), |cols| {
+        cols.iter_mut().enumerate().for_each(|(col_idx, col)| {
+            let column_orig = basic_trace
+                .table
+                .column_iter(col_idx)
+                .unwrap()
+                .copied()
+                .enumerate();
+            column_orig.for_each(|(row_idx, cell_orig)| {
+                col[row_idx] = cell_orig;
+            });
+        });
+    })
 }
 
 fn gen_interaction_trace(
@@ -211,95 +195,78 @@ fn gen_interaction_trace(
     basic_trace: &PermCircuitTrace,
     perm_element: &PermElements<N_TUPLE_ELM>,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-    let n_rows = 1 << log_n_rows;
-    let range = 0..n_rows;
+    let log_sizes = [log_n_rows; 6]; // TODO: number of secure fields instead of 6
+    generate_secure_field_trace(log_sizes, |cols| {
+        let (a, b) = cols.split_at_mut(3);
 
-    let mut a_denom = SecureColumn::zeros(n_rows); // for batch inverse
+        let (a_denom, a) = a.split_at_mut(1);
+        let (a_denom_inv, a_inv_sum) = a.split_at_mut(1);
+        let a_denom = &mut a_denom[0];
+        let a_denom_inv = &mut a_denom_inv[0];
+        let a_inv_sum = &mut a_inv_sum[0];
 
-    // Add a column of (a + z)'s
-    basic_trace
-        .inner
-        .rows_iter()
-        .enumerate()
-        .for_each(|(row_idx, row_iter)| {
-            let denom = perm_element.combine(row_iter.take(N_TUPLE_ELM).copied()); // TODO: too manual
-            a_denom.set(row_idx, denom);
-        });
+        // Add a column of (a + z)'s
+        basic_trace
+            .table
+            .rows_iter()
+            .enumerate()
+            .for_each(|(row_idx, row_iter)| {
+                let denom = perm_element.combine(row_iter.take(N_TUPLE_ELM).copied()); // TODO: too manual
+                a_denom[row_idx] = denom;
+            });
+        // Add a column of 1/(a + z)'s
+        FieldExpOps::batch_inverse(a_denom, a_denom_inv);
 
-    let mut a_denom_inv = SecureColumn::zeros(n_rows);
-    FieldExpOps::batch_inverse(&a_denom.data, &mut a_denom_inv.data);
+        let mut a_sum = SecureField::zero();
+        a_inv_sum
+            .iter_mut()
+            .zip(a_denom_inv.iter())
+            .for_each(|(a_inv_sum, a_denom_inv)| {
+                a_sum += *a_denom_inv;
+                *a_inv_sum = a_sum;
+            });
 
-    // Add a column of 1/(a + z)'s
-    let mut a_sum = SecureField::zero();
-    let mut a_inv_sum = SecureColumn::zeros(n_rows);
-    for row_index in range.clone() {
-        a_sum += a_denom_inv.at(row_index);
-        a_inv_sum.set(row_index, a_sum);
-    }
+        let (b_denom, b) = b.split_at_mut(1);
+        let (b_denom_inv, b_inv_sum) = b.split_at_mut(1);
+        let b_denom = &mut b_denom[0];
+        let b_denom_inv = &mut b_denom_inv[0];
+        let b_inv_sum = &mut b_inv_sum[0];
 
-    let mut b_denom = SecureColumn::zeros(n_rows); // for batch inverse
+        // Add a column of (b + z)'s
+        basic_trace
+            .table
+            .rows_iter()
+            .enumerate()
+            .for_each(|(row_idx, row_iter)| {
+                let denom =
+                    perm_element.combine(row_iter.skip(N_TUPLE_ELM).take(N_TUPLE_ELM).copied()); // TODO: too manual
+                b_denom[row_idx] = denom;
+            });
+        // Add a column of 1/(b + z)'s
+        FieldExpOps::batch_inverse(b_denom, b_denom_inv);
 
-    // Add a column of (b + z)'s
-    basic_trace
-        .inner
-        .rows_iter()
-        .enumerate()
-        .for_each(|(row_idx, row_iter)| {
-            let denom = perm_element.combine(row_iter.skip(N_TUPLE_ELM).take(N_TUPLE_ELM).copied()); /* too manual */
-            b_denom.set(row_idx, denom);
-        });
-    let mut b_denom_inv = SecureColumn::zeros(n_rows);
-    FieldExpOps::batch_inverse(&b_denom.data, &mut b_denom_inv.data);
-
-    // Add a column of 1/(b + z)'s
-    let mut b_sum = SecureField::zero();
-    let mut b_inv_sum = SecureColumn::zeros(n_rows);
-    for row_index in range {
-        b_sum += b_denom_inv.at(row_index);
-        b_inv_sum.set(row_index, b_sum);
-    }
-
-    let trace = vec![
-        a_denom,
-        a_denom_inv,
-        a_inv_sum,
-        b_denom,
-        b_denom_inv,
-        b_inv_sum,
-    ];
-
-    trace
-        .into_iter()
-        .flat_map(|eval| {
-            let mut eval = eval.into_secure_column_by_coords();
-            let eval2 = reorder_secure_column_by_coords_for_eval(&mut eval);
-            eval2
-                .columns
-                .map(|c| CircleEvaluation::new(CanonicCoset::new(log_n_rows).circle_domain(), c))
-        })
-        .collect_vec()
+        let mut b_sum = SecureField::zero();
+        b_inv_sum
+            .iter_mut()
+            .zip(b_denom_inv.iter())
+            .for_each(|(b_inv_sum, b_denom_inv)| {
+                b_sum += *b_denom_inv;
+                *b_inv_sum = b_sum;
+            });
+    })
 }
 
 fn gen_constant_trace(
     log_n_rows: u32,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-    let n_rows: usize = 1 << log_n_rows;
-    let range = 0..n_rows;
-    let mut is_first_column =
-        BaseColumn::from_iter(range.map(|i| if i == 0 { 1.into() } else { 0.into() }));
-    is_first_column = to_bitreverse_eval_base_columns(&is_first_column);
-
-    let domain = CanonicCoset::new(log_n_rows).circle_domain();
-
-    [is_first_column]
-        .iter()
-        .map(|eval| CircleEvaluation::new(domain, to_bitreverse_eval_base_columns(eval)))
-        .collect()
+    generate_trace([log_n_rows], |cols| {
+        cols[0][0] = 1.into();
+    })
 }
 
 fn trace_steps_to_trace(trace: &PermCircuitTrace) -> [BaseColumn; N_TUPLE_ELM * 2] {
     trace
-        .inner
+        .table
         .columns_iter()
         .map(|column_iter| BaseColumn::from_iter(column_iter.copied()))
         .collect_vec()
@@ -332,7 +299,7 @@ fn prove_perm(
         &mut CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
 
     // Trace.
-    let trace = gen_trace(log_n_rows, &circuit);
+    let trace = gen_trace(&basic_trace);
     let mut tree_builder = commitment_scheme.tree_builder();
     let base_trace_location = tree_builder.extend_evals(trace);
     tree_builder.commit(channel);
@@ -448,7 +415,8 @@ fn should_work(log_n_rows: u32) -> PermCircuitTrace {
     let row_iter = rows.map(|step| step.iter_base_field().collect_vec());
     let row_major = row_iter.flatten();
     PermCircuitTrace {
-        inner: Array2D::from_iter_row_major(row_major, n_rows, N_TUPLE_ELM * 2).unwrap(),
+        log_sizes: vec![log_n_rows; N_TUPLE_ELM * 2],
+        table: Array2D::from_iter_row_major(row_major, n_rows, N_TUPLE_ELM * 2).unwrap(),
     }
 }
 
@@ -472,7 +440,8 @@ fn one_element_missing(log_n_rows: u32) -> PermCircuitTrace {
     let row_iter = rows.map(|step| step.iter_base_field().collect_vec());
     let row_major = row_iter.flatten();
     PermCircuitTrace {
-        inner: Array2D::from_iter_row_major(row_major, 1 << log_n_rows, N_TUPLE_ELM * 2).unwrap(),
+        log_sizes: vec![log_n_rows; N_TUPLE_ELM * 2],
+        table: Array2D::from_iter_row_major(row_major, 1 << log_n_rows, N_TUPLE_ELM * 2).unwrap(),
     }
 }
 
