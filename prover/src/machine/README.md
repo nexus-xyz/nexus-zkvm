@@ -1,1 +1,0 @@
-A small machine that does ADD, SUB, XORs according to the current flags. test.rs contains proving and verification.
