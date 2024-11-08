@@ -6,9 +6,10 @@ members = [
     "vm",
     "precompiles",
     "common",
+    "core",
     "tests/testing-framework",
 ]
-default-members = ["runtime", "prover", "vm", "precompiles", "common"]
+default-members = ["runtime", "prover", "vm", "precompiles", "common", "core"]
 
 [workspace.package]
 edition = "2021"
