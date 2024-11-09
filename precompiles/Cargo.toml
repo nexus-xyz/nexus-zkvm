@@ -11,3 +11,8 @@ publish.workspace = true
 
 [dependencies]
 nexus-common = { path = "../common" }
+nexus-precompile-macros = { path = "macros", version = "0.1.0" }
+thiserror = "1.0"
+
+[dev-dependencies]
+dummy-div = { path = "tests/dummy_div" }
