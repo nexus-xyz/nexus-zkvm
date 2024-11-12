@@ -35,7 +35,7 @@ pub struct Machine<C = Components> {
     _phantom_data: PhantomData<C>,
 }
 
-impl<C: MachineChip> Machine<C> {
+impl<C: MachineChip + Sync> Machine<C> {
     pub fn prove(trace: &impl Trace) -> Result<Proof, ProvingError> {
         const LOG_SIZE: u32 = 6;
 

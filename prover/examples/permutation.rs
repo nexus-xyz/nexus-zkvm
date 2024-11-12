@@ -123,28 +123,30 @@ impl FrameworkEval for PermEval {
         // FIXME: we are assuming that the verifier knows is_first column, that has not happened yet
 
         // Constraints that determine a_denom_inv
-        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&a) - a_denom);
-        eval.add_constraint(a_denom * a_denom_inv - E::EF::one());
+        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&a) - a_denom.clone());
+        eval.add_constraint(a_denom * a_denom_inv.clone() - E::EF::one());
 
         // Constraint that determines a_denom_inv_sum on the first row
         // a_denom_inv_sum_0 = a_denom_inv_0
-        eval.add_constraint((a_denom_inv_sum - a_denom_inv) * is_first);
+        eval.add_constraint((a_denom_inv_sum.clone() - a_denom_inv.clone()) * is_first.clone());
 
         // Constraints that determine a_denom_inv_sum except on the first row
         eval.add_constraint(
-            (a_denom_inv_sum - a_denom_inv - a_denom_inv_sum_prev) * (E::F::one() - is_first),
+            (a_denom_inv_sum - a_denom_inv - a_denom_inv_sum_prev.clone())
+                * (E::F::one() - is_first.clone()),
         );
 
         // Constraints that determine b_denom_inv
-        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&b) - b_denom);
-        eval.add_constraint(b_denom * b_denom_inv - E::EF::one());
+        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&b) - b_denom.clone());
+        eval.add_constraint(b_denom * b_denom_inv.clone() - E::EF::one());
 
         // Constraint that determines b_denom_inv_sum on the first row
-        eval.add_constraint((b_denom_inv_sum - b_denom_inv) * is_first);
+        eval.add_constraint((b_denom_inv_sum.clone() - b_denom_inv.clone()) * is_first.clone());
 
         // Constraints that determine b_denom_inv_sum except on the first row
         eval.add_constraint(
-            (b_denom_inv_sum - b_denom_inv - b_denom_inv_sum_prev) * (E::F::one() - is_first),
+            (b_denom_inv_sum - b_denom_inv - b_denom_inv_sum_prev.clone())
+                * (E::F::one() - is_first.clone()),
         );
 
         // Compare sums

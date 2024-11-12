@@ -21,8 +21,8 @@ impl<E: EvalAtRow> TraceEval<E> {
         let offset = col.offset();
 
         (
-            array::from_fn(|i| self.0[offset + i][0]),
-            array::from_fn(|i| self.0[offset + i][1]),
+            array::from_fn(|i| self.0[offset + i][0].clone()),
+            array::from_fn(|i| self.0[offset + i][1].clone()),
         )
     }
 }

@@ -110,7 +110,7 @@ impl MachineChip for AddChip {
 
     fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {
         let (_, is_add) = trace_eval!(trace_eval, IsAdd);
-        let is_add = is_add[0];
+        let is_add = is_add[0].clone();
         // modulus for 8-bit limbs
         let modulus = E::F::from(256u32.into());
 
@@ -122,13 +122,15 @@ impl MachineChip for AddChip {
         for i in 0..WORD_SIZE {
             let carry = i
                 .checked_sub(1)
-                .map(|j| carry_flag[j])
+                .map(|j| carry_flag[j].clone())
                 .unwrap_or(E::F::zero());
 
             // ADD a, b, c
             // rdval[i] + h1[i] * 2^8 = rs1val[i] + rs2val[i] + h1[i - 1]
             eval.add_constraint(
-                is_add * (rd_val[i] + carry_flag[i] * modulus - (rs1_val[i] + rs2_val[i] + carry)),
+                is_add.clone()
+                    * (rd_val[i].clone() + carry_flag[i].clone() * modulus.clone()
+                        - (rs1_val[i].clone() + rs2_val[i].clone() + carry)),
             );
         }
         // Range checks should differentiate ADD and ADDI cases, as immediate values are smaller.

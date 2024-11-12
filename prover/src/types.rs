@@ -18,7 +18,7 @@ impl<E: EvalAtRow> Deref for BooleanValue<E> {
 impl<E: EvalAtRow> BooleanValue<E> {
     /// Assert the value is a boolean.
     pub fn new(eval: &mut E, v: E::F) -> Self {
-        eval.add_constraint(v * (v - E::F::one()));
+        eval.add_constraint(v.clone() * (v.clone() - E::F::one()));
 
         Self(v)
     }
@@ -30,11 +30,13 @@ impl<E: EvalAtRow> BooleanValue<E> {
 
     /// Enforces `self v rhs`
     pub fn or(&self, eval: &mut E, rhs: &Self) {
-        eval.add_constraint(self.0 + rhs.0 - self.0 * rhs.0 - E::F::one());
+        eval.add_constraint(
+            self.0.clone() + rhs.0.clone() - self.0.clone() * rhs.0.clone() - E::F::one(),
+        );
     }
 
     /// Enforces `self = !rhs`
     pub fn neg(&self, eval: &mut E, rhs: &Self) {
-        eval.add_constraint(self.0 + rhs.0 - E::F::one());
+        eval.add_constraint(self.0.clone() + rhs.0.clone() - E::F::one());
     }
 }

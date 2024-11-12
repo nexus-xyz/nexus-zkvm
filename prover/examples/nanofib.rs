@@ -268,81 +268,91 @@ impl FrameworkEval for Nanofib {
         let one = E::F::one();
 
         // Check aux columns
-        eval.add_constraint(pc * pc_not0_a - pc_not0);
-        eval.add_constraint(r4 * r4_not0_a - r4_not0);
-        eval.add_constraint((pc - one) * pc_not1_a - pc_not1);
-        eval.add_constraint((pc - E::F::from(2.into())) * pc_not2_a - pc_not2);
-        eval.add_constraint((pc - E::F::from(3.into())) * pc_not3_a - pc_not3);
-        eval.add_constraint((pc - E::F::from(4.into())) * pc_not4_a - pc_not4);
-        eval.add_constraint((pc - E::F::from(5.into())) * pc_not5_a - pc_not5);
-        eval.add_constraint(r4_not0_a * r4_not0_b - one);
-        eval.add_constraint(pc_not0_a * pc_not0_b - one);
-        eval.add_constraint(pc_not1_a * pc_not1_b - one);
-        eval.add_constraint(pc_not2_a * pc_not2_b - one);
-        eval.add_constraint(pc_not3_a * pc_not3_b - one);
-        eval.add_constraint(pc_not4_a * pc_not4_b - one);
-        eval.add_constraint(pc_not5_a * pc_not5_b - one);
-        eval.add_constraint(r4_not0 * (one - r4_not0));
-        eval.add_constraint(pc_not0 * (one - pc_not0));
-        eval.add_constraint(pc_not1 * (one - pc_not1));
-        eval.add_constraint(pc_not2 * (one - pc_not2));
-        eval.add_constraint(pc_not3 * (one - pc_not3));
-        eval.add_constraint(pc_not4 * (one - pc_not4));
-        eval.add_constraint(pc_not5 * (one - pc_not5));
+        eval.add_constraint(pc.clone() * pc_not0_a.clone() - pc_not0.clone());
+        eval.add_constraint(r4.clone() * r4_not0_a.clone() - r4_not0.clone());
+        eval.add_constraint((pc.clone() - one.clone()) * pc_not1_a.clone() - pc_not1.clone());
+        eval.add_constraint(
+            (pc.clone() - E::F::from(2.into())) * pc_not2_a.clone() - pc_not2.clone(),
+        );
+        eval.add_constraint(
+            (pc.clone() - E::F::from(3.into())) * pc_not3_a.clone() - pc_not3.clone(),
+        );
+        eval.add_constraint(
+            (pc.clone() - E::F::from(4.into())) * pc_not4_a.clone() - pc_not4.clone(),
+        );
+        eval.add_constraint(
+            (pc.clone() - E::F::from(5.into())) * pc_not5_a.clone() - pc_not5.clone(),
+        );
+        eval.add_constraint(r4_not0_a.clone() * r4_not0_b.clone() - one.clone());
+        eval.add_constraint(pc_not0_a.clone() * pc_not0_b.clone() - one.clone());
+        eval.add_constraint(pc_not1_a.clone() * pc_not1_b.clone() - one.clone());
+        eval.add_constraint(pc_not2_a.clone() * pc_not2_b.clone() - one.clone());
+        eval.add_constraint(pc_not3_a.clone() * pc_not3_b.clone() - one.clone());
+        eval.add_constraint(pc_not4_a.clone() * pc_not4_b.clone() - one.clone());
+        eval.add_constraint(pc_not5_a.clone() * pc_not5_b.clone() - one.clone());
+        eval.add_constraint(r4_not0.clone() * (one.clone() - r4_not0.clone()));
+        eval.add_constraint(pc_not0.clone() * (one.clone() - pc_not0.clone()));
+        eval.add_constraint(pc_not1.clone() * (one.clone() - pc_not1.clone()));
+        eval.add_constraint(pc_not2.clone() * (one.clone() - pc_not2.clone()));
+        eval.add_constraint(pc_not3.clone() * (one.clone() - pc_not3.clone()));
+        eval.add_constraint(pc_not4.clone() * (one.clone() - pc_not4.clone()));
+        eval.add_constraint(pc_not5.clone() * (one.clone() - pc_not5.clone()));
 
         // Check initial values
-        eval.add_constraint(is_first * r1);
-        eval.add_constraint(is_first * (r2 - one));
-        eval.add_constraint(is_first * r3);
-        eval.add_constraint(is_first * (r4 - E::F::from((self.n_th - 1).into())));
-        eval.add_constraint(is_first * pc);
+        eval.add_constraint(is_first.clone() * r1.clone());
+        eval.add_constraint(is_first.clone() * (r2.clone() - one.clone()));
+        eval.add_constraint(is_first.clone() * r3.clone());
+        eval.add_constraint(is_first.clone() * (r4.clone() - E::F::from((self.n_th - 1).into())));
+        eval.add_constraint(is_first * pc.clone());
 
         // Check transition for pc == 0
-        let is_pc_zero = (one - pc_not0) * (one - is_last);
-        eval.add_constraint(is_pc_zero * (r1_next - r1));
-        eval.add_constraint(is_pc_zero * (r2_next - r2));
-        eval.add_constraint(is_pc_zero * (r3_next - (r1 + r2)));
-        eval.add_constraint(is_pc_zero * (r4_next - r4));
-        eval.add_constraint(is_pc_zero * (pc_next - (pc + one)));
+        let is_pc_zero = (one.clone() - pc_not0) * (one.clone() - is_last.clone());
+        eval.add_constraint(is_pc_zero.clone() * (r1_next.clone() - r1.clone()));
+        eval.add_constraint(is_pc_zero.clone() * (r2_next.clone() - r2.clone()));
+        eval.add_constraint(is_pc_zero.clone() * (r3_next.clone() - (r1.clone() + r2.clone())));
+        eval.add_constraint(is_pc_zero.clone() * (r4_next.clone() - r4.clone()));
+        eval.add_constraint(is_pc_zero.clone() * (pc_next.clone() - (pc.clone() + one.clone())));
 
         // Check transition for pc == 1
-        let is_pc_one = (one - pc_not1) * (one - is_last);
-        eval.add_constraint(is_pc_one * (r1_next - r2));
-        eval.add_constraint(is_pc_one * (r2_next - r2));
-        eval.add_constraint(is_pc_one * (r3_next - r3));
-        eval.add_constraint(is_pc_one * (r4_next - r4));
-        eval.add_constraint(is_pc_one * (pc_next - (pc + one)));
+        let is_pc_one = (one.clone() - pc_not1) * (one.clone() - is_last.clone());
+        eval.add_constraint(is_pc_one.clone() * (r1_next.clone() - r2.clone()));
+        eval.add_constraint(is_pc_one.clone() * (r2_next.clone() - r2.clone()));
+        eval.add_constraint(is_pc_one.clone().clone().clone() * (r3_next.clone() - r3.clone()));
+        eval.add_constraint(is_pc_one.clone().clone() * (r4_next.clone() - r4.clone()));
+        eval.add_constraint(is_pc_one * (pc_next.clone() - (pc.clone() + one.clone())));
 
         // Check transition for pc == 2
-        let is_pc_two = (one - pc_not2) * (one - is_last);
-        eval.add_constraint(is_pc_two * (r1_next - r1));
-        eval.add_constraint(is_pc_two * (r2_next - r3));
-        eval.add_constraint(is_pc_two * (r3_next - r3));
-        eval.add_constraint(is_pc_two * (r4_next - r4));
-        eval.add_constraint(is_pc_two * (pc_next - (pc + one)));
+        let is_pc_two = (one.clone() - pc_not2) * (one.clone() - is_last.clone());
+        eval.add_constraint(is_pc_two.clone() * (r1_next.clone() - r1.clone()));
+        eval.add_constraint(is_pc_two.clone() * (r2_next.clone() - r3.clone()));
+        eval.add_constraint(is_pc_two.clone() * (r3_next.clone() - r3.clone()));
+        eval.add_constraint(is_pc_two.clone() * (r4_next.clone() - r4.clone()));
+        eval.add_constraint(is_pc_two * (pc_next.clone() - (pc.clone() + one.clone())));
 
         // Check transition for pc == 3
-        let is_pc_three = (one - pc_not3) * (one - is_last);
-        eval.add_constraint(is_pc_three * (r1_next - r1));
-        eval.add_constraint(is_pc_three * (r2_next - r2));
-        eval.add_constraint(is_pc_three * (r3_next - r3));
-        eval.add_constraint(is_pc_three * (r4_next - (r4 - one)));
-        eval.add_constraint(is_pc_three * (pc_next - (pc + one)));
+        let is_pc_three = (one.clone() - pc_not3) * (one.clone() - is_last.clone());
+        eval.add_constraint(is_pc_three.clone() * (r1_next.clone() - r1.clone()));
+        eval.add_constraint(is_pc_three.clone() * (r2_next.clone() - r2.clone()));
+        eval.add_constraint(is_pc_three.clone() * (r3_next.clone() - r3.clone()));
+        eval.add_constraint(is_pc_three.clone() * (r4_next.clone() - (r4.clone() - one.clone())));
+        eval.add_constraint(is_pc_three * (pc_next.clone() - (pc.clone() + one.clone())));
 
         // Check transition for pc == 4
-        eval.add_constraint(is_pc_four * (r1_next - r1));
-        eval.add_constraint(is_pc_four * (r2_next - r2));
-        eval.add_constraint(is_pc_four * (r3_next - r3));
-        eval.add_constraint(is_pc_four * (r4_next - r4));
-        eval.add_constraint(is_pc_four * r4_not0 * pc_next);
-        eval.add_constraint(is_pc_four * (one - r4_not0) * (pc_next - (pc + one)));
+        eval.add_constraint(is_pc_four.clone() * (r1_next.clone() - r1.clone()));
+        eval.add_constraint(is_pc_four.clone() * (r2_next.clone() - r2.clone()));
+        eval.add_constraint(is_pc_four.clone() * (r3_next.clone() - r3.clone()));
+        eval.add_constraint(is_pc_four.clone() * (r4_next.clone() - r4.clone()));
+        eval.add_constraint(is_pc_four.clone() * r4_not0.clone() * pc_next.clone());
+        eval.add_constraint(
+            is_pc_four * (one.clone() - r4_not0) * (pc_next.clone() - (pc.clone() + one.clone())),
+        );
 
         // Check transition for pc == 5
-        let is_pc_five = (one - pc_not5) * (one - is_last);
-        eval.add_constraint(is_pc_five * (r1_next - r1));
-        eval.add_constraint(is_pc_five * (r2_next - r2));
-        eval.add_constraint(is_pc_five * (r3_next - r3));
-        eval.add_constraint(is_pc_five * (r4_next - r4));
+        let is_pc_five = (one.clone() - pc_not5) * (one - is_last.clone());
+        eval.add_constraint(is_pc_five.clone() * (r1_next - r1));
+        eval.add_constraint(is_pc_five.clone().clone() * (r2_next - r2));
+        eval.add_constraint(is_pc_five.clone() * (r3_next - r3.clone()));
+        eval.add_constraint(is_pc_five.clone() * (r4_next - r4));
         eval.add_constraint(is_pc_five * (pc_next - pc));
 
         // Check final result

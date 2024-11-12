@@ -240,8 +240,8 @@ impl FrameworkEval for Fib {
         // a valid fibonacci row, as the next row will be the wrapped table (hence, the initial
         // values).
         // ----------------------------------------------------------------------------------------
-        eval.add_constraint(is_first_neg[1] * (b[0] - a[1]));
-        eval.add_constraint(is_first_neg[1] * (b[1] - a[0] - a[1]));
+        eval.add_constraint(is_first_neg[1].clone() * (b[0].clone() - a[1].clone()));
+        eval.add_constraint(is_first_neg[1].clone() * (b[1].clone() - a[0].clone() - a[1].clone()));
 
         // ----------------------------------------------------------------------------------------
         // Aux trace
@@ -251,8 +251,8 @@ impl FrameworkEval for Fib {
         // ----------------------------------------------------------------------------------------
 
         // asserts the aux trace is boolean
-        let is_first0 = BooleanValue::new(&mut eval, is_first[0]);
-        let is_first0_neg = BooleanValue::new(&mut eval, is_first_neg[0]);
+        let is_first0 = BooleanValue::new(&mut eval, is_first[0].clone());
+        let is_first0_neg = BooleanValue::new(&mut eval, is_first_neg[0].clone());
 
         // asserts `is_first0_neg = !is_first0`
         is_first0.neg(&mut eval, &is_first0_neg);

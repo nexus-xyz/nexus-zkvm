@@ -277,8 +277,8 @@ pub trait EvalAtRowExtra: EvalAtRow {
             let size = range.end - range.start;
             for _ in 0..size {
                 let masks = self.next_interaction_mask(interaction, offsets);
-                for (i, mask) in masks.iter().enumerate() {
-                    values[i].entry(*name).or_insert_with(Vec::new).push(*mask);
+                for (i, mask) in masks.iter().cloned().enumerate() {
+                    values[i].entry(*name).or_insert_with(Vec::new).push(mask);
                 }
             }
         }
