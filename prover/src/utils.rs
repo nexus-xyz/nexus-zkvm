@@ -15,24 +15,20 @@ use std::{
     array,
     collections::{BTreeMap, HashMap},
     hash::Hash,
-    iter,
     ops::{self},
 };
 
 use num_traits::Zero;
 use stwo_prover::{
-    constraint_framework::{assert_constraints, EvalAtRow, FrameworkEval},
+    constraint_framework::EvalAtRow,
     core::{
         backend::simd::{column::BaseColumn, SimdBackend},
-        channel::Blake2sChannel,
         fields::{m31::BaseField, qm31::SecureField, secure_column::SecureColumnByCoords, Field},
-        pcs::{CommitmentSchemeProver, PcsConfig},
         poly::{
-            circle::{CanonicCoset, CircleEvaluation, PolyOps as _},
+            circle::{CanonicCoset, CircleEvaluation},
             BitReversedOrder,
         },
         utils::bit_reverse,
-        vcs::blake2_merkle::Blake2sMerkleChannel,
         ColumnVec,
     },
 };
@@ -287,139 +283,3 @@ pub trait EvalAtRowExtra: EvalAtRow {
 }
 impl<T: EvalAtRow> EvalAtRowExtra for T {}
 pub const WORD_SIZE: usize = nexus_vm::WORD_SIZE;
-
-pub trait MachineChip<T> {
-    // Called on each row during main trace generation
-    fn fill_main_trace(
-        r1_val: [u8; WORD_SIZE],
-        r2_val: [u8; WORD_SIZE],
-        rd_val: &mut [u8; WORD_SIZE],
-        rd_idx: usize,
-        cols: &mut [&mut [BaseField]],
-        row_idx: usize,
-        col_names: &ColumnNameMap<T>,
-    );
-    // Called on each row during constraint evaluation
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        cols: &HashMap<T, Vec<<E as EvalAtRow>::F>>,
-        eval: &mut E,
-    );
-}
-
-use impl_trait_for_tuples::impl_for_tuples;
-#[impl_for_tuples(1, 12)]
-impl<T> MachineChip<T> for Tuple {
-    fn fill_main_trace(
-        r1_val: [u8; WORD_SIZE],
-        r2_val: [u8; WORD_SIZE],
-        rd_val: &mut [u8; WORD_SIZE],
-        rd_idx: usize,
-        cols: &mut [&mut [BaseField]],
-        row_idx: usize,
-        col_names: &ColumnNameMap<T>,
-    ) {
-        for_tuples!( #( Tuple::fill_main_trace(r1_val, r2_val, rd_val, rd_idx, cols, row_idx, col_names); )* );
-    }
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        cols: &HashMap<T, Vec<<E as EvalAtRow>::F>>,
-        eval: &mut E,
-    ) {
-        for_tuples!( #( Tuple::add_constraints(cols, eval); )* );
-    }
-}
-
-pub fn write_word<T: ColumnNameItem>(
-    val: [u8; WORD_SIZE],
-    dst: &T,
-    cols: &mut [&mut [BaseField]],
-    col_names: &ColumnNameMap<T>,
-    row_idx: usize,
-) {
-    for i in 0..WORD_SIZE {
-        cols[col_names.nth_col(dst, i)][row_idx] = BaseField::from(val[i] as u32);
-    }
-}
-
-pub fn write_u32<T: ColumnNameItem>(
-    val: u32,
-    dst: &T,
-    cols: &mut [&mut [BaseField]],
-    col_names: &ColumnNameMap<T>,
-    row_idx: usize,
-) {
-    let val: [u8; WORD_SIZE] = val.to_le_bytes();
-    write_word(val, dst, cols, col_names, row_idx);
-}
-
-pub trait AssertionCircuit {
-    type Columns: ColumnNameItem;
-
-    fn rows_log2() -> u32;
-    fn traces(&self) -> Vec<impl FnOnce(&mut [&mut [BaseField]])>;
-    fn eval<E: EvalAtRow>(&self, eval: E) -> E;
-
-    fn assert_constraints(&self) {
-        let column_names: ColumnNameMap<Self::Columns> = ColumnNameMap::new();
-        let num_cols = column_names.total_columns();
-
-        let traces: Vec<_> = self
-            .traces()
-            .into_iter()
-            .map(|trace| {
-                generate_trace(iter::repeat(Self::rows_log2()).take(num_cols), |cols| {
-                    trace(cols)
-                })
-            })
-            .collect();
-
-        struct Circuit<T: AssertionCircuit> {
-            rows_log2: u32,
-            t: T,
-        }
-
-        impl<T: AssertionCircuit> FrameworkEval for Circuit<T> {
-            fn log_size(&self) -> u32 {
-                self.rows_log2
-            }
-
-            fn max_constraint_log_degree_bound(&self) -> u32 {
-                self.log_size() + 1
-            }
-
-            fn evaluate<E: EvalAtRow>(&self, eval: E) -> E {
-                self.t.eval(eval)
-            }
-        }
-
-        // setup protocol
-
-        let config = PcsConfig::default();
-        let coset = CanonicCoset::new(Self::rows_log2() + 1 + config.fri_config.log_blowup_factor)
-            .circle_domain()
-            .half_coset;
-        let twiddles = SimdBackend::precompute_twiddles(coset);
-
-        let prover_channel = &mut Blake2sChannel::default();
-        let prover_commitment_scheme =
-            &mut CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
-
-        // commit traces
-
-        for trace in traces {
-            let mut tree_builder = prover_commitment_scheme.tree_builder();
-            tree_builder.extend_evals(trace);
-            tree_builder.commit(prover_channel);
-        }
-
-        // Sanity check
-
-        let traces = prover_commitment_scheme
-            .trees
-            .as_ref()
-            .map(|t| t.polynomials.to_vec());
-
-        assert_constraints(&traces, CanonicCoset::new(Self::rows_log2()), |evaluator| {
-            self.eval(evaluator);
-        });
-    }
-}
