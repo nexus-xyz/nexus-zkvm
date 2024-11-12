@@ -225,6 +225,9 @@ mod test {
                 // TODO: The CPU will have a nice interface to fill ValueB and ValueC.
                 // for now, we have to write the fill step manually.
                 {
+                    let is_add = trace_column_mut!(traces, row_idx, IsAdd);
+                    *is_add[0] = BaseField::from(1u32);
+
                     let [rs1_bytes, rs2_bytes] = AddChip::decode(&program_step);
 
                     // Fill ValueB and ValueC to the main trace
