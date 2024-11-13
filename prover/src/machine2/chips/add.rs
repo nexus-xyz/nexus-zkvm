@@ -133,7 +133,10 @@ impl MachineChip for AddChip {
                         - (rs1_val[i].clone() + rs2_val[i].clone() + carry)),
             );
         }
-        // Range checks should differentiate ADD and ADDI cases, as immediate values are smaller.
+        // TODO: range check CarryFlag's to be in {0, 1}.
+        // TODO: range check rs{1,d}_val[i] to be in the range [0, 255].
+        // TODO: range check rs2_val[i] to be [0, 255].
+        // TODO: special range check rs2_val[i] for ADDI case, because immediate values have a smaller range.
     }
 }
 
@@ -213,7 +216,7 @@ mod test {
         let domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let mut row_idx = 0;
 
-        // We iterate each block in the trace and add constrain for each instruction
+        // We iterate each block in the trace for each instruction
         for trace in vm_traces.blocks.iter() {
             let regs = trace.regs;
             for step in trace.steps.iter() {
