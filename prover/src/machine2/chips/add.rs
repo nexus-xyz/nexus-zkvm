@@ -150,12 +150,8 @@ mod test {
     use stwo_prover::{
         constraint_framework::assert_constraints,
         core::{
-            backend::CpuBackend,
             pcs::TreeVec,
-            poly::{
-                circle::{CanonicCoset, CircleEvaluation},
-                BitReversedOrder,
-            },
+            poly::circle::{CanonicCoset, CircleEvaluation},
         },
     };
 
@@ -213,7 +209,6 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
-        let domain = CanonicCoset::new(LOG_SIZE).circle_domain();
         let mut row_idx = 0;
 
         // We iterate each block in the trace for each instruction
@@ -252,13 +247,16 @@ mod test {
         }
 
         // Convert traces to the format expected by assert_constraints
-        let traces: Vec<CircleEvaluation<_, _, _>> = traces
-            .into_inner()
-            .into_iter()
-            .map(|eval| CircleEvaluation::<CpuBackend, _, BitReversedOrder>::new(domain, eval))
-            .collect();
+        let traces: Vec<CircleEvaluation<_, _, _>> = traces.into_cpu_circle_evaluation();
 
-        let traces = TreeVec::new(vec![traces]);
+        let preprocessed_trace =
+            Traces::new_preprocessed_trace(LOG_SIZE).into_cpu_circle_evaluation();
+
+        let traces = TreeVec::new(vec![
+            traces,
+            vec![], /* interaction trace */
+            preprocessed_trace,
+        ]);
         let trace_polys = traces.map(|trace| {
             trace
                 .into_iter()

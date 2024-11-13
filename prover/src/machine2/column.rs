@@ -99,3 +99,17 @@ pub enum Column {
 //     pub const fn size(self) -> usize { /* ... */ }
 //     pub const fn offset(self) -> usize { /* ... */ }
 // }
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
+pub enum PreprocessedColumn {
+    #[size = 1]
+    IsFirst,
+}
+
+// proc macro derived:
+//
+// impl PreprocessedColumn {
+//     pub const COLUMNS_NUM: usize = /* ... */;
+//     pub const fn size(self) -> usize { /* ... */ }
+//     pub const fn offset(self) -> usize { /* ... */ }
+// }

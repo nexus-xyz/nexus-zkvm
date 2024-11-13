@@ -1,18 +1,31 @@
 use std::array;
 
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::constraint_framework::{EvalAtRow, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
+
+use crate::machine2::column::PreprocessedColumn;
 
 use super::Column;
 
 // Trace evaluation at the current row, capturing current and previous values.
-pub struct TraceEval<E: EvalAtRow>(Vec<[E::F; 2]>);
+pub struct TraceEval<E: EvalAtRow> {
+    evals: Vec<[E::F; 2]>,
+    preprocessed_evals: Vec<[E::F; 2]>,
+}
 
 impl<E: EvalAtRow> TraceEval<E> {
     pub(crate) fn new(eval: &mut E) -> Self {
-        let evals = std::iter::repeat_with(|| eval.next_interaction_mask(0, [-1, 0]))
-            .take(Column::COLUMNS_NUM)
-            .collect();
-        Self(evals)
+        let evals =
+            std::iter::repeat_with(|| eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [-1, 0]))
+                .take(Column::COLUMNS_NUM)
+                .collect();
+        let preprocessed_evals =
+            std::iter::repeat_with(|| eval.next_interaction_mask(PREPROCESSED_TRACE_IDX, [-1, 0]))
+                .take(PreprocessedColumn::COLUMNS_NUM)
+                .collect();
+        Self {
+            evals,
+            preprocessed_evals,
+        }
     }
 
     #[doc(hidden)]
@@ -21,8 +34,22 @@ impl<E: EvalAtRow> TraceEval<E> {
         let offset = col.offset();
 
         (
-            array::from_fn(|i| self.0[offset + i][0].clone()),
-            array::from_fn(|i| self.0[offset + i][1].clone()),
+            array::from_fn(|i| self.evals[offset + i][0].clone()),
+            array::from_fn(|i| self.evals[offset + i][1].clone()),
+        )
+    }
+
+    #[doc(hidden)]
+    pub fn preprocessed_column_eval<const N: usize>(
+        &self,
+        col: PreprocessedColumn,
+    ) -> ([E::F; N], [E::F; N]) {
+        assert_eq!(col.size(), N, "column size mismatch");
+        let offset = col.offset();
+
+        (
+            array::from_fn(|i| self.preprocessed_evals[offset + i][0].clone()),
+            array::from_fn(|i| self.preprocessed_evals[offset + i][1].clone()),
         )
     }
 }
@@ -41,3 +68,18 @@ macro_rules! trace_eval {
 }
 
 pub(crate) use trace_eval;
+
+/// Returns evaluations for a given column in preprocessed trace.
+///
+/// ```ignore
+/// let trace_eval = TraceEval::new(&mut eval);
+/// let (prev, curr) = preprocessed_trace_eval!(trace_eval, Column::IsAdd);
+/// eval.add_constraint(curr[0] - prev[0]);
+/// ```
+macro_rules! preprocessed_trace_eval {
+    ($traces:expr, $col:expr) => {{
+        $traces.preprocessed_column_eval::<{ PreprocessedColumn::size($col) }>($col)
+    }};
+}
+
+pub(crate) use preprocessed_trace_eval;

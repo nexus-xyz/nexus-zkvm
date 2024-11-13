@@ -1,6 +1,9 @@
-use num_traits::Zero;
+use num_traits::{One as _, Zero};
 use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+    backend::{
+        simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        CpuBackend,
+    },
     fields::m31::BaseField,
     poly::{
         circle::{CanonicCoset, CircleEvaluation},
@@ -8,6 +11,8 @@ use stwo_prover::core::{
     },
     ColumnVec,
 };
+
+use crate::machine2::column::PreprocessedColumn;
 
 use super::column::Column;
 
@@ -39,6 +44,15 @@ impl Traces {
             cols: vec![vec![BaseField::zero(); 1 << log_size]; Column::COLUMNS_NUM],
             log_size,
         }
+    }
+
+    /// Returns [`Column::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
+    pub(crate) fn new_preprocessed_trace(log_size: u32) -> Self {
+        assert!(log_size >= LOG_N_LANES);
+        let mut cols =
+            vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
+        cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
+        Self { cols, log_size }
     }
 
     /// Returns inner representation of columns.
@@ -85,6 +99,20 @@ impl Traces {
                 let col = BaseColumn::from_iter(eval);
                 CircleEvaluation::<SimdBackend, _, BitReversedOrder>::new(domain, col)
             })
+            .collect()
+    }
+
+    /// Converts traces into circle domain evaluations on CpuBackend
+    ///
+    /// This function is used during development for assertions. In production,
+    /// use `into_circle_evaluation()` because stwo expects SimdBackend.
+    pub fn into_cpu_circle_evaluation(
+        self,
+    ) -> ColumnVec<CircleEvaluation<CpuBackend, BaseField, BitReversedOrder>> {
+        let domain = CanonicCoset::new(self.log_size).circle_domain();
+        self.into_inner()
+            .into_iter()
+            .map(|eval| CircleEvaluation::<CpuBackend, _, BitReversedOrder>::new(domain, eval))
             .collect()
     }
 }
