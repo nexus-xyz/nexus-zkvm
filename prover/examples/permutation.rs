@@ -26,24 +26,31 @@ use std::{
     time::{Duration, Instant},
 };
 
-use nexus_vm_prover::utils::{generate_secure_field_trace, generate_trace, EvalAtRowExtra};
+use nexus_vm_prover::{
+    machine2::trace::utils::coset_order_to_circle_domain_order,
+    utils::{generate_trace, EvalAtRowExtra},
+};
 use stwo_prover::{
     constraint_framework::{
-        assert_constraints, logup::LookupElements, EvalAtRow, FrameworkComponent, FrameworkEval,
-        TraceLocationAllocator,
+        assert_constraints,
+        logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
+        EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
+        INTERACTION_TRACE_IDX, PREPROCESSED_TRACE_IDX,
     },
     core::{
         air::Component,
         backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
         channel::Blake2sChannel,
-        fields::{m31::BaseField, qm31::SecureField, FieldExpOps},
+        fields::{m31::BaseField, qm31::SecureField},
         fri::FriConfig,
+        lookups::utils::Fraction,
         pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeSubspan},
         poly::{
             circle::{CanonicCoset, CircleEvaluation, PolyOps},
             BitReversedOrder,
         },
         prover::{prove, verify, StarkProof},
+        utils::bit_reverse,
         vcs::blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
         ColumnVec,
     },
@@ -103,54 +110,23 @@ impl FrameworkEval for PermEval {
     }
 
     fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
-        // Constant column
-        let [is_first] = eval.next_interaction_mask(2, [0]);
+        let [is_first] = eval.next_interaction_mask(PREPROCESSED_TRACE_IDX, [0]);
         // The constraints aim at guaranteeing (a0, a1) and (b0, b1) to be permutations
         let a: [E::F; N_TUPLE_ELM] = eval.next_trace_masks();
         let b: [E::F; N_TUPLE_ELM] = eval.next_trace_masks();
-        // a_denom_i = a_i - z (z is the challenge)
-        let [a_denom] = eval.next_extension_interaction_mask(1, [0]);
-        // 1/a_denom_i
-        let [a_denom_inv] = eval.next_extension_interaction_mask(1, [0]);
-        // Here -1 looks at the previous row.
-        let [a_denom_inv_sum_prev, a_denom_inv_sum] =
-            eval.next_extension_interaction_mask(1, [-1, 0]);
-        let [b_denom] = eval.next_extension_interaction_mask(1, [0]);
-        let [b_denom_inv] = eval.next_extension_interaction_mask(1, [0]);
-        let [b_denom_inv_sum_prev, b_denom_inv_sum] =
-            eval.next_extension_interaction_mask(1, [-1, 0]);
 
-        // FIXME: we are assuming that the verifier knows is_first column, that has not happened yet
+        let mut logup =
+            LogupAtRow::<_>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
-        // Constraints that determine a_denom_inv
-        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&a) - a_denom.clone());
-        eval.add_constraint(a_denom * a_denom_inv.clone() - E::EF::one());
+        let denom_a: E::EF = self.perm_element.combine(&a);
+        let denom_b: E::EF = self.perm_element.combine(&b);
 
-        // Constraint that determines a_denom_inv_sum on the first row
-        // a_denom_inv_sum_0 = a_denom_inv_0
-        eval.add_constraint((a_denom_inv_sum.clone() - a_denom_inv.clone()) * is_first.clone());
-
-        // Constraints that determine a_denom_inv_sum except on the first row
-        eval.add_constraint(
-            (a_denom_inv_sum - a_denom_inv - a_denom_inv_sum_prev.clone())
-                * (E::F::one() - is_first.clone()),
+        logup.write_frac(&mut eval, Fraction::new(SecureField::one().into(), denom_a));
+        logup.write_frac(
+            &mut eval,
+            Fraction::new((-SecureField::one()).into(), denom_b),
         );
-
-        // Constraints that determine b_denom_inv
-        eval.add_constraint(self.perm_element.combine::<E::F, E::EF>(&b) - b_denom.clone());
-        eval.add_constraint(b_denom * b_denom_inv.clone() - E::EF::one());
-
-        // Constraint that determines b_denom_inv_sum on the first row
-        eval.add_constraint((b_denom_inv_sum.clone() - b_denom_inv.clone()) * is_first.clone());
-
-        // Constraints that determine b_denom_inv_sum except on the first row
-        eval.add_constraint(
-            (b_denom_inv_sum - b_denom_inv - b_denom_inv_sum_prev.clone())
-                * (E::F::one() - is_first.clone()),
-        );
-
-        // Compare sums
-        eval.add_constraint((b_denom_inv_sum_prev - a_denom_inv_sum_prev) * is_first);
+        logup.finalize(&mut eval);
 
         eval
     }
@@ -191,75 +167,76 @@ fn gen_trace(
     })
 }
 
+struct PermCircuitTraceForLogup {
+    pub a_column: [BaseColumn; N_TUPLE_ELM],
+    pub b_column: [BaseColumn; N_TUPLE_ELM],
+}
+
+fn gen_perm_circuit_trace_for_logup(basic_trace: &PermCircuitTrace) -> PermCircuitTraceForLogup {
+    let a_column = basic_trace
+        .table
+        .columns_iter()
+        .take(N_TUPLE_ELM)
+        .map(|column_iter| {
+            let mut col =
+                coset_order_to_circle_domain_order(column_iter.copied().collect_vec().as_slice());
+            bit_reverse(&mut col);
+            BaseColumn::from_iter(col)
+        })
+        .collect_vec()
+        .try_into()
+        .expect("wrong size?");
+    let b_column = basic_trace
+        .table
+        .columns_iter()
+        .skip(N_TUPLE_ELM)
+        .take(N_TUPLE_ELM)
+        .map(|column_iter| {
+            let mut col =
+                coset_order_to_circle_domain_order(column_iter.copied().collect_vec().as_slice());
+            bit_reverse(&mut col);
+            BaseColumn::from_iter(col)
+        })
+        .collect_vec()
+        .try_into()
+        .expect("wrong size?");
+    PermCircuitTraceForLogup { a_column, b_column }
+}
+
 fn gen_interaction_trace(
     log_n_rows: u32,
     basic_trace: &PermCircuitTrace,
     perm_element: &LookupElements<N_TUPLE_ELM>,
 ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-    let log_sizes = [log_n_rows; 6]; // TODO: number of secure fields instead of 6
-    generate_secure_field_trace(log_sizes, |cols| {
-        let (a, b) = cols.split_at_mut(3);
+    let basic_trace = gen_perm_circuit_trace_for_logup(basic_trace);
+    // Note: LogupTraceGenerator internally allocates ColumnVec; so generate_secure_fiele_trace() cannot be used.
+    let mut trace_gen = LogupTraceGenerator::new(log_n_rows);
 
-        let (a_denom, a) = a.split_at_mut(1);
-        let (a_denom_inv, a_inv_sum) = a.split_at_mut(1);
-        let a_denom = &mut a_denom[0];
-        let a_denom_inv = &mut a_denom_inv[0];
-        let a_inv_sum = &mut a_inv_sum[0];
+    // Add tuples in 'a'
+    let mut col_gen = trace_gen.new_col();
+    for vec_row in 0..(1 << (log_n_rows - LOG_N_LANES)) {
+        let tuple = (0..N_TUPLE_ELM)
+            .map(|i| basic_trace.a_column[i].data[vec_row])
+            .collect_vec();
+        let denom = perm_element.combine(&tuple[..]);
+        col_gen.write_frac(vec_row, SecureField::one().into(), denom);
+    }
+    col_gen.finalize_col();
 
-        // Add a column of (a + z)'s
-        basic_trace
-            .table
-            .rows_iter()
-            .enumerate()
-            .for_each(|(row_idx, row_iter)| {
-                let tuple = row_iter.take(N_TUPLE_ELM).copied().collect_vec();
-                let denom = perm_element.combine(&tuple[..]);
-                a_denom[row_idx] = denom;
-            });
-        // Add a column of 1/(a + z)'s
-        FieldExpOps::batch_inverse(a_denom, a_denom_inv);
+    // Subtract tuples in 'b'
+    let mut col_gen = trace_gen.new_col();
+    for vec_row in 0..(1 << (log_n_rows - LOG_N_LANES)) {
+        let tuple = (0..N_TUPLE_ELM)
+            .map(|i| basic_trace.b_column[i].data[vec_row])
+            .collect_vec();
+        let denom = perm_element.combine(&tuple[..]);
+        col_gen.write_frac(vec_row, (-SecureField::one()).into(), denom);
+    }
+    col_gen.finalize_col();
 
-        let mut a_sum = SecureField::zero();
-        a_inv_sum
-            .iter_mut()
-            .zip(a_denom_inv.iter())
-            .for_each(|(a_inv_sum, a_denom_inv)| {
-                a_sum += *a_denom_inv;
-                *a_inv_sum = a_sum;
-            });
-
-        let (b_denom, b) = b.split_at_mut(1);
-        let (b_denom_inv, b_inv_sum) = b.split_at_mut(1);
-        let b_denom = &mut b_denom[0];
-        let b_denom_inv = &mut b_denom_inv[0];
-        let b_inv_sum = &mut b_inv_sum[0];
-
-        // Add a column of (b + z)'s
-        basic_trace
-            .table
-            .rows_iter()
-            .enumerate()
-            .for_each(|(row_idx, row_iter)| {
-                let tuple = row_iter
-                    .skip(N_TUPLE_ELM)
-                    .take(N_TUPLE_ELM) // FIX: skip and take to choose 'b' is error-prone
-                    .copied()
-                    .collect_vec();
-                let denom = perm_element.combine(&tuple[..]);
-                b_denom[row_idx] = denom;
-            });
-        // Add a column of 1/(b + z)'s
-        FieldExpOps::batch_inverse(b_denom, b_denom_inv);
-
-        let mut b_sum = SecureField::zero();
-        b_inv_sum
-            .iter_mut()
-            .zip(b_denom_inv.iter())
-            .for_each(|(b_inv_sum, b_denom_inv)| {
-                b_sum += *b_denom_inv;
-                *b_inv_sum = b_sum;
-            });
-    })
+    let (ret, total) = trace_gen.finalize_last();
+    debug_assert_eq!(total, SecureField::zero());
+    ret
 }
 
 fn gen_constant_trace(
