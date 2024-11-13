@@ -19,14 +19,17 @@ use crate::machine2::{
 // Support ADD and ADDI opcodes.
 pub struct AddChip;
 
+struct ExecutionResult {
+    carry_bits: [u32; WORD_SIZE],
+    sum_bytes: [u32; WORD_SIZE],
+    rd_is_x0: bool,
+}
+
 impl AddChip {
     fn decode(program_step: &ProgramStep) -> [[u8; WORD_SIZE]; 2] {
         let regs = &program_step.regs;
         let step = &program_step.step;
         let instruction = &step.instruction;
-
-        // TODO: handle no-op case when rd = 0.
-        assert!(instruction.op_a != Register::X0);
 
         let rs1 = regs.read(instruction.op_b);
         let rs2 = match step.instruction.opcode.builtin() {
@@ -41,13 +44,11 @@ impl AddChip {
 
         [rs1_limbs, rs2_limbs]
     }
-    fn execute(program_step: &ProgramStep) -> [[u32; WORD_SIZE]; 2] {
+    fn execute(program_step: &ProgramStep) -> ExecutionResult {
         let step = &program_step.step;
         let instruction = &step.instruction;
         let result = step.result.expect("Instruction does not have result");
-
-        // TODO: handle no-op case when rd = 0.
-        assert!(instruction.op_a != Register::X0);
+        let rd_is_x0 = instruction.op_a == Register::X0;
 
         // Recompute 32-bit result from 8-bit limbs.
         // 1. Break the computation to 8-bit limbs.
@@ -57,13 +58,13 @@ impl AddChip {
         // Step 1. Break the computation to 8-bit limbs.
         let [rs1_bytes, rs2_bytes] = Self::decode(program_step);
 
-        let mut rd_bytes = [0u8; WORD_SIZE];
+        let mut sum_bytes = [0u8; WORD_SIZE];
         let mut carry = [false; WORD_SIZE];
 
         // Step 2. Compute the sum and carry of each limb.
         let (sum, c0) = rs1_bytes[0].overflowing_add(rs2_bytes[0]);
         carry[0] = c0;
-        rd_bytes[0] = sum;
+        sum_bytes[0] = sum;
 
         // Process the remaining bytes
         for i in 1..WORD_SIZE {
@@ -73,17 +74,21 @@ impl AddChip {
 
             // There can't be 2 carry in: a + b + cary, either c1 or c2 is true.
             carry[i] = c1 || c2;
-            rd_bytes[i] = sum;
+            sum_bytes[i] = sum;
         }
 
         // Step 3. Check that the final result matches the expected result.
-        assert_eq!(rd_bytes, result.to_le_bytes());
+        assert_eq!(sum_bytes, result.to_le_bytes());
 
         // Map carry bits to 0/1 values, and expand to 32-bit words.
         let carry_bits: [u32; WORD_SIZE] = carry.map(|c| c as u32);
-        let rd_bytes = rd_bytes.map(|b| b as u32);
+        let sum_bytes = sum_bytes.map(|b| b as u32);
 
-        [carry_bits, rd_bytes]
+        ExecutionResult {
+            carry_bits,
+            sum_bytes,
+            rd_is_x0,
+        }
     }
 }
 
@@ -96,14 +101,26 @@ impl MachineChip for AddChip {
             return;
         }
 
-        let [carry_bytes, rd_bytes] = Self::execute(vm_step);
+        let ExecutionResult {
+            carry_bits,
+            sum_bytes,
+            rd_is_x0,
+        } = Self::execute(vm_step);
 
-        let rd_col = trace_column_mut!(traces, row_idx, ValueA);
-        for (i, b) in rd_bytes.iter().enumerate() {
-            *rd_col[i] = BaseField::from(*b);
+        let sum_col = trace_column_mut!(traces, row_idx, ValueA);
+        for (i, b) in sum_bytes.iter().enumerate() {
+            *sum_col[i] = BaseField::from(*b);
+        }
+        let rd_col = trace_column_mut!(traces, row_idx, ValueAEffective);
+        for (i, b) in sum_bytes.iter().enumerate() {
+            *rd_col[i] = if rd_is_x0 {
+                BaseField::zero()
+            } else {
+                BaseField::from(*b)
+            };
         }
         let carry_col = trace_column_mut!(traces, row_idx, CarryFlag);
-        for (i, c) in carry_bytes.iter().enumerate() {
+        for (i, c) in carry_bits.iter().enumerate() {
             *carry_col[i] = BaseField::from(*c);
         }
     }
@@ -118,6 +135,7 @@ impl MachineChip for AddChip {
         let (_, rs1_val) = trace_eval!(trace_eval, ValueB);
         let (_, rs2_val) = trace_eval!(trace_eval, ValueC);
         let (_, rd_val) = trace_eval!(trace_eval, ValueA);
+        // TODO: constrain ValueAEffective to be zero or equal to ValueA depending on whether rd is x0 (in CPU chip, when it exists)
 
         for i in 0..WORD_SIZE {
             let carry = i
