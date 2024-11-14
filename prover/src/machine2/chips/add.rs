@@ -166,7 +166,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = 6;
+    const LOG_SIZE: u32 = 8;
 
     #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock>

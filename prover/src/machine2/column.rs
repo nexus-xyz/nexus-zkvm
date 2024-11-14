@@ -90,6 +90,9 @@ pub enum Column {
     /// Boolean flag on whether the row is an addition.
     #[size = 1]
     IsAdd,
+    /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
+    #[size = 1]
+    Multiplicity256,
 }
 
 // proc macro derived:
@@ -104,6 +107,9 @@ pub enum Column {
 pub enum PreprocessedColumn {
     #[size = 1]
     IsFirst,
+    /// Contains numbers from 0 to 255, and 0 afterwards.
+    #[size = 1]
+    Range256,
 }
 
 // proc macro derived:

@@ -54,9 +54,16 @@ impl Traces {
     /// Returns [`Column::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
     pub(crate) fn new_preprocessed_trace(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
+        assert!(
+            log_size >= 8,
+            "log_size must be at least 8, to accomodate 256-element lookup tables"
+        );
         let mut cols =
             vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
         cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
+        for row_idx in 0..256 {
+            cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
+        }
         Self { cols, log_size }
     }
 
