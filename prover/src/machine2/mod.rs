@@ -25,7 +25,7 @@ pub mod traits;
 pub use crate::utils::WORD_SIZE;
 
 use chips::{AddChip, CpuChip};
-use components::{MachineComponent, MachineEval};
+use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
 pub type Components = (CpuChip, AddChip);
@@ -42,9 +42,11 @@ impl<C: MachineChip + Sync> Machine<C> {
         let config = PcsConfig::default();
         // Precompute twiddles.
         let twiddles = SimdBackend::precompute_twiddles(
-            CanonicCoset::new(LOG_SIZE + 1 + config.fri_config.log_blowup_factor)
-                .circle_domain()
-                .half_coset,
+            CanonicCoset::new(
+                LOG_SIZE + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
+            )
+            .circle_domain()
+            .half_coset,
         );
 
         // Setup protocol.

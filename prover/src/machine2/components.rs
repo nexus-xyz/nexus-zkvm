@@ -4,7 +4,7 @@ use stwo_prover::constraint_framework::{EvalAtRow, FrameworkComponent, Framework
 
 use super::{trace::eval::TraceEval, traits::MachineChip};
 
-const LOG_CONSTRAINT_DEGREE: u32 = 1;
+pub(super) const LOG_CONSTRAINT_DEGREE: u32 = 1;
 
 pub type MachineComponent<C> = FrameworkComponent<MachineEval<C>>;
 

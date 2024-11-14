@@ -165,13 +165,6 @@ mod test {
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
     };
-    use stwo_prover::{
-        constraint_framework::assert_constraints,
-        core::{
-            pcs::TreeVec,
-            poly::circle::{CanonicCoset, CircleEvaluation},
-        },
-    };
 
     const LOG_SIZE: u32 = 6;
 

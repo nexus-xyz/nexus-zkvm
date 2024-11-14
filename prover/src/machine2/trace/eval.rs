@@ -73,8 +73,11 @@ pub(crate) use trace_eval;
 ///
 /// ```ignore
 /// let trace_eval = TraceEval::new(&mut eval);
-/// let (prev, curr) = preprocessed_trace_eval!(trace_eval, Column::IsAdd);
-/// eval.add_constraint(curr[0] - prev[0]);
+/// let (_, curr_pc) = trace_eval!(trace_eval, Column::Pc);
+/// let (_, is_first) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+/// for i in 0..WORD_SIZE {
+///     eval.add_constraint(curr_pc[i] * is_first[0]);
+/// }
 /// ```
 macro_rules! preprocessed_trace_eval {
     ($traces:expr, $col:expr) => {{
