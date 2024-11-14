@@ -1,11 +1,7 @@
 use num_traits::Zero;
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
-use nexus_common::cpu::Registers;
-use nexus_vm::{
-    riscv::{BuiltinOpcode, Register},
-    WORD_SIZE,
-};
+use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::machine2::{
     column::Column::{self, *},
@@ -26,51 +22,34 @@ struct ExecutionResult {
 }
 
 impl AddChip {
-    fn decode(program_step: &ProgramStep) -> [[u8; WORD_SIZE]; 2] {
-        let regs = &program_step.regs;
-        let step = &program_step.step;
-        let instruction = &step.instruction;
-
-        let rs1 = regs.read(instruction.op_b);
-        let rs2 = match step.instruction.opcode.builtin() {
-            Some(BuiltinOpcode::ADD) => regs.read(Register::from(instruction.op_c as u8)),
-            Some(BuiltinOpcode::ADDI) => instruction.op_c,
-            _ => panic!("Invalid Opcode"),
-        };
-
-        // Break the computation to 8-bit limbs.
-        let rs1_limbs = rs1.to_le_bytes();
-        let rs2_limbs = rs2.to_le_bytes();
-
-        [rs1_limbs, rs2_limbs]
-    }
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
-        let step = &program_step.step;
-        let instruction = &step.instruction;
-        let result = step.result.expect("Instruction does not have result");
-        let rd_is_x0 = instruction.op_a == Register::X0;
+        let result = program_step
+            .get_result()
+            .expect("Instruction does not have result");
+        let rd_is_x0 = program_step.is_value_a_x0();
 
         // Recompute 32-bit result from 8-bit limbs.
         // 1. Break the computation to 8-bit limbs.
         // 2. Compute the sum and carry of each limb.
         // 3. Check that the final result matches the expected result.
 
-        // Step 1. Break the computation to 8-bit limbs.
-        let [rs1_bytes, rs2_bytes] = Self::decode(program_step);
+        // Step 1. Break the computation to 8-bit limbs
+        let value_b = program_step.get_value_b();
+        let (value_c, _) = program_step.get_value_c();
 
         let mut sum_bytes = [0u8; WORD_SIZE];
         let mut carry = [false; WORD_SIZE];
 
         // Step 2. Compute the sum and carry of each limb.
-        let (sum, c0) = rs1_bytes[0].overflowing_add(rs2_bytes[0]);
+        let (sum, c0) = value_b[0].overflowing_add(value_c[0]);
         carry[0] = c0;
         sum_bytes[0] = sum;
 
         // Process the remaining bytes
         for i in 1..WORD_SIZE {
             // Add the bytes and the previous carry
-            let (sum, c1) = rs1_bytes[i].overflowing_add(carry[i - 1] as u8);
-            let (sum, c2) = sum.overflowing_add(rs2_bytes[i]);
+            let (sum, c1) = value_b[i].overflowing_add(carry[i - 1] as u8);
+            let (sum, c2) = sum.overflowing_add(value_c[i]);
 
             // There can't be 2 carry in: a + b + cary, either c1 or c2 is true.
             carry[i] = c1 || c2;
@@ -78,7 +57,7 @@ impl AddChip {
         }
 
         // Step 3. Check that the final result matches the expected result.
-        assert_eq!(sum_bytes, result.to_le_bytes());
+        assert_eq!(sum_bytes, result);
 
         // Map carry bits to 0/1 values, and expand to 32-bit words.
         let carry_bits: [u32; WORD_SIZE] = carry.map(|c| c as u32);
@@ -107,18 +86,20 @@ impl MachineChip for AddChip {
             rd_is_x0,
         } = Self::execute(vm_step);
 
-        let sum_col = trace_column_mut!(traces, row_idx, ValueA);
+        let value_a_col = trace_column_mut!(traces, row_idx, ValueA);
         for (i, b) in sum_bytes.iter().enumerate() {
-            *sum_col[i] = BaseField::from(*b);
+            *value_a_col[i] = BaseField::from(*b);
         }
-        let rd_col = trace_column_mut!(traces, row_idx, ValueAEffective);
+
+        let value_a_col_effective = trace_column_mut!(traces, row_idx, ValueAEffective);
         for (i, b) in sum_bytes.iter().enumerate() {
-            *rd_col[i] = if rd_is_x0 {
+            *value_a_col_effective[i] = if rd_is_x0 {
                 BaseField::zero()
             } else {
                 BaseField::from(*b)
             };
         }
+
         let carry_col = trace_column_mut!(traces, row_idx, CarryFlag);
         for (i, c) in carry_bits.iter().enumerate() {
             *carry_col[i] = BaseField::from(*c);
@@ -160,6 +141,8 @@ impl MachineChip for AddChip {
 
 #[cfg(test)]
 mod test {
+    use crate::machine2::chips::CpuChip;
+
     use super::*;
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
@@ -231,24 +214,8 @@ mod test {
                     step: step.clone(),
                 };
 
-                // TODO: The CPU will have a nice interface to fill ValueB and ValueC.
-                // for now, we have to write the fill step manually.
-                {
-                    let is_add = trace_column_mut!(traces, row_idx, IsAdd);
-                    *is_add[0] = BaseField::from(1u32);
-
-                    let [rs1_bytes, rs2_bytes] = AddChip::decode(&program_step);
-
-                    // Fill ValueB and ValueC to the main trace
-                    let r1_col = trace_column_mut!(traces, row_idx, ValueB);
-                    for (i, b) in rs1_bytes.iter().enumerate() {
-                        *r1_col[i] = BaseField::from(*b as u32);
-                    }
-                    let r2_col = trace_column_mut!(traces, row_idx, ValueC);
-                    for (i, b) in rs2_bytes.iter().enumerate() {
-                        *r2_col[i] = BaseField::from(*b as u32);
-                    }
-                }
+                // Fill in the main trace with the ValueB, valueC and Opcode
+                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step);
 
                 // Now fill in the traces with ValueA and CarryFlags
                 AddChip::fill_main_trace(&mut traces, row_idx, &program_step);
@@ -257,6 +224,7 @@ mod test {
             }
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
+            CpuChip::add_constraints(eval, trace_eval);
             AddChip::add_constraints(eval, trace_eval)
         });
     }

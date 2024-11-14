@@ -22,19 +22,12 @@ use crate::machine2::column::PreprocessedColumn;
 use super::column::Column;
 
 pub mod eval;
+pub mod program;
 pub mod utils;
 
+pub use program::{ProgramStep, Word, WordWithEffectiveBits};
+
 use utils::{bit_reverse, coset_order_to_circle_domain_order};
-
-use nexus_vm::{cpu::RegisterFile, trace::Step};
-
-// Program execution step.
-pub struct ProgramStep {
-    /// Machine registers.
-    pub(crate) regs: RegisterFile,
-    /// Program step.
-    pub(crate) step: Step,
-}
 
 pub struct Traces {
     cols: Vec<Vec<BaseField>>,
