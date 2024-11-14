@@ -1,15 +1,20 @@
+use eval::TraceEval;
 use num_traits::{One as _, Zero};
-use stwo_prover::core::{
-    backend::{
-        simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-        CpuBackend,
+use stwo_prover::{
+    constraint_framework::{assert_constraints, AssertEvaluator},
+    core::{
+        backend::{
+            simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+            CpuBackend,
+        },
+        fields::m31::BaseField,
+        pcs::TreeVec,
+        poly::{
+            circle::{CanonicCoset, CircleEvaluation},
+            BitReversedOrder,
+        },
+        ColumnVec,
     },
-    fields::m31::BaseField,
-    poly::{
-        circle::{CanonicCoset, CircleEvaluation},
-        BitReversedOrder,
-    },
-    ColumnVec,
 };
 
 use crate::machine2::column::PreprocessedColumn;
@@ -114,6 +119,41 @@ impl Traces {
             .into_iter()
             .map(|eval| CircleEvaluation::<CpuBackend, _, BitReversedOrder>::new(domain, eval))
             .collect()
+    }
+
+    /// Asserts add_constraints_calls() in a main trace
+    ///
+    /// This function combines the trace with an empty preprocessed-trace and
+    /// an empty interaction trace and then calls `add_constraints_calls()` on
+    /// the combination. This is useful in test cases.
+    pub fn assert_as_original_trace<F>(self, add_constraints_calls: F)
+    where
+        F: for<'a, 'b, 'c> Fn(&'a mut AssertEvaluator<'c>, &'b TraceEval<AssertEvaluator<'c>>),
+    {
+        let log_size = self.log_size;
+        // Convert traces to the format expected by assert_constraints
+        let traces: Vec<CircleEvaluation<_, _, _>> = self.into_cpu_circle_evaluation();
+
+        let preprocessed_trace =
+            Traces::new_preprocessed_trace(log_size).into_cpu_circle_evaluation();
+
+        let traces = TreeVec::new(vec![
+            traces,
+            vec![], /* interaction trace */
+            preprocessed_trace,
+        ]);
+        let trace_polys = traces.map(|trace| {
+            trace
+                .into_iter()
+                .map(|c| c.interpolate())
+                .collect::<Vec<_>>()
+        });
+
+        // Now check the constraints to make sure they're satisfied
+        assert_constraints(&trace_polys, CanonicCoset::new(log_size), |mut eval| {
+            let trace_eval = TraceEval::new(&mut eval);
+            add_constraints_calls(&mut eval, &trace_eval);
+        });
     }
 }
 

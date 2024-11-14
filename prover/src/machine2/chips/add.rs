@@ -263,29 +263,8 @@ mod test {
                 row_idx += 1;
             }
         }
-
-        // Convert traces to the format expected by assert_constraints
-        let traces: Vec<CircleEvaluation<_, _, _>> = traces.into_cpu_circle_evaluation();
-
-        let preprocessed_trace =
-            Traces::new_preprocessed_trace(LOG_SIZE).into_cpu_circle_evaluation();
-
-        let traces = TreeVec::new(vec![
-            traces,
-            vec![], /* interaction trace */
-            preprocessed_trace,
-        ]);
-        let trace_polys = traces.map(|trace| {
-            trace
-                .into_iter()
-                .map(|c| c.interpolate())
-                .collect::<Vec<_>>()
-        });
-
-        // Now check the constraints to make sure they're satisfied
-        assert_constraints(&trace_polys, CanonicCoset::new(LOG_SIZE), |mut eval| {
-            let trace_eval = TraceEval::new(&mut eval);
-            AddChip::add_constraints(&mut eval, &trace_eval);
+        traces.assert_as_original_trace(|eval, trace_eval| {
+            AddChip::add_constraints(eval, trace_eval)
         });
     }
 }
