@@ -1,4 +1,5 @@
 use eval::TraceEval;
+use itertools::Itertools as _;
 use num_traits::{One as _, Zero};
 use stwo_prover::{
     constraint_framework::{assert_constraints, AssertEvaluator},
@@ -87,6 +88,25 @@ impl Traces {
         std::array::from_fn(|_idx| {
             &mut iter.next().expect("invalid offset; must be unreachable")[row]
         })
+    }
+
+    /// Returns a copy of `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
+    ///
+    /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
+    pub fn get_base_column<const N: usize>(&self, col: Column) -> [BaseColumn; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        self.cols[col.offset()..]
+            .iter()
+            .take(N)
+            .map(|column_in_trace_order| {
+                let mut tmp_col =
+                    coset_order_to_circle_domain_order(column_in_trace_order.as_slice());
+                bit_reverse(&mut tmp_col);
+                BaseColumn::from_iter(tmp_col)
+            })
+            .collect_vec()
+            .try_into()
+            .expect("wrong size?")
     }
 
     /// Converts traces into circle domain evaluations, bit-reversing row indices
