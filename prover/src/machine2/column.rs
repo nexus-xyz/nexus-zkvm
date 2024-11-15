@@ -90,6 +90,9 @@ pub enum Column {
     /// Boolean flag on whether the row is an addition.
     #[size = 1]
     IsAdd,
+    /// Boolean flag on whether the row is a subtraction.
+    #[size = 1]
+    IsSub,
     /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
     #[size = 1]
     Multiplicity256,

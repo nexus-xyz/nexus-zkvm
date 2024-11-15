@@ -27,6 +27,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI) => {
                 trace_column_mut!(traces, row_idx, IsAdd)
             }
+            Some(BuiltinOpcode::SUB) => {
+                trace_column_mut!(traces, row_idx, IsSub)
+            }
             _ => panic!(
                 "Unsupported opcode: {:?}",
                 step.instruction.opcode.builtin()
