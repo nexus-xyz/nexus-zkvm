@@ -66,6 +66,11 @@ impl Traces {
         self.cols
     }
 
+    /// Returns the log_size of columns.
+    pub fn log_size(&self) -> u32 {
+        self.log_size
+    }
+
     /// Returns a copy of `N` raw columns in range `[offset..offset + N]` at `row`, where
     /// `N` is assumed to be equal `Column::size` of a `col`.
     #[doc(hidden)]
@@ -111,12 +116,12 @@ impl Traces {
 
     /// Converts traces into circle domain evaluations, bit-reversing row indices
     /// according to circle domain ordering.
-    pub fn into_circle_evaluation(
-        self,
+    pub fn circle_evaluation(
+        &self,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let domain = CanonicCoset::new(self.log_size).circle_domain();
         self.cols
-            .into_iter()
+            .iter()
             .map(|col| {
                 let mut eval = coset_order_to_circle_domain_order(col.as_slice());
                 bit_reverse(&mut eval);

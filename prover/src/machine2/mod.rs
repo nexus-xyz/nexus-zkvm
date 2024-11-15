@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use stwo_prover::{
-    constraint_framework::TraceLocationAllocator,
+    constraint_framework::{logup::LookupElements, TraceLocationAllocator},
     core::{
         backend::simd::SimdBackend,
         channel::Blake2sChannel,
@@ -69,19 +69,21 @@ impl<C: MachineChip + Sync> Machine<C> {
             C::fill_main_trace(&mut prover_traces, row_idx, &step);
         }
         let mut tree_builder = commitment_scheme.tree_builder();
-        let _main_trace_location =
-            tree_builder.extend_evals(prover_traces.into_circle_evaluation());
+        let _main_trace_location = tree_builder.extend_evals(prover_traces.circle_evaluation());
         tree_builder.commit(prover_channel);
 
-        let tree_builder = commitment_scheme.tree_builder();
-        // TODO: Fill columns of the interaction trace.
+        let lookup_elements = LookupElements::draw(prover_channel);
+        let preprocessed_trace = trace::Traces::new_preprocessed_trace(LOG_SIZE);
+        let mut tree_builder = commitment_scheme.tree_builder();
+        let interaction_trace =
+            C::fill_interaction_trace(&prover_traces, &preprocessed_trace, &lookup_elements);
+        let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
         tree_builder.commit(prover_channel);
 
         // Fill columns of the preprocessed trace.
-        let preprocessed_trace = trace::Traces::new_preprocessed_trace(LOG_SIZE);
         let mut tree_builder = commitment_scheme.tree_builder();
         let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_trace.into_circle_evaluation());
+            tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
         tree_builder.commit(prover_channel);
 
         let component = MachineComponent::new(
