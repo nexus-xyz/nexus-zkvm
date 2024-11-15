@@ -5,8 +5,8 @@ use stwo_prover::{
     constraint_framework::{assert_constraints, AssertEvaluator},
     core::{
         backend::{
-            simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-            CpuBackend,
+            simd::{column::BaseColumn, m31::LOG_N_LANES},
+            Backend, CpuBackend,
         },
         fields::m31::BaseField,
         pcs::TreeVec,
@@ -116,9 +116,12 @@ impl Traces {
 
     /// Converts traces into circle domain evaluations, bit-reversing row indices
     /// according to circle domain ordering.
-    pub fn circle_evaluation(
+    pub fn circle_evaluation<B>(
         &self,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+    ) -> ColumnVec<CircleEvaluation<B, BaseField, BitReversedOrder>>
+    where
+        B: Backend,
+    {
         let domain = CanonicCoset::new(self.log_size).circle_domain();
         self.cols
             .iter()
@@ -126,26 +129,10 @@ impl Traces {
                 let mut eval = coset_order_to_circle_domain_order(col.as_slice());
                 bit_reverse(&mut eval);
 
-                let col = BaseColumn::from_iter(eval);
-                CircleEvaluation::<SimdBackend, _, BitReversedOrder>::new(domain, col)
+                CircleEvaluation::<B, _, BitReversedOrder>::new(domain, eval.into_iter().collect())
             })
             .collect()
     }
-
-    /// Converts traces into circle domain evaluations on CpuBackend
-    ///
-    /// This function is used during development for assertions. In production,
-    /// use `into_circle_evaluation()` because stwo expects SimdBackend.
-    pub fn into_cpu_circle_evaluation(
-        self,
-    ) -> ColumnVec<CircleEvaluation<CpuBackend, BaseField, BitReversedOrder>> {
-        let domain = CanonicCoset::new(self.log_size).circle_domain();
-        self.into_inner()
-            .into_iter()
-            .map(|eval| CircleEvaluation::<CpuBackend, _, BitReversedOrder>::new(domain, eval))
-            .collect()
-    }
-
     /// Asserts add_constraints_calls() in a main trace
     ///
     /// This function combines the trace with an empty preprocessed-trace and
@@ -157,10 +144,10 @@ impl Traces {
     {
         let log_size = self.log_size;
         // Convert traces to the format expected by assert_constraints
-        let traces: Vec<CircleEvaluation<_, _, _>> = self.into_cpu_circle_evaluation();
+        let traces: Vec<CircleEvaluation<CpuBackend, BaseField, BitReversedOrder>> =
+            self.circle_evaluation();
 
-        let preprocessed_trace =
-            Traces::new_preprocessed_trace(log_size).into_cpu_circle_evaluation();
+        let preprocessed_trace = Traces::new_preprocessed_trace(log_size).circle_evaluation();
 
         let traces = TreeVec::new(vec![
             traces,
