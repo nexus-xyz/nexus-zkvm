@@ -6,6 +6,7 @@ use num_traits::{One as _, Zero as _};
 use stwo_prover::{
     constraint_framework::{
         assert_constraints, EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
+        INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX,
     },
     core::{
         air::Component as _,
@@ -223,10 +224,10 @@ impl FrameworkEval for Fib {
         // The second argument is the values relative to the current row we want to fetch, being
         // `0` the current row. `-1` is the previous row, `1` is the next row.
 
-        let a = eval.next_interaction_mask(0, [0, 1]);
-        let b = eval.next_interaction_mask(0, [0, 1]);
-        let is_first = eval.next_interaction_mask(1, [0, 1]);
-        let is_first_neg = eval.next_interaction_mask(1, [0, 1]);
+        let a = eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1]);
+        let b = eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1]);
+        let is_first = eval.next_interaction_mask(INTERACTION_TRACE_IDX, [0, 1]);
+        let is_first_neg = eval.next_interaction_mask(INTERACTION_TRACE_IDX, [0, 1]);
 
         // ----------------------------------------------------------------------------------------
         // Main trace
