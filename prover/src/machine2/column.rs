@@ -87,12 +87,20 @@ pub enum Column {
     /// The previous timestamp for c.
     #[size = 4]
     PrevTsC,
+
     /// Boolean flag on whether the row is an addition.
     #[size = 1]
     IsAdd,
     /// Boolean flag on whether the row is a subtraction.
     #[size = 1]
     IsSub,
+    /// Boolean flag on whether the row is a SLTU.
+    #[size = 1]
+    IsSltu,
+
+    /// Helper variable 1. Called h_1 in document.
+    #[size = 4]
+    Helper1,
     /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
     #[size = 1]
     Multiplicity256,

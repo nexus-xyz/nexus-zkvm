@@ -24,11 +24,11 @@ pub mod traits;
 
 pub use crate::utils::WORD_SIZE;
 
-use chips::{AddChip, CpuChip, SubChip};
+use chips::{AddChip, CpuChip, SltuChip, SubChip};
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
-pub type Components = (CpuChip, AddChip, SubChip);
+pub type Components = (CpuChip, AddChip, SubChip, SltuChip);
 pub type Proof = StarkProof<Blake2sMerkleHasher>;
 
 pub struct Machine<C = Components> {

@@ -25,7 +25,7 @@ impl AddChip {
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
         let result = program_step
             .get_result()
-            .expect("Instruction does not have result");
+            .expect("Add instruction must have a result");
         let rd_is_x0 = program_step.is_value_a_x0();
 
         // Recompute 32-bit result from 8-bit limbs.
