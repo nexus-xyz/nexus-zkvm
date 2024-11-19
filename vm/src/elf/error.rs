@@ -74,6 +74,10 @@ pub enum ParserError {
     /// An error occurred while parsing the ELF headers
     #[error(transparent)]
     ELFError(#[from] elf::ParseError),
+
+    /// An error occurred while decoding a byte slice into a word.
+    #[error(transparent)]
+    WordDecodingFailed(#[from] std::array::TryFromSliceError),
 }
 
 /// Result type for VM functions that can produce errors

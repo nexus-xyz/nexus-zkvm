@@ -10,4 +10,6 @@ proc-macro = true
 quote = "1.0"
 proc-macro2 = "1.0"
 proc-macro-crate = "3.1.0"
-syn = { version = "2.0", features = ["full"] }
+serde = "1.0"
+serde_json = "1.0"
+syn = { version = "2.0", features = ["full", "parsing"] }

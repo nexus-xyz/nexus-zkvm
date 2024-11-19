@@ -1,8 +1,12 @@
 extern crate proc_macro;
 
-mod path_with_rename;
+mod generation;
+mod precompile_path;
 
-use path_with_rename::PathWithRename;
+use generation::generate_instruction_impls;
+#[cfg(target_arch = "riscv32")]
+use generation::generate_statics;
+use precompile_path::PrecompilePath;
 use proc_macro::TokenStream;
 use quote::quote;
 use quote::ToTokens;
@@ -35,8 +39,8 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
 
     // 1. Parse the input into a list of paths to precompile implementations.
     let paths =
-        match Punctuated::<PathWithRename, Token![,]>::parse_terminated.parse2(input.clone()) {
-            Ok(p) => p.into_iter().collect::<Vec<PathWithRename>>(),
+        match Punctuated::<PrecompilePath, Token![,]>::parse_terminated.parse2(input.clone()) {
+            Ok(p) => p.into_iter().collect::<Vec<PrecompilePath>>(),
             Err(e) => {
                 return e.into_compile_error().into();
             }
@@ -68,7 +72,7 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
     let valid_checks: Vec<proc_macro2::TokenStream> = paths
         .iter()
         .map(|path| {
-            let path = &path.path;
+            let path = path.as_syn_path();
             quote! { is_valid::<#path>() }
         })
         .collect();
@@ -96,50 +100,7 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
     // 5. Generate code that picks a 10-bit index 0-1023 for each precompile and uses it to generate
     // a custom RISC-V instruction for each precompile. This is done by encoding the precompile
     // index into the `func3` and `func7` fields of the custom RISC-V instruction we use.
-
-    // Safety: size already checked to be <= MAX_PRECOMPILES, guaranteed to fit in 10 bits
-    let num_precompiles = paths.len() as u16;
-    let insn_impls: proc_macro2::TokenStream = (0..num_precompiles)
-        .zip(paths.iter())
-        .map(|(i, path)| {
-            // Format is index = 0b0000_00[fn7][fn3]
-            const FN7_MASK: u16 = 0b011_1111_1000;
-            const FN3_MASK: u16 = 0b0111;
-            const R_TYPE_PRECOMPILE_OPCODE: u8 = 0b0001011;
-
-            let fn7 = ((FN7_MASK & i) >> 3) as u8;
-            let fn3 = (FN3_MASK & i) as u8;
-
-            // ".insn ins_type opcode, func3, func7, rd, rs1, rs2"
-            let insn = format!(
-                ".insn r 0x{R_TYPE_PRECOMPILE_OPCODE:x}, 0x{fn3:x}, 0x{fn7:x}, {{rd}}, {{rs1}}, {{rs2}}"
-            );
-            let path = &path.path;
-            quote! {
-                impl InstructionEmitter for #path {
-                    #[inline(always)]
-                    fn emit_instruction(rs1: u32, rs2: u32, imm: u32) -> u32 {
-                        #[cfg(target_arch = "riscv32")] {
-                            let mut rd: u32;
-                            unsafe {
-                                ::core::arch::asm!(
-                                    #insn,
-                                    rd = out(reg) rd,
-                                    rs1 = in(reg) rs1,
-                                    rs2 = in(reg) rs2,
-                                );
-                            }
-                            return rd;
-                        }
-                        #[cfg(not(target_arch = "riscv32"))] {
-                            return <#path as ::nexus_precompiles::PrecompileInstruction>::native_call(rs1, rs2);
-                        }
-                    }
-                }
-            }
-        })
-        .collect();
-    output.extend(insn_impls);
+    output.extend(generate_instruction_impls(&paths));
 
     // 6. Generate a `#[no_mangle]` static variable that expresses the number of precompiles present
     // in the guest binary. This is not likely super useful but serves as a guard against this macro
@@ -147,14 +108,15 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
     // future update, this will be omitted and replaced by embedding the precompile metadata in the
     // binary itself.
     #[cfg(target_arch = "riscv32")]
-    let macro_guard = quote! {
-        #[no_mangle]
-        #[link_section = ".nexus_precompile_count"]
-        pub static PRECOMPILE_COUNT: u16 = #num_precompiles;
-    };
+    {
+        let statics = generate_statics(&paths);
 
-    #[cfg(target_arch = "riscv32")]
-    output.extend(macro_guard);
+        if let Err(e) = statics {
+            return e.into_compile_error().into();
+        }
+
+        output.extend(statics.unwrap());
+    }
 
     // 7. Call each precompile's call-generating macro. This macro is expected to define and
     // implement a trait which is used for the actual precompile call. This should have the name
@@ -165,17 +127,11 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
     let custom_generators = paths
         .iter()
         .map(|path| {
-            let mut prefix = path.path.clone();
+            let prefix = path.prefix();
+            let path = path.as_syn_path();
 
-            // Remove the name of the precompile struct to get the path to its module.
-            let _postfix = match prefix.segments.pop() {
-                Some(segment) => segment,
-                None => return Err(spanned_error(path, "Invalid path: no module specified")),
-            };
-
-            let path = &path.path;
             Ok(quote! {
-                #prefix generate_instruction_caller!(#path);
+                #prefix::generate_instruction_caller!(#path);
             })
         })
         .collect::<Result<Vec<proc_macro2::TokenStream>, TokenStream>>();

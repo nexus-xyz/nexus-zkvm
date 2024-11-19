@@ -9,6 +9,7 @@
 //! - Parses segment information and extracts executable content
 //! - Supports Harvard architecture with separate instruction and data memories
 //! - Handles allowed sections: .text, .data, .sdata, and .rodata
+//! - Supports our custom metadata section: .nexus_precompile_metadata
 //!
 //! Main Components:
 //! - `validate_elf_header`: Ensures the ELF file meets RISC-V 32-bit executable requirements
@@ -37,6 +38,7 @@ use std::fmt;
 use super::error::{ParserError, Result};
 
 type Instructions = Vec<u32>;
+type Metadata = Vec<u32>;
 type MemoryImage = BTreeMap<u32, u32>;
 
 pub struct ParsedElfData {
@@ -44,6 +46,7 @@ pub struct ParsedElfData {
     pub readonly_memory: MemoryImage,
     pub writable_memory: MemoryImage,
     pub base_address: u64,
+    pub nexus_metadata: Metadata,
 }
 
 /// The maximum size of the memory in bytes.
@@ -59,8 +62,16 @@ pub const WORD_SIZE: usize = 4;
 /// When building the section map, only these sections and their variants are considered.
 /// Section names starting with any of these prefixes are included (e.g., .text1, .data2).
 /// All other sections are ignored during parsing.
-const ALLOWED_SECTIONS: [&str; 8] = [
-    ".text", ".data", ".sdata", ".rodata", ".init", ".fini", ".bss", ".sbss",
+const ALLOWED_SECTIONS: [&str; 9] = [
+    ".text",
+    ".data",
+    ".sdata",
+    ".rodata",
+    ".init",
+    ".fini",
+    ".bss",
+    ".sbss",
+    ".nexus_precompile_metadata",
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -68,6 +79,7 @@ enum WordType {
     Instruction,
     ReadOnlyData,
     Data,
+    Metadata,
 }
 
 impl fmt::Display for WordType {
@@ -76,6 +88,7 @@ impl fmt::Display for WordType {
             WordType::Instruction => write!(f, "Instruction"),
             WordType::ReadOnlyData => write!(f, "Read-Only Data"),
             WordType::Data => write!(f, "Data"),
+            WordType::Metadata => write!(f, "Metadata"),
         }
     }
 }
@@ -203,48 +216,56 @@ fn parse_segment_content(
     instructions: &mut Vec<u32>,
     readonly_memory_image: &mut BTreeMap<u32, u32>,
     memory_image: &mut BTreeMap<u32, u32>,
+    metadata: &mut Vec<u32>,
 ) -> Result<()> {
     let is_executable_segment = (segment.p_flags & abi::PF_X) != 0;
-    let (virtual_address, offset, mem_size) = parse_segment_info(segment)?;
+    let (segment_virtual_address, segment_physical_address, segment_size) =
+        parse_segment_info(segment)?;
 
-    for address in (0..mem_size).step_by(WORD_SIZE as _) {
+    for offset_in_segment in (0..segment_size).step_by(WORD_SIZE as _) {
         // Calculate the memory address for this word
-        let memory_address = virtual_address
-            .checked_add(address)
+        let memory_address = segment_virtual_address
+            .checked_add(offset_in_segment)
             .ok_or(ParserError::InvalidSegmentAddress)?;
         if memory_address == MAXIMUM_MEMORY_SIZE {
             return Err(ParserError::AddressExceedsMemorySize);
         }
 
         // Calculate the offset within the segment for this word
-        let segment_offset = address + offset;
+        let absolute_address = offset_in_segment + segment_physical_address;
 
         // Read the word from the file data
         let word = u32::from_le_bytes(
-            data[segment_offset as usize..(segment_offset + WORD_SIZE as u32) as usize]
-                .try_into()
-                .unwrap(),
+            data[absolute_address as usize..(absolute_address + WORD_SIZE as u32) as usize]
+                .try_into()?,
         );
 
         // Determine the type of word based on the segment and section information
+
         let word_type = if is_executable_segment
             && section_map.iter().any(|(prefix, (_, end))| {
                 (prefix.starts_with(".text")
                     || prefix.starts_with(".init")
                     || prefix.starts_with(".fini"))
-                    && segment_offset < *end as u32
+                    && absolute_address < *end as u32
             }) {
             Some(WordType::Instruction)
         } else if section_map.iter().any(|(prefix, (start, end))| {
             prefix.starts_with(".rodata")
-                && *start as u32 <= segment_offset
-                && segment_offset < *end as u32
+                && *start as u32 <= absolute_address
+                && absolute_address < *end as u32
         }) {
             Some(WordType::ReadOnlyData)
         } else if section_map.iter().any(|(prefix, (start, end))| {
+            prefix.starts_with(".note.nexus-precompiles")
+                && *start as u32 <= absolute_address
+                && absolute_address < *end as u32
+        }) {
+            Some(WordType::Metadata)
+        } else if section_map.iter().any(|(prefix, (start, end))| {
             (!prefix.starts_with(".text") && !prefix.starts_with(".rodata"))
-                && *start as u32 <= segment_offset
-                && segment_offset < *end as u32
+                && *start as u32 <= absolute_address
+                && absolute_address < *end as u32
         }) {
             Some(WordType::Data)
         } else {
@@ -262,6 +283,9 @@ fn parse_segment_content(
                 if memory_image.insert(memory_address, word).is_some() {
                     return Err(ParserError::DuplicateMemoryAddress);
                 }
+            }
+            Some(WordType::Metadata) => {
+                metadata.push(word);
             }
             None => (),
         }
@@ -320,18 +344,18 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
     let mut instructions = Instructions::new();
     let mut writable_memory = MemoryImage::new();
     let mut readonly_memory = MemoryImage::new();
+    let mut metadata = Metadata::new();
 
     // Base address is the lowest virtual address of a program's loadable segment
     let mut base_address = u64::MAX;
 
     let section_map = create_allowed_section_map(elf)?;
+    let segments = elf.segments().ok_or(ParserError::NoSegmentAvailable)?;
 
     // Iterate through all LOAD segments
-    for segment in elf
-        .segments()
-        .ok_or(ParserError::NoSegmentAvailable)?
+    for segment in segments
         .iter()
-        .filter(|x| x.p_type == abi::PT_LOAD)
+        .filter(|x| x.p_type == abi::PT_LOAD || x.p_type == abi::PT_NOTE)
     {
         #[cfg(debug_assertions)]
         debug_segment_info(&segment, &section_map);
@@ -349,6 +373,7 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
             &mut instructions,
             &mut readonly_memory,
             &mut writable_memory,
+            &mut metadata,
         )?;
     }
 
@@ -357,5 +382,6 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
         readonly_memory,
         writable_memory,
         base_address,
+        nexus_metadata: metadata,
     })
 }

@@ -67,6 +67,9 @@ pub struct ElfFile {
 
     /// Initial read write memory image containing global and initialized data.
     pub ram_image: BTreeMap<u32, u32>,
+
+    /// Nexus-specific metadata embedded in the ELF file.
+    pub nexus_metadata: Vec<u32>,
 }
 
 impl ElfFile {
@@ -76,6 +79,7 @@ impl ElfFile {
         base: u32,
         rom_image: BTreeMap<u32, u32>,
         ram_image: BTreeMap<u32, u32>,
+        nexus_metadata: Vec<u32>,
     ) -> Self {
         ElfFile {
             instructions,
@@ -83,6 +87,7 @@ impl ElfFile {
             base,
             rom_image,
             ram_image,
+            nexus_metadata,
         }
     }
 
@@ -109,6 +114,7 @@ impl ElfFile {
             base: parsed_elf_data.base_address as u32,
             rom_image: parsed_elf_data.readonly_memory,
             ram_image: parsed_elf_data.writable_memory,
+            nexus_metadata: parsed_elf_data.nexus_metadata,
         })
     }
 

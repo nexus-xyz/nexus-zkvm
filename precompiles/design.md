@@ -57,7 +57,7 @@ We can emit this information by using macros to embed code that expands to the f
 
 ```rust
 #[no_mangle]
-#[link_section=.nexus-dynamic-precompiles]
+#[link_section=.note.nexus-precompiles]
 pub static DYNAMIC_PRECOMPILE_{idx}: &str = "{content}";
 ```
 
