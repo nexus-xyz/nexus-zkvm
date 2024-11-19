@@ -1,8 +1,8 @@
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use crate::machine2::{
-    column::Column::{self, *},
-    trace::{eval::TraceEval, trace_column_mut, ProgramStep, Traces},
+    column::Column::*,
+    trace::{eval::TraceEval, ProgramStep, Traces},
     traits::MachineChip,
 };
 
@@ -23,47 +23,35 @@ impl MachineChip for CpuChip {
 
         // Add opcode to the main trace
         // TODO: We should also set ImmC or ImmB flags here.
-        let is_opcode = match step.instruction.opcode.builtin() {
+        // Set is_opcode to 1, e.g If this is ADD opcode, set IsAdd to 1.
+        match step.instruction.opcode.builtin() {
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI) => {
-                trace_column_mut!(traces, row_idx, IsAdd)
+                traces.fill_columns(row_idx, &[1], IsAdd);
             }
             Some(BuiltinOpcode::SUB) => {
-                trace_column_mut!(traces, row_idx, IsSub)
+                traces.fill_columns(row_idx, &[1], IsSub);
             }
             Some(BuiltinOpcode::SLTU) => {
-                trace_column_mut!(traces, row_idx, IsSltu)
+                traces.fill_columns(row_idx, &[1], IsSltu);
             }
             _ => panic!(
                 "Unsupported opcode: {:?}",
                 step.instruction.opcode.builtin()
             ),
         };
-        // Set is_opcode to 1, e.g If this is ADD opcode, set IsAdd to 1.
-        *is_opcode[0] = BaseField::from(1);
 
         let pc_bytes = pc.to_le_bytes();
-        let clk_bytes = clk.to_le_bytes();
+        traces.fill_columns(row_idx, &pc_bytes, Pc);
 
-        let pc_val = trace_column_mut!(traces, row_idx, Pc);
-        for (i, b) in pc_bytes.iter().enumerate() {
-            *pc_val[i] = BaseField::from(*b as u32);
-        }
-        let clk_val = trace_column_mut!(traces, row_idx, Clk);
-        for (i, b) in clk_bytes.iter().enumerate() {
-            *clk_val[i] = BaseField::from(*b as u32);
-        }
+        let clk_bytes = clk.to_le_bytes();
+        traces.fill_columns(row_idx, &clk_bytes, Clk);
 
         // Fill ValueB and ValueC to the main trace
         let value_b = vm_step.get_value_b();
-        let (value_c, _) = vm_step.get_value_c();
-        let value_b_col = trace_column_mut!(traces, row_idx, ValueB);
-        for (i, b) in value_b.iter().enumerate() {
-            *value_b_col[i] = BaseField::from(*b as u32);
-        }
-        let value_c_col = trace_column_mut!(traces, row_idx, ValueC);
-        for (i, b) in value_c.iter().enumerate() {
-            *value_c_col[i] = BaseField::from(*b as u32);
-        }
+        traces.fill_columns(row_idx, &value_b, ValueB);
+
+        let (value_c, _effective_size) = vm_step.get_value_c();
+        traces.fill_columns(row_idx, &value_c, ValueC);
     }
 
     fn add_constraints<E: EvalAtRow>(_eval: &mut E, _trace_eval: &TraceEval<E>) {

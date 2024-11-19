@@ -21,16 +21,6 @@ pub type Word = [u8; WORD_SIZE];
 /// along with the count of effective bits.
 pub type WordWithEffectiveBits = (Word, usize);
 
-/// Represents a 32-bit word as 4 32-bit limbs in little-endian order,
-/// which is used for mapping to M31 field.
-pub struct WordExt([u32; WORD_SIZE]);
-
-impl From<Word> for WordExt {
-    fn from(value: Word) -> Self {
-        WordExt(value.map(|b| b as u32))
-    }
-}
-
 impl ProgramStep {
     /// Returns the value of the second operand (rs1) as bytes.
     /// Always a register value in range u32.

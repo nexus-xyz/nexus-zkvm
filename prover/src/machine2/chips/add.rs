@@ -1,5 +1,5 @@
 use num_traits::Zero;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -7,31 +7,26 @@ use crate::machine2::{
     column::Column::{self, *},
     trace::{
         eval::{trace_eval, TraceEval},
-        trace_column_mut, ProgramStep, Traces,
+        ProgramStep, Traces, Word,
     },
-    traits::MachineChip,
+    traits::{ExecuteChip, MachineChip},
 };
 
 // Support ADD and ADDI opcodes.
 pub struct AddChip;
 
-struct ExecutionResult {
-    carry_bits: [u32; WORD_SIZE],
-    sum_bytes: [u32; WORD_SIZE],
+pub struct ExecutionResult {
+    carry_bits: Word,
+    sum_bytes: Word,
     rd_is_x0: bool,
 }
 
-impl AddChip {
+impl ExecuteChip for AddChip {
+    type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
-        let result = program_step
-            .get_result()
-            .expect("Add instruction must have a result");
         let rd_is_x0 = program_step.is_value_a_x0();
 
         // Recompute 32-bit result from 8-bit limbs.
-        // 1. Break the computation to 8-bit limbs.
-        // 2. Compute the sum and carry of each limb.
-        // 3. Check that the final result matches the expected result.
 
         // Step 1. Break the computation to 8-bit limbs
         let value_b = program_step.get_value_b();
@@ -56,15 +51,8 @@ impl AddChip {
             sum_bytes[i] = sum;
         }
 
-        // Step 3. Check that the final result matches the expected result.
-        assert_eq!(sum_bytes, result);
-
-        // Map carry bits to 0/1 values, and expand to 32-bit words.
-        let carry_bits: [u32; WORD_SIZE] = carry.map(|c| c as u32);
-        let sum_bytes = sum_bytes.map(|b| b as u32);
-
         ExecutionResult {
-            carry_bits,
+            carry_bits: carry.map(|b| b as u8),
             sum_bytes,
             rd_is_x0,
         }
@@ -86,24 +74,17 @@ impl MachineChip for AddChip {
             rd_is_x0,
         } = Self::execute(vm_step);
 
-        let value_a_col = trace_column_mut!(traces, row_idx, ValueA);
-        for (i, b) in sum_bytes.iter().enumerate() {
-            *value_a_col[i] = BaseField::from(*b);
-        }
+        // Before filling the trace, we check the result of 8-bit limbs is correct.
+        debug_assert_eq!(
+            sum_bytes,
+            vm_step
+                .get_result()
+                .expect("ADD/ADDI instruction must have a result")
+        );
 
-        let value_a_col_effective = trace_column_mut!(traces, row_idx, ValueAEffective);
-        for (i, b) in sum_bytes.iter().enumerate() {
-            *value_a_col_effective[i] = if rd_is_x0 {
-                BaseField::zero()
-            } else {
-                BaseField::from(*b)
-            };
-        }
-
-        let carry_col = trace_column_mut!(traces, row_idx, CarryFlag);
-        for (i, c) in carry_bits.iter().enumerate() {
-            *carry_col[i] = BaseField::from(*c);
-        }
+        traces.fill_columns(row_idx, &sum_bytes, ValueA);
+        traces.fill_effective_columns(row_idx, &sum_bytes, ValueAEffective, rd_is_x0);
+        traces.fill_columns(row_idx, &carry_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {

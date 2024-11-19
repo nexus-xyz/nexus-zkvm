@@ -14,6 +14,12 @@ use super::trace::{eval::TraceEval, ProgramStep, Traces};
 /// The number of BaseField's in the biggest tuple we look up
 pub const MAX_LOOKUP_TUPLE_SIZE: usize = 12;
 
+pub trait ExecuteChip {
+    type ExecutionResult;
+    /// Execute a chip and return the result of the execution in 8-bit limbs.
+    fn execute(program_step: &ProgramStep) -> Self::ExecutionResult;
+}
+
 pub trait MachineChip {
     /// Called on each row during main trace generation.
     fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep);

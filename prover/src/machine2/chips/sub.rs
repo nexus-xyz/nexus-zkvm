@@ -1,5 +1,5 @@
 use num_traits::Zero;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -7,31 +7,26 @@ use crate::machine2::{
     column::Column::{self, *},
     trace::{
         eval::{trace_eval, TraceEval},
-        trace_column_mut, ProgramStep, Traces,
+        ProgramStep, Traces, Word,
     },
-    traits::MachineChip,
+    traits::{ExecuteChip, MachineChip},
 };
 
 // Support SUB opcodes.
 pub struct SubChip;
 
-struct ExecutionResult {
-    borrow_bits: [u32; WORD_SIZE],
-    diff_bytes: [u32; WORD_SIZE],
-    rd_is_x0: bool,
+pub struct ExecutionResult {
+    pub borrow_bits: Word,
+    pub diff_bytes: Word,
+    pub rd_is_x0: bool,
 }
 
-impl SubChip {
+impl ExecuteChip for SubChip {
+    type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
-        let result = program_step
-            .get_result()
-            .expect("Instruction does not have result");
         let rd_is_x0 = program_step.is_value_a_x0();
 
         // Recompute 32-bit result from 8-bit limbs.
-        // 1. Break the computation to 8-bit limbs.
-        // 2. Compute the difference and borrow_bits of each limb.
-        // 3. Check that the final result matches the expected result.
 
         // Step 1. Break the computation to 8-bit limbs.
         let value_b = program_step.get_value_b();
@@ -56,16 +51,9 @@ impl SubChip {
             value_a[i] = diff;
         }
 
-        // Step 3. Check that the final result matches the expected result.
-        assert_eq!(value_a, result);
-
-        // Map borrow bits to 0/1 values, and expand to 32-bit words.
-        let borrow_bits: [u32; WORD_SIZE] = borrow.map(|c| c as u32);
-        let diff_bytes = value_a.map(|b| b as u32);
-
         ExecutionResult {
-            borrow_bits,
-            diff_bytes,
+            borrow_bits: borrow.map(|c| c as u8),
+            diff_bytes: value_a,
             rd_is_x0,
         }
     }
@@ -86,24 +74,17 @@ impl MachineChip for SubChip {
             rd_is_x0,
         } = Self::execute(vm_step);
 
-        let value_a_col = trace_column_mut!(traces, row_idx, ValueA);
-        for (i, b) in diff_bytes.iter().enumerate() {
-            *value_a_col[i] = BaseField::from(*b);
-        }
+        // Before filling the trace, we check the result of 8-bit limbs is correct.
+        debug_assert_eq!(
+            diff_bytes,
+            vm_step
+                .get_result()
+                .expect("SUB instruction must have result")
+        );
 
-        let value_a_effective = trace_column_mut!(traces, row_idx, ValueAEffective);
-        for (i, b) in diff_bytes.iter().enumerate() {
-            *value_a_effective[i] = if rd_is_x0 {
-                BaseField::zero()
-            } else {
-                BaseField::from(*b)
-            };
-        }
-
-        let carry_col = trace_column_mut!(traces, row_idx, CarryFlag);
-        for (i, c) in borrow_bits.iter().enumerate() {
-            *carry_col[i] = BaseField::from(*c);
-        }
+        traces.fill_columns(row_idx, &diff_bytes, ValueA);
+        traces.fill_effective_columns(row_idx, &diff_bytes, ValueAEffective, rd_is_x0);
+        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {

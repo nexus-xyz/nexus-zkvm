@@ -44,7 +44,7 @@ pub enum Column {
     ImmC,
     /// The actual 32-bit of the instruction stored at pc.
     #[size = 4]
-    Word,
+    InstructionWord,
     /// The previous counter for the instruction stored at pc.
     #[size = 4]
     PrevCtr,
