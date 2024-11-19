@@ -35,7 +35,7 @@ use stwo_prover::{
         assert_constraints,
         logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
         EvalAtRow, FrameworkComponent, FrameworkEval, TraceLocationAllocator,
-        INTERACTION_TRACE_IDX, PREPROCESSED_TRACE_IDX,
+        INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
     },
     core::{
         air::Component,
@@ -281,6 +281,13 @@ fn prove_perm(
     let commitment_scheme =
         &mut CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
 
+    // Constant trace. This is a separate interaction because we send the commitment for
+    // the constant trace to the verifier.
+    let trace = gen_constant_trace(log_n_rows);
+    let mut tree_builder = commitment_scheme.tree_builder();
+    let constant_trace_location = tree_builder.extend_evals(trace);
+    tree_builder.commit(channel);
+
     // Trace.
     let trace = gen_trace(&basic_trace);
     let mut tree_builder = commitment_scheme.tree_builder();
@@ -294,13 +301,6 @@ fn prove_perm(
     let trace = gen_interaction_trace(log_n_rows, &basic_trace, &perm_element);
     let mut tree_builder = commitment_scheme.tree_builder();
     let interaction_trace_location = tree_builder.extend_evals(trace);
-    tree_builder.commit(channel);
-
-    // Constant trace. This is a separate interaction because we send the commitment for
-    // the constant trace to the verifier.
-    let trace = gen_constant_trace(log_n_rows);
-    let mut tree_builder = commitment_scheme.tree_builder();
-    let constant_trace_location = tree_builder.extend_evals(trace);
     tree_builder.commit(channel);
 
     let component = PermComponent::new(
@@ -354,12 +354,24 @@ fn test_simd_perm_prove(log_n_instances: u32, basic_trace: PermCircuitTrace) -> 
     // Decommit.
     // Retrieve the expected column sizes in each commitment interaction, from the AIR.
     let sizes = component.trace_log_degree_bounds();
-    // Trace columns.
-    commitment_scheme.commit(proof.commitments[0], &sizes[0], channel);
-    // Interaction columns.
-    commitment_scheme.commit(proof.commitments[1], &sizes[1], channel);
     // Constant columns.
-    commitment_scheme.commit(proof.commitments[2], &sizes[2], channel);
+    commitment_scheme.commit(
+        proof.commitments[PREPROCESSED_TRACE_IDX],
+        &sizes[PREPROCESSED_TRACE_IDX],
+        channel,
+    );
+    // Trace columns.
+    commitment_scheme.commit(
+        proof.commitments[ORIGINAL_TRACE_IDX],
+        &sizes[ORIGINAL_TRACE_IDX],
+        channel,
+    );
+    // Interaction columns.
+    commitment_scheme.commit(
+        proof.commitments[INTERACTION_TRACE_IDX],
+        &sizes[INTERACTION_TRACE_IDX],
+        channel,
+    );
 
     let begin = Instant::now();
     verify(&[&component], channel, commitment_scheme, proof).unwrap();

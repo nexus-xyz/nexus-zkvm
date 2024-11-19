@@ -73,6 +73,10 @@ fn main() {
 
     let commit_traces_time = Instant::now();
 
+    // commit to the empty preprocessed trace
+    let tree_builder = prover_commitment_scheme.tree_builder();
+    tree_builder.commit(prover_channel);
+
     let mut tree_builder = prover_commitment_scheme.tree_builder();
     tree_builder.extend_evals(main_trace);
     tree_builder.commit(prover_channel);

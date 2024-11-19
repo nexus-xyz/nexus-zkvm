@@ -180,9 +180,9 @@ impl Traces {
         let preprocessed_trace = Traces::new_preprocessed_trace(log_size).circle_evaluation();
 
         let traces = TreeVec::new(vec![
+            preprocessed_trace,
             traces,
             vec![], /* interaction trace */
-            preprocessed_trace,
         ]);
         let trace_polys = traces.map(|trace| {
             trace
