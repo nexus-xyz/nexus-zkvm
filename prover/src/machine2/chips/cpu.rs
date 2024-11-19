@@ -52,6 +52,14 @@ impl MachineChip for CpuChip {
 
         let (value_c, _effective_size) = vm_step.get_value_c();
         traces.fill_columns(row_idx, &value_c, ValueC);
+
+        // Fill OpA to the main trace
+        let op_a = vm_step.step.instruction.op_a as u8;
+        traces.fill_columns(row_idx, &[op_a], OpA);
+
+        // Fill OpB to the main trace
+        let op_b = vm_step.step.instruction.op_b as u8;
+        traces.fill_columns(row_idx, &[op_b], OpB);
     }
 
     fn add_constraints<E: EvalAtRow>(_eval: &mut E, _trace_eval: &TraceEval<E>) {
