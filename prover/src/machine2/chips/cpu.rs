@@ -1,8 +1,9 @@
+use num_traits::One;
 use stwo_prover::constraint_framework::EvalAtRow;
 
 use crate::machine2::{
-    column::Column::*,
-    trace::{eval::TraceEval, ProgramStep, Traces},
+    column::Column::{self, *},
+    trace::{eval::trace_eval, eval::TraceEval, ProgramStep, Traces},
     traits::MachineChip,
 };
 
@@ -60,9 +61,20 @@ impl MachineChip for CpuChip {
         // Fill OpB to the main trace
         let op_b = vm_step.step.instruction.op_b as u8;
         traces.fill_columns(row_idx, &[op_b], OpB);
+
+        // Fill ValueAEffectiveFlag to the main trace
+        let value_a_effective_flag = if op_a == 0 { 0 } else { 1 };
+        traces.fill_columns(row_idx, &[value_a_effective_flag], ValueAEffectiveFlag);
     }
 
-    fn add_constraints<E: EvalAtRow>(_eval: &mut E, _trace_eval: &TraceEval<E>) {
-        // TODO: add constraints for the CPU chip.
+    fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {
+        // TODO: add more constraints for the CPU chip.
+
+        // Constrain ValueAEffectiveFlag's range
+        let (_, [value_a_effective_flag]) = trace_eval!(trace_eval, ValueAEffectiveFlag);
+        eval.add_constraint(
+            value_a_effective_flag.clone() * (E::F::one() - value_a_effective_flag),
+        );
+        // TODO: relate OpA and ValueAEffectiveFlag; this can be done with ValueAEffectiveFlagAux and ValueAEffectiveFlagAuxInv.
     }
 }
