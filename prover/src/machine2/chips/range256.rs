@@ -102,8 +102,8 @@ impl MachineChip for Range256Chip {
         for col in Self::CHECKED.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
             let (_, value) = trace_eval.column_eval::<WORD_SIZE>(*col);
-            for limb_idx in 0..WORD_SIZE {
-                let denom: E::EF = lookup_elements.combine(&[value[limb_idx].clone()]);
+            for limb in value.iter().take(WORD_SIZE) {
+                let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
                 logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
             }
         }
@@ -119,8 +119,8 @@ impl MachineChip for Range256Chip {
 
 fn fill_main_word(value_a_col: [BaseField; WORD_SIZE], traces: &mut Traces) {
     let mut counter: u32 = 0;
-    for limb_index in 0..WORD_SIZE {
-        let checked = value_a_col[limb_index].0;
+    for (limb_index, limb) in value_a_col.iter().enumerate().take(WORD_SIZE) {
+        let checked = limb.0;
         debug_assert!(checked < 256, "value[{}] is out of range", limb_index);
         let multiplicity_col: [&mut BaseField; 1] =
             trace_column_mut!(traces, checked as usize, Multiplicity256);
@@ -140,11 +140,11 @@ fn check_word_limbs(
     lookup_element: &LookupElements<12>,
 ) {
     // TODO: we can deal with two limbs at a time.
-    for limb_idx in 0..WORD_SIZE {
+    for limb in basecolumn.iter().take(WORD_SIZE) {
         let mut logup_col_gen = logup_trace_gen.new_col();
         // vec_row is row_idx divided by 16. Because SIMD.
         for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
-            let checked_tuple = vec![basecolumn[limb_idx].data[vec_row]];
+            let checked_tuple = vec![limb.data[vec_row]];
             let denom = lookup_element.combine(&checked_tuple);
             logup_col_gen.write_frac(vec_row, SecureField::one().into(), denom);
         }
@@ -174,10 +174,10 @@ mod test {
 
     #[test]
     fn test_range256_chip_success() {
-        const LOG: u32 = 8;
-        let mut traces = Traces::new(LOG);
+        const LOG_SIZE: u32 = 8;
+        let mut traces = Traces::new(LOG_SIZE);
         // Write in-range values to ValueA columns.
-        for row_idx in 0..(1 << LOG) {
+        for row_idx in 0..(1 << LOG_SIZE) {
             for i in 0..WORD_SIZE {
                 let val: usize = (row_idx + i) % 256;
                 let value_row = trace_column_mut!(traces, row_idx, ValueA);
@@ -189,7 +189,7 @@ mod test {
             }
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
-        assert_range256_chip(traces, LOG);
+        assert_range256_chip(traces, LOG_SIZE);
     }
 
     // The test range256_chip_fail_out_of_range() fails with different messages
@@ -210,11 +210,11 @@ mod test {
     }
 
     fn range256_chip_fail_out_of_range() {
-        const LOG: u32 = 9;
-        let (config, twiddles) = test_params(LOG);
-        let mut traces = Traces::new(LOG);
+        const LOG_SIZE: u32 = 9;
+        let (config, twiddles) = test_params(LOG_SIZE);
+        let mut traces = Traces::new(LOG_SIZE);
         // Write in-range values to ValueA columns.
-        for row_idx in 0..(1 << LOG) {
+        for row_idx in 0..(1 << LOG_SIZE) {
             for i in 0..WORD_SIZE {
                 let val: usize = (row_idx + i) % 256;
                 let value_row = trace_column_mut!(traces, row_idx, ValueB);
@@ -222,15 +222,28 @@ mod test {
             }
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
-        let (mut commitment_scheme, mut prover_channel, lookup_element, _, _) =
-            commit_traces(LOG, config, &twiddles, &traces);
+        let CommittedTraces {
+            mut commitment_scheme,
+            mut prover_channel,
+            lookup_elements,
+            preprocessed_trace: _,
+            interaction_trace: _,
+        } = commit_traces(LOG_SIZE, config, &twiddles, &traces);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),
-            MachineEval::<Range256Chip>::new(LOG, lookup_element),
+            MachineEval::<Range256Chip>::new(LOG_SIZE, lookup_elements),
         );
 
         prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
+    }
+
+    struct CommittedTraces<'a> {
+        commitment_scheme: CommitmentSchemeProver<'a, SimdBackend, Blake2sMerkleChannel>,
+        prover_channel: Blake2sChannel,
+        lookup_elements: LookupElements<12>,
+        preprocessed_trace: Traces,
+        interaction_trace: Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
     }
 
     fn commit_traces<'a>(
@@ -238,52 +251,51 @@ mod test {
         config: PcsConfig,
         twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
         traces: &Traces,
-    ) -> (
-        CommitmentSchemeProver<'a, SimdBackend, Blake2sMerkleChannel>,
-        Blake2sChannel,
-        LookupElements<12>,
-        Traces,                                                          // Preprocessed trace
-        Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>, // Interaction trace
-    ) {
+    ) -> CommittedTraces<'a> {
         let mut commitment_scheme =
-            CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, &twiddles);
+            CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
         let mut prover_channel = Blake2sChannel::default();
         // Preprocessed trace
-        let preprocessed_traces = Traces::new_preprocessed_trace(log_size);
+        let preprocessed_trace = Traces::new_preprocessed_trace(log_size);
         let mut tree_builder = commitment_scheme.tree_builder();
         let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_traces.circle_evaluation());
+            tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
         tree_builder.commit(&mut prover_channel);
 
         // Original trace
         let mut tree_builder = commitment_scheme.tree_builder();
         let _main_trace_location = tree_builder.extend_evals(traces.circle_evaluation());
         tree_builder.commit(&mut prover_channel);
-        let lookup_element = LookupElements::draw(&mut prover_channel);
+        let lookup_elements = LookupElements::draw(&mut prover_channel);
 
         // Interaction Trace
         let interaction_trace =
-            Range256Chip::fill_interaction_trace(&traces, &preprocessed_traces, &lookup_element);
+            Range256Chip::fill_interaction_trace(traces, &preprocessed_trace, &lookup_elements);
         let mut tree_builder = commitment_scheme.tree_builder();
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace.clone());
         tree_builder.commit(&mut prover_channel);
-        (
+        CommittedTraces {
             commitment_scheme,
             prover_channel,
-            lookup_element,
-            preprocessed_traces,
+            lookup_elements,
+            preprocessed_trace,
             interaction_trace,
-        )
+        }
     }
 
     fn assert_range256_chip(traces: Traces, log_size: u32) {
         let (config, twiddles) = test_params(log_size);
 
-        let (_, _, lookup_element, preprocessed_traces, interaction_trace) =
-            commit_traces(log_size, config, &twiddles, &traces);
+        let CommittedTraces {
+            commitment_scheme: _,
+            prover_channel: _,
+            lookup_elements,
+            preprocessed_trace,
+            interaction_trace,
+        } = commit_traces(log_size, config, &twiddles, &traces);
 
         let traces = TreeVec::new(vec![
-            preprocessed_traces.circle_evaluation(),
+            preprocessed_trace.circle_evaluation(),
             traces.circle_evaluation(),
             interaction_trace
                 .iter()
@@ -300,7 +312,7 @@ mod test {
         // Now check the constraints to make sure they're satisfied
         assert_constraints(&trace_polys, CanonicCoset::new(log_size), |mut eval| {
             let trace_eval = TraceEval::new(&mut eval);
-            Range256Chip::add_constraints(&mut eval, &trace_eval, &lookup_element);
+            Range256Chip::add_constraints(&mut eval, &trace_eval, &lookup_elements);
         });
     }
 
