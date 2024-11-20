@@ -53,20 +53,12 @@ impl Traces {
             log_size >= 8,
             "log_size must be at least 8, to accomodate 256-element lookup tables"
         );
-        let mut cols =
-            vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
-        cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
-        for row_idx in 0..256 {
-            cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
-        }
-        for row_idx in 0..(1 << log_size) {
-            let clk: Word = ((row_idx + 1) as u32).to_le_bytes();
-            fill_preprocessed_word(&mut cols, row_idx, PreprocessedColumn::Clk, clk);
-        }
-        for row_idx in 0..32 {
-            cols[PreprocessedColumn::Range32.offset()][row_idx] = BaseField::from(row_idx);
-        }
-        Self { cols, log_size }
+        let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
+        let mut ret = Self { cols, log_size };
+        ret.fill_is_first();
+        ret.fill_timestamps();
+        ret.fill_range32();
+        ret
     }
 
     /// Returns inner representation of columns.
@@ -240,15 +232,54 @@ impl Traces {
     }
 }
 
-fn fill_preprocessed_word(
-    cols: &mut Vec<Vec<BaseField>>,
-    row_idx: usize,
-    preprocessed_column: PreprocessedColumn,
-    clk: [u8; WORD_SIZE],
-) {
-    for limb_idx in 0..WORD_SIZE {
-        cols[preprocessed_column.offset() + limb_idx][row_idx] =
-            BaseField::from(clk[limb_idx] as u32);
+impl Traces {
+    fn fill_preprocessed_word(
+        &mut self,
+        row_idx: usize,
+        preprocessed_column: PreprocessedColumn,
+        clk: [u8; WORD_SIZE],
+    ) {
+        for limb_idx in 0..WORD_SIZE {
+            self.cols[preprocessed_column.offset() + limb_idx][row_idx] =
+                BaseField::from(clk[limb_idx] as u32);
+        }
+    }
+    fn fill_is_first(&mut self) {
+        self.cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
+        for row_idx in 0..256 {
+            self.cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
+        }
+    }
+    fn fill_range32(&mut self) {
+        for row_idx in 0..32 {
+            self.cols[PreprocessedColumn::Range32.offset()][row_idx] = BaseField::from(row_idx);
+        }
+    }
+    fn fill_timestamps(&mut self) {
+        // Make sure the last reg3_ts_cur computation doesn't overflow
+        debug_assert!(1 << self.log_size < (u32::MAX - 3) / 3);
+        for row_idx in 0..(1 << self.log_size) {
+            let clk = (row_idx + 1) as u32;
+            self.fill_preprocessed_word(row_idx, PreprocessedColumn::Clk, clk.to_le_bytes());
+            let reg1_ts_cur = clk * 3 + 1;
+            self.fill_preprocessed_word(
+                row_idx,
+                PreprocessedColumn::Reg1TsCur,
+                reg1_ts_cur.to_le_bytes(),
+            );
+            let reg2_ts_cur = clk * 3 + 2;
+            self.fill_preprocessed_word(
+                row_idx,
+                PreprocessedColumn::Reg2TsCur,
+                reg2_ts_cur.to_le_bytes(),
+            );
+            let reg3_ts_cur = clk * 3 + 3;
+            self.fill_preprocessed_word(
+                row_idx,
+                PreprocessedColumn::Reg3TsCur,
+                reg3_ts_cur.to_le_bytes(),
+            );
+        }
     }
 }
 

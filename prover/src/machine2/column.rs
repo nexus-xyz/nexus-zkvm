@@ -127,6 +127,15 @@ pub enum PreprocessedColumn {
     /// One on the first row, then incremented by one per row.
     #[size = 4]
     Clk,
+    /// Timestamp for the first register access
+    #[size = 4]
+    Reg1TsCur,
+    /// Timestamp for the second register access
+    #[size = 4]
+    Reg2TsCur,
+    /// Timestamp for the third register access
+    #[size = 4]
+    Reg3TsCur,
     /// Contains numbers from 0 to 255, and 0 afterwards.
     #[size = 1]
     Range256,
