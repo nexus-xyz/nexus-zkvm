@@ -56,8 +56,8 @@ fn encode_i_shamt_type(instruction: &Instruction) -> u32 {
 fn encode_s_type(instruction: &Instruction) -> u32 {
     let opcode = (instruction.opcode.raw as u32) & 0x7F;
     let funct3 = (instruction.opcode.fn3.value() as u32) << 12;
-    let rs1 = (instruction.op_b as u32 & 0x1F) << 15;
-    let rs2 = (instruction.op_a as u32 & 0x1F) << 20;
+    let rs1 = (instruction.op_a as u32 & 0x1F) << 15;
+    let rs2 = (instruction.op_b as u32 & 0x1F) << 20;
     let imm_lo = (instruction.op_c & 0x1F) << 7;
     let imm_hi = (instruction.op_c & 0xFE0) << 20;
 
@@ -163,7 +163,7 @@ mod tests {
             op_c: 10,
         };
         let encoded_s = s_instruction.encode();
-        assert_eq!(encoded_s, 0x21A523);
+        assert_eq!(encoded_s, 0x312523);
 
         //  Test encode of a simple B-type instruction
         let b_instruction = Instruction {

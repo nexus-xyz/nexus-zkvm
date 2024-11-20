@@ -131,7 +131,28 @@ fn extract_rs2(u32_instruction: u32) -> u8 {
     ((u32_instruction & RS2_MASK) >> RS2_SHIFT) as u8
 }
 
+#[inline(always)]
+fn extract_i_imm(u32_instruction: u32) -> u32 {
+    const IMM_MASK: u32 = 0xFFF00000; // bits 31:20
+    const IMM_SHIFT: u32 = 20;
+    (u32_instruction & IMM_MASK) >> IMM_SHIFT
+}
+#[inline(always)]
+fn extract_s_imm(u32_instruction: u32) -> u32 {
+    const IMM_UPPER_MASK: u32 = 0xFE000000; // bits 31:25
+    const IMM_LOWER_MASK: u32 = 0x00000F80; // bits 11:7
+    const IMM_UPPER_SHIFT: u32 = 20;
+    const IMM_LOWER_SHIFT: u32 = 7;
+
+    let imm_upper = (u32_instruction & IMM_UPPER_MASK) >> IMM_UPPER_SHIFT;
+    let imm_lower = (u32_instruction & IMM_LOWER_MASK) >> IMM_LOWER_SHIFT;
+
+    imm_upper | imm_lower
+}
+
 const DYNAMIC_RTYPE_OPCODE: u8 = 0b0001011;
+const DYNAMIC_STYPE_OPCODE: u8 = 0b1011011;
+const DYNAMIC_ITYPE_OPCODE: u8 = 0b0101011;
 
 pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
     let mut block = BasicBlock::default();
@@ -144,21 +165,42 @@ pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
                 // The rrs_lib instruction decoding doesn't have support for custom instructions,
                 // so we need to handle them more as an error condition.
                 let opcode = extract_opcode(u32_instruction);
-
-                // Right now, we only support the single dynamic R-type opcode.
-                if opcode != DYNAMIC_RTYPE_OPCODE {
-                    return Instruction::unimpl();
-                }
-
                 let fn3 = extract_fn3(u32_instruction);
                 let fn7 = extract_fn7(u32_instruction);
-                let rd = extract_rd(u32_instruction);
                 let rs1 = extract_rs1(u32_instruction);
                 let rs2 = extract_rs2(u32_instruction);
+                let rd = extract_rd(u32_instruction);
+                let i_imm = extract_i_imm(u32_instruction);
+                let s_imm = extract_s_imm(u32_instruction);
 
-                let opcode = Opcode::new(opcode, Some(fn3), Some(fn7), "dynamic");
+                if opcode == DYNAMIC_ITYPE_OPCODE {
+                    return Instruction::new(
+                        Opcode::new(opcode, Some(fn3), None, "dynamic"),
+                        rd,
+                        rs1,
+                        i_imm,
+                        InstructionType::IType,
+                    );
+                } else if opcode == DYNAMIC_STYPE_OPCODE {
+                    return Instruction::new(
+                        Opcode::new(opcode, Some(fn3), None, "dynamic"),
+                        rs1,
+                        rs2,
+                        s_imm,
+                        InstructionType::SType,
+                    );
+                } else if opcode == DYNAMIC_RTYPE_OPCODE {
+                    return Instruction::new(
+                        Opcode::new(opcode, Some(fn3), Some(fn7), "dynamic"),
+                        rd,
+                        rs1,
+                        rs2.into(),
+                        InstructionType::RType,
+                    );
+                }
 
-                Instruction::new(opcode, rd, rs1, rs2.into(), InstructionType::RType)
+                // Only support the single dynamic R-type, S-type, and I-type opcodes.
+                return Instruction::unimpl();
             });
 
         let pc_changed = decoded_instruction.is_branch_or_jump_instruction();

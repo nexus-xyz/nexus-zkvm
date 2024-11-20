@@ -62,7 +62,7 @@ pub const WORD_SIZE: usize = 4;
 /// When building the section map, only these sections and their variants are considered.
 /// Section names starting with any of these prefixes are included (e.g., .text1, .data2).
 /// All other sections are ignored during parsing.
-const ALLOWED_SECTIONS: [&str; 9] = [
+const ALLOWED_SECTIONS: [&str; 10] = [
     ".text",
     ".data",
     ".sdata",
@@ -71,6 +71,7 @@ const ALLOWED_SECTIONS: [&str; 9] = [
     ".fini",
     ".bss",
     ".sbss",
+    ".got",
     ".nexus_precompile_metadata",
 ];
 
@@ -308,7 +309,7 @@ fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64,
     println!(
         "  LOADABLE: 0x{:08x} -> 0x{:08x}",
         segment.p_offset,
-        segment.p_offset + segment.p_filesz
+        segment.p_offset + segment.p_memsz
     );
 
     for (key, (start, end)) in section_map {

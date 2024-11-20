@@ -238,6 +238,8 @@ impl SyscallInstruction {
     ) -> Result<()> {
         if let Some(layout) = memory_layout {
             self.result.1 = layout.heap_start();
+        } else {
+            self.result.1 = 0; // 0 indicates no overwrite is necessary
         }
 
         Ok(())
@@ -266,15 +268,16 @@ impl SyscallInstruction {
     ) -> Result<()> {
         match self.code {
             SyscallCode::Write => {
-                // no-op on second pass
-                if memory_layout.is_none() {
-                    let fd = self.args[0];
-                    let buf = self.args[1];
-                    let count = self.args[2];
-                    return self.execute_write(memory, fd, buf, count);
+                // No-op on second pass.
+                #[cfg(not(debug_assertions))]
+                if memory_layout.is_some() {
+                    return Ok(());
                 }
 
-                Ok(())
+                let fd = self.args[0];
+                let buf = self.args[1];
+                let count = self.args[2];
+                self.execute_write(memory, fd, buf, count)
             }
 
             SyscallCode::CycleCount => {

@@ -105,8 +105,8 @@ impl Instruction {
     pub fn from_s_type(opcode: Opcode, dec_insn: SType) -> Self {
         Self::new(
             opcode,
-            dec_insn.rs2 as _,
             dec_insn.rs1 as _,
+            dec_insn.rs2 as _,
             dec_insn.imm as _,
             InstructionType::SType,
         )
@@ -179,13 +179,20 @@ impl Instruction {
                 (_, _, 0) => format!("mv {}, {}", rd, rs1),
                 _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
+            BuiltinOpcode::LB
+            | BuiltinOpcode::LH
+            | BuiltinOpcode::LW
+            | BuiltinOpcode::LBU
+            | BuiltinOpcode::LHU => {
+                format!("{} {}, {}({})", opcode, rd, imm12, rs1)
+            }
             _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
         }
     }
 
     fn s_type_to_string(&self, opcode: BuiltinOpcode) -> String {
-        let rs2 = self.op_a;
-        let rs1 = self.op_b;
+        let rs1 = self.op_a;
+        let rs2 = self.op_b;
         let imm12 = self.op_c as i32;
         format!("{} {}, {}({})", opcode, rs2, imm12, rs1)
     }

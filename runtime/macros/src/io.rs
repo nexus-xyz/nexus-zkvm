@@ -106,10 +106,10 @@ pub(crate) fn handle_output(
         #target_check
         #(#attrs)*
         fn #fn_name(#inputs) {
-            let _out = {
+            let out = {
                 #block
             };
-            #output_fn_full(_out);
+            #output_fn_full(&out).expect("Failed to write output");
         }
     };
 
@@ -275,7 +275,7 @@ pub(crate) fn handle_input(
         #target_check
         #(#attrs)*
         fn #fn_name(#input_sig) #output {
-            let (#(#inputs),*):(#(#types),*) = #input_handler();
+            let (#(#inputs),*):(#(#types),*) = #input_handler().expect("Failed to read public input");
             #block
         }
     };

@@ -41,14 +41,6 @@ SECTIONS
     _end = .;
   }
 
-  /* Dynamic relocations are unsupported. This section is only used to detect
-     relocatable code in the input files and raise an error if relocatable code
-     is found */
-  .got (INFO) :
-  {
-    KEEP(*(.got .got.*));
-  }
-
   /DISCARD/ :
   {
     *(.comment*)
@@ -61,10 +53,3 @@ SECTIONS
 }
 
 ASSERT(. < __memory_top, "Program is too large for the VM memory.");
-
-ASSERT(SIZEOF(.got) == 0, "
-.got section detected in the input files. Dynamic relocations are not
-supported. If you are linking to C code compiled using the `gcc` crate
-then modify your build script to compile the C code _without_ the
--fPIC flag. See the documentation of the `gcc::Config.fpic` method for
-details.");

@@ -43,6 +43,10 @@ pub enum VMError {
     #[error("Duplicate Opcode/Instruction in registry")]
     DuplicateInstruction(Opcode),
 
+    // Undefined instruction
+    #[error("Undefined instruction \"{0}\"")]
+    UndefinedInstruction(Opcode),
+
     // Unimplemented instruction (with a valid opcode)
     #[error("Unimplemented instruction \"{0}\"")]
     UnimplementedInstruction(Opcode),

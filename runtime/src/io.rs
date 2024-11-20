@@ -1,9 +1,12 @@
 pub use core::fmt::Write;
+extern crate alloc;
 
 #[cfg(target_arch = "riscv32")]
 mod riscv32 {
     extern crate alloc;
-    use crate::{ecall, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG, SYS_READ_PRIVATE_INPUT};
+    use crate::{
+        ecall, rin, wou, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG, SYS_READ_PRIVATE_INPUT, WORD_SIZE,
+    };
     use serde::{de::DeserializeOwned, Serialize};
 
     /// Write a string to the output console (if any).
@@ -47,28 +50,45 @@ mod riscv32 {
         } // u32::MAX is used a sentinel value that there is nothing (left) on the input tape
     }
 
-    /// Read an object from the public input segment
+    /// Read an object from the public input segment.
     pub fn read_public_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
-        let bytes: alloc::vec::Vec<u8> = core::iter::from_fn(read_from_public_input).collect();
-        postcard::from_bytes::<T>(bytes.as_slice())
+        // The first word stores the length of the input (in words).
+        // This length does not take into account the first word itself.
+        let len: u32 = rin!(0);
+        let mut input = alloc::vec![0u8; len as usize * WORD_SIZE];
+
+        // Read the input into the vector.
+        for i in 0..len as usize {
+            let word = rin!((i + 1) * WORD_SIZE);
+            input[i * WORD_SIZE..(i + 1) * WORD_SIZE].copy_from_slice(&word.to_le_bytes());
+        }
+
+        // Deserialize the input into the target type.
+        postcard::from_bytes::<T>(input.as_slice())
     }
 
-    /// Read a byte from the public input segment
-    fn read_from_public_input() -> Option<u8> {
-        todo!()
-    }
+    /// Write an object to the public output segment.
+    pub fn write_public_output<T: Serialize + ?Sized>(val: &T) -> Result<(), postcard::Error> {
+        // Serialize the value into bytes.
+        let bytes = postcard::to_allocvec(val)?;
+        let len = bytes.len();
 
-    /// Write an object to the public output segment
-    pub fn write_public_output<T: Serialize + ?Sized>(val: &T) {
-        let ser: alloc::vec::Vec<u8> = postcard::to_allocvec(&val).unwrap();
-        let mut _out: u32;
+        // Process bytes in 4-byte chunks.
+        for i in (0..len).step_by(4) {
+            // Get up to 4 bytes, zero-padding if needed.
+            let chunk = [
+                bytes[i],
+                bytes.get(i + 1).copied().unwrap_or(0),
+                bytes.get(i + 2).copied().unwrap_or(0),
+                bytes.get(i + 3).copied().unwrap_or(0),
+            ];
 
-        write_to_output(ser.as_slice())
-    }
+            // Pack bytes into a word and write to output.
+            let word = u32::from_le_bytes(chunk);
+            wou!(i, word);
+        }
 
-    /// Write a slice to the public output segment
-    fn write_to_output(b: &[u8]) {
-        todo!()
+        Ok(())
     }
 
     /// Bench cycles, where input is the function name
@@ -157,7 +177,6 @@ mod native {
         unimplemented!()
     }
 }
-
 #[cfg(not(target_arch = "riscv32"))]
 pub use native::*;
 

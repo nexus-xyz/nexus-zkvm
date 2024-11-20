@@ -19,24 +19,26 @@ fn buzz() -> u32 {
     0
 }
 fn moo() {
-    let (b): (u32) = buzz();
+    let (b): (u32) = buzz().expect("Failed to read public input");
     {
-        let _out = {
+        let out = {
             {
-                let (x, y, z): (u32, u32, u32) = fizz();
+                let (x, y, z): (u32, u32, u32) = fizz()
+                    .expect("Failed to read public input");
                 {
-                    let (a): (u32) = boo();
+                    let (a): (u32) = boo().expect("Failed to read public input");
                     { a + b + x + y + z }
                 }
             }
         };
-        output_handler(_out);
+        output_handler(&out).expect("Failed to write output");
     }
 }
 fn hello() -> u32 {
-    let (x): (u32) = nexus_rt::read_public_input::<u32>();
+    let (x): (u32) = nexus_rt::read_public_input::<u32>()
+        .expect("Failed to read public input");
     {
-        let (a): (u32) = foo();
+        let (a): (u32) = foo().expect("Failed to read public input");
         {
             let i: u32 = 0;
             let b = i + a;
@@ -48,7 +50,7 @@ const _: fn() = main;
 #[no_mangle]
 #[allow(unused)]
 fn main() {
-    let _out = {
+    let out = {
         {
             {
                 moo();
@@ -56,5 +58,5 @@ fn main() {
             }
         }
     };
-    nexus_rt::write_public_output::<u32>(_out);
+    nexus_rt::write_public_output::<u32>(&out).expect("Failed to write output");
 }

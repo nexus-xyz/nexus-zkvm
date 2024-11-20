@@ -14,13 +14,13 @@ fn output_handler(result: u32) {
     };
 }
 fn foo(x: u32, y: u32) {
-    let _out = { { x * y } };
-    output_handler(_out);
+    let out = { { x * y } };
+    output_handler(&out).expect("Failed to write output");
 }
 const _: fn() = main;
 #[allow(unused)]
 fn main() {
-    let (x, y): (u32, u32) = input_handler();
+    let (x, y): (u32, u32) = input_handler().expect("Failed to read public input");
     {
         {
             foo(x, y);

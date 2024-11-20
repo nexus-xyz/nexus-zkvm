@@ -34,7 +34,12 @@ pub(crate) const SYS_OVERWRITE_SP: u32 = 1026;
 pub(crate) const SYS_ALLOC_ALIGNED: u32 = 1027;
 // Error codes.
 #[cfg(target_arch = "riscv32")]
-pub(crate) const PANIC_ERROR_CODE: u32 = 1;
+pub(crate) const EXIT_SUCCESS: u32 = 0;
+#[cfg(target_arch = "riscv32")]
+pub(crate) const EXIT_PANIC: u32 = 1;
+// Constants.
+#[cfg(target_arch = "riscv32")]
+pub(crate) const WORD_SIZE: usize = 4;
 
 /// Macro for making an ecall with variable number of parameters:
 /// - First parameter: syscall code (placed in a7)
@@ -78,4 +83,40 @@ macro_rules! ecall {
         }
         out
     }};
+}
+
+/// Reads word from specified byte address of the public input.
+#[macro_export]
+macro_rules! rin {
+    ($i:expr) => {{
+        let mut out: u32;
+        unsafe {
+            core::arch::asm!(
+                "lw {0}, 0x80(x0)", // 0x80 stores the public input start address
+                "add {0}, {0}, {1}",
+                ".insn i 0b0101011, 0b000, {2}, 0({0})",
+                out(reg) _,
+                in(reg) $i,
+                out(reg) out,
+            );
+        }
+        out
+    }};
+}
+
+/// Writes word to the public output at specified byte address.
+#[macro_export]
+macro_rules! wou {
+    ($i:expr, $data:expr) => {
+        unsafe {
+            core::arch::asm!(
+                "lw {0}, 0x84(x0)", // 0x84 stores the output start address
+                "add {0}, {0}, {1}",
+                ".insn s 0b1011011, 0b000, {2}, 0({0})",
+                out(reg) _,
+                in(reg) $i,
+                in(reg) $data,
+            )
+        }
+    };
 }

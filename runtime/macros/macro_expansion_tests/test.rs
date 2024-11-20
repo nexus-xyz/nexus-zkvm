@@ -88,6 +88,7 @@ mod test {
         const GENERATE_EXPECTATIONS: bool = false;
 
         let tests = vec![
+            "simple",
             "private-input",
             "public-input",
             "public-output",

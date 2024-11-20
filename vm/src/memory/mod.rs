@@ -8,5 +8,5 @@ pub use nexus_common::memory::traits::{
 };
 
 pub use fixed::FixedMemory;
-pub use unified::UnifiedMemory;
+pub use unified::{Modes, UnifiedMemory};
 pub use variable::VariableMemory;

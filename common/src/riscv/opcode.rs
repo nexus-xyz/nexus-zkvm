@@ -62,6 +62,18 @@ impl Opcode {
     pub fn name(&self) -> &str {
         self.identifier.name()
     }
+
+    pub fn raw(&self) -> u8 {
+        self.raw
+    }
+
+    pub fn fn3(&self) -> SubByte<3> {
+        self.fn3
+    }
+
+    pub fn fn7(&self) -> SubByte<7> {
+        self.fn7
+    }
 }
 
 impl From<BuiltinOpcode> for Opcode {

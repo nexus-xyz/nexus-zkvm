@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 // see runtime
 const MEMORY_GAP: u32 = 0x1000;
+const NUM_REGISTERS: u32 = 32;
 
 // nb: all measurements are in terms of virtual memory
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -120,11 +121,19 @@ impl LinearMemoryLayout {
     }
 
     pub const fn registers_end(&self) -> u32 {
-        32 * WORD_SIZE as u32
+        NUM_REGISTERS * WORD_SIZE as u32
+    }
+
+    pub const fn public_input_start_location(&self) -> u32 {
+        NUM_REGISTERS * WORD_SIZE as u32
+    }
+
+    pub const fn public_output_start_location(&self) -> u32 {
+        (NUM_REGISTERS + 1) * WORD_SIZE as u32
     }
 
     pub const fn heap_start(&self) -> u32 {
-        32 * WORD_SIZE as u32
+        (NUM_REGISTERS + 2) * WORD_SIZE as u32
     }
 
     pub fn heap_end(&self) -> u32 {

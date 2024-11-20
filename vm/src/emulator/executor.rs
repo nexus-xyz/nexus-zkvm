@@ -72,9 +72,9 @@ use super::{layout::LinearMemoryLayout, registry::InstructionExecutorRegistry};
 use crate::{
     cpu::{instructions::InstructionResult, Cpu},
     elf::ElfFile,
-    error::{Result, VMError},
+    error::{MemoryError, Result, VMError},
     memory::{
-        FixedMemory, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecords, StoreOps,
+        FixedMemory, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecords, Modes, StoreOps,
         UnifiedMemory, VariableMemory, NA, RO, RW, WO,
     },
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode},
@@ -233,11 +233,9 @@ pub struct HarvardEmulator {
     instruction_memory: FixedMemory<RO>,
 
     // The input memory image
-    #[allow(unused)]
     input_memory: FixedMemory<RO>,
 
     // The output memory image
-    #[allow(unused)]
     output_memory: VariableMemory<WO>,
 
     // A combined read-only (in part) and read-write (in part) memory image
@@ -284,6 +282,11 @@ impl HarvardEmulator {
             data_memory.add_fixed_ro(&ro_data_memory).unwrap();
         }
 
+        // Zero out the public input and public output start locations since no offset is needed for harvard emulator.
+        data_memory
+            .add_fixed_ro(&FixedMemory::<RO>::from_slice(0x80, 8, &[0, 0]))
+            .unwrap();
+
         let mut emulator = Self {
             executor: Executor {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
@@ -299,7 +302,7 @@ impl HarvardEmulator {
             ),
             input_memory: FixedMemory::<RO>::from_slice(
                 0,
-                1 + public_input.len() * WORD_SIZE,
+                (1 + public_input.len()) * WORD_SIZE,
                 &[&[public_input.len() as u32; 1], public_input].concat(),
             ),
             output_memory: VariableMemory::<WO>::default(),
@@ -307,6 +310,10 @@ impl HarvardEmulator {
         };
         emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
         emulator
+    }
+
+    pub fn get_output(&self) -> Result<Vec<u32>, MemoryError> {
+        self.output_memory.segment(0, None)
     }
 }
 
@@ -339,6 +346,34 @@ impl Emulator for HarvardEmulator {
                     &mut self.data_memory,
                     bare_instruction,
                 )?,
+                // Check if the unrecognized instruction is a custom instruction (Ex: static precompile like `rin` or `wou`).
+                Err(VMError::UndefinedInstruction(inst)) => {
+                    if let Some(executor) = self
+                        .executor
+                        .instruction_executor
+                        .get_for_read_input(&bare_instruction.opcode)
+                    {
+                        // Read input.
+                        executor(
+                            &mut self.executor.cpu,
+                            &mut self.input_memory,
+                            bare_instruction,
+                        )?
+                    } else if let Some(executor) = self
+                        .executor
+                        .instruction_executor
+                        .get_for_write_output(&bare_instruction.opcode)
+                    {
+                        // Write output.
+                        executor(
+                            &mut self.executor.cpu,
+                            &mut self.output_memory,
+                            bare_instruction,
+                        )?
+                    } else {
+                        return Err(VMError::UnsupportedInstruction(inst));
+                    }
+                }
                 Err(VMError::UnimplementedInstruction(inst)) => {
                     return Err(VMError::UnimplementedInstructionAt(
                         inst,
@@ -443,8 +478,7 @@ impl LinearEmulator {
         // nb: unwraps below will never fail for a well-formed elf file, and we've already validated
 
         let code_start = memory_layout.program_start();
-        let ro_data_start = code_start + (elf.instructions.len() * WORD_SIZE) as u32;
-        let data_start: u32;
+        let mut data_start = code_start + (elf.instructions.len() * WORD_SIZE) as u32;
 
         let code_memory = FixedMemory::<RO>::from_vec(
             code_start,
@@ -455,36 +489,31 @@ impl LinearEmulator {
 
         if !elf.rom_image.is_empty() {
             let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap().0;
-            let mut ro_data: Vec<u32> = vec![
-                0;
-                *elf.rom_image.keys().max().unwrap_or(&0) as usize + 1
-                    - ro_data_base_address as usize
-            ];
-
-            data_start = ro_data_start + (ro_data.len() * WORD_SIZE) as u32;
+            let ro_data_len = (*elf.rom_image.keys().max().unwrap() as usize + WORD_SIZE
+                - ro_data_base_address as usize)
+                / WORD_SIZE;
+            let mut ro_data: Vec<u32> = vec![0; ro_data_len];
 
             for (addr, &value) in &elf.rom_image {
                 ro_data[(addr - ro_data_base_address) as usize] = value;
             }
 
             let ro_data_memory =
-                FixedMemory::<RO>::from_vec(ro_data_start, ro_data.len() * WORD_SIZE, ro_data);
+                FixedMemory::<RO>::from_vec(data_start, ro_data.len() * WORD_SIZE, ro_data);
 
             let _ = memory.add_fixed_ro(&ro_data_memory).unwrap();
-        } else {
-            data_start = ro_data_start;
+            data_start = data_start + (ro_data_len * WORD_SIZE) as u32;
         }
 
         if !elf.ram_image.is_empty() {
             let data_base_address: u32 = *elf.ram_image.first_key_value().unwrap().0;
-            let mut data: Vec<u32> = vec![
-                0;
-                *elf.ram_image.keys().max().unwrap_or(&0) as usize + 1
-                    - data_base_address as usize
-            ];
+            let data_len = (*elf.ram_image.keys().max().unwrap() as usize + WORD_SIZE
+                - data_base_address as usize)
+                / WORD_SIZE;
+            let mut data: Vec<u32> = vec![0; data_len];
 
             for (addr, &value) in &elf.ram_image {
-                data[(addr - data_base_address) as usize] = value;
+                data[((addr - data_base_address) as usize) / WORD_SIZE] = value;
             }
 
             let data_memory = FixedMemory::<RW>::from_vec(data_start, data.len() * WORD_SIZE, data);
@@ -531,6 +560,18 @@ impl LinearEmulator {
             let _ = memory.add_fixed_na(&ad_memory).unwrap();
         }
 
+        // Add the public input and public output start locations.
+        memory
+            .add_fixed_ro(&FixedMemory::<RO>::from_slice(
+                0x80,
+                8,
+                &[
+                    memory_layout.public_input_start(),
+                    memory_layout.public_output_start(),
+                ],
+            ))
+            .unwrap();
+
         let mut emulator = Self {
             executor: Executor {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
@@ -546,6 +587,15 @@ impl LinearEmulator {
         };
         emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
         emulator
+    }
+
+    /// Returns the output memory segment.
+    pub fn get_output(&self) -> Result<&[u32], MemoryError> {
+        self.memory.segment(
+            (Modes::WO as usize, 0),
+            self.memory_layout.public_output_start(),
+            Some(self.memory_layout.public_output_end()),
+        )
     }
 
     /// Creates a Linear Emulator from a basic block IR, for simple testing purposes.
@@ -661,6 +711,26 @@ impl Emulator for LinearEmulator {
             {
                 Ok(executor) => {
                     executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+                }
+                // Check if the unrecognized instruction is a custom instruction (Ex: static precompile like `rin` or `wou`).
+                Err(VMError::UndefinedInstruction(inst)) => {
+                    if let Some(executor) = self
+                        .executor
+                        .instruction_executor
+                        .get_for_read_input(&bare_instruction.opcode)
+                    {
+                        // Read input.
+                        executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+                    } else if let Some(executor) = self
+                        .executor
+                        .instruction_executor
+                        .get_for_write_output(&bare_instruction.opcode)
+                    {
+                        // Write output.
+                        executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+                    } else {
+                        return Err(VMError::UnsupportedInstruction(inst));
+                    }
                 }
                 Err(VMError::UnimplementedInstruction(inst)) => {
                     return Err(VMError::UnimplementedInstructionAt(
@@ -858,5 +928,26 @@ mod tests {
             LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_blocks);
 
         assert_eq!(emulator.execute(), Err(VMError::VMOutOfInstructions));
+    }
+
+    #[test]
+    fn test_unimplemented_instruction() {
+        let op = Opcode::new(0, None, None, "unsupported");
+        let basic_block = BasicBlock::new(vec![Instruction::new(
+            op.clone(),
+            1,
+            0,
+            1,
+            InstructionType::IType,
+        )]);
+        let mut emulator = HarvardEmulator::default();
+        let res = emulator.execute_basic_block(&basic_block);
+
+        assert_eq!(res, Err(VMError::UnsupportedInstruction(op.clone())));
+
+        let mut emulator = LinearEmulator::default();
+        let res = emulator.execute_basic_block(&basic_block);
+
+        assert_eq!(res, Err(VMError::UnsupportedInstruction(op)));
     }
 }

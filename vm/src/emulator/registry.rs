@@ -97,6 +97,7 @@
 
 use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
 
+use crate::memory::MemoryProcessor;
 use crate::{
     cpu::{instructions, Cpu},
     error::{Result, VMError},
@@ -118,8 +119,8 @@ macro_rules! register_instruction_executor {
 pub struct InstructionExecutorRegistry {
     builtins: [Option<InstructionExecutorFn<UnifiedMemory>>; BuiltinOpcode::VARIANT_COUNT],
     precompiles: HashMap<Opcode, InstructionExecutorFn<UnifiedMemory>>,
-    read_input: Option<(Opcode, InstructionExecutorFn<FixedMemory<RO>>)>,
-    write_output: Option<(Opcode, InstructionExecutorFn<VariableMemory<WO>>)>,
+    read_input: Opcode,
+    write_output: Opcode,
 }
 
 impl Default for InstructionExecutorRegistry {
@@ -268,8 +269,8 @@ impl Default for InstructionExecutorRegistry {
                 None, // unimpl
             ],
             precompiles: HashMap::<Opcode, InstructionExecutorFn<UnifiedMemory>>::new(),
-            read_input: None,   // todo: hardcode in static rin opcode
-            write_output: None, // todo: hardcode in static wot opcode
+            read_input: Opcode::new(0b0101011, Some(0b000), None, "rin"),
+            write_output: Opcode::new(0b1011011, Some(0b000), None, "wou"),
         }
     }
 }
@@ -295,35 +296,33 @@ impl InstructionExecutorRegistry {
                 return Ok(*func);
             }
 
-            Err(VMError::UnsupportedInstruction(op.clone()))
+            Err(VMError::UndefinedInstruction(op.clone()))
         }
     }
 
-    #[allow(dead_code)] // until first-pass is done
-    pub fn get_for_read_input(
+    pub fn get_for_read_input<M: MemoryProcessor>(
         &self,
         op: &Opcode,
-    ) -> Result<InstructionExecutorFn<FixedMemory<RO>>> {
-        if let Some(rin) = self.read_input.as_ref() {
-            if *op == rin.0 {
-                return Ok(rin.1);
-            }
+    ) -> Option<InstructionExecutorFn<M>> {
+        // Opcode will be parsed dynamically so the name will be different.
+        if op.raw() == self.read_input.raw() && op.fn3() == self.read_input.fn3() {
+            // Interpret `rin` as `lw`.
+            return Some(instructions::LwInstruction::evaluator as InstructionExecutorFn<M>);
         }
 
-        Err(VMError::UnsupportedInstruction(op.clone()))
+        None
     }
 
-    #[allow(dead_code)] // until first-pass is done
-    pub fn get_for_write_output(
+    pub fn get_for_write_output<M: MemoryProcessor>(
         &self,
         op: &Opcode,
-    ) -> Result<InstructionExecutorFn<VariableMemory<WO>>> {
-        if let Some(wot) = self.write_output.as_ref() {
-            if *op == wot.0 {
-                return Ok(wot.1);
-            }
+    ) -> Option<InstructionExecutorFn<M>> {
+        // Opcode will be parsed dynamically so the name will be different.
+        if op.raw() == self.write_output.raw() && op.fn3() == self.write_output.fn3() {
+            // Interpret `wou` as `sw`.
+            return Some(instructions::SwInstruction::evaluator as InstructionExecutorFn<M>);
         }
 
-        Err(VMError::UnsupportedInstruction(op.clone()))
+        None
     }
 }

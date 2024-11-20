@@ -68,7 +68,7 @@ macro_rules! implement_store_instruction {
                         .checked_add(self.imm as u32)
                         .ok_or(nexus_common::error::MemoryError::AddressCalculationOverflow)?
                 };
-                Ok(memory.write(address, $size, self.rd)?.into())
+                Ok(memory.write(address, $size, self.rs2)?.into())
             }
 
             fn execute(&mut self) {}
@@ -83,8 +83,8 @@ macro_rules! implement_store_instruction {
 
             fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
                 Self {
-                    rd: registers[ins.op_a],
-                    rs1: registers[ins.op_b],
+                    rs1: registers[ins.op_a],
+                    rs2: registers[ins.op_b],
                     imm: ins.op_c,
                 }
             }

@@ -7,8 +7,8 @@ use crate::{
 use nexus_common::cpu::{Processor, Registers};
 
 pub struct SbInstruction {
-    rd: u32,
     rs1: u32,
+    rs2: u32,
     imm: u32,
 }
 
@@ -37,8 +37,8 @@ mod tests {
 
         let bare_instruction = Instruction::new(
             Opcode::from(BuiltinOpcode::SB),
-            2,
             1,
+            2,
             0,
             InstructionType::SType,
         );
@@ -64,8 +64,8 @@ mod tests {
 
         let bare_instruction = Instruction::new(
             Opcode::from(BuiltinOpcode::SB),
-            2,
             1,
+            2,
             1,
             InstructionType::SType,
         );
@@ -91,8 +91,8 @@ mod tests {
 
         let bare_instruction = Instruction::new(
             Opcode::from(BuiltinOpcode::SB),
-            2,
             1,
+            2,
             2,
             InstructionType::SType,
         );
@@ -118,8 +118,8 @@ mod tests {
 
         let bare_instruction = Instruction::new(
             Opcode::from(BuiltinOpcode::SB),
-            2,
             1,
+            2,
             1,
             InstructionType::SType,
         );

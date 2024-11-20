@@ -28,7 +28,7 @@ impl BasicBlock {
     pub fn print_with_offset(&self, offset: usize) {
         println!("┌─────────────────────────────────────────────────");
         for (j, instruction) in self.0.iter().enumerate() {
-            println!("│ {:3}: {}", j * 4 + offset, instruction);
+            println!("│ {:3x}: {}", j * 4 + offset, instruction);
         }
         println!("└─────────────────────────────────────────────────");
     }

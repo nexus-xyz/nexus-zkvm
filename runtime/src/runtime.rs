@@ -1,14 +1,14 @@
 // Nexus VM runtime environment
 // Note: adapted from riscv-rt, which was adapted from cortex-m.
 use crate::alloc::sys_alloc_aligned;
-use crate::{ecall, PANIC_ERROR_CODE, SYS_EXIT, SYS_OVERWRITE_SP};
+use crate::{ecall, EXIT_PANIC, EXIT_SUCCESS, SYS_EXIT, SYS_LOG, SYS_OVERWRITE_SP};
 use core::alloc::{GlobalAlloc, Layout};
 use core::panic::PanicInfo;
 
 #[inline(never)]
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    let _ = ecall!(SYS_EXIT, PANIC_ERROR_CODE);
+    let _ = ecall!(SYS_EXIT, EXIT_PANIC);
     // Ecall will trigger exit syscall, so we will never return.
     unsafe {
         core::hint::unreachable_unchecked();
@@ -53,17 +53,17 @@ pub unsafe extern "C" fn overwrite_sp() {
 #[doc(hidden)]
 #[link_section = ".init.rust"]
 #[export_name = "_start_rust"]
-pub unsafe extern "C" fn start_rust(a0: u32, a1: u32, a2: u32) -> u32 {
+pub unsafe extern "C" fn start_rust() -> u32 {
     extern "Rust" {
         // This symbol will be provided by the user via `#[nexus_rt::main]`
-        fn main(a0: u32, a1: u32, a2: u32) -> u32;
+        fn main();
     }
 
     // Run the program.
-    let result = main(a0, a1, a2);
+    main();
 
     // Finish with exit syscall.
-    ecall!(SYS_EXIT, result)
+    ecall!(SYS_EXIT, EXIT_SUCCESS)
 }
 
 #[no_mangle]

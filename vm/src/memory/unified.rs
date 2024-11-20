@@ -9,7 +9,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive)]
-enum Modes {
+pub enum Modes {
     NA = 0,
     RO = 1,
     WO = 2,

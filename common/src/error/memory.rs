@@ -43,4 +43,8 @@ pub enum MemoryError {
         "Memory overlap detected: Multiple memory regions claim ownership of the same address"
     )]
     MemoryOverlap,
+
+    // Invalid memory segment
+    #[error("Invalid memory segment")]
+    InvalidMemorySegment,
 }

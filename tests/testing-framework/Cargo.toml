@@ -13,3 +13,5 @@ publish.workspace = true
 tempfile = "3.13.0"
 nexus-common = { path = "../../common" }
 nexus-vm = { path = "../../vm" }
+postcard = { version = "1.0.10", features = ["alloc"] }
+serde.workspace = true

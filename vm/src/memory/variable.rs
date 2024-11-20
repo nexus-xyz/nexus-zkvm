@@ -111,6 +111,48 @@ impl<M: Mode> VariableMemory<M> {
 
         Ok(LoadOp::Op(size, address, value))
     }
+    /// Returns a slice of memory between start and end addresses, if they form a contiguous segment.
+    pub fn segment(&self, start: u32, end: Option<u32>) -> Result<Vec<u32>, MemoryError> {
+        // Check if start is valid
+        if !self.0.contains_key(&start) {
+            return Err(MemoryError::InvalidMemorySegment);
+        }
+
+        // Check if end is valid (if provided)
+        if let Some(end) = end {
+            if end < start || !self.0.contains_key(&end) {
+                return Err(MemoryError::InvalidMemorySegment);
+            }
+        }
+
+        let mut values = Vec::new();
+        let mut current = start;
+
+        loop {
+            if let Some(value) = self.0.get(&current) {
+                values.push(*value);
+
+                if let Some(end) = end {
+                    if current >= end {
+                        break;
+                    }
+                }
+
+                current += WORD_SIZE as u32;
+            } else if end.is_none() {
+                break;
+            } else {
+                // If we can't find the next contiguous address, it's an invalid segment
+                return Err(MemoryError::InvalidMemorySegment);
+            }
+        }
+
+        if values.is_empty() {
+            Err(MemoryError::InvalidMemorySegment)
+        } else {
+            Ok(values)
+        }
+    }
 }
 
 impl MemoryProcessor for VariableMemory<RW> {
