@@ -52,6 +52,10 @@ impl MachineChip for CpuChip {
         let (value_c, _effective_size) = vm_step.get_value_c();
         traces.fill_columns(row_idx, &value_c, ValueC);
 
+        // Fill InstructionWord to the main trace
+        let instruction_word = step.raw_instruction.to_le_bytes();
+        traces.fill_columns(row_idx, &instruction_word, InstructionWord);
+
         // Fill OpA to the main trace
         let op_a = vm_step.step.instruction.op_a as u8;
         traces.fill_columns(row_idx, &[op_a], OpA);
