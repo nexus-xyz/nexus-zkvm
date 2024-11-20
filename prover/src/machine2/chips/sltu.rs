@@ -65,12 +65,7 @@ impl MachineChip for SltuChip {
         debug_assert_eq!(result, vm_step.get_result().expect("STLU must have result"));
 
         traces.fill_columns(row_idx, &result, ValueA);
-        traces.fill_effective_columns(
-            row_idx,
-            &borrow_bits,
-            ValueAEffective,
-            value_a_effective_flag,
-        );
+        traces.fill_effective_columns(row_idx, &result, ValueAEffective, value_a_effective_flag);
     }
 
     fn add_constraints<E: EvalAtRow>(
