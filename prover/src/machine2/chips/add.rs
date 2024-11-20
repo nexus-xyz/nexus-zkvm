@@ -1,10 +1,11 @@
 use num_traits::Zero;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::machine2::{
     column::Column::{self, *},
+    components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
         ProgramStep, Traces, Word,
@@ -88,7 +89,11 @@ impl MachineChip for AddChip {
         traces.fill_columns(row_idx, &carry_bits, CarryFlag);
     }
 
-    fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {
+    fn add_constraints<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<E>,
+        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
         let (_, is_add) = trace_eval!(trace_eval, IsAdd);
         let is_add = is_add[0].clone();
         // modulus for 8-bit limbs
@@ -206,8 +211,9 @@ mod test {
             }
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
-            CpuChip::add_constraints(eval, trace_eval);
-            AddChip::add_constraints(eval, trace_eval)
+            let dummy_lookup_elements = LookupElements::dummy();
+            CpuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
+            AddChip::add_constraints(eval, trace_eval, &dummy_lookup_elements)
         });
     }
 }

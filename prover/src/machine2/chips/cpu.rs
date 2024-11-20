@@ -1,8 +1,9 @@
 use num_traits::One;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use crate::machine2::{
     column::Column::{self, *},
+    components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{eval::trace_eval, eval::TraceEval, ProgramStep, Traces},
     traits::MachineChip,
 };
@@ -67,7 +68,11 @@ impl MachineChip for CpuChip {
         traces.fill_columns(row_idx, &[value_a_effective_flag], ValueAEffectiveFlag);
     }
 
-    fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {
+    fn add_constraints<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<E>,
+        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
         // TODO: add more constraints for the CPU chip.
 
         // Constrain ValueAEffectiveFlag's range

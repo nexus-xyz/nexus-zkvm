@@ -9,10 +9,10 @@ use stwo_prover::{
     },
 };
 
-use super::trace::{eval::TraceEval, ProgramStep, Traces};
-
-/// The number of BaseField's in the biggest tuple we look up
-pub const MAX_LOOKUP_TUPLE_SIZE: usize = 12;
+use super::{
+    components::MAX_LOOKUP_TUPLE_SIZE,
+    trace::{eval::TraceEval, ProgramStep, Traces},
+};
 
 pub trait ExecuteChip {
     type ExecutionResult;
@@ -27,7 +27,12 @@ pub trait MachineChip {
     /// Called on each row during constraint evaluation.
     ///
     /// This method **should not** read masks from `eval`.
-    fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>);
+    /// (except from interaction trace within LogupAtRow implementation in stwo).
+    fn add_constraints<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<E>,
+        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    );
 
     /// Called just once for generating the interaction trace.
     ///
@@ -48,8 +53,12 @@ impl MachineChip for Tuple {
         for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step); )* );
     }
 
-    fn add_constraints<E: EvalAtRow>(eval: &mut E, trace_eval: &TraceEval<E>) {
-        for_tuples!( #( Tuple::add_constraints(eval, trace_eval); )* );
+    fn add_constraints<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<E>,
+        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        for_tuples!( #( Tuple::add_constraints(eval, trace_eval, lookup_elements); )* );
     }
 
     fn fill_interaction_trace(

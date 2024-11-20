@@ -24,11 +24,11 @@ pub mod traits;
 
 pub use crate::utils::WORD_SIZE;
 
-use chips::{AddChip, CpuChip, SltuChip, SubChip};
+use chips::{AddChip, CpuChip, Range256Chip, SltuChip, SubChip};
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
-pub type Components = (CpuChip, AddChip, SubChip, SltuChip);
+pub type Components = (CpuChip, AddChip, SubChip, SltuChip, Range256Chip);
 pub type Proof = StarkProof<Blake2sMerkleHasher>;
 
 pub struct Machine<C = Components> {
@@ -88,7 +88,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let component = MachineComponent::new(
             &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(LOG_SIZE),
+            MachineEval::<C>::new(LOG_SIZE, lookup_elements),
         );
         let proof = prove::<SimdBackend, Blake2sMerkleChannel>(
             &[&component],

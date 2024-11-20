@@ -153,6 +153,30 @@ impl Traces {
             .expect("wrong size?")
     }
 
+    /// Returns a copy of `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
+    ///
+    /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
+    /// It's desirable to merge this function with get_base_column() by turning PreprocessedColumn into a type-parameter,
+    /// but that requires a Rust experimental feature called `const_trait_impl`. We avoid Rust experimental features.
+    pub fn get_preprocessed_base_column<const N: usize>(
+        &self,
+        col: PreprocessedColumn,
+    ) -> [BaseColumn; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        self.cols[col.offset()..]
+            .iter()
+            .take(N)
+            .map(|column_in_trace_order| {
+                let mut tmp_col =
+                    coset_order_to_circle_domain_order(column_in_trace_order.as_slice());
+                bit_reverse(&mut tmp_col);
+                BaseColumn::from_iter(tmp_col)
+            })
+            .collect_vec()
+            .try_into()
+            .expect("wrong size?")
+    }
+
     /// Converts traces into circle domain evaluations, bit-reversing row indices
     /// according to circle domain ordering.
     pub fn circle_evaluation<B>(
@@ -207,3 +231,37 @@ impl Traces {
         });
     }
 }
+
+/// Returns a copy of `column` values as an array.
+///
+/// ```ignore
+/// let mut traces = Traces::new(6);
+/// let row = 0usize;
+/// let mut add_row: [BaseField; 1] = trace_column!(traces, row, Column::IsAdd);
+///
+/// dbg!(add_row[0].is_one());
+/// ```
+macro_rules! trace_column {
+    ($traces:expr, $row:expr, $col:expr) => {{
+        $traces.column::<{ Column::size($col) }>($row, $col)
+    }};
+}
+
+pub(crate) use trace_column;
+
+/// Returns a mutable reference to `column` values as an array.
+///
+/// ```ignore
+/// let mut traces = Traces::new(6);
+/// let row = 0usize;
+/// let mut add_row: [&mut BaseField; 1] = trace_column_mut!(traces, row, Column::IsAdd);
+///
+/// *add_row[0] = BaseField::one();
+/// ```
+macro_rules! trace_column_mut {
+    ($traces:expr, $row:expr, $col:expr) => {{
+        $traces.column_mut::<{ Column::size($col) }>($row, $col)
+    }};
+}
+
+pub(crate) use trace_column_mut;
