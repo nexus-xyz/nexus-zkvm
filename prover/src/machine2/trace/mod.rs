@@ -63,6 +63,9 @@ impl Traces {
             let clk: Word = ((row_idx + 1) as u32).to_le_bytes();
             fill_preprocessed_word(&mut cols, row_idx, PreprocessedColumn::Clk, clk);
         }
+        for row_idx in 0..32 {
+            cols[PreprocessedColumn::Range32.offset()][row_idx] = BaseField::from(row_idx);
+        }
         Self { cols, log_size }
     }
 

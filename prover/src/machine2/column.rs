@@ -124,6 +124,9 @@ pub enum PreprocessedColumn {
     /// Contains numbers from 0 to 255, and 0 afterwards.
     #[size = 1]
     Range256,
+    /// Contains numbers from 0 to 31, and 0 after wards
+    #[size = 1]
+    Range32,
 }
 
 // proc macro derived:
