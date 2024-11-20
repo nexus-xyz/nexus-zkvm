@@ -56,4 +56,13 @@ impl ProgramStep {
     pub(crate) fn value_a_effectitve_flag(&self) -> bool {
         self.step.instruction.op_a != Register::X0
     }
+
+    /// Returns a step so that MachineChips can fill unused rows
+    ///
+    /// MachineChips will make sure padding steps don't cause constraint failures and don't affect memory checking
+    pub fn padding() -> Self {
+        let mut ret = Self::default();
+        ret.step.is_padding = true;
+        ret
+    }
 }

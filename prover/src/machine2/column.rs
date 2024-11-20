@@ -101,9 +101,15 @@ pub enum Column {
     /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
     #[size = 1]
     Multiplicity256,
-    /// An auxiliary variable satisfying: ValueAEffective = ValueAEffectiveFlag * ValueA
+    /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,
+    /// Auxiliary variable for computing ValueAEffectiveFlag
+    #[size = 1]
+    ValueAEffectiveFlagAux,
+    /// Another auxiliary variable for computeing ValueAEffectiveFlag
+    #[size = 1]
+    ValueAEffectiveFlagAuxInv,
 }
 
 // proc macro derived:

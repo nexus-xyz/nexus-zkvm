@@ -12,6 +12,8 @@ use crate::{
 /// A program step.
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Step {
+    /// true if the step is just for filling unneeded rows
+    pub is_padding: bool,
     /// Timestamp of the step.
     pub timestamp: u32,
     /// Value of program counter for instruction.
@@ -172,6 +174,7 @@ fn step(
     let next_pc = vm.executor.cpu.pc.value;
 
     let step = Step {
+        is_padding: false,
         timestamp,
         pc,
         next_pc,
@@ -209,6 +212,7 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
 
                         // 2. Repeat the last state, but with the global_clock incremented.
                         padding_steps.push(Step {
+                            is_padding: true,
                             timestamp: vm.executor.global_clock as u32,
                             pc: last_step.next_pc,
                             next_pc: last_step.next_pc,
@@ -237,6 +241,7 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
                         Ok(step) => block.steps.push(step),
                         Err(VMError::VMExited(n)) => {
                             block.steps.push(Step {
+                                is_padding: false,
                                 timestamp,
                                 pc,
                                 next_pc: pc,
@@ -359,6 +364,7 @@ fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
                     Ok(step) => block.steps.push(step),
                     Err(VMError::VMExited(n)) => {
                         block.steps.push(Step {
+                            is_padding: false,
                             timestamp,
                             pc,
                             next_pc: pc,

@@ -210,6 +210,10 @@ mod test {
                 row_idx += 1;
             }
         }
+        // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
+        for more_row_idx in row_idx..(1 << LOG_SIZE) {
+            CpuChip::fill_main_trace(&mut traces, more_row_idx, &ProgramStep::padding());
+        }
         traces.assert_as_original_trace(|eval, trace_eval| {
             let dummy_lookup_elements = LookupElements::dummy();
             CpuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
