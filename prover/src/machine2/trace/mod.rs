@@ -115,7 +115,7 @@ impl Traces {
 
     /// Fills columns with values from a byte slice, applying a selector.
     ///
-    /// If the selector is true, fills the columns with zeros. Otherwise, fills with values from the byte slice.
+    /// If the selector is true, fills the columns with values from the byte slice. Otherwise, fills with zeros.
     pub fn fill_effective_columns(
         &mut self,
         row: usize,
@@ -127,9 +127,9 @@ impl Traces {
         assert_eq!(col.size(), n, "column size mismatch");
         for (i, b) in value.iter().enumerate() {
             self.cols[col.offset() + i][row] = if selector {
-                BaseField::zero()
-            } else {
                 BaseField::from(*b as u32)
+            } else {
+                BaseField::zero()
             };
         }
     }
