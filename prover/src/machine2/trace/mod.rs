@@ -1,5 +1,6 @@
 use eval::TraceEval;
 use itertools::Itertools as _;
+use nexus_vm::WORD_SIZE;
 use num_traits::{One as _, Zero};
 use stwo_prover::{
     constraint_framework::{assert_constraints, AssertEvaluator},
@@ -57,6 +58,10 @@ impl Traces {
         cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
         for row_idx in 0..256 {
             cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
+        }
+        for row_idx in 0..(1 << log_size) {
+            let clk: Word = ((row_idx + 1) as u32).to_le_bytes();
+            fill_preprocessed_word(&mut cols, row_idx, PreprocessedColumn::Clk, clk);
         }
         Self { cols, log_size }
     }
@@ -229,6 +234,18 @@ impl Traces {
             let trace_eval = TraceEval::new(&mut eval);
             add_constraints_calls(&mut eval, &trace_eval);
         });
+    }
+}
+
+fn fill_preprocessed_word(
+    cols: &mut Vec<Vec<BaseField>>,
+    row_idx: usize,
+    preprocessed_column: PreprocessedColumn,
+    clk: [u8; WORD_SIZE],
+) {
+    for limb_idx in 0..WORD_SIZE {
+        cols[preprocessed_column.offset() + limb_idx][row_idx] =
+            BaseField::from(clk[limb_idx] as u32);
     }
 }
 

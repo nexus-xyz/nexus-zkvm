@@ -16,8 +16,8 @@ impl MachineChip for CpuChip {
     fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
         let step = &vm_step.step;
         let pc = step.pc;
-        let timestamp = step.timestamp;
-        let clk = timestamp;
+        // Sanity check: preprocessed column `Clk` contains `row_idx + 1`
+        debug_assert!(step.timestamp as usize == row_idx + 1);
 
         // When row != 0 && pc == 0 are allowed
         // TODO: revise this 0th row check, see https://github.com/nexus-xyz/nexus-zkvm-neo/pull/145#discussion_r1842726498
@@ -44,9 +44,6 @@ impl MachineChip for CpuChip {
 
         let pc_bytes = pc.to_le_bytes();
         traces.fill_columns(row_idx, &pc_bytes, Pc);
-
-        let clk_bytes = clk.to_le_bytes();
-        traces.fill_columns(row_idx, &clk_bytes, Clk);
 
         // Fill ValueB and ValueC to the main trace
         let value_b = vm_step.get_value_b();

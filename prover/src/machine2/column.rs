@@ -12,9 +12,6 @@ const _: () = {
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
 pub enum Column {
-    /// The current execution time.
-    #[size = 4]
-    Clk,
     /// The current value of the program counter register.
     #[size = 4]
     Pc,
@@ -121,6 +118,9 @@ pub enum Column {
 pub enum PreprocessedColumn {
     #[size = 1]
     IsFirst,
+    /// One on the first row, then incremented by one per row.
+    #[size = 4]
+    Clk,
     /// Contains numbers from 0 to 255, and 0 afterwards.
     #[size = 1]
     Range256,

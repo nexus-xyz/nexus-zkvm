@@ -37,8 +37,7 @@ use crate::machine2::column::PreprocessedColumn::{self, *};
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED: [Column; 17] = [
-        Clk, // Will be removed once Clk is in preprocessed trace
+    const CHECKED: [Column; 16] = [
         Pc,
         InstructionWord,
         PrevCtr,
