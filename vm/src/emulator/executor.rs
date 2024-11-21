@@ -66,7 +66,7 @@
 //!
 
 use std::cmp::max;
-use std::collections::{btree_map, BTreeMap, HashMap, VecDeque};
+use std::collections::{btree_map, BTreeMap, HashMap, HashSet, VecDeque};
 
 use super::{layout::LinearMemoryLayout, registry::InstructionExecutorRegistry};
 use crate::{
@@ -74,8 +74,8 @@ use crate::{
     elf::ElfFile,
     error::{MemoryError, Result, VMError},
     memory::{
-        FixedMemory, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecords, Modes, StoreOps,
-        UnifiedMemory, VariableMemory, NA, RO, RW, WO,
+        FixedMemory, LoadOp, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecord, MemoryRecords,
+        Modes, StoreOp, StoreOps, UnifiedMemory, VariableMemory, NA, RO, RW, WO,
     },
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode},
     system::SyscallInstruction,
@@ -138,16 +138,16 @@ pub trait Emulator {
         memory: &mut impl MemoryProcessor,
         memory_layout: Option<LinearMemoryLayout>,
         bare_instruction: &Instruction,
-    ) -> Result<(InstructionResult, MemoryRecords)> {
+    ) -> Result<(InstructionResult, (HashSet<LoadOp>, HashSet<StoreOp>))> {
         let mut syscall_instruction = SyscallInstruction::decode(bare_instruction, &executor.cpu)?;
-        syscall_instruction.memory_read(memory)?;
+        let load_ops = syscall_instruction.memory_read(memory)?;
         syscall_instruction.execute(executor, memory, memory_layout)?;
-        syscall_instruction.memory_write(memory)?;
+        let store_ops = syscall_instruction.memory_write(memory)?;
         syscall_instruction.write_back(&mut executor.cpu);
 
         // Safety: during the first pass, the Write and CycleCount syscalls can read from memory
         //         however, during the second pass these are no-ops, so we never need a record
-        Ok((None, MemoryRecords::new()))
+        Ok((None, (load_ops, store_ops)))
     }
 
     /// Executes a single RISC-V instruction.
@@ -328,61 +328,42 @@ impl Emulator for HarvardEmulator {
         &mut self,
         bare_instruction: &Instruction,
     ) -> Result<(InstructionResult, MemoryRecords)> {
-        if bare_instruction.is_system_instruction() {
-            let _ = <HarvardEmulator as Emulator>::execute_syscall(
-                &mut self.executor,
-                &mut self.data_memory,
-                None,
-                bare_instruction,
-            )?;
-        } else {
-            let _ = match self
-                .executor
+        let _ = match (
+            self.executor
                 .instruction_executor
-                .get(&bare_instruction.opcode)
-            {
-                Ok(executor) => executor(
-                    &mut self.executor.cpu,
+                .get_for_read_input(&bare_instruction.opcode),
+            self.executor
+                .instruction_executor
+                .get_for_write_output(&bare_instruction.opcode),
+            self.executor
+                .instruction_executor
+                .get(&bare_instruction.opcode),
+        ) {
+            (_, _, _) if bare_instruction.is_system_instruction() => {
+                <HarvardEmulator as Emulator>::execute_syscall(
+                    &mut self.executor,
                     &mut self.data_memory,
+                    None,
                     bare_instruction,
-                )?,
-                // Check if the unrecognized instruction is a custom instruction (Ex: static precompile like `rin` or `wou`).
-                Err(VMError::UndefinedInstruction(inst)) => {
-                    if let Some(executor) = self
-                        .executor
-                        .instruction_executor
-                        .get_for_read_input(&bare_instruction.opcode)
-                    {
-                        // Read input.
-                        executor(
-                            &mut self.executor.cpu,
-                            &mut self.input_memory,
-                            bare_instruction,
-                        )?
-                    } else if let Some(executor) = self
-                        .executor
-                        .instruction_executor
-                        .get_for_write_output(&bare_instruction.opcode)
-                    {
-                        // Write output.
-                        executor(
-                            &mut self.executor.cpu,
-                            &mut self.output_memory,
-                            bare_instruction,
-                        )?
-                    } else {
-                        return Err(VMError::UnsupportedInstruction(inst));
-                    }
-                }
-                Err(VMError::UnimplementedInstruction(inst)) => {
-                    return Err(VMError::UnimplementedInstructionAt(
-                        inst,
-                        self.executor.cpu.pc.value,
-                    ));
-                }
-                Err(e) => return Err(e),
-            };
-        }
+                )?
+            }
+            (Some(read_input), _, _) => read_input(
+                &mut self.executor.cpu,
+                &mut self.input_memory,
+                bare_instruction,
+            )?,
+            (_, Some(write_output), _) => write_output(
+                &mut self.executor.cpu,
+                &mut self.output_memory,
+                bare_instruction,
+            )?,
+            (_, _, Ok(executor)) => executor(
+                &mut self.executor.cpu,
+                &mut self.data_memory,
+                bare_instruction,
+            )?,
+            (_, _, Err(e)) => return Err(e),
+        };
 
         if !bare_instruction.is_branch_or_jump_instruction() {
             self.executor.cpu.pc.step();
@@ -690,79 +671,58 @@ impl Emulator for LinearEmulator {
         &mut self,
         bare_instruction: &Instruction,
     ) -> Result<(InstructionResult, MemoryRecords)> {
-        let res: InstructionResult;
-        let mut memory_records: MemoryRecords;
-
-        if bare_instruction.is_system_instruction() {
-            (res, memory_records) = <LinearEmulator as Emulator>::execute_syscall(
-                &mut self.executor,
-                &mut self.memory,
-                Some(self.memory_layout),
-                bare_instruction,
-            )?;
-        } else {
-            let load_ops: LoadOps;
-            let store_ops: StoreOps;
-
-            (res, (load_ops, store_ops)) = match self
-                .executor
+        let (res, (load_ops, store_ops)) = match (
+            self.executor
                 .instruction_executor
-                .get(&bare_instruction.opcode)
-            {
-                Ok(executor) => {
-                    executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
-                }
-                // Check if the unrecognized instruction is a custom instruction (Ex: static precompile like `rin` or `wou`).
-                Err(VMError::UndefinedInstruction(inst)) => {
-                    if let Some(executor) = self
-                        .executor
-                        .instruction_executor
-                        .get_for_read_input(&bare_instruction.opcode)
-                    {
-                        // Read input.
-                        executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
-                    } else if let Some(executor) = self
-                        .executor
-                        .instruction_executor
-                        .get_for_write_output(&bare_instruction.opcode)
-                    {
-                        // Write output.
-                        executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
-                    } else {
-                        return Err(VMError::UnsupportedInstruction(inst));
-                    }
-                }
-                Err(VMError::UnimplementedInstruction(inst)) => {
-                    return Err(VMError::UnimplementedInstructionAt(
-                        inst,
-                        self.executor.cpu.pc.value,
-                    ));
-                }
-                Err(e) => return Err(e),
-            };
+                .get_for_read_input(&bare_instruction.opcode),
+            self.executor
+                .instruction_executor
+                .get_for_write_output(&bare_instruction.opcode),
+            self.executor
+                .instruction_executor
+                .get(&bare_instruction.opcode),
+        ) {
+            (_, _, _) if bare_instruction.is_system_instruction() => {
+                <HarvardEmulator as Emulator>::execute_syscall(
+                    &mut self.executor,
+                    &mut self.memory,
+                    Some(self.memory_layout),
+                    bare_instruction,
+                )?
+            }
+            (Some(read_input), _, _) => {
+                read_input(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+            }
+            (_, Some(write_output), _) => {
+                write_output(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+            }
+            (_, _, Ok(executor)) => {
+                executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+            }
+            (_, _, Err(e)) => return Err(e),
+        };
 
-            memory_records = MemoryRecords::new();
+        let mut memory_records = MemoryRecords::new();
 
-            load_ops.iter().for_each(|op| {
-                let size = op.get_size();
-                let address = op.get_address();
+        load_ops.iter().for_each(|op| {
+            let size = op.get_size();
+            let address = op.get_address();
 
-                memory_records.insert(op.as_record(
-                    self.executor.global_clock,
-                    self.manage_timestamps(&size, &address),
-                ));
-            });
+            memory_records.insert(op.as_record(
+                self.executor.global_clock,
+                self.manage_timestamps(&size, &address),
+            ));
+        });
 
-            store_ops.iter().for_each(|op| {
-                let size = op.get_size();
-                let address = op.get_address();
+        store_ops.iter().for_each(|op| {
+            let size = op.get_size();
+            let address = op.get_address();
 
-                memory_records.insert(op.as_record(
-                    self.executor.global_clock,
-                    self.manage_timestamps(&size, &address),
-                ));
-            });
-        }
+            memory_records.insert(op.as_record(
+                self.executor.global_clock,
+                self.manage_timestamps(&size, &address),
+            ));
+        });
 
         if !bare_instruction.is_branch_or_jump_instruction() {
             self.executor.cpu.pc.step();
@@ -943,11 +903,11 @@ mod tests {
         let mut emulator = HarvardEmulator::default();
         let res = emulator.execute_basic_block(&basic_block);
 
-        assert_eq!(res, Err(VMError::UnsupportedInstruction(op.clone())));
+        assert_eq!(res, Err(VMError::UndefinedInstruction(op.clone())));
 
         let mut emulator = LinearEmulator::default();
         let res = emulator.execute_basic_block(&basic_block);
 
-        assert_eq!(res, Err(VMError::UnsupportedInstruction(op)));
+        assert_eq!(res, Err(VMError::UndefinedInstruction(op)));
     }
 }

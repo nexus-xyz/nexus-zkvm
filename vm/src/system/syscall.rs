@@ -20,7 +20,7 @@
 //! instruction decoding, execution, memory operations, and CPU state updates. This design
 //! allows for easier testing, maintenance, and potential future extensions of the syscall
 //! system.
-use std::collections::{hash_map, VecDeque};
+use std::collections::{hash_map, HashSet, VecDeque};
 
 use nexus_common::cpu::Registers;
 
@@ -28,7 +28,7 @@ use crate::{
     cpu::Cpu,
     emulator::{Executor, LinearMemoryLayout},
     error::{Result, VMError},
-    memory::MemoryProcessor,
+    memory::{LoadOp, MemoryProcessor, StoreOp},
     riscv::{BuiltinOpcode, Instruction, Register},
 };
 
@@ -246,8 +246,8 @@ impl SyscallInstruction {
     }
 
     // Reads from memory for syscall instruction.
-    pub fn memory_read(&mut self, _memory: &impl MemoryProcessor) -> Result<()> {
-        Ok(())
+    pub fn memory_read(&mut self, _memory: &impl MemoryProcessor) -> Result<HashSet<LoadOp>> {
+        Ok(HashSet::<LoadOp>::new())
     }
 
     /// Executes the syscall instruction.
@@ -309,8 +309,8 @@ impl SyscallInstruction {
     }
 
     // Writes to memory for syscall instructions.
-    pub fn memory_write(&self, _memory: &mut impl MemoryProcessor) -> Result<()> {
-        Ok(())
+    pub fn memory_write(&self, _memory: &mut impl MemoryProcessor) -> Result<HashSet<StoreOp>> {
+        Ok(HashSet::<StoreOp>::new())
     }
 
     // All the write back to registers is done in the write_back function
