@@ -51,30 +51,12 @@ pub enum Column {
     /// The value of operand a to be written (zero if destination register index is zero).
     #[size = 4]
     ValueAEffective,
-    /// The previous value of operand a.
-    #[size = 4]
-    PrevA,
-    /// The previous timestamp for a.
-    #[size = 4]
-    PrevTsA,
     /// The value of operand b.
     #[size = 4]
     ValueB,
-    /// The previous value of operand b.
-    #[size = 4]
-    PrevB,
-    /// The previous timestamp for b.
-    #[size = 4]
-    PrevTsB,
     /// The value of operand c.
     #[size = 4]
     ValueC,
-    /// The previous value of operand c.
-    #[size = 4]
-    PrevC,
-    /// The previous timestamp for c.
-    #[size = 4]
-    PrevTsC,
 
     // OPFLAGS
     /// Boolean flag on whether the row is an addition.
@@ -105,6 +87,43 @@ pub enum Column {
     /// Another auxiliary variable for computeing ValueAEffectiveFlag
     #[size = 1]
     ValueAEffectiveFlagAuxInv,
+
+    /// Flag indicating register access slot 1 is used
+    #[size = 1]
+    Reg1Accessed,
+    /// Flag indicating register access slot 2 is used
+    #[size = 1]
+    Reg2Accessed,
+    /// Flag indicating register access slot 3 is used
+    #[size = 1]
+    Reg3Accessed,
+    /// Register index of register access slot 1
+    #[size = 1]
+    Reg1Address,
+    /// Register index of register access slot 2
+    #[size = 1]
+    Reg2Address,
+    /// Register index of register access slot 3
+    #[size = 1]
+    Reg3Address,
+    /// Previous value from the most recent access in Reg1Address
+    #[size = 4]
+    Reg1ValPrev,
+    /// Previous value from the most recent access in Reg2Address
+    #[size = 4]
+    Reg2ValPrev,
+    /// Previous value from the most recent access in Reg3Address
+    #[size = 4]
+    Reg3ValPrev,
+    /// Previous timestamp from the most recent access in Reg1Address
+    #[size = 4]
+    Reg1TsPrev,
+    /// Previous timestamp from the most recent access in Reg2Address
+    #[size = 4]
+    Reg2TsPrev,
+    /// Previous timestamp from the most recent access in Reg3Address
+    #[size = 4]
+    Reg3TsPrev,
 }
 
 // proc macro derived:
