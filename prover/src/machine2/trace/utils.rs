@@ -31,9 +31,9 @@ mod tests {
         let mut reordered = coset_order_to_circle_domain_order(&vals);
         bit_reverse(&mut reordered);
 
-        for i in 0..1 << log_size {
+        for (i, reordered) in reordered.iter().enumerate().take(1 << log_size) {
             let idx = bit_reverse_index(coset_index_to_circle_domain_index(i, log_size), log_size);
-            assert_eq!(reordered[i], vals[idx]);
+            assert_eq!(reordered, &vals[idx]);
         }
     }
 }

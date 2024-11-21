@@ -1,8 +1,7 @@
-use proc_macro2::{Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned, Ident};
 
-use crate::precompile_path::{PrecompilePath, SerializablePath};
+use crate::precompile_path::PrecompilePath;
 
 /// Generate the custom RISC-V instruction implementations for each precompile. Separated for
 /// readability.

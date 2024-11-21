@@ -101,7 +101,7 @@ use crate::memory::MemoryProcessor;
 use crate::{
     cpu::{instructions, Cpu},
     error::{Result, VMError},
-    memory::{FixedMemory, LoadOps, StoreOps, UnifiedMemory, VariableMemory, RO, WO},
+    memory::{LoadOps, StoreOps, UnifiedMemory},
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
 use std::collections::HashMap;

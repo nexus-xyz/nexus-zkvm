@@ -174,33 +174,33 @@ pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
                 let s_imm = extract_s_imm(u32_instruction);
 
                 if opcode == DYNAMIC_ITYPE_OPCODE {
-                    return Instruction::new(
+                    Instruction::new(
                         Opcode::new(opcode, Some(fn3), None, "dynamic"),
                         rd,
                         rs1,
                         i_imm,
                         InstructionType::IType,
-                    );
+                    )
                 } else if opcode == DYNAMIC_STYPE_OPCODE {
-                    return Instruction::new(
+                    Instruction::new(
                         Opcode::new(opcode, Some(fn3), None, "dynamic"),
                         rs1,
                         rs2,
                         s_imm,
                         InstructionType::SType,
-                    );
+                    )
                 } else if opcode == DYNAMIC_RTYPE_OPCODE {
-                    return Instruction::new(
+                    Instruction::new(
                         Opcode::new(opcode, Some(fn3), Some(fn7), "dynamic"),
                         rd,
                         rs1,
                         rs2.into(),
                         InstructionType::RType,
-                    );
+                    )
+                } else {
+                    // Only support the single dynamic R-type, S-type, and I-type opcodes.
+                    Instruction::unimpl()
                 }
-
-                // Only support the single dynamic R-type, S-type, and I-type opcodes.
-                return Instruction::unimpl();
             });
 
         let pc_changed = decoded_instruction.is_branch_or_jump_instruction();

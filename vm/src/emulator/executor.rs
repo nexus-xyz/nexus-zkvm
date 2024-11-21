@@ -483,7 +483,7 @@ impl LinearEmulator {
                 FixedMemory::<RO>::from_vec(data_start, ro_data.len() * WORD_SIZE, ro_data);
 
             let _ = memory.add_fixed_ro(&ro_data_memory).unwrap();
-            data_start = data_start + (ro_data_len * WORD_SIZE) as u32;
+            data_start += (ro_data_len * WORD_SIZE) as u32;
         }
 
         if !elf.ram_image.is_empty() {

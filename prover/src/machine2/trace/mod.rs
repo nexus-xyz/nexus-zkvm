@@ -246,9 +246,9 @@ impl Traces {
         preprocessed_column: PreprocessedColumn,
         clk: [u8; WORD_SIZE],
     ) {
-        for limb_idx in 0..WORD_SIZE {
+        for (limb_idx, clk_byte) in clk.iter().enumerate().take(WORD_SIZE) {
             self.cols[preprocessed_column.offset() + limb_idx][row_idx] =
-                BaseField::from(clk[limb_idx] as u32);
+                BaseField::from(*clk_byte as u32);
         }
     }
     fn fill_is_first(&mut self) {
@@ -290,8 +290,8 @@ impl Traces {
     }
     fn fill_bitwise(&mut self) {
         // fill bit-wise lookup table
-        for input_b in 0..=(255 as u8) {
-            for input_c in 0..=(255 as u8) {
+        for input_b in 0..=255u8 {
+            for input_c in 0..=255u8 {
                 let row_idx = (input_b as usize) << 8 | input_c as usize;
                 self.cols[PreprocessedColumn::BitwiseByteB.offset()][row_idx] =
                     BaseField::from(input_b as u32);
