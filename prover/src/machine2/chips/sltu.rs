@@ -1,4 +1,4 @@
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
@@ -83,10 +83,15 @@ impl MachineChip for SltuChip {
 
         // Reusing the CarryFlag as borrow flag.
         let (_, borrow_flag) = trace_eval!(trace_eval, CarryFlag);
-        let (_, rs1_val) = trace_eval!(trace_eval, ValueB);
-        let (_, rs2_val) = trace_eval!(trace_eval, ValueC);
-        let (_, rd_val) = trace_eval!(trace_eval, ValueA);
+        let (_, value_b) = trace_eval!(trace_eval, ValueB);
+        let (_, value_c) = trace_eval!(trace_eval, ValueC);
+        let (_, value_a) = trace_eval!(trace_eval, ValueA);
         let (_, helper1_val) = trace_eval!(trace_eval, Helper1);
+
+        // Assert boorrow_flag[3] is equal to value_a[0].
+        // So the last iteration of the loop below match
+        // is_sltu・(b_val_4 - c_val_4 - h1_4 + a_val_1・2^8 - borrow_3) = 0
+        eval.add_constraint(is_sltu.clone() * (borrow_flag[3].clone() - value_a[0].clone()));
 
         for i in 0..WORD_SIZE {
             let borrow = i
@@ -100,25 +105,19 @@ impl MachineChip for SltuChip {
                 is_sltu.clone()
                     * (helper1_val[i].clone()
                         - borrow_flag[i].clone() * modulus.clone()
-                        - (rs1_val[i].clone() - rs2_val[i].clone() - borrow)),
+                        - (value_b[i].clone() - value_c[i].clone() - borrow)),
             );
 
-            match i {
-                0 =>
-                // SLTU rd[0] = borrow[3]
-                {
-                    eval.add_constraint(
-                        is_sltu.clone() * (rd_val[i].clone() - borrow_flag[3].clone()),
-                    )
-                }
-                1..=3 =>
-                // SLTU rd[1,2,3] = 0
-                {
-                    eval.add_constraint(is_sltu.clone() * rd_val[i].clone())
-                }
-                _ => panic!("never reached"),
+            // Enforce value_a[0] is in {0, 1} and value_a[1..=3] are 0.
+            if i == 0 {
+                eval.add_constraint(
+                    is_sltu.clone() * (value_a[0].clone() - E::F::one()) * value_a[0].clone(),
+                );
+            } else {
+                eval.add_constraint(is_sltu.clone() * value_a[i].clone());
             }
         }
+
         // TODO: range check CarryFlag to be in {0, 1}.
         // TODO: range check r{s1,s2}_val[i] to be in [0, 255].
         // TODO: range check helper1_val[i] to be in [0, 255].

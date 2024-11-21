@@ -100,9 +100,9 @@ impl MachineChip for AddChip {
         let modulus = E::F::from(256u32.into());
 
         let (_, carry_flag) = trace_eval!(trace_eval, CarryFlag);
-        let (_, rs1_val) = trace_eval!(trace_eval, ValueB);
-        let (_, rs2_val) = trace_eval!(trace_eval, ValueC);
-        let (_, rd_val) = trace_eval!(trace_eval, ValueA);
+        let (_, value_b) = trace_eval!(trace_eval, ValueB);
+        let (_, value_c) = trace_eval!(trace_eval, ValueC);
+        let (_, value_a) = trace_eval!(trace_eval, ValueA);
         // TODO: constrain ValueAEffective to be zero or equal to ValueA depending on whether rd is x0 (in CPU chip, when it exists)
 
         for i in 0..WORD_SIZE {
@@ -115,8 +115,8 @@ impl MachineChip for AddChip {
             // rdval[i] + h1[i] * 2^8 = rs1val[i] + rs2val[i] + h1[i - 1]
             eval.add_constraint(
                 is_add.clone()
-                    * (rd_val[i].clone() + carry_flag[i].clone() * modulus.clone()
-                        - (rs1_val[i].clone() + rs2_val[i].clone() + carry)),
+                    * (value_a[i].clone() + carry_flag[i].clone() * modulus.clone()
+                        - (value_b[i].clone() + value_c[i].clone() + carry)),
             );
         }
         // TODO: range check CarryFlag's to be in {0, 1}.
