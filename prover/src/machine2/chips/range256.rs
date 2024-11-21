@@ -171,18 +171,15 @@ mod test {
     use super::*;
 
     use crate::machine2::components::{MachineComponent, MachineEval};
-    use crate::machine2::trace::eval::TraceEval;
-    use crate::machine2::traits::MachineChip;
 
-    use itertools::Itertools;
-    use stwo_prover::constraint_framework::{assert_constraints, TraceLocationAllocator};
-    use stwo_prover::core::channel::Blake2sChannel;
+    use crate::machine2::traits::MachineChip;
+    use crate::utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+
+    use stwo_prover::constraint_framework::TraceLocationAllocator;
+
     use stwo_prover::core::fields::m31::BaseField;
-    use stwo_prover::core::fri::FriConfig;
-    use stwo_prover::core::pcs::{CommitmentSchemeProver, PcsConfig, TreeVec};
-    use stwo_prover::core::poly::circle::{CanonicCoset, PolyOps};
+
     use stwo_prover::core::prover::prove;
-    use stwo_prover::core::vcs::blake2_merkle::Blake2sMerkleChannel;
 
     pub type Component = MachineComponent<Range256Chip>;
 
@@ -203,7 +200,7 @@ mod test {
             }
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
-        assert_range256_chip(traces, LOG_SIZE);
+        assert_chip::<Range256Chip>(traces, LOG_SIZE);
     }
 
     // The test range256_chip_fail_out_of_range() fails with different messages
@@ -242,7 +239,7 @@ mod test {
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
-        } = commit_traces(LOG_SIZE, config, &twiddles, &traces);
+        } = commit_traces::<Range256Chip>(LOG_SIZE, config, &twiddles, &traces);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),
@@ -250,102 +247,5 @@ mod test {
         );
 
         prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
-    }
-
-    struct CommittedTraces<'a> {
-        commitment_scheme: CommitmentSchemeProver<'a, SimdBackend, Blake2sMerkleChannel>,
-        prover_channel: Blake2sChannel,
-        lookup_elements: LookupElements<12>,
-        preprocessed_trace: Traces,
-        interaction_trace: Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
-    }
-
-    fn commit_traces<'a>(
-        log_size: u32,
-        config: PcsConfig,
-        twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
-        traces: &Traces,
-    ) -> CommittedTraces<'a> {
-        let mut commitment_scheme =
-            CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
-        let mut prover_channel = Blake2sChannel::default();
-        // Preprocessed trace
-        let preprocessed_trace = Traces::new_preprocessed_trace(log_size);
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
-        tree_builder.commit(&mut prover_channel);
-
-        // Original trace
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _main_trace_location = tree_builder.extend_evals(traces.circle_evaluation());
-        tree_builder.commit(&mut prover_channel);
-        let lookup_elements = LookupElements::draw(&mut prover_channel);
-
-        // Interaction Trace
-        let interaction_trace =
-            Range256Chip::fill_interaction_trace(traces, &preprocessed_trace, &lookup_elements);
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _interaction_trace_location = tree_builder.extend_evals(interaction_trace.clone());
-        tree_builder.commit(&mut prover_channel);
-        CommittedTraces {
-            commitment_scheme,
-            prover_channel,
-            lookup_elements,
-            preprocessed_trace,
-            interaction_trace,
-        }
-    }
-
-    fn assert_range256_chip(traces: Traces, log_size: u32) {
-        let (config, twiddles) = test_params(log_size);
-
-        let CommittedTraces {
-            commitment_scheme: _,
-            prover_channel: _,
-            lookup_elements,
-            preprocessed_trace,
-            interaction_trace,
-        } = commit_traces(log_size, config, &twiddles, &traces);
-
-        let traces = TreeVec::new(vec![
-            preprocessed_trace.circle_evaluation(),
-            traces.circle_evaluation(),
-            interaction_trace
-                .iter()
-                .map(|col| col.to_cpu())
-                .collect_vec(),
-        ]);
-        let trace_polys = traces.map(|trace| {
-            trace
-                .into_iter()
-                .map(|c| c.interpolate())
-                .collect::<Vec<_>>()
-        });
-
-        // Now check the constraints to make sure they're satisfied
-        assert_constraints(&trace_polys, CanonicCoset::new(log_size), |mut eval| {
-            let trace_eval = TraceEval::new(&mut eval);
-            Range256Chip::add_constraints(&mut eval, &trace_eval, &lookup_elements);
-        });
-    }
-
-    fn test_params(
-        log_size: u32,
-    ) -> (
-        PcsConfig,
-        stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
-    ) {
-        let config = PcsConfig {
-            pow_bits: 10,
-            fri_config: FriConfig::new(5, 4, 64), // should I change this?
-        };
-        let twiddles = SimdBackend::precompute_twiddles(
-            // The + 1 is taken from the stwo examples. I don't know why it's needed.
-            CanonicCoset::new(log_size + config.fri_config.log_blowup_factor + 1)
-                .circle_domain()
-                .half_coset,
-        );
-        (config, twiddles)
     }
 }
