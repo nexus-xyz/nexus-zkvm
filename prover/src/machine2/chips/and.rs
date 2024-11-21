@@ -26,7 +26,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        trace_column_mut, ProgramStep, Traces, Word,
+        ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -95,9 +95,9 @@ impl MachineChip for AndChip {
         for limb_idx in 0..WORD_SIZE {
             debug_assert_eq!(b_word[limb_idx] & c_word[limb_idx], and_bytes[limb_idx]);
             // The tuple (b, c, b ^ c) is located at row_idx b * 256 + c. This is due to nested 0..256 loops.
-            let looked_up_row: u32 = (b_word[limb_idx] as u32) * 256 + c_word[limb_idx] as u32;
+            let looked_up_row = (b_word[limb_idx] as usize) * 256 + c_word[limb_idx] as usize;
             let multiplicity_col: [&mut BaseField; 1] =
-                trace_column_mut!(traces, looked_up_row as usize, MultiplicityAnd);
+                traces.column_mut(looked_up_row, MultiplicityAnd);
             *multiplicity_col[0] += BaseField::one();
             // Detect overflow: there's a soundness problem if the multiplicity overflows
             assert_ne!(*multiplicity_col[0], BaseField::zero());
@@ -201,10 +201,7 @@ impl MachineChip for AndChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        machine2::{
-            chips::{AddChip, CpuChip},
-            trace::trace_column,
-        },
+        machine2::chips::{AddChip, CpuChip},
         utils::assert_chip,
     };
 
@@ -253,7 +250,8 @@ mod test {
             }
         }
 
-        let vals = trace_column!(traces, 2, ValueA)
+        let vals = traces
+            .column(2, ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
         let output = u32::from_le_bytes(vals);
 

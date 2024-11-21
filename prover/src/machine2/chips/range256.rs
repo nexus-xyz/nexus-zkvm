@@ -22,7 +22,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
-        trace_column_mut, ProgramStep, Traces,
+        ProgramStep, Traces,
     },
     traits::MachineChip,
 };
@@ -131,7 +131,7 @@ fn fill_main_word(value_a_col: [BaseField; WORD_SIZE], traces: &mut Traces) {
         let checked = limb.0;
         debug_assert!(checked < 256, "value[{}] is out of range", limb_index);
         let multiplicity_col: [&mut BaseField; 1] =
-            trace_column_mut!(traces, checked as usize, Multiplicity256);
+            traces.column_mut(checked as usize, Multiplicity256);
         *multiplicity_col[0] += BaseField::one();
         // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
         assert_ne!(*multiplicity_col[0], BaseField::zero());
@@ -180,19 +180,20 @@ mod test {
     #[test]
     #[ignore = "This test takes more than a minute"]
     fn test_range256_chip_success() {
-        const LOG_SIZE: u32 = 16;
+        const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
         let mut traces = Traces::new(LOG_SIZE);
         // Write in-range values to ValueA columns.
+        let mut buf = [0u8; WORD_SIZE];
+
         for row_idx in 0..(1 << LOG_SIZE) {
-            for i in 0..WORD_SIZE {
-                let val: usize = (row_idx + i) % 256;
-                let value_row = trace_column_mut!(traces, row_idx, ValueA);
-                *value_row[i] = BaseField::from(val);
-                let value_row = trace_column_mut!(traces, row_idx, ValueB);
-                *value_row[i] = BaseField::from(val);
-                let value_row = trace_column_mut!(traces, row_idx, ValueC);
-                *value_row[i] = BaseField::from(val);
+            for (i, b) in buf.iter_mut().enumerate() {
+                *b = (row_idx + i) as u8;
             }
+
+            traces.fill_columns(row_idx, &buf, ValueA);
+            traces.fill_columns(row_idx, &buf, ValueB);
+            traces.fill_columns(row_idx, &buf, ValueC);
+
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
         assert_chip::<Range256Chip>(traces, LOG_SIZE);
@@ -216,16 +217,19 @@ mod test {
     }
 
     fn range256_chip_fail_out_of_range() {
-        const LOG_SIZE: u32 = 16;
+        const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
+        let mut buf = [BaseField::zero(); WORD_SIZE];
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
-            for i in 0..WORD_SIZE {
-                let val: usize = (row_idx + i) % 256;
-                let value_row = trace_column_mut!(traces, row_idx, ValueB);
-                *value_row[i] = BaseField::from(val + 1); // sometimes out of range
+            for (i, b) in buf.iter_mut().enumerate() {
+                let t = ((row_idx + i) as u8) as u32 + 1u32;
+                // sometimes out of range
+                *b = BaseField::from(t + 1);
             }
+            traces.fill_columns_basefield(row_idx, &buf, ValueB);
+
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
         let CommittedTraces {

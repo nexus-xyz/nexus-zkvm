@@ -80,7 +80,6 @@ impl Traces {
 
     /// Returns a copy of `N` raw columns in range `[offset..offset + N]` at `row`, where
     /// `N` is assumed to be equal `Column::size` of a `col`.
-    #[doc(hidden)]
     pub fn column<const N: usize>(&self, row: usize, col: Column) -> [BaseField; N] {
         assert_eq!(col.size(), N, "column size mismatch");
 
@@ -91,7 +90,6 @@ impl Traces {
 
     /// Returns mutable reference to `N` raw columns in range `[offset..offset + N]` at `row`,
     /// where `N` is assumed to be equal `Column::size` of a `col`.
-    #[doc(hidden)]
     pub fn column_mut<const N: usize>(&mut self, row: usize, col: Column) -> [&mut BaseField; N] {
         assert_eq!(col.size(), N, "column size mismatch");
 
@@ -308,37 +306,3 @@ impl Traces {
         // Notice, (0, 0, 0) is a valid entry for XOR, AND and OR. A malicious prover can use these entries; that's fine.
     }
 }
-
-/// Returns a copy of `column` values as an array.
-///
-/// ```ignore
-/// let mut traces = Traces::new(6);
-/// let row = 0usize;
-/// let mut add_row: [BaseField; 1] = trace_column!(traces, row, Column::IsAdd);
-///
-/// dbg!(add_row[0].is_one());
-/// ```
-macro_rules! trace_column {
-    ($traces:expr, $row:expr, $col:expr) => {{
-        $traces.column::<{ $crate::machine2::column::Column::size($col) }>($row, $col)
-    }};
-}
-
-pub(crate) use trace_column;
-
-/// Returns a mutable reference to `column` values as an array.
-///
-/// ```ignore
-/// let mut traces = Traces::new(6);
-/// let row = 0usize;
-/// let mut add_row: [&mut BaseField; 1] = trace_column_mut!(traces, row, Column::IsAdd);
-///
-/// *add_row[0] = BaseField::one();
-/// ```
-macro_rules! trace_column_mut {
-    ($traces:expr, $row:expr, $col:expr) => {{
-        $traces.column_mut::<{ $crate::machine2::column::Column::size($col) }>($row, $col)
-    }};
-}
-
-pub(crate) use trace_column_mut;
