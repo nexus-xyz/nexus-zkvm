@@ -41,6 +41,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI) => {
                 traces.fill_columns(row_idx, &[1], IsAdd);
             }
+            Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::ANDI) => {
+                traces.fill_columns(row_idx, &[1], IsAnd);
+            }
             Some(BuiltinOpcode::SUB) => {
                 traces.fill_columns(row_idx, &[1], IsSub);
             }

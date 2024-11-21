@@ -28,7 +28,7 @@ use chips::{AddChip, CpuChip, Range256Chip, SltuChip, SubChip};
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
-pub type Components = (CpuChip, AddChip, SubChip, SltuChip, Range256Chip);
+pub type Components = (CpuChip, AddChip, AddChip, SubChip, SltuChip, Range256Chip);
 pub type Proof = StarkProof<Blake2sMerkleHasher>;
 
 pub struct Machine<C = Components> {

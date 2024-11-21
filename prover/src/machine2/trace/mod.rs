@@ -294,7 +294,7 @@ impl Traces {
 /// ```
 macro_rules! trace_column {
     ($traces:expr, $row:expr, $col:expr) => {{
-        $traces.column::<{ Column::size($col) }>($row, $col)
+        $traces.column::<{ $crate::machine2::column::Column::size($col) }>($row, $col)
     }};
 }
 
@@ -311,7 +311,7 @@ pub(crate) use trace_column;
 /// ```
 macro_rules! trace_column_mut {
     ($traces:expr, $row:expr, $col:expr) => {{
-        $traces.column_mut::<{ Column::size($col) }>($row, $col)
+        $traces.column_mut::<{ $crate::machine2::column::Column::size($col) }>($row, $col)
     }};
 }
 

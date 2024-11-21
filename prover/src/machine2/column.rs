@@ -76,9 +76,13 @@ pub enum Column {
     #[size = 4]
     PrevTsC,
 
+    // OPFLAGS
     /// Boolean flag on whether the row is an addition.
     #[size = 1]
     IsAdd,
+    /// Boolean flag on whether the row is AND/ANDI.
+    #[size = 1]
+    IsAnd,
     /// Boolean flag on whether the row is a subtraction.
     #[size = 1]
     IsSub,

@@ -1,4 +1,5 @@
 mod add;
+mod and;
 mod sub;
 
 mod cpu;
