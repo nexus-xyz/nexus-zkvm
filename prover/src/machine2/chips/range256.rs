@@ -188,7 +188,7 @@ mod test {
 
     #[test]
     fn test_range256_chip_success() {
-        const LOG_SIZE: u32 = 8;
+        const LOG_SIZE: u32 = 16;
         let mut traces = Traces::new(LOG_SIZE);
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
@@ -224,7 +224,7 @@ mod test {
     }
 
     fn range256_chip_fail_out_of_range() {
-        const LOG_SIZE: u32 = 9;
+        const LOG_SIZE: u32 = 16;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
         // Write in-range values to ValueA columns.

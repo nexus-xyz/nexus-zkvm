@@ -6,7 +6,7 @@ use stwo_prover::{
     constraint_framework::{assert_constraints, AssertEvaluator},
     core::{
         backend::{
-            simd::{column::BaseColumn, m31::LOG_N_LANES},
+            simd::{bit_reverse::MIN_LOG_SIZE, column::BaseColumn, m31::LOG_N_LANES},
             Backend, CpuBackend,
         },
         fields::m31::BaseField,
@@ -37,9 +37,14 @@ pub struct Traces {
 }
 
 impl Traces {
+    /// 2^MIN_LOG_SIZE is the smallest number of rows supported
+    ///
+    /// 2^16 rows are needed to accommodate (byte, byte) lookup tables
+    pub const MIN_LOG_SIZE: u32 = 16;
     /// Returns [`Column::TOTAL_COLUMNS_NUM`] zeroed columns, each one `2.pow(log_size)` in length.
     pub(crate) fn new(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
+        assert!(log_size >= MIN_LOG_SIZE);
         Self {
             cols: vec![vec![BaseField::zero(); 1 << log_size]; Column::COLUMNS_NUM],
             log_size,
@@ -50,14 +55,16 @@ impl Traces {
     pub(crate) fn new_preprocessed_trace(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
-            log_size >= 8,
-            "log_size must be at least 8, to accomodate 256-element lookup tables"
+            log_size >= MIN_LOG_SIZE,
+            "log_size must be at least {}, to accomodate (byte, byte) lookup tables",
+            MIN_LOG_SIZE,
         );
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
         let mut ret = Self { cols, log_size };
         ret.fill_is_first();
         ret.fill_timestamps();
         ret.fill_range32();
+        ret.fill_bitwise();
         ret
     }
 
@@ -280,6 +287,25 @@ impl Traces {
                 reg3_ts_cur.to_le_bytes(),
             );
         }
+    }
+    fn fill_bitwise(&mut self) {
+        // fill bit-wise lookup table
+        for input_b in 0..=(255 as u8) {
+            for input_c in 0..=(255 as u8) {
+                let row_idx = (input_b as usize) << 8 | input_c as usize;
+                self.cols[PreprocessedColumn::BitwiseByteB.offset()][row_idx] =
+                    BaseField::from(input_b as u32);
+                self.cols[PreprocessedColumn::BitwiseByteC.offset()][row_idx] =
+                    BaseField::from(input_c as u32);
+                self.cols[PreprocessedColumn::BitwiseAndByteA.offset()][row_idx] =
+                    BaseField::from((input_b & input_c) as u32);
+                self.cols[PreprocessedColumn::BitwiseOrByteA.offset()][row_idx] =
+                    BaseField::from((input_b | input_c) as u32);
+                self.cols[PreprocessedColumn::BitwiseXorByteA.offset()][row_idx] =
+                    BaseField::from((input_b ^ input_c) as u32);
+            }
+        }
+        // Notice, (0, 0, 0) is a valid entry for XOR, AND and OR. A malicious prover can use these entries; that's fine.
     }
 }
 

@@ -137,6 +137,21 @@ pub enum PreprocessedColumn {
     /// Contains numbers from 0 to 31, and 0 after wards
     #[size = 1]
     Range32,
+    /// Contains one-byte output of bit-wise AND
+    #[size = 1]
+    BitwiseAndByteA,
+    /// Contains one-byte output of bit-wise OR
+    #[size = 1]
+    BitwiseOrByteA,
+    /// Contains one-byte output of bit-wise XOR
+    #[size = 1]
+    BitwiseXorByteA,
+    /// Contains one-byte first input of bit-wise lookup table
+    #[size = 1]
+    BitwiseByteB,
+    /// Contains one-byte second input of bit-wise lookup table
+    #[size = 1]
+    BitwiseByteC,
 }
 
 // proc macro derived:
