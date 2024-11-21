@@ -37,17 +37,14 @@ use crate::machine2::column::PreprocessedColumn::{self, *};
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED: [Column; 16] = [
+    const CHECKED: [Column; 13] = [
         Pc,
         InstructionWord,
         PrevCtr,
-        TsA,
         PrevA,
         PrevTsA,
-        TsB,
         PrevB,
         PrevTsB,
-        TsC,
         PrevC,
         PrevTsC,
         ValueA,

@@ -51,9 +51,6 @@ pub enum Column {
     /// The value of operand a to be written (zero if destination register index is zero).
     #[size = 4]
     ValueAEffective,
-    /// The current timestamp for a.
-    #[size = 4]
-    TsA,
     /// The previous value of operand a.
     #[size = 4]
     PrevA,
@@ -63,9 +60,6 @@ pub enum Column {
     /// The value of operand b.
     #[size = 4]
     ValueB,
-    /// The current timestamp for b.
-    #[size = 4]
-    TsB,
     /// The previous value of operand b.
     #[size = 4]
     PrevB,
@@ -75,9 +69,6 @@ pub enum Column {
     /// The value of operand c.
     #[size = 4]
     ValueC,
-    /// The current timestamp for c.
-    #[size = 4]
-    TsC,
     /// The previous value of operand c.
     #[size = 4]
     PrevC,
