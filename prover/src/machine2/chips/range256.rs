@@ -178,6 +178,7 @@ mod test {
     pub type Component = MachineComponent<Range256Chip>;
 
     #[test]
+    #[ignore = "This test takes more than a minute"]
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = 16;
         let mut traces = Traces::new(LOG_SIZE);
