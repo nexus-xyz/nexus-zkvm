@@ -327,12 +327,14 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     config: PcsConfig,
     twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
     traces: &Traces,
+    custom_preprocessed: Option<Traces>,
 ) -> CommittedTraces<'a> {
     let mut commitment_scheme =
         CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
     let mut prover_channel = Blake2sChannel::default();
     // Preprocessed trace
-    let preprocessed_trace = Traces::new_preprocessed_trace(traces.log_size());
+    let preprocessed_trace =
+        custom_preprocessed.unwrap_or_else(|| Traces::new_preprocessed_trace(traces.log_size()));
     let mut tree_builder = commitment_scheme.tree_builder();
     let _preprocessed_trace_location =
         tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
@@ -360,7 +362,7 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
 }
 
 /// Assuming traces are filled, assert constraints
-pub(crate) fn assert_chip<C: MachineChip>(traces: Traces) {
+pub(crate) fn assert_chip<C: MachineChip>(traces: Traces, custom_preprocessed: Option<Traces>) {
     let (config, twiddles) = test_params(traces.log_size());
 
     let CommittedTraces {
@@ -369,7 +371,7 @@ pub(crate) fn assert_chip<C: MachineChip>(traces: Traces) {
         lookup_elements,
         preprocessed_trace,
         interaction_trace,
-    } = commit_traces::<C>(config, &twiddles, &traces);
+    } = commit_traces::<C>(config, &twiddles, &traces, custom_preprocessed);
 
     let trace_evals = TreeVec::new(vec![
         preprocessed_trace.circle_evaluation(),

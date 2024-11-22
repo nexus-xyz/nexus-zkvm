@@ -44,7 +44,6 @@ impl Traces {
     /// Returns [`Column::TOTAL_COLUMNS_NUM`] zeroed columns, each one `2.pow(log_size)` in length.
     pub(crate) fn new(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
-        assert!(log_size >= MIN_LOG_SIZE);
         Self {
             cols: vec![vec![BaseField::zero(); 1 << log_size]; Column::COLUMNS_NUM],
             log_size,
@@ -67,6 +66,16 @@ impl Traces {
         ret.fill_range32();
         ret.fill_bitwise();
         ret
+    }
+
+    /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length
+    ///
+    /// Only for tests that create custome preprocessed trace.
+    #[cfg(test)]
+    pub(crate) fn empty_preprocessed_trace(log_size: u32) -> Self {
+        assert!(log_size >= LOG_N_LANES);
+        let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
+        Self { cols, log_size }
     }
 
     /// Returns inner representation of columns.
@@ -250,10 +259,10 @@ impl Traces {
                 BaseField::from(*clk_byte as u32);
         }
     }
-    fn fill_is_first(&mut self) {
+    pub(crate) fn fill_is_first(&mut self) {
         self.cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
     }
-    fn fill_range256(&mut self) {
+    pub(crate) fn fill_range256(&mut self) {
         for row_idx in 0..256 {
             self.cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
         }

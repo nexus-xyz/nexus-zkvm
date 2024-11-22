@@ -178,9 +178,8 @@ mod test {
     pub type Component = MachineComponent<Range256Chip>;
 
     #[test]
-    #[ignore = "This test takes more than a minute"]
     fn test_range256_chip_success() {
-        const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
+        const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
         // Write in-range values to ValueA columns.
         let mut buf = [0u8; WORD_SIZE];
@@ -196,7 +195,10 @@ mod test {
 
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
-        assert_chip::<Range256Chip>(traces);
+        let mut preprocessed_256_rows = Traces::empty_preprocessed_trace(LOG_SIZE);
+        preprocessed_256_rows.fill_is_first();
+        preprocessed_256_rows.fill_range256();
+        assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows));
     }
 
     // The test range256_chip_fail_out_of_range() fails with different messages
@@ -238,7 +240,7 @@ mod test {
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
-        } = commit_traces::<Range256Chip>(config, &twiddles, &traces);
+        } = commit_traces::<Range256Chip>(config, &twiddles, &traces, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),
