@@ -51,7 +51,7 @@ impl Traces {
         }
     }
 
-    /// Returns [`Column::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
+    /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
     pub(crate) fn new_preprocessed_trace(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
