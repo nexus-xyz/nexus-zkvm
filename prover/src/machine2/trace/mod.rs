@@ -63,6 +63,7 @@ impl Traces {
         let mut ret = Self { cols, log_size };
         ret.fill_is_first();
         ret.fill_timestamps();
+        ret.fill_range256();
         ret.fill_range32();
         ret.fill_bitwise();
         ret
@@ -251,6 +252,8 @@ impl Traces {
     }
     fn fill_is_first(&mut self) {
         self.cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
+    }
+    fn fill_range256(&mut self) {
         for row_idx in 0..256 {
             self.cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
         }
