@@ -8,7 +8,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        ProgramStep, Traces, Word,
+        BoolWord, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -17,7 +17,7 @@ use crate::machine2::{
 pub struct AddChip;
 
 pub struct ExecutionResult {
-    carry_bits: Word,
+    carry_bits: BoolWord,
     sum_bytes: Word,
     /// true when destination register is writable (not X0)
     value_a_effective_flag: bool,
@@ -35,26 +35,26 @@ impl ExecuteChip for AddChip {
         let (value_c, _) = program_step.get_value_c();
 
         let mut sum_bytes = [0u8; WORD_SIZE];
-        let mut carry = [false; WORD_SIZE];
+        let mut carry_bits = [false; WORD_SIZE];
 
         // Step 2. Compute the sum and carry of each limb.
         let (sum, c0) = value_b[0].overflowing_add(value_c[0]);
-        carry[0] = c0;
+        carry_bits[0] = c0;
         sum_bytes[0] = sum;
 
         // Process the remaining bytes
         for i in 1..WORD_SIZE {
             // Add the bytes and the previous carry
-            let (sum, c1) = value_b[i].overflowing_add(carry[i - 1] as u8);
+            let (sum, c1) = value_b[i].overflowing_add(carry_bits[i - 1] as u8);
             let (sum, c2) = sum.overflowing_add(value_c[i]);
 
             // There can't be 2 carry in: a + b + cary, either c1 or c2 is true.
-            carry[i] = c1 || c2;
+            carry_bits[i] = c1 || c2;
             sum_bytes[i] = sum;
         }
 
         ExecutionResult {
-            carry_bits: carry.map(|b| b as u8),
+            carry_bits,
             sum_bytes,
             value_a_effective_flag,
         }
@@ -86,7 +86,7 @@ impl MachineChip for AddChip {
 
         traces.fill_columns(row_idx, &sum_bytes, ValueA);
         traces.fill_effective_columns(row_idx, &sum_bytes, ValueAEffective, value_a_effective_flag);
-        traces.fill_columns(row_idx, &carry_bits, CarryFlag);
+        traces.fill_columns_bool(row_idx, &carry_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(

@@ -39,16 +39,16 @@ impl MachineChip for CpuChip {
         // Set is_opcode to 1, e.g If this is ADD opcode, set IsAdd to 1.
         match step.instruction.opcode.builtin() {
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI) => {
-                traces.fill_columns(row_idx, &[1], IsAdd);
+                traces.fill_columns_bool(row_idx, true, IsAdd);
             }
             Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::ANDI) => {
-                traces.fill_columns(row_idx, &[1], IsAnd);
+                traces.fill_columns_bool(row_idx, true, IsAnd);
             }
             Some(BuiltinOpcode::SUB) => {
-                traces.fill_columns(row_idx, &[1], IsSub);
+                traces.fill_columns_bool(row_idx, true, IsSub);
             }
             Some(BuiltinOpcode::SLTU) => {
-                traces.fill_columns(row_idx, &[1], IsSltu);
+                traces.fill_columns_bool(row_idx, true, IsSltu);
             }
             _ => {
                 if !step.is_padding {

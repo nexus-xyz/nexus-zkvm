@@ -17,6 +17,9 @@ pub struct ProgramStep {
 
 /// Represents a 32-bit word as 4 8-bit limbs in little-endian order
 pub type Word = [u8; WORD_SIZE];
+/// Represents a 32-bit word as 4 1-bit limbs in little-endian order
+/// It is used for carry/borrow bits.
+pub type BoolWord = [bool; WORD_SIZE];
 
 /// Represents a 32-bit word as 4 8-bit limbs in little-endian order,
 /// along with the count of effective bits.

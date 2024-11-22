@@ -27,13 +27,30 @@ pub mod eval;
 pub mod program;
 pub mod utils;
 
-pub use program::{ProgramStep, Word, WordWithEffectiveBits};
+pub use program::{BoolWord, ProgramStep, Word, WordWithEffectiveBits};
 
 use utils::{bit_reverse, coset_order_to_circle_domain_order};
 
 pub struct Traces {
     cols: Vec<Vec<BaseField>>,
     log_size: u32,
+}
+
+/// Trait to allow flexible boolean input
+pub trait ToBaseField {
+    fn to_base_fields(&self) -> Vec<BaseField>;
+}
+
+impl ToBaseField for bool {
+    fn to_base_fields(&self) -> Vec<BaseField> {
+        vec![BaseField::from(*self as u32)]
+    }
+}
+
+impl ToBaseField for &[bool; WORD_SIZE] {
+    fn to_base_fields(&self) -> Vec<BaseField> {
+        self.iter().map(|&b| BaseField::from(b as u32)).collect()
+    }
 }
 
 impl Traces {
@@ -108,6 +125,12 @@ impl Traces {
         std::array::from_fn(|_idx| {
             &mut iter.next().expect("invalid offset; must be unreachable")[row]
         })
+    }
+
+    /// Fills columns with boolean value(s).
+    pub fn fill_columns_bool<B: ToBaseField>(&mut self, row: usize, value: B, col: Column) {
+        let base_field_values = value.to_base_fields();
+        self.fill_columns_basefield(row, &base_field_values, col);
     }
 
     /// Fills columns with values from a byte slice.

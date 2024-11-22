@@ -9,13 +9,13 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        ProgramStep, Traces, Word,
+        BoolWord, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
 
 pub struct ExecutionResult {
-    pub borrow_bits: Word,
+    pub borrow_bits: BoolWord,
     pub diff_bytes: Word,
     pub result: Word,
     /// true when destination register is writable (not X0)
@@ -33,7 +33,7 @@ impl ExecuteChip for SltuChip {
             diff_bytes,
             value_a_effective_flag,
         } = SubChip::execute(program_step);
-        let result = [borrow_bits[3], 0, 0, 0];
+        let result = [borrow_bits[3] as u8, 0, 0, 0];
         ExecutionResult {
             borrow_bits,
             diff_bytes,
@@ -63,7 +63,7 @@ impl MachineChip for SltuChip {
         } = Self::execute(vm_step);
 
         traces.fill_columns(row_idx, &diff_bytes, Helper1);
-        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
+        traces.fill_columns_bool(row_idx, &borrow_bits, CarryFlag);
 
         debug_assert_eq!(result, vm_step.get_result().expect("STLU must have result"));
 

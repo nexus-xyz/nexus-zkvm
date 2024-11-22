@@ -8,7 +8,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        ProgramStep, Traces, Word,
+        BoolWord, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -17,7 +17,7 @@ use crate::machine2::{
 pub struct SubChip;
 
 pub struct ExecutionResult {
-    pub borrow_bits: Word,
+    pub borrow_bits: BoolWord,
     pub diff_bytes: Word,
     /// true when destination register is writable (not X0)
     pub value_a_effective_flag: bool,
@@ -35,26 +35,26 @@ impl ExecuteChip for SubChip {
         let (value_c, _) = program_step.get_value_c();
 
         let mut value_a = [0u8; WORD_SIZE];
-        let mut borrow = [false; WORD_SIZE];
+        let mut borrow_bits = [false; WORD_SIZE];
 
         // Step 2. Compute the difference and borrow of each limb.
         let (diff, c0) = value_b[0].overflowing_sub(value_c[0]);
-        borrow[0] = c0;
+        borrow_bits[0] = c0;
         value_a[0] = diff;
 
         // Process the remaining difference bytes
         for i in 1..WORD_SIZE {
             // Subtract the bytes and the previous borrow
-            let (diff, b1) = value_b[i].overflowing_sub(borrow[i - 1] as u8);
+            let (diff, b1) = value_b[i].overflowing_sub(borrow_bits[i - 1] as u8);
             let (diff, b2) = diff.overflowing_sub(value_c[i]);
 
             // There can't be 2 borrow in: a - b - borrow, either b1 or b2 is true.
-            borrow[i] = b1 || b2;
+            borrow_bits[i] = b1 || b2;
             value_a[i] = diff;
         }
 
         ExecutionResult {
-            borrow_bits: borrow.map(|c| c as u8),
+            borrow_bits,
             diff_bytes: value_a,
             value_a_effective_flag,
         }
@@ -94,7 +94,7 @@ impl MachineChip for SubChip {
             ValueAEffective,
             value_a_effective_flag,
         );
-        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
+        traces.fill_columns_bool(row_idx, &borrow_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(
