@@ -257,6 +257,6 @@ mod test {
 
         assert_eq!(output, 0b1000);
 
-        assert_chip::<AndChip>(traces, LOG_SIZE);
+        assert_chip::<AndChip>(traces);
     }
 }

@@ -324,7 +324,6 @@ pub(crate) struct CommittedTraces<'a> {
 
 /// Testing utility for filling in traces
 pub(crate) fn commit_traces<'a, C: MachineChip>(
-    log_size: u32,
     config: PcsConfig,
     twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
     traces: &Traces,
@@ -333,7 +332,7 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
         CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
     let mut prover_channel = Blake2sChannel::default();
     // Preprocessed trace
-    let preprocessed_trace = Traces::new_preprocessed_trace(log_size);
+    let preprocessed_trace = Traces::new_preprocessed_trace(traces.log_size());
     let mut tree_builder = commitment_scheme.tree_builder();
     let _preprocessed_trace_location =
         tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
@@ -361,8 +360,8 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
 }
 
 /// Assuming traces are filled, assert constraints
-pub(crate) fn assert_chip<C: MachineChip>(traces: Traces, log_size: u32) {
-    let (config, twiddles) = test_params(log_size);
+pub(crate) fn assert_chip<C: MachineChip>(traces: Traces) {
+    let (config, twiddles) = test_params(traces.log_size());
 
     let CommittedTraces {
         commitment_scheme: _,
@@ -370,9 +369,9 @@ pub(crate) fn assert_chip<C: MachineChip>(traces: Traces, log_size: u32) {
         lookup_elements,
         preprocessed_trace,
         interaction_trace,
-    } = commit_traces::<C>(log_size, config, &twiddles, &traces);
+    } = commit_traces::<C>(config, &twiddles, &traces);
 
-    let traces = TreeVec::new(vec![
+    let trace_evals = TreeVec::new(vec![
         preprocessed_trace.circle_evaluation(),
         traces.circle_evaluation(),
         interaction_trace
@@ -380,7 +379,7 @@ pub(crate) fn assert_chip<C: MachineChip>(traces: Traces, log_size: u32) {
             .map(|col| col.to_cpu())
             .collect_vec(),
     ]);
-    let trace_polys = traces.map(|trace| {
+    let trace_polys = trace_evals.map(|trace| {
         trace
             .into_iter()
             .map(|c| c.interpolate())
@@ -388,8 +387,12 @@ pub(crate) fn assert_chip<C: MachineChip>(traces: Traces, log_size: u32) {
     });
 
     // Now check the constraints to make sure they're satisfied
-    assert_constraints(&trace_polys, CanonicCoset::new(log_size), |mut eval| {
-        let trace_eval = TraceEval::new(&mut eval);
-        C::add_constraints(&mut eval, &trace_eval, &lookup_elements);
-    });
+    assert_constraints(
+        &trace_polys,
+        CanonicCoset::new(traces.log_size()),
+        |mut eval| {
+            let trace_eval = TraceEval::new(&mut eval);
+            C::add_constraints(&mut eval, &trace_eval, &lookup_elements);
+        },
+    );
 }

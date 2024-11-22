@@ -196,7 +196,7 @@ mod test {
 
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }
-        assert_chip::<Range256Chip>(traces, LOG_SIZE);
+        assert_chip::<Range256Chip>(traces);
     }
 
     // The test range256_chip_fail_out_of_range() fails with different messages
@@ -238,7 +238,7 @@ mod test {
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
-        } = commit_traces::<Range256Chip>(LOG_SIZE, config, &twiddles, &traces);
+        } = commit_traces::<Range256Chip>(config, &twiddles, &traces);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),
