@@ -92,7 +92,7 @@ impl MachineChip for AddChip {
 
         traces.fill_columns_bytes(row_idx, &sum_bytes, ValueA);
         traces.fill_effective_columns(row_idx, &sum_bytes, ValueAEffective, value_a_effective_flag);
-        traces.fill_columns(row_idx, &carry_bits, CarryFlag);
+        traces.fill_columns(row_idx, carry_bits, CarryFlag);
         traces.fill_columns_bytes(row_idx, &[1u8], Reg1Accessed);
         traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_b as u8], Reg1Address);
         if vm_step.step.instruction.opcode.builtin() == Some(BuiltinOpcode::ADD) {

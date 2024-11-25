@@ -69,7 +69,7 @@ impl MachineChip for SltuChip {
         } = Self::execute(vm_step);
 
         traces.fill_columns_bytes(row_idx, &diff_bytes, Helper1);
-        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
+        traces.fill_columns(row_idx, borrow_bits, CarryFlag);
 
         debug_assert_eq!(result, vm_step.get_result().expect("STLU must have result"));
 

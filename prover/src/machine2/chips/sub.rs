@@ -100,7 +100,7 @@ impl MachineChip for SubChip {
             ValueAEffective,
             value_a_effective_flag,
         );
-        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
+        traces.fill_columns(row_idx, borrow_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(
