@@ -50,6 +50,12 @@ impl ToBaseFields<1> for bool {
     }
 }
 
+impl ToBaseFields<1> for u8 {
+    fn into_base_fields(self) -> [BaseField; 1] {
+        [BaseField::from(self as u32)]
+    }
+}
+
 impl ToBaseFields<{ WORD_SIZE }> for [bool; WORD_SIZE] {
     fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
         std::array::from_fn(|i| BaseField::from(self[i] as u32))
