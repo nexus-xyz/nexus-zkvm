@@ -7,7 +7,11 @@ use stwo_prover::{
 use crate::machine2::{
     column::Column::{self, *},
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{eval::trace_eval, eval::TraceEval, ProgramStep, Traces},
+    trace::{
+        eval::{trace_eval, TraceEval},
+        regs::RegisterMemCheckSideNote,
+        ProgramStep, Traces,
+    },
     traits::MachineChip,
 };
 
@@ -22,7 +26,12 @@ use nexus_vm::{
 pub struct CpuChip;
 
 impl MachineChip for CpuChip {
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        vm_step: &ProgramStep,
+        _side_note: &mut RegisterMemCheckSideNote,
+    ) {
         let step = &vm_step.step;
         let pc = step.pc;
         // Sanity check: preprocessed column `Clk` contains `row_idx + 1`

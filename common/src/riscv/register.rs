@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
+pub const NUM_REGISTERS: usize = 32;
+
 /// A register stores a 32-bit value used by operations.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Register {

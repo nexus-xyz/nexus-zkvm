@@ -1,4 +1,4 @@
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
@@ -8,6 +8,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
+        regs::RegisterMemCheckSideNote,
         BoolWord, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
@@ -62,7 +63,12 @@ impl ExecuteChip for AddChip {
 }
 
 impl MachineChip for AddChip {
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        vm_step: &ProgramStep,
+        _side_note: &mut RegisterMemCheckSideNote,
+    ) {
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI)
@@ -87,6 +93,14 @@ impl MachineChip for AddChip {
         traces.fill_columns_bytes(row_idx, &sum_bytes, ValueA);
         traces.fill_effective_columns(row_idx, &sum_bytes, ValueAEffective, value_a_effective_flag);
         traces.fill_columns(row_idx, &carry_bits, CarryFlag);
+        traces.fill_columns_bytes(row_idx, &[1u8], Reg1Accessed);
+        traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_b as u8], Reg1Address);
+        if vm_step.step.instruction.opcode.builtin() == Some(BuiltinOpcode::ADD) {
+            traces.fill_columns_bytes(row_idx, &[1u8], Reg2Accessed);
+            traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_c as u8], Reg2Address);
+        }
+        traces.fill_columns_bytes(row_idx, &[1u8], Reg3Accessed);
+        traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_a as u8], Reg3Address);
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -119,6 +133,19 @@ impl MachineChip for AddChip {
                         - (value_b[i].clone() + value_c[i].clone() + carry)),
             );
         }
+
+        // Constrain Reg{1,2,3}Accessed
+        let (_, [reg1_accessed]) = trace_eval!(trace_eval, Reg1Accessed);
+        let (_, [reg2_accessed]) = trace_eval!(trace_eval, Reg2Accessed);
+        let (_, [reg3_accessed]) = trace_eval!(trace_eval, Reg3Accessed);
+        let (_, [imm_c]) = trace_eval!(trace_eval, ImmC);
+        eval.add_constraint(is_add.clone() * (E::F::one() - reg1_accessed.clone()));
+        eval.add_constraint(is_add.clone() * imm_c.clone() * reg2_accessed.clone());
+        eval.add_constraint(
+            is_add.clone() * (E::F::one() - imm_c) * (E::F::one() - reg2_accessed.clone()),
+        );
+        eval.add_constraint(is_add.clone() * (E::F::one() - reg3_accessed.clone()));
+
         // TODO: range check CarryFlag's to be in {0, 1}.
         // TODO: range check rs{1,d}_val[i] to be in the range [0, 255].
         // TODO: range check rs2_val[i] to be [0, 255].
@@ -128,7 +155,7 @@ impl MachineChip for AddChip {
 
 #[cfg(test)]
 mod test {
-    use crate::machine2::chips::CpuChip;
+    use crate::machine2::{chips::CpuChip, trace::regs::RegisterMemCheckSideNote};
 
     use super::*;
     use nexus_vm::{
@@ -190,6 +217,7 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
+        let mut side_note = RegisterMemCheckSideNote::default();
         let mut row_idx = 0;
 
         // We iterate each block in the trace for each instruction
@@ -202,17 +230,22 @@ mod test {
                 };
 
                 // Fill in the main trace with the ValueB, valueC and Opcode
-                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step);
+                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
                 // Now fill in the traces with ValueA and CarryFlags
-                AddChip::fill_main_trace(&mut traces, row_idx, &program_step);
+                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
                 row_idx += 1;
             }
         }
         // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
         for more_row_idx in row_idx..(1 << LOG_SIZE) {
-            CpuChip::fill_main_trace(&mut traces, more_row_idx, &ProgramStep::padding());
+            CpuChip::fill_main_trace(
+                &mut traces,
+                more_row_idx,
+                &ProgramStep::padding(),
+                &mut side_note,
+            );
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
             let dummy_lookup_elements = LookupElements::dummy();

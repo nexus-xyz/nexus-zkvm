@@ -8,6 +8,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
+        regs::RegisterMemCheckSideNote,
         BoolWord, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
@@ -62,7 +63,12 @@ impl ExecuteChip for SubChip {
 }
 
 impl MachineChip for SubChip {
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        vm_step: &ProgramStep,
+        _side_note: &mut RegisterMemCheckSideNote,
+    ) {
         if vm_step.step.is_padding {
             return;
         }
@@ -195,6 +201,7 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
+        let mut side_note = RegisterMemCheckSideNote::default();
         let mut row_idx = 0;
 
         // We iterate each block in the trace for each instruction
@@ -207,20 +214,25 @@ mod test {
                 };
 
                 // CpuChip will fill ValueB and ValueC
-                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step);
+                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
                 // Now fill in the traces with ValueA and CarryFlags
                 // The AddChip is here because the 1st instruction is ADDI, there is no SUBI
                 // to replace ADDI, so 1st instruction is not handled by SubChip.
-                AddChip::fill_main_trace(&mut traces, row_idx, &program_step);
-                SubChip::fill_main_trace(&mut traces, row_idx, &program_step);
+                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+                SubChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
                 row_idx += 1;
             }
         }
         // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
         for more_row_idx in row_idx..(1 << LOG_SIZE) {
-            CpuChip::fill_main_trace(&mut traces, more_row_idx, &ProgramStep::padding());
+            CpuChip::fill_main_trace(
+                &mut traces,
+                more_row_idx,
+                &ProgramStep::padding(),
+                &mut side_note,
+            );
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
             let dummy_lookup_elements = LookupElements::dummy();

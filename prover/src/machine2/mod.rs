@@ -13,7 +13,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::trace::Trace;
-use trace::ProgramStep;
+use trace::{regs::RegisterMemCheckSideNote, ProgramStep};
 
 pub mod chips;
 pub mod components;
@@ -58,6 +58,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns.
         let mut prover_traces = trace::Traces::new(LOG_SIZE);
+        let mut prover_side_note = RegisterMemCheckSideNote::default();
         for (row_idx, block) in trace.get_blocks_iter().enumerate() {
             // k = 1
             assert_eq!(block.steps.len(), 1);
@@ -66,7 +67,7 @@ impl<C: MachineChip + Sync> Machine<C> {
                 step: block.steps[0].clone(),
                 regs: block.regs,
             };
-            C::fill_main_trace(&mut prover_traces, row_idx, &step);
+            C::fill_main_trace(&mut prover_traces, row_idx, &step, &mut prover_side_note);
         }
         let mut tree_builder = commitment_scheme.tree_builder();
         let _main_trace_location = tree_builder.extend_evals(prover_traces.circle_evaluation());

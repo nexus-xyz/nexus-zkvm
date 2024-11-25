@@ -22,6 +22,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
+        regs::RegisterMemCheckSideNote,
         ProgramStep, Traces,
     },
     traits::MachineChip,
@@ -37,20 +38,28 @@ use crate::machine2::column::PreprocessedColumn::{self, *};
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED: [Column; 7] = [
+    const CHECKED: [Column; 10] = [
         Pc,
         InstructionWord,
         PrevCtr,
         ValueA,
         ValueB,
         ValueC,
+        Reg1TsPrev,
+        Reg2TsPrev,
+        Reg3TsPrev,
         Helper1,
     ];
 }
 
 impl MachineChip for Range256Chip {
     /// Increments Multiplicity256 for every number checked
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, _step: &ProgramStep) {
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        _step: &ProgramStep,
+        _side_note: &mut RegisterMemCheckSideNote,
+    ) {
         for col in Self::CHECKED.iter() {
             // not using trace_column! because it doesn't accept *col as an argument.
             let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
@@ -181,6 +190,7 @@ mod test {
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
+        let mut side_note = RegisterMemCheckSideNote::default();
         // Write in-range values to ValueA columns.
         let mut buf = [0u8; WORD_SIZE];
 
@@ -193,7 +203,12 @@ mod test {
             traces.fill_columns_bytes(row_idx, &buf, ValueB);
             traces.fill_columns_bytes(row_idx, &buf, ValueC);
 
-            Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
+            Range256Chip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &ProgramStep::default(),
+                &mut side_note,
+            );
         }
         let mut preprocessed_256_rows = Traces::empty_preprocessed_trace(LOG_SIZE);
         preprocessed_256_rows.fill_is_first();
@@ -222,6 +237,7 @@ mod test {
         const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
+        let mut side_note = RegisterMemCheckSideNote::default();
         let mut buf = [BaseField::zero(); WORD_SIZE];
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
@@ -232,7 +248,12 @@ mod test {
             }
             traces.fill_columns_basefield(row_idx, &buf, ValueB);
 
-            Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
+            Range256Chip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &ProgramStep::default(),
+                &mut side_note,
+            );
         }
         let CommittedTraces {
             mut commitment_scheme,

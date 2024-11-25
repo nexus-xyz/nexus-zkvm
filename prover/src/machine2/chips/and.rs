@@ -26,6 +26,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
+        regs::RegisterMemCheckSideNote,
         ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
@@ -64,7 +65,12 @@ impl ExecuteChip for AndChip {
 }
 
 impl MachineChip for AndChip {
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        vm_step: &ProgramStep,
+        _side_note: &mut RegisterMemCheckSideNote,
+    ) {
         if vm_step.step.is_padding {
             return;
         }
@@ -206,6 +212,7 @@ mod test {
     };
 
     use super::*;
+
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
@@ -234,6 +241,7 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         let mut traces = Traces::new(LOG_SIZE);
+        let mut side_note = RegisterMemCheckSideNote::default();
 
         for (row_idx, trace) in vm_traces.blocks.iter().enumerate() {
             let regs = trace.regs;
@@ -244,9 +252,9 @@ mod test {
                 };
 
                 // Fill in the main trace with the ValueB, valueC and Opcode
-                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step);
-                AddChip::fill_main_trace(&mut traces, row_idx, &program_step);
-                AndChip::fill_main_trace(&mut traces, row_idx, &program_step);
+                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+                AndChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
             }
         }
 

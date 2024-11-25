@@ -1,4 +1,5 @@
 use impl_trait_for_tuples::impl_for_tuples;
+
 use stwo_prover::{
     constraint_framework::{logup::LookupElements, EvalAtRow},
     core::{
@@ -11,7 +12,7 @@ use stwo_prover::{
 
 use super::{
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{eval::TraceEval, ProgramStep, Traces},
+    trace::{eval::TraceEval, regs::RegisterMemCheckSideNote, ProgramStep, Traces},
 };
 
 pub trait ExecuteChip {
@@ -22,7 +23,12 @@ pub trait ExecuteChip {
 
 pub trait MachineChip {
     /// Called on each row during main trace generation.
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep);
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        vm_step: &ProgramStep,
+        side_note: &mut RegisterMemCheckSideNote,
+    );
 
     /// Called on each row during constraint evaluation.
     ///
@@ -49,8 +55,13 @@ pub trait MachineChip {
 
 #[impl_for_tuples(1, 12)]
 impl MachineChip for Tuple {
-    fn fill_main_trace(traces: &mut Traces, row_idx: usize, vm_step: &ProgramStep) {
-        for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step); )* );
+    fn fill_main_trace(
+        traces: &mut Traces,
+        row_idx: usize,
+        vm_step: &ProgramStep,
+        side_note: &mut RegisterMemCheckSideNote,
+    ) {
+        for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step, side_note); )* );
     }
 
     fn add_constraints<E: EvalAtRow>(
