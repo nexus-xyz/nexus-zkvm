@@ -37,19 +37,19 @@ pub struct Traces {
 }
 
 /// Trait to allow flexible boolean input
-pub trait ToBaseField {
-    fn to_base_fields(&self) -> Vec<BaseField>;
+pub(crate) trait ToBaseFields<const N: usize> {
+    fn to_base_fields(&self) -> [BaseField; N];
 }
 
-impl ToBaseField for bool {
-    fn to_base_fields(&self) -> Vec<BaseField> {
-        vec![BaseField::from(*self as u32)]
+impl ToBaseFields<1> for bool {
+    fn to_base_fields(&self) -> [BaseField; 1] {
+        [BaseField::from(*self as u32)]
     }
 }
 
-impl ToBaseField for &[bool; WORD_SIZE] {
-    fn to_base_fields(&self) -> Vec<BaseField> {
-        self.iter().map(|&b| BaseField::from(b as u32)).collect()
+impl ToBaseFields<{ WORD_SIZE }> for &[bool; WORD_SIZE] {
+    fn to_base_fields(&self) -> [BaseField; WORD_SIZE] {
+        std::array::from_fn(|i| BaseField::from(self[i] as u32))
     }
 }
 
@@ -128,7 +128,12 @@ impl Traces {
     }
 
     /// Fills columns with boolean value(s).
-    pub fn fill_columns_bool<B: ToBaseField>(&mut self, row: usize, value: B, col: Column) {
+    pub(crate) fn fill_columns_bool<const N: usize, B: ToBaseFields<N>>(
+        &mut self,
+        row: usize,
+        value: B,
+        col: Column,
+    ) {
         let base_field_values = value.to_base_fields();
         self.fill_columns_basefield(row, &base_field_values, col);
     }
