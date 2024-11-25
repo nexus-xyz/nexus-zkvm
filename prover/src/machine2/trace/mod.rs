@@ -1,3 +1,5 @@
+use std::array;
+
 use eval::TraceEval;
 use itertools::Itertools as _;
 use nexus_vm::WORD_SIZE;
@@ -36,7 +38,7 @@ pub struct Traces {
     log_size: u32,
 }
 
-/// Trait to allow flexible boolean input
+/// Trait for BaseField representation
 pub(crate) trait ToBaseFields<const N: usize> {
     fn to_base_fields(&self) -> [BaseField; N];
 }
@@ -50,6 +52,25 @@ impl ToBaseFields<1> for bool {
 impl ToBaseFields<{ WORD_SIZE }> for &[bool; WORD_SIZE] {
     fn to_base_fields(&self) -> [BaseField; WORD_SIZE] {
         std::array::from_fn(|i| BaseField::from(self[i] as u32))
+    }
+}
+
+impl ToBaseFields<{ WORD_SIZE }> for Word {
+    fn to_base_fields(&self) -> [BaseField; WORD_SIZE] {
+        array::from_fn(|i| BaseField::from(self[i] as u32))
+    }
+}
+
+impl ToBaseFields<{ WORD_SIZE }> for WordWithEffectiveBits {
+    fn to_base_fields(&self) -> [BaseField; WORD_SIZE] {
+        self.0.to_base_fields()
+    }
+}
+
+impl ToBaseFields<{ WORD_SIZE }> for u32 {
+    fn to_base_fields(&self) -> [BaseField; WORD_SIZE] {
+        let bytes = self.to_le_bytes();
+        array::from_fn(|i| BaseField::from(bytes[i] as u32))
     }
 }
 
@@ -151,11 +172,11 @@ impl Traces {
         })
     }
 
-    /// Fills columns with boolean value(s).
-    pub(crate) fn fill_columns_bool<const N: usize, B: ToBaseFields<N>>(
+    /// Fills four columns with u32 value.
+    pub(crate) fn fill_columns<const N: usize, T: ToBaseFields<N>>(
         &mut self,
         row: usize,
-        value: B,
+        value: T,
         col: Column,
     ) {
         let base_field_values = value.to_base_fields();
@@ -163,7 +184,7 @@ impl Traces {
     }
 
     /// Fills columns with values from a byte slice.
-    pub fn fill_columns(&mut self, row: usize, value: &[u8], col: Column) {
+    pub fn fill_columns_bytes(&mut self, row: usize, value: &[u8], col: Column) {
         let base_field_values = value
             .iter()
             .map(|b| BaseField::from(*b as u32))

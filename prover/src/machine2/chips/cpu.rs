@@ -39,16 +39,16 @@ impl MachineChip for CpuChip {
         // Set is_opcode to 1, e.g If this is ADD opcode, set IsAdd to 1.
         match step.instruction.opcode.builtin() {
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI) => {
-                traces.fill_columns_bool(row_idx, true, IsAdd);
+                traces.fill_columns(row_idx, true, IsAdd);
             }
             Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::ANDI) => {
-                traces.fill_columns_bool(row_idx, true, IsAnd);
+                traces.fill_columns(row_idx, true, IsAnd);
             }
             Some(BuiltinOpcode::SUB) => {
-                traces.fill_columns_bool(row_idx, true, IsSub);
+                traces.fill_columns(row_idx, true, IsSub);
             }
             Some(BuiltinOpcode::SLTU) => {
-                traces.fill_columns_bool(row_idx, true, IsSltu);
+                traces.fill_columns(row_idx, true, IsSltu);
             }
             _ => {
                 if !step.is_padding {
@@ -60,36 +60,32 @@ impl MachineChip for CpuChip {
             }
         };
 
-        let pc_bytes = pc.to_le_bytes();
-        traces.fill_columns(row_idx, &pc_bytes, Pc);
+        traces.fill_columns(row_idx, pc, Pc);
 
         // Fill ValueB and ValueC to the main trace
-        let value_b = vm_step.get_value_b();
-        traces.fill_columns(row_idx, &value_b, ValueB);
+        traces.fill_columns(row_idx, vm_step.get_value_b(), ValueB);
 
-        let (value_c, _effective_size) = vm_step.get_value_c();
-        traces.fill_columns(row_idx, &value_c, ValueC);
+        traces.fill_columns(row_idx, vm_step.get_value_c(), ValueC);
 
         // Fill InstructionWord to the main trace
-        let instruction_word = step.raw_instruction.to_le_bytes();
-        traces.fill_columns(row_idx, &instruction_word, InstructionWord);
+        traces.fill_columns(row_idx, step.raw_instruction, InstructionWord);
 
         // Fill OpA to the main trace
         let op_a = vm_step.step.instruction.op_a as u8;
-        traces.fill_columns(row_idx, &[op_a], OpA);
+        traces.fill_columns_bytes(row_idx, &[op_a], OpA);
 
         // Fill OpB to the main trace
         let op_b = vm_step.step.instruction.op_b as u8;
-        traces.fill_columns(row_idx, &[op_b], OpB);
+        traces.fill_columns_bytes(row_idx, &[op_b], OpB);
 
         // Fill OpC (if register index) or ImmC (if immediate) to the main trace
         let op_c_raw = vm_step.step.instruction.op_c;
         match vm_step.step.instruction.ins_type {
             RType => {
-                traces.fill_columns(row_idx, &[op_c_raw as u8], OpC);
+                traces.fill_columns_bytes(row_idx, &[op_c_raw as u8], OpC);
             }
             IType | BType | SType | ITypeShamt | JType | UType => {
-                traces.fill_columns(row_idx, &[1], ImmC); // ImmC is a boolean flag
+                traces.fill_columns_bytes(row_idx, &[1], ImmC); // ImmC is a boolean flag
             }
             Unimpl => {
                 panic!(
@@ -101,7 +97,7 @@ impl MachineChip for CpuChip {
 
         // Fill ValueAEffectiveFlag to the main trace
         let value_a_effective_flag = if op_a == 0 { 0 } else { 1 };
-        traces.fill_columns(row_idx, &[value_a_effective_flag], ValueAEffectiveFlag);
+        traces.fill_columns_bytes(row_idx, &[value_a_effective_flag], ValueAEffectiveFlag);
 
         // Fill ValueAEffectiveFlagAux to the main trace
         // Note op_a is u8 so it is always smaller than M31.

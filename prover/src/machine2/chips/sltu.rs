@@ -62,12 +62,12 @@ impl MachineChip for SltuChip {
             value_a_effective_flag,
         } = Self::execute(vm_step);
 
-        traces.fill_columns(row_idx, &diff_bytes, Helper1);
-        traces.fill_columns_bool(row_idx, &borrow_bits, CarryFlag);
+        traces.fill_columns_bytes(row_idx, &diff_bytes, Helper1);
+        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
 
         debug_assert_eq!(result, vm_step.get_result().expect("STLU must have result"));
 
-        traces.fill_columns(row_idx, &result, ValueA);
+        traces.fill_columns_bytes(row_idx, &result, ValueA);
         traces.fill_effective_columns(row_idx, &result, ValueAEffective, value_a_effective_flag);
     }
 

@@ -189,9 +189,9 @@ mod test {
                 *b = (row_idx + i) as u8;
             }
 
-            traces.fill_columns(row_idx, &buf, ValueA);
-            traces.fill_columns(row_idx, &buf, ValueB);
-            traces.fill_columns(row_idx, &buf, ValueC);
+            traces.fill_columns_bytes(row_idx, &buf, ValueA);
+            traces.fill_columns_bytes(row_idx, &buf, ValueB);
+            traces.fill_columns_bytes(row_idx, &buf, ValueC);
 
             Range256Chip::fill_main_trace(&mut traces, row_idx, &ProgramStep::default());
         }

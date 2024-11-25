@@ -84,9 +84,9 @@ impl MachineChip for AddChip {
                 .expect("ADD/ADDI instruction must have a result")
         );
 
-        traces.fill_columns(row_idx, &sum_bytes, ValueA);
+        traces.fill_columns_bytes(row_idx, &sum_bytes, ValueA);
         traces.fill_effective_columns(row_idx, &sum_bytes, ValueAEffective, value_a_effective_flag);
-        traces.fill_columns_bool(row_idx, &carry_bits, CarryFlag);
+        traces.fill_columns(row_idx, &carry_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(

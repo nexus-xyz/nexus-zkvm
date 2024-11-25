@@ -87,14 +87,14 @@ impl MachineChip for SubChip {
                 .expect("SUB instruction must have result")
         );
 
-        traces.fill_columns(row_idx, &diff_bytes, ValueA);
+        traces.fill_columns_bytes(row_idx, &diff_bytes, ValueA);
         traces.fill_effective_columns(
             row_idx,
             &diff_bytes,
             ValueAEffective,
             value_a_effective_flag,
         );
-        traces.fill_columns_bool(row_idx, &borrow_bits, CarryFlag);
+        traces.fill_columns(row_idx, &borrow_bits, CarryFlag);
     }
 
     fn add_constraints<E: EvalAtRow>(

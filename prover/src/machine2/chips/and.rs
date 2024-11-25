@@ -106,7 +106,7 @@ impl MachineChip for AndChip {
             assert_ne!(counter, m31::P);
         }
 
-        traces.fill_columns(row_idx, &and_bytes, ValueA);
+        traces.fill_columns_bytes(row_idx, &and_bytes, ValueA);
         traces.fill_effective_columns(row_idx, &and_bytes, ValueAEffective, value_a_effective_flag);
     }
 
