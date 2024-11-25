@@ -71,10 +71,25 @@ pub enum Column {
     /// Boolean flag on whether the row is a SLTU.
     #[size = 1]
     IsSltu,
+    /// Boolean flag on whether the row is a SLT.
+    #[size = 1]
+    IsSlt,
 
     /// Helper variable 1. Called h_1 in document.
     #[size = 4]
     Helper1,
+    /// Helper variable 2. Called h_2 in document.
+    #[size = 4]
+    Helper2,
+    /// Helper variable 3. Called h_3 in document.
+    #[size = 4]
+    Helper3,
+    /// Signed bit of B.
+    #[size = 1]
+    SgnB,
+    /// Signed bit of C.
+    #[size = 1]
+    SgnC,
     /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
     #[size = 1]
     Multiplicity256,

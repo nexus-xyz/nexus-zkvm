@@ -59,6 +59,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::SLTU) => {
                 traces.fill_columns(row_idx, true, IsSltu);
             }
+            Some(BuiltinOpcode::SLT) | Some(BuiltinOpcode::SLTI) => {
+                traces.fill_columns(row_idx, true, IsSlt);
+            }
             _ => {
                 if !step.is_padding {
                     panic!(

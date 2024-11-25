@@ -60,6 +60,18 @@ impl ProgramStep {
         self.step.instruction.op_a != Register::X0
     }
 
+    /// Returns the signed bit of ValueB
+    pub(crate) fn get_sgn_b(&self) -> bool {
+        let b = self.get_value_b();
+        (b[WORD_SIZE - 1] >> 7) == 1
+    }
+
+    /// Returns the signed bit of ValueC
+    pub(crate) fn get_sgn_c(&self) -> bool {
+        let c = self.get_value_c().0;
+        (c[WORD_SIZE - 1] >> 7) == 1
+    }
+
     /// Returns a step so that MachineChips can fill unused rows
     ///
     /// MachineChips will make sure padding steps don't cause constraint failures and don't affect memory checking
