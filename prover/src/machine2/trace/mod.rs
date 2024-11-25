@@ -53,6 +53,30 @@ impl ToBaseFields<{ WORD_SIZE }> for &[bool; WORD_SIZE] {
     }
 }
 
+/// Trait for reading Basefields
+pub(crate) trait FromBaseFields<const N: usize> {
+    fn from_base_fields(elms: [BaseField; N]) -> Self;
+}
+
+impl FromBaseFields<WORD_SIZE> for Word {
+    fn from_base_fields(elms: [BaseField; WORD_SIZE]) -> Self {
+        let mut ret = Word::default();
+        for (i, b) in elms.iter().enumerate() {
+            let read = b.0;
+            assert!(read < 256, "invalid byte value");
+            ret[i] = read as u8;
+        }
+        ret
+    }
+}
+
+impl FromBaseFields<WORD_SIZE> for u32 {
+    fn from_base_fields(elms: [BaseField; WORD_SIZE]) -> Self {
+        let bytes = Word::from_base_fields(elms);
+        u32::from_le_bytes(bytes)
+    }
+}
+
 impl Traces {
     /// 2^MIN_LOG_SIZE is the smallest number of rows supported
     ///
