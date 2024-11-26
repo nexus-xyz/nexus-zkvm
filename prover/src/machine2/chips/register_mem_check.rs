@@ -1,5 +1,6 @@
+use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
-use num_traits::Zero;
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{logup::LookupElements, EvalAtRow},
     core::{
@@ -11,14 +12,17 @@ use stwo_prover::{
 };
 
 use crate::machine2::{
-    column::Column::{
-        self, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev, Reg2Accessed, Reg2Address,
-        Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address, Reg3TsPrev, Reg3ValPrev,
-        ValueAEffective, ValueB, ValueC,
+    column::{
+        Column::{
+            self, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev, Reg2Accessed, Reg2Address,
+            Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address, Reg3TsPrev, Reg3ValPrev,
+            ValueAEffective, ValueB, ValueC,
+        },
+        PreprocessedColumn,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::TraceEval,
+        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         regs::{AccessResult, RegisterMemCheckSideNote},
         FromBaseFields, ProgramStep, Traces,
     },
@@ -95,15 +99,35 @@ impl MachineChip for RegisterMemCheckChip {
                 row_idx,
             );
         }
-
-        // TODO: write final register values somewhere
+        // If we reached the end, write the final register information
+        if row_idx == 1 << traces.log_size() - 1 {
+            for reg_idx in 0..NUM_REGISTERS {
+                let final_val = side_note.last_access_value[reg_idx];
+                traces.fill_columns(reg_idx, final_val, Column::FinalRegValue);
+                let final_ts = side_note.last_access_timestamp[reg_idx];
+                traces.fill_columns(reg_idx, final_ts, Column::FinalRegTs);
+            }
+        }
     }
     fn add_constraints<E: EvalAtRow>(
-        _eval: &mut E,
-        _trace_eval: &TraceEval<E>,
+        eval: &mut E,
+        trace_eval: &TraceEval<E>,
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        // TODO: implement
+        let (_, [is_first_32]) =
+            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
+        let (_, final_reg_value) = trace_eval!(trace_eval, Column::FinalRegValue);
+        let (_, final_reg_ts) = trace_eval!(trace_eval, Column::FinalRegTs);
+        // After the first 32 rows, FinalRegValue and FinalRegTs should be zero
+        for i in 0..WORD_SIZE {
+            eval.add_constraint((E::F::one() - is_first_32.clone()) * final_reg_value[i].clone());
+            eval.add_constraint((E::F::one() - is_first_32.clone()) * final_reg_ts[i].clone());
+        }
+        // TODO: range-check the final values, even if not strictly necessary
+
+        // TODO: implement logup
+
+        // TODO: constrain prev_ts < cur_ts
     }
     fn fill_interaction_trace(
         _original_traces: &Traces,

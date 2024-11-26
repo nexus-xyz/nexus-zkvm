@@ -2,6 +2,7 @@ use std::array;
 
 use eval::TraceEval;
 use itertools::Itertools as _;
+use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
 use num_traits::{One as _, Zero};
 use stwo_prover::{
@@ -130,6 +131,7 @@ impl Traces {
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
         let mut ret = Self { cols, log_size };
         ret.fill_is_first();
+        ret.fill_is_first32();
         ret.fill_timestamps();
         ret.fill_range256();
         ret.fill_range32();
@@ -341,6 +343,12 @@ impl Traces {
     }
     pub(crate) fn fill_is_first(&mut self) {
         self.cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
+    }
+    fn fill_is_first32(&mut self) {
+        debug_assert_eq!(NUM_REGISTERS, 32);
+        for row_idx in 0..32 {
+            self.cols[PreprocessedColumn::IsFirst32.offset()][row_idx] = BaseField::one();
+        }
     }
     pub(crate) fn fill_range256(&mut self) {
         for row_idx in 0..256 {
