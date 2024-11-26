@@ -84,20 +84,20 @@ impl MachineChip for CpuChip {
 
         // Fill OpA to the main trace
         let op_a = vm_step.step.instruction.op_a as u8;
-        traces.fill_columns_bytes(row_idx, &[op_a], OpA);
+        traces.fill_columns(row_idx, op_a, OpA);
 
         // Fill OpB to the main trace
         let op_b = vm_step.step.instruction.op_b as u8;
-        traces.fill_columns_bytes(row_idx, &[op_b], OpB);
+        traces.fill_columns(row_idx, op_b, OpB);
 
         // Fill OpC (if register index) or ImmC (if immediate) to the main trace
         let op_c_raw = vm_step.step.instruction.op_c;
         match vm_step.step.instruction.ins_type {
             RType => {
-                traces.fill_columns_bytes(row_idx, &[op_c_raw as u8], OpC);
+                traces.fill_columns(row_idx, op_c_raw as u8, OpC);
             }
             IType | BType | SType | ITypeShamt | JType | UType => {
-                traces.fill_columns_bytes(row_idx, &[1], ImmC); // ImmC is a boolean flag
+                traces.fill_columns(row_idx, true, ImmC); // ImmC is a boolean flag
             }
             Unimpl => {
                 panic!(
@@ -108,8 +108,8 @@ impl MachineChip for CpuChip {
         }
 
         // Fill ValueAEffectiveFlag to the main trace
-        let value_a_effective_flag = if op_a == 0 { 0 } else { 1 };
-        traces.fill_columns_bytes(row_idx, &[value_a_effective_flag], ValueAEffectiveFlag);
+        let value_a_effective_flag = op_a != 0;
+        traces.fill_columns(row_idx, value_a_effective_flag, ValueAEffectiveFlag);
 
         // Fill ValueAEffectiveFlagAux to the main trace
         // Note op_a is u8 so it is always smaller than M31.
