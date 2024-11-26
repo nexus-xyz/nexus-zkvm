@@ -69,6 +69,9 @@ impl MachineChip for AddChip {
         vm_step: &ProgramStep,
         _side_note: &mut RegisterMemCheckSideNote,
     ) {
+        if vm_step.step.is_padding {
+            return;
+        }
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI)
