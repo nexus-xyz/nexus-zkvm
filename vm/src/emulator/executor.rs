@@ -74,8 +74,8 @@ use crate::{
     elf::ElfFile,
     error::{MemoryError, Result, VMError},
     memory::{
-        FixedMemory, LoadOp, LoadOps, MemAccessSize, MemoryProcessor, MemoryRecord, MemoryRecords,
-        Modes, StoreOp, StoreOps, UnifiedMemory, VariableMemory, NA, RO, RW, WO,
+        FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, MemoryRecords, Modes, StoreOp,
+        UnifiedMemory, VariableMemory, NA, RO, RW, WO,
     },
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode},
     system::SyscallInstruction,
