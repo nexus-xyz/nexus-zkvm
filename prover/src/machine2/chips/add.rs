@@ -147,8 +147,6 @@ impl MachineChip for AddChip {
         eval.add_constraint(is_add.clone() * (E::F::one() - reg3_accessed.clone()));
 
         // TODO: range check CarryFlag's to be in {0, 1}.
-        // TODO: range check rs{1,d}_val[i] to be in the range [0, 255].
-        // TODO: range check rs2_val[i] to be [0, 255].
         // TODO: special range check rs2_val[i] for ADDI case, because immediate values have a smaller range.
     }
 }

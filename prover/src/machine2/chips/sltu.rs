@@ -125,10 +125,7 @@ impl MachineChip for SltuChip {
         }
 
         // TODO: range check CarryFlag to be in {0, 1}.
-        // TODO: range check r{s1,s2}_val[i] to be in [0, 255].
-        // TODO: range check helper1_val[i] to be in [0, 255].
         // TODO: range check rd_val[i] to be in {0, 1}.
-        // TODO: constrain ValueAEffective in CpuChip.
     }
 }
 

@@ -118,7 +118,6 @@ impl MachineChip for SubChip {
         let (_, value_b) = trace_eval!(trace_eval, ValueB);
         let (_, value_c) = trace_eval!(trace_eval, ValueC);
         let (_, value_a) = trace_eval!(trace_eval, ValueA);
-        // TODO: constrain ValueAEffective to be zero or equal to ValueA depending on whether rd is x0 (in CPU chip, when it exists)
 
         for i in 0..WORD_SIZE {
             let borrow = i

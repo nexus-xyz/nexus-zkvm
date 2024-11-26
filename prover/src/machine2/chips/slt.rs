@@ -176,8 +176,6 @@ impl MachineChip for SltChip {
 
         // TODO: range check sgn_b, sgn_c to be in {0, 1}.
         // TODO: range check CarryFlag to be in {0, 1}.
-        // TODO: range check r{s1,s2}_val[i] to be in [0, 255].
-        // TODO: range check helper1_val[i] to be in [0, 255].
         // TODO: range check helper2_val[3] to be in [0, 127].
         // TODO: range check helper3_val[3] to be in [0, 127].
         // TODO: range check rd_val[i] to be in {0, 1}.
