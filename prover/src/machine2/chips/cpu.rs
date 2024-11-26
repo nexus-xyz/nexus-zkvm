@@ -5,10 +5,13 @@ use stwo_prover::{
 };
 
 use crate::machine2::{
-    column::Column::{self, *},
+    column::{
+        Column::{self, *},
+        PreprocessedColumn,
+    },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::{trace_eval, TraceEval},
+        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         regs::RegisterMemCheckSideNote,
         ProgramStep, Traces,
     },
@@ -42,6 +45,11 @@ impl MachineChip for CpuChip {
         // When row != 0 && pc == 0 are allowed
         // TODO: revise this 0th row check, see https://github.com/nexus-xyz/nexus-zkvm-neo/pull/145#discussion_r1842726498
         // assert!(!(row_idx == 0) || pc == 0);
+
+        // Fill IsPadding row
+        if step.is_padding {
+            traces.fill_columns(row_idx, true, IsPadding);
+        }
 
         // Add opcode to the main trace
         // TODO: We should also set ImmC or ImmB flags here.
@@ -139,6 +147,28 @@ impl MachineChip for CpuChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         // TODO: add more constraints for the CPU chip.
+
+        // Constrain IsPadding's range
+        let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
+        eval.add_constraint(is_padding.clone() * (E::F::one() - is_padding.clone()));
+
+        // Padding rows should not access registers
+        let ([prev_is_padding], [is_padding]) = trace_eval!(trace_eval, Column::IsPadding);
+        let (_, [reg1_accessed]) = trace_eval!(trace_eval, Column::Reg1Accessed);
+        let (_, [reg2_accessed]) = trace_eval!(trace_eval, Column::Reg2Accessed);
+        let (_, [reg3_accessed]) = trace_eval!(trace_eval, Column::Reg3Accessed);
+        eval.add_constraint(is_padding.clone() * reg1_accessed.clone());
+        eval.add_constraint(is_padding.clone() * reg2_accessed.clone());
+        eval.add_constraint(is_padding.clone() * reg3_accessed.clone());
+
+        // Padding cannot go from 1 to zero, unless the current line is the first
+        // TODO: consider forcing IsPadding == 0 on the first row, if we prefer to ban zero-step empty executions.
+        let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        eval.add_constraint(
+            (E::F::one() - is_first.clone())
+                * prev_is_padding.clone()
+                * (E::F::one() - is_padding.clone()),
+        );
 
         // Constrain ValueAEffectiveFlag's range
         let (_, [value_a_effective_flag]) = trace_eval!(trace_eval, ValueAEffectiveFlag);

@@ -74,6 +74,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a SLT.
     #[size = 1]
     IsSlt,
+    /// Boolean flag on whether the row is a padding.
+    #[size = 1]
+    IsPadding,
 
     /// Helper variable 1. Called h_1 in document.
     #[size = 4]
