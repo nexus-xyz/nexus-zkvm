@@ -40,41 +40,41 @@ pub struct Traces {
 }
 
 /// Trait for BaseField representation
-pub(crate) trait ToBaseFields<const N: usize> {
+pub(crate) trait IntoBaseFields<const N: usize> {
     fn into_base_fields(self) -> [BaseField; N];
 }
 
-impl ToBaseFields<1> for bool {
+impl IntoBaseFields<1> for bool {
     fn into_base_fields(self) -> [BaseField; 1] {
         [BaseField::from(self as u32)]
     }
 }
 
-impl ToBaseFields<1> for u8 {
+impl IntoBaseFields<1> for u8 {
     fn into_base_fields(self) -> [BaseField; 1] {
         [BaseField::from(self as u32)]
     }
 }
 
-impl ToBaseFields<{ WORD_SIZE }> for [bool; WORD_SIZE] {
+impl IntoBaseFields<{ WORD_SIZE }> for [bool; WORD_SIZE] {
     fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
         std::array::from_fn(|i| BaseField::from(self[i] as u32))
     }
 }
 
-impl ToBaseFields<{ WORD_SIZE }> for Word {
+impl IntoBaseFields<{ WORD_SIZE }> for Word {
     fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
         array::from_fn(|i| BaseField::from(self[i] as u32))
     }
 }
 
-impl ToBaseFields<{ WORD_SIZE }> for WordWithEffectiveBits {
+impl IntoBaseFields<{ WORD_SIZE }> for WordWithEffectiveBits {
     fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
         self.0.into_base_fields()
     }
 }
 
-impl ToBaseFields<{ WORD_SIZE }> for u32 {
+impl IntoBaseFields<{ WORD_SIZE }> for u32 {
     fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
         let bytes = self.to_le_bytes();
         array::from_fn(|i| BaseField::from(bytes[i] as u32))
@@ -180,7 +180,7 @@ impl Traces {
     }
 
     /// Fills four columns with u32 value.
-    pub(crate) fn fill_columns<const N: usize, T: ToBaseFields<N>>(
+    pub(crate) fn fill_columns<const N: usize, T: IntoBaseFields<N>>(
         &mut self,
         row: usize,
         value: T,
