@@ -135,6 +135,7 @@ impl Traces {
         ret.fill_is_first32();
         ret.fill_timestamps();
         ret.fill_range256();
+        ret.fill_range128();
         ret.fill_range32();
         ret.fill_bitwise();
         ret
@@ -359,6 +360,11 @@ impl Traces {
     pub(crate) fn fill_range32(&mut self) {
         for row_idx in 0..32 {
             self.cols[PreprocessedColumn::Range32.offset()][row_idx] = BaseField::from(row_idx);
+        }
+    }
+    fn fill_range128(&mut self) {
+        for row_idx in 0..128 {
+            self.cols[PreprocessedColumn::Range128.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
     fn fill_timestamps(&mut self) {

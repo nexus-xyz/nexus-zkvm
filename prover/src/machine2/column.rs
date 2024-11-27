@@ -186,6 +186,9 @@ pub enum PreprocessedColumn {
     /// Timestamp for the third register access
     #[size = 4]
     Reg3TsCur,
+    /// Contains numbers from 0 to 127, and 0 afterwards.
+    #[size = 1]
+    Range128,
     /// Contains numbers from 0 to 255, and 0 afterwards.
     #[size = 1]
     Range256,
