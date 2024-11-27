@@ -27,7 +27,9 @@ use crate::machine2::{
     traits::MachineChip,
 };
 
-use crate::machine2::column::Column::{self, Multiplicity32, OpA, OpB, OpC};
+use crate::machine2::column::Column::{
+    self, Multiplicity32, OpA, OpB, OpC, Reg1Address, Reg2Address, Reg3Address,
+};
 use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range32};
 
 /// A Chip for range-checking values for 0..=31
@@ -35,6 +37,8 @@ use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range32};
 /// Range32Chip needs to be located at the end of the chip composition together with the other range check chips
 
 pub struct Range32Chip;
+
+const CHECKED: [Column; 6] = [OpA, OpB, OpC, Reg1Address, Reg2Address, Reg3Address];
 
 impl MachineChip for Range32Chip {
     /// Increments Multiplicity32 for every number checked
@@ -44,13 +48,10 @@ impl MachineChip for Range32Chip {
         _step: &ProgramStep,
         side_note: &mut SideNote,
     ) {
-        let [op_a] = traces.column(row_idx, OpA);
-        fill_main_elm(op_a, traces, side_note);
-        let [op_b] = traces.column(row_idx, OpB);
-        fill_main_elm(op_b, traces, side_note);
-        let [op_c] = traces.column(row_idx, OpC);
-        fill_main_elm(op_c, traces, side_note);
-        // TODO: check the other columns, too.
+        for col in CHECKED.into_iter() {
+            let [val] = traces.column(row_idx, col);
+            fill_main_elm(val, traces, side_note);
+        }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -64,7 +65,7 @@ impl MachineChip for Range32Chip {
 
         // Add checked occurrences to logup sum.
         // TODO: range-check other byte-ranged columns.
-        for col in [OpA, OpB, OpC].iter() {
+        for col in CHECKED.iter() {
             let [value_basecolumn]: [BaseColumn; 1] = original_traces.get_base_column(*col);
             let log_size = original_traces.log_size();
             let logup_trace_gen: &mut LogupTraceGenerator = &mut logup_trace_gen;
@@ -106,7 +107,7 @@ impl MachineChip for Range32Chip {
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum.
-        for col in [OpA, OpB, OpC].iter() {
+        for col in CHECKED.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
             let (_, [value]) = trace_eval.column_eval(*col);
             let denom: E::EF = lookup_elements.combine(&[value.clone()]);
@@ -158,9 +159,9 @@ mod test {
         for row_idx in 0..(1 << LOG_SIZE) {
             let b = (row_idx % 32) as u8;
 
-            traces.fill_columns(row_idx, b, Column::OpA);
-            traces.fill_columns(row_idx, b, Column::OpB);
-            traces.fill_columns(row_idx, b, Column::OpC);
+            for col in CHECKED.iter() {
+                traces.fill_columns(row_idx, b, *col);
+            }
 
             Range32Chip::fill_main_trace(
                 &mut traces,
