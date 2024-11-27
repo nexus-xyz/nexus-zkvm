@@ -28,8 +28,11 @@ use crate::machine2::{
     traits::MachineChip,
 };
 
-use crate::machine2::column::Column::{self, *};
-use crate::machine2::column::PreprocessedColumn::{self, *};
+use crate::machine2::column::Column::{
+    self, Helper1, InstructionWord, Multiplicity256, Pc, PrevCtr, Reg1TsPrev, Reg2TsPrev,
+    Reg3TsPrev, ValueA, ValueB, ValueC,
+};
+use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range256};
 
 /// A Chip for range-checking values for 0..=255
 ///
