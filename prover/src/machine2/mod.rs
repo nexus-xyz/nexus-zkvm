@@ -33,9 +33,9 @@ pub type Components = (
     AddChip,
     SubChip,
     SltuChip,
-    Range256Chip,
     AndChip,
     SltChip,
+    Range256Chip, // Range256Chip::main_trace_fill() uses values filled by instruction chips
 );
 pub type Proof = StarkProof<Blake2sMerkleHasher>;
 
