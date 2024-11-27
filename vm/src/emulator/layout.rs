@@ -1,5 +1,6 @@
 use crate::error::{Result, VMError};
-use crate::WORD_SIZE;
+use nexus_common::constants::WORD_SIZE;
+use nexus_common::word_align;
 use serde::{Deserialize, Serialize};
 
 // see runtime
@@ -48,9 +49,9 @@ impl LinearMemoryLayout {
 
         // enforce order
         if self.ad_start() <= self.program_start()
-            || self.program_start() <= self.public_output_start()
+            || self.program_start() < self.public_output_start() // Allow empty output
             || self.public_output_start() <= self.panic()
-            || self.panic() <= self.public_input_start()
+            || self.panic() < self.public_input_start() // Allow empty input
             || self.public_input_start() <= self.stack_top()
             || self.stack_top() <= self.stack_bottom()
             || self.stack_bottom() <= self.gap_start()
@@ -103,8 +104,8 @@ impl LinearMemoryLayout {
         let ml = Self::new_unchecked(
             max_heap_size,
             max_stack_size,
-            public_input_size,
-            public_output_size,
+            word_align!(public_input_size as usize) as u32,
+            word_align!(public_output_size as usize) as u32,
             program_size,
             ad_size,
         );

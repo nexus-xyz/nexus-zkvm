@@ -52,6 +52,7 @@ use std::path::Path;
 
 use super::error::ParserError;
 
+#[derive(Clone)]
 pub struct ElfFile {
     /// The instructions of the program encoded as 32-bits.
     pub instructions: Vec<u32>,

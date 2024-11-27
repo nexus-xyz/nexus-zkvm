@@ -1,7 +1,8 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-use crate::WORD_SIZE;
+use nexus_common::constants::WORD_SIZE;
 use nexus_common::error::MemoryError;
+use nexus_common::{bytes_to_words, word_align, words_to_bytes};
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, NA, RO, RW, WO};
 
@@ -64,8 +65,17 @@ impl<M: Mode> FixedMemory<M> {
         }
     }
 
-    pub fn from_slice(base_address: u32, max_len: usize, slice: &[u32]) -> Self {
-        let mut vec = slice.to_vec();
+    pub fn from_bytes(base_address: u32, bytes: &[u8]) -> Self {
+        FixedMemory::<M> {
+            base_address,
+            max_len: word_align!(bytes.len()),
+            vec: bytes_to_words!(bytes),
+            __mode: PhantomData,
+        }
+    }
+
+    pub fn from_words(base_address: u32, max_len: usize, words: &[u32]) -> Self {
+        let mut vec = words.to_vec();
         vec.truncate(max_len / WORD_SIZE);
 
         FixedMemory::<M> {
@@ -85,6 +95,10 @@ impl<M: Mode> FixedMemory<M> {
         } else {
             &self.vec[s as usize..]
         }
+    }
+
+    pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> Vec<u8> {
+        words_to_bytes!(self.segment(start, end))
     }
 }
 

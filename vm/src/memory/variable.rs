@@ -2,8 +2,9 @@ use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::marker::PhantomData;
 
-use crate::WORD_SIZE;
+use nexus_common::constants::WORD_SIZE;
 use nexus_common::error::MemoryError;
+use nexus_common::words_to_bytes;
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, RO, RW, WO};
 
@@ -152,6 +153,10 @@ impl<M: Mode> VariableMemory<M> {
         } else {
             Ok(values)
         }
+    }
+
+    pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> Result<Vec<u8>, MemoryError> {
+        Ok(words_to_bytes!(self.segment(start, end)?))
     }
 }
 

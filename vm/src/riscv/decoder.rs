@@ -49,47 +49,6 @@ use crate::riscv::instructions::{BasicBlock, BasicBlockProgram, Instruction, Ins
 use nexus_common::riscv::{instruction::InstructionType, Opcode};
 use rrs_lib::process_instruction;
 
-/// Decodes RISC-V instructions from an ELF file into basic blocks
-///
-/// # Arguments
-///
-/// * `u32_instructions` - A slice of u32 values representing RISC-V instructions
-///
-/// # Returns
-///
-/// A `BasicBlockProgram` containing the decoded instructions organized into basic blocks
-pub fn decode_instructions(u32_instructions: &[u32]) -> BasicBlockProgram {
-    let mut program = BasicBlockProgram::default();
-    let mut current_block = BasicBlock::default();
-    let mut decoder = InstructionDecoder;
-    let mut start_new_block = true;
-
-    for &u32_instruction in u32_instructions.iter() {
-        // Decode the instruction, if the instruction is unrecognizable, it will be marked as unimplemented.
-        let decoded_instruction =
-            process_instruction(&mut decoder, u32_instruction).unwrap_or_else(Instruction::unimpl);
-
-        // Start a new basic block if necessary
-        if start_new_block && !current_block.0.is_empty() {
-            program.blocks.push(current_block);
-            current_block = BasicBlock::default();
-        }
-
-        // Check if the next instruction should start a new basic block
-        start_new_block = decoded_instruction.is_branch_or_jump_instruction();
-
-        // Add the decoded instruction to the current basic block
-        current_block.0.push(decoded_instruction);
-    }
-
-    // Add the last block if it's not empty
-    if !current_block.0.is_empty() {
-        program.blocks.push(current_block);
-    }
-
-    program
-}
-
 #[inline(always)]
 fn extract_opcode(u32_instruction: u32) -> u8 {
     const OPCODE_MASK: u32 = 0x7F; // 7 least significant bits (6-0)
@@ -154,54 +113,96 @@ const DYNAMIC_RTYPE_OPCODE: u8 = 0b0001011;
 const DYNAMIC_STYPE_OPCODE: u8 = 0b1011011;
 const DYNAMIC_ITYPE_OPCODE: u8 = 0b0101011;
 
-pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
-    let mut block = BasicBlock::default();
+pub fn decode_instruction(u32_instruction: u32) -> Instruction {
     let mut decoder = InstructionDecoder;
+    // Decode the instruction
+    process_instruction(&mut decoder, u32_instruction).unwrap_or_else(|| {
+        // The rrs_lib instruction decoding doesn't have support for custom instructions,
+        // so we need to handle them more as an error condition.
+        let opcode = extract_opcode(u32_instruction);
+        let fn3 = extract_fn3(u32_instruction);
+        let fn7 = extract_fn7(u32_instruction);
+        let rs1 = extract_rs1(u32_instruction);
+        let rs2 = extract_rs2(u32_instruction);
+        let rd = extract_rd(u32_instruction);
+        let i_imm = extract_i_imm(u32_instruction);
+        let s_imm = extract_s_imm(u32_instruction);
+
+        if opcode == DYNAMIC_ITYPE_OPCODE {
+            Instruction::new(
+                Opcode::new(opcode, Some(fn3), None, "dynamic"),
+                rd,
+                rs1,
+                i_imm,
+                InstructionType::IType,
+            )
+        } else if opcode == DYNAMIC_STYPE_OPCODE {
+            Instruction::new(
+                Opcode::new(opcode, Some(fn3), None, "dynamic"),
+                rs1,
+                rs2,
+                s_imm,
+                InstructionType::SType,
+            )
+        } else if opcode == DYNAMIC_RTYPE_OPCODE {
+            Instruction::new(
+                Opcode::new(opcode, Some(fn3), Some(fn7), "dynamic"),
+                rd,
+                rs1,
+                rs2.into(),
+                InstructionType::RType,
+            )
+        } else {
+            // Only support the single dynamic R-type, S-type, and I-type opcodes.
+            Instruction::unimpl()
+        }
+    })
+}
+
+/// Decodes RISC-V instructions from an ELF file into basic blocks
+///
+/// # Arguments
+///
+/// * `u32_instructions` - A slice of u32 values representing RISC-V instructions
+///
+/// # Returns
+///
+/// A `BasicBlockProgram` containing the decoded instructions organized into basic blocks
+pub fn decode_instructions(u32_instructions: &[u32]) -> BasicBlockProgram {
+    let mut program = BasicBlockProgram::default();
+    let mut current_block = BasicBlock::default();
+    let mut start_new_block = true;
 
     for &u32_instruction in u32_instructions.iter() {
-        // Decode the instruction
-        let decoded_instruction = process_instruction(&mut decoder, u32_instruction)
-            .unwrap_or_else(|| {
-                // The rrs_lib instruction decoding doesn't have support for custom instructions,
-                // so we need to handle them more as an error condition.
-                let opcode = extract_opcode(u32_instruction);
-                let fn3 = extract_fn3(u32_instruction);
-                let fn7 = extract_fn7(u32_instruction);
-                let rs1 = extract_rs1(u32_instruction);
-                let rs2 = extract_rs2(u32_instruction);
-                let rd = extract_rd(u32_instruction);
-                let i_imm = extract_i_imm(u32_instruction);
-                let s_imm = extract_s_imm(u32_instruction);
+        // Decode the instruction, if the instruction is unrecognizable, it will be marked as unimplemented.
+        let decoded_instruction = decode_instruction(u32_instruction);
 
-                if opcode == DYNAMIC_ITYPE_OPCODE {
-                    Instruction::new(
-                        Opcode::new(opcode, Some(fn3), None, "dynamic"),
-                        rd,
-                        rs1,
-                        i_imm,
-                        InstructionType::IType,
-                    )
-                } else if opcode == DYNAMIC_STYPE_OPCODE {
-                    Instruction::new(
-                        Opcode::new(opcode, Some(fn3), None, "dynamic"),
-                        rs1,
-                        rs2,
-                        s_imm,
-                        InstructionType::SType,
-                    )
-                } else if opcode == DYNAMIC_RTYPE_OPCODE {
-                    Instruction::new(
-                        Opcode::new(opcode, Some(fn3), Some(fn7), "dynamic"),
-                        rd,
-                        rs1,
-                        rs2.into(),
-                        InstructionType::RType,
-                    )
-                } else {
-                    // Only support the single dynamic R-type, S-type, and I-type opcodes.
-                    Instruction::unimpl()
-                }
-            });
+        // Start a new basic block if necessary
+        if start_new_block && !current_block.0.is_empty() {
+            program.blocks.push(current_block);
+            current_block = BasicBlock::default();
+        }
+
+        // Check if the next instruction should start a new basic block
+        start_new_block = decoded_instruction.is_branch_or_jump_instruction();
+
+        // Add the decoded instruction to the current basic block
+        current_block.0.push(decoded_instruction);
+    }
+
+    // Add the last block if it's not empty
+    if !current_block.0.is_empty() {
+        program.blocks.push(current_block);
+    }
+
+    program
+}
+
+pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
+    let mut block = BasicBlock::default();
+
+    for &u32_instruction in u32_instructions.iter() {
+        let decoded_instruction = decode_instruction(u32_instruction);
 
         let pc_changed = decoded_instruction.is_branch_or_jump_instruction();
 
@@ -219,7 +220,7 @@ pub fn decode_until_end_of_a_block(u32_instructions: &[u32]) -> BasicBlock {
 mod tests {
     use super::*;
     use crate::elf::ElfFile;
-    use crate::WORD_SIZE;
+    use nexus_common::constants::WORD_SIZE;
 
     /// Tests the decoding of instructions from an ELF file
     ///

@@ -4,6 +4,8 @@ use num_traits::FromPrimitive;
 use rangemap::RangeMap;
 use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
+use nexus_common::words_to_bytes;
+
 use super::{
     FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, StoreOp, VariableMemory, NA, RO, RW, WO,
 };
@@ -204,6 +206,15 @@ impl UnifiedMemory {
             }
             _ => Err(MemoryError::UndefinedMemoryRegion),
         }
+    }
+
+    pub fn segment_bytes(
+        &self,
+        uidx: (usize, usize),
+        start: u32,
+        end: Option<u32>,
+    ) -> Result<Vec<u8>, MemoryError> {
+        Ok(words_to_bytes!(self.segment(uidx, start, end)?))
     }
 }
 

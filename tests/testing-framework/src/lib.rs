@@ -1,17 +1,20 @@
 #[cfg(test)]
 mod test {
     use nexus_common::cpu::InstructionResult;
+
     use nexus_vm::elf::ElfFile;
     use nexus_vm::emulator::MemoryTranscript;
     use nexus_vm::emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout};
     use postcard::{from_bytes, to_allocvec};
-    use serde::{de::DeserializeOwned, Deserialize, Serialize};
+    use serde::{de::DeserializeOwned, Serialize};
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
 
+    #[derive(Clone)]
     enum EmulatorType {
         Harvard,
         Linear(u32, u32, u32), // heap size, stack size, program size
+        TwoPass,
     }
 
     impl EmulatorType {
@@ -103,43 +106,8 @@ mod test {
         std::fs::read(elf_file).expect("Failed to read elf file")
     }
 
-    /// Serialize a value into a vector of u32 words.
-    fn serialize_into_u32_chunks<T: Serialize>(value: &T) -> Vec<u32> {
-        // Serialize to bytes.
-        let mut bytes = to_allocvec(value).expect("Serialization failed");
-        // Pad to the next multiple of 4.
-        bytes.resize((bytes.len() + 3) & !3, 0);
-        // Convert to u32 chunks.
-        bytes
-            .chunks(4)
-            .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
-            .collect()
-    }
-
-    /// Deserialize a value from a vector of u32 words.
-    fn deserialize_from_u32_chunks<T: DeserializeOwned>(u32_chunks: &[u32]) -> T {
-        let mut bytes = Vec::with_capacity(u32_chunks.len() * 4);
-        for &word in u32_chunks {
-            bytes.extend_from_slice(&word.to_le_bytes());
-        }
-        from_bytes(&bytes).expect("Deserialization failed")
-    }
-
-    /// Helper function to run emulator and check that the inputs and outputs are correct.
-    fn emulate<
-        T: Serialize,
-        U: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone,
-    >(
-        test_name: &str,
-        input: Option<T>,
-        expected_output: Option<U>,
-        expected_result: Result<
-            (Vec<InstructionResult>, MemoryTranscript),
-            nexus_vm::error::VMError,
-        >,
-        emulator_type: EmulatorType,
-        compile_flags: &[&str],
-    ) {
+    fn compile_multi(test_name: &str, compile_flags: &[&str]) -> Vec<ElfFile> {
+        let mut elfs = Vec::<ElfFile>::new();
         // Set up the temporary directories for intermediate project setup.
         let tmp_dir = &create_tmp_dir();
         let tmp_project_path = tmp_dir.path().join("integration");
@@ -156,192 +124,176 @@ mod test {
             std::fs::write(&elf_path, &elf_contents).expect("Failed to write file");
 
             // Parse the elf file.
-            let elf = ElfFile::from_path(&elf_path).expect("Unable to load ELF from path");
-            let input_bytes: Vec<u32> = if let Some(input) = &input {
-                serialize_into_u32_chunks(input)
-            } else {
-                vec![]
-            };
-            let mut deserialized_output: Option<U> = None;
+            let elf = ElfFile::from_bytes(&elf_contents).expect("Unable to load ELF from bytes");
+            elfs.push(elf);
+        }
+        elfs
+    }
+
+    /// Helper function to run emulator and check that the inputs and outputs are correct.
+    fn emulate<
+        T: Serialize,
+        U: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone,
+    >(
+        elfs: Vec<ElfFile>,
+        input: Option<T>,
+        expected_output: Option<U>,
+        expected_result: Result<
+            (Vec<InstructionResult>, MemoryTranscript),
+            nexus_vm::error::VMError,
+        >,
+        emulator_type: EmulatorType,
+    ) {
+        // Serialize the input.
+        let mut input_bytes = Vec::<u8>::new();
+        if let Some(input) = &input {
+            input_bytes = to_allocvec(input).expect("Serialization failed");
+        }
+
+        let mut deserialized_output: Option<U> = None;
+        let ad = vec![0u8; 0xbeef as usize]; // placeholder ad until we have use for it
+
+        for elf in elfs {
             match emulator_type {
-                EmulatorType::Harvard => {
-                    let mut emulator = HarvardEmulator::from_elf(elf, &input_bytes, &[]);
+                EmulatorType::Harvard | EmulatorType::TwoPass => {
+                    // Use elf file to build the harvard emulator.
+                    let mut emulator = HarvardEmulator::from_elf(elf.clone(), &input_bytes, &[]);
+
+                    // Check that the program exits correctly.
                     assert_eq!(emulator.execute(), expected_result);
+
+                    // Deserialize the output.
                     if expected_output.is_some() {
-                        let output_vec = emulator.get_output().unwrap();
-                        deserialized_output = Some(deserialize_from_u32_chunks::<U>(&output_vec));
+                        let output_bytes = emulator.get_output().unwrap();
+                        deserialized_output =
+                            Some(from_bytes(&output_bytes).expect("Deserialization failed"));
+                    }
+
+                    // Run a second pass with a linear emulator constructed from the harvard emulator.
+                    if matches!(emulator_type, EmulatorType::TwoPass) {
+                        // Check that the intermediate output is correct.
+                        assert_eq!(deserialized_output, expected_output);
+
+                        // Use the data obtained from the harvard emulator to construct the linear emulator.
+                        let mut linear_emulator =
+                            LinearEmulator::from_harvard(emulator, elf, &ad, &[]).unwrap();
+
+                        // Check that the program exits correctly.
+                        assert_eq!(linear_emulator.execute(), expected_result);
+
+                        // Deserialize the output.
+                        if expected_output.is_some() {
+                            let output_bytes = linear_emulator.get_output().unwrap();
+                            deserialized_output =
+                                Some(from_bytes(&output_bytes).expect("Deserialization failed"));
+                        }
                     }
                 }
                 EmulatorType::Linear(heap_size, stack_size, program_size) => {
-                    let output_len = if let Some(expected_output) = expected_output.clone() {
-                        serialize_into_u32_chunks(&expected_output).len()
-                    } else {
-                        0
-                    };
-
+                    // Calculate the output length.
+                    let mut output_len = 0;
+                    if let Some(expected_output) = expected_output.clone() {
+                        output_len = to_allocvec(&expected_output)
+                            .expect("Serialization failed")
+                            .len();
+                    }
+                    // Construct the memory layout.
                     let memory_layout = LinearMemoryLayout::new(
                         heap_size,
                         stack_size,
-                        input_bytes.len() as u32 * 4,
-                        output_len as u32 * 4,
+                        input_bytes.len() as u32,
+                        output_len as u32,
                         program_size,
-                        0xbeef * 4,
+                        ad.len() as u32,
                     )
                     .expect("Invalid memory layout");
-                    let mut emulator = LinearEmulator::from_elf(
-                        memory_layout,
-                        &vec![0; 0xbeef as usize],
-                        elf,
-                        &input_bytes,
-                        &[],
-                    );
 
+                    // Construct the linear emulator.
+                    let mut emulator =
+                        LinearEmulator::from_elf(memory_layout, &ad, elf, &input_bytes, &[]);
+
+                    // Check that the program exits correctly.
                     assert_eq!(emulator.execute(), expected_result);
+
+                    // Deserialize the output.
                     if expected_output.is_some() {
-                        let output_vec = emulator.get_output().unwrap();
-                        deserialized_output = Some(deserialize_from_u32_chunks::<U>(&output_vec));
+                        let output_bytes = emulator.get_output().unwrap();
+                        deserialized_output =
+                            Some(from_bytes(&output_bytes).expect("Deserialization failed"));
                     }
                 }
             };
-
-            // Check that the program exits correctly.
-            assert_eq!(deserialized_output, expected_output);
         }
+
+        // Check that the program exits correctly.
+        assert_eq!(deserialized_output, expected_output);
     }
 
     #[test]
     fn test_emulate() {
-        // Works.
-        emulate::<u32, u32>(
-            "io_u32",
-            Some(123u32),
-            Some(123u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
+        let emulators = vec![
             EmulatorType::Harvard,
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u64, u64>(
-            "io_u64",
-            Some(1u64 << 32),
-            Some(1u64 << 32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::Harvard,
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u128, u128>(
-            "io_u128",
-            Some(332306998946228968225970211937533483u128),
-            Some(332306998946228968225970211937533483u128),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::Harvard,
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u32, u32>(
-            "io_u32",
-            Some(123u32),
-            Some(123u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
             EmulatorType::default_linear(),
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u64, u64>(
-            "io_u64",
-            Some(1u64 << 32),
-            Some(1u64 << 32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::default_linear(),
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u128, u128>(
-            "io_u128",
-            Some(332306998946228968225970211937533483u128),
-            Some(332306998946228968225970211937533483u128),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::default_linear(),
-            &["-C opt-level=0", ""],
-        );
+            EmulatorType::TwoPass,
+        ];
+        let io_u32_elfs = compile_multi("io_u32", &["-C opt-level=0", ""]);
+        let io_u64_elfs = compile_multi("io_u64", &["-C opt-level=0", ""]);
+        let io_u128_elfs = compile_multi("io_u128", &["-C opt-level=0", ""]);
+
+        for emulator in emulators {
+            emulate::<u32, u32>(
+                io_u32_elfs.clone(),
+                Some(123u32),
+                Some(123u32),
+                Err(nexus_vm::error::VMError::VMExited(0)),
+                emulator.clone(),
+            );
+            emulate::<u64, u64>(
+                io_u64_elfs.clone(),
+                Some(1u64 << 32),
+                Some(1u64 << 32),
+                Err(nexus_vm::error::VMError::VMExited(0)),
+                emulator.clone(),
+            );
+            emulate::<u128, u128>(
+                io_u128_elfs.clone(),
+                Some(332306998946228968225970211937533483u128),
+                Some(332306998946228968225970211937533483u128),
+                Err(nexus_vm::error::VMError::VMExited(0)),
+                emulator,
+            );
+        }
     }
 
     #[test]
     fn test_fib() {
-        emulate::<u32, u32>(
-            "fib",
-            Some(1u32),
-            Some(1u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
+        let inputs = vec![1u32, 10u32, 20u32];
+        let outputs = vec![1u32, 34u32, 4181u32];
+        let emulators = vec![
             EmulatorType::Harvard,
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u32, u32>(
-            "fib",
-            Some(10u32),
-            Some(34u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::Harvard,
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u32, u32>(
-            "fib",
-            Some(20u32),
-            Some(4181u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::Harvard,
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u32, u32>(
-            "fib",
-            Some(1u32),
-            Some(1u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
             EmulatorType::default_linear(),
-            &["-C opt-level=0", ""],
-        );
-        emulate::<u32, u32>(
+            EmulatorType::TwoPass,
+        ];
+        let elfs = compile_multi(
             "fib",
-            Some(10u32),
-            Some(34u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::default_linear(),
-            &["-C opt-level=0", ""],
+            &[
+                "-C opt-level=0",
+                "-C opt-level=1",
+                "-C opt-level=2",
+                "-C opt-level=3",
+            ],
         );
-        emulate::<u32, u32>(
-            "fib",
-            Some(20u32),
-            Some(4181u32),
-            Err(nexus_vm::error::VMError::VMExited(0)),
-            EmulatorType::default_linear(),
-            &["-C opt-level=0", ""],
-        );
-    }
 
-    #[test]
-    fn test_word_serialization() {
-        let input_u32 = 1324234u32;
-        let serialized_u32 = serialize_into_u32_chunks(&input_u32);
-        let deserialized_u32 = deserialize_from_u32_chunks::<u32>(&serialized_u32);
-        assert_eq!(input_u32, deserialized_u32);
-
-        let input_u64 = 1u64 << 32;
-        let serialized_u64 = serialize_into_u32_chunks(&input_u64);
-        let deserialized_u64 = deserialize_from_u32_chunks::<u64>(&serialized_u64);
-        assert_eq!(input_u64, deserialized_u64);
-
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        struct TestStruct {
-            a: u32,
-            b: u32,
-            c: u128,
-            d: u128,
+        for (input, output) in inputs.iter().zip(outputs.iter()) {
+            for emulator in emulators.clone() {
+                emulate::<u32, u32>(
+                    elfs.clone(),
+                    Some(input.clone()),
+                    Some(output.clone()),
+                    Err(nexus_vm::error::VMError::VMExited(0)),
+                    emulator.clone(),
+                );
+            }
         }
-
-        let input_struct = TestStruct {
-            a: 1,
-            b: 2,
-            c: 3,
-            d: 4,
-        };
-        let serialized_struct = serialize_into_u32_chunks(&input_struct);
-        let deserialized_struct = deserialize_from_u32_chunks::<TestStruct>(&serialized_struct);
-        assert_eq!(input_struct, deserialized_struct);
     }
 }

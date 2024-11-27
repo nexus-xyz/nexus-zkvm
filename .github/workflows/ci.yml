@@ -54,3 +54,4 @@ jobs:
         run: rustup target add riscv32i-unknown-none-elf
 
       - run: cargo test -r --all --all-features
+        timeout-minutes: 30

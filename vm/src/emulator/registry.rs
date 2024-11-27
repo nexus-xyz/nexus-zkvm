@@ -305,7 +305,7 @@ impl InstructionExecutorRegistry {
         op: &Opcode,
     ) -> Option<InstructionExecutorFn<M>> {
         // Opcode will be parsed dynamically so the name will be different.
-        if op.raw() == self.read_input.raw() && op.fn3() == self.read_input.fn3() {
+        if self.is_read_input(op) {
             // Interpret `rin` as `lw`.
             return Some(instructions::LwInstruction::evaluator as InstructionExecutorFn<M>);
         }
@@ -318,11 +318,21 @@ impl InstructionExecutorRegistry {
         op: &Opcode,
     ) -> Option<InstructionExecutorFn<M>> {
         // Opcode will be parsed dynamically so the name will be different.
-        if op.raw() == self.write_output.raw() && op.fn3() == self.write_output.fn3() {
+        if self.is_write_output(op) {
             // Interpret `wou` as `sw`.
             return Some(instructions::SwInstruction::evaluator as InstructionExecutorFn<M>);
         }
 
         None
+    }
+
+    #[inline(always)]
+    pub fn is_read_input(&self, op: &Opcode) -> bool {
+        op.raw() == self.read_input.raw() && op.fn3() == self.read_input.fn3()
+    }
+
+    #[inline(always)]
+    pub fn is_write_output(&self, op: &Opcode) -> bool {
+        op.raw() == self.write_output.raw() && op.fn3() == self.write_output.fn3()
     }
 }

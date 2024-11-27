@@ -101,7 +101,7 @@ impl Display for BasicBlockProgram {
 mod tests {
     use crate::elf::ElfFile;
     use crate::riscv::{decode_instructions, decode_until_end_of_a_block};
-    use crate::WORD_SIZE;
+    use nexus_common::constants::WORD_SIZE;
 
     #[test]
     fn test_encode_decode_consistency_in_a_block() {

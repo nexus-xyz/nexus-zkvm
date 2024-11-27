@@ -274,8 +274,8 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
 /// These padded instructions are not executed in the VM.
 pub fn k_trace(
     elf: ElfFile,
-    ad_hash: &[u32],
-    public_input: &[u32],
+    ad_hash: &[u8],
+    public_input: &[u8],
     private_input: &[u8],
     k: usize,
 ) -> Result<UniformTrace> {
@@ -388,8 +388,8 @@ fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
 /// Trace a program over basic blocks.
 pub fn bb_trace(
     elf: ElfFile,
-    ad_hash: &[u32],
-    public_input: &[u32],
+    ad_hash: &[u8],
+    public_input: &[u8],
     private_input: &[u8],
 ) -> Result<BBTrace> {
     // todo: get memory segment using a first-pass trace
