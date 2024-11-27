@@ -23,7 +23,8 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        regs::{AccessResult, RegisterMemCheckSideNote},
+        regs::AccessResult,
+        sidenote::SideNote,
         FromBaseFields, ProgramStep, Traces,
     },
     traits::MachineChip,
@@ -43,7 +44,7 @@ impl MachineChip for RegisterMemCheckChip {
         traces: &mut Traces,
         row_idx: usize,
         _vm_step: &ProgramStep,
-        side_note: &mut RegisterMemCheckSideNote,
+        side_note: &mut SideNote,
     ) {
         // TODO: consider looking up clk, reg{1,2,3}_cur_ts in the preprocessed trace
         assert!(row_idx < (u32::MAX - 3) as usize / 3);
@@ -102,9 +103,9 @@ impl MachineChip for RegisterMemCheckChip {
         // If we reached the end, write the final register information
         if row_idx == 1 << traces.log_size() - 1 {
             for reg_idx in 0..NUM_REGISTERS {
-                let final_val = side_note.last_access_value[reg_idx];
+                let final_val = side_note.register_mem_check.last_access_value[reg_idx];
                 traces.fill_columns(reg_idx, final_val, Column::FinalRegValue);
-                let final_ts = side_note.last_access_timestamp[reg_idx];
+                let final_ts = side_note.register_mem_check.last_access_timestamp[reg_idx];
                 traces.fill_columns(reg_idx, final_ts, Column::FinalRegTs);
             }
         }
@@ -142,7 +143,7 @@ impl MachineChip for RegisterMemCheckChip {
 fn fill_prev_values(
     reg_address: [BaseField; 1],
     reg_value: [BaseField; WORD_SIZE],
-    side_note: &mut RegisterMemCheckSideNote,
+    side_note: &mut SideNote,
     reg_cur_ts: u32,
     dst_ts: Column,
     dst_val: Column,
@@ -154,7 +155,9 @@ fn fill_prev_values(
     let AccessResult {
         prev_timestamp,
         prev_value,
-    } = side_note.access(reg_idx, reg_cur_ts, cur_value);
+    } = side_note
+        .register_mem_check
+        .access(reg_idx, reg_cur_ts, cur_value);
     traces.fill_columns(row_idx, prev_timestamp, dst_ts);
     traces.fill_columns(row_idx, prev_value, dst_val);
 }

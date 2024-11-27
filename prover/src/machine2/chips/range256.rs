@@ -22,7 +22,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
-        regs::RegisterMemCheckSideNote,
+        sidenote::SideNote,
         ProgramStep, Traces,
     },
     traits::MachineChip,
@@ -61,12 +61,12 @@ impl MachineChip for Range256Chip {
         traces: &mut Traces,
         row_idx: usize,
         _step: &ProgramStep,
-        _side_note: &mut RegisterMemCheckSideNote,
+        side_note: &mut SideNote,
     ) {
         for col in Self::CHECKED.iter() {
             // not using trace_column! because it doesn't accept *col as an argument.
             let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
-            fill_main_word(value_col, traces);
+            fill_main_word(value_col, traces, side_note);
         }
         // TODO: check the other columns, too.
     }
@@ -137,8 +137,11 @@ impl MachineChip for Range256Chip {
     }
 }
 
-fn fill_main_word(value_col: [BaseField; WORD_SIZE], traces: &mut Traces) {
-    let mut counter: u32 = 0;
+fn fill_main_word(
+    value_col: [BaseField; WORD_SIZE],
+    traces: &mut Traces,
+    side_note: &mut SideNote,
+) {
     for (limb_index, limb) in value_col.iter().enumerate().take(WORD_SIZE) {
         let checked = limb.0;
         debug_assert!(checked < 256, "value[{}] is out of range", limb_index);
@@ -148,8 +151,8 @@ fn fill_main_word(value_col: [BaseField; WORD_SIZE], traces: &mut Traces) {
         // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
         assert_ne!(*multiplicity_col[0], BaseField::zero());
         // Detect global overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-        counter += 1;
-        assert_ne!(counter, m31::P);
+        side_note.range256.global_multiplicity += 1;
+        assert_ne!(side_note.range256.global_multiplicity, m31::P);
     }
 }
 
@@ -196,7 +199,7 @@ mod test {
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = RegisterMemCheckSideNote::default();
+        let mut side_note = SideNote::default();
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
@@ -239,7 +242,7 @@ mod test {
         const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = RegisterMemCheckSideNote::default();
+        let mut side_note = SideNote::default();
         let mut buf = [BaseField::zero(); WORD_SIZE];
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {

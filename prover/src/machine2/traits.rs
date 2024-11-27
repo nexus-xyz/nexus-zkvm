@@ -12,7 +12,7 @@ use stwo_prover::{
 
 use super::{
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{eval::TraceEval, regs::RegisterMemCheckSideNote, ProgramStep, Traces},
+    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
 };
 
 pub trait ExecuteChip {
@@ -27,7 +27,7 @@ pub trait MachineChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &ProgramStep,
-        side_note: &mut RegisterMemCheckSideNote,
+        side_note: &mut SideNote,
     );
 
     /// Called on each row during constraint evaluation.
@@ -59,7 +59,7 @@ impl MachineChip for Tuple {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &ProgramStep,
-        side_note: &mut RegisterMemCheckSideNote,
+        side_note: &mut SideNote,
     ) {
         for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step, side_note); )* );
     }

@@ -2,6 +2,7 @@ use nexus_common::riscv::register::NUM_REGISTERS;
 
 // This file contains utilities for register memory checking
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RegisterMemCheckSideNote {
     pub(crate) last_access_timestamp: [u32; NUM_REGISTERS],
     pub(crate) last_access_value: [u32; NUM_REGISTERS],

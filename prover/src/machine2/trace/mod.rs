@@ -29,6 +29,7 @@ use super::column::Column;
 pub mod eval;
 pub mod program;
 pub mod regs;
+pub mod sidenote;
 pub mod utils;
 
 pub use program::{BoolWord, ProgramStep, Word, WordWithEffectiveBits};

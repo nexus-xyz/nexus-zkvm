@@ -26,7 +26,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        regs::RegisterMemCheckSideNote,
+        sidenote::SideNote,
         ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
@@ -69,7 +69,7 @@ impl MachineChip for AndChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &ProgramStep,
-        _side_note: &mut RegisterMemCheckSideNote,
+        _side_note: &mut SideNote,
     ) {
         if vm_step.step.is_padding {
             return;
@@ -241,7 +241,7 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = RegisterMemCheckSideNote::default();
+        let mut side_note = SideNote::default();
 
         for (row_idx, trace) in vm_traces.blocks.iter().enumerate() {
             let regs = trace.regs;

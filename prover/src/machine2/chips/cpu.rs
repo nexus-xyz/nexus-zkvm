@@ -12,7 +12,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        regs::RegisterMemCheckSideNote,
+        sidenote::SideNote,
         ProgramStep, Traces,
     },
     traits::MachineChip,
@@ -33,7 +33,7 @@ impl MachineChip for CpuChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &ProgramStep,
-        _side_note: &mut RegisterMemCheckSideNote,
+        _side_note: &mut SideNote,
     ) {
         let step = &vm_step.step;
         let pc = step.pc;

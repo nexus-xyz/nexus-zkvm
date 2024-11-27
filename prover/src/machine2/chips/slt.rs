@@ -9,7 +9,7 @@ use crate::machine2::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        regs::RegisterMemCheckSideNote,
+        sidenote::SideNote,
         BoolWord, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
@@ -58,7 +58,7 @@ impl MachineChip for SltChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &ProgramStep,
-        _side_note: &mut RegisterMemCheckSideNote,
+        _side_note: &mut SideNote,
     ) {
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
@@ -303,7 +303,7 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = RegisterMemCheckSideNote::default();
+        let mut side_note = SideNote::default();
         let mut row_idx = 0;
 
         // We iterate each block in the trace for each instruction
