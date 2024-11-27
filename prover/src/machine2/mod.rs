@@ -24,7 +24,7 @@ pub mod traits;
 
 pub use crate::utils::WORD_SIZE;
 
-use chips::{AddChip, AndChip, CpuChip, Range256Chip, SltChip, SltuChip, SubChip};
+use chips::{AddChip, AndChip, CpuChip, Range256Chip, Range32Chip, SltChip, SltuChip, SubChip};
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
@@ -35,7 +35,9 @@ pub type Components = (
     SltuChip,
     AndChip,
     SltChip,
-    Range256Chip, // Range256Chip::main_trace_fill() uses values filled by instruction chips
+    // Range checks must be positioned at the end. They use values filled by instruction chips.
+    Range32Chip,
+    Range256Chip,
 );
 pub type Proof = StarkProof<Blake2sMerkleHasher>;
 

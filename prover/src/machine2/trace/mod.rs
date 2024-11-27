@@ -356,7 +356,7 @@ impl Traces {
             self.cols[PreprocessedColumn::Range256.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
-    fn fill_range32(&mut self) {
+    pub(crate) fn fill_range32(&mut self) {
         for row_idx in 0..32 {
             self.cols[PreprocessedColumn::Range32.offset()][row_idx] = BaseField::from(row_idx);
         }

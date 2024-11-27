@@ -99,6 +99,9 @@ pub enum Column {
     /// Multiplicity column for bitwise-AND check. Multiplicity256[b * 256 + c] counts how many times (b xor c) is looked up in the entire trace.
     #[size = 1]
     MultiplicityAnd,
+    /// Multiplicity column for Range32Chip. Multiplicity32[row_idx] counts how many times the number row_idx is checked against Range32 in the entire trace.
+    #[size = 1]
+    Multiplicity32,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,
