@@ -171,10 +171,13 @@ fn check_word_limbs(
 
 #[cfg(test)]
 mod test {
+    use std::array;
+
     use super::*;
 
     use crate::machine2::components::{MachineComponent, MachineEval};
 
+    use crate::machine2::trace::Word;
     use crate::machine2::traits::MachineChip;
     use crate::utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
@@ -192,12 +195,8 @@ mod test {
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = RegisterMemCheckSideNote::default();
         // Write in-range values to ValueA columns.
-        let mut buf = [0u8; WORD_SIZE];
-
         for row_idx in 0..(1 << LOG_SIZE) {
-            for (i, b) in buf.iter_mut().enumerate() {
-                *b = (row_idx + i) as u8;
-            }
+            let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
 
             traces.fill_columns_bytes(row_idx, &buf, ValueA);
             traces.fill_columns_bytes(row_idx, &buf, ValueB);
