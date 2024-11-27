@@ -134,9 +134,9 @@ impl MachineChip for Range256Chip {
     }
 }
 
-fn fill_main_word(value_a_col: [BaseField; WORD_SIZE], traces: &mut Traces) {
+fn fill_main_word(value_col: [BaseField; WORD_SIZE], traces: &mut Traces) {
     let mut counter: u32 = 0;
-    for (limb_index, limb) in value_a_col.iter().enumerate().take(WORD_SIZE) {
+    for (limb_index, limb) in value_col.iter().enumerate().take(WORD_SIZE) {
         let checked = limb.0;
         debug_assert!(checked < 256, "value[{}] is out of range", limb_index);
         let multiplicity_col: [&mut BaseField; 1] =
