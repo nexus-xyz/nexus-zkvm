@@ -244,14 +244,13 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = SideNote::default();
-        let mut buf = [BaseField::zero(); WORD_SIZE];
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
-            for (i, b) in buf.iter_mut().enumerate() {
-                let t = ((row_idx + i) as u8) as u32 + 1u32;
+            let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {
                 // sometimes out of range
-                *b = BaseField::from(t + 1);
-            }
+                let t = ((row_idx + i) as u8) as u32 + 1u32;
+                BaseField::from(t)
+            });
             traces.fill_columns_basefield(row_idx, &buf, ValueB);
 
             Range256Chip::fill_main_trace(
