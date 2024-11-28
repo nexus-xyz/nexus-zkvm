@@ -1,10 +1,10 @@
 use std::array;
 
 use eval::TraceEval;
-use itertools::Itertools as _;
+use itertools::Itertools;
 use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
-use num_traits::{One as _, Zero};
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{assert_constraints, AssertEvaluator},
     core::{

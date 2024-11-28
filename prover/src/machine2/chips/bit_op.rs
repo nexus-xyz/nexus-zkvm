@@ -1,4 +1,4 @@
-use num_traits::{One as _, Zero as _};
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{
         logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
@@ -296,7 +296,7 @@ impl MachineChip for BitOpChip {
 mod test {
     use crate::{
         machine2::chips::{AddChip, CpuChip},
-        utils::assert_chip,
+        test_utils::assert_chip,
     };
 
     use super::*;

@@ -6,7 +6,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::WORD_SIZE;
-use num_traits::{One as _, Zero as _};
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
     core::{
@@ -186,7 +186,7 @@ mod test {
 
     use crate::machine2::trace::Word;
     use crate::machine2::traits::MachineChip;
-    use crate::utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 

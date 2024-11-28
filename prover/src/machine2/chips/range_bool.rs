@@ -2,7 +2,7 @@
 
 use stwo_prover::constraint_framework::logup::LookupElements;
 
-use num_traits::One as _;
+use num_traits::One;
 
 use crate::{
     machine2::{
@@ -74,7 +74,7 @@ mod test {
     use crate::machine2::components::{MachineComponent, MachineEval};
 
     use crate::machine2::traits::MachineChip;
-    use crate::utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
     use nexus_vm::WORD_SIZE;
     use stwo_prover::constraint_framework::TraceLocationAllocator;

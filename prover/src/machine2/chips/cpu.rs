@@ -1,7 +1,7 @@
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::{logup::LookupElements, EvalAtRow},
-    core::fields::{m31::BaseField, FieldExpOps as _},
+    core::fields::{m31::BaseField, FieldExpOps},
 };
 
 use crate::machine2::{
