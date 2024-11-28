@@ -195,5 +195,13 @@ impl MachineChip for CpuChip {
                 value_a_effective[i].clone() - value_a[i].clone() * value_a_effective_flag.clone(),
             );
         }
+        // Sum of IsOp flags is one. Combined with the range-checks in RangeBoolChip, the constraint implies exactly one of these flags is set.
+        let (_, [is_add]) = trace_eval!(trace_eval, IsAdd);
+        let (_, [is_sub]) = trace_eval!(trace_eval, IsSub);
+        let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
+        let (_, [is_slt]) = trace_eval!(trace_eval, IsSlt);
+        let (_, [is_sltu]) = trace_eval!(trace_eval, IsSltu);
+        let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
+        eval.add_constraint(is_add + is_sub + is_and + is_slt + is_sltu + is_padding - E::F::one());
     }
 }
