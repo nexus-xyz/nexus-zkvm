@@ -61,6 +61,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::ANDI) => {
                 traces.fill_columns(row_idx, true, IsAnd);
             }
+            Some(BuiltinOpcode::OR) | Some(BuiltinOpcode::ORI) => {
+                traces.fill_columns(row_idx, true, IsOr);
+            }
             Some(BuiltinOpcode::SUB) => {
                 traces.fill_columns(row_idx, true, IsSub);
             }
@@ -199,9 +202,12 @@ impl MachineChip for CpuChip {
         let (_, [is_add]) = trace_eval!(trace_eval, IsAdd);
         let (_, [is_sub]) = trace_eval!(trace_eval, IsSub);
         let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
+        let (_, [is_or]) = trace_eval!(trace_eval, IsOr);
         let (_, [is_slt]) = trace_eval!(trace_eval, IsSlt);
         let (_, [is_sltu]) = trace_eval!(trace_eval, IsSltu);
         let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
-        eval.add_constraint(is_add + is_sub + is_and + is_slt + is_sltu + is_padding - E::F::one());
+        eval.add_constraint(
+            is_add + is_sub + is_and + is_or + is_slt + is_sltu + is_padding - E::F::one(),
+        );
     }
 }

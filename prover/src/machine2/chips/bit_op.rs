@@ -5,7 +5,11 @@ use stwo_prover::{
         EvalAtRow, INTERACTION_TRACE_IDX,
     },
     core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        backend::simd::{
+            column::BaseColumn,
+            m31::{PackedBaseField, LOG_N_LANES},
+            SimdBackend,
+        },
         fields::{
             m31::{self, BaseField},
             qm31::SecureField,
@@ -20,8 +24,13 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::machine2::{
     column::{
-        Column::{self, IsAnd, MultiplicityAnd, ValueA, ValueAEffective, ValueB, ValueC},
-        PreprocessedColumn::{self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, IsFirst},
+        Column::{
+            self, IsAnd, IsOr, MultiplicityAnd, MultiplicityOr, ValueA, ValueAEffective, ValueB,
+            ValueC,
+        },
+        PreprocessedColumn::{
+            self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, BitwiseOrByteA, IsFirst,
+        },
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
@@ -32,20 +41,56 @@ use crate::machine2::{
     traits::{ExecuteChip, MachineChip},
 };
 
-// Support AND and ANDI opcodes.
-pub struct AndChip;
+// Support bitwise operations opcode with lookups.
+pub struct BitOpChip;
+
+/// Unit-enum indicating which bitwise operation is executed by the chip.
+///
+/// Note that its numeric value is used as the first element in the tuple to enforce the
+/// difference between lookups. Otherwise, the verifier can't differentiate between
+/// (is_and, is_or) == (one(), zero()) and (is_and, is_or) == (zero(), one()) for the
+/// same denominator in the logup fraction.
+#[derive(Debug, Copy, Clone)]
+enum BitOp {
+    And = 1,
+    Or = 2,
+}
+
+impl BitOp {
+    /// Converts an operation flag into a field element.
+    fn to_base_field(self) -> BaseField {
+        BaseField::from(self as u32)
+    }
+
+    /// Converts an operation flag into a SIMD vector of repeating elements.
+    fn to_packed_base_field(self) -> PackedBaseField {
+        PackedBaseField::broadcast((self as u32).into())
+    }
+}
 
 pub struct ExecutionResult {
-    and_bytes: Word,
+    out_bytes: Word,
+    bit_op: BitOp,
     /// true when destination register is writable (not X0)
     value_a_effective_flag: bool,
 }
 
-impl ExecuteChip for AndChip {
+impl ExecuteChip for BitOpChip {
     type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
         let value_a_effective_flag = program_step.value_a_effectitve_flag();
 
+        let bit_op = match program_step
+            .step
+            .instruction
+            .opcode
+            .builtin()
+            .expect("built-in opcode expected")
+        {
+            BuiltinOpcode::AND | BuiltinOpcode::ANDI => BitOp::And,
+            BuiltinOpcode::OR | BuiltinOpcode::ORI => BitOp::Or,
+            _ => panic!("unsupported opcode for bit chip"),
+        };
         // Step 1. Break the computation to 8-bit limbs
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
@@ -54,17 +99,23 @@ impl ExecuteChip for AndChip {
 
         // Step 2. Compute the output.
         for i in 0..WORD_SIZE {
-            value_a[i] = value_b[i] & value_c[i];
+            let b = value_b[i];
+            let c = value_c[i];
+            value_a[i] = match bit_op {
+                BitOp::And => b & c,
+                BitOp::Or => b | c,
+            };
         }
 
         ExecutionResult {
-            and_bytes: value_a,
+            out_bytes: value_a,
+            bit_op,
             value_a_effective_flag,
         }
     }
 }
 
-impl MachineChip for AndChip {
+impl MachineChip for BitOpChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
@@ -76,34 +127,41 @@ impl MachineChip for AndChip {
         }
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
-            Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::ANDI)
+            Some(BuiltinOpcode::AND)
+                | Some(BuiltinOpcode::ANDI)
+                | Some(BuiltinOpcode::OR)
+                | Some(BuiltinOpcode::ORI)
         ) {
             return;
         }
 
         let ExecutionResult {
-            and_bytes,
+            out_bytes,
             value_a_effective_flag,
+            bit_op,
         } = Self::execute(vm_step);
 
         // Before filling the trace, we check the result of 8-bit limbs is correct.
         debug_assert_eq!(
-            and_bytes,
+            out_bytes,
             vm_step
                 .get_result()
-                .expect("AND/ANDI instruction must have a result")
+                .expect("Bitwise instruction must have a result")
         );
 
-        // Increment MultiplicityAnd[b[i] * 256 + c[i]]
+        // Increment Multiplicity(And/Or)[b[i] * 256 + c[i]]
         let b_word = vm_step.get_value_b();
         let (c_word, _) = vm_step.get_value_c();
         let mut counter: u32 = 0; // for detecting global multiplicity overflow
         for limb_idx in 0..WORD_SIZE {
-            debug_assert_eq!(b_word[limb_idx] & c_word[limb_idx], and_bytes[limb_idx]);
             // The tuple (b, c, b ^ c) is located at row_idx b * 256 + c. This is due to nested 0..256 loops.
             let looked_up_row = (b_word[limb_idx] as usize) * 256 + c_word[limb_idx] as usize;
+            let multiplicity = match bit_op {
+                BitOp::And => MultiplicityAnd,
+                BitOp::Or => MultiplicityOr,
+            };
             let multiplicity_col: [&mut BaseField; 1] =
-                traces.column_mut(looked_up_row, MultiplicityAnd);
+                traces.column_mut(looked_up_row, multiplicity);
             *multiplicity_col[0] += BaseField::one();
             // Detect overflow: there's a soundness problem if the multiplicity overflows
             assert_ne!(*multiplicity_col[0], BaseField::zero());
@@ -112,8 +170,8 @@ impl MachineChip for AndChip {
             assert_ne!(counter, m31::P);
         }
 
-        traces.fill_columns_bytes(row_idx, &and_bytes, ValueA);
-        traces.fill_effective_columns(row_idx, &and_bytes, ValueAEffective, value_a_effective_flag);
+        traces.fill_columns_bytes(row_idx, &out_bytes, ValueA);
+        traces.fill_effective_columns(row_idx, &out_bytes, ValueAEffective, value_a_effective_flag);
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -128,41 +186,55 @@ impl MachineChip for AndChip {
 
         // Add checked pairs to logup sum
         let [is_and] = original_traces.get_base_column(IsAnd);
+        let [is_or] = original_traces.get_base_column(IsOr);
         let value_a: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueA);
         let value_b: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueB);
         let value_c: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueC);
         for limb_idx in 0..WORD_SIZE {
-            let mut logup_col_gen = logup_trace_gen.new_col();
-            // vec_row is row_idx divided by 16. Because SIMD.
-            for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-                let checked_a = value_a[limb_idx].data[vec_row];
-                let checked_b = value_b[limb_idx].data[vec_row];
-                let checked_c = value_c[limb_idx].data[vec_row];
-                let checked_tuple = vec![checked_b, checked_c, checked_a];
-                let denom = lookup_element.combine(&checked_tuple);
-                let numerator = is_and.data[vec_row];
-                logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+            for (op_type, is_op) in [(BitOp::And, &is_and), (BitOp::Or, &is_or)] {
+                let mut logup_col_gen = logup_trace_gen.new_col();
+                // vec_row is row_idx divided by 16. Because SIMD.
+                for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+                    let op_type = op_type.to_packed_base_field();
+                    let checked_a = value_a[limb_idx].data[vec_row];
+                    let checked_b = value_b[limb_idx].data[vec_row];
+                    let checked_c = value_c[limb_idx].data[vec_row];
+                    let checked_tuple = vec![op_type, checked_b, checked_c, checked_a];
+                    let denom = lookup_element.combine(&checked_tuple);
+                    let numerator = is_op.data[vec_row];
+                    logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+                }
+                logup_col_gen.finalize_col();
             }
-            logup_col_gen.finalize_col();
         }
 
         // Subtract looked up multiplicities from logup sum
         let [answer_b] = preprocessed_trace.get_preprocessed_base_column(BitwiseByteB);
         let [answer_c] = preprocessed_trace.get_preprocessed_base_column(BitwiseByteC);
-        let [answer_a] = preprocessed_trace.get_preprocessed_base_column(BitwiseAndByteA);
-        let [mult] = original_traces.get_base_column(MultiplicityAnd);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let answer_tuple = vec![
-                answer_b.data[vec_row],
-                answer_c.data[vec_row],
-                answer_a.data[vec_row],
-            ];
-            let denom = lookup_element.combine(&answer_tuple);
-            let numerator = mult.data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
+
+        let [answer_a_and] = preprocessed_trace.get_preprocessed_base_column(BitwiseAndByteA);
+        let [mult_and] = original_traces.get_base_column(MultiplicityAnd);
+
+        let [answer_a_or] = preprocessed_trace.get_preprocessed_base_column(BitwiseOrByteA);
+        let [mult_or] = original_traces.get_base_column(MultiplicityOr);
+        for (op_type, answer_a, mult) in [
+            (BitOp::And, &answer_a_and, &mult_and),
+            (BitOp::Or, &answer_a_or, &mult_or),
+        ] {
+            let mut logup_col_gen = logup_trace_gen.new_col();
+            for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+                let answer_tuple = vec![
+                    op_type.to_packed_base_field(),
+                    answer_b.data[vec_row],
+                    answer_c.data[vec_row],
+                    answer_a.data[vec_row],
+                ];
+                let denom = lookup_element.combine(&answer_tuple);
+                let numerator = mult.data[vec_row];
+                logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
+            }
+            logup_col_gen.finalize_col();
         }
-        logup_col_gen.finalize_col();
         let (ret, total_logup_sum) = logup_trace_gen.finalize_last();
         debug_assert_eq!(total_logup_sum, SecureField::zero());
         ret
@@ -179,27 +251,43 @@ impl MachineChip for AndChip {
 
         // Add checked occurrences to logup sum
         let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
+        let (_, [is_or]) = trace_eval!(trace_eval, IsOr);
         let (_, value_a) = trace_eval!(trace_eval, ValueA);
         let (_, value_b) = trace_eval!(trace_eval, ValueB);
         let (_, value_c) = trace_eval!(trace_eval, ValueC);
         for limb_idx in 0..WORD_SIZE {
-            let denom: E::EF = lookup_elements.combine(&[
-                value_b[limb_idx].clone(),
-                value_c[limb_idx].clone(),
-                value_a[limb_idx].clone(),
-            ]);
-            let numerator: E::EF = is_and.clone().into();
-            logup.write_frac(eval, Fraction::new(numerator, denom));
+            for (op_type, is_op) in [(BitOp::And, &is_and), (BitOp::Or, &is_or)] {
+                let op_type = E::F::from(op_type.to_base_field());
+                let denom: E::EF = lookup_elements.combine(&[
+                    op_type,
+                    value_b[limb_idx].clone(),
+                    value_c[limb_idx].clone(),
+                    value_a[limb_idx].clone(),
+                ]);
+                let numerator: E::EF = is_op.clone().into();
+                logup.write_frac(eval, Fraction::new(numerator, denom.clone()));
+            }
         }
+
         // Subtract looked up multiplicities from logup sum
         let (_, [answer_b]) = preprocessed_trace_eval!(trace_eval, BitwiseByteB);
         let (_, [answer_c]) = preprocessed_trace_eval!(trace_eval, BitwiseByteC);
-        let (_, [answer_a]) = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
-        let (_, [mult]) = trace_eval!(trace_eval, MultiplicityAnd);
-        let denom: E::EF =
-            lookup_elements.combine(&[answer_b.clone(), answer_c.clone(), answer_a.clone()]);
-        let numerator: E::EF = (-mult.clone()).into();
-        logup.write_frac(eval, Fraction::new(numerator, denom));
+
+        let (_, [answer_a_and]) = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
+        let (_, [mult_and]) = trace_eval!(trace_eval, MultiplicityAnd);
+
+        let (_, [answer_a_or]) = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
+        let (_, [mult_or]) = trace_eval!(trace_eval, MultiplicityOr);
+        for (op_type, answer_a, mult) in [
+            (BitOp::And, answer_a_and, mult_and),
+            (BitOp::Or, answer_a_or, mult_or),
+        ] {
+            let op_type = E::F::from(op_type.to_base_field());
+            let denom: E::EF =
+                lookup_elements.combine(&[op_type, answer_b.clone(), answer_c.clone(), answer_a]);
+            let numerator: E::EF = (-mult).into();
+            logup.write_frac(eval, Fraction::new(numerator, denom));
+        }
         logup.finalize(eval);
     }
 }
@@ -228,6 +316,12 @@ mod test {
             Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 8, InstructionType::IType),
             // x3 = x1 & x2
             Instruction::new(Opcode::from(BuiltinOpcode::AND), 3, 1, 2, InstructionType::RType),
+
+            // 0b100010 | 0b011011 = 0b111011
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 34, InstructionType::IType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 27, InstructionType::IType),
+            // x6 = x4 | x5
+            Instruction::new(Opcode::from(BuiltinOpcode::OR), 6, 4, 5, InstructionType::RType),
         ]);
         vec![basic_block]
     }
@@ -254,17 +348,24 @@ mod test {
                 // Fill in the main trace with the ValueB, valueC and Opcode
                 CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
                 AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-                AndChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+                BitOpChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
             }
         }
 
-        let vals = traces
+        let and_vals = traces
             .column(2, ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
-        let output = u32::from_le_bytes(vals);
+        let output = u32::from_le_bytes(and_vals);
 
         assert_eq!(output, 0b1000);
 
-        assert_chip::<AndChip>(traces, None);
+        let or_vals = traces
+            .column(5, ValueA)
+            .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
+        let output = u32::from_le_bytes(or_vals);
+
+        assert_eq!(output, 0b111011);
+
+        assert_chip::<BitOpChip>(traces, None);
     }
 }

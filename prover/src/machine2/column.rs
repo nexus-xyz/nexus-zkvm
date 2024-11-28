@@ -62,6 +62,9 @@ pub enum Column {
     /// Boolean flag on whether the row is an addition.
     #[size = 1]
     IsAdd,
+    /// Boolean flag on whether the row is OR/ORI.
+    #[size = 1]
+    IsOr,
     /// Boolean flag on whether the row is AND/ANDI.
     #[size = 1]
     IsAnd,
@@ -93,15 +96,18 @@ pub enum Column {
     /// Signed bit of C.
     #[size = 1]
     SgnC,
-    /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
-    #[size = 1]
-    Multiplicity256,
-    /// Multiplicity column for bitwise-AND check. Multiplicity256[b * 256 + c] counts how many times (b xor c) is looked up in the entire trace.
-    #[size = 1]
-    MultiplicityAnd,
     /// Multiplicity column for Range32Chip. Multiplicity32[row_idx] counts how many times the number row_idx is checked against Range32 in the entire trace.
     #[size = 1]
     Multiplicity32,
+    /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
+    #[size = 1]
+    Multiplicity256,
+    /// Multiplicity column for bitwise-AND check. Multiplicity256[b * 256 + c] counts how many times (b & c) is looked up in the entire trace.
+    #[size = 1]
+    MultiplicityAnd,
+    /// Multiplicity column for bitwise-OR check. Multiplicity256[b * 256 + c] counts how many times (b | c) is looked up in the entire trace.
+    #[size = 1]
+    MultiplicityOr,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,
