@@ -124,7 +124,6 @@ impl MachineChip for SltuChip {
             }
         }
 
-        // TODO: range check CarryFlag to be in {0, 1}.
         // TODO: range check rd_val[i] to be in {0, 1}.
     }
 }

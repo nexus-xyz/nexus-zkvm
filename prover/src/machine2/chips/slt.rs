@@ -174,7 +174,6 @@ impl MachineChip for SltChip {
                     - value_c[3].clone()),
         );
 
-        // TODO: range check sgn_b, sgn_c to be in {0, 1}.
         // TODO: range check CarryFlag to be in {0, 1}.
         // TODO: range check helper2_val[3] to be in [0, 127].
         // TODO: range check helper3_val[3] to be in [0, 127].
