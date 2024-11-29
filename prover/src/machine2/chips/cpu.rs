@@ -94,7 +94,7 @@ impl MachineChip for CpuChip {
         traces.fill_columns(row_idx, vm_step.get_value_c(), ValueC);
 
         // Fill InstructionWord to the main trace
-        traces.fill_columns(row_idx, step.raw_instruction, InstructionWord);
+        traces.fill_columns(row_idx, step.raw_instruction, InstrVal);
 
         // Fill OpA to the main trace
         let op_a = vm_step.step.instruction.op_a as u8;
