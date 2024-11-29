@@ -68,6 +68,9 @@ pub enum Column {
     /// Boolean flag on whether the row is AND/ANDI.
     #[size = 1]
     IsAnd,
+    /// Boolean flag on whether the row is XOR/XORI.
+    #[size = 1]
+    IsXor,
     /// Boolean flag on whether the row is a subtraction.
     #[size = 1]
     IsSub,
@@ -108,6 +111,9 @@ pub enum Column {
     /// Multiplicity column for bitwise-OR check. Multiplicity256[b * 256 + c] counts how many times (b | c) is looked up in the entire trace.
     #[size = 1]
     MultiplicityOr,
+    /// Multiplicity column for bitwise-XOR check. Multiplicity256[b * 256 + c] counts how many times (b ^ c) is looked up in the entire trace.
+    #[size = 1]
+    MultiplicityXor,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,

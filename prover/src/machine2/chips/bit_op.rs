@@ -25,11 +25,12 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use crate::machine2::{
     column::{
         Column::{
-            self, IsAnd, IsOr, MultiplicityAnd, MultiplicityOr, ValueA, ValueAEffective, ValueB,
-            ValueC,
+            self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
+            ValueAEffective, ValueB, ValueC,
         },
         PreprocessedColumn::{
-            self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, BitwiseOrByteA, IsFirst,
+            self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, BitwiseOrByteA, BitwiseXorByteA,
+            IsFirst,
         },
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -54,6 +55,7 @@ pub struct BitOpChip;
 enum BitOp {
     And = 1,
     Or = 2,
+    Xor = 3,
 }
 
 impl BitOp {
@@ -89,6 +91,7 @@ impl ExecuteChip for BitOpChip {
         {
             BuiltinOpcode::AND | BuiltinOpcode::ANDI => BitOp::And,
             BuiltinOpcode::OR | BuiltinOpcode::ORI => BitOp::Or,
+            BuiltinOpcode::XOR | BuiltinOpcode::XORI => BitOp::Xor,
             _ => panic!("unsupported opcode for bit chip"),
         };
         // Step 1. Break the computation to 8-bit limbs
@@ -104,6 +107,7 @@ impl ExecuteChip for BitOpChip {
             value_a[i] = match bit_op {
                 BitOp::And => b & c,
                 BitOp::Or => b | c,
+                BitOp::Xor => b ^ c,
             };
         }
 
@@ -131,6 +135,8 @@ impl MachineChip for BitOpChip {
                 | Some(BuiltinOpcode::ANDI)
                 | Some(BuiltinOpcode::OR)
                 | Some(BuiltinOpcode::ORI)
+                | Some(BuiltinOpcode::XOR)
+                | Some(BuiltinOpcode::XORI)
         ) {
             return;
         }
@@ -159,6 +165,7 @@ impl MachineChip for BitOpChip {
             let multiplicity = match bit_op {
                 BitOp::And => MultiplicityAnd,
                 BitOp::Or => MultiplicityOr,
+                BitOp::Xor => MultiplicityXor,
             };
             let multiplicity_col: [&mut BaseField; 1] =
                 traces.column_mut(looked_up_row, multiplicity);
@@ -187,11 +194,16 @@ impl MachineChip for BitOpChip {
         // Add checked pairs to logup sum
         let [is_and] = original_traces.get_base_column(IsAnd);
         let [is_or] = original_traces.get_base_column(IsOr);
+        let [is_xor] = original_traces.get_base_column(IsXor);
         let value_a: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueA);
         let value_b: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueB);
         let value_c: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueC);
         for limb_idx in 0..WORD_SIZE {
-            for (op_type, is_op) in [(BitOp::And, &is_and), (BitOp::Or, &is_or)] {
+            for (op_type, is_op) in [
+                (BitOp::And, &is_and),
+                (BitOp::Or, &is_or),
+                (BitOp::Xor, &is_xor),
+            ] {
                 let mut logup_col_gen = logup_trace_gen.new_col();
                 // vec_row is row_idx divided by 16. Because SIMD.
                 for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
@@ -217,9 +229,13 @@ impl MachineChip for BitOpChip {
 
         let [answer_a_or] = preprocessed_trace.get_preprocessed_base_column(BitwiseOrByteA);
         let [mult_or] = original_traces.get_base_column(MultiplicityOr);
+
+        let [answer_a_xor] = preprocessed_trace.get_preprocessed_base_column(BitwiseXorByteA);
+        let [mult_xor] = original_traces.get_base_column(MultiplicityXor);
         for (op_type, answer_a, mult) in [
             (BitOp::And, &answer_a_and, &mult_and),
             (BitOp::Or, &answer_a_or, &mult_or),
+            (BitOp::Xor, &answer_a_xor, &mult_xor),
         ] {
             let mut logup_col_gen = logup_trace_gen.new_col();
             for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
@@ -252,11 +268,16 @@ impl MachineChip for BitOpChip {
         // Add checked occurrences to logup sum
         let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
         let (_, [is_or]) = trace_eval!(trace_eval, IsOr);
+        let (_, [is_xor]) = trace_eval!(trace_eval, IsXor);
         let (_, value_a) = trace_eval!(trace_eval, ValueA);
         let (_, value_b) = trace_eval!(trace_eval, ValueB);
         let (_, value_c) = trace_eval!(trace_eval, ValueC);
         for limb_idx in 0..WORD_SIZE {
-            for (op_type, is_op) in [(BitOp::And, &is_and), (BitOp::Or, &is_or)] {
+            for (op_type, is_op) in [
+                (BitOp::And, &is_and),
+                (BitOp::Or, &is_or),
+                (BitOp::Xor, &is_xor),
+            ] {
                 let op_type = E::F::from(op_type.to_base_field());
                 let denom: E::EF = lookup_elements.combine(&[
                     op_type,
@@ -278,9 +299,13 @@ impl MachineChip for BitOpChip {
 
         let (_, [answer_a_or]) = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
         let (_, [mult_or]) = trace_eval!(trace_eval, MultiplicityOr);
+
+        let (_, [answer_a_xor]) = preprocessed_trace_eval!(trace_eval, BitwiseXorByteA);
+        let (_, [mult_xor]) = trace_eval!(trace_eval, MultiplicityXor);
         for (op_type, answer_a, mult) in [
             (BitOp::And, answer_a_and, mult_and),
             (BitOp::Or, answer_a_or, mult_or),
+            (BitOp::Xor, answer_a_xor, mult_xor),
         ] {
             let op_type = E::F::from(op_type.to_base_field());
             let denom: E::EF =
@@ -322,6 +347,12 @@ mod test {
             Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 27, InstructionType::IType),
             // x6 = x4 | x5
             Instruction::new(Opcode::from(BuiltinOpcode::OR), 6, 4, 5, InstructionType::RType),
+
+            // 0b1100101 ^ 0b1010001 = 0b0110100
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 101, InstructionType::IType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 8, 0, 81, InstructionType::IType),
+            // x9 = x7 ^ x8
+            Instruction::new(Opcode::from(BuiltinOpcode::XOR), 9, 7, 8, InstructionType::RType),
         ]);
         vec![basic_block]
     }
@@ -365,6 +396,13 @@ mod test {
         let output = u32::from_le_bytes(or_vals);
 
         assert_eq!(output, 0b111011);
+
+        let xor_vals = traces
+            .column(8, ValueA)
+            .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
+        let output = u32::from_le_bytes(xor_vals);
+
+        assert_eq!(output, 0b0110100);
 
         assert_chip::<BitOpChip>(traces, None);
     }

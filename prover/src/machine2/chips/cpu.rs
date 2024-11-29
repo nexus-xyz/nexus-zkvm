@@ -64,6 +64,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::OR) | Some(BuiltinOpcode::ORI) => {
                 traces.fill_columns(row_idx, true, IsOr);
             }
+            Some(BuiltinOpcode::XOR) | Some(BuiltinOpcode::XORI) => {
+                traces.fill_columns(row_idx, true, IsXor);
+            }
             Some(BuiltinOpcode::SUB) => {
                 traces.fill_columns(row_idx, true, IsSub);
             }
