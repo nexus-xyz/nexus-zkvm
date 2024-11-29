@@ -132,6 +132,7 @@ impl Traces {
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
         let mut ret = Self { cols, log_size };
         ret.fill_is_first();
+        ret.fill_row_idx();
         ret.fill_is_first32();
         ret.fill_timestamps();
         ret.fill_range256();
@@ -348,7 +349,14 @@ impl Traces {
     pub(crate) fn fill_is_first(&mut self) {
         self.cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
     }
-    fn fill_is_first32(&mut self) {
+    pub(crate) fn fill_row_idx(&mut self) {
+        debug_assert!(self.log_size < 31);
+        for row_idx in 0..(1u32 << self.log_size) {
+            self.cols[PreprocessedColumn::RowIdx.offset()][row_idx as usize] =
+                BaseField::from(row_idx);
+        }
+    }
+    pub(crate) fn fill_is_first32(&mut self) {
         debug_assert_eq!(NUM_REGISTERS, 32);
         for row_idx in 0..32 {
             self.cols[PreprocessedColumn::IsFirst32.offset()][row_idx] = BaseField::one();
@@ -379,7 +387,7 @@ impl Traces {
             self.cols[PreprocessedColumn::Range16.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
-    fn fill_timestamps(&mut self) {
+    pub(crate) fn fill_timestamps(&mut self) {
         // Make sure the last reg3_ts_cur computation doesn't overflow
         debug_assert!(1 << self.log_size < (u32::MAX - 3) / 3);
         for row_idx in 0..(1 << self.log_size) {

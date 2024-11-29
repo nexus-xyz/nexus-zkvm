@@ -2,10 +2,17 @@ use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
 use stwo_prover::{
-    constraint_framework::{logup::LookupElements, EvalAtRow},
+    constraint_framework::{
+        logup::{LogupTraceGenerator, LookupElements},
+        EvalAtRow,
+    },
     core::{
-        backend::simd::SimdBackend,
-        fields::m31::BaseField,
+        backend::simd::{
+            column::BaseColumn,
+            m31::{PackedM31, LOG_N_LANES},
+            SimdBackend,
+        },
+        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
@@ -14,9 +21,9 @@ use stwo_prover::{
 use crate::machine2::{
     column::{
         Column::{
-            self, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev, Reg2Accessed, Reg2Address,
-            Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address, Reg3TsPrev, Reg3ValPrev,
-            ValueAEffective, ValueB, ValueC,
+            self, FinalRegTs, FinalRegValue, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev,
+            Reg2Accessed, Reg2Address, Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address,
+            Reg3TsPrev, Reg3ValPrev, ValueAEffective, ValueB, ValueC,
         },
         PreprocessedColumn,
     },
@@ -35,6 +42,10 @@ use crate::machine2::{
 /// RegisterMemCheckChip needs to be located after all chips that access registers.
 
 pub struct RegisterMemCheckChip;
+
+impl RegisterMemCheckChip {
+    const TUPLE_SIZE: usize = 1 + WORD_SIZE + WORD_SIZE;
+}
 
 impl MachineChip for RegisterMemCheckChip {
     /// Fills `Reg{1,2,3}ValPrev` and `Reg{1,2,3}TsPrev` columns
@@ -120,6 +131,7 @@ impl MachineChip for RegisterMemCheckChip {
         let (_, final_reg_value) = trace_eval!(trace_eval, Column::FinalRegValue);
         let (_, final_reg_ts) = trace_eval!(trace_eval, Column::FinalRegTs);
         // After the first 32 rows, FinalRegValue and FinalRegTs should be zero
+        // Not strictly needed because final_reg{value,ts} are only considered on the first 32 rows
         for i in 0..WORD_SIZE {
             eval.add_constraint((E::F::one() - is_first_32.clone()) * final_reg_value[i].clone());
             eval.add_constraint((E::F::one() - is_first_32.clone()) * final_reg_ts[i].clone());
@@ -131,12 +143,198 @@ impl MachineChip for RegisterMemCheckChip {
         // TODO: constrain prev_ts < cur_ts
     }
     fn fill_interaction_trace(
-        _original_traces: &Traces,
-        _preprocessed_trace: &Traces,
-        _lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        original_traces: &Traces,
+        preprocessed_trace: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        // TODO: implement
-        vec![]
+        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+        // Written triples (reg_idx, cur_timestamp, cur_value) gets added.
+        // Read triples (reg_idx, prev_timestamp, prev_value) gets subtracted.
+
+        // Add initial register info during the first 32 rows
+        Self::add_initial_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+        );
+
+        // Subtract previous register info
+        Self::subtract_prev_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            lookup_element,
+            Reg1Accessed,
+            Reg1Address,
+            Reg1TsPrev,
+            Reg1ValPrev,
+        );
+        Self::subtract_prev_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            lookup_element,
+            Reg2Accessed,
+            Reg2Address,
+            Reg2TsPrev,
+            Reg2ValPrev,
+        );
+        Self::subtract_prev_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            lookup_element,
+            Reg3Accessed,
+            Reg3Address,
+            Reg3TsPrev,
+            Reg3ValPrev,
+        );
+
+        // Add current register info
+        Self::add_cur_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            Reg1Accessed,
+            Reg1Address,
+            PreprocessedColumn::Reg1TsCur,
+            ValueB,
+        );
+        Self::add_cur_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            Reg2Accessed,
+            Reg2Address,
+            PreprocessedColumn::Reg2TsCur,
+            ValueC,
+        );
+        Self::add_cur_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            Reg3Accessed,
+            Reg3Address,
+            PreprocessedColumn::Reg3TsCur,
+            ValueAEffective,
+        );
+
+        // Subtract final register info (stored on the first 32 rows)
+        Self::subtract_final_reg(
+            &mut logup_trace_gen,
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+        );
+
+        let (ret, total_sum) = logup_trace_gen.finalize_last();
+        debug_assert_eq!(total_sum, SecureField::zero());
+        ret
+    }
+}
+
+impl RegisterMemCheckChip {
+    fn add_initial_reg(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        preprocessed_trace: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [is_first_32] =
+            preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::IsFirst32);
+        let [row_idx] = preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::RowIdx);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple: [PackedM31; Self::TUPLE_SIZE] =
+                [BaseField::zero().into(); 1 + WORD_SIZE + WORD_SIZE]; // reg_idx, cur_timestamp, cur_value
+            let row_idx = row_idx.data[vec_row];
+            tuple[0] = row_idx; // Use row_idx as register index
+            let denom = lookup_element.combine(tuple.as_slice());
+            let numerator = is_first_32.data[vec_row]; // Only the first 32 rows contribute to the sum.
+            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+        }
+        logup_col_gen.finalize_col();
+    }
+    fn subtract_final_reg(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        preprocessed_trace: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [is_first_32] =
+            preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::IsFirst32);
+        let [row_idx] = preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::RowIdx);
+        let final_reg_value: [BaseColumn; WORD_SIZE] =
+            original_traces.get_base_column(FinalRegValue);
+        let final_reg_ts: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(FinalRegTs);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let row_idx = row_idx.data[vec_row];
+            let mut tuple = vec![row_idx]; // Use row_idx as register index
+            for col in final_reg_ts.iter().chain(final_reg_value.iter()) {
+                tuple.push(col.data[vec_row]);
+            }
+            debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+            let denom = lookup_element.combine(tuple.as_slice());
+            let numerator = is_first_32.data[vec_row]; // Only the first 32 rows contribute to the sum.
+            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
+        }
+        logup_col_gen.finalize_col();
+    }
+    fn subtract_prev_reg(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        accessed: Column,
+        reg_address: Column,
+        prev_ts: Column,
+        prev_value: Column,
+    ) {
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        let [reg_accessed] = original_traces.get_base_column(accessed);
+        let [reg_idx] = original_traces.get_base_column(reg_address);
+        let reg_prev_ts: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(prev_ts);
+        let reg_prev_value: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(prev_value);
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![reg_idx.data[vec_row]];
+            for col in reg_prev_ts.iter().chain(reg_prev_value.iter()) {
+                tuple.push(col.data[vec_row]);
+            }
+            debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+            let denom = lookup_element.combine(tuple.as_slice());
+            let numerator = -reg_accessed.data[vec_row];
+            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+        }
+        logup_col_gen.finalize_col();
+    }
+    fn add_cur_reg(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        preprocessed_trace: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        accessed: Column,
+        reg_address: Column,
+        cur_ts: PreprocessedColumn,
+        cur_value: Column,
+    ) {
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        let [reg_accessed] = original_traces.get_base_column(accessed);
+        let [reg_idx] = original_traces.get_base_column(reg_address);
+        let reg_prev_ts: [BaseColumn; WORD_SIZE] =
+            preprocessed_trace.get_preprocessed_base_column(cur_ts);
+        let reg_prev_value: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(cur_value);
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![reg_idx.data[vec_row]];
+            for col in reg_prev_ts.iter().chain(reg_prev_value.iter()) {
+                tuple.push(col.data[vec_row]);
+            }
+            debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+            let denom = lookup_element.combine(tuple.as_slice());
+            let numerator = reg_accessed.data[vec_row];
+            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+        }
+        logup_col_gen.finalize_col();
     }
 }
 
@@ -160,4 +358,123 @@ fn fill_prev_values(
         .access(reg_idx, reg_cur_ts, cur_value);
     traces.fill_columns(row_idx, prev_timestamp, dst_ts);
     traces.fill_columns(row_idx, prev_value, dst_val);
+}
+
+#[cfg(test)]
+mod test {
+    use nexus_vm::{
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        trace::k_trace_direct,
+    };
+
+    use crate::{
+        machine2::{
+            chips::{AddChip, CpuChip, RegisterMemCheckChip},
+            trace::{ProgramStep, Traces},
+            traits::MachineChip,
+        },
+        test_utils::assert_chip,
+    };
+
+    #[rustfmt::skip]
+    fn setup_basic_block_ir() -> Vec<BasicBlock>
+    {
+        let basic_block = BasicBlock::new(vec![
+            // Set x0 = 0 (default constant), x1 = 1
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
+            // x2 = x1 + x0
+            // x3 = x2 + x1 ... and so on
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 7, 6, 5, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 8, 7, 6, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 9, 8, 7, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 10, 9, 8, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 11, 10, 9, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 12, 11, 10, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 13, 12, 11, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 14, 13, 12, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 14, 13, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 16, 15, 14, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 17, 16, 15, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 18, 17, 16, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 19, 18, 17, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 20, 19, 18, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 21, 20, 19, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 22, 21, 20, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 23, 22, 21, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 24, 23, 22, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 25, 24, 23, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 26, 25, 24, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 27, 26, 25, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 28, 27, 26, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 29, 28, 27, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28, InstructionType::RType),
+            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29, InstructionType::RType),
+        ]);
+        vec![basic_block]
+    }
+
+    #[test]
+    fn test_register_mem_check_success() {
+        let basic_block = setup_basic_block_ir();
+        let k = 1;
+
+        // Get traces from VM K-Trace interface
+        let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+
+        const LOG_SIZE: u32 = 8;
+        let mut traces = Traces::new(LOG_SIZE);
+        let mut side_note = super::SideNote::default();
+        let mut row_idx = 0;
+
+        // We iterate each block in the trace for each instruction
+        for trace in vm_traces.blocks.iter() {
+            let regs = trace.regs;
+            for step in trace.steps.iter() {
+                let program_step = ProgramStep {
+                    regs,
+                    step: step.clone(),
+                };
+
+                // Fill in the main trace with the ValueB, valueC and Opcode
+                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+
+                // Now fill in the traces with ValueA and CarryFlags
+                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+                RegisterMemCheckChip::fill_main_trace(
+                    &mut traces,
+                    row_idx,
+                    &Default::default(),
+                    &mut side_note,
+                );
+
+                row_idx += 1;
+            }
+        }
+        // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
+        for more_row_idx in row_idx..(1 << LOG_SIZE) {
+            CpuChip::fill_main_trace(
+                &mut traces,
+                more_row_idx,
+                &ProgramStep::padding(),
+                &mut side_note,
+            );
+            RegisterMemCheckChip::fill_main_trace(
+                &mut traces,
+                more_row_idx,
+                &Default::default(),
+                &mut side_note,
+            );
+        }
+        let mut preprocessed_column = Traces::empty_preprocessed_trace(LOG_SIZE);
+        preprocessed_column.fill_is_first();
+        preprocessed_column.fill_is_first32();
+        preprocessed_column.fill_row_idx();
+        preprocessed_column.fill_timestamps();
+        assert_chip::<RegisterMemCheckChip>(traces, Some(preprocessed_column));
+    }
 }

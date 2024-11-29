@@ -180,6 +180,9 @@ pub enum PreprocessedColumn {
     /// One on the first 32 rows, then 0.
     #[size = 1]
     IsFirst32,
+    /// Zero on the first row, then incremented by one per row
+    #[size = 1]
+    RowIdx,
     /// One on the first row, then incremented by one per row.
     #[size = 4]
     Clk,
