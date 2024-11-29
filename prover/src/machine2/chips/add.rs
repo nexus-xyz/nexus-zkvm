@@ -149,6 +149,22 @@ impl MachineChip for AddChip {
         );
         eval.add_constraint(is_add.clone() * (E::F::one() - reg3_accessed.clone()));
 
+        // Constrain Reg{1,2,3}Address uniquely
+        let (_, [is_add]) = trace_eval!(trace_eval, Column::IsAdd);
+        let (_, [imm_c]) = trace_eval!(trace_eval, Column::ImmC);
+        let (_, [op_a]) = trace_eval!(trace_eval, Column::OpA);
+        let (_, [op_b]) = trace_eval!(trace_eval, Column::OpB);
+        let (_, [op_c]) = trace_eval!(trace_eval, Column::OpC);
+        let (_, [reg1_address]) = trace_eval!(trace_eval, Column::Reg1Address);
+        let (_, [reg2_address]) = trace_eval!(trace_eval, Column::Reg2Address);
+        let (_, [reg3_address]) = trace_eval!(trace_eval, Column::Reg3Address);
+        eval.add_constraint(is_add.clone() * (op_b - reg1_address));
+        eval.add_constraint(
+            is_add.clone() * (E::F::one() - imm_c.clone()) * (op_c.clone() - reg2_address),
+        );
+        eval.add_constraint(is_add.clone() * imm_c * op_c);
+        eval.add_constraint(is_add * (op_a - reg3_address));
+
         // TODO: special range check rs2_val[i] for ADDI case, because immediate values have a smaller range.
     }
 }
@@ -231,6 +247,8 @@ mod test {
 
                 // Fill in the main trace with the ValueB, valueC and Opcode
                 CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+
+                // TODO: use RegisterMemCheckChip too, when it's ready
 
                 // Now fill in the traces with ValueA and CarryFlags
                 AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
