@@ -195,6 +195,12 @@ pub enum PreprocessedColumn {
     /// Contains numbers from 0 to 127, and 0 afterwards.
     #[size = 1]
     Range128,
+    /// Contains numbers from 0 to 15, and 0 afterwards
+    #[size = 1]
+    Range16,
+    /// Contains numbers from 0 to 7, and 0 afterwards
+    #[size = 1]
+    Range8,
     /// Contains numbers from 0 to 255, and 0 afterwards.
     #[size = 1]
     Range256,
