@@ -21,7 +21,7 @@ fn buzz() -> u32 {
 fn moo() {
     let (b): (u32) = buzz().expect("Failed to read public input");
     {
-        let out = {
+        let out = (|| {
             {
                 let (x, y, z): (u32, u32, u32) = fizz()
                     .expect("Failed to read public input");
@@ -30,7 +30,7 @@ fn moo() {
                     { a + b + x + y + z }
                 }
             }
-        };
+        })();
         output_handler(&out).expect("Failed to write output");
     }
 }
@@ -50,13 +50,13 @@ const _: fn() = main;
 #[no_mangle]
 #[allow(unused)]
 fn main() {
-    let out = {
+    let out = (|| {
         {
             {
                 moo();
                 foo() + hello()
             }
         }
-    };
+    })();
     nexus_rt::write_public_output::<u32>(&out).expect("Failed to write output");
 }

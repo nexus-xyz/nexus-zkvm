@@ -14,7 +14,7 @@ fn output_handler(result: u32) {
     };
 }
 fn foo(x: u32, y: u32) {
-    let out = { { x * y } };
+    let out = (|| { { x * y } })();
     output_handler(&out).expect("Failed to write output");
 }
 const _: fn() = main;

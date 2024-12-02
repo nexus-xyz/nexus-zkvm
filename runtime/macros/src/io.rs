@@ -106,9 +106,9 @@ pub(crate) fn handle_output(
         #target_check
         #(#attrs)*
         fn #fn_name(#inputs) {
-            let out = {
+            let out = (|| {
                 #block
-            };
+            })();
             #output_fn_full(&out).expect("Failed to write output");
         }
     };

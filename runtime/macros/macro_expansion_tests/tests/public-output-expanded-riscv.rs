@@ -7,7 +7,7 @@ use core::prelude::rust_2021::*;
 extern crate core;
 extern crate compiler_builtins as _;
 fn foo(x: u32, y: u32) {
-    let out = { { x * y } };
+    let out = (|| { { x * y } })();
     nexus_rt::write_public_output::<u32>(&out).expect("Failed to write output");
 }
 const _: fn() = main;

@@ -7,13 +7,14 @@ fn main(n: u32) -> u32 {
     let mut b = 1;
 
     if n == 0 {
-        a
-    } else {
-        for _ in 2..n {
-            let c = a + b;
-            a = b;
-            b = c;
-        }
-        b
+        return a;
     }
+
+    for _ in 2..n {
+        let c = a + b;
+            a = b;
+        b = c;
+    }
+
+    b
 }

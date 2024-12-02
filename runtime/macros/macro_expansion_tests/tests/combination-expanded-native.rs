@@ -24,7 +24,7 @@ fn output_handler(x: u32) {
 fn moo() {
     let (b): (u32) = buzz().expect("Failed to read public input");
     {
-        let out = {
+        let out = (|| {
             {
                 let (x, y, z): (u32, u32, u32) = fizz()
                     .expect("Failed to read public input");
@@ -33,7 +33,7 @@ fn moo() {
                     { a + b + x + y + z }
                 }
             }
-        };
+        })();
         output_handler(&out).expect("Failed to write output");
     }
 }
@@ -51,13 +51,13 @@ fn hello() -> u32 {
 const _: fn() = main;
 #[allow(unused)]
 fn main() {
-    let out = {
+    let out = (|| {
         {
             {
                 moo();
                 foo() + hello()
             }
         }
-    };
+    })();
     output_handler(&out).expect("Failed to write output");
 }
