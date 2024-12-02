@@ -113,7 +113,7 @@ impl MachineChip for RegisterMemCheckChip {
             );
         }
         // If we reached the end, write the final register information
-        if row_idx == 1 << traces.log_size() - 1 {
+        if row_idx == traces.num_rows() - 1 {
             for reg_idx in 0..NUM_REGISTERS {
                 let final_val = side_note.register_mem_check.last_access_value[reg_idx];
                 traces.fill_columns(reg_idx, final_val, Column::FinalRegValue);
@@ -457,7 +457,7 @@ mod test {
             }
         }
         // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
-        for more_row_idx in row_idx..(1 << LOG_SIZE) {
+        for more_row_idx in row_idx..traces.num_rows() {
             CpuChip::fill_main_trace(
                 &mut traces,
                 more_row_idx,

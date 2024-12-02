@@ -90,7 +90,7 @@ mod test {
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = SideNote::default();
 
-        for row_idx in 0..(1 << LOG_SIZE) {
+        for row_idx in 0..traces.num_rows() {
             let b = row_idx % 2 == 0;
             for col in CHECKED_SINGLE.into_iter() {
                 traces.fill_columns(row_idx, b, col);
@@ -119,7 +119,7 @@ mod test {
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = SideNote::default();
         // Write in-range values to ValueA columns.
-        for row_idx in 0..(1 << LOG_SIZE) {
+        for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 2 == 0) as u8 + 1; // sometimes out of range
             for col in CHECKED_SINGLE.into_iter() {
                 traces.fill_columns(row_idx, b, col);

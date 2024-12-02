@@ -228,7 +228,7 @@ mod test {
             }
         }
         // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
-        for more_row_idx in row_idx..(1 << LOG_SIZE) {
+        for more_row_idx in row_idx..traces.num_rows() {
             CpuChip::fill_main_trace(
                 &mut traces,
                 more_row_idx,

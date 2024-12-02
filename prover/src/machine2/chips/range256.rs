@@ -193,7 +193,7 @@ mod test {
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = SideNote::default();
         // Write in-range values to ValueA columns.
-        for row_idx in 0..(1 << LOG_SIZE) {
+        for row_idx in 0..traces.num_rows() {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
 
             traces.fill_columns_bytes(row_idx, &buf, ValueA);
@@ -236,7 +236,7 @@ mod test {
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = SideNote::default();
         // Write in-range values to ValueA columns.
-        for row_idx in 0..(1 << LOG_SIZE) {
+        for row_idx in 0..traces.num_rows() {
             let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {
                 // sometimes out of range
                 let t = ((row_idx + i) as u8) as u32 + 1u32;

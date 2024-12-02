@@ -57,6 +57,11 @@ impl Traces {
         self.log_size
     }
 
+    /// Returns the number of rows
+    pub fn num_rows(&self) -> usize {
+        1 << self.log_size
+    }
+
     /// Returns a copy of `N` raw columns in range `[offset..offset + N]` at `row`, where
     /// `N` is assumed to be equal `Column::size` of a `col`.
     pub fn column<const N: usize>(&self, row: usize, col: Column) -> [BaseField; N] {

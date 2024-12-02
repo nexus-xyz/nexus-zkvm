@@ -69,6 +69,11 @@ impl PreprocessedTraces {
         self.0.log_size
     }
 
+    /// Returns the number of rows
+    pub fn num_rows(&self) -> usize {
+        self.0.num_rows()
+    }
+
     /// Returns a copy of `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
     ///
     /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
@@ -122,7 +127,7 @@ impl PreprocessedTraces {
 
     pub(crate) fn fill_row_idx(&mut self) {
         debug_assert!(self.log_size() < 31);
-        for row_idx in 0..(1u32 << self.log_size()) {
+        for row_idx in 0..self.num_rows() {
             self.0.cols[PreprocessedColumn::RowIdx.offset()][row_idx as usize] =
                 BaseField::from(row_idx);
         }
@@ -167,7 +172,7 @@ impl PreprocessedTraces {
 
     pub(crate) fn fill_timestamps(&mut self) {
         // Make sure the last reg3_ts_cur computation doesn't overflow
-        debug_assert!(1 << self.log_size() < (u32::MAX - 3) / 3);
+        debug_assert!(self.num_rows() < (u32::MAX as usize - 3) / 3);
         for row_idx in 0..(1 << self.log_size()) {
             let clk = (row_idx + 1) as u32;
             self.fill_preprocessed_word(row_idx, PreprocessedColumn::Clk, clk.to_le_bytes());
