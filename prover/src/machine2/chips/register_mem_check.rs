@@ -32,7 +32,8 @@ use crate::machine2::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         regs::AccessResult,
         sidenote::SideNote,
-        FromBaseFields, ProgramStep, Traces,
+        utils::FromBaseFields,
+        PreprocessedTraces, ProgramStep, Traces,
     },
     traits::MachineChip,
 };
@@ -144,7 +145,7 @@ impl MachineChip for RegisterMemCheckChip {
     }
     fn fill_interaction_trace(
         original_traces: &Traces,
-        preprocessed_trace: &Traces,
+        preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -238,7 +239,7 @@ impl RegisterMemCheckChip {
     fn add_initial_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &Traces,
-        preprocessed_trace: &Traces,
+        preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_first_32] =
@@ -259,7 +260,7 @@ impl RegisterMemCheckChip {
     fn subtract_final_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &Traces,
-        preprocessed_trace: &Traces,
+        preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_first_32] =
@@ -311,7 +312,7 @@ impl RegisterMemCheckChip {
     fn add_cur_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &Traces,
-        preprocessed_trace: &Traces,
+        preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
         accessed: Column,
         reg_address: Column,
@@ -370,7 +371,7 @@ mod test {
     use crate::{
         machine2::{
             chips::{AddChip, CpuChip, RegisterMemCheckChip},
-            trace::{ProgramStep, Traces},
+            trace::{PreprocessedTraces, ProgramStep, Traces},
             traits::MachineChip,
         },
         test_utils::assert_chip,
@@ -470,7 +471,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_column = Traces::empty_preprocessed_trace(LOG_SIZE);
+        let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
         preprocessed_column.fill_is_first();
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();

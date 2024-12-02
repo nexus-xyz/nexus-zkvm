@@ -12,7 +12,9 @@ use stwo_prover::{
 
 use super::{
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
+    trace::{
+        eval::TraceEval, preprocessed::PreprocessedTraces, sidenote::SideNote, ProgramStep, Traces,
+    },
 };
 
 pub trait ExecuteChip {
@@ -46,7 +48,7 @@ pub trait MachineChip {
     /// This method isn't called row-by-row because stwo logup library fills 16 rows of the interaction trace at a time.
     fn fill_interaction_trace(
         _original_traces: &Traces,
-        _preprocessed_trace: &Traces,
+        _preprocessed_trace: &PreprocessedTraces,
         _lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         vec![]
@@ -74,7 +76,7 @@ impl MachineChip for Tuple {
 
     fn fill_interaction_trace(
         original_traces: &Traces,
-        preprocessed_traces: &Traces,
+        preprocessed_traces: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut result = ColumnVec::new();

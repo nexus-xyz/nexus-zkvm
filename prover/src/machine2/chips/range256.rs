@@ -23,7 +23,7 @@ use crate::machine2::{
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
         sidenote::SideNote,
-        ProgramStep, Traces,
+        PreprocessedTraces, ProgramStep, Traces,
     },
     traits::MachineChip,
 };
@@ -67,7 +67,7 @@ impl MachineChip for Range256Chip {
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
         original_traces: &Traces,
-        preprocessed_traces: &Traces,
+        preprocessed_traces: &PreprocessedTraces,
         lookup_element: &LookupElements<12>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -207,7 +207,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_256_rows = Traces::empty_preprocessed_trace(LOG_SIZE);
+        let mut preprocessed_256_rows = PreprocessedTraces::empty(LOG_SIZE);
         preprocessed_256_rows.fill_is_first();
         preprocessed_256_rows.fill_range256();
         assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows));
@@ -231,7 +231,7 @@ mod test {
     }
 
     fn range256_chip_fail_out_of_range() {
-        const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
         let mut side_note = SideNote::default();

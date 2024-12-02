@@ -16,7 +16,7 @@ use stwo_prover::{
 };
 
 use crate::machine2::{
-    trace::{eval::TraceEval, Traces},
+    trace::{eval::TraceEval, PreprocessedTraces, Traces},
     traits::MachineChip,
 };
 
@@ -44,7 +44,7 @@ pub(crate) struct CommittedTraces<'a> {
     pub(crate) commitment_scheme: CommitmentSchemeProver<'a, SimdBackend, Blake2sMerkleChannel>,
     pub(crate) prover_channel: Blake2sChannel,
     pub(crate) lookup_elements: LookupElements<12>,
-    pub(crate) preprocessed_trace: Traces,
+    pub(crate) preprocessed_trace: PreprocessedTraces,
     pub(crate) interaction_trace: Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
 }
 
@@ -53,14 +53,14 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     config: PcsConfig,
     twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
     traces: &Traces,
-    custom_preprocessed: Option<Traces>,
+    custom_preprocessed: Option<PreprocessedTraces>,
 ) -> CommittedTraces<'a> {
     let mut commitment_scheme =
         CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
     let mut prover_channel = Blake2sChannel::default();
     // Preprocessed trace
     let preprocessed_trace =
-        custom_preprocessed.unwrap_or_else(|| Traces::new_preprocessed_trace(traces.log_size()));
+        custom_preprocessed.unwrap_or_else(|| PreprocessedTraces::new(traces.log_size()));
     let mut tree_builder = commitment_scheme.tree_builder();
     let _preprocessed_trace_location =
         tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
@@ -88,7 +88,10 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
 }
 
 /// Assuming traces are filled, assert constraints
-pub(crate) fn assert_chip<C: MachineChip>(traces: Traces, custom_preprocessed: Option<Traces>) {
+pub(crate) fn assert_chip<C: MachineChip>(
+    traces: Traces,
+    custom_preprocessed: Option<PreprocessedTraces>,
+) {
     let (config, twiddles) = test_params(traces.log_size());
 
     let CommittedTraces {

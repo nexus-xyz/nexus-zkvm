@@ -13,7 +13,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::trace::Trace;
-use trace::{sidenote::SideNote, ProgramStep};
+use trace::{sidenote::SideNote, PreprocessedTraces, ProgramStep};
 
 pub mod chips;
 pub mod components;
@@ -88,7 +88,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         tree_builder.commit(prover_channel);
 
         let lookup_elements = LookupElements::draw(prover_channel);
-        let preprocessed_trace = trace::Traces::new_preprocessed_trace(LOG_SIZE);
+        let preprocessed_trace = PreprocessedTraces::new(LOG_SIZE);
         let mut tree_builder = commitment_scheme.tree_builder();
         let interaction_trace =
             C::fill_interaction_trace(&prover_traces, &preprocessed_trace, &lookup_elements);

@@ -37,7 +37,7 @@ use crate::machine2::{
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         sidenote::SideNote,
-        ProgramStep, Traces, Word,
+        PreprocessedTraces, ProgramStep, Traces, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -186,7 +186,7 @@ impl MachineChip for BitOpChip {
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen rows.
     fn fill_interaction_trace(
         original_traces: &Traces,
-        preprocessed_trace: &Traces,
+        preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -331,7 +331,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
+    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         #[rustfmt::skip]

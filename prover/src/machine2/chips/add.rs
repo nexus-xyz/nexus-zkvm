@@ -171,7 +171,7 @@ impl MachineChip for AddChip {
 
 #[cfg(test)]
 mod test {
-    use crate::machine2::chips::CpuChip;
+    use crate::machine2::{chips::CpuChip, trace::PreprocessedTraces};
 
     use super::*;
     use nexus_vm::{
@@ -179,7 +179,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = Traces::MIN_LOG_SIZE;
+    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
     #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock>

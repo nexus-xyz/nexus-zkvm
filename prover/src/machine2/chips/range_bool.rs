@@ -73,6 +73,7 @@ mod test {
 
     use crate::machine2::components::{MachineComponent, MachineEval};
 
+    use crate::machine2::trace::PreprocessedTraces;
     use crate::machine2::traits::MachineChip;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
@@ -106,7 +107,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let preprocessed_bool_rows = Traces::empty_preprocessed_trace(LOG_SIZE);
+        let preprocessed_bool_rows = PreprocessedTraces::empty(LOG_SIZE);
         assert_chip::<RangeBoolChip>(traces, Some(preprocessed_bool_rows));
     }
 
