@@ -51,13 +51,17 @@ pub struct Machine<C = Components> {
 
 impl<C: MachineChip + Sync> Machine<C> {
     pub fn prove(trace: &impl Trace) -> Result<Proof, ProvingError> {
-        const LOG_SIZE: u32 = 6;
+        let num_steps = trace
+            .get_blocks_iter()
+            .map(|block| block.steps.len())
+            .sum::<usize>();
+        let log_size: u32 = num_steps.next_power_of_two().trailing_zeros();
 
         let config = PcsConfig::default();
         // Precompute twiddles.
         let twiddles = SimdBackend::precompute_twiddles(
             CanonicCoset::new(
-                LOG_SIZE + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
+                log_size + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
             )
             .circle_domain()
             .half_coset,
@@ -71,24 +75,34 @@ impl<C: MachineChip + Sync> Machine<C> {
             );
 
         // Fill columns.
-        let mut prover_traces = trace::Traces::new(LOG_SIZE);
+        let mut prover_traces = trace::Traces::new(log_size);
         let mut prover_side_note = SideNote::default();
-        for (row_idx, block) in trace.get_blocks_iter().enumerate() {
-            // k = 1
-            assert_eq!(block.steps.len(), 1);
-
-            let step = ProgramStep {
-                step: block.steps[0].clone(),
-                regs: block.regs,
-            };
-            C::fill_main_trace(&mut prover_traces, row_idx, &step, &mut prover_side_note);
+        let program_steps = trace
+            .get_blocks_iter()
+            .map(|block| {
+                assert_eq!(block.steps.len(), 1, "Only k = 1 traces are supported.");
+                ProgramStep {
+                    step: block.steps[0].clone(),
+                    regs: block.regs,
+                }
+            })
+            .chain(std::iter::repeat(ProgramStep::padding()))
+            .take(prover_traces.num_rows());
+        for (row_idx, program_step) in program_steps.enumerate() {
+            C::fill_main_trace(
+                &mut prover_traces,
+                row_idx,
+                &program_step,
+                &mut prover_side_note,
+            );
         }
+
         let mut tree_builder = commitment_scheme.tree_builder();
         let _main_trace_location = tree_builder.extend_evals(prover_traces.circle_evaluation());
         tree_builder.commit(prover_channel);
 
         let lookup_elements = LookupElements::draw(prover_channel);
-        let preprocessed_trace = PreprocessedTraces::new(LOG_SIZE);
+        let preprocessed_trace = PreprocessedTraces::new(log_size);
         let mut tree_builder = commitment_scheme.tree_builder();
         let interaction_trace =
             C::fill_interaction_trace(&prover_traces, &preprocessed_trace, &lookup_elements);
@@ -103,7 +117,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let component = MachineComponent::new(
             &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(LOG_SIZE, lookup_elements),
+            MachineEval::<C>::new(log_size, lookup_elements),
         );
         let proof = prove::<SimdBackend, Blake2sMerkleChannel>(
             &[&component],

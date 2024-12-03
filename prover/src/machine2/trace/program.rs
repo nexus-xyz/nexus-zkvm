@@ -7,7 +7,7 @@ use nexus_vm::{
 };
 
 /// Program execution step.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ProgramStep {
     /// Machine registers.
     pub(crate) regs: RegisterFile,
