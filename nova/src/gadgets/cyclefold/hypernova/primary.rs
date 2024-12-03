@@ -21,7 +21,7 @@ use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use ark_spartan::polycommitments::{PolyCommitmentScheme, PolyCommitmentTrait};
 use ark_std::fmt::Debug;
 
-use super::NonNativeAffineVar;
+use super::EmulatedFpAffineVar;
 use crate::folding::hypernova::cyclefold::{CCSInstance, HNProof, LCCSInstance};
 use crate::folding::hypernova::ml_sumcheck::PolynomialInfo;
 
@@ -33,7 +33,7 @@ where
     G1::BaseField: PrimeField,
 {
     /// Commitment to witness.
-    pub commitment_W: NonNativeAffineVar<G1>,
+    pub commitment_W: EmulatedFpAffineVar<G1>,
     /// Public input of non-linearized instance.
     pub X: Vec<FpVar<G1::ScalarField>>,
 
@@ -115,7 +115,7 @@ where
         // Only allocate valid instance, which starts with F::ONE.
         assert_eq!(X[0], G1::ScalarField::ONE);
 
-        let commitment_W = NonNativeAffineVar::new_variable(
+        let commitment_W = EmulatedFpAffineVar::new_variable(
             cs.clone(),
             || {
                 Ok::<Projective<G1>, SynthesisError>(
@@ -171,7 +171,7 @@ where
     G1::BaseField: PrimeField,
 {
     /// Commitment to witness.
-    pub commitment_W: NonNativeAffineVar<G1>,
+    pub commitment_W: EmulatedFpAffineVar<G1>,
     /// Public input of linearized instance. Expected to start with `u`.
     pub X: Vec<FpVar<G1::ScalarField>>,
     /// Random evaluation point of linearized instance.
@@ -210,7 +210,7 @@ where
     G1::BaseField: PrimeField,
 {
     pub(super) fn new(
-        commitment_W: NonNativeAffineVar<G1>,
+        commitment_W: EmulatedFpAffineVar<G1>,
         X: Vec<FpVar<G1::ScalarField>>,
         rs: Vec<FpVar<G1::ScalarField>>,
         vs: Vec<FpVar<G1::ScalarField>>,
@@ -281,7 +281,7 @@ where
         let rs = &r1cs.borrow().rs;
         let vs = &r1cs.borrow().vs;
 
-        let commitment_W = NonNativeAffineVar::new_variable(
+        let commitment_W = EmulatedFpAffineVar::new_variable(
             cs.clone(),
             || {
                 Ok::<Projective<G1>, SynthesisError>(

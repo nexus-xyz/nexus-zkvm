@@ -178,7 +178,7 @@ impl MerkleTrie {
         auth: &mut Vec<(bool, Digest)>,
         level: usize,
         addr: u32,
-    ) -> &CacheLine {
+    ) -> &'a CacheLine {
         if level == CACHE_LOG {
             return Node::leaf(node);
         }

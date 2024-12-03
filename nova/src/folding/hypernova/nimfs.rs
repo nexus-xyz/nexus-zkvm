@@ -11,7 +11,7 @@ use ark_spartan::{dense_mlpoly::EqPolynomial, polycommitments::PolyCommitmentSch
 use ark_std::{fmt::Display, rc::Rc};
 
 use crate::{
-    absorb::AbsorbNonNative,
+    absorb::AbsorbEmulatedFp,
     ccs::{self, mle::vec_to_ark_mle, CCSInstance, CCSShape, CCSWitness, LCCSInstance},
     safe_loglike,
     utils::cast_field_element,
@@ -85,7 +85,7 @@ impl<G: CurveGroup, RO> Clone for NIMFSProof<G, RO> {
 
 impl<G, RO> NIMFSProof<G, RO>
 where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G: CurveGroup + AbsorbEmulatedFp<G::ScalarField>,
     G::BaseField: PrimeField + Absorb,
     G::ScalarField: Absorb,
     G::Affine: Absorb + ToConstraintField<G::BaseField>,

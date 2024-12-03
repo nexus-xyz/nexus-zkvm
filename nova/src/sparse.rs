@@ -134,7 +134,7 @@ pub struct Iter<'a, F: PrimeField> {
     nnz: usize,
 }
 
-impl<'a, F: PrimeField> Iterator for Iter<'a, F> {
+impl<F: PrimeField> Iterator for Iter<'_, F> {
     type Item = (usize, usize, F);
 
     fn next(&mut self) -> Option<Self::Item> {
