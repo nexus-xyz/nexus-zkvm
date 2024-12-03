@@ -1,3 +1,4 @@
+use std::ops::Not;
 use std::{borrow::Borrow, marker::PhantomData};
 
 use ark_crypto_primitives::sponge::{
@@ -31,7 +32,7 @@ use crate::{
         nova::{multifold, multifold_with_relaxed, primary},
         secondary,
     },
-    gadgets::nonnative::short_weierstrass::NonNativeAffineVar,
+    gadgets::emulated::short_weierstrass::EmulatedFpAffineVar,
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
@@ -143,7 +144,7 @@ where
     u: primary::R1CSInstanceVar<G1, C1>,
 
     // proof
-    commitment_T: NonNativeAffineVar<G1>,
+    commitment_T: EmulatedFpAffineVar<G1>,
     proof_secondary: (secondary::ProofVar<G2, C2>, secondary::ProofVar<G2, C2>),
 
     _random_oracle: PhantomData<RO>,
@@ -206,7 +207,7 @@ where
 
     nodes: [AllocatedPCDNodeInput<G1, G2, C1, C2, RO>; 2],
     // proof
-    commitment_T: NonNativeAffineVar<G1>,
+    commitment_T: EmulatedFpAffineVar<G1>,
     commitment_T_secondary: ProjectiveVar<G2, FpVar<G2::BaseField>>,
     proof_secondary: (
         [secondary::ProofVar<G2, C2>; 2],
@@ -247,7 +248,7 @@ where
 
         let commitment_T_point = input.proof.commitment_T.into();
         let commitment_T =
-            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&commitment_T_point), mode)?;
+            EmulatedFpAffineVar::new_variable(cs.clone(), || Ok(&commitment_T_point), mode)?;
 
         let u_secondary = (
             secondary::ProofVar::new_variable(
@@ -359,7 +360,7 @@ where
 
         let commitment_T_point = input.proof.commitment_T.into();
         let commitment_T =
-            NonNativeAffineVar::new_variable(cs.clone(), || Ok(&commitment_T_point), mode)?;
+            EmulatedFpAffineVar::new_variable(cs.clone(), || Ok(&commitment_T_point), mode)?;
         let commitment_T_secondary = <ProjectiveVar<G2, FpVar<G2::BaseField>> as AllocVar<
             Projective<G2>,
             G2::BaseField,
@@ -465,7 +466,7 @@ where
         let right = &input.nodes[1];
 
         let is_base_case = i.is_eq(j)?;
-        let should_enforce = is_base_case.not();
+        let should_enforce = is_base_case.clone().not();
 
         let U_base = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_constant(
             cs.clone(),

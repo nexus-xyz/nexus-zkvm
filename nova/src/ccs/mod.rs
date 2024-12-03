@@ -14,7 +14,7 @@ use rayon::iter::{
 use crate::safe_loglike;
 
 pub use super::sparse::{MatrixRef, SparseMatrix};
-use super::{absorb::AbsorbNonNative, r1cs::R1CSShape};
+use super::{absorb::AbsorbEmulatedFp, r1cs::R1CSShape};
 use mle::vec_to_mle;
 
 pub mod mle;
@@ -232,7 +232,7 @@ impl<G: CurveGroup> CCSWitness<G> {
 
 impl<G, C> Absorb for CCSInstance<G, C>
 where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G: CurveGroup + AbsorbEmulatedFp<G::ScalarField>,
     G::ScalarField: Absorb,
     C: PolyCommitmentScheme<G>,
     C::Commitment: Into<Vec<G>>,
@@ -243,7 +243,7 @@ where
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
         self.commitment_W.clone().into().iter().for_each(|c| {
-            <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest)
+            <G as AbsorbEmulatedFp<G::ScalarField>>::to_sponge_field_elements(c, dest)
         });
 
         (&self.X[1..]).to_sponge_field_elements(dest);
@@ -302,7 +302,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> Eq for CCSInstance<G, C> where C
 
 impl<G, C> Absorb for LCCSInstance<G, C>
 where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G: CurveGroup + AbsorbEmulatedFp<G::ScalarField>,
     G::ScalarField: Absorb,
     C: PolyCommitmentScheme<G>,
     C::Commitment: Into<Vec<G>>,
@@ -313,7 +313,7 @@ where
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
         self.commitment_W.clone().into().iter().for_each(|c| {
-            <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(c, dest)
+            <G as AbsorbEmulatedFp<G::ScalarField>>::to_sponge_field_elements(c, dest)
         });
 
         self.X.to_sponge_field_elements(dest);

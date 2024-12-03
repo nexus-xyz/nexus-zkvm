@@ -2,7 +2,7 @@
 //!
 //! Poseidon cryptographic sponge from arkworks is defined over some specified field, and current implementation may
 //! either silently discard non-native field element absorbed into the sponge, or panic. Thus, care must be taken
-//! when choosing between [`Absorb`] and [`AbsorbNonNative`], because both would compile.
+//! when choosing between [`Absorb`] and [`AbsorbEmulatedFp`], because both would compile.
 //!
 //! Let G1, G2 denote a cycle of elliptic curves: G1 = E(F2) with scalar field F1, G2 = E(F1) with scalar field F2.
 //! If r1cs input consists of elements from F1, then its commitment is a point on the curve G1 -- elements from F2.
@@ -28,7 +28,7 @@ use crate::r1cs::{R1CSInstance, RelaxedR1CSInstance};
 
 /// An interface to objects that can be absorbed by [`ark_sponge::CryptographicSponge`] defined
 /// over F1, but cannot be natively represented as an array of elements of F1.
-pub trait AbsorbNonNative<F1: PrimeField + Absorb> {
+pub trait AbsorbEmulatedFp<F1: PrimeField + Absorb> {
     /// Converts self into an array of elements from non-native field F1 and appends
     /// it to `dest`.
     fn to_non_native_field_elements(&self, dest: &mut Vec<F1>);
@@ -46,7 +46,7 @@ pub trait AbsorbNonNative<F1: PrimeField + Absorb> {
 /// Extension of [`ark_sponge::CryptographicSponge`] for non-native objects.
 pub trait CryptographicSpongeExt: ark_sponge::CryptographicSponge {
     /// Absorb an input using non-native implementation.
-    fn absorb_non_native<F>(&mut self, input: &impl AbsorbNonNative<F>)
+    fn absorb_non_native<F>(&mut self, input: &impl AbsorbEmulatedFp<F>)
     where
         F: PrimeField + Absorb;
 }
@@ -55,7 +55,7 @@ impl<S> CryptographicSpongeExt for S
 where
     S: ark_sponge::CryptographicSponge,
 {
-    fn absorb_non_native<F>(&mut self, input: &impl AbsorbNonNative<F>)
+    fn absorb_non_native<F>(&mut self, input: &impl AbsorbEmulatedFp<F>)
     where
         F: PrimeField + Absorb,
     {
@@ -69,7 +69,7 @@ where
 /// Unique affine coordinates are non-native elements, boolean `infinity` is converted to `ZERO` or `ONE`.
 ///
 /// The conversion to affine point must be consistent with in-circuit implementation.
-impl<P: SWCurveConfig> AbsorbNonNative<P::ScalarField> for Projective<P>
+impl<P: SWCurveConfig> AbsorbEmulatedFp<P::ScalarField> for Projective<P>
 where
     P::BaseField: PrimeField,
     P::ScalarField: Absorb,
@@ -88,7 +88,7 @@ where
 /// native absorb implementation: either it has to cast commitments coordinates or the input `X`.
 ///
 /// Assume that native implementation is the one that doesn't have to cast public input.
-impl<G, C> AbsorbNonNative<G::BaseField> for R1CSInstance<G, C>
+impl<G, C> AbsorbEmulatedFp<G::BaseField> for R1CSInstance<G, C>
 where
     G: CurveGroup,
     G::BaseField: PrimeField + Absorb,
@@ -106,7 +106,7 @@ where
 }
 
 /// See the above comment for [`R1CSInstance`] non-native absorb implementation.
-impl<G, C> AbsorbNonNative<G::BaseField> for RelaxedR1CSInstance<G, C>
+impl<G, C> AbsorbEmulatedFp<G::BaseField> for RelaxedR1CSInstance<G, C>
 where
     G: CurveGroup,
     G::BaseField: PrimeField + Absorb,
@@ -124,7 +124,7 @@ where
     }
 }
 
-impl<F: PrimeField + Absorb, A: AbsorbNonNative<F>> AbsorbNonNative<F> for &A {
+impl<F: PrimeField + Absorb, A: AbsorbEmulatedFp<F>> AbsorbEmulatedFp<F> for &A {
     fn to_non_native_field_elements(&self, dest: &mut Vec<F>) {
         (*self).to_non_native_field_elements(dest)
     }

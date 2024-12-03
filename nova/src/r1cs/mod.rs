@@ -12,7 +12,7 @@ use rayon::iter::{
     IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
 };
 
-use super::{absorb::AbsorbNonNative, commitment::CommitmentScheme};
+use super::{absorb::AbsorbEmulatedFp, commitment::CommitmentScheme};
 
 pub use super::sparse::{MatrixRef, SparseMatrix};
 
@@ -254,7 +254,7 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> Eq for R1CSInstance<G, C> where C::C
 
 impl<G, C> Absorb for R1CSInstance<G, C>
 where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G: CurveGroup + AbsorbEmulatedFp<G::ScalarField>,
     G::ScalarField: Absorb,
     C: CommitmentScheme<G>,
     C::Commitment: Into<G>,
@@ -264,7 +264,7 @@ where
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+        <G as AbsorbEmulatedFp<G::ScalarField>>::to_sponge_field_elements(
             &self.commitment_W.into(),
             dest,
         );
@@ -367,7 +367,7 @@ impl<G: CurveGroup, C: CommitmentScheme<G>> Eq for RelaxedR1CSInstance<G, C> whe
 
 impl<G, C> Absorb for RelaxedR1CSInstance<G, C>
 where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G: CurveGroup + AbsorbEmulatedFp<G::ScalarField>,
     G::ScalarField: Absorb,
     C: CommitmentScheme<G>,
     C::Commitment: Into<G>,
@@ -377,11 +377,11 @@ where
     }
 
     fn to_sponge_field_elements<F: PrimeField>(&self, dest: &mut Vec<F>) {
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+        <G as AbsorbEmulatedFp<G::ScalarField>>::to_sponge_field_elements(
             &self.commitment_W.into(),
             dest,
         );
-        <G as AbsorbNonNative<G::ScalarField>>::to_sponge_field_elements(
+        <G as AbsorbEmulatedFp<G::ScalarField>>::to_sponge_field_elements(
             &self.commitment_E.into(),
             dest,
         );

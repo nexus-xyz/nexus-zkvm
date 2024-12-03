@@ -14,7 +14,7 @@ use ark_r1cs_std::{
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 use ark_std::fmt::Debug;
 
-use super::NonNativeAffineVar;
+use super::EmulatedFpAffineVar;
 use crate::{
     commitment::CommitmentScheme,
     folding::nova::cyclefold::nimfs::{R1CSInstance, RelaxedR1CSInstance},
@@ -28,7 +28,7 @@ where
     G1::BaseField: PrimeField,
 {
     /// Commitment to witness.
-    pub commitment_W: NonNativeAffineVar<G1>,
+    pub commitment_W: EmulatedFpAffineVar<G1>,
     /// Public input of non-relaxed instance.
     pub X: Vec<FpVar<G1::ScalarField>>,
 
@@ -90,7 +90,7 @@ where
         // Only allocate valid instance, which starts with F::ONE.
         assert_eq!(X[0], G1::ScalarField::ONE);
 
-        let commitment_W = NonNativeAffineVar::new_variable(
+        let commitment_W = EmulatedFpAffineVar::new_variable(
             cs.clone(),
             || Ok(r1cs.borrow().commitment_W.into()),
             mode,
@@ -137,9 +137,9 @@ where
     G1::BaseField: PrimeField,
 {
     /// Commitment to witness.
-    pub commitment_W: NonNativeAffineVar<G1>,
+    pub commitment_W: EmulatedFpAffineVar<G1>,
     /// Commitment to error vector.
-    pub commitment_E: NonNativeAffineVar<G1>,
+    pub commitment_E: EmulatedFpAffineVar<G1>,
     /// Public input of relaxed instance. Expected to start with `u`.
     pub X: Vec<FpVar<G1::ScalarField>>,
 
@@ -167,8 +167,8 @@ where
     G1::BaseField: PrimeField,
 {
     pub(super) fn new(
-        commitment_W: NonNativeAffineVar<G1>,
-        commitment_E: NonNativeAffineVar<G1>,
+        commitment_W: EmulatedFpAffineVar<G1>,
+        commitment_E: EmulatedFpAffineVar<G1>,
         X: Vec<FpVar<G1::ScalarField>>,
     ) -> Self {
         Self {
@@ -227,12 +227,12 @@ where
         let r1cs = f()?;
         let X = &r1cs.borrow().X;
 
-        let commitment_W = NonNativeAffineVar::new_variable(
+        let commitment_W = EmulatedFpAffineVar::new_variable(
             cs.clone(),
             || Ok(r1cs.borrow().commitment_W.into()),
             mode,
         )?;
-        let commitment_E = NonNativeAffineVar::new_variable(
+        let commitment_E = EmulatedFpAffineVar::new_variable(
             cs.clone(),
             || Ok(r1cs.borrow().commitment_E.into()),
             mode,

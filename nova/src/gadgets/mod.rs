@@ -1,2 +1,2 @@
 pub(crate) mod cyclefold;
-pub(crate) mod nonnative;
+pub(crate) mod emulated;

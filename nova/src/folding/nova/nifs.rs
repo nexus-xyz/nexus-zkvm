@@ -6,7 +6,7 @@ use ark_ff::{PrimeField, ToConstraintField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize, SerializationError, Valid};
 
 use crate::{
-    absorb::{AbsorbNonNative, CryptographicSpongeExt},
+    absorb::{AbsorbEmulatedFp, CryptographicSpongeExt},
     commitment::{Commitment, CommitmentScheme},
     r1cs::{self, R1CSShape, RelaxedR1CSInstance, RelaxedR1CSWitness},
 };
@@ -59,7 +59,7 @@ impl<G: CurveGroup, C: CommitmentScheme<G>, RO> Clone for NIFSProof<G, C, RO> {
 
 impl<G, C, RO> NIFSProof<G, C, RO>
 where
-    G: CurveGroup + AbsorbNonNative<G::ScalarField>,
+    G: CurveGroup + AbsorbEmulatedFp<G::ScalarField>,
     C: CommitmentScheme<G>,
     G::BaseField: PrimeField + Absorb,
     G::ScalarField: Absorb,
