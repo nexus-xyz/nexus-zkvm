@@ -50,6 +50,10 @@ pub trait Trace {
     fn block(&self, n: usize) -> Option<&Block> {
         self.get_blocks_iter().nth(n - self.get_start())
     }
+
+    fn get_num_steps(&self) -> usize {
+        self.get_blocks_iter().map(|b| b.steps.len()).sum()
+    }
 }
 
 /// Represents a program trace over uniform blocks.
@@ -76,6 +80,10 @@ impl Trace for UniformTrace {
 
     fn get_start(&self) -> usize {
         self.start
+    }
+
+    fn get_num_steps(&self) -> usize {
+        self.k * self.blocks.len()
     }
 }
 

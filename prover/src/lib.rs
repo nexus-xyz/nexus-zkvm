@@ -54,10 +54,7 @@ pub struct Machine<C = Components> {
 
 impl<C: MachineChip + Sync> Machine<C> {
     pub fn prove(trace: &impl Trace) -> Result<Proof, ProvingError> {
-        let num_steps = trace
-            .get_blocks_iter()
-            .map(|block| block.steps.len())
-            .sum::<usize>();
+        let num_steps = trace.get_num_steps();
         let log_size: u32 = num_steps.next_power_of_two().trailing_zeros();
 
         let config = PcsConfig::default();
