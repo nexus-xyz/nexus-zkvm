@@ -10,7 +10,7 @@ use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     boolean::Boolean,
-    fields::{fp::FpVar, emulated_fp::EmulatedFpVar, FieldVar},
+    fields::{emulated_fp::EmulatedFpVar, fp::FpVar, FieldVar},
     select::CondSelectGadget,
     uint8::UInt8,
     R1CSVar,

@@ -4,8 +4,8 @@
 // !!!
 // !!! before modifying this circuit.
 
-use std::{borrow::Borrow, marker::PhantomData};
 use std::ops::Not;
+use std::{borrow::Borrow, marker::PhantomData};
 
 use ark_crypto_primitives::sponge::{
     constraints::{CryptographicSpongeVar, SpongeWithGadget},

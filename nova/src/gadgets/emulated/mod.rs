@@ -3,11 +3,12 @@ use std::{borrow::Borrow, marker::PhantomData};
 use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
+    convert::ToBytesGadget,
+    convert::ToConstraintFieldGadget,
     fields::{
-        fp::FpVar,
         emulated_fp::{params::OptimizationType, AllocatedEmulatedFpVar, EmulatedFpVar},
+        fp::FpVar,
     },
-    convert::ToBytesGadget, convert::ToConstraintFieldGadget,
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, OptimizationGoal, SynthesisError};
 

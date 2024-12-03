@@ -9,15 +9,16 @@ use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     boolean::Boolean,
+    convert::ToBitsGadget,
     fields::{
+        emulated_fp::{EmulatedFpVar, MulResultVar},
         fp::FpVar,
-        emulated_fp::{MulResultVar, EmulatedFpVar},
         FieldVar,
     },
     groups::{curves::short_weierstrass::ProjectiveVar, CurveVar},
     select::CondSelectGadget,
     uint8::UInt8,
-    R1CSVar, convert::ToBitsGadget,
+    R1CSVar,
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 
@@ -370,11 +371,7 @@ where
     ) -> Result<Self, SynthesisError> {
         let mut commitment_W = self.commitment_W.clone();
         let mut commitment_E = self.commitment_E.clone();
-        let mut X: Vec<MulResultVar<_, _>> = self
-            .X
-            .iter()
-            .map(MulResultVar::from)
-            .collect();
+        let mut X: Vec<MulResultVar<_, _>> = self.X.iter().map(MulResultVar::from).collect();
 
         for ((U, comm_E), commitment_T, r, r_bits) in instances {
             commitment_W += U.commitment_W.scalar_mul_le(r_bits.iter())?;

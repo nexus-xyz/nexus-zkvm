@@ -5,10 +5,11 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
     boolean::Boolean,
+    convert::ToBitsGadget,
     eq::EqGadget,
     fields::{fp::FpVar, FieldVar},
     groups::curves::short_weierstrass::ProjectiveVar,
-    R1CSVar, convert::ToBitsGadget,
+    R1CSVar,
 };
 use ark_relations::r1cs::SynthesisError;
 
