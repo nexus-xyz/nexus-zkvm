@@ -4,7 +4,7 @@ use stwo_prover::{
     core::fields::{m31::BaseField, FieldExpOps},
 };
 
-use crate::machine2::{
+use crate::{
     column::{
         Column::{self, *},
         PreprocessedColumn,

@@ -2,7 +2,7 @@
 
 use nexus_vm_prover_macros::ColumnsEnum;
 
-use crate::utils::WORD_SIZE;
+use super::WORD_SIZE;
 
 const _: () = {
     // This assert is needed to prevent invalid definition of columns sizes.

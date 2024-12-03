@@ -5,16 +5,14 @@ use stwo_prover::constraint_framework::logup::LookupElements;
 use num_traits::One;
 
 use crate::{
-    machine2::{
-        column::Column::{
-            self, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsPadding, IsSlt, IsSltu, IsSub,
-            Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnB, SgnC,
-        },
-        components::MAX_LOOKUP_TUPLE_SIZE,
-        trace::{sidenote::SideNote, ProgramStep, Traces},
-        traits::MachineChip,
+    column::Column::{
+        self, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsPadding, IsSlt, IsSltu, IsSub, Reg1Accessed,
+        Reg2Accessed, Reg3Accessed, SgnB, SgnC,
     },
-    utils::WORD_SIZE,
+    components::MAX_LOOKUP_TUPLE_SIZE,
+    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
+    traits::MachineChip,
+    WORD_SIZE,
 };
 
 /// A Chip for range-checking values for {0, 1}
@@ -51,7 +49,7 @@ impl MachineChip for RangeBoolChip {
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
-        trace_eval: &crate::machine2::trace::eval::TraceEval<E>,
+        trace_eval: &TraceEval<E>,
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         for col in CHECKED_SINGLE.into_iter() {
@@ -71,11 +69,11 @@ impl MachineChip for RangeBoolChip {
 mod test {
     use super::*;
 
-    use crate::machine2::components::{MachineComponent, MachineEval};
+    use crate::components::{MachineComponent, MachineEval};
 
-    use crate::machine2::trace::PreprocessedTraces;
-    use crate::machine2::traits::MachineChip;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::trace::PreprocessedTraces;
+    use crate::traits::MachineChip;
 
     use nexus_vm::WORD_SIZE;
     use stwo_prover::constraint_framework::TraceLocationAllocator;

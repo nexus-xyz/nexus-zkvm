@@ -22,7 +22,7 @@ use stwo_prover::{
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
-use crate::machine2::{
+use crate::{
     column::{
         Column::{
             self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
@@ -320,7 +320,7 @@ impl MachineChip for BitOpChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        machine2::chips::{AddChip, CpuChip},
+        chips::{AddChip, CpuChip},
         test_utils::assert_chip,
     };
 

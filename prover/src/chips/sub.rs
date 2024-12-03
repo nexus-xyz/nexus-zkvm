@@ -3,7 +3,7 @@ use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
-use crate::machine2::{
+use crate::{
     column::Column::{self, *},
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
@@ -140,7 +140,7 @@ impl MachineChip for SubChip {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::machine2::{
+    use crate::{
         chips::{cpu::CpuChip, AddChip},
         trace::PreprocessedTraces,
     };

@@ -3,7 +3,7 @@ use num_traits::One;
 use nexus_vm::WORD_SIZE;
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
-use crate::machine2::{
+use crate::{
     column::Column,
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{eval::TraceEval, sidenote::SideNote, utils::FromBaseFields, ProgramStep, Traces},
@@ -92,7 +92,7 @@ impl MachineChip for ProgramMemCheckChip {
 }
 #[cfg(test)]
 mod test {
-    use crate::machine2::{
+    use crate::{
         chips::{AddChip, CpuChip},
         trace::{utils::IntoBaseFields, PreprocessedTraces},
     };

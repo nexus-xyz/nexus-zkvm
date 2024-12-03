@@ -15,7 +15,7 @@ use stwo_prover::{
     },
 };
 
-use crate::machine2::{
+use super::{
     trace::{eval::TraceEval, PreprocessedTraces, Traces},
     traits::MachineChip,
 };

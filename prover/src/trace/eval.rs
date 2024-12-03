@@ -2,9 +2,7 @@ use std::array;
 
 use stwo_prover::constraint_framework::{EvalAtRow, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 
-use crate::machine2::column::PreprocessedColumn;
-
-use super::Column;
+use crate::column::{Column, PreprocessedColumn};
 
 // Trace evaluation at the current row, capturing current and previous values.
 pub struct TraceEval<E: EvalAtRow> {

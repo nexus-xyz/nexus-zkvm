@@ -18,7 +18,7 @@ use super::{
     utils::{bit_reverse, coset_order_to_circle_domain_order},
     Traces,
 };
-use crate::machine2::column::PreprocessedColumn;
+use crate::column::PreprocessedColumn;
 
 /// Preprocessed (constant) traces corresponding to [`PreprocessedColumn`].
 ///

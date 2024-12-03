@@ -17,20 +17,18 @@ use stwo_prover::{
     },
 };
 
-use crate::machine2::{
+use crate::{
+    column::Column::{self, Multiplicity32, OpA, OpB, OpC, Reg1Address, Reg2Address, Reg3Address},
+    column::PreprocessedColumn::{self, IsFirst, Range32},
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
+        eval::TraceEval,
         eval::{preprocessed_trace_eval, trace_eval},
         sidenote::SideNote,
         PreprocessedTraces, ProgramStep, Traces,
     },
     traits::MachineChip,
 };
-
-use crate::machine2::column::Column::{
-    self, Multiplicity32, OpA, OpB, OpC, Reg1Address, Reg2Address, Reg3Address,
-};
-use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range32};
 
 /// A Chip for range-checking values for 0..=31
 ///
@@ -99,7 +97,7 @@ impl MachineChip for Range32Chip {
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
-        trace_eval: &crate::machine2::trace::eval::TraceEval<E>,
+        trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, IsFirst);
@@ -139,10 +137,10 @@ fn fill_main_elm(col: BaseField, traces: &mut Traces, side_note: &mut SideNote) 
 mod test {
     use super::*;
 
-    use crate::machine2::components::{MachineComponent, MachineEval};
+    use crate::components::{MachineComponent, MachineEval};
 
-    use crate::machine2::traits::MachineChip;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::traits::MachineChip;
 
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 

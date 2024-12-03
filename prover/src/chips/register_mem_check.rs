@@ -18,7 +18,7 @@ use stwo_prover::{
     },
 };
 
-use crate::machine2::{
+use crate::{
     column::{
         Column::{
             self, FinalRegTs, FinalRegValue, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev,
@@ -369,12 +369,12 @@ mod test {
     };
 
     use crate::{
-        machine2::{
+        test_utils::assert_chip,
+        {
             chips::{AddChip, CpuChip, RegisterMemCheckChip},
             trace::{PreprocessedTraces, ProgramStep, Traces},
             traits::MachineChip,
         },
-        test_utils::assert_chip,
     };
 
     #[rustfmt::skip]

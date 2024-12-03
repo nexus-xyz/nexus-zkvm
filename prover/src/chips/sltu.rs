@@ -3,7 +3,7 @@ use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
-use crate::machine2::{
+use crate::{
     chips::SubChip,
     column::Column::{self, *},
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -130,7 +130,7 @@ impl MachineChip for SltuChip {
 
 #[cfg(test)]
 mod test {
-    use crate::machine2::{
+    use crate::{
         chips::{AddChip, CpuChip}, // needed for ADDI to put a non-zero value in a register
         trace::PreprocessedTraces,
     };

@@ -18,21 +18,20 @@ use stwo_prover::{
     },
 };
 
-use crate::machine2::{
+use crate::{
+    column::Column::{
+        self, Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, ProgCtrCur, ProgCtrPrev, Reg1TsPrev,
+        Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+    },
+    column::PreprocessedColumn::{self, IsFirst, Range256},
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval},
+        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         sidenote::SideNote,
         PreprocessedTraces, ProgramStep, Traces,
     },
     traits::MachineChip,
 };
-
-use crate::machine2::column::Column::{
-    self, Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, ProgCtrCur, ProgCtrPrev, Reg1TsPrev,
-    Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
-};
-use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range256};
 
 /// A Chip for range-checking values for 0..=255
 ///
@@ -113,7 +112,7 @@ impl MachineChip for Range256Chip {
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
-        trace_eval: &crate::machine2::trace::eval::TraceEval<E>,
+        trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, IsFirst);
@@ -183,11 +182,11 @@ mod test {
 
     use super::*;
 
-    use crate::machine2::components::{MachineComponent, MachineEval};
+    use crate::components::{MachineComponent, MachineEval};
 
-    use crate::machine2::trace::Word;
-    use crate::machine2::traits::MachineChip;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::trace::Word;
+    use crate::traits::MachineChip;
 
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 
