@@ -166,9 +166,15 @@ pub enum Column {
     /// On rows 0..32, contains the final timestamp of 32 registers
     #[size = 4]
     FinalRegTs,
-    /// The last access timestamp of the program memory at Pc
+    /// The last access counter of the program memory at Pc
     #[size = 4]
-    PrgPrevCtr,
+    ProgCtrPrev,
+    /// The current access counter of the program memory at Pc, PrgPrevCtr + 1
+    #[size = 4]
+    ProgCtrCur,
+    /// Carry flags for incrementing PrgPrevCtr into PrgCurCtr
+    #[size = 4]
+    ProgCtrCarry,
 }
 
 // proc macro derived:

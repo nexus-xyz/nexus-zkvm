@@ -29,8 +29,8 @@ use crate::machine2::{
 };
 
 use crate::machine2::column::Column::{
-    self, Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, PrgPrevCtr, Reg1TsPrev, Reg2TsPrev,
-    Reg3TsPrev, ValueA, ValueB, ValueC,
+    self, Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, ProgCtrCur, ProgCtrPrev, Reg1TsPrev,
+    Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
 };
 use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range256};
 
@@ -41,9 +41,19 @@ use crate::machine2::column::PreprocessedColumn::{self, IsFirst, Range256};
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED: [Column; 11] = [
-        Pc, InstrVal, PrevCtr, ValueA, ValueB, ValueC, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Helper1,
-        PrgPrevCtr,
+    const CHECKED: [Column; 12] = [
+        Pc,
+        InstrVal,
+        PrevCtr,
+        ValueA,
+        ValueB,
+        ValueC,
+        Reg1TsPrev,
+        Reg2TsPrev,
+        Reg3TsPrev,
+        Helper1,
+        ProgCtrCur,
+        ProgCtrPrev,
     ];
 }
 
