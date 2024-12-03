@@ -5,6 +5,7 @@
 // !!! before modifying this circuit.
 
 use std::{borrow::Borrow, marker::PhantomData};
+use std::ops::Not;
 
 use ark_crypto_primitives::sponge::{
     constraints::{CryptographicSpongeVar, SpongeWithGadget},
@@ -362,7 +363,7 @@ where
         )?;
 
         let is_base_case = input.i.is_zero()?;
-        let should_enforce = is_base_case.not();
+        let should_enforce = is_base_case.clone().not();
 
         const NUM_MATRICES: usize = 3;
 

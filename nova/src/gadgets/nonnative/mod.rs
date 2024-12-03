@@ -5,9 +5,9 @@ use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     fields::{
         fp::FpVar,
-        nonnative::{params::OptimizationType, AllocatedNonNativeFieldVar, NonNativeFieldVar},
+        emulated_fp::{params::OptimizationType, AllocatedEmulatedFpVar, EmulatedFpVar},
     },
-    ToBytesGadget, ToConstraintFieldGadget,
+    convert::ToBytesGadget, convert::ToConstraintFieldGadget,
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, OptimizationGoal, SynthesisError};
 
@@ -15,13 +15,13 @@ pub mod short_weierstrass;
 
 /// Mirror of [`cast_field_element_unique`](crate::utils::cast_field_element_unique) for allocated input.
 pub fn cast_field_element_unique<F1, F2>(
-    elem: &NonNativeFieldVar<F1, F2>,
+    elem: &EmulatedFpVar<F1, F2>,
 ) -> Result<Vec<FpVar<F2>>, SynthesisError>
 where
     F1: PrimeField,
     F2: PrimeField,
 {
-    elem.to_bytes()?.to_constraint_field()
+    elem.to_bytes_le()?.to_constraint_field()
 }
 
 /// Extension of [`AllocVar`] for allocating variables assuming they're well-formed, primarily witnesses.
@@ -44,7 +44,7 @@ where
 }
 
 impl<TargetField: PrimeField, BaseField: PrimeField> AllocVarExt<TargetField, BaseField>
-    for NonNativeFieldVar<TargetField, BaseField>
+    for EmulatedFpVar<TargetField, BaseField>
 {
     fn new_variable_unconstrained<T: Borrow<TargetField>>(
         cs: impl Into<Namespace<BaseField>>,
@@ -70,7 +70,7 @@ impl<TargetField: PrimeField, BaseField: PrimeField> AllocVarExt<TargetField, Ba
                 Err(_) => zero,
             };
             let elem_representations =
-                AllocatedNonNativeFieldVar::get_limbs_representations(&elem, optimization_type)?;
+                AllocatedEmulatedFpVar::get_limbs_representations(&elem, optimization_type)?;
             let mut limbs = Vec::new();
 
             for limb in elem_representations.iter() {
@@ -81,7 +81,7 @@ impl<TargetField: PrimeField, BaseField: PrimeField> AllocVarExt<TargetField, Ba
                 )?);
             }
 
-            Ok(Self::Var(AllocatedNonNativeFieldVar {
+            Ok(Self::Var(AllocatedEmulatedFpVar {
                 cs,
                 limbs,
                 num_of_additions_over_normal_form: BaseField::zero(),

@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-ark-ff = "0.4.0"
-ark-relations = { version = "0.4.0" }
-ark-r1cs-std = { version = "0.4.0" }
-ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
+ark-ff = "0.5.0"
+ark-relations = { version = "0.5.0" }
+ark-r1cs-std = { version = "0.5.0" }
+ark-crypto-primitives = { version = "0.5.0", features = ["sponge"] }
 
-ark-pallas = "0.4.0"
-ark-vesta = "0.4.0"
-ark-bn254 = "0.4.0"
-ark-grumpkin = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
+ark-pallas = "0.5.0"
+ark-vesta = "0.5.0"
+ark-bn254 = "0.5.0"
+ark-grumpkin = "0.5.0"
 
 criterion = "0.5"
 pprof = { version = "0.13", features = ["criterion", "flamegraph"] }
@@ -34,20 +34,3 @@ harness = false
 [[bench]]
 name = "hypernova"
 harness = false
-
-[patch.crates-io]
-ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives", rev = "d27a5c8" }
-
-ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/", rev = "2ca3bd7" }
-
-ark-ff = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
-ark-ec = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
-ark-serialize = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
-ark-poly = { git = "https://github.com/arkworks-rs/algebra/", rev = "2a80c54" }
-
-ark-poly-commit = { git = "https://github.com/arkworks-rs/poly-commit/", rev = "12f5529" }
-
-ark-pallas = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-vesta = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-bn254 = { git = "https://github.com/arkworks-rs/curves/", rev = "8c0256a" }
-ark-bls12-381 = { git = "https://github.com/arkworks-rs/curves/", rev = "3fded1f" }

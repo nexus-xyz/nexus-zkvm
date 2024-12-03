@@ -1,4 +1,5 @@
 use std::{borrow::Borrow, marker::PhantomData};
+use std::ops::Not;
 
 use ark_crypto_primitives::sponge::{
     constraints::{CryptographicSpongeVar, SpongeWithGadget},
@@ -465,7 +466,7 @@ where
         let right = &input.nodes[1];
 
         let is_base_case = i.is_eq(j)?;
-        let should_enforce = is_base_case.not();
+        let should_enforce = is_base_case.clone().not();
 
         let U_base = primary::RelaxedR1CSInstanceVar::<G1, C1>::new_constant(
             cs.clone(),

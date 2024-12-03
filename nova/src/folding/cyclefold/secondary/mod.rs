@@ -11,7 +11,7 @@ use ark_r1cs_std::{
     eq::EqGadget,
     fields::fp::FpVar,
     groups::{curves::short_weierstrass::ProjectiveVar, CurveVar},
-    ToBitsGadget,
+    convert::ToBitsGadget,
 };
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,

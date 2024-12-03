@@ -8,7 +8,7 @@ use ark_r1cs_std::{
     eq::EqGadget,
     fields::{fp::FpVar, FieldVar},
     groups::curves::short_weierstrass::ProjectiveVar,
-    R1CSVar, ToBitsGadget,
+    R1CSVar, convert::ToBitsGadget,
 };
 use ark_relations::r1cs::SynthesisError;
 
@@ -58,12 +58,12 @@ where
     random_oracle.absorb(&commitment_T)?;
 
     let (r_0, r_0_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_0 = &r_0[0];
     let r_0_bits = &r_0_bits[0];
-    let r_0_scalar = Boolean::le_bits_to_fp_var(r_0_bits)?;
+    let r_0_scalar = Boolean::le_bits_to_fp(r_0_bits)?;
 
     let secondary::ProofVar {
         U: comm_E_secondary_instance,
@@ -86,7 +86,7 @@ where
     random_oracle.absorb(&r_0_scalar)?;
 
     let (r_1, r_1_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_1 = &r_1[0];
@@ -112,7 +112,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
     let (r_2, r_2_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_2 = &r_2[0];
@@ -185,12 +185,12 @@ where
     random_oracle.absorb(&commitment_T)?;
 
     let (r_0, r_0_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_0 = &r_0[0];
     let r_0_bits = &r_0_bits[0];
-    let r_0_scalar = Boolean::le_bits_to_fp_var(r_0_bits)?;
+    let r_0_scalar = Boolean::le_bits_to_fp(r_0_bits)?;
     let r_0_scalar_square = r_0_scalar.square()?;
 
     let secondary::ProofVar {
@@ -211,7 +211,7 @@ where
     random_oracle.absorb(&r_0_scalar)?;
 
     let (r_1, r_1_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_1 = &r_1[0];
@@ -243,7 +243,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
     let (r_2, r_2_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_2 = &r_2[0];
@@ -269,7 +269,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_2)?)?;
 
     let (r_3, r_3_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_3 = &r_3[0];
@@ -311,7 +311,7 @@ where
     random_oracle.absorb(&commitment_T_secondary)?;
 
     let (r, r_bits) =
-        random_oracle.squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        random_oracle.squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r = &r[0];

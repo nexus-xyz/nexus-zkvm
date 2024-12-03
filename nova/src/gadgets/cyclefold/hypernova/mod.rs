@@ -72,12 +72,12 @@ where
     random_oracle.absorb(&u.var())?;
 
     let (rho, rho_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let rho = &rho[0];
     let rho_bits = &rho_bits[0];
-    let rho_scalar = Boolean::le_bits_to_fp_var(rho_bits)?;
+    let rho_scalar = Boolean::le_bits_to_fp(rho_bits)?;
 
     // HyperNova Verification Circuit - implementation is specific to R1CS origin for constraints
 
@@ -219,7 +219,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(rho)?)?;
 
     let (rho_p, rho_p_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let rho_p = &rho_p[0];

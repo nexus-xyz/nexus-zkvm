@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::ops::Not;
 
 use ark_crypto_primitives::sponge::constraints::AbsorbGadget;
 use ark_ec::{
@@ -9,7 +10,7 @@ use ark_ff::{Field, PrimeField};
 use ark_r1cs_std::{
     alloc::{AllocVar, AllocationMode},
     boolean::Boolean,
-    fields::{fp::FpVar, nonnative::NonNativeFieldVar, FieldVar},
+    fields::{fp::FpVar, emulated_fp::EmulatedFpVar, FieldVar},
     select::CondSelectGadget,
     uint8::UInt8,
     R1CSVar,
@@ -26,8 +27,8 @@ where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
 {
-    pub x: NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
-    pub y: NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
+    pub x: EmulatedFpVar<G1::BaseField, G1::ScalarField>,
+    pub y: EmulatedFpVar<G1::BaseField, G1::ScalarField>,
     pub infinity: Boolean<G1::ScalarField>,
 }
 
@@ -52,13 +53,13 @@ where
 {
     pub fn into_projective(
         &self,
-    ) -> Result<Vec<NonNativeFieldVar<G1::BaseField, G1::ScalarField>>, SynthesisError> {
-        let zero_x = NonNativeFieldVar::zero();
-        let zero_y = NonNativeFieldVar::one();
+    ) -> Result<Vec<EmulatedFpVar<G1::BaseField, G1::ScalarField>>, SynthesisError> {
+        let zero_x = EmulatedFpVar::zero();
+        let zero_y = EmulatedFpVar::one();
 
         let x = self.infinity.select(&zero_x, &self.x)?;
         let y = self.infinity.select(&zero_y, &self.y)?;
-        let z = NonNativeFieldVar::from(self.infinity.not());
+        let z = EmulatedFpVar::from(self.infinity.clone().not());
 
         Ok(vec![x, y, z])
     }
@@ -108,8 +109,8 @@ where
 
         let affine = g.into_affine();
 
-        let x = NonNativeFieldVar::new_variable(cs.clone(), || Ok(affine.x), mode)?;
-        let y = NonNativeFieldVar::new_variable(cs.clone(), || Ok(affine.y), mode)?;
+        let x = EmulatedFpVar::new_variable(cs.clone(), || Ok(affine.x), mode)?;
+        let y = EmulatedFpVar::new_variable(cs.clone(), || Ok(affine.y), mode)?;
         let infinity = Boolean::new_variable(cs.clone(), || Ok(affine.infinity), mode)?;
 
         Ok(Self { x, y, infinity })

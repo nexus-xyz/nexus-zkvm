@@ -11,13 +11,13 @@ use ark_r1cs_std::{
     boolean::Boolean,
     fields::{
         fp::FpVar,
-        nonnative::{NonNativeFieldMulResultVar, NonNativeFieldVar},
+        emulated_fp::{MulResultVar, EmulatedFpVar},
         FieldVar,
     },
     groups::{curves::short_weierstrass::ProjectiveVar, CurveVar},
     select::CondSelectGadget,
     uint8::UInt8,
-    R1CSVar, ToBitsGadget,
+    R1CSVar, convert::ToBitsGadget,
 };
 use ark_relations::r1cs::{ConstraintSystemRef, Namespace, SynthesisError};
 
@@ -40,7 +40,7 @@ where
     /// Commitment to witness.
     pub commitment_W: ProjectiveVar<G2, FpVar<G2::BaseField>>,
     /// Public input of non-relaxed instance.
-    pub X: Vec<NonNativeFieldVar<G2::ScalarField, G2::BaseField>>,
+    pub X: Vec<EmulatedFpVar<G2::ScalarField, G2::BaseField>>,
 
     _commitment_scheme: PhantomData<C2>,
 }
@@ -74,7 +74,7 @@ where
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
     {
-        let mut X = vec![NonNativeFieldVar::one()];
+        let mut X = vec![EmulatedFpVar::one()];
         X.append(&mut g1.into_projective()?);
         X.append(&mut g2.into_projective()?);
 
@@ -138,9 +138,9 @@ where
         )?;
         let alloc_X = X[1..]
             .iter()
-            .map(|x| NonNativeFieldVar::new_variable(cs.clone(), || Ok(x), mode));
+            .map(|x| EmulatedFpVar::new_variable(cs.clone(), || Ok(x), mode));
 
-        let X = std::iter::once(Ok(NonNativeFieldVar::constant(G2::ScalarField::ONE)))
+        let X = std::iter::once(Ok(EmulatedFpVar::constant(G2::ScalarField::ONE)))
             .chain(alloc_X)
             .collect::<Result<_, _>>()?;
 
@@ -201,7 +201,7 @@ where
     /// Commitment to error vector.
     pub commitment_E: ProjectiveVar<G2, FpVar<G2::BaseField>>,
     /// Public input of relaxed instance.
-    pub X: Vec<NonNativeFieldVar<G2::ScalarField, G2::BaseField>>,
+    pub X: Vec<EmulatedFpVar<G2::ScalarField, G2::BaseField>>,
 
     _commitment_scheme: PhantomData<C2>,
 }
@@ -277,7 +277,7 @@ where
         let X = X
             .iter()
             .map(|x| {
-                NonNativeFieldVar::<G2::ScalarField, G2::BaseField>::new_variable(
+                EmulatedFpVar::<G2::ScalarField, G2::BaseField>::new_variable(
                     cs.clone(),
                     || Ok(x),
                     mode,
@@ -364,16 +364,16 @@ where
                 Option<&ProjectiveVar<G2, FpVar<G2::BaseField>>>,
             ),
             &'_ ProjectiveVar<G2, FpVar<G2::BaseField>>,
-            &'_ NonNativeFieldVar<G2::ScalarField, G2::BaseField>,
+            &'_ EmulatedFpVar<G2::ScalarField, G2::BaseField>,
             &'_ [Boolean<G2::BaseField>],
         )],
     ) -> Result<Self, SynthesisError> {
         let mut commitment_W = self.commitment_W.clone();
         let mut commitment_E = self.commitment_E.clone();
-        let mut X: Vec<NonNativeFieldMulResultVar<_, _>> = self
+        let mut X: Vec<MulResultVar<_, _>> = self
             .X
             .iter()
-            .map(NonNativeFieldMulResultVar::from)
+            .map(MulResultVar::from)
             .collect();
 
         for ((U, comm_E), commitment_T, r, r_bits) in instances {
@@ -392,7 +392,7 @@ where
 
         let X = X
             .iter()
-            .map(NonNativeFieldMulResultVar::reduce)
+            .map(MulResultVar::reduce)
             .collect::<Result<_, _>>()?;
         Ok(Self {
             commitment_W,
@@ -453,8 +453,8 @@ macro_rules! parse_projective {
         match &$X[..3] {
             [x, y, z, ..] => {
                 let zero = Affine::<G1>::zero();
-                let zero_x = NonNativeFieldVar::constant(zero.x);
-                let zero_y = NonNativeFieldVar::constant(zero.y);
+                let zero_x = EmulatedFpVar::constant(zero.x);
+                let zero_y = EmulatedFpVar::constant(zero.y);
                 let infinity = z.is_zero()?;
 
                 let x = infinity.select(&zero_x, x)?;
@@ -480,7 +480,7 @@ where
         &self,
     ) -> Result<
         (
-            NonNativeFieldVar<G1::BaseField, G1::ScalarField>,
+            EmulatedFpVar<G1::BaseField, G1::ScalarField>,
             NonNativeAffineVar<G1>,
         ),
         SynthesisError,
