@@ -13,7 +13,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::trace::Trace;
-use trace::{sidenote::SideNote, PreprocessedTraces, ProgramStep};
+use trace::{sidenote::SideNote, ProgramStep};
 
 pub mod chips;
 pub mod components;
@@ -74,7 +74,14 @@ impl<C: MachineChip + Sync> Machine<C> {
                 config, &twiddles,
             );
 
-        // Fill columns.
+        // Fill columns of the preprocessed trace.
+        let preprocessed_trace = trace::PreprocessedTraces::new(log_size);
+        let mut tree_builder = commitment_scheme.tree_builder();
+        let _preprocessed_trace_location =
+            tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
+        tree_builder.commit(prover_channel);
+
+        // Fill columns of the original trace.
         let mut prover_traces = trace::Traces::new(log_size);
         let mut prover_side_note = SideNote::default();
         let program_steps = trace
@@ -102,17 +109,10 @@ impl<C: MachineChip + Sync> Machine<C> {
         tree_builder.commit(prover_channel);
 
         let lookup_elements = LookupElements::draw(prover_channel);
-        let preprocessed_trace = PreprocessedTraces::new(log_size);
         let mut tree_builder = commitment_scheme.tree_builder();
         let interaction_trace =
             C::fill_interaction_trace(&prover_traces, &preprocessed_trace, &lookup_elements);
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
-        tree_builder.commit(prover_channel);
-
-        // Fill columns of the preprocessed trace.
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
         tree_builder.commit(prover_channel);
 
         let component = MachineComponent::new(
