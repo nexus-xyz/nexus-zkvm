@@ -19,7 +19,7 @@ use crate::{
     folding::nova::cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
     gadgets::{
         cyclefold::secondary,
-        nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+        emulated::{cast_field_element_unique, short_weierstrass::EmulatedFpAffineVar},
     },
 };
 
@@ -29,7 +29,7 @@ pub fn multifold<G1, G2, C1, C2, RO>(
     U: &primary::RelaxedR1CSInstanceVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: &primary::R1CSInstanceVar<G1, C1>,
-    commitment_T: &NonNativeAffineVar<G1>,
+    commitment_T: &EmulatedFpAffineVar<G1>,
     proof_secondary: (&secondary::ProofVar<G2, C2>, &secondary::ProofVar<G2, C2>),
     should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
@@ -152,7 +152,7 @@ pub fn multifold_with_relaxed<G1, G2, C1, C2, RO>(
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     U2: &primary::RelaxedR1CSInstanceVar<G1, C1>,
     U2_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
-    commitment_T: &NonNativeAffineVar<G1>,
+    commitment_T: &EmulatedFpAffineVar<G1>,
     commitment_T_secondary: &ProjectiveVar<G2, FpVar<G2::BaseField>>,
     proof_secondary: (
         &[secondary::ProofVar<G2, C2>; 2], // commitment to E requires 2 proofs.
@@ -407,7 +407,7 @@ mod tests {
         let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
         let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
+            EmulatedFpAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;
@@ -469,7 +469,7 @@ mod tests {
         let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
         let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
+            EmulatedFpAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;
@@ -601,7 +601,7 @@ mod tests {
         })?;
 
         let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
+            EmulatedFpAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;

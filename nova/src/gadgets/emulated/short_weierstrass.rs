@@ -22,7 +22,7 @@ use super::cast_field_element_unique;
 
 #[must_use]
 #[derive(Debug)]
-pub struct NonNativeAffineVar<G1>
+pub struct EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -32,7 +32,7 @@ where
     pub infinity: Boolean<G1::ScalarField>,
 }
 
-impl<G1> Clone for NonNativeAffineVar<G1>
+impl<G1> Clone for EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<G1> NonNativeAffineVar<G1>
+impl<G1> EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -65,7 +65,7 @@ where
     }
 }
 
-impl<G1> R1CSVar<G1::ScalarField> for NonNativeAffineVar<G1>
+impl<G1> R1CSVar<G1::ScalarField> for EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -89,7 +89,7 @@ where
     }
 }
 
-impl<G1> AllocVar<Projective<G1>, G1::ScalarField> for NonNativeAffineVar<G1>
+impl<G1> AllocVar<Projective<G1>, G1::ScalarField> for EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -117,7 +117,7 @@ where
     }
 }
 
-impl<G1> AbsorbGadget<G1::ScalarField> for NonNativeAffineVar<G1>
+impl<G1> AbsorbGadget<G1::ScalarField> for EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,
@@ -138,7 +138,7 @@ where
     }
 }
 
-impl<G1> CondSelectGadget<G1::ScalarField> for NonNativeAffineVar<G1>
+impl<G1> CondSelectGadget<G1::ScalarField> for EmulatedFpAffineVar<G1>
 where
     G1: SWCurveConfig,
     G1::BaseField: PrimeField,

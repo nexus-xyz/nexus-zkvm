@@ -32,7 +32,7 @@ use crate::{
     },
     gadgets::{
         cyclefold::secondary,
-        nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+        emulated::{cast_field_element_unique, short_weierstrass::EmulatedFpAffineVar},
     },
 };
 

@@ -27,7 +27,7 @@ use crate::{
         nimfs::{R1CSInstance, RelaxedR1CSInstance},
         secondary::{Circuit as SecondaryCircuit, Proof},
     },
-    gadgets::nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+    gadgets::emulated::{cast_field_element_unique, short_weierstrass::EmulatedFpAffineVar},
 };
 
 #[must_use]
@@ -68,8 +68,8 @@ where
     /// `g1` and `g2`.
     pub fn from_allocated_input<G1>(
         &self,
-        g1: &NonNativeAffineVar<G1>,
-        g2: &NonNativeAffineVar<G1>,
+        g1: &EmulatedFpAffineVar<G1>,
+        g2: &EmulatedFpAffineVar<G1>,
     ) -> Result<Self, SynthesisError>
     where
         G1: SWCurveConfig<BaseField = G2::ScalarField, ScalarField = G2::BaseField>,
@@ -460,7 +460,7 @@ macro_rules! parse_projective {
                 let x = infinity.select(&zero_x, x)?;
                 let y = infinity.select(&zero_y, y)?;
 
-                let point = NonNativeAffineVar { x, y, infinity };
+                let point = EmulatedFpAffineVar { x, y, infinity };
                 $X = &$X[3..];
                 point
             }
@@ -481,7 +481,7 @@ where
     ) -> Result<
         (
             EmulatedFpVar<G1::BaseField, G1::ScalarField>,
-            NonNativeAffineVar<G1>,
+            EmulatedFpAffineVar<G1>,
         ),
         SynthesisError,
     >

@@ -32,7 +32,7 @@ use crate::{
         nova::{multifold, primary},
         secondary,
     },
-    gadgets::nonnative::short_weierstrass::NonNativeAffineVar,
+    gadgets::emulated::short_weierstrass::EmulatedFpAffineVar,
 };
 
 pub const SQUEEZE_NATIVE_ELEMENTS_NUM: usize = 1;
@@ -131,7 +131,7 @@ where
     u: primary::R1CSInstanceVar<G1, C1>,
 
     // proof
-    commitment_T: NonNativeAffineVar<G1>,
+    commitment_T: EmulatedFpAffineVar<G1>,
     proof_secondary: (secondary::ProofVar<G2, C2>, secondary::ProofVar<G2, C2>),
 
     _random_oracle: PhantomData<RO>,
@@ -228,7 +228,7 @@ where
             .collect::<Result<_, _>>()?;
         let u = primary::R1CSInstanceVar::new_variable(cs.clone(), || Ok(&input.u), mode)?;
 
-        let commitment_T = NonNativeAffineVar::new_variable(
+        let commitment_T = EmulatedFpAffineVar::new_variable(
             cs.clone(),
             || Ok(input.proof.commitment_T.into()),
             mode,
