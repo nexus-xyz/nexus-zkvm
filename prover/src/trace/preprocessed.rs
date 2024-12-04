@@ -128,8 +128,7 @@ impl PreprocessedTraces {
     pub(crate) fn fill_row_idx(&mut self) {
         debug_assert!(self.log_size() < 31);
         for row_idx in 0..self.num_rows() {
-            self.0.cols[PreprocessedColumn::RowIdx.offset()][row_idx as usize] =
-                BaseField::from(row_idx);
+            self.0.cols[PreprocessedColumn::RowIdx.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
 

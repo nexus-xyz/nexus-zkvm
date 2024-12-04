@@ -50,7 +50,7 @@ impl MachineChip for ProgramMemCheckChip {
             (incremented_bytes[i], carry_bits[i]) =
                 last_counter_bytes[i].overflowing_add(carry_bits[i - 1] as u8);
         }
-        debug_assert_eq!(carry_bits[WORD_SIZE - 1], false); // Check against overflow
+        debug_assert!(!carry_bits[WORD_SIZE - 1]); // Check against overflow
         debug_assert_eq!(u32::from_le_bytes(incremented_bytes), new_access_counter);
         traces.fill_columns(row_idx, carry_bits, Column::ProgCtrCarry);
         side_note
