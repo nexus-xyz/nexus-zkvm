@@ -1,5 +1,6 @@
 use eval::TraceEval;
 use itertools::Itertools;
+use nexus_vm::WORD_SIZE;
 use num_traits::Zero;
 use stwo_prover::{
     constraint_framework::{assert_constraints, AssertEvaluator},
@@ -119,18 +120,24 @@ impl Traces {
     pub fn fill_effective_columns(
         &mut self,
         row: usize,
-        value: &[u8],
-        col: Column,
-        selector: bool,
+        src: Column,
+        dst: Column,
+        selector: Column,
     ) {
-        let n = value.len();
-        assert_eq!(col.size(), n, "column size mismatch");
-        for (i, b) in value.iter().enumerate() {
-            self.cols[col.offset() + i][row] = if selector {
-                BaseField::from(*b as u32)
-            } else {
-                BaseField::zero()
-            };
+        let src_len = src.size();
+        let dst_len = dst.size();
+        debug_assert_eq!(src_len, dst_len, "column size mismatch");
+        let src: [_; WORD_SIZE] = self.column(row, src);
+        let [sel] = self.column(row, selector);
+        let dst: [_; WORD_SIZE] = self.column_mut(row, dst);
+        if sel.is_zero() {
+            for dst_limb in dst.into_iter() {
+                *dst_limb = BaseField::zero();
+            }
+        } else {
+            for i in 0..dst_len {
+                *dst[i] = src[i];
+            }
         }
     }
 

@@ -24,7 +24,7 @@ use crate::{
         Column::{
             self, FinalRegTs, FinalRegValue, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev,
             Reg2Accessed, Reg2Address, Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address,
-            Reg3TsPrev, Reg3ValPrev, ValueAEffective, ValueB, ValueC,
+            Reg3TsPrev, Reg3ValPrev, ValueA, ValueAEffective, ValueAEffectiveFlag, ValueB, ValueC,
         },
         PreprocessedColumn,
     },
@@ -59,6 +59,9 @@ impl MachineChip for RegisterMemCheckChip {
         _vm_step: &ProgramStep,
         side_note: &mut SideNote,
     ) {
+        // Fill ValueAEffective
+        // This cannot be done in CPUChip because ValueA isn't available there yet.
+        traces.fill_effective_columns(row_idx, ValueA, ValueAEffective, ValueAEffectiveFlag);
         // TODO: consider looking up clk, reg{1,2,3}_cur_ts in the preprocessed trace
         assert!(row_idx < (u32::MAX - 3) as usize / 3);
         let clk = row_idx as u32 + 1;
@@ -128,6 +131,17 @@ impl MachineChip for RegisterMemCheckChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
+        let (_, [value_a_effective_flag]) = trace_eval!(trace_eval, ValueAEffectiveFlag);
+
+        // value_a_effective can be constrainted uniquely with value_a_effective_flag and value_a
+        let (_, value_a) = trace_eval!(trace_eval, ValueA);
+        let (_, value_a_effective) = trace_eval!(trace_eval, ValueAEffective);
+        for i in 0..WORD_SIZE {
+            eval.add_constraint(
+                value_a_effective[i].clone() - value_a[i].clone() * value_a_effective_flag.clone(),
+            );
+        }
+
         let (_, [is_first_32]) =
             preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
         let (_, final_reg_value) = trace_eval!(trace_eval, Column::FinalRegValue);

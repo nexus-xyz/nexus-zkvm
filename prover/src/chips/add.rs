@@ -20,15 +20,11 @@ pub struct AddChip;
 pub struct ExecutionResult {
     carry_bits: BoolWord,
     sum_bytes: Word,
-    /// true when destination register is writable (not X0)
-    value_a_effective_flag: bool,
 }
 
 impl ExecuteChip for AddChip {
     type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
-        let value_a_effective_flag = program_step.value_a_effectitve_flag();
-
         // Recompute 32-bit result from 8-bit limbs.
 
         // Step 1. Break the computation to 8-bit limbs
@@ -57,7 +53,6 @@ impl ExecuteChip for AddChip {
         ExecutionResult {
             carry_bits,
             sum_bytes,
-            value_a_effective_flag,
         }
     }
 }
@@ -82,7 +77,6 @@ impl MachineChip for AddChip {
         let ExecutionResult {
             carry_bits,
             sum_bytes,
-            value_a_effective_flag,
         } = Self::execute(vm_step);
 
         // Before filling the trace, we check the result of 8-bit limbs is correct.
@@ -94,7 +88,6 @@ impl MachineChip for AddChip {
         );
 
         traces.fill_columns_bytes(row_idx, &sum_bytes, ValueA);
-        traces.fill_effective_columns(row_idx, &sum_bytes, ValueAEffective, value_a_effective_flag);
         traces.fill_columns(row_idx, carry_bits, CarryFlag);
         traces.fill_columns_bytes(row_idx, &[1u8], Reg1Accessed);
         traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_b as u8], Reg1Address);

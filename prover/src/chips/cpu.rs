@@ -18,12 +18,9 @@ use crate::{
     traits::MachineChip,
 };
 
-use nexus_vm::{
-    riscv::{
-        BuiltinOpcode,
-        InstructionType::{BType, IType, ITypeShamt, JType, RType, SType, UType, Unimpl},
-    },
-    WORD_SIZE,
+use nexus_vm::riscv::{
+    BuiltinOpcode,
+    InstructionType::{BType, IType, ITypeShamt, JType, RType, SType, UType, Unimpl},
 };
 
 pub struct CpuChip;
@@ -122,7 +119,7 @@ impl MachineChip for CpuChip {
         }
 
         // Fill ValueAEffectiveFlag to the main trace
-        let value_a_effective_flag = op_a != 0;
+        let value_a_effective_flag = vm_step.value_a_effectitve_flag();
         traces.fill_columns(row_idx, value_a_effective_flag, ValueAEffectiveFlag);
 
         // Fill ValueAEffectiveFlagAux to the main trace
@@ -193,14 +190,6 @@ impl MachineChip for CpuChip {
         // Since value_a_effective_flag_aux is non-zero, below means: op_a is zero if and only if value_a_effective_flag is zero.
         // Combined with value_a_effective_flag's range above, this determines value_a_effective_flag uniquely.
         eval.add_constraint(op_a * value_a_effective_flag_aux - value_a_effective_flag.clone());
-        // value_a_effective can be constrainted uniquely with value_a_effective_flag and value_a
-        let (_, value_a) = trace_eval!(trace_eval, ValueA);
-        let (_, value_a_effective) = trace_eval!(trace_eval, ValueAEffective);
-        for i in 0..WORD_SIZE {
-            eval.add_constraint(
-                value_a_effective[i].clone() - value_a[i].clone() * value_a_effective_flag.clone(),
-            );
-        }
         // Sum of IsOp flags is one. Combined with the range-checks in RangeBoolChip, the constraint implies exactly one of these flags is set.
         let (_, [is_add]) = trace_eval!(trace_eval, IsAdd);
         let (_, [is_sub]) = trace_eval!(trace_eval, IsSub);

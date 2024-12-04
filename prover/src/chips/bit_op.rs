@@ -26,7 +26,7 @@ use crate::{
     column::{
         Column::{
             self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
-            ValueAEffective, ValueB, ValueC,
+            ValueB, ValueC,
         },
         PreprocessedColumn::{
             self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, BitwiseOrByteA, BitwiseXorByteA,
@@ -73,15 +73,11 @@ impl BitOp {
 pub struct ExecutionResult {
     out_bytes: Word,
     bit_op: BitOp,
-    /// true when destination register is writable (not X0)
-    value_a_effective_flag: bool,
 }
 
 impl ExecuteChip for BitOpChip {
     type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
-        let value_a_effective_flag = program_step.value_a_effectitve_flag();
-
         let bit_op = match program_step
             .step
             .instruction
@@ -114,7 +110,6 @@ impl ExecuteChip for BitOpChip {
         ExecutionResult {
             out_bytes: value_a,
             bit_op,
-            value_a_effective_flag,
         }
     }
 }
@@ -141,11 +136,7 @@ impl MachineChip for BitOpChip {
             return;
         }
 
-        let ExecutionResult {
-            out_bytes,
-            value_a_effective_flag,
-            bit_op,
-        } = Self::execute(vm_step);
+        let ExecutionResult { out_bytes, bit_op } = Self::execute(vm_step);
 
         // Before filling the trace, we check the result of 8-bit limbs is correct.
         debug_assert_eq!(
@@ -178,7 +169,6 @@ impl MachineChip for BitOpChip {
         }
 
         traces.fill_columns_bytes(row_idx, &out_bytes, ValueA);
-        traces.fill_effective_columns(row_idx, &out_bytes, ValueAEffective, value_a_effective_flag);
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way

@@ -19,8 +19,6 @@ pub struct ExecutionResult {
     pub borrow_bits: BoolWord,
     pub diff_bytes: Word,
     pub result: Word,
-    /// true when destination register is writable (not X0)
-    pub value_a_effective_flag: bool,
 }
 
 // Support SLTU opcode.
@@ -32,14 +30,12 @@ impl ExecuteChip for SltuChip {
         let super::sub::ExecutionResult {
             borrow_bits,
             diff_bytes,
-            value_a_effective_flag,
         } = SubChip::execute(program_step);
         let result = [borrow_bits[3] as u8, 0, 0, 0];
         ExecutionResult {
             borrow_bits,
             diff_bytes,
             result,
-            value_a_effective_flag,
         }
     }
 }
@@ -65,7 +61,6 @@ impl MachineChip for SltuChip {
             borrow_bits,
             diff_bytes,
             result,
-            value_a_effective_flag,
         } = Self::execute(vm_step);
 
         traces.fill_columns_bytes(row_idx, &diff_bytes, Helper1);
@@ -74,7 +69,6 @@ impl MachineChip for SltuChip {
         debug_assert_eq!(result, vm_step.get_result().expect("STLU must have result"));
 
         traces.fill_columns_bytes(row_idx, &result, ValueA);
-        traces.fill_effective_columns(row_idx, &result, ValueAEffective, value_a_effective_flag);
     }
 
     fn add_constraints<E: EvalAtRow>(

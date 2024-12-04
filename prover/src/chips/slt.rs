@@ -19,7 +19,6 @@ pub struct ExecutionResult {
     pub borrow_bits: BoolWord,
     pub diff_bytes: Word,
     pub result: Word,
-    pub value_a_effective_flag: bool,
 }
 
 // Support SLT and SLTI opcode.
@@ -31,7 +30,6 @@ impl ExecuteChip for SltChip {
         let super::sub::ExecutionResult {
             borrow_bits,
             diff_bytes,
-            value_a_effective_flag,
         } = SubChip::execute(program_step);
 
         // Extract signed bits of b and c
@@ -48,7 +46,6 @@ impl ExecuteChip for SltChip {
             borrow_bits,
             diff_bytes,
             result,
-            value_a_effective_flag,
         }
     }
 }
@@ -71,7 +68,6 @@ impl MachineChip for SltChip {
             borrow_bits,
             diff_bytes,
             result,
-            value_a_effective_flag,
         } = Self::execute(vm_step);
 
         // Fill Helper2 and Helper3 to the main trace
@@ -97,7 +93,6 @@ impl MachineChip for SltChip {
         debug_assert_eq!(result, vm_step.get_result().expect("STL must have result"));
 
         traces.fill_columns(row_idx, result, ValueA);
-        traces.fill_effective_columns(row_idx, &result, ValueAEffective, value_a_effective_flag);
     }
 
     fn add_constraints<E: EvalAtRow>(
