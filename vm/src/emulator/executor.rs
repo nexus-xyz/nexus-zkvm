@@ -555,7 +555,6 @@ impl LinearEmulator {
         // nb: unwraps below will never fail for a well-formed elf file, and we've already validated
 
         let code_start = memory_layout.program_start();
-        let mut data_start = code_start + (elf.instructions.len() * WORD_SIZE) as u32;
 
         let code_memory = FixedMemory::<RO>::from_vec(
             code_start,
@@ -575,11 +574,13 @@ impl LinearEmulator {
                 ro_data[(addr - ro_data_base_address) as usize] = value;
             }
 
-            let ro_data_memory =
-                FixedMemory::<RO>::from_vec(data_start, ro_data.len() * WORD_SIZE, ro_data);
+            let ro_data_memory = FixedMemory::<RO>::from_vec(
+                ro_data_base_address,
+                ro_data.len() * WORD_SIZE,
+                ro_data,
+            );
 
             let _ = memory.add_fixed_ro(&ro_data_memory).unwrap();
-            data_start += (ro_data_len * WORD_SIZE) as u32;
         }
 
         if !elf.ram_image.is_empty() {
@@ -593,7 +594,8 @@ impl LinearEmulator {
                 data[((addr - data_base_address) as usize) / WORD_SIZE] = value;
             }
 
-            let data_memory = FixedMemory::<RW>::from_vec(data_start, data.len() * WORD_SIZE, data);
+            let data_memory =
+                FixedMemory::<RW>::from_vec(data_base_address, data.len() * WORD_SIZE, data);
 
             let _ = memory.add_fixed_rw(&data_memory).unwrap();
         }
@@ -634,7 +636,7 @@ impl LinearEmulator {
         let _ = memory.add_fixed_rw(&stack_memory).unwrap();
 
         let ad_len = (memory_layout.ad_end() - memory_layout.ad_start()) as usize;
-        assert_eq!(ad_len, ad.len());
+        assert_eq!(ad_len, word_align!(ad.len()));
         if ad_len > 0 {
             let ad_memory = FixedMemory::<NA>::from_bytes(memory_layout.ad_start(), ad);
             let _ = memory.add_fixed_na(&ad_memory).unwrap();

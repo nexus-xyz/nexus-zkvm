@@ -1,31 +1,27 @@
 use crate::error::{Result, VMError};
-use nexus_common::constants::WORD_SIZE;
+use nexus_common::constants::{ELF_TEXT_START, MEMORY_GAP, NUM_REGISTERS, WORD_SIZE};
 use nexus_common::word_align;
 use serde::{Deserialize, Serialize};
-
-// see runtime
-const MEMORY_GAP: u32 = 0x1000;
-const NUM_REGISTERS: u32 = 32;
 
 // nb: all measurements are in terms of virtual memory
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct LinearMemoryLayout {
-    // start of the gap between heap and stack
-    gap: u32,
-    // bottom of the stack
-    stack_bottom: u32,
-    // top of the stack/start of public input
-    stack_top: u32,
+    // start of the public input
+    public_input: u32,
     // location of the panic byte
     panic: u32,
     // start of the public output
     public_output: u32,
-    // start of the program memory
-    program: u32,
     // start of the associated data hash
     ad: u32,
-    // end of the memory
-    end: u32,
+    // start of the heap
+    heap: u32,
+    // start of the gap between heap and stack
+    gap: u32,
+    // bottom of the stack
+    stack_bottom: u32,
+    // top of the stack
+    stack_top: u32,
 }
 
 impl Default for LinearMemoryLayout {
@@ -48,15 +44,15 @@ impl LinearMemoryLayout {
         }
 
         // enforce order
-        if self.ad_start() <= self.program_start()
-            || self.program_start() < self.public_output_start() // Allow empty output
-            || self.public_output_start() <= self.panic()
-            || self.panic() < self.public_input_start() // Allow empty input
-            || self.public_input_start() <= self.stack_top()
-            || self.stack_top() <= self.stack_bottom()
+        if self.stack_top() <= self.stack_bottom()
             || self.stack_bottom() <= self.gap_start()
             || self.gap_start() <= self.heap_start()
-            || self.heap_start() <= self.registers_start()
+            || self.heap_start() < self.ad_start() // Allow empty ad
+            || self.ad_start() < self.public_output_start() // Allow empty output
+            || self.public_output_start() <= self.panic()
+            || self.panic() < self.public_input_start() // Allow empty input
+            || self.public_input_start() <= self.program_start()
+            || self.program_start() <= self.public_output_start_location()
         {
             return Err(VMError::InvalidMemoryLayout);
         }
@@ -72,24 +68,24 @@ impl LinearMemoryLayout {
         program_size: u32,
         ad_size: u32,
     ) -> Self {
-        let gap = 0x1000 + max_heap_size; // registers take 0x1000 bytes
+        let public_input = ELF_TEXT_START + program_size;
+        let panic = public_input + public_input_size + WORD_SIZE as u32;
+        let public_output = panic + WORD_SIZE as u32;
+        let ad = public_output + public_output_size;
+        let heap = ad + ad_size;
+        let gap = heap + max_heap_size;
         let stack_bottom = gap + MEMORY_GAP;
         let stack_top = stack_bottom + max_stack_size;
-        let panic = stack_top + WORD_SIZE as u32 + public_input_size; // stack_top | {input_size} | {input}
-        let public_output = panic + WORD_SIZE as u32;
-        let program = public_output + public_output_size;
-        let ad = program + program_size;
-        let end = ad + ad_size;
 
         Self {
+            public_input,
+            panic,
+            public_output,
+            ad,
+            heap,
             gap,
             stack_bottom,
             stack_top,
-            panic,
-            public_output,
-            program,
-            ad,
-            end,
         }
     }
 
@@ -107,7 +103,7 @@ impl LinearMemoryLayout {
             word_align!(public_input_size as usize) as u32,
             word_align!(public_output_size as usize) as u32,
             program_size,
-            ad_size,
+            word_align!(ad_size as usize) as u32,
         );
         ml.validate()?;
 
@@ -133,8 +129,45 @@ impl LinearMemoryLayout {
         (NUM_REGISTERS + 1) * WORD_SIZE as u32
     }
 
+    pub const fn program_start(&self) -> u32 {
+        assert!(ELF_TEXT_START >= self.public_output_start_location() + WORD_SIZE as u32);
+        ELF_TEXT_START
+    }
+
+    pub fn program_end(&self) -> u32 {
+        self.public_input
+    }
+
+    pub fn public_input_start(&self) -> u32 {
+        self.public_input
+    }
+
+    pub fn public_input_end(&self) -> u32 {
+        self.panic
+    }
+
+    pub fn panic(&self) -> u32 {
+        self.panic
+    }
+
+    pub fn public_output_start(&self) -> u32 {
+        self.public_output
+    }
+
+    pub fn public_output_end(&self) -> u32 {
+        self.ad
+    }
+
+    pub fn ad_start(&self) -> u32 {
+        self.ad
+    }
+
+    pub fn ad_end(&self) -> u32 {
+        self.heap
+    }
+
     pub const fn heap_start(&self) -> u32 {
-        (NUM_REGISTERS + 2) * WORD_SIZE as u32
+        self.heap
     }
 
     pub fn heap_end(&self) -> u32 {
@@ -155,41 +188,5 @@ impl LinearMemoryLayout {
 
     pub fn stack_top(&self) -> u32 {
         self.stack_top - WORD_SIZE as u32
-    }
-
-    pub fn public_input_start(&self) -> u32 {
-        self.stack_top
-    }
-
-    pub fn public_input_end(&self) -> u32 {
-        self.panic
-    }
-
-    pub fn panic(&self) -> u32 {
-        self.panic
-    }
-
-    pub fn public_output_start(&self) -> u32 {
-        self.public_output
-    }
-
-    pub fn public_output_end(&self) -> u32 {
-        self.program
-    }
-
-    pub fn program_start(&self) -> u32 {
-        self.program
-    }
-
-    pub fn program_end(&self) -> u32 {
-        self.ad
-    }
-
-    pub fn ad_start(&self) -> u32 {
-        self.ad
-    }
-
-    pub fn ad_end(&self) -> u32 {
-        self.end
     }
 }

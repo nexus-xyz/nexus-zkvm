@@ -148,10 +148,10 @@ mod tests {
             .create_optimized_layout(program_size, ad_size, 0, 0)
             .unwrap();
 
-        assert_eq!(layout.heap_end(), 5096);
-        assert_eq!(layout.stack_bottom(), 9192);
-        assert_eq!(layout.stack_top(), 1006188);
-        assert_eq!(layout.public_input_end(), 1006196);
-        assert_eq!(layout.public_output_end(), 1006200);
+        assert_eq!(layout.heap_end(), 5504);
+        assert_eq!(layout.stack_bottom(), 9600);
+        assert_eq!(layout.stack_top(), 1006596);
+        assert_eq!(layout.public_input_end(), 4400);
+        assert_eq!(layout.public_output_end(), 4404);
     }
 }

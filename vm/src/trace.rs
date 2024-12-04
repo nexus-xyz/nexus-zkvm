@@ -480,16 +480,16 @@ mod tests {
         let block = trace.block(0).unwrap();
 
         assert_eq!(block.steps.len(), 1);
-        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 9449480); // check global pointer is updated
+        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 8192); // check global pointer is updated
 
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 1);
-        assert_eq!(step.pc, 9445384);
-        assert_eq!(step.next_pc, 9445388);
+        assert_eq!(step.pc, 4096);
+        assert_eq!(step.next_pc, 4100);
         assert_eq!(step.raw_instruction, 0x00001197);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
-        assert_eq!(step.result, Some(9449480));
+        assert_eq!(step.result, Some(8192));
         assert!(step.memory_records.is_empty());
 
         // check a memory operation
@@ -501,17 +501,18 @@ mod tests {
         let mut step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 13);
-        assert_eq!(step.pc, 9445444);
-        assert_eq!(step.next_pc, 9445448);
+        assert_eq!(step.pc, 4156);
+        assert_eq!(step.next_pc, 4160);
         assert_eq!(step.raw_instruction, 0x00112E23);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
 
+        dbg!(&step.memory_records);
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 9445368, 9445416, 0),
+                (MemAccessSize::Word, 9969664, 4128, 0),
                 13,
                 0
             ))
@@ -524,8 +525,8 @@ mod tests {
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, trace.blocks.len() as u32);
-        assert_eq!(step.pc, 9445476);
-        assert_eq!(step.next_pc, 9445476);
+        assert_eq!(step.pc, 4188);
+        assert_eq!(step.next_pc, 4188);
         assert_eq!(step.raw_instruction, 0x00000073);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
@@ -541,16 +542,16 @@ mod tests {
         let block = trace.block(0).unwrap();
 
         assert_eq!(block.steps.len(), 8);
-        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 9448408); // check global pointer is updated (also after `addi gp, gp, -1072` at timestamp 2)
+        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 7120); // check global pointer is updated (also after `addi gp, gp, -1072` at timestamp 2)
 
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 1);
-        assert_eq!(step.pc, 9445384);
-        assert_eq!(step.next_pc, 9445388);
+        assert_eq!(step.pc, 4096);
+        assert_eq!(step.next_pc, 4100);
         assert_eq!(step.raw_instruction, 0x00001197);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
-        assert_eq!(step.result, Some(9449480));
+        assert_eq!(step.result, Some(8192));
         assert!(step.memory_records.is_empty());
 
         // check a memory operation
@@ -561,8 +562,8 @@ mod tests {
         let mut step = block.steps[4].clone();
 
         assert_eq!(step.timestamp, 13);
-        assert_eq!(step.pc, 9445444);
-        assert_eq!(step.next_pc, 9445448);
+        assert_eq!(step.pc, 4156);
+        assert_eq!(step.next_pc, 4160);
         assert_eq!(step.raw_instruction, 0x00112E23);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
@@ -571,7 +572,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 9445368, 9445416, 0),
+                (MemAccessSize::Word, 9969664, 4128, 0),
                 13,
                 0
             ))
@@ -587,8 +588,8 @@ mod tests {
             step.timestamp,
             (8 * (trace.blocks.len() as u32 - 1) + block.steps.len() as u32)
         );
-        assert_eq!(step.pc, 9445476);
-        assert_eq!(step.next_pc, 9445476);
+        assert_eq!(step.pc, 4188);
+        assert_eq!(step.next_pc, 4188);
         assert_eq!(step.raw_instruction, 0x00000073);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
@@ -603,16 +604,16 @@ mod tests {
         // check the first block
         let block = trace.block(0).unwrap();
 
-        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 9448408); // check global pointer is updated (also after `addi gp, gp, -1072` at timestamp 2)
+        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 7120); // check global pointer is updated (also after `addi gp, gp, -1072` at timestamp 2)
 
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 1);
-        assert_eq!(step.pc, 9445384);
-        assert_eq!(step.next_pc, 9445388);
+        assert_eq!(step.pc, 4096);
+        assert_eq!(step.next_pc, 4100);
         assert_eq!(step.raw_instruction, 0x00001197);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
-        assert_eq!(step.result, Some(9449480));
+        assert_eq!(step.result, Some(8192));
         assert!(step.memory_records.is_empty());
 
         // check a memory operation
@@ -621,8 +622,8 @@ mod tests {
         let mut step = block.steps[1].clone();
 
         assert_eq!(step.timestamp, 13);
-        assert_eq!(step.pc, 9445444);
-        assert_eq!(step.next_pc, 9445448);
+        assert_eq!(step.pc, 4156);
+        assert_eq!(step.next_pc, 4160);
         assert_eq!(step.raw_instruction, 0x00112E23);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
@@ -631,7 +632,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 9445368, 9445416, 0),
+                (MemAccessSize::Word, 9969664, 4128, 0),
                 13,
                 0
             ))
@@ -643,8 +644,8 @@ mod tests {
 
         let step = block.steps.last().unwrap().clone();
 
-        assert_eq!(step.pc, 9445476);
-        assert_eq!(step.next_pc, 9445476);
+        assert_eq!(step.pc, 4188);
+        assert_eq!(step.next_pc, 4188);
         assert_eq!(step.raw_instruction, 0x00000073);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
