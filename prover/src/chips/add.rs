@@ -166,7 +166,8 @@ impl MachineChip for AddChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::CpuChip,
+        chips::{CpuChip, RegisterMemCheckChip},
+        test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
     };
 
@@ -176,7 +177,8 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
+    // PreprocessedTraces::MIN_LOG_SIZE makes the test consume more than 40 seconds.
+    const LOG_SIZE: u32 = 8;
 
     #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock>
@@ -239,11 +241,20 @@ mod test {
 
             // Now fill in the traces with ValueA and CarryFlags
             AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+
+            // The test uses registers, so register memory checking should happen too
+            RegisterMemCheckChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+            );
         }
-        traces.assert_as_original_trace(|eval, trace_eval| {
-            let dummy_lookup_elements = LookupElements::dummy();
-            CpuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            AddChip::add_constraints(eval, trace_eval, &dummy_lookup_elements)
-        });
+        let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
+        preprocessed_column.fill_is_first();
+        preprocessed_column.fill_is_first32();
+        preprocessed_column.fill_row_idx();
+        preprocessed_column.fill_timestamps();
+        assert_chip::<(CpuChip, AddChip, RegisterMemCheckChip)>(traces, Some(preprocessed_column));
     }
 }
