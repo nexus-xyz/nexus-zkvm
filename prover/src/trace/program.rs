@@ -2,7 +2,7 @@ use nexus_common::cpu::Registers;
 use nexus_vm::{
     cpu::RegisterFile,
     riscv::{InstructionType, Register},
-    trace::Step,
+    trace::{Step, Trace},
     WORD_SIZE,
 };
 
@@ -80,4 +80,25 @@ impl ProgramStep {
         ret.step.is_padding = true;
         ret
     }
+}
+
+/// Iterates over the program steps in `trace``, padded to `num_rows`
+///
+/// Panics if `trace` contains more than `num_rows` steps.
+pub(crate) fn iter_program_steps<TR: Trace>(
+    trace: &TR,
+    num_rows: usize,
+) -> impl Iterator<Item = ProgramStep> + '_ {
+    assert!(trace.get_num_steps() <= num_rows, "Too many ProgramSteps");
+    trace
+        .get_blocks_iter()
+        .map(|block| {
+            assert_eq!(block.steps.len(), 1, "Only k = 1 traces are supported.");
+            ProgramStep {
+                step: block.steps[0].clone(),
+                regs: block.regs,
+            }
+        })
+        .chain(std::iter::repeat(ProgramStep::padding()))
+        .take(num_rows)
 }

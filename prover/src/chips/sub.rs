@@ -130,7 +130,7 @@ mod test {
     use super::*;
     use crate::{
         chips::{cpu::CpuChip, AddChip},
-        trace::PreprocessedTraces,
+        trace::{program::iter_program_steps, PreprocessedTraces},
     };
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
@@ -191,38 +191,18 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
+        let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let mut side_note = SideNote::default();
-        let mut row_idx = 0;
 
-        // We iterate each block in the trace for each instruction
-        for trace in vm_traces.blocks.iter() {
-            let regs = trace.regs;
-            for step in trace.steps.iter() {
-                let program_step = ProgramStep {
-                    regs,
-                    step: step.clone(),
-                };
+        for (row_idx, program_step) in program_steps.enumerate() {
+            // CpuChip will fill ValueB and ValueC
+            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
-                // CpuChip will fill ValueB and ValueC
-                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-                // Now fill in the traces with ValueA and CarryFlags
-                // The AddChip is here because the 1st instruction is ADDI, there is no SUBI
-                // to replace ADDI, so 1st instruction is not handled by SubChip.
-                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-                SubChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-                row_idx += 1;
-            }
-        }
-        // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
-        for more_row_idx in row_idx..traces.num_rows() {
-            CpuChip::fill_main_trace(
-                &mut traces,
-                more_row_idx,
-                &ProgramStep::padding(),
-                &mut side_note,
-            );
+            // Now fill in the traces with ValueA and CarryFlags
+            // The AddChip is here because the 1st instruction is ADDI, there is no SUBI
+            // to replace ADDI, so 1st instruction is not handled by SubChip.
+            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            SubChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
             let dummy_lookup_elements = LookupElements::dummy();

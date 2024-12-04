@@ -13,7 +13,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::trace::Trace;
-use trace::{sidenote::SideNote, ProgramStep};
+use trace::{program::iter_program_steps, sidenote::SideNote};
 
 pub mod chips;
 pub mod components;
@@ -84,17 +84,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         // Fill columns of the original trace.
         let mut prover_traces = trace::Traces::new(log_size);
         let mut prover_side_note = SideNote::default();
-        let program_steps = trace
-            .get_blocks_iter()
-            .map(|block| {
-                assert_eq!(block.steps.len(), 1, "Only k = 1 traces are supported.");
-                ProgramStep {
-                    step: block.steps[0].clone(),
-                    regs: block.regs,
-                }
-            })
-            .chain(std::iter::repeat(ProgramStep::padding()))
-            .take(prover_traces.num_rows());
+        let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
             C::fill_main_trace(
                 &mut prover_traces,

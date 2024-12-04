@@ -164,7 +164,10 @@ impl MachineChip for AddChip {
 
 #[cfg(test)]
 mod test {
-    use crate::{chips::CpuChip, trace::PreprocessedTraces};
+    use crate::{
+        chips::CpuChip,
+        trace::{program::iter_program_steps, PreprocessedTraces},
+    };
 
     use super::*;
     use nexus_vm::{
@@ -226,37 +229,15 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
+        let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let mut side_note = SideNote::default();
-        let mut row_idx = 0;
 
-        // We iterate each block in the trace for each instruction
-        for trace in vm_traces.blocks.iter() {
-            let regs = trace.regs;
-            for step in trace.steps.iter() {
-                let program_step = ProgramStep {
-                    regs,
-                    step: step.clone(),
-                };
+        for (row_idx, program_step) in program_steps.enumerate() {
+            // Fill in the main trace with the ValueB, valueC and Opcode
+            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
-                // Fill in the main trace with the ValueB, valueC and Opcode
-                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-                // TODO: use RegisterMemCheckChip too, when it's ready
-
-                // Now fill in the traces with ValueA and CarryFlags
-                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-                row_idx += 1;
-            }
-        }
-        // Constraints about ValueAEffectiveFlagAux require that non-zero values be written in ValueAEffectiveFlagAux on every row.
-        for more_row_idx in row_idx..traces.num_rows() {
-            CpuChip::fill_main_trace(
-                &mut traces,
-                more_row_idx,
-                &ProgramStep::padding(),
-                &mut side_note,
-            );
+            // Now fill in the traces with ValueA and CarryFlags
+            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
             let dummy_lookup_elements = LookupElements::dummy();
