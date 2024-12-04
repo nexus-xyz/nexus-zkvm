@@ -22,33 +22,34 @@ pub struct ExecutionResult {
     sum_bytes: Word,
 }
 
+pub fn addition_8_bit(a: Word, b: Word) -> (Word, BoolWord) {
+    let mut sum_bytes = [0u8; WORD_SIZE];
+    let mut carry_bits = [false; WORD_SIZE];
+
+    // Compute the sum and carry of each limb.
+    let (sum, c0) = a[0].overflowing_add(b[0]);
+    carry_bits[0] = c0;
+    sum_bytes[0] = sum;
+    // Process the remaining bytes
+    for i in 1..WORD_SIZE {
+        // Add the bytes and the previous carry
+        let (sum, c1) = a[i].overflowing_add(carry_bits[i - 1] as u8);
+        let (sum, c2) = sum.overflowing_add(b[i]);
+        // There can't be 2 carry in: a + b + cary, either c1 or c2 is true.
+        carry_bits[i] = c1 || c2;
+        sum_bytes[i] = sum;
+    }
+    (sum_bytes, carry_bits)
+}
+
 impl ExecuteChip for AddChip {
     type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
-        // Recompute 32-bit result from 8-bit limbs.
-
-        // Step 1. Break the computation to 8-bit limbs
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
 
-        let mut sum_bytes = [0u8; WORD_SIZE];
-        let mut carry_bits = [false; WORD_SIZE];
-
-        // Step 2. Compute the sum and carry of each limb.
-        let (sum, c0) = value_b[0].overflowing_add(value_c[0]);
-        carry_bits[0] = c0;
-        sum_bytes[0] = sum;
-
-        // Process the remaining bytes
-        for i in 1..WORD_SIZE {
-            // Add the bytes and the previous carry
-            let (sum, c1) = value_b[i].overflowing_add(carry_bits[i - 1] as u8);
-            let (sum, c2) = sum.overflowing_add(value_c[i]);
-
-            // There can't be 2 carry in: a + b + cary, either c1 or c2 is true.
-            carry_bits[i] = c1 || c2;
-            sum_bytes[i] = sum;
-        }
+        // Recompute 32-bit result from 8-bit limbs.
+        let (sum_bytes, carry_bits) = addition_8_bit(value_b, value_c);
 
         ExecutionResult {
             carry_bits,
