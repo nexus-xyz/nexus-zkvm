@@ -195,11 +195,12 @@ impl MachineChip for CpuChip {
         let (_, [is_sub]) = trace_eval!(trace_eval, IsSub);
         let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
         let (_, [is_or]) = trace_eval!(trace_eval, IsOr);
+        let (_, [is_xor]) = trace_eval!(trace_eval, IsXor);
         let (_, [is_slt]) = trace_eval!(trace_eval, IsSlt);
         let (_, [is_sltu]) = trace_eval!(trace_eval, IsSltu);
         let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(
-            is_add + is_sub + is_and + is_or + is_slt + is_sltu + is_padding - E::F::one(),
+            is_add + is_sub + is_and + is_or + is_xor + is_slt + is_sltu + is_padding - E::F::one(),
         );
     }
 }

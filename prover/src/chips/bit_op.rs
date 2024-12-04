@@ -25,8 +25,9 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use crate::{
     column::{
         Column::{
-            self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
-            ValueB, ValueC,
+            self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor,
+            Reg1Accessed, Reg1Address, Reg2Accessed, Reg2Address, Reg3Accessed, Reg3Address,
+            ValueA, ValueB, ValueC,
         },
         PreprocessedColumn::{
             self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, BitwiseOrByteA, BitwiseXorByteA,
@@ -168,7 +169,18 @@ impl MachineChip for BitOpChip {
             assert_ne!(counter, m31::P);
         }
 
-        traces.fill_columns_bytes(row_idx, &out_bytes, ValueA);
+        traces.fill_columns(row_idx, out_bytes, ValueA);
+        traces.fill_columns(row_idx, true, Reg1Accessed);
+        traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+        if matches!(
+            vm_step.step.instruction.opcode.builtin(),
+            Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::OR) | Some(BuiltinOpcode::XOR)
+        ) {
+            traces.fill_columns(row_idx, true, Reg2Accessed);
+            traces.fill_columns(row_idx, vm_step.step.instruction.op_c as u8, Reg2Address);
+        }
+        traces.fill_columns(row_idx, true, Reg3Accessed);
+        traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -310,8 +322,9 @@ impl MachineChip for BitOpChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip},
+        chips::{AddChip, CpuChip, RegisterMemCheckChip},
         test_utils::assert_chip,
+        trace::program::iter_program_steps,
     };
 
     use super::*;
@@ -356,21 +369,20 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         let mut traces = Traces::new(LOG_SIZE);
+        let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let mut side_note = SideNote::default();
 
-        for (row_idx, trace) in vm_traces.blocks.iter().enumerate() {
-            let regs = trace.regs;
-            for step in trace.steps.iter() {
-                let program_step = ProgramStep {
-                    regs,
-                    step: step.clone(),
-                };
-
-                // Fill in the main trace with the ValueB, valueC and Opcode
-                CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-                AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-                BitOpChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            }
+        for (row_idx, program_step) in program_steps.enumerate() {
+            // Fill in the main trace with the ValueB, valueC and Opcode
+            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            BitOpChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            RegisterMemCheckChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+            );
         }
 
         let and_vals = traces
@@ -394,6 +406,6 @@ mod test {
 
         assert_eq!(output, 0b0110100);
 
-        assert_chip::<BitOpChip>(traces, None);
+        assert_chip::<(CpuChip, AddChip, BitOpChip, RegisterMemCheckChip)>(traces, None);
     }
 }
