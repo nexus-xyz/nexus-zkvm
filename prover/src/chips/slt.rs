@@ -180,7 +180,8 @@ impl MachineChip for SltChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, SubChip},
+        chips::{AddChip, CpuChip, RegisterMemCheckChip, SubChip},
+        test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
     };
 
@@ -294,6 +295,7 @@ mod test {
     fn test_k_trace_constrained_stl_instructions() {
         let basic_block = setup_basic_block_ir();
         let k = 1;
+        type Chips = (CpuChip, AddChip, SubChip, SltChip, RegisterMemCheckChip);
 
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
@@ -305,18 +307,8 @@ mod test {
 
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            SubChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            SltChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
-
-        traces.assert_as_original_trace(|eval, trace_eval| {
-            let dummy_lookup_elements = LookupElements::dummy();
-            CpuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            AddChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            SubChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            SltChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-        });
+        assert_chip::<Chips>(traces, None);
     }
 }
