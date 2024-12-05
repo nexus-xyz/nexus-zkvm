@@ -178,6 +178,18 @@ pub enum Column {
     /// Carry flags for incrementing PrgPrevCtr into PrgCurCtr
     #[size = 4]
     ProgCtrCarry,
+    /// Program memory content: every Pc accessed during the execution, filled after the execution
+    #[size = 4]
+    PrgMemoryPc,
+    /// Program memory content: Instruction word at PrgMemoryPc
+    #[size = 4]
+    PrgMemoryWord,
+    /// Program memory content: final counter at PrgMemoryPc, filled after the execution
+    #[size = 4]
+    FinalPrgMemoryCtr,
+    /// Program memory content: 1 means the row contains real PrgMemory*. 0 otherwise.
+    #[size = 1]
+    PrgMemoryFlag,
 }
 
 // proc macro derived:

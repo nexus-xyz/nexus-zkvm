@@ -26,38 +26,71 @@ impl MachineChip for ProgramMemCheckChip {
         vm_step: &ProgramStep,
         side_note: &mut SideNote,
     ) {
-        if vm_step.step.is_padding {
-            return;
+        if !vm_step.step.is_padding {
+            let pc = traces.column(row_idx, Column::Pc);
+            let pc = u32::from_base_fields(pc);
+            let last_access_counter = side_note
+                .program_mem_check
+                .last_access_counter
+                .get(&pc)
+                .unwrap_or(&0u32);
+            traces.fill_columns(row_idx, *last_access_counter, Column::ProgCtrPrev);
+            let new_access_counter = last_access_counter
+                .checked_add(1)
+                .expect("access counter overflow");
+            traces.fill_columns(row_idx, new_access_counter, Column::ProgCtrCur);
+            // Compute and fill carry flags
+            let last_counter_bytes = last_access_counter.to_le_bytes();
+            let mut carry_bits = [false; WORD_SIZE];
+            let mut incremented_bytes = [0u8; WORD_SIZE];
+            (incremented_bytes[0], carry_bits[0]) = last_counter_bytes[0].overflowing_add(1);
+            for i in 1..WORD_SIZE {
+                // Add the bytes and the previous carry
+                (incremented_bytes[i], carry_bits[i]) =
+                    last_counter_bytes[i].overflowing_add(carry_bits[i - 1] as u8);
+            }
+            assert!(!carry_bits[WORD_SIZE - 1]); // Check against overflow
+            assert_eq!(u32::from_le_bytes(incremented_bytes), new_access_counter);
+            traces.fill_columns(row_idx, carry_bits, Column::ProgCtrCarry);
+            side_note
+                .program_mem_check
+                .last_access_counter
+                .insert(pc, new_access_counter);
+            // Note: no need to udpate the access counter for pc + {1,2,3}. They are not used.
+            let instruction_word = traces.column(row_idx, Column::InstrVal);
+            let instruction_word = u32::from_base_fields(instruction_word);
+            let known_instruction_word = side_note
+                .program_mem_check
+                .accessed_program_memory
+                .insert(pc, instruction_word);
+            known_instruction_word
+                .and_then(|known_word| Some(assert_eq!(known_word, instruction_word)));
         }
-        let pc = traces.column(row_idx, Column::Pc);
-        let pc = u32::from_base_fields(pc);
-        let last_access_counter = side_note
-            .program_mem_check
-            .last_access_counter
-            .get(&pc)
-            .unwrap_or(&0u32);
-        traces.fill_columns(row_idx, *last_access_counter, Column::ProgCtrPrev);
-        let new_access_counter = *last_access_counter + 1;
-        debug_assert_ne!(new_access_counter, 0); // Check against overflow
-        traces.fill_columns(row_idx, new_access_counter, Column::ProgCtrCur);
-        // Compute and fill carry flags
-        let last_counter_bytes = last_access_counter.to_le_bytes();
-        let mut carry_bits = [false; WORD_SIZE];
-        let mut incremented_bytes = [0u8; WORD_SIZE];
-        (incremented_bytes[0], carry_bits[0]) = last_counter_bytes[0].overflowing_add(1);
-        for i in 1..WORD_SIZE {
-            // Add the bytes and the previous carry
-            (incremented_bytes[i], carry_bits[i]) =
-                last_counter_bytes[i].overflowing_add(carry_bits[i - 1] as u8);
+        // Use accessed_program_memory sidenote to fill in the final program memory contents
+        if row_idx == traces.num_rows() - 1 {
+            assert!(
+                side_note.program_mem_check.accessed_program_memory.len() <= 1 << traces.log_size(),
+                "More Pc access than the size of trace, unexpected."
+            );
+            let mut final_program_row_idx: usize = 0;
+            for (pc, instruction_word) in side_note.program_mem_check.accessed_program_memory.iter()
+            {
+                traces.fill_columns(final_program_row_idx, *pc, Column::PrgMemoryPc);
+                traces.fill_columns(
+                    final_program_row_idx,
+                    *instruction_word,
+                    Column::PrgMemoryWord,
+                );
+                let counter = side_note
+                    .program_mem_check
+                    .last_access_counter
+                    .get(pc)
+                    .expect("counter not found with an accessed Pc");
+                traces.fill_columns(final_program_row_idx, *counter, Column::FinalPrgMemoryCtr);
+                traces.fill_columns(final_program_row_idx, true, Column::PrgMemoryFlag);
+                final_program_row_idx += 1;
+            }
         }
-        debug_assert!(!carry_bits[WORD_SIZE - 1]); // Check against overflow
-        debug_assert_eq!(u32::from_le_bytes(incremented_bytes), new_access_counter);
-        traces.fill_columns(row_idx, carry_bits, Column::ProgCtrCarry);
-        side_note
-            .program_mem_check
-            .last_access_counter
-            .insert(pc, new_access_counter);
-        // Note: no need to udpate the access counter for pc + {1,2,3}. They are not used.
     }
 
     fn add_constraints<E: EvalAtRow>(

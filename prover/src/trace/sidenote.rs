@@ -18,6 +18,8 @@ pub struct Range32SideNote {
 pub struct ProgramMemCheckSideNote {
     /// For each Pc, the number of accesses to that Pc so far (None if never)
     pub(crate) last_access_counter: BTreeMap<u32, u32>,
+    /// Every Pc and instruction word that are accessed during the execution
+    pub(crate) accessed_program_memory: BTreeMap<u32, u32>,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]

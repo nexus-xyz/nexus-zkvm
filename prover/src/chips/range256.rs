@@ -20,8 +20,9 @@ use stwo_prover::{
 
 use crate::{
     column::Column::{
-        self, FinalRegTs, FinalRegValue, Helper1, InstrVal, Multiplicity256, Pc, PrevCtr,
-        ProgCtrCur, ProgCtrPrev, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+        self, FinalPrgMemoryCtr, FinalRegTs, FinalRegValue, Helper1, InstrVal, Multiplicity256, Pc,
+        PrevCtr, PrgMemoryPc, PrgMemoryWord, ProgCtrCur, ProgCtrPrev, Reg1TsPrev, Reg2TsPrev,
+        Reg3TsPrev, ValueA, ValueB, ValueC,
     },
     column::PreprocessedColumn::{self, IsFirst, Range256},
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -40,7 +41,7 @@ use crate::{
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED: [Column; 14] = [
+    const CHECKED: [Column; 17] = [
         Pc,
         InstrVal,
         PrevCtr,
@@ -55,6 +56,9 @@ impl Range256Chip {
         ProgCtrPrev,
         FinalRegTs,
         FinalRegValue,
+        PrgMemoryPc,
+        PrgMemoryWord,
+        FinalPrgMemoryCtr,
     ];
 }
 
