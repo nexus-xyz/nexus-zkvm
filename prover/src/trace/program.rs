@@ -26,7 +26,13 @@ pub type BoolWord = [bool; WORD_SIZE];
 pub type WordWithEffectiveBits = (Word, usize);
 
 impl ProgramStep {
-    /// Returns the value of the second operand (rs1) as bytes.
+    /// Returns the value of the first operand (rd or rs1) as bytes.
+    /// Always a register value in range u32.
+    pub(crate) fn get_value_a(&self) -> Word {
+        self.regs.read(self.step.instruction.op_a).to_le_bytes()
+    }
+
+    /// Returns the value of the second operand (rs1 or rs2) as bytes.
     /// Always a register value in range u32.
     pub(crate) fn get_value_b(&self) -> Word {
         self.regs.read(self.step.instruction.op_b).to_le_bytes()

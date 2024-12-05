@@ -1,5 +1,6 @@
 mod add;
 mod bit_op;
+mod bne;
 mod slt;
 mod sub;
 
@@ -13,8 +14,8 @@ mod register_mem_check;
 mod sltu;
 
 pub use self::{
-    add::AddChip, bit_op::BitOpChip, cpu::CpuChip, prog_mem_check::ProgramMemCheckChip,
-    range128::Range128Chip, range256::Range256Chip, range32::Range32Chip,
-    range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip, slt::SltChip,
-    sltu::SltuChip, sub::SubChip,
+    add::AddChip, bit_op::BitOpChip, bne::BneChip, cpu::CpuChip,
+    prog_mem_check::ProgramMemCheckChip, range128::Range128Chip, range256::Range256Chip,
+    range32::Range32Chip, range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip,
+    slt::SltChip, sltu::SltuChip, sub::SubChip,
 };

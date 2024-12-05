@@ -15,6 +15,9 @@ pub enum Column {
     /// The current value of the program counter register.
     #[size = 4]
     Pc,
+    /// The next value of the program counter register.
+    #[size = 4]
+    PcNext,
     /// The opcode defining the instruction.
     #[size = 1]
     Opcode,
@@ -80,6 +83,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a SLT.
     #[size = 1]
     IsSlt,
+    /// Boolean flag on whether the row is a BNE.
+    #[size = 1]
+    IsBne,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
@@ -99,6 +105,25 @@ pub enum Column {
     /// Signed bit of C.
     #[size = 1]
     SgnC,
+    /// Negate flag. Called neq_flag in document.
+    #[size = 1]
+    Neq,
+    /// Negate flag. Called neg_12_flag in document.
+    #[size = 1]
+    Neq12,
+    /// Negate flag. Called neg_34_flag in document.
+    #[size = 1]
+    Neq34,
+
+    #[size = 1]
+    Neq12Aux,
+    #[size = 1]
+    Neq34Aux,
+    #[size = 1]
+    Neq12AuxInv,
+    #[size = 1]
+    Neq34AuxInv,
+
     /// Multiplicity column for Range32Chip. Multiplicity32[row_idx] counts how many times the number row_idx is checked against Range32 in the entire trace.
     #[size = 1]
     Multiplicity32,
