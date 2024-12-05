@@ -151,7 +151,7 @@ impl PreprocessedTraces {
         }
     }
 
-    fn fill_range128(&mut self) {
+    pub(crate) fn fill_range128(&mut self) {
         for row_idx in 0..128 {
             self.0.cols[PreprocessedColumn::Range128.offset()][row_idx] = BaseField::from(row_idx);
         }
