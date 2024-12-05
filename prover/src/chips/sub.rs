@@ -22,6 +22,28 @@ pub struct ExecutionResult {
     pub diff_bytes: Word,
 }
 
+pub(crate) fn subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
+    let mut diff_bytes = [0u8; WORD_SIZE];
+    let mut borrow_bits: BoolWord = [false; WORD_SIZE];
+
+    // Step 2. Compute the difference and borrow of each limb.
+    let (diff, b0) = x[0].overflowing_sub(y[0]);
+    borrow_bits[0] = b0;
+    diff_bytes[0] = diff;
+
+    // Process the remaining difference bytes
+    for i in 1..WORD_SIZE {
+        // Subtract the bytes and the previous borrow
+        let (diff, b1) = x[i].overflowing_sub(borrow_bits[i - 1] as u8);
+        let (diff, b2) = diff.overflowing_sub(y[i]);
+
+        // There can't be 2 borrow in: a - b - borrow, either b1 or b2 is true.
+        borrow_bits[i] = b1 || b2;
+        diff_bytes[i] = diff;
+    }
+    (diff_bytes, borrow_bits)
+}
+
 impl ExecuteChip for SubChip {
     type ExecutionResult = ExecutionResult;
     fn execute(program_step: &ProgramStep) -> ExecutionResult {
@@ -31,28 +53,11 @@ impl ExecuteChip for SubChip {
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
 
-        let mut value_a = [0u8; WORD_SIZE];
-        let mut borrow_bits = [false; WORD_SIZE];
-
-        // Step 2. Compute the difference and borrow of each limb.
-        let (diff, c0) = value_b[0].overflowing_sub(value_c[0]);
-        borrow_bits[0] = c0;
-        value_a[0] = diff;
-
-        // Process the remaining difference bytes
-        for i in 1..WORD_SIZE {
-            // Subtract the bytes and the previous borrow
-            let (diff, b1) = value_b[i].overflowing_sub(borrow_bits[i - 1] as u8);
-            let (diff, b2) = diff.overflowing_sub(value_c[i]);
-
-            // There can't be 2 borrow in: a - b - borrow, either b1 or b2 is true.
-            borrow_bits[i] = b1 || b2;
-            value_a[i] = diff;
-        }
+        let (diff_bytes, borrow_bits) = subtract_with_borrow(value_b, value_c);
 
         ExecutionResult {
             borrow_bits,
-            diff_bytes: value_a,
+            diff_bytes,
         }
     }
 }

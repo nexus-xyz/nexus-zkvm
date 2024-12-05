@@ -6,8 +6,9 @@ use num_traits::One;
 
 use crate::{
     column::Column::{
-        self, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor,
-        PrgMemoryFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnB, SgnC,
+        self, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsOr, IsPadding,
+        IsSlt, IsSltu, IsSub, IsXor, PrgMemoryFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnB,
+        SgnC,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
@@ -39,7 +40,7 @@ const CHECKED_SINGLE: [Column; 16] = [
     Reg3Accessed,
     PrgMemoryFlag,
 ];
-const CHECKED_WORD: [Column; 1] = [CarryFlag];
+const CHECKED_WORD: [Column; 4] = [CarryFlag, CH1Minus, CH2Minus, CH3Minus];
 
 impl MachineChip for RangeBoolChip {
     fn fill_main_trace(

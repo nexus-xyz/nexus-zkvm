@@ -218,6 +218,24 @@ pub enum Column {
     /// Program memory content: 1 means the row contains real PrgMemory*. 0 otherwise.
     #[size = 1]
     PrgMemoryFlag,
+
+    /// Aux variables for comparing previous and current timestamps
+    #[size = 4]
+    CReg1TsPrev,
+    #[size = 4]
+    CReg2TsPrev,
+    #[size = 4]
+    CReg3TsPrev,
+    /// Aux borrow variables for comparing previous and current timestamps
+    /// c_h1^-_1 in the design document
+    #[size = 4]
+    CH1Minus,
+    /// c_h1^-_1 in the design document
+    #[size = 4]
+    CH2Minus,
+    /// c_h1^-_1 in the design document
+    #[size = 4]
+    CH3Minus,
 }
 
 // proc macro derived:
