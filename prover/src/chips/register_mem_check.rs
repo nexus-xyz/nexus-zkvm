@@ -240,14 +240,31 @@ impl MachineChip for RegisterMemCheckChip {
         let (_, [reg2_accessed]) = trace_eval!(trace_eval, Column::Reg2Accessed);
         let (_, value_b) = trace_eval!(trace_eval, Column::ValueB);
         let (_, value_c) = trace_eval!(trace_eval, Column::ValueC);
+        let (_, [is_add]) = trace_eval!(trace_eval, Column::IsAdd);
+        let (_, [is_sub]) = trace_eval!(trace_eval, Column::IsSub);
+        let (_, [is_and]) = trace_eval!(trace_eval, Column::IsAnd);
+        let (_, [is_or]) = trace_eval!(trace_eval, Column::IsOr);
+        let (_, [is_xor]) = trace_eval!(trace_eval, Column::IsXor);
+        let (_, [is_slt]) = trace_eval!(trace_eval, Column::IsSlt);
+        let (_, [is_sltu]) = trace_eval!(trace_eval, Column::IsSltu);
+
+        // is_alu = is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra
+        let is_alu = is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and;
+
         for i in 0..WORD_SIZE {
             eval.add_constraint(
-                reg1_accessed.clone() * (value_b[i].clone() - reg1_val_prev[i].clone()),
+                reg1_accessed.clone()
+                    * is_alu.clone()
+                    * (value_b[i].clone() - reg1_val_prev[i].clone()),
             );
             eval.add_constraint(
-                reg2_accessed.clone() * (value_c[i].clone() - reg2_val_prev[i].clone()),
+                reg2_accessed.clone()
+                    * is_alu.clone()
+                    * (value_c[i].clone() - reg2_val_prev[i].clone()),
             );
         }
+
+        // TODO: add constraints so that branch and store operations do not change rs1 and rs2.
     }
     fn fill_interaction_trace(
         original_traces: &Traces,

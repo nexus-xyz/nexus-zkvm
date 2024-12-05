@@ -25,9 +25,8 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use crate::{
     column::{
         Column::{
-            self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor,
-            Reg1Accessed, Reg1Address, Reg2Accessed, Reg2Address, Reg3Accessed, Reg3Address,
-            ValueA, ValueB, ValueC,
+            self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
+            ValueB, ValueC,
         },
         PreprocessedColumn::{
             self, BitwiseAndByteA, BitwiseByteB, BitwiseByteC, BitwiseOrByteA, BitwiseXorByteA,
@@ -170,17 +169,6 @@ impl MachineChip for BitOpChip {
         }
 
         traces.fill_columns(row_idx, out_bytes, ValueA);
-        traces.fill_columns(row_idx, true, Reg1Accessed);
-        traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
-        if matches!(
-            vm_step.step.instruction.opcode.builtin(),
-            Some(BuiltinOpcode::AND) | Some(BuiltinOpcode::OR) | Some(BuiltinOpcode::XOR)
-        ) {
-            traces.fill_columns(row_idx, true, Reg2Accessed);
-            traces.fill_columns(row_idx, vm_step.step.instruction.op_c as u8, Reg2Address);
-        }
-        traces.fill_columns(row_idx, true, Reg3Accessed);
-        traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way

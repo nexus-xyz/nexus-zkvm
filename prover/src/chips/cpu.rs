@@ -124,6 +124,47 @@ impl MachineChip for CpuChip {
             }
         }
 
+        // Fill register access flags in the main trace
+        // We use Reg3 for the destination because Reg{1,2,3} have to be accessed in this order.
+        if !vm_step.step.is_padding {
+            match vm_step.step.instruction.ins_type {
+                RType => {
+                    traces.fill_columns(row_idx, true, Reg1Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+                    traces.fill_columns(row_idx, true, Reg2Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_c as u8, Reg2Address);
+                    traces.fill_columns(row_idx, true, Reg3Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+                }
+                IType | ITypeShamt => {
+                    traces.fill_columns(row_idx, true, Reg1Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+                    traces.fill_columns(row_idx, true, Reg3Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+                }
+                UType => {
+                    traces.fill_columns(row_idx, true, Reg3Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+                }
+                BType | SType => {
+                    traces.fill_columns(row_idx, true, Reg1Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+                    traces.fill_columns(row_idx, true, Reg3Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+                }
+                JType => {
+                    traces.fill_columns(row_idx, true, Reg3Accessed);
+                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+                }
+                Unimpl => {
+                    panic!(
+                        "Unsupported instruction type: {:?}",
+                        vm_step.step.instruction.ins_type
+                    );
+                }
+            }
+        }
+
         // Fill ValueAEffectiveFlag to the main trace
         let value_a_effective_flag = vm_step.value_a_effectitve_flag();
         traces.fill_columns(row_idx, value_a_effective_flag, ValueAEffectiveFlag);
@@ -195,7 +236,9 @@ impl MachineChip for CpuChip {
         let (_, [op_a]) = trace_eval!(trace_eval, OpA);
         // Since value_a_effective_flag_aux is non-zero, below means: op_a is zero if and only if value_a_effective_flag is zero.
         // Combined with value_a_effective_flag's range above, this determines value_a_effective_flag uniquely.
-        eval.add_constraint(op_a * value_a_effective_flag_aux - value_a_effective_flag.clone());
+        eval.add_constraint(
+            op_a.clone() * value_a_effective_flag_aux - value_a_effective_flag.clone(),
+        );
         // Sum of IsOp flags is one. Combined with the range-checks in RangeBoolChip, the constraint implies exactly one of these flags is set.
         let (_, [is_add]) = trace_eval!(trace_eval, IsAdd);
         let (_, [is_sub]) = trace_eval!(trace_eval, IsSub);
@@ -208,17 +251,60 @@ impl MachineChip for CpuChip {
         let (_, [is_beq]) = trace_eval!(trace_eval, IsBeq);
         let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(
-            is_add
-                + is_sub
-                + is_and
-                + is_or
-                + is_xor
-                + is_slt
-                + is_sltu
+            is_add.clone()
+                + is_sub.clone()
+                + is_and.clone()
+                + is_or.clone()
+                + is_xor.clone()
+                + is_slt.clone()
+                + is_sltu.clone()
                 + is_padding
                 + is_bne
                 + is_beq
                 - E::F::one(),
         );
+
+        let (_, [imm_c]) = trace_eval!(trace_eval, Column::ImmC);
+
+        // is_type_r = (1-imm_c) ・(is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra)
+        let is_type_r = (E::F::one() - imm_c.clone())
+            * (is_add.clone()
+                + is_sub.clone()
+                + is_slt.clone()
+                + is_sltu.clone()
+                + is_xor.clone()
+                + is_or.clone()
+                + is_and.clone());
+
+        // is_alu_imm_no_shift = imm_c・(is_add + is_slt + is_sltu + is_xor + is_or + is_and)
+        let is_alu_imm_no_shift =
+            imm_c.clone() * (is_add + is_slt + is_sltu + is_xor + is_or + is_and);
+
+        // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
+        let is_type_i = is_alu_imm_no_shift; // TODO: Add more flags when they are available
+
+        // Constrain Reg{1,2,3}Accessed
+        let (_, [reg1_accessed]) = trace_eval!(trace_eval, Reg1Accessed);
+        let (_, [reg2_accessed]) = trace_eval!(trace_eval, Reg2Accessed);
+        let (_, [reg3_accessed]) = trace_eval!(trace_eval, Reg3Accessed);
+        eval.add_constraint(
+            (is_type_r.clone() + is_type_i.clone()) * (E::F::one() - reg1_accessed.clone()),
+        );
+        eval.add_constraint(is_type_i.clone() * reg2_accessed.clone());
+        eval.add_constraint(is_type_r.clone() * (E::F::one() - reg2_accessed.clone()));
+        eval.add_constraint(
+            (is_type_r.clone() + is_type_i.clone()) * (E::F::one() - reg3_accessed.clone()),
+        );
+
+        // Constrain Reg{1,2,3}Address uniquely
+        let (_, [op_b]) = trace_eval!(trace_eval, Column::OpB);
+        let (_, [op_c]) = trace_eval!(trace_eval, Column::OpC);
+        let (_, [reg1_address]) = trace_eval!(trace_eval, Column::Reg1Address);
+        let (_, [reg2_address]) = trace_eval!(trace_eval, Column::Reg2Address);
+        let (_, [reg3_address]) = trace_eval!(trace_eval, Column::Reg3Address);
+        eval.add_constraint((is_type_r.clone() + is_type_i.clone()) * (op_b - reg1_address));
+        eval.add_constraint(is_type_r.clone() * (op_c.clone() - reg2_address));
+        eval.add_constraint(is_type_i.clone() * op_c);
+        eval.add_constraint((is_type_r + is_type_i) * (op_a - reg3_address));
     }
 }

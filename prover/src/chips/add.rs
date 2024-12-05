@@ -1,4 +1,4 @@
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
@@ -87,17 +87,8 @@ impl MachineChip for AddChip {
                 .get_result()
                 .expect("ADD/ADDI instruction must have a result")
         );
-
         traces.fill_columns_bytes(row_idx, &sum_bytes, ValueA);
         traces.fill_columns(row_idx, carry_bits, CarryFlag);
-        traces.fill_columns_bytes(row_idx, &[1u8], Reg1Accessed);
-        traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_b as u8], Reg1Address);
-        if vm_step.step.instruction.opcode.builtin() == Some(BuiltinOpcode::ADD) {
-            traces.fill_columns_bytes(row_idx, &[1u8], Reg2Accessed);
-            traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_c as u8], Reg2Address);
-        }
-        traces.fill_columns_bytes(row_idx, &[1u8], Reg3Accessed);
-        traces.fill_columns_bytes(row_idx, &[vm_step.step.instruction.op_a as u8], Reg3Address);
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -130,34 +121,6 @@ impl MachineChip for AddChip {
                         - (value_b[i].clone() + value_c[i].clone() + carry)),
             );
         }
-
-        // Constrain Reg{1,2,3}Accessed
-        let (_, [reg1_accessed]) = trace_eval!(trace_eval, Reg1Accessed);
-        let (_, [reg2_accessed]) = trace_eval!(trace_eval, Reg2Accessed);
-        let (_, [reg3_accessed]) = trace_eval!(trace_eval, Reg3Accessed);
-        let (_, [imm_c]) = trace_eval!(trace_eval, ImmC);
-        eval.add_constraint(is_add.clone() * (E::F::one() - reg1_accessed.clone()));
-        eval.add_constraint(is_add.clone() * imm_c.clone() * reg2_accessed.clone());
-        eval.add_constraint(
-            is_add.clone() * (E::F::one() - imm_c) * (E::F::one() - reg2_accessed.clone()),
-        );
-        eval.add_constraint(is_add.clone() * (E::F::one() - reg3_accessed.clone()));
-
-        // Constrain Reg{1,2,3}Address uniquely
-        let (_, [is_add]) = trace_eval!(trace_eval, Column::IsAdd);
-        let (_, [imm_c]) = trace_eval!(trace_eval, Column::ImmC);
-        let (_, [op_a]) = trace_eval!(trace_eval, Column::OpA);
-        let (_, [op_b]) = trace_eval!(trace_eval, Column::OpB);
-        let (_, [op_c]) = trace_eval!(trace_eval, Column::OpC);
-        let (_, [reg1_address]) = trace_eval!(trace_eval, Column::Reg1Address);
-        let (_, [reg2_address]) = trace_eval!(trace_eval, Column::Reg2Address);
-        let (_, [reg3_address]) = trace_eval!(trace_eval, Column::Reg3Address);
-        eval.add_constraint(is_add.clone() * (op_b - reg1_address));
-        eval.add_constraint(
-            is_add.clone() * (E::F::one() - imm_c.clone()) * (op_c.clone() - reg2_address),
-        );
-        eval.add_constraint(is_add.clone() * imm_c * op_c);
-        eval.add_constraint(is_add * (op_a - reg3_address));
 
         // TODO: special range check rs2_val[i] for ADDI case, because immediate values have a smaller range.
     }
