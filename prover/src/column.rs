@@ -86,6 +86,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a BNE.
     #[size = 1]
     IsBne,
+    /// Boolean flag on whether the row is a BEQ.
+    #[size = 1]
+    IsBeq,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

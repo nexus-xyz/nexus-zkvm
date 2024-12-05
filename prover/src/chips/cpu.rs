@@ -76,6 +76,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::BNE) => {
                 traces.fill_columns(row_idx, true, IsBne);
             }
+            Some(BuiltinOpcode::BEQ) => {
+                traces.fill_columns(row_idx, true, IsBeq);
+            }
             _ => {
                 if !step.is_padding {
                     panic!(
@@ -202,9 +205,19 @@ impl MachineChip for CpuChip {
         let (_, [is_slt]) = trace_eval!(trace_eval, IsSlt);
         let (_, [is_sltu]) = trace_eval!(trace_eval, IsSltu);
         let (_, [is_bne]) = trace_eval!(trace_eval, IsBne);
+        let (_, [is_beq]) = trace_eval!(trace_eval, IsBeq);
         let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(
-            is_add + is_sub + is_and + is_or + is_xor + is_slt + is_sltu + is_padding + is_bne
+            is_add
+                + is_sub
+                + is_and
+                + is_or
+                + is_xor
+                + is_slt
+                + is_sltu
+                + is_padding
+                + is_bne
+                + is_beq
                 - E::F::one(),
         );
     }
