@@ -85,7 +85,7 @@ impl ProgramStep {
 /// Iterates over the program steps in `trace``, padded to `num_rows`
 ///
 /// Panics if `trace` contains more than `num_rows` steps.
-pub(crate) fn iter_program_steps<TR: Trace>(
+pub fn iter_program_steps<TR: Trace>(
     trace: &TR,
     num_rows: usize,
 ) -> impl Iterator<Item = ProgramStep> + '_ {

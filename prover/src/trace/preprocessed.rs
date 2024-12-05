@@ -32,7 +32,7 @@ impl PreprocessedTraces {
     pub const MIN_LOG_SIZE: u32 = 16;
 
     /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
-    pub(crate) fn new(log_size: u32) -> Self {
+    pub fn new(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
             log_size >= Self::MIN_LOG_SIZE,

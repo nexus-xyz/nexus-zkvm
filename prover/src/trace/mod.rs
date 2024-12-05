@@ -40,7 +40,7 @@ pub struct Traces {
 
 impl Traces {
     /// Returns [`Column::TOTAL_COLUMNS_NUM`] zeroed columns, each one `2.pow(log_size)` in length.
-    pub(crate) fn new(log_size: u32) -> Self {
+    pub fn new(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
         Self {
             cols: vec![vec![BaseField::zero(); 1 << log_size]; Column::COLUMNS_NUM],
