@@ -52,7 +52,7 @@ impl MachineChip for SltuChip {
         }
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
-            Some(BuiltinOpcode::SLTU)
+            Some(BuiltinOpcode::SLTU) | Some(BuiltinOpcode::SLTIU)
         ) {
             return;
         }
@@ -149,6 +149,26 @@ mod test {
             Instruction::new(Opcode::from(BuiltinOpcode::SLTU), 2, 1, 1, InstructionType::RType),
             // x2 = 0 because 1 < 0 doesn't hold
             Instruction::new(Opcode::from(BuiltinOpcode::SLTU), 2, 1, 0, InstructionType::RType),
+
+            // Testing SLTIU
+            // x3 = 1 because 0 < 1 (immediate)
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 0, 1, InstructionType::IType),
+            // x3 = 0 because 1 < 1 (immediate) doesn't hold
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 1, InstructionType::IType),
+            // x3 = 1 because 1 < 2 (immediate)
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 2, InstructionType::IType),
+            // x3 = 0 because 2 < 1 (immediate) doesn't hold
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 2, 1, InstructionType::IType),
+            // x3 = 1 because any number < 0xFFF (4095 in decimal, treated as unsigned)
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 0xFFF, InstructionType::IType),
+            // x3 = 0 because 0 < 0 doesn't hold (testing with immediate 0)
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 0, 0, InstructionType::IType),
+            // Set x4 = 10 for further testing
+            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 10, InstructionType::IType),
+            // x3 = 1 because 10 < 15 (immediate)
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 4, 15, InstructionType::IType),
+            // x3 = 0 because 10 < 5 (immediate) doesn't hold
+            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 4, 5, InstructionType::IType),
         ]);
         vec![basic_block]
     }

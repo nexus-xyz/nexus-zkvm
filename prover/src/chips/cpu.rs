@@ -67,7 +67,7 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::SUB) => {
                 traces.fill_columns(row_idx, true, IsSub);
             }
-            Some(BuiltinOpcode::SLTU) => {
+            Some(BuiltinOpcode::SLTU) | Some(BuiltinOpcode::SLTIU) => {
                 traces.fill_columns(row_idx, true, IsSltu);
             }
             Some(BuiltinOpcode::SLT) | Some(BuiltinOpcode::SLTI) => {
