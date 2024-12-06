@@ -22,7 +22,7 @@ pub struct ExecutionResult {
     sum_bytes: Word,
 }
 
-pub fn addition_8_bit(a: Word, b: Word) -> (Word, BoolWord) {
+pub fn add_with_carries(a: Word, b: Word) -> (Word, BoolWord) {
     let mut sum_bytes = [0u8; WORD_SIZE];
     let mut carry_bits = [false; WORD_SIZE];
 
@@ -49,7 +49,7 @@ impl ExecuteChip for AddChip {
         let (value_c, _) = program_step.get_value_c();
 
         // Recompute 32-bit result from 8-bit limbs.
-        let (sum_bytes, carry_bits) = addition_8_bit(value_b, value_c);
+        let (sum_bytes, carry_bits) = add_with_carries(value_b, value_c);
 
         ExecutionResult {
             carry_bits,

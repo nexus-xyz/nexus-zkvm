@@ -50,9 +50,9 @@ impl ExecuteChip for BeqChip {
         let value_b_h = u16::from_le_bytes([value_b[2], value_b[3]]) as u32;
 
         let (pc_next, carry_bits) = if value_a == value_b {
-            add::addition_8_bit(pc, imm)
+            add::add_with_carries(pc, imm)
         } else {
-            add::addition_8_bit(pc, 4u32.to_le_bytes())
+            add::add_with_carries(pc, 4u32.to_le_bytes())
         };
 
         let neq_flag = value_a != value_b;
