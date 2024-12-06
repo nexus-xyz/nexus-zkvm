@@ -1,4 +1,4 @@
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{logup::LookupElements, EvalAtRow},
     core::fields::{m31::BaseField, FieldExpOps},
@@ -259,8 +259,8 @@ impl MachineChip for CpuChip {
                 + is_slt.clone()
                 + is_sltu.clone()
                 + is_padding
-                + is_bne
-                + is_beq
+                + is_bne.clone()
+                + is_beq.clone()
                 - E::F::one(),
         );
 
@@ -283,7 +283,7 @@ impl MachineChip for CpuChip {
         // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
         let is_type_i = is_alu_imm_no_shift; // TODO: Add more flags when they are available
 
-        // Constrain Reg{1,2,3}Accessed
+        // Constrain Reg{1,2,3}Accessed for type R and type I instructions
         let (_, [reg1_accessed]) = trace_eval!(trace_eval, Reg1Accessed);
         let (_, [reg2_accessed]) = trace_eval!(trace_eval, Reg2Accessed);
         let (_, [reg3_accessed]) = trace_eval!(trace_eval, Reg3Accessed);
@@ -296,15 +296,38 @@ impl MachineChip for CpuChip {
             (is_type_r.clone() + is_type_i.clone()) * (E::F::one() - reg3_accessed.clone()),
         );
 
-        // Constrain Reg{1,2,3}Address uniquely
+        // Constrain Reg{1,2,3}Address uniquely for type R and type I instructions
         let (_, [op_b]) = trace_eval!(trace_eval, Column::OpB);
         let (_, [op_c]) = trace_eval!(trace_eval, Column::OpC);
         let (_, [reg1_address]) = trace_eval!(trace_eval, Column::Reg1Address);
         let (_, [reg2_address]) = trace_eval!(trace_eval, Column::Reg2Address);
         let (_, [reg3_address]) = trace_eval!(trace_eval, Column::Reg3Address);
-        eval.add_constraint((is_type_r.clone() + is_type_i.clone()) * (op_b - reg1_address));
+        eval.add_constraint(
+            (is_type_r.clone() + is_type_i.clone()) * (op_b.clone() - reg1_address.clone()),
+        );
         eval.add_constraint(is_type_r.clone() * (op_c.clone() - reg2_address));
-        eval.add_constraint(is_type_i.clone() * op_c);
-        eval.add_constraint((is_type_r + is_type_i) * (op_a - reg3_address));
+        eval.add_constraint(is_type_i.clone() * op_c.clone());
+        eval.add_constraint((is_type_r + is_type_i) * (op_a.clone() - reg3_address.clone()));
+
+        // is_type_b = is_beq + is_bne + is_blt + is_bge + is_bltu + is_bgeu
+        let is_type_b = is_beq + is_bne; // TODO: add more flags when they are available
+
+        // is_type_s = is_sb + is_sh + is_sw
+        // TODO: define is_type_s when flags are available
+        let is_type_s = E::F::zero();
+
+        // type S and type B access registers in similar ways
+        let is_type_b_s = is_type_b + is_type_s;
+
+        // Constrain reg{1,2,3}_accessed for type B and type S instructions
+        eval.add_constraint((is_type_b_s.clone()) * (E::F::one() - reg1_accessed.clone()));
+        eval.add_constraint(is_type_b_s.clone() * reg2_accessed.clone());
+        eval.add_constraint((is_type_b_s.clone()) * (E::F::one() - reg3_accessed.clone()));
+
+        // Constraint reg{1,2,3}_address uniquely for type B and type S instructions
+        eval.add_constraint(is_type_b_s.clone() * (op_b - reg1_address));
+        eval.add_constraint(is_type_b_s.clone() * op_c);
+        // Always using reg3 for ValueA and OpA, even when it's not the destination; this simplifies the register memory checking.
+        eval.add_constraint(is_type_b_s * (op_a - reg3_address));
     }
 }
