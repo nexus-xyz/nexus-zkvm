@@ -711,6 +711,19 @@ impl LinearEmulator {
 
         let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
 
+        let heap_len = (memory_layout.heap_end() - memory_layout.heap_start()) as usize;
+        let heap_memory =
+            FixedMemory::<RW>::from_vec(memory_layout.heap_start(), heap_len, vec![0; heap_len]);
+        let _ = memory.add_fixed_rw(&heap_memory).unwrap();
+
+        let stack_len = (memory_layout.stack_top() - memory_layout.stack_bottom()) as usize;
+        let stack_memory = FixedMemory::<RW>::from_vec(
+            memory_layout.stack_bottom(),
+            stack_len,
+            vec![0; stack_len],
+        );
+        let _ = memory.add_fixed_rw(&stack_memory).unwrap();
+
         let mut emulator = Self {
             executor: Executor {
                 base_address: code_start,
