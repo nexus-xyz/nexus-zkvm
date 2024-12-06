@@ -91,8 +91,9 @@ impl MachineChip for Range32Chip {
         }
         logup_col_gen.finalize_col();
 
-        let (ret, total_logup_sum) = logup_trace_gen.finalize_last();
-        debug_assert_eq!(total_logup_sum, SecureField::zero());
+        let (ret, _total_logup_sum) = logup_trace_gen.finalize_last();
+        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
+        assert_eq!(_total_logup_sum, SecureField::zero());
         ret
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -123,7 +124,8 @@ impl MachineChip for Range32Chip {
 
 fn fill_main_elm(col: BaseField, traces: &mut Traces, side_note: &mut SideNote) {
     let checked = col.0;
-    debug_assert!(checked < 32, "value is out of range {}", checked);
+    #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
+    assert!(checked < 32, "value is out of range {}", checked);
     let multiplicity_col: [&mut BaseField; 1] = traces.column_mut(checked as usize, Multiplicity32);
     *multiplicity_col[0] += BaseField::one();
     // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
@@ -174,24 +176,9 @@ mod test {
         assert_chip::<Range32Chip>(traces, Some(preprocessed_32_rows));
     }
 
-    // The test range32_chip_fail_out_of_range() fails with different messages
-    // depending on debug_assertion is enabled or not. The release mode is more interesting
-    // because it fails in the low-degree checking.
     #[test]
-    #[cfg(not(debug_assertions))]
     #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range32_chip_fail_out_of_range_release() {
-        range32_chip_fail_out_of_range();
-    }
-
-    #[test]
-    #[cfg(debug_assertions)]
-    #[should_panic(expected = "out of range")]
-    fn test_range32_chip_fail_out_of_range_debug() {
-        range32_chip_fail_out_of_range();
-    }
-
-    fn range32_chip_fail_out_of_range() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);

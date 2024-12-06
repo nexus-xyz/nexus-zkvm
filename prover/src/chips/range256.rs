@@ -115,8 +115,9 @@ impl MachineChip for Range256Chip {
         }
         logup_col_gen.finalize_col();
 
-        let (ret, total_logup_sum) = logup_trace_gen.finalize_last();
-        debug_assert_eq!(total_logup_sum, SecureField::zero());
+        let (ret, _total_logup_sum) = logup_trace_gen.finalize_last();
+        #[cfg(not(test))] // tests need to be able to go past this assertion and break the constraints
+        assert_eq!(_total_logup_sum, SecureField::zero());
         ret
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -152,9 +153,10 @@ fn fill_main_word(
     traces: &mut Traces,
     side_note: &mut SideNote,
 ) {
-    for (limb_index, limb) in value_col.iter().enumerate().take(WORD_SIZE) {
+    for (_limb_index, limb) in value_col.iter().enumerate().take(WORD_SIZE) {
         let checked = limb.0;
-        debug_assert!(checked < 256, "value[{}] is out of range", limb_index);
+        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
+        assert!(checked < 256, "value[{}] is out of range", _limb_index);
         let multiplicity_col: [&mut BaseField; 1] =
             traces.column_mut(checked as usize, Multiplicity256);
         *multiplicity_col[0] += BaseField::one();
@@ -231,24 +233,9 @@ mod test {
         assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows));
     }
 
-    // The test range256_chip_fail_out_of_range() fails with different messages
-    // depending on debug_assertion is enabled or not. The release mode is more interesting
-    // because it fails in the low-degree checking.
     #[test]
-    #[cfg(not(debug_assertions))]
     #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range256_chip_fail_out_of_range_release() {
-        range256_chip_fail_out_of_range();
-    }
-
-    #[test]
-    #[cfg(debug_assertions)]
-    #[should_panic(expected = "out of range")]
-    fn test_range256_chip_fail_out_of_range_debug() {
-        range256_chip_fail_out_of_range();
-    }
-
-    fn range256_chip_fail_out_of_range() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
