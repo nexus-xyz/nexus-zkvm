@@ -147,7 +147,7 @@ impl Default for InstructionExecutorRegistry {
                     instructions::XorInstruction::evaluator
                 )), // xor
                 Some(register_instruction_executor!(
-                    instructions::SraInstruction::evaluator
+                    instructions::SrlInstruction::evaluator
                 )), // srl
                 Some(register_instruction_executor!(
                     instructions::SraInstruction::evaluator

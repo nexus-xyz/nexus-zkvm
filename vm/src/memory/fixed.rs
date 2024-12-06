@@ -66,10 +66,13 @@ impl<M: Mode> FixedMemory<M> {
     }
 
     pub fn from_bytes(base_address: u32, bytes: &[u8]) -> Self {
+        let padded_len = word_align!(bytes.len());
+        let mut padded_bytes = bytes.to_vec();
+        padded_bytes.resize(padded_len, 0);
         FixedMemory::<M> {
             base_address,
-            max_len: word_align!(bytes.len()),
-            vec: bytes_to_words!(bytes),
+            max_len: padded_len,
+            vec: bytes_to_words!(padded_bytes),
             __mode: PhantomData,
         }
     }

@@ -236,9 +236,15 @@ mod test {
             EmulatorType::default_linear(),
             EmulatorType::TwoPass,
         ];
-        let io_u32_elfs = compile_multi("io_u32", &["-C opt-level=0", ""]);
-        let io_u64_elfs = compile_multi("io_u64", &["-C opt-level=0", ""]);
-        let io_u128_elfs = compile_multi("io_u128", &["-C opt-level=0", ""]);
+        let compile_flags = vec![
+            "-C opt-level=0",
+            "-C opt-level=1",
+            "-C opt-level=2",
+            "-C opt-level=3",
+        ];
+        let io_u32_elfs = compile_multi("io_u32", &compile_flags);
+        let io_u64_elfs = compile_multi("io_u64", &compile_flags);
+        let io_u128_elfs = compile_multi("io_u128", &compile_flags);
 
         for emulator in emulators {
             emulate::<u32, u32>(

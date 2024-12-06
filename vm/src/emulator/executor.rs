@@ -308,7 +308,7 @@ impl HarvardEmulator {
             .unwrap();
 
         // Add the public input length to the beginning of the public input.
-        let len_bytes = (word_align!(public_input.len()) / WORD_SIZE) as u32;
+        let len_bytes = (public_input.len()) as u32;
         let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
 
         let mut emulator = Self {
@@ -601,7 +601,7 @@ impl LinearEmulator {
         }
 
         // Add the public input length to the beginning of the public input.
-        let len_bytes = (word_align!(public_input.len()) / WORD_SIZE) as u32;
+        let len_bytes = public_input.len() as u32;
         let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
 
         let input_len =

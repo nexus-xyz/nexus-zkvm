@@ -52,13 +52,14 @@ mod riscv32 {
 
     /// Read an object from the public input segment.
     pub fn read_public_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
-        // The first word stores the length of the input (in words).
+        // The first word stores the length of the input (in bytes).
         // This length does not take into account the first word itself.
-        let len: u32 = rin!(0);
-        let mut input = alloc::vec![0u8; len as usize * WORD_SIZE];
+        let len = rin!(0) as usize;
+        let padded_len = (len + 3) & !3;
+        let mut input = alloc::vec![0u8; padded_len];
 
         // Read the input into the vector.
-        for i in 0..len as usize {
+        for i in 0..((padded_len) / WORD_SIZE) {
             let word = rin!((i + 1) * WORD_SIZE);
             input[i * WORD_SIZE..(i + 1) * WORD_SIZE].copy_from_slice(&word.to_le_bytes());
         }
@@ -70,23 +71,15 @@ mod riscv32 {
     /// Write an object to the public output segment.
     pub fn write_public_output<T: Serialize + ?Sized>(val: &T) -> Result<(), postcard::Error> {
         // Serialize the value into bytes.
-        let bytes = postcard::to_allocvec(val)?;
-        let len = bytes.len();
+        let mut bytes = postcard::to_allocvec(&val)?;
+        let padded_len = (bytes.len() + 3) & !3;
+        bytes.resize(padded_len, 0);
 
-        // Process bytes in 4-byte chunks.
-        for i in (0..len).step_by(4) {
-            // Get up to 4 bytes, zero-padding if needed.
-            let chunk = [
-                bytes[i],
-                bytes.get(i + 1).copied().unwrap_or(0),
-                bytes.get(i + 2).copied().unwrap_or(0),
-                bytes.get(i + 3).copied().unwrap_or(0),
-            ];
-
-            // Pack bytes into a word and write to output.
-            let word = u32::from_le_bytes(chunk);
-            wou!(i, word);
-        }
+        // Write bytes in word chunks to output memory.
+        bytes.chunks(WORD_SIZE).enumerate().for_each(|(i, chunk)| {
+            let word = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            wou!(i * WORD_SIZE, word);
+        });
 
         Ok(())
     }
