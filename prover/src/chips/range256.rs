@@ -124,22 +124,22 @@ impl MachineChip for Range256Chip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, IsFirst);
+        let ([is_first], _) = preprocessed_trace_eval!(trace_eval, IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum.
         for col in Self::CHECKED.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
-            let (_, value) = trace_eval.column_eval::<WORD_SIZE>(*col);
+            let (value, _) = trace_eval.column_eval::<WORD_SIZE>(*col);
             for limb in value.iter().take(WORD_SIZE) {
                 let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
                 logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
             }
         }
         // Subtract looked up multiplicites from logup sum.
-        let (_, [range]) = preprocessed_trace_eval!(trace_eval, Range256);
-        let (_, [multiplicity]) = trace_eval!(trace_eval, Multiplicity256);
+        let ([range], _) = preprocessed_trace_eval!(trace_eval, Range256);
+        let ([multiplicity], _) = trace_eval!(trace_eval, Multiplicity256);
         let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
         logup.write_frac(eval, Fraction::new(numerator, denom));

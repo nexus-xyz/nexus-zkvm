@@ -57,11 +57,11 @@ impl MachineChip for RangeBoolChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         for col in CHECKED_SINGLE.into_iter() {
-            let (_, [col]) = trace_eval.column_eval(col);
+            let ([col], _) = trace_eval.column_eval(col);
             eval.add_constraint(col.clone() * (col - E::F::one()));
         }
         for col_word in CHECKED_WORD.into_iter() {
-            let (_, col_word) = trace_eval.column_eval::<WORD_SIZE>(col_word);
+            let (col_word, _) = trace_eval.column_eval::<WORD_SIZE>(col_word);
             for limb in col_word.into_iter() {
                 eval.add_constraint(limb.clone() * (limb - E::F::one()));
             }

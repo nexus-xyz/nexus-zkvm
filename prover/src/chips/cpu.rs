@@ -199,57 +199,58 @@ impl MachineChip for CpuChip {
         // TODO: add more constraints for the CPU chip.
 
         // Constrain IsPadding's range
-        let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
+        let ([is_padding], _) = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(is_padding.clone() * (E::F::one() - is_padding.clone()));
 
         // Padding rows should not access registers
-        let ([prev_is_padding], [is_padding]) = trace_eval!(trace_eval, Column::IsPadding);
-        let (_, [reg1_accessed]) = trace_eval!(trace_eval, Column::Reg1Accessed);
-        let (_, [reg2_accessed]) = trace_eval!(trace_eval, Column::Reg2Accessed);
-        let (_, [reg3_accessed]) = trace_eval!(trace_eval, Column::Reg3Accessed);
+        let ([is_padding], [next_is_padding]) = trace_eval!(trace_eval, Column::IsPadding);
+        let ([reg1_accessed], _) = trace_eval!(trace_eval, Column::Reg1Accessed);
+        let ([reg2_accessed], _) = trace_eval!(trace_eval, Column::Reg2Accessed);
+        let ([reg3_accessed], _) = trace_eval!(trace_eval, Column::Reg3Accessed);
         eval.add_constraint(is_padding.clone() * reg1_accessed.clone());
         eval.add_constraint(is_padding.clone() * reg2_accessed.clone());
         eval.add_constraint(is_padding.clone() * reg3_accessed.clone());
 
         // Padding cannot go from 1 to zero, unless the current line is the first
         // TODO: consider forcing IsPadding == 0 on the first row, if we prefer to ban zero-step empty executions.
-        let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        let (_, [next_is_first]) =
+            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
         eval.add_constraint(
-            (E::F::one() - is_first.clone())
-                * prev_is_padding.clone()
-                * (E::F::one() - is_padding.clone()),
+            (E::F::one() - next_is_first.clone())
+                * is_padding.clone()
+                * (E::F::one() - next_is_padding.clone()),
         );
 
         // Constrain ValueAEffectiveFlag's range
-        let (_, [value_a_effective_flag]) = trace_eval!(trace_eval, ValueAEffectiveFlag);
+        let ([value_a_effective_flag], _) = trace_eval!(trace_eval, ValueAEffectiveFlag);
         eval.add_constraint(
             value_a_effective_flag.clone() * (E::F::one() - value_a_effective_flag.clone()),
         );
         // TODO: relate OpA and ValueAEffectiveFlag; this can be done with ValueAEffectiveFlagAux and ValueAEffectiveFlagAuxInv.
-        let (_, [value_a_effective_flag_aux]) = trace_eval!(trace_eval, ValueAEffectiveFlagAux);
-        let (_, [value_a_effective_flag_aux_inv]) =
+        let ([value_a_effective_flag_aux], _) = trace_eval!(trace_eval, ValueAEffectiveFlagAux);
+        let ([value_a_effective_flag_aux_inv], _) =
             trace_eval!(trace_eval, ValueAEffectiveFlagAuxInv);
         // Below is just for making sure value_a_effective_flag_aux is not zero.
         eval.add_constraint(
             value_a_effective_flag_aux.clone() * value_a_effective_flag_aux_inv - E::F::one(),
         );
-        let (_, [op_a]) = trace_eval!(trace_eval, OpA);
+        let ([op_a], _) = trace_eval!(trace_eval, OpA);
         // Since value_a_effective_flag_aux is non-zero, below means: op_a is zero if and only if value_a_effective_flag is zero.
         // Combined with value_a_effective_flag's range above, this determines value_a_effective_flag uniquely.
         eval.add_constraint(
             op_a.clone() * value_a_effective_flag_aux - value_a_effective_flag.clone(),
         );
         // Sum of IsOp flags is one. Combined with the range-checks in RangeBoolChip, the constraint implies exactly one of these flags is set.
-        let (_, [is_add]) = trace_eval!(trace_eval, IsAdd);
-        let (_, [is_sub]) = trace_eval!(trace_eval, IsSub);
-        let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
-        let (_, [is_or]) = trace_eval!(trace_eval, IsOr);
-        let (_, [is_xor]) = trace_eval!(trace_eval, IsXor);
-        let (_, [is_slt]) = trace_eval!(trace_eval, IsSlt);
-        let (_, [is_sltu]) = trace_eval!(trace_eval, IsSltu);
-        let (_, [is_bne]) = trace_eval!(trace_eval, IsBne);
-        let (_, [is_beq]) = trace_eval!(trace_eval, IsBeq);
-        let (_, [is_padding]) = trace_eval!(trace_eval, IsPadding);
+        let ([is_add], _) = trace_eval!(trace_eval, IsAdd);
+        let ([is_sub], _) = trace_eval!(trace_eval, IsSub);
+        let ([is_and], _) = trace_eval!(trace_eval, IsAnd);
+        let ([is_or], _) = trace_eval!(trace_eval, IsOr);
+        let ([is_xor], _) = trace_eval!(trace_eval, IsXor);
+        let ([is_slt], _) = trace_eval!(trace_eval, IsSlt);
+        let ([is_sltu], _) = trace_eval!(trace_eval, IsSltu);
+        let ([is_bne], _) = trace_eval!(trace_eval, IsBne);
+        let ([is_beq], _) = trace_eval!(trace_eval, IsBeq);
+        let ([is_padding], _) = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(
             is_add.clone()
                 + is_sub.clone()
@@ -264,7 +265,7 @@ impl MachineChip for CpuChip {
                 - E::F::one(),
         );
 
-        let (_, [imm_c]) = trace_eval!(trace_eval, Column::ImmC);
+        let ([imm_c], _) = trace_eval!(trace_eval, Column::ImmC);
 
         // is_type_r = (1-imm_c) ・(is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra)
         let is_type_r = (E::F::one() - imm_c.clone())
@@ -284,9 +285,9 @@ impl MachineChip for CpuChip {
         let is_type_i = is_alu_imm_no_shift; // TODO: Add more flags when they are available
 
         // Constrain Reg{1,2,3}Accessed for type R and type I instructions
-        let (_, [reg1_accessed]) = trace_eval!(trace_eval, Reg1Accessed);
-        let (_, [reg2_accessed]) = trace_eval!(trace_eval, Reg2Accessed);
-        let (_, [reg3_accessed]) = trace_eval!(trace_eval, Reg3Accessed);
+        let ([reg1_accessed], _) = trace_eval!(trace_eval, Reg1Accessed);
+        let ([reg2_accessed], _) = trace_eval!(trace_eval, Reg2Accessed);
+        let ([reg3_accessed], _) = trace_eval!(trace_eval, Reg3Accessed);
         eval.add_constraint(
             (is_type_r.clone() + is_type_i.clone()) * (E::F::one() - reg1_accessed.clone()),
         );
@@ -297,11 +298,11 @@ impl MachineChip for CpuChip {
         );
 
         // Constrain Reg{1,2,3}Address uniquely for type R and type I instructions
-        let (_, [op_b]) = trace_eval!(trace_eval, Column::OpB);
-        let (_, [op_c]) = trace_eval!(trace_eval, Column::OpC);
-        let (_, [reg1_address]) = trace_eval!(trace_eval, Column::Reg1Address);
-        let (_, [reg2_address]) = trace_eval!(trace_eval, Column::Reg2Address);
-        let (_, [reg3_address]) = trace_eval!(trace_eval, Column::Reg3Address);
+        let ([op_b], _) = trace_eval!(trace_eval, Column::OpB);
+        let ([op_c], _) = trace_eval!(trace_eval, Column::OpC);
+        let ([reg1_address], _) = trace_eval!(trace_eval, Column::Reg1Address);
+        let ([reg2_address], _) = trace_eval!(trace_eval, Column::Reg2Address);
+        let ([reg3_address], _) = trace_eval!(trace_eval, Column::Reg3Address);
         eval.add_constraint(
             (is_type_r.clone() + is_type_i.clone()) * (op_b.clone() - reg1_address.clone()),
         );

@@ -100,10 +100,10 @@ impl MachineChip for ProgramMemCheckChip {
     ) {
         let _ = lookup_elements;
         // Constrain PrgCurCtr = PrgPrevCtr + 1
-        let (_, [is_padding]) = trace_eval.column_eval(Column::IsPadding);
-        let (_, prg_prev_ctr) = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrPrev);
-        let (_, prg_cur_ctr) = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrCur);
-        let (_, prg_ctr_carry) = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrCarry);
+        let ([is_padding], _) = trace_eval.column_eval(Column::IsPadding);
+        let (prg_prev_ctr, _) = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrPrev);
+        let (prg_cur_ctr, _) = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrCur);
+        let (prg_ctr_carry, _) = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrCarry);
         let modulus = E::F::from((1u32 << 8).into());
         for i in 0..WORD_SIZE {
             let carry = i

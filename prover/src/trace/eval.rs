@@ -4,7 +4,7 @@ use stwo_prover::constraint_framework::{EvalAtRow, ORIGINAL_TRACE_IDX, PREPROCES
 
 use crate::column::{Column, PreprocessedColumn};
 
-// Trace evaluation at the current row, capturing current and previous values.
+// Trace evaluation at the current row and the next row.
 pub struct TraceEval<E: EvalAtRow> {
     evals: Vec<[E::F; 2]>,
     preprocessed_evals: Vec<[E::F; 2]>,
@@ -13,11 +13,11 @@ pub struct TraceEval<E: EvalAtRow> {
 impl<E: EvalAtRow> TraceEval<E> {
     pub(crate) fn new(eval: &mut E) -> Self {
         let evals =
-            std::iter::repeat_with(|| eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [-1, 0]))
+            std::iter::repeat_with(|| eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1]))
                 .take(Column::COLUMNS_NUM)
                 .collect();
         let preprocessed_evals =
-            std::iter::repeat_with(|| eval.next_interaction_mask(PREPROCESSED_TRACE_IDX, [-1, 0]))
+            std::iter::repeat_with(|| eval.next_interaction_mask(PREPROCESSED_TRACE_IDX, [0, 1]))
                 .take(PreprocessedColumn::COLUMNS_NUM)
                 .collect();
         Self {
@@ -56,8 +56,8 @@ impl<E: EvalAtRow> TraceEval<E> {
 ///
 /// ```ignore
 /// let trace_eval = TraceEval::new(&mut eval);
-/// let (prev, curr) = trace_eval!(trace_eval, Column::IsAdd);
-/// eval.add_constraint(curr[0] - prev[0]);
+/// let (curr, next) = trace_eval!(trace_eval, Column::IsAdd);
+/// eval.add_constraint(next[0] - curr[0]);
 /// ```
 macro_rules! trace_eval {
     ($traces:expr, $col:expr) => {{
@@ -71,8 +71,8 @@ pub(crate) use trace_eval;
 ///
 /// ```ignore
 /// let trace_eval = TraceEval::new(&mut eval);
-/// let (_, curr_pc) = trace_eval!(trace_eval, Column::Pc);
-/// let (_, is_first) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+/// let (curr_pc, _next_pc) = trace_eval!(trace_eval, Column::Pc);
+/// let (is_first, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
 /// for i in 0..WORD_SIZE {
 ///     eval.add_constraint(curr_pc[i] * is_first[0]);
 /// }

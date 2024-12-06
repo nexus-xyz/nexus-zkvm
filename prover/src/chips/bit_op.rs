@@ -251,17 +251,17 @@ impl MachineChip for BitOpChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, IsFirst);
+        let ([is_first], _) = preprocessed_trace_eval!(trace_eval, IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum
-        let (_, [is_and]) = trace_eval!(trace_eval, IsAnd);
-        let (_, [is_or]) = trace_eval!(trace_eval, IsOr);
-        let (_, [is_xor]) = trace_eval!(trace_eval, IsXor);
-        let (_, value_a) = trace_eval!(trace_eval, ValueA);
-        let (_, value_b) = trace_eval!(trace_eval, ValueB);
-        let (_, value_c) = trace_eval!(trace_eval, ValueC);
+        let ([is_and], _) = trace_eval!(trace_eval, IsAnd);
+        let ([is_or], _) = trace_eval!(trace_eval, IsOr);
+        let ([is_xor], _) = trace_eval!(trace_eval, IsXor);
+        let (value_a, _) = trace_eval!(trace_eval, ValueA);
+        let (value_b, _) = trace_eval!(trace_eval, ValueB);
+        let (value_c, _) = trace_eval!(trace_eval, ValueC);
         for limb_idx in 0..WORD_SIZE {
             for (op_type, is_op) in [
                 (BitOp::And, &is_and),
@@ -281,17 +281,17 @@ impl MachineChip for BitOpChip {
         }
 
         // Subtract looked up multiplicities from logup sum
-        let (_, [answer_b]) = preprocessed_trace_eval!(trace_eval, BitwiseByteB);
-        let (_, [answer_c]) = preprocessed_trace_eval!(trace_eval, BitwiseByteC);
+        let ([answer_b], _) = preprocessed_trace_eval!(trace_eval, BitwiseByteB);
+        let ([answer_c], _) = preprocessed_trace_eval!(trace_eval, BitwiseByteC);
 
-        let (_, [answer_a_and]) = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
-        let (_, [mult_and]) = trace_eval!(trace_eval, MultiplicityAnd);
+        let ([answer_a_and], _) = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
+        let ([mult_and], _) = trace_eval!(trace_eval, MultiplicityAnd);
 
-        let (_, [answer_a_or]) = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
-        let (_, [mult_or]) = trace_eval!(trace_eval, MultiplicityOr);
+        let ([answer_a_or], _) = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
+        let ([mult_or], _) = trace_eval!(trace_eval, MultiplicityOr);
 
-        let (_, [answer_a_xor]) = preprocessed_trace_eval!(trace_eval, BitwiseXorByteA);
-        let (_, [mult_xor]) = trace_eval!(trace_eval, MultiplicityXor);
+        let ([answer_a_xor], _) = preprocessed_trace_eval!(trace_eval, BitwiseXorByteA);
+        let ([mult_xor], _) = trace_eval!(trace_eval, MultiplicityXor);
         for (op_type, answer_a, mult) in [
             (BitOp::And, answer_a_and, mult_and),
             (BitOp::Or, answer_a_or, mult_or),
