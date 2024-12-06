@@ -175,6 +175,7 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_stlu_instructions() {
+        type Chips = (CpuChip, AddChip, SltuChip);
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -187,17 +188,11 @@ mod test {
         let mut side_note = SideNote::default();
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            // Now fill in the traces with ValueA and CarryFlags
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            // AddChip::fill_main_trace() needs to be called because the first step is ADDI.
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            SltuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
         traces.assert_as_original_trace(|eval, trace_eval| {
             let dummy_lookup_elements = LookupElements::dummy();
-            CpuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            AddChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            SltuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
+            Chips::add_constraints(eval, trace_eval, &dummy_lookup_elements);
         });
     }
 }

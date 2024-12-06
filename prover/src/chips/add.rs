@@ -187,6 +187,7 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_add_instructions() {
+        type Chips = (CpuChip, AddChip, RegisterMemCheckChip);
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -199,25 +200,13 @@ mod test {
         let mut side_note = SideNote::default();
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-            // Now fill in the traces with ValueA and CarryFlags
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-            // The test uses registers, so register memory checking should happen too
-            RegisterMemCheckChip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
         let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
         preprocessed_column.fill_is_first();
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<(CpuChip, AddChip, RegisterMemCheckChip)>(traces, Some(preprocessed_column));
+        assert_chip::<Chips>(traces, Some(preprocessed_column));
     }
 }

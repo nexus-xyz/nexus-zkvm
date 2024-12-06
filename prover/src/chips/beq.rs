@@ -314,6 +314,7 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_beq_instructions() {
+        type Chips = (CpuChip, AddChip, SubChip, BeqChip, RegisterMemCheckChip);
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -327,18 +328,7 @@ mod test {
 
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
-            // Now fill in the traces with ValueA and CarryFlags
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            SubChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            BeqChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-
-            RegisterMemCheckChip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
 
         let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
@@ -346,9 +336,6 @@ mod test {
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<(CpuChip, AddChip, SubChip, BeqChip, RegisterMemCheckChip)>(
-            traces,
-            Some(preprocessed_column),
-        );
+        assert_chip::<Chips>(traces, Some(preprocessed_column));
     }
 }

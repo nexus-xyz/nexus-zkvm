@@ -350,6 +350,7 @@ mod test {
 
     #[test]
     fn test_k_trace_values() {
+        type Chips = (CpuChip, AddChip, BitOpChip, RegisterMemCheckChip);
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -362,15 +363,7 @@ mod test {
 
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            BitOpChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
-            RegisterMemCheckChip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
 
         let and_vals = traces
@@ -394,6 +387,6 @@ mod test {
 
         assert_eq!(output, 0b0110100);
 
-        assert_chip::<(CpuChip, AddChip, BitOpChip, RegisterMemCheckChip)>(traces, None);
+        assert_chip::<Chips>(traces, None);
     }
 }
