@@ -81,7 +81,7 @@ Some of our public APIs' style is inspired by the underlying crates we use.
     let SRS = Hyrax::<G1Projective>::setup(min_num_vars, b"example_SRS", &mut test_rng()).unwrap();
     let gens = SNARKGens::<G1Projective, Hyrax<G1Projective>>::new(&SRS, num_cons, num_vars, num_inputs, num_non_zero_entries);
 
-    // ask the library to produce a synthentic R1CS instance
+    // ask the library to produce a synthetic R1CS instance
     let (inst, vars, inputs) = Instance::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
     // create a commitment to the R1CS instance
@@ -118,7 +118,7 @@ Here is another example to use the NIZK variant of the Spartan proof system:
     // produce public parameters
     let gens = NIZKGens::<G1Projective>::new(num_cons, num_vars, num_inputs);
 
-    // ask the library to produce a synthentic R1CS instance
+    // ask the library to produce a synthetic R1CS instance
     let (inst, vars, inputs) = Instance::<Fr>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
 
     // produce a proof of satisfiability
@@ -216,7 +216,7 @@ Finally, we provide an example that specifies a custom R1CS instance instead of 
   let mut C: Vec<(usize, usize, Fr)> = Vec::new();
 
   // The constraint system is defined over a finite field, which in our case is
-  // the scalar field of ristreeto255/curve25519 i.e., p =  2^{252}+27742317777372353535851937790883648493
+  // the scalar field of ristretto255/curve25519 i.e., p =  2^{252}+27742317777372353535851937790883648493
   // To construct these matrices, we will use `curve25519-dalek` but one can use any other method.
 
   // a variable that holds a byte representation of 1
