@@ -259,9 +259,9 @@ impl MachineChip for CpuChip {
                 + is_xor.clone()
                 + is_slt.clone()
                 + is_sltu.clone()
-                + is_padding
                 + is_bne.clone()
                 + is_beq.clone()
+                + is_padding
                 - E::F::one(),
         );
 
