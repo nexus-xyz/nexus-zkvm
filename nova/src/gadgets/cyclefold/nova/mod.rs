@@ -5,10 +5,11 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::PrimeField;
 use ark_r1cs_std::{
     boolean::Boolean,
+    convert::ToBitsGadget,
     eq::EqGadget,
     fields::{fp::FpVar, FieldVar},
     groups::curves::short_weierstrass::ProjectiveVar,
-    R1CSVar, ToBitsGadget,
+    R1CSVar,
 };
 use ark_relations::r1cs::SynthesisError;
 
@@ -19,7 +20,7 @@ use crate::{
     folding::nova::cyclefold::nimfs::SQUEEZE_ELEMENTS_BIT_SIZE,
     gadgets::{
         cyclefold::secondary,
-        nonnative::{cast_field_element_unique, short_weierstrass::NonNativeAffineVar},
+        emulated::{cast_field_element_unique, short_weierstrass::EmulatedFpAffineVar},
     },
 };
 
@@ -29,7 +30,7 @@ pub fn multifold<G1, G2, C1, C2, RO>(
     U: &primary::RelaxedR1CSInstanceVar<G1, C1>,
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     u: &primary::R1CSInstanceVar<G1, C1>,
-    commitment_T: &NonNativeAffineVar<G1>,
+    commitment_T: &EmulatedFpAffineVar<G1>,
     proof_secondary: (&secondary::ProofVar<G2, C2>, &secondary::ProofVar<G2, C2>),
     should_enforce: &Boolean<G1::ScalarField>,
 ) -> Result<
@@ -58,12 +59,12 @@ where
     random_oracle.absorb(&commitment_T)?;
 
     let (r_0, r_0_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_0 = &r_0[0];
     let r_0_bits = &r_0_bits[0];
-    let r_0_scalar = Boolean::le_bits_to_fp_var(r_0_bits)?;
+    let r_0_scalar = Boolean::le_bits_to_fp(r_0_bits)?;
 
     let secondary::ProofVar {
         U: comm_E_secondary_instance,
@@ -86,7 +87,7 @@ where
     random_oracle.absorb(&r_0_scalar)?;
 
     let (r_1, r_1_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_1 = &r_1[0];
@@ -112,7 +113,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
     let (r_2, r_2_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_2 = &r_2[0];
@@ -152,7 +153,7 @@ pub fn multifold_with_relaxed<G1, G2, C1, C2, RO>(
     U_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
     U2: &primary::RelaxedR1CSInstanceVar<G1, C1>,
     U2_secondary: &secondary::RelaxedR1CSInstanceVar<G2, C2>,
-    commitment_T: &NonNativeAffineVar<G1>,
+    commitment_T: &EmulatedFpAffineVar<G1>,
     commitment_T_secondary: &ProjectiveVar<G2, FpVar<G2::BaseField>>,
     proof_secondary: (
         &[secondary::ProofVar<G2, C2>; 2], // commitment to E requires 2 proofs.
@@ -185,12 +186,12 @@ where
     random_oracle.absorb(&commitment_T)?;
 
     let (r_0, r_0_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_0 = &r_0[0];
     let r_0_bits = &r_0_bits[0];
-    let r_0_scalar = Boolean::le_bits_to_fp_var(r_0_bits)?;
+    let r_0_scalar = Boolean::le_bits_to_fp(r_0_bits)?;
     let r_0_scalar_square = r_0_scalar.square()?;
 
     let secondary::ProofVar {
@@ -211,7 +212,7 @@ where
     random_oracle.absorb(&r_0_scalar)?;
 
     let (r_1, r_1_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_1 = &r_1[0];
@@ -243,7 +244,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_1)?)?;
 
     let (r_2, r_2_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_2 = &r_2[0];
@@ -269,7 +270,7 @@ where
     random_oracle.absorb(&cast_field_element_unique::<G1::BaseField, G1::ScalarField>(r_2)?)?;
 
     let (r_3, r_3_bits) = random_oracle
-        .squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        .squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r_3 = &r_3[0];
@@ -311,7 +312,7 @@ where
     random_oracle.absorb(&commitment_T_secondary)?;
 
     let (r, r_bits) =
-        random_oracle.squeeze_nonnative_field_elements_with_sizes::<G1::BaseField>(&[
+        random_oracle.squeeze_emulated_field_elements_with_sizes::<G1::BaseField>(&[
             SQUEEZE_ELEMENTS_BIT_SIZE,
         ])?;
     let r = &r[0];
@@ -407,7 +408,7 @@ mod tests {
         let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
         let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
+            EmulatedFpAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;
@@ -469,7 +470,7 @@ mod tests {
         let u_cs = primary::R1CSInstanceVar::<G1, C1>::new_input(cs.clone(), || Ok(&u))?;
 
         let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
+            EmulatedFpAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;
@@ -601,7 +602,7 @@ mod tests {
         })?;
 
         let commitment_T_cs =
-            NonNativeAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
+            EmulatedFpAffineVar::new_input(cs.clone(), || Ok(proof.commitment_T.into()))?;
 
         let comm_E_proof = &proof.commitment_E_proof;
         let comm_W_proof = &proof.commitment_W_proof;

@@ -22,7 +22,7 @@ pub fn handle_command(args: HostArgs) -> anyhow::Result<()> {
 
     if rev.is_none() && tag.is_none() {
         // default to current release
-        tag = Some(String::from("0.2.3"));
+        tag = Some(String::from("0.2.4"));
     }
 
     setup_crate(path, rev, tag)
@@ -117,12 +117,11 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     )?;
 
     // add postcard because it is used for (de)serializing from/to the input/output tapes
-    // Hardcode postcard version to 1.0.8
     cargo(
         Some(&guest_path),
         [
             "add",
-            "postcard@=1.0.8",
+            "postcard@1.0.10",
             "-F",
             "alloc",
             "--no-default-features",

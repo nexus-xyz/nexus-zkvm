@@ -8,10 +8,10 @@ use ark_ec::short_weierstrass::{Projective, SWCurveConfig};
 use ark_ff::{AdditiveGroup, PrimeField};
 use ark_r1cs_std::{
     alloc::AllocVar,
+    convert::ToBitsGadget,
     eq::EqGadget,
     fields::fp::FpVar,
     groups::{curves::short_weierstrass::ProjectiveVar, CurveVar},
-    ToBitsGadget,
 };
 use ark_relations::r1cs::{
     ConstraintSynthesizer, ConstraintSystem, ConstraintSystemRef, SynthesisError, SynthesisMode,

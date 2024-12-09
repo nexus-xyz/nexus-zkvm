@@ -46,3 +46,5 @@ parallel = [
 prover_hypernova = ["dep:nexus-nova", "dep:spartan"]
 prover_nova = ["dep:nexus-nova", "dep:spartan"]
 prover_jolt = ["dep:nexus-jolt"]
+
+partial_prove = []
