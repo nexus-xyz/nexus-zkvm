@@ -110,14 +110,11 @@ pub use riscv32::*;
 #[macro_export]
 macro_rules! print {
     ($($as:tt)*) => {
-        #[cfg(debug_assertions)]
-        <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
-            &mut nexus_rt::NexusLog,
-            core::format_args!($($as)*),
-        )
-        .unwrap()
-        #[cfg(not(debug_assertions))]
-        compile_error!("printing from within the NexusVM is only supported for debug builds")
+            <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
+                &mut nexus_rt::NexusLog,
+                core::format_args!($($as)*),
+            )
+            .unwrap()
     }
 }
 
@@ -126,21 +123,15 @@ macro_rules! print {
 #[macro_export]
 macro_rules! println {
     () => {
-        #[cfg(debug_assertions)]
         nexus_rt::print!("\n")
-        #[cfg(not(debug_assertions))]
-        compile_error!("printing from within the NexusVM is only supported for debug builds")
     };
     ($($as:tt)*) => {
-        #[cfg(debug_assertions)]
-        <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
-            &mut nexus_rt::NexusLog,
-            core::format_args!("{}\n", core::format_args!($($as)*)),
-        )
-        .unwrap()
-        #[cfg(not(debug_assertions))]
-        compile_error!("printing from within the NexusVM is only supported for debug builds")
-    };
+            <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
+                &mut nexus_rt::NexusLog,
+                core::format_args!("{}\n", core::format_args!($($as)*)),
+            )
+            .unwrap()
+    }
 }
 
 #[allow(private_bounds)]

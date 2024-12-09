@@ -23,8 +23,8 @@ impl Default for MemoryStats {
 impl MemoryStats {
     pub fn new(heap_bottom: u32, stack_top: u32) -> Self {
         Self {
-            max_heap_access: 0,
-            min_stack_access: u32::MAX,
+            max_heap_access: heap_bottom,
+            min_stack_access: stack_top,
             heap_bottom,
             stack_top,
         }
@@ -49,7 +49,7 @@ impl MemoryStats {
             self.max_heap_access,
             *memory_accesses
                 .iter()
-                .filter(|&addr| addr < &stack_pointer)
+                .filter(|&addr| addr < &stack_pointer && addr > &self.heap_bottom)
                 .max()
                 .unwrap_or(&0),
         );
@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn test_update_data_region() {
-        let mut sizes = MemoryStats::new(0, 0);
+        let mut sizes = MemoryStats::new(0, 1000000);
         let mut load_ops = HashSet::new();
         let mut store_ops = HashSet::new();
         let stack_pointer = 1000;

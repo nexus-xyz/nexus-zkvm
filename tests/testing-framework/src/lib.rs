@@ -230,6 +230,52 @@ mod test {
     }
 
     #[test]
+    fn test_examples() {
+        let emulators = vec![
+            EmulatorType::Harvard,
+            EmulatorType::default_linear(),
+            EmulatorType::TwoPass,
+        ];
+        let compile_flags = vec![
+            "-C opt-level=0",
+            "-C opt-level=1",
+            "-C opt-level=2",
+            "-C opt-level=3",
+        ];
+        let examples = vec!["fact", "fib", "fib1000", "main", "palindromes"];
+
+        // Test simple examples.
+        for example in examples {
+            let example_path = format!("../../examples/src/{}", example);
+            let elfs = compile_multi(&example_path, &compile_flags);
+
+            for emulator in &emulators {
+                emulate::<(), ()>(
+                    elfs.clone(),
+                    None,
+                    Some(()),
+                    Err(nexus_vm::error::VMError::VMExited(0)),
+                    emulator.clone(),
+                );
+            }
+        }
+
+        // Test fail example.
+        let fail_path = "../../examples/src/fail";
+        let fail_elfs = compile_multi(fail_path, &compile_flags);
+
+        for emulator in &emulators {
+            emulate::<(), ()>(
+                fail_elfs.clone(),
+                None,
+                Some(()),
+                Err(nexus_vm::error::VMError::VMExited(1)),
+                emulator.clone(),
+            );
+        }
+    }
+
+    #[test]
     fn test_emulate() {
         let emulators = vec![
             EmulatorType::Harvard,

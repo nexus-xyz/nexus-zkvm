@@ -112,13 +112,11 @@ impl<M: Mode> VariableMemory<M> {
 
         Ok(LoadOp::Op(size, address, value))
     }
-    /// Returns a slice of memory between start and end addresses, if they form a contiguous segment.
+    /// For bounded segments, returns a slice of memory between start and end addresses, if they form a contiguous segment.
+    ///
+    /// For unbounded segments, returns the longest contiguous segment starting from the start address.
+    /// If the segment is empty, then an empty Vec is returned.
     pub fn segment(&self, start: u32, end: Option<u32>) -> Result<Vec<u32>, MemoryError> {
-        // Check if start is valid
-        if !self.0.contains_key(&start) {
-            return Err(MemoryError::InvalidMemorySegment);
-        }
-
         // Check if end is valid (if provided)
         if let Some(end) = end {
             if end < start || !self.0.contains_key(&end) {
@@ -148,11 +146,7 @@ impl<M: Mode> VariableMemory<M> {
             }
         }
 
-        if values.is_empty() {
-            Err(MemoryError::InvalidMemorySegment)
-        } else {
-            Ok(values)
-        }
+        Ok(values)
     }
 
     pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> Result<Vec<u8>, MemoryError> {

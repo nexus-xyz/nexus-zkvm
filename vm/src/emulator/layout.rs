@@ -43,15 +43,15 @@ impl LinearMemoryLayout {
             return Err(VMError::InvalidMemoryLayout);
         }
 
-        // enforce order
-        if self.stack_top() <= self.stack_bottom()
-            || self.stack_bottom() <= self.gap_start()
-            || self.gap_start() <= self.heap_start()
-            || self.heap_start() < self.ad_start() // Allow empty ad
-            || self.ad_start() < self.public_output_start() // Allow empty output
+        // Enforce order.
+        if self.stack_top() < self.stack_bottom()
+            || self.stack_bottom() < self.gap_start()
+            || self.gap_start() < self.heap_start()
+            || self.heap_start() < self.ad_start()
+            || self.ad_start() < self.public_output_start()
             || self.public_output_start() <= self.panic()
-            || self.panic() < self.public_input_start() // Allow empty input
-            || self.public_input_start() <= self.program_start()
+            || self.panic() <= self.public_input_start() // First word of input stores input length, so must be non-empty
+            || self.public_input_start() <= self.program_start() // Program assumed to be non-empty
             || self.program_start() <= self.public_output_start_location()
         {
             return Err(VMError::InvalidMemoryLayout);
