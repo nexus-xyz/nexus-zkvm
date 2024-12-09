@@ -36,6 +36,7 @@ function check_project_directory() {
 }
 
 function build_cargo_nexus() {
+cargo update
 cargo build --release --package cargo-nexus --bin cargo-nexus
 }
 
@@ -58,6 +59,11 @@ cargo update
 pushd src/guest
 $CARGO_NEXUS nexus run
 popd
+
+ls -lab .
+
+cargo version -v
+cat Cargo.lock
 
 cargo run --release
 }
