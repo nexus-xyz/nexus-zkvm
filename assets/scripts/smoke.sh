@@ -48,6 +48,11 @@ cargo build --release --package cargo-nexus --bin cargo-nexus
 cp "$1" "$PROJECT_NAME/src/main.rs"
 cd "$PROJECT_NAME"
 
+ls -lab .
+
+cargo version -v
+cat Cargo.lock
+
 # Link the test program to the latest runtime code
 sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGINAL_DIR/runtime\"#" Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
 
@@ -55,4 +60,4 @@ sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGIN
 "$ORIGINAL_DIR/target/release/cargo-nexus" nexus prove
 "$ORIGINAL_DIR/target/release/cargo-nexus" nexus verify
 
-cleanup
+# cleanup
