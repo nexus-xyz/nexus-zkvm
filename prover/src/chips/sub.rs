@@ -134,7 +134,8 @@ impl MachineChip for SubChip {
 mod test {
     use super::*;
     use crate::{
-        chips::{cpu::CpuChip, AddChip},
+        chips::{cpu::CpuChip, AddChip, RegisterMemCheckChip},
+        test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
     };
     use nexus_vm::{
@@ -188,7 +189,7 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_sub_instructions() {
-        type Chips = (CpuChip, AddChip, SubChip);
+        type Chips = (CpuChip, AddChip, SubChip, RegisterMemCheckChip);
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -203,9 +204,6 @@ mod test {
         for (row_idx, program_step) in program_steps.enumerate() {
             Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
-        traces.assert_as_original_trace(|eval, trace_eval| {
-            let dummy_lookup_elements = LookupElements::dummy();
-            Chips::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-        });
+        assert_chip::<Chips>(traces, None);
     }
 }

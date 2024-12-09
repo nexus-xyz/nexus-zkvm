@@ -125,7 +125,8 @@ impl MachineChip for SltuChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip}, // needed for ADDI to put a non-zero value in a register
+        chips::{AddChip, CpuChip, RegisterMemCheckChip},
+        test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
     };
 
@@ -175,7 +176,7 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_stlu_instructions() {
-        type Chips = (CpuChip, AddChip, SltuChip);
+        type Chips = (CpuChip, AddChip, SltuChip, RegisterMemCheckChip);
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -190,9 +191,6 @@ mod test {
         for (row_idx, program_step) in program_steps.enumerate() {
             Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
-        traces.assert_as_original_trace(|eval, trace_eval| {
-            let dummy_lookup_elements = LookupElements::dummy();
-            Chips::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-        });
+        assert_chip::<Chips>(traces, None);
     }
 }
