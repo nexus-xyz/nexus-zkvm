@@ -47,6 +47,12 @@ cargo build --release --package cargo-nexus --bin cargo-nexus
 ./target/release/cargo-nexus nexus new "$PROJECT_NAME"
 cp "$1" "$PROJECT_NAME/src/main.rs"
 cd "$PROJECT_NAME"
+cargo update
+
+ls -lab .
+
+cargo version -v
+cat Cargo.lock
 
 ls -lab .
 
