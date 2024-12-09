@@ -916,7 +916,7 @@ mod tests {
         // Read from an uninitialized address
         assert_eq!(
             memory.read(0x4000, MemAccessSize::Word),
-            Err(MemoryError::InvalidMemoryAccess(0x4000))
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x4000, 0x00000000))
         );
     }
 

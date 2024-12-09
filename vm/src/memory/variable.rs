@@ -108,8 +108,7 @@ impl<M: Mode> VariableMemory<M> {
             .0
             .get(&aligned_address) // Align to word boundary
             .map(|&value| ((value >> shift) & mask))
-            .ok_or(MemoryError::InvalidMemoryAccess(address))?;
-
+            .unwrap_or(0);
         Ok(LoadOp::Op(size, address, value))
     }
     /// For bounded segments, returns a slice of memory between start and end addresses, if they form a contiguous segment.
@@ -441,13 +440,13 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_read() {
+    fn test_uninitialized_read() {
         let memory = VariableMemory::<RW>::default();
 
         // Read from an uninitialized address
         assert_eq!(
             memory.read(0x2000, MemAccessSize::Word),
-            Err(MemoryError::InvalidMemoryAccess(0x2000))
+            Ok(LoadOp::Op(MemAccessSize::Word, 0x2000, 0x00000000))
         );
     }
 

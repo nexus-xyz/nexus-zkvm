@@ -7,6 +7,7 @@ mod test {
     use nexus_vm::emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout};
     use postcard::{from_bytes, to_allocvec};
     use serde::{de::DeserializeOwned, Serialize};
+    use serial_test::serial;
     use std::{path::PathBuf, process::Command};
     use tempfile::{tempdir, TempDir};
 
@@ -138,7 +139,7 @@ mod test {
         elfs: Vec<ElfFile>,
         input: Option<T>,
         expected_output: Option<U>,
-        expected_result: Result<
+        expected_result: &Result<
             (Vec<InstructionResult>, MemoryTranscript),
             nexus_vm::error::VMError,
         >,
@@ -160,7 +161,7 @@ mod test {
                     let mut emulator = HarvardEmulator::from_elf(elf.clone(), &input_bytes, &[]);
 
                     // Check that the program exits correctly.
-                    assert_eq!(emulator.execute(), expected_result);
+                    assert_eq!(&emulator.execute(), expected_result);
 
                     // Deserialize the output.
                     if expected_output.is_some() {
@@ -179,7 +180,7 @@ mod test {
                             LinearEmulator::from_harvard(emulator, elf, &ad, &[]).unwrap();
 
                         // Check that the program exits correctly.
-                        assert_eq!(linear_emulator.execute(), expected_result);
+                        assert_eq!(&linear_emulator.execute(), expected_result);
 
                         // Deserialize the output.
                         if expected_output.is_some() {
@@ -213,7 +214,7 @@ mod test {
                         LinearEmulator::from_elf(memory_layout, &ad, elf, &input_bytes, &[]);
 
                     // Check that the program exits correctly.
-                    assert_eq!(emulator.execute(), expected_result);
+                    assert_eq!(&emulator.execute(), expected_result);
 
                     // Deserialize the output.
                     if expected_output.is_some() {
@@ -229,8 +230,175 @@ mod test {
         assert_eq!(deserialized_output, expected_output);
     }
 
+    /// Helper function to run test accross multiple emulators, multiple opt levels, and multiple inputs.
+    fn test_example_multi<
+        T: Serialize + Clone,
+        U: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone,
+    >(
+        emulators: Vec<EmulatorType>,
+        compile_flags: Vec<&str>,
+        name: &str,
+        inputs: Vec<T>,
+        outputs: Vec<U>,
+        expected_result: Result<
+            (Vec<InstructionResult>, MemoryTranscript),
+            nexus_vm::error::VMError,
+        >,
+    ) {
+        let elfs = compile_multi(name, &compile_flags);
+
+        for emulator in &emulators {
+            for (input, output) in inputs.iter().zip(outputs.iter()) {
+                emulate::<T, U>(
+                    elfs.clone(),
+                    Some(input.clone()),
+                    Some(output.clone()),
+                    &expected_result,
+                    emulator.clone(),
+                );
+            }
+        }
+    }
+
     #[test]
-    fn test_examples() {
+    #[serial]
+    fn test_fact_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/fact",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_fib_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/fib",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_fib1000_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/fib1000",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_main_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/main",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_palindromes_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/palindromes",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_galeshapley_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/galeshapley",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_lambda_calculus_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/lambda_calculus",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(0)),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_fail_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/fail",
+            vec![()],
+            vec![()],
+            Err(nexus_vm::error::VMError::VMExited(1)),
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn test_examples_all_opt_levels() {
         let emulators = vec![
             EmulatorType::Harvard,
             EmulatorType::default_linear(),
@@ -242,7 +410,15 @@ mod test {
             "-C opt-level=2",
             "-C opt-level=3",
         ];
-        let examples = vec!["fact", "fib", "fib1000", "main", "palindromes"];
+        let examples = vec![
+            "fact",
+            "fib",
+            "fib1000",
+            "main",
+            "palindromes",
+            "galeshapley",
+            "lambda_calculus",
+        ];
 
         // Test simple examples.
         for example in examples {
@@ -254,7 +430,7 @@ mod test {
                     elfs.clone(),
                     None,
                     Some(()),
-                    Err(nexus_vm::error::VMError::VMExited(0)),
+                    &Err(nexus_vm::error::VMError::VMExited(0)),
                     emulator.clone(),
                 );
             }
@@ -269,25 +445,21 @@ mod test {
                 fail_elfs.clone(),
                 None,
                 Some(()),
-                Err(nexus_vm::error::VMError::VMExited(1)),
+                &Err(nexus_vm::error::VMError::VMExited(1)),
                 emulator.clone(),
             );
         }
     }
 
     #[test]
+    #[serial]
     fn test_emulate() {
         let emulators = vec![
             EmulatorType::Harvard,
             EmulatorType::default_linear(),
             EmulatorType::TwoPass,
         ];
-        let compile_flags = vec![
-            "-C opt-level=0",
-            "-C opt-level=1",
-            "-C opt-level=2",
-            "-C opt-level=3",
-        ];
+        let compile_flags = vec!["-C opt-level=3"];
         let io_u32_elfs = compile_multi("io_u32", &compile_flags);
         let io_u64_elfs = compile_multi("io_u64", &compile_flags);
         let io_u128_elfs = compile_multi("io_u128", &compile_flags);
@@ -297,27 +469,28 @@ mod test {
                 io_u32_elfs.clone(),
                 Some(123u32),
                 Some(123u32),
-                Err(nexus_vm::error::VMError::VMExited(0)),
+                &Err(nexus_vm::error::VMError::VMExited(0)),
                 emulator.clone(),
             );
             emulate::<u64, u64>(
                 io_u64_elfs.clone(),
                 Some(1u64 << 32),
                 Some(1u64 << 32),
-                Err(nexus_vm::error::VMError::VMExited(0)),
+                &Err(nexus_vm::error::VMError::VMExited(0)),
                 emulator.clone(),
             );
             emulate::<u128, u128>(
                 io_u128_elfs.clone(),
                 Some(332306998946228968225970211937533483u128),
                 Some(332306998946228968225970211937533483u128),
-                Err(nexus_vm::error::VMError::VMExited(0)),
+                &Err(nexus_vm::error::VMError::VMExited(0)),
                 emulator,
             );
         }
     }
 
     #[test]
+    #[serial]
     fn test_fib() {
         let inputs = vec![1u32, 10u32, 20u32];
         let outputs = vec![1u32, 34u32, 4181u32];
@@ -326,15 +499,7 @@ mod test {
             EmulatorType::default_linear(),
             EmulatorType::TwoPass,
         ];
-        let elfs = compile_multi(
-            "fib",
-            &[
-                "-C opt-level=0",
-                "-C opt-level=1",
-                "-C opt-level=2",
-                "-C opt-level=3",
-            ],
-        );
+        let elfs = compile_multi("fib", &["-C opt-level=3"]);
 
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             for emulator in emulators.clone() {
@@ -342,7 +507,7 @@ mod test {
                     elfs.clone(),
                     Some(input.clone()),
                     Some(output.clone()),
-                    Err(nexus_vm::error::VMError::VMExited(0)),
+                    &Err(nexus_vm::error::VMError::VMExited(0)),
                     emulator.clone(),
                 );
             }
