@@ -1,12 +1,29 @@
-use num_traits::One;
+use num_traits::{One, Zero};
 
 use nexus_vm::WORD_SIZE;
-use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
+use stwo_prover::{
+    constraint_framework::{
+        logup::{LogupTraceGenerator, LookupElements},
+        EvalAtRow,
+    },
+    core::{
+        backend::simd::{
+            m31::{PackedBaseField, LOG_N_LANES},
+            SimdBackend,
+        },
+        fields::{m31::BaseField, qm31::SecureField},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+        ColumnVec,
+    },
+};
 
 use crate::{
     column::Column,
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{eval::TraceEval, sidenote::SideNote, utils::FromBaseFields, ProgramStep, Traces},
+    trace::{
+        eval::TraceEval, sidenote::SideNote, utils::FromBaseFields, PreprocessedTraces,
+        ProgramStep, Traces,
+    },
     traits::MachineChip,
 };
 
@@ -93,6 +110,49 @@ impl MachineChip for ProgramMemCheckChip {
         }
     }
 
+    /// Fills the interaction trace for the program memory checking
+    ///
+    /// The interaction trace adds up the following fractions. The whole sum will be constrained to be zero.
+    ///
+    /// For the initial content of the program memory:
+    /// * 1 / lookup_element.combine(tuple) is added for each instruction
+    /// where tuples contain (the address, the whole word of the instruction, 0u32).
+    ///
+    /// On each program memory access:
+    /// * 1 / lookup_element.combine(tuple_old) is subtracted
+    /// * 1 / lookup_element.combine(tuple_new) is added
+    /// where tuples contain (the address, the whole word of the instruction, counter value).
+    /// The counter value is incremented by one on each access.
+    ///
+    /// For the final content of the program memory:
+    /// * 1 / lookup_element.combine(tuple) is subtracted for each instruction
+    /// where tuples contain (the address, the whole word of the instruction, final counter value).
+    fn fill_interaction_trace(
+        original_traces: &Traces,
+        _preprocessed_trace: &PreprocessedTraces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+        // add initial digest
+        // For each used Pc, four tuples (address, byte, 0u32) are added.
+        Self::add_initial_digest(&mut logup_trace_gen, original_traces, lookup_element);
+
+        // subtract final digest
+        // For each used Pc, four tuples (address, byte, final_counter) are subtracted.
+        Self::subtract_final_digest(&mut logup_trace_gen, original_traces, lookup_element);
+
+        // subtract program memory access, previous counter reads
+        // For each access, four tuples (address, byte, previous_couter) are subtracted.
+        Self::subtract_access(&mut logup_trace_gen, original_traces, lookup_element);
+
+        // add program memory access, new counter write backs
+        // For each access, four tuples (address, byte, new_counter) are added.
+        Self::add_access(&mut logup_trace_gen, original_traces, lookup_element);
+        let (ret, total_sum) = logup_trace_gen.finalize_last();
+        assert_eq!(total_sum, SecureField::zero());
+        ret
+    }
+
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
@@ -123,10 +183,173 @@ impl MachineChip for ProgramMemCheckChip {
         // TODO: implement
     }
 }
+
+impl ProgramMemCheckChip {
+    /// Fills the interaction trace columns for adding the initial content of the program memory:
+    /// * 1 / lookup_element.combine(tuple) is added for each instruction
+    /// where tuples contain (the address, the whole word of the instruction, 0u32).
+    ///
+    /// The initial content of the memory is located on rows where PrgMemoryFlag is 1.
+    fn add_initial_digest(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [prg_memory_flag] = original_traces.get_base_column(Column::PrgMemoryFlag);
+        let prg_memory_pc = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryPc);
+        let prg_memory_word = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryWord);
+        // The counter is not used because initially the counters are zero.
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        // Add (Pc, prg_memory_word, 0u32)
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            for prg_memory_pc_byte in prg_memory_pc.iter() {
+                tuple.push(prg_memory_pc_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), WORD_SIZE);
+            for prg_memory_byte in prg_memory_word.iter() {
+                tuple.push(prg_memory_byte.data[vec_row]);
+            }
+            // Initial counter is zero
+            tuple.append(vec![PackedBaseField::zero(); WORD_SIZE].as_mut());
+            assert_eq!(tuple.len(), WORD_SIZE + WORD_SIZE + WORD_SIZE);
+            let numerator = prg_memory_flag.data[vec_row];
+            logup_col_gen.write_frac(
+                vec_row,
+                numerator.into(),
+                lookup_element.combine(tuple.as_slice()),
+            );
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    /// For the final content of the program memory, subtract in the interaction trace:
+    /// * 1 / lookup_element.combine(tuple) for each instruction
+    /// where tuples contain (the address, the whole word of the instruction, final counter value).
+    ///
+    /// The information about the final content of the program memory is located on rows with PrgMemoryFlag set to 1.
+    /// Most columns are the same as the initial program memory content.
+    /// The final counter is located on the FinalPrgMemoryCtr column.
+    fn subtract_final_digest(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [prg_memory_flag] = original_traces.get_base_column(Column::PrgMemoryFlag);
+        let prg_memory_pc = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryPc);
+        let prg_memory_word = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryWord);
+        let prg_memory_ctr =
+            original_traces.get_base_column::<WORD_SIZE>(Column::FinalPrgMemoryCtr);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        // Subtract (Pc, prg_memory_word, 0u32)
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            for prg_memory_pc_byte in prg_memory_pc.iter() {
+                tuple.push(prg_memory_pc_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), WORD_SIZE);
+            for prg_memory_byte in prg_memory_word.iter() {
+                tuple.push(prg_memory_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 2 * WORD_SIZE);
+            for prg_memory_ctr_byte in prg_memory_ctr.iter() {
+                tuple.push(prg_memory_ctr_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 3 * WORD_SIZE);
+            let numerator = prg_memory_flag.data[vec_row];
+            logup_col_gen.write_frac(
+                vec_row,
+                (-numerator).into(),
+                lookup_element.combine(tuple.as_slice()),
+            );
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    /// On each program memory access:
+    /// * 1 / lookup_element.combine(tuple_old) is subtracted
+    /// where tuples contain (the address, the whole word of the instruction, previous counter value).
+    ///
+    /// The numerator is zero on the padding rows, so that the row doesn't contribute to the logup sum.
+    fn subtract_access(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [is_padding] = original_traces.get_base_column(Column::IsPadding);
+        let prg_prev_ctr = original_traces.get_base_column::<WORD_SIZE>(Column::ProgCtrPrev);
+        let pc = original_traces.get_base_column::<WORD_SIZE>(Column::Pc);
+        let instruction_word = original_traces.get_base_column::<WORD_SIZE>(Column::InstrVal);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            for pc_byte in pc.iter() {
+                tuple.push(pc_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), WORD_SIZE);
+            for instruction_byte in instruction_word.iter() {
+                tuple.push(instruction_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 2 * WORD_SIZE);
+            for prg_prev_ctr_byte in prg_prev_ctr.iter() {
+                tuple.push(prg_prev_ctr_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 3 * WORD_SIZE);
+            let numerator = PackedBaseField::one() - is_padding.data[vec_row];
+            logup_col_gen.write_frac(
+                vec_row,
+                (-numerator).into(),
+                lookup_element.combine(tuple.as_slice()),
+            );
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    /// On each program memory access:
+    /// * 1 / lookup_element.combine(tuple_new) is added
+    /// where tuples contain (the address, the whole word of the instruction, current counter value).
+    /// The counter value is incremented by one on each access.
+    ///
+    /// The numerator is zero when the row is padding, so that the row doesn't contribute to the logup sum.
+    fn add_access(
+        logup_trace_gen: &mut LogupTraceGenerator,
+        original_traces: &Traces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [is_padding] = original_traces.get_base_column(Column::IsPadding);
+        let prg_cur_ctr = original_traces.get_base_column::<WORD_SIZE>(Column::ProgCtrCur);
+        let pc = original_traces.get_base_column::<WORD_SIZE>(Column::Pc);
+        let instruction_word = original_traces.get_base_column::<WORD_SIZE>(Column::InstrVal);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            for pc_byte in pc.iter() {
+                tuple.push(pc_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), WORD_SIZE);
+            for instruction_byte in instruction_word.iter() {
+                tuple.push(instruction_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 2 * WORD_SIZE);
+            for prg_prev_ctr_byte in prg_cur_ctr.iter() {
+                tuple.push(prg_prev_ctr_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 3 * WORD_SIZE);
+            let numerator = PackedBaseField::one() - is_padding.data[vec_row];
+            logup_col_gen.write_frac(
+                vec_row,
+                numerator.into(),
+                lookup_element.combine(tuple.as_slice()),
+            );
+        }
+        logup_col_gen.finalize_col();
+    }
+}
 #[cfg(test)]
 mod test {
     use crate::{
         chips::{AddChip, CpuChip},
+        test_utils::assert_chip,
         trace::{utils::IntoBaseFields, PreprocessedTraces},
     };
 
@@ -136,7 +359,8 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
+    // PreprocessedTraces::MIN_LOG_SIZE makes the test consume more than 40 seconds.
+    const LOG_SIZE: u32 = 10;
 
     #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock>
@@ -239,10 +463,7 @@ mod test {
         for item in side_note.program_mem_check.last_access_counter.iter() {
             assert_eq!(*item.1, 1, "unexpected number of accesses to Pc");
         }
-        traces.assert_as_original_trace(|eval, trace_eval| {
-            let dummy_lookup_elements = LookupElements::dummy();
-            CpuChip::add_constraints(eval, trace_eval, &dummy_lookup_elements);
-            ProgramMemCheckChip::add_constraints(eval, trace_eval, &dummy_lookup_elements)
-        });
+        let preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
+        assert_chip::<ProgramMemCheckChip>(traces, Some(preprocessed_column));
     }
 }
