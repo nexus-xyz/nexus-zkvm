@@ -74,6 +74,10 @@ build_cargo_nexus
 create_nexus_project
 copy_test_file "$1"
 cd "$PROJECT_NAME"
+
+# remove the lockfile so that Cargo regenerates it, to keep up with updates to lockfile versioning
+rm -f "Cargo.lock"
+
 run_project
 
 cleanup
