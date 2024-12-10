@@ -179,39 +179,4 @@ impl Traces {
             })
             .collect()
     }
-
-    /// Asserts add_constraints_calls() in a main trace
-    ///
-    /// This function combines the trace with an empty preprocessed-trace and
-    /// an empty interaction trace and then calls `add_constraints_calls()` on
-    /// the combination. This is useful in test cases.
-    pub fn assert_as_original_trace<F>(self, add_constraints_calls: F)
-    where
-        F: for<'a, 'b, 'c> Fn(&'a mut AssertEvaluator<'c>, &'b TraceEval<AssertEvaluator<'c>>),
-    {
-        let log_size = self.log_size;
-        // Convert traces to the format expected by assert_constraints
-        let traces: Vec<CircleEvaluation<CpuBackend, BaseField, BitReversedOrder>> =
-            self.circle_evaluation();
-
-        let preprocessed_trace = PreprocessedTraces::new(log_size).circle_evaluation();
-
-        let traces = TreeVec::new(vec![
-            preprocessed_trace,
-            traces,
-            vec![], /* interaction trace */
-        ]);
-        let trace_polys = traces.map(|trace| {
-            trace
-                .into_iter()
-                .map(|c| c.interpolate())
-                .collect::<Vec<_>>()
-        });
-
-        // Now check the constraints to make sure they're satisfied
-        assert_constraints(&trace_polys, CanonicCoset::new(log_size), |mut eval| {
-            let trace_eval = TraceEval::new(&mut eval);
-            add_constraints_calls(&mut eval, &trace_eval);
-        });
-    }
 }
