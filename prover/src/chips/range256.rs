@@ -22,7 +22,9 @@ use crate::{
     column::Column::{
         self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, FinalRegTs, FinalRegValue,
         Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, PrgMemoryPc, PrgMemoryWord, ProgCtrCur,
-        ProgCtrPrev, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+        ProgCtrPrev, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2ValCur, Ram2ValPrev,
+        Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur, Ram4ValPrev, RamBaseAddr,
+        Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
     },
     column::PreprocessedColumn::{self, IsFirst, Range256},
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -41,7 +43,7 @@ use crate::{
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED: [Column; 20] = [
+    const CHECKED_WORDS: [Column; 25] = [
         Pc,
         InstrVal,
         PrevCtr,
@@ -62,6 +64,22 @@ impl Range256Chip {
         CReg1TsPrev,
         CReg2TsPrev,
         CReg3TsPrev,
+        RamBaseAddr,
+        Ram1TsPrev,
+        Ram2TsPrev,
+        Ram3TsPrev,
+        Ram4TsPrev,
+    ];
+
+    const CHECKED_BYTES: [Column; 8] = [
+        Ram1ValCur,
+        Ram2ValCur,
+        Ram3ValCur,
+        Ram4ValCur,
+        Ram1ValPrev,
+        Ram2ValPrev,
+        Ram3ValPrev,
+        Ram4ValPrev,
     ];
 }
 
@@ -73,12 +91,14 @@ impl MachineChip for Range256Chip {
         _step: &ProgramStep,
         side_note: &mut SideNote,
     ) {
-        for col in Self::CHECKED.iter() {
-            // not using trace_column! because it doesn't accept *col as an argument.
+        for col in Self::CHECKED_WORDS.iter() {
             let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
-            fill_main_word(value_col, traces, side_note);
+            fill_main_cols(value_col, traces, side_note);
         }
-        // TODO: check the other columns, too.
+        for col in Self::CHECKED_BYTES.iter() {
+            let value_col = traces.column::<1>(row_idx, *col);
+            fill_main_cols(value_col, traces, side_note);
+        }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -91,10 +111,18 @@ impl MachineChip for Range256Chip {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
 
         // Add checked occurrences to logup sum.
-        // TODO: range-check other byte-ranged columns.
-        for col in Self::CHECKED.iter() {
+        for col in Self::CHECKED_WORDS.iter() {
             let value_basecolumn: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(*col);
-            check_word_limbs(
+            check_bytes(
+                value_basecolumn,
+                original_traces.log_size(),
+                &mut logup_trace_gen,
+                lookup_element,
+            );
+        }
+        for col in Self::CHECKED_BYTES.iter() {
+            let value_basecolumn = original_traces.get_base_column::<1>(*col);
+            check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
                 &mut logup_trace_gen,
@@ -130,13 +158,18 @@ impl MachineChip for Range256Chip {
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum.
-        for col in Self::CHECKED.iter() {
+        for col in Self::CHECKED_WORDS.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
             let (value, _) = trace_eval.column_eval::<WORD_SIZE>(*col);
             for limb in value.iter().take(WORD_SIZE) {
                 let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
                 logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
             }
+        }
+        for col in Self::CHECKED_BYTES.iter() {
+            let (_, [value]) = trace_eval.column_eval(*col);
+            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
+            logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
         let ([range], _) = preprocessed_trace_eval!(trace_eval, Range256);
@@ -148,12 +181,12 @@ impl MachineChip for Range256Chip {
     }
 }
 
-fn fill_main_word(
-    value_col: [BaseField; WORD_SIZE],
+fn fill_main_cols<const N: usize>(
+    value_col: [BaseField; N],
     traces: &mut Traces,
     side_note: &mut SideNote,
 ) {
-    for (_limb_index, limb) in value_col.iter().enumerate().take(WORD_SIZE) {
+    for (_limb_index, limb) in value_col.iter().enumerate() {
         let checked = limb.0;
         #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
         assert!(checked < 256, "value[{}] is out of range", _limb_index);
@@ -168,14 +201,14 @@ fn fill_main_word(
     }
 }
 
-fn check_word_limbs(
-    basecolumn: [BaseColumn; WORD_SIZE],
+fn check_bytes<const N: usize>(
+    basecolumn: [BaseColumn; N],
     log_size: u32,
     logup_trace_gen: &mut LogupTraceGenerator,
     lookup_element: &LookupElements<12>,
 ) {
     // TODO: we can deal with two limbs at a time.
-    for limb in basecolumn.iter().take(WORD_SIZE) {
+    for limb in basecolumn.iter() {
         let mut logup_col_gen = logup_trace_gen.new_col();
         // vec_row is row_idx divided by 16. Because SIMD.
         for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {

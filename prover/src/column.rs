@@ -242,6 +242,58 @@ pub enum Column {
     /// c_h1^-_1 in the design document
     #[size = 4]
     CH3Minus,
+
+    /// The starting address of the read-write memory access
+    #[size = 4]
+    RamBaseAddr,
+    /// The new value of the read-write memory at RamBaseAddr, if accessed
+    #[size = 1]
+    Ram1ValCur,
+    /// The new value of the read-write memory at RamBaseAddr + 1, if accessed
+    #[size = 1]
+    Ram2ValCur,
+    /// The new value of the read-write memory at RamBaseAddr + 2, if accessed
+    #[size = 1]
+    Ram3ValCur,
+    /// The new value of the read-write memory at RamBaseAddr + 3, if accessed
+    #[size = 1]
+    Ram4ValCur,
+    /// The previous value of the read-write memory at RamBaseAddr, if accessed
+    #[size = 1]
+    Ram1ValPrev,
+    /// The previous value of the read-write memory at RamBaseAddr + 1, if accessed
+    #[size = 1]
+    Ram2ValPrev,
+    /// The previous value of the read-write memory at RamBaseAddr + 2, if accessed
+    #[size = 1]
+    Ram3ValPrev,
+    /// The previous value of the read-write memory at RamBaseAddr + 3, if accessed
+    #[size = 1]
+    Ram4ValPrev,
+    /// The previous timestamp of the read-write memory at RamBaseAddr, if accessed
+    #[size = 4]
+    Ram1TsPrev,
+    /// The previous timestamp of the read-write memory at RamBaseAddr + 1, if accessed
+    #[size = 4]
+    Ram2TsPrev,
+    /// The previous timestamp of the read-write memory at RamBaseAddr + 2, if accessed
+    #[size = 4]
+    Ram3TsPrev,
+    /// The previous timestamp of the read-write memory at RamBaseAddr + 3, if accessed
+    #[size = 4]
+    Ram4TsPrev,
+    /// The flag indicating whether the read-write memory at RamBaseAddr is accessed
+    #[size = 1]
+    Ram1Accessed,
+    /// The flag indicating whether the read-write memory at RamBaseAddr + 1 is accessed
+    #[size = 1]
+    Ram2Accessed,
+    /// The flag indicating whether the read-write memory at RamBaseAddr + 2 is accessed
+    #[size = 1]
+    Ram3Accessed,
+    /// The flag indicating whether the read-write memory at RamBaseAddr + 3 is accessed
+    #[size = 1]
+    Ram4Accessed,
 }
 
 // proc macro derived:
