@@ -52,10 +52,6 @@ cp "$1" "$PROJECT_NAME/src/guest/src/main.rs"
 }
 
 function run_project() {
-# remove the guest lockfile so that Cargo regenerates it, to keep up with updates to lockfile versioning
-cat "$PROJECT_NAME/src/guest/Cargo.lock"
-rm -f "$PROJECT_NAME/src/guest/Cargo.lock"
-
 # Test the cycles feature inside the guest project
 pushd src/guest
 $CARGO_NEXUS nexus run
@@ -74,6 +70,9 @@ set -x
 
 build_cargo_nexus
 create_nexus_project
+
+# remove the guest lockfile so that Cargo regenerates it, to keep up with updates to lockfile versioning
+rm -f "$PROJECT_NAME/Cargo.lock"
 
 copy_test_file "$1"
 cd "$PROJECT_NAME"
