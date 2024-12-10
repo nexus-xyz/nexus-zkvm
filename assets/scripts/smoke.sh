@@ -48,6 +48,9 @@ cargo build --release --package cargo-nexus --bin cargo-nexus
 cp "$1" "$PROJECT_NAME/src/main.rs"
 cd "$PROJECT_NAME"
 
+# remove the lockfile so that Cargo regenerates it, to keep up with updates to lockfile versioning
+rm -f "Cargo.lock"
+
 # Link the test program to the latest runtime code
 sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGINAL_DIR/runtime\"#" Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
 
