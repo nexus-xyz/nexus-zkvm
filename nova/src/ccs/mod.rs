@@ -347,7 +347,7 @@ impl<G: CurveGroup, C: PolyCommitmentScheme<G>> LCCSInstance<G, C> {
         }
     }
 
-    /// Folds an incoming **non-linearized** [`CCSInstance`] into the current one. Its auxillary inputs include a partial
+    /// Folds an incoming **non-linearized** [`CCSInstance`] into the current one. Its auxiliary inputs include a partial
     /// evaluation point `rs` and the sum of the evaluations at that point extended over the hypercube for both the current
     /// (`sigmas`) and incoming (`thetas`) instances.
     pub fn fold(
