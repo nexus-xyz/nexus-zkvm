@@ -182,6 +182,7 @@ const GUEST_TEMPLATE_SRC_MAIN: &str = include_str!(concat!(guest_examples_dir!()
 
 // freeze toolchain that works with all provers
 const GUEST_RUST_TOOLCHAIN: &str = r#"[toolchain]
-channel = "1.77.0"
+channel = "1.80.0"
+
 targets = ["riscv32i-unknown-none-elf"]
 "#;
