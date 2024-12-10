@@ -77,7 +77,7 @@ Some of our public APIs' style is inspired by the underlying crates we use.
 
     // produce public parameters
     let min_num_vars = SNARKGens::<G1Projective, Hyrax<G1Projective>>::get_min_num_vars(num_cons, num_vars, num_inputs, num_non_zero_entries);
-    // derive a SRS for the polynomial commitment scheme
+    // derive an SRS for the polynomial commitment scheme
     let SRS = Hyrax::<G1Projective>::setup(min_num_vars, b"example_SRS", &mut test_rng()).unwrap();
     let gens = SNARKGens::<G1Projective, Hyrax<G1Projective>>::new(&SRS, num_cons, num_vars, num_inputs, num_non_zero_entries);
 
