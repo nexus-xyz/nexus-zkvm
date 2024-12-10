@@ -10,16 +10,16 @@ pub use nexus_vm::error::NexusVMError;
 /// Errors related to proof generation
 #[derive(Debug)]
 pub enum ProofError {
-    /// An error occured loading or executing program
+    /// An error occurred loading or executing program
     NexusVMError(NexusVMError),
 
     /// An error occurred reading file system
     IOError(std::io::Error),
 
-    /// An error occured during circuit synthesis
+    /// An error occurred during circuit synthesis
     CircuitError(SynthesisError),
 
-    /// An error occured serializing to disk
+    /// An error occurred serializing to disk
     SerError(SerializationError),
 
     /// The witness does not satisfy the constraints
@@ -37,10 +37,10 @@ pub enum ProofError {
     /// SRS for polynomial commitment scheme is missing
     MissingSRS,
 
-    /// An error occured while sampling the test SRS
+    /// An error occurred while sampling the test SRS
     SRSSamplingError,
 
-    /// An error occured while running the Spartan compression prover
+    /// An error occurred while running the Spartan compression prover
     CompressionError(SpartanError),
 
     /// A proof has been read from a file that does not match the expected format
