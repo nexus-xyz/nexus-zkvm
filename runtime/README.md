@@ -7,7 +7,7 @@ functions for accessing VM built-ins, such as `write_log`.
 ## Getting Started
 
 First, you will need a rust compiler with the RISC-V target
-installed.  If you do no have the RISC-V target installed,
+installed.  If you do not have the RISC-V target installed,
 you can install it with `rustup`:
 
 ```
@@ -64,14 +64,14 @@ against the `std` crate, and that we do not want the
 compiler to emit the standard start-up code to process
 command-line arguments and call `main`. The Nexus Runtime
 has a minimal start-up process and will call your entry
-function directly.  The fourth line brings the nexux-rt
+function directly.  The fourth line brings the nexus-rt
 `entry` macro into scope.  This macro is used to mark the
 `main` function as the starting point of the program.
 
 To run your program, you can use either the `cargo-nexus`,
 or the `nexus-riscv` crate. The `cargo-nexus` uses the
 `nexus-riscv` crate internally. To use the `nexus-riscv`
-crate, compile the crate and use the included commend-line
+crate, compile the crate and use the included command-line
 tool:
 
 ```
