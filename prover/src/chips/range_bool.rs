@@ -6,9 +6,9 @@ use num_traits::One;
 
 use crate::{
     column::Column::{
-        self, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsOr, IsPadding,
-        IsSlt, IsSltu, IsSub, IsXor, PrgMemoryFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnB,
-        SgnC,
+        self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
+        IsBltu, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor, PrgMemoryFlag, Reg1Accessed,
+        Reg2Accessed, Reg3Accessed, SgnB, SgnC,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
@@ -22,7 +22,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 16] = [
+const CHECKED_SINGLE: [Column; 17] = [
     ImmB,
     ImmC,
     IsAdd,
@@ -32,6 +32,7 @@ const CHECKED_SINGLE: [Column; 16] = [
     IsSub,
     IsSltu,
     IsSlt,
+    IsBltu,
     IsPadding,
     SgnB,
     SgnC,
@@ -40,7 +41,7 @@ const CHECKED_SINGLE: [Column; 16] = [
     Reg3Accessed,
     PrgMemoryFlag,
 ];
-const CHECKED_WORD: [Column; 4] = [CarryFlag, CH1Minus, CH2Minus, CH3Minus];
+const CHECKED_WORD: [Column; 5] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus];
 
 impl MachineChip for RangeBoolChip {
     fn fill_main_trace(

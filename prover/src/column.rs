@@ -36,6 +36,9 @@ pub enum Column {
     /// Additional columns for carrying limbs.
     #[size = 4]
     CarryFlag,
+    /// Subtraction columns for borrow limbs.
+    #[size = 4]
+    BorrowFlag,
     /// Is operand op_b an immediate value?
     #[size = 1]
     ImmB,
@@ -89,6 +92,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a BEQ.
     #[size = 1]
     IsBeq,
+    /// Boolean flag on whether the row is a BLTU.
+    #[size = 1]
+    IsBltu,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
