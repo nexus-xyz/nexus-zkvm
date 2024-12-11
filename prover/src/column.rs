@@ -95,6 +95,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a BLTU.
     #[size = 1]
     IsBltu,
+    /// Boolean flag on whether the row is a BGEU.
+    #[size = 1]
+    IsBgeu,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

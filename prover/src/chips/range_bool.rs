@@ -7,7 +7,7 @@ use num_traits::One;
 use crate::{
     column::Column::{
         self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
-        IsBltu, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor, PrgMemoryFlag, Ram1Accessed,
+        IsBgeu, IsBltu, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor, PrgMemoryFlag, Ram1Accessed,
         Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnB,
         SgnC,
     },
@@ -23,7 +23,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 21] = [
+const CHECKED_SINGLE: [Column; 22] = [
     ImmB,
     ImmC,
     IsAdd,
@@ -34,6 +34,7 @@ const CHECKED_SINGLE: [Column; 21] = [
     IsSltu,
     IsSlt,
     IsBltu,
+    IsBgeu,
     IsPadding,
     SgnB,
     SgnC,

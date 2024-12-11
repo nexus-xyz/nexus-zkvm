@@ -82,6 +82,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::BLTU) => {
                 traces.fill_columns(row_idx, true, IsBltu);
             }
+            Some(BuiltinOpcode::BGEU) => {
+                traces.fill_columns(row_idx, true, IsBgeu);
+            }
             _ => {
                 if !step.is_padding {
                     panic!(
@@ -254,6 +257,7 @@ impl MachineChip for CpuChip {
         let ([is_bne], _) = trace_eval!(trace_eval, IsBne);
         let ([is_beq], _) = trace_eval!(trace_eval, IsBeq);
         let ([is_bltu], _) = trace_eval!(trace_eval, IsBltu);
+        let ([is_bgeu], _) = trace_eval!(trace_eval, IsBgeu);
         let ([is_padding], _) = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(
             is_add.clone()
@@ -266,6 +270,7 @@ impl MachineChip for CpuChip {
                 + is_bne.clone()
                 + is_beq.clone()
                 + is_bltu.clone()
+                + is_bgeu.clone()
                 + is_padding
                 - E::F::one(),
         );
@@ -316,7 +321,7 @@ impl MachineChip for CpuChip {
         eval.add_constraint((is_type_r + is_type_i) * (op_a.clone() - reg3_address.clone()));
 
         // is_type_b = is_beq + is_bne + is_blt + is_bge + is_bltu + is_bgeu
-        let is_type_b = is_beq + is_bne + is_bltu; // TODO: add more flags when they are available
+        let is_type_b = is_beq + is_bne + is_bltu + is_bgeu; // TODO: add more flags when they are available
 
         // is_type_s = is_sb + is_sh + is_sw
         // TODO: define is_type_s when flags are available
