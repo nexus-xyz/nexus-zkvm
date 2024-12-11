@@ -98,11 +98,11 @@ impl LinearMemoryLayout {
         ad_size: u32,
     ) -> Result<Self> {
         let ml = Self::new_unchecked(
-            max_heap_size,
-            max_stack_size,
+            word_align!(max_heap_size as usize) as u32,
+            word_align!(max_stack_size as usize) as u32,
             word_align!(public_input_size as usize) as u32,
             word_align!(public_output_size as usize) as u32,
-            program_size,
+            word_align!(program_size as usize) as u32,
             word_align!(ad_size as usize) as u32,
         );
         ml.validate()?;

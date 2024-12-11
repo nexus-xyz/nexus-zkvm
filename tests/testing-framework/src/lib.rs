@@ -24,6 +24,54 @@ mod test {
         }
     }
 
+    trait Input: Serialize + std::fmt::Debug + Clone {}
+    impl<T> Input for T where T: Serialize + std::fmt::Debug + Clone {}
+    trait Output: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone {}
+    impl<T> Output for T where T: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone {}
+
+    struct IOArgs<T: Input, U: Input, V: Output> {
+        pub public_input: Option<T>,
+        pub private_input: Option<U>,
+        pub expected_output: Option<V>,
+        pub expected_result:
+            Result<(Vec<InstructionResult>, MemoryTranscript), nexus_vm::error::VMError>,
+    }
+
+    impl<T: Input, U: Input, V: Output> Default for IOArgs<T, U, V> {
+        fn default() -> Self {
+            Self {
+                public_input: None,
+                private_input: None,
+                expected_output: None,
+                expected_result: Err(nexus_vm::error::VMError::VMExited(0)),
+            }
+        }
+    }
+
+    impl<T: Input, U: Input, V: Output> IOArgs<T, U, V> {
+        fn default_list() -> Vec<Self> {
+            vec![Self::default()]
+        }
+
+        fn new(input: Option<T>, private_input: Option<U>, expected_output: Option<V>) -> Self {
+            Self {
+                public_input: input,
+                private_input,
+                expected_output,
+                expected_result: Err(nexus_vm::error::VMError::VMExited(0)),
+            }
+        }
+
+        fn simple_panic() -> Self {
+            Self {
+                public_input: None,
+                private_input: None,
+                expected_output: None,
+                expected_result: Err(nexus_vm::error::VMError::VMExited(1)),
+            }
+        }
+    }
+
     /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
     fn create_tmp_dir() -> TempDir {
         // Create a temporary directory.
@@ -132,29 +180,19 @@ mod test {
     }
 
     /// Helper function to run emulator and check that the inputs and outputs are correct.
-    fn emulate<
-        T: Serialize + std::fmt::Debug,
-        U: Serialize + std::fmt::Debug,
-        V: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone,
-    >(
+    fn emulate<T: Input, U: Input, V: Output>(
         elfs: Vec<ElfFile>,
-        input: Option<T>,
-        private_input: Option<U>,
-        expected_output: Option<V>,
-        expected_result: &Result<
-            (Vec<InstructionResult>, MemoryTranscript),
-            nexus_vm::error::VMError,
-        >,
+        io_args: &IOArgs<T, U, V>,
         emulator_type: EmulatorType,
     ) {
         // Serialize the input.
         let mut input_bytes = Vec::<u8>::new();
-        if let Some(input) = &input {
+        if let Some(input) = &io_args.public_input {
             input_bytes = to_allocvec(input).expect("Serialization failed");
         }
 
         let mut private_input_bytes = Vec::<u8>::new();
-        if let Some(private_input) = &private_input {
+        if let Some(private_input) = &io_args.private_input {
             private_input_bytes = to_allocvec(private_input).expect("Serialization failed");
         }
 
@@ -169,10 +207,10 @@ mod test {
                         HarvardEmulator::from_elf(elf.clone(), &input_bytes, &private_input_bytes);
 
                     // Check that the program exits correctly.
-                    assert_eq!(&emulator.execute(), expected_result);
+                    assert_eq!(&emulator.execute(), &io_args.expected_result);
 
                     // Deserialize the output.
-                    if expected_output.is_some() {
+                    if io_args.expected_output.is_some() {
                         let output_bytes = emulator.get_output().unwrap();
                         deserialized_output =
                             Some(from_bytes(&output_bytes).expect("Deserialization failed"));
@@ -181,7 +219,7 @@ mod test {
                     // Run a second pass with a linear emulator constructed from the harvard emulator.
                     if matches!(emulator_type, EmulatorType::TwoPass) {
                         // Check that the intermediate output is correct.
-                        assert_eq!(deserialized_output, expected_output);
+                        assert_eq!(deserialized_output, io_args.expected_output);
 
                         // Use the data obtained from the harvard emulator to construct the linear emulator.
                         let mut linear_emulator =
@@ -189,10 +227,10 @@ mod test {
                                 .unwrap();
 
                         // Check that the program exits correctly.
-                        assert_eq!(&linear_emulator.execute(), expected_result);
+                        assert_eq!(&linear_emulator.execute(), &io_args.expected_result);
 
                         // Deserialize the output.
-                        if expected_output.is_some() {
+                        if io_args.expected_output.is_some() {
                             let output_bytes = linear_emulator.get_output().unwrap();
                             deserialized_output =
                                 Some(from_bytes(&output_bytes).expect("Deserialization failed"));
@@ -202,7 +240,7 @@ mod test {
                 EmulatorType::Linear(heap_size, stack_size, program_size) => {
                     // Calculate the output length.
                     let mut output_len = 0;
-                    if let Some(expected_output) = expected_output.clone() {
+                    if let Some(expected_output) = io_args.expected_output.clone() {
                         output_len = to_allocvec(&expected_output)
                             .expect("Serialization failed")
                             .len();
@@ -228,10 +266,10 @@ mod test {
                     );
 
                     // Check that the program exits correctly.
-                    assert_eq!(&emulator.execute(), expected_result);
+                    assert_eq!(&emulator.execute(), &io_args.expected_result);
 
                     // Deserialize the output.
-                    if expected_output.is_some() {
+                    if io_args.expected_output.is_some() {
                         let output_bytes = emulator.get_output().unwrap();
                         deserialized_output =
                             Some(from_bytes(&output_bytes).expect("Deserialization failed"));
@@ -241,40 +279,21 @@ mod test {
         }
 
         // Check that the program exits correctly.
-        assert_eq!(deserialized_output, expected_output);
+        assert_eq!(deserialized_output, io_args.expected_output);
     }
 
     /// Helper function to run test accross multiple emulators, multiple opt levels, and multiple inputs.
-    fn test_example_multi<
-        T: Serialize + Clone + std::fmt::Debug,
-        U: Serialize + Clone + std::fmt::Debug,
-        V: Serialize + DeserializeOwned + std::fmt::Debug + PartialEq + Clone,
-    >(
+    fn test_example_multi<T: Input, U: Input, V: Output>(
         emulators: Vec<EmulatorType>,
         compile_flags: Vec<&str>,
         name: &str,
-        inputs: Vec<T>,
-        private_inputs: Vec<U>,
-        outputs: Vec<V>,
-        expected_result: Result<
-            (Vec<InstructionResult>, MemoryTranscript),
-            nexus_vm::error::VMError,
-        >,
+        io_args: Vec<IOArgs<T, U, V>>,
     ) {
         let elfs = compile_multi(name, &compile_flags);
 
         for emulator in &emulators {
-            for ((input, private_input), output) in
-                inputs.iter().zip(private_inputs.iter()).zip(outputs.iter())
-            {
-                emulate::<T, U, V>(
-                    elfs.clone(),
-                    Some(input.clone()),
-                    Some(private_input.clone()),
-                    Some(output.clone()),
-                    &expected_result,
-                    emulator.clone(),
-                );
+            for io_arg in &io_args {
+                emulate::<T, U, V>(elfs.clone(), io_arg, emulator.clone());
             }
         }
     }
@@ -290,10 +309,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/fact",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -308,10 +324,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/fib",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -326,10 +339,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/fib1000",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -344,10 +354,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/main",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -362,10 +369,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/palindromes",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -380,10 +384,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/galeshapley",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -398,10 +399,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/lambda_calculus",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -416,10 +414,7 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/fail",
-            vec![()],
-            vec![()],
-            vec![()],
-            Err(nexus_vm::error::VMError::VMExited(1)),
+            vec![IOArgs::<(), (), ()>::simple_panic()],
         );
     }
 
@@ -434,10 +429,26 @@ mod test {
             ],
             vec!["-C opt-level=3"],
             "../../examples/src/input_output",
-            vec![(3u32), (4u32), (5u32), (1_048_576u32)],
-            vec![(4u32), (0u32), (6u32), (4u32)],
-            vec![(12u32), (0u32), (30u32), (4_194_304u32)],
-            Err(nexus_vm::error::VMError::VMExited(0)),
+            vec![
+                IOArgs::<u32, u32, u32>::new(Some(3u32), Some(4u32), Some(12u32)),
+                IOArgs::<u32, u32, u32>::new(Some(4u32), Some(0u32), Some(0u32)),
+                IOArgs::<u32, u32, u32>::new(Some(1_048_576u32), Some(4u32), Some(4_194_304u32)),
+            ],
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_keccak_example() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "../../examples/src/keccak",
+            IOArgs::<(), (), ()>::default_list(),
         );
     }
 
@@ -463,6 +474,7 @@ mod test {
             "palindromes",
             "galeshapley",
             "lambda_calculus",
+            "keccak",
         ];
 
         // Test simple examples.
@@ -473,10 +485,7 @@ mod test {
             for emulator in &emulators {
                 emulate::<(), (), ()>(
                     elfs.clone(),
-                    None,
-                    None,
-                    Some(()),
-                    &Err(nexus_vm::error::VMError::VMExited(0)),
+                    &IOArgs::<(), (), ()>::default(),
                     emulator.clone(),
                 );
             }
@@ -489,10 +498,7 @@ mod test {
         for emulator in &emulators {
             emulate::<(), (), ()>(
                 fail_elfs.clone(),
-                None,
-                None,
-                Some(()),
-                &Err(nexus_vm::error::VMError::VMExited(1)),
+                &IOArgs::<(), (), ()>::simple_panic(),
                 emulator.clone(),
             );
         }
@@ -514,27 +520,22 @@ mod test {
         for emulator in emulators {
             emulate::<u32, (), u32>(
                 io_u32_elfs.clone(),
-                Some(123u32),
-                None,
-                Some(123u32),
-                &Err(nexus_vm::error::VMError::VMExited(0)),
+                &IOArgs::<u32, (), u32>::new(Some(123u32), None, Some(123u32)),
                 emulator.clone(),
             );
             emulate::<u64, (), u64>(
                 io_u64_elfs.clone(),
-                Some(1u64 << 32),
-                None,
-                Some(1u64 << 32),
-                &Err(nexus_vm::error::VMError::VMExited(0)),
+                &IOArgs::<u64, (), u64>::new(Some(1u64 << 32), None, Some(1u64 << 32)),
                 emulator.clone(),
             );
             emulate::<u128, (), u128>(
                 io_u128_elfs.clone(),
-                Some(332306998946228968225970211937533483u128),
-                None,
-                Some(332306998946228968225970211937533483u128),
-                &Err(nexus_vm::error::VMError::VMExited(0)),
-                emulator,
+                &IOArgs::<u128, (), u128>::new(
+                    Some(332306998946228968225970211937533483u128),
+                    None,
+                    Some(332306998946228968225970211937533483u128),
+                ),
+                emulator.clone(),
             );
         }
     }
@@ -555,10 +556,7 @@ mod test {
             for emulator in emulators.clone() {
                 emulate::<u32, (), u32>(
                     elfs.clone(),
-                    Some(input.clone()),
-                    None,
-                    Some(output.clone()),
-                    &Err(nexus_vm::error::VMError::VMExited(0)),
+                    &IOArgs::<u32, (), u32>::new(Some(input.clone()), None, Some(output.clone())),
                     emulator.clone(),
                 );
             }
