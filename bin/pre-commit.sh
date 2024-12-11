@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # This script runs the same checks as the github CI;
-#  it can be used a a pre-commit hook.
+#  it can be used as a pre-commit hook.
 
 set -e
 
