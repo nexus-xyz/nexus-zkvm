@@ -1,22 +1,17 @@
-use eval::TraceEval;
 use itertools::Itertools;
 use nexus_vm::WORD_SIZE;
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{assert_constraints, AssertEvaluator},
-    core::{
-        backend::{
-            simd::{column::BaseColumn, m31::LOG_N_LANES},
-            Backend, CpuBackend,
-        },
-        fields::m31::BaseField,
-        pcs::TreeVec,
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
-        ColumnVec,
+use stwo_prover::core::{
+    backend::{
+        simd::{column::BaseColumn, m31::LOG_N_LANES},
+        Backend,
     },
+    fields::m31::BaseField,
+    poly::{
+        circle::{CanonicCoset, CircleEvaluation},
+        BitReversedOrder,
+    },
+    ColumnVec,
 };
 
 use super::column::Column;
