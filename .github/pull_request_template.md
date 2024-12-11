@@ -1,4 +1,4 @@
-Before opening your pull request, please answer the following questions.
+Before opening your pull request, please respond to the following prompts.
 
 #### Is this resolving a feature or a bug?
 
