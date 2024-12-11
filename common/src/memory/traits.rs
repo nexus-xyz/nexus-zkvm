@@ -4,11 +4,10 @@ use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 /// Represents the size of memory access operations.
-/// The value of enum is for efficient masking purpose.
 pub enum MemAccessSize {
-    Byte = 0,
-    HalfWord = 1,
-    Word = 3,
+    Byte = 1,
+    HalfWord = 2,
+    Word = 4,
 }
 
 impl MemAccessSize {
