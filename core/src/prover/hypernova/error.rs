@@ -13,16 +13,16 @@ pub use crate::prover::nova::error::ProofError as NovaProofError;
 /// Errors related to proof generation
 #[derive(Debug)]
 pub enum ProofError {
-    /// An error occured loading or executing program
+    /// An error occurred while loading or executing the program
     NexusVMError(NexusVMError),
 
-    /// An error occurred reading file system
+    /// An error occurred reading the file system
     IOError(std::io::Error),
 
-    /// An error occured during circuit synthesis
+    /// An error occurred during circuit synthesis
     CircuitError(SynthesisError),
 
-    /// An error occured serializing to disk
+    /// An error occurred serializing to disk
     SerError(SerializationError),
 
     /// The witness does not satisfy the constraints as R1CS
@@ -34,13 +34,13 @@ pub enum ProofError {
     /// Invalid folding step index
     InvalidIndex(usize),
 
-    /// Public Parameters do not match circuit
+    /// Public Parameters do not match the circuit
     InvalidPP,
 
-    /// An error occured while computing the HyperNova folding
+    /// An error occurred while computing the HyperNova folding
     FoldingError(HNFoldingError),
 
-    /// An error occured while setting up a polynomial commitment
+    /// An error occurred while setting up a polynomial commitment
     PolyCommitmentError,
 
     /// The HyperNova prover produced an invalid proof
@@ -95,8 +95,8 @@ impl From<NovaProofError> for ProofError {
             NovaProofError::IOError(e) => IOError(e),
             NovaProofError::CircuitError(e) => CircuitError(e),
             NovaProofError::SerError(e) => SerError(e),
-            // The above error conversions allow reusing convienence functions
-            // from the nova implemementation in this crate.
+            // The above error conversions allow reusing convenience functions
+            // from the nova implementation in this crate.
             //
             // The remaining errors are thrown by functions that are specific to
             // a proof system, and so shouldn't be shared across the definitions
