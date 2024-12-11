@@ -625,7 +625,6 @@ pub(crate) mod tests {
     use ark_relations::r1cs::Matrix;
     use ark_test_curves::bls12_381::{Fr as Scalar, G1Projective as G};
 
-
     pub(crate) fn to_field_sparse<G: CurveGroup>(matrix: &[&[u64]]) -> Matrix<G::ScalarField> {
         let mut coo_matrix = Matrix::new();
 
@@ -728,7 +727,8 @@ pub(crate) mod tests {
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
         let commitment_W = PedersenCommitment::<G>::commit(&pp, &W[..]);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
+        let instance =
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
         let witness = R1CSWitness::<G>::new(&shape, &W[..])?;
 
         shape.is_satisfied(&instance, &witness, &pp)?;
@@ -787,7 +787,8 @@ pub(crate) mod tests {
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
         let commitment_W = PedersenCommitment::<G>::commit(&pp, &W[..]);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
+        let instance =
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
         let witness = R1CSWitness::<G>::new(&shape, &W[..])?;
 
         let relaxed_instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&instance);
@@ -860,20 +861,35 @@ pub(crate) mod tests {
         let folding_scalar = Scalar::from(2u64);
 
         let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
-        let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &matrix_a, &matrix_b, &matrix_c)?;
+        let shape = R1CSShape::<G>::new(
+            NUM_CONSTRAINTS,
+            NUM_WITNESS,
+            NUM_PUBLIC,
+            &matrix_a,
+            &matrix_b,
+            &matrix_c,
+        )?;
 
         // Create two different R1CS instances for the equation x³ + x + 5 = output
-        let create_instance = |input: i64| -> Result<(R1CSInstance<G, PedersenCommitment<G>>, R1CSWitness<G>), Error> {
+        let create_instance = |input: i64| -> Result<
+            (R1CSInstance<G, PedersenCommitment<G>>, R1CSWitness<G>),
+            Error,
+        > {
             let output = input * input * input + input + 5;
             let witness_square = input * input;
             let witness_cube = witness_square * input;
             let witness_sum = witness_cube + input;
 
             let public_inputs = to_field_elements::<G>(&[1, output]);
-            let witness_values = to_field_elements::<G>(&[input, witness_square, witness_cube, witness_sum]);
+            let witness_values =
+                to_field_elements::<G>(&[input, witness_square, witness_cube, witness_sum]);
             let commitment = PedersenCommitment::<G>::commit(&pp, &witness_values[..]);
-            
-            let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment, &public_inputs[..])?;
+
+            let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(
+                &shape,
+                &commitment,
+                &public_inputs[..],
+            )?;
             let witness = R1CSWitness::<G>::new(&shape, &witness_values[..])?;
             Ok((instance, witness))
         };
@@ -886,10 +902,19 @@ pub(crate) mod tests {
         let relaxed_2 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&instance_2);
         let relaxed_witness_2 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &witness_2);
 
-        let (cross_terms, commitment_t) = commit_T_with_relaxed(&shape, &pp, &relaxed_1, &relaxed_witness_1, &relaxed_2, &relaxed_witness_2)?;
+        let (cross_terms, commitment_t) = commit_T_with_relaxed(
+            &shape,
+            &pp,
+            &relaxed_1,
+            &relaxed_witness_1,
+            &relaxed_2,
+            &relaxed_witness_2,
+        )?;
 
-        let inputs_1: Vec<Scalar> = [relaxed_1.X.as_slice(), relaxed_witness_1.W.as_slice()].concat();
-        let inputs_2: Vec<Scalar> = [relaxed_2.X.as_slice(), relaxed_witness_2.W.as_slice()].concat();
+        let inputs_1: Vec<Scalar> =
+            [relaxed_1.X.as_slice(), relaxed_witness_1.W.as_slice()].concat();
+        let inputs_2: Vec<Scalar> =
+            [relaxed_2.X.as_slice(), relaxed_witness_2.W.as_slice()].concat();
 
         let multiply_matrices = |inputs: &[Scalar]| {
             (
@@ -903,12 +928,23 @@ pub(crate) mod tests {
         let (az2, bz2, cz2) = multiply_matrices(&inputs_2);
 
         for i in 0..shape.num_constraints {
-            let expected = az1[i] * bz2[i] + az2[i] * bz1[i] - relaxed_1.X[0] * cz2[i] - relaxed_2.X[0] * cz1[i];
-            assert_eq!(cross_terms[i], expected, "Cross-term computation incorrect at index {}", i);
+            let expected = az1[i] * bz2[i] + az2[i] * bz1[i]
+                - relaxed_1.X[0] * cz2[i]
+                - relaxed_2.X[0] * cz1[i];
+            assert_eq!(
+                cross_terms[i], expected,
+                "Cross-term computation incorrect at index {}",
+                i
+            );
         }
 
-        let folded_instance = relaxed_1.fold_with_relaxed(&relaxed_2, &commitment_t, &folding_scalar)?;
-        let folded_witness = relaxed_witness_1.fold_with_relaxed(&relaxed_witness_2, &cross_terms[..], &folding_scalar)?;
+        let folded_instance =
+            relaxed_1.fold_with_relaxed(&relaxed_2, &commitment_t, &folding_scalar)?;
+        let folded_witness = relaxed_witness_1.fold_with_relaxed(
+            &relaxed_witness_2,
+            &cross_terms[..],
+            &folding_scalar,
+        )?;
         shape.is_relaxed_satisfied(&folded_instance, &folded_witness, &pp)?;
 
         Ok(())
