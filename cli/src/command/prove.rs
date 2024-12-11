@@ -23,7 +23,7 @@ pub struct ProveArgs {
     #[command(flatten)]
     pub common_args: CommonProveArgs,
 
-    /// Send prove request to the network.
+    /// Send proof request to the network.
     #[arg(long, conflicts_with_all = ["k", "pp_file", "impl"])]
     pub network: bool,
 
@@ -54,7 +54,7 @@ pub struct LocalProveArgs {
 
 #[derive(Debug, Args)]
 pub struct CommonProveArgs {
-    /// Build artifacts with the specified profile. "release" is default.
+    /// Build artifacts with the specified profile. "release" is the default.
     #[arg(long, default_value = "release")]
     pub profile: String,
 
