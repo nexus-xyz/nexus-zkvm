@@ -70,9 +70,9 @@ impl MachineChip for TimestampChip {
         trace_eval: &TraceEval<E>,
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let (ch1_minus, _) = trace_eval!(trace_eval, CH1Minus);
-        let (ch2_minus, _) = trace_eval!(trace_eval, CH2Minus);
-        let (ch3_minus, _) = trace_eval!(trace_eval, CH3Minus);
+        let ch1_minus = trace_eval!(trace_eval, CH1Minus);
+        let ch2_minus = trace_eval!(trace_eval, CH2Minus);
+        let ch3_minus = trace_eval!(trace_eval, CH3Minus);
 
         // Range of CH{1,2,3}Minus are constrained in RangeBoolChip.
 
@@ -81,15 +81,15 @@ impl MachineChip for TimestampChip {
         eval.add_constraint(ch2_minus[WORD_SIZE - 1].clone());
         eval.add_constraint(ch3_minus[WORD_SIZE - 1].clone());
 
-        let (reg1_ts_prev, _) = trace_eval!(trace_eval, Reg1TsPrev);
-        let (reg2_ts_prev, _) = trace_eval!(trace_eval, Reg2TsPrev);
-        let (reg3_ts_prev, _) = trace_eval!(trace_eval, Reg3TsPrev);
+        let reg1_ts_prev = trace_eval!(trace_eval, Reg1TsPrev);
+        let reg2_ts_prev = trace_eval!(trace_eval, Reg2TsPrev);
+        let reg3_ts_prev = trace_eval!(trace_eval, Reg3TsPrev);
         let (reg1_ts_cur, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg1TsCur);
         let (reg2_ts_cur, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg2TsCur);
         let (reg3_ts_cur, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg3TsCur);
-        let (c_reg1_ts_prev, _) = trace_eval!(trace_eval, CReg1TsPrev);
-        let (c_reg2_ts_prev, _) = trace_eval!(trace_eval, CReg2TsPrev);
-        let (c_reg3_ts_prev, _) = trace_eval!(trace_eval, CReg3TsPrev);
+        let c_reg1_ts_prev = trace_eval!(trace_eval, CReg1TsPrev);
+        let c_reg2_ts_prev = trace_eval!(trace_eval, CReg2TsPrev);
+        let c_reg3_ts_prev = trace_eval!(trace_eval, CReg3TsPrev);
 
         constrain_diff_minus_one(eval, ch1_minus, c_reg1_ts_prev, reg1_ts_cur, reg1_ts_prev);
         constrain_diff_minus_one(eval, ch2_minus, c_reg2_ts_prev, reg2_ts_cur, reg2_ts_prev);

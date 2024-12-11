@@ -100,7 +100,7 @@ impl MachineChip for SltChip {
         trace_eval: &TraceEval<E>,
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let (is_slt, _) = trace_eval!(trace_eval, IsSlt);
+        let is_slt = trace_eval!(trace_eval, IsSlt);
         let is_slt = is_slt[0].clone();
 
         // modulus for 8-bit limbs
@@ -109,15 +109,15 @@ impl MachineChip for SltChip {
         let modulus_7 = E::F::from(128u32.into());
 
         // Reusing the CarryFlag as borrow flag.
-        let (borrow_flag, _) = trace_eval!(trace_eval, CarryFlag);
-        let (value_b, _) = trace_eval!(trace_eval, ValueB);
-        let (value_c, _) = trace_eval!(trace_eval, ValueC);
-        let (value_a, _) = trace_eval!(trace_eval, ValueA);
-        let (sgn_b, _) = trace_eval!(trace_eval, SgnB);
-        let (sgn_c, _) = trace_eval!(trace_eval, SgnC);
-        let (helper1_val, _) = trace_eval!(trace_eval, Helper1);
-        let (helper2_val, _) = trace_eval!(trace_eval, Helper2);
-        let (helper3_val, _) = trace_eval!(trace_eval, Helper3);
+        let borrow_flag = trace_eval!(trace_eval, CarryFlag);
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_c = trace_eval!(trace_eval, ValueC);
+        let value_a = trace_eval!(trace_eval, ValueA);
+        let sgn_b = trace_eval!(trace_eval, SgnB);
+        let sgn_c = trace_eval!(trace_eval, SgnC);
+        let helper1_val = trace_eval!(trace_eval, Helper1);
+        let helper2_val = trace_eval!(trace_eval, Helper2);
+        let helper3_val = trace_eval!(trace_eval, Helper3);
 
         for i in 0..WORD_SIZE {
             let prev_borrow = i

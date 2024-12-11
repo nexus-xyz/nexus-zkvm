@@ -256,12 +256,12 @@ impl MachineChip for BitOpChip {
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum
-        let ([is_and], _) = trace_eval!(trace_eval, IsAnd);
-        let ([is_or], _) = trace_eval!(trace_eval, IsOr);
-        let ([is_xor], _) = trace_eval!(trace_eval, IsXor);
-        let (value_a, _) = trace_eval!(trace_eval, ValueA);
-        let (value_b, _) = trace_eval!(trace_eval, ValueB);
-        let (value_c, _) = trace_eval!(trace_eval, ValueC);
+        let [is_and] = trace_eval!(trace_eval, IsAnd);
+        let [is_or] = trace_eval!(trace_eval, IsOr);
+        let [is_xor] = trace_eval!(trace_eval, IsXor);
+        let value_a = trace_eval!(trace_eval, ValueA);
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_c = trace_eval!(trace_eval, ValueC);
         for limb_idx in 0..WORD_SIZE {
             for (op_type, is_op) in [
                 (BitOp::And, &is_and),
@@ -285,13 +285,13 @@ impl MachineChip for BitOpChip {
         let ([answer_c], _) = preprocessed_trace_eval!(trace_eval, BitwiseByteC);
 
         let ([answer_a_and], _) = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
-        let ([mult_and], _) = trace_eval!(trace_eval, MultiplicityAnd);
+        let [mult_and] = trace_eval!(trace_eval, MultiplicityAnd);
 
         let ([answer_a_or], _) = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
-        let ([mult_or], _) = trace_eval!(trace_eval, MultiplicityOr);
+        let [mult_or] = trace_eval!(trace_eval, MultiplicityOr);
 
         let ([answer_a_xor], _) = preprocessed_trace_eval!(trace_eval, BitwiseXorByteA);
-        let ([mult_xor], _) = trace_eval!(trace_eval, MultiplicityXor);
+        let [mult_xor] = trace_eval!(trace_eval, MultiplicityXor);
         for (op_type, answer_a, mult) in [
             (BitOp::And, answer_a_and, mult_and),
             (BitOp::Or, answer_a_or, mult_or),

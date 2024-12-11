@@ -108,13 +108,13 @@ impl MachineChip for Range32Chip {
         // Add checked occurrences to logup sum.
         for col in CHECKED.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
-            let ([value], _) = trace_eval.column_eval(*col);
+            let [value] = trace_eval.column_eval(*col);
             let denom: E::EF = lookup_elements.combine(&[value.clone()]);
             logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
         let ([range], _) = preprocessed_trace_eval!(trace_eval, Range32);
-        let ([multiplicity], _) = trace_eval!(trace_eval, Multiplicity32);
+        let [multiplicity] = trace_eval!(trace_eval, Multiplicity32);
         let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
         logup.write_frac(eval, Fraction::new(numerator, denom));

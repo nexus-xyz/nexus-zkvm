@@ -92,15 +92,15 @@ impl MachineChip for BgeuChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let modulus = E::F::from(256u32.into());
-        let (value_a, _) = trace_eval!(trace_eval, ValueA);
-        let (value_b, _) = trace_eval!(trace_eval, ValueB);
-        let (value_c, _) = trace_eval!(trace_eval, ValueC);
-        let (pc, _) = trace_eval!(trace_eval, Column::Pc);
-        let (carry_bits, _) = trace_eval!(trace_eval, Column::CarryFlag);
-        let (borrow_bits, _) = trace_eval!(trace_eval, Column::BorrowFlag);
-        let (diff_bytes, _) = trace_eval!(trace_eval, Column::Helper1);
-        let (pc_next, _) = trace_eval!(trace_eval, Column::PcNext);
-        let ([is_bgeu], _) = trace_eval!(trace_eval, Column::IsBgeu);
+        let value_a = trace_eval!(trace_eval, ValueA);
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_c = trace_eval!(trace_eval, ValueC);
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let carry_bits = trace_eval!(trace_eval, Column::CarryFlag);
+        let borrow_bits = trace_eval!(trace_eval, Column::BorrowFlag);
+        let diff_bytes = trace_eval!(trace_eval, Column::Helper1);
+        let pc_next = trace_eval!(trace_eval, Column::PcNext);
+        let [is_bgeu] = trace_eval!(trace_eval, Column::IsBgeu);
         let ltu_flag = borrow_bits[3].clone();
 
         // is_bgeu・(a_val_1 - b_val_1 - h1_1 + borrow_1・2^8) = 0

@@ -92,15 +92,15 @@ impl MachineChip for BltuChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let modulus = E::F::from(256u32.into());
-        let (_, value_a) = trace_eval!(trace_eval, ValueA);
-        let (_, value_b) = trace_eval!(trace_eval, ValueB);
-        let (_, value_c) = trace_eval!(trace_eval, ValueC);
-        let (_, pc) = trace_eval!(trace_eval, Column::Pc);
-        let (_, carry_bits) = trace_eval!(trace_eval, Column::CarryFlag);
-        let (_, borrow_bits) = trace_eval!(trace_eval, Column::BorrowFlag);
-        let (_, diff_bytes) = trace_eval!(trace_eval, Column::Helper1);
-        let (_, pc_next) = trace_eval!(trace_eval, Column::PcNext);
-        let (_, [is_bltu]) = trace_eval!(trace_eval, Column::IsBltu);
+        let value_a = trace_eval!(trace_eval, ValueA);
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_c = trace_eval!(trace_eval, ValueC);
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let carry_bits = trace_eval!(trace_eval, Column::CarryFlag);
+        let borrow_bits = trace_eval!(trace_eval, Column::BorrowFlag);
+        let diff_bytes = trace_eval!(trace_eval, Column::Helper1);
+        let pc_next = trace_eval!(trace_eval, Column::PcNext);
+        let [is_bltu] = trace_eval!(trace_eval, Column::IsBltu);
         let ltu_flag = borrow_bits[3].clone();
 
         // is_bltu・(a_val_1 - b_val_1 - h1_1 + borrow_1・2^8) = 0

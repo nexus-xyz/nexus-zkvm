@@ -157,22 +157,22 @@ impl MachineChip for BneChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let modulus = E::F::from(256u32.into());
-        let (neq_flag, _) = trace_eval!(trace_eval, Column::Neq);
-        let (neq_12_flag, _) = trace_eval!(trace_eval, Column::Neq12);
-        let (neq_34_flag, _) = trace_eval!(trace_eval, Column::Neq34);
-        let (value_a, _) = trace_eval!(trace_eval, ValueA);
-        let (value_b, _) = trace_eval!(trace_eval, ValueB);
-        let (value_c, _) = trace_eval!(trace_eval, ValueC);
-        let (pc, _) = trace_eval!(trace_eval, Column::Pc);
-        let (carry_bits, _) = trace_eval!(trace_eval, Column::CarryFlag);
-        let (pc_next, _) = trace_eval!(trace_eval, Column::PcNext);
-        let (is_bne, _) = trace_eval!(trace_eval, Column::IsBne);
+        let neq_flag = trace_eval!(trace_eval, Column::Neq);
+        let neq_12_flag = trace_eval!(trace_eval, Column::Neq12);
+        let neq_34_flag = trace_eval!(trace_eval, Column::Neq34);
+        let value_a = trace_eval!(trace_eval, ValueA);
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_c = trace_eval!(trace_eval, ValueC);
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let carry_bits = trace_eval!(trace_eval, Column::CarryFlag);
+        let pc_next = trace_eval!(trace_eval, Column::PcNext);
+        let is_bne = trace_eval!(trace_eval, Column::IsBne);
         let is_bne = is_bne[0].clone();
 
-        let (neq_12_flag_aux, _) = trace_eval!(trace_eval, Column::Neq12Aux);
-        let (neq_34_flag_aux, _) = trace_eval!(trace_eval, Column::Neq34Aux);
-        let (neq_12_flag_aux_inv, _) = trace_eval!(trace_eval, Column::Neq12AuxInv);
-        let (neq_34_flag_aux_inv, _) = trace_eval!(trace_eval, Column::Neq34AuxInv);
+        let neq_12_flag_aux = trace_eval!(trace_eval, Column::Neq12Aux);
+        let neq_34_flag_aux = trace_eval!(trace_eval, Column::Neq34Aux);
+        let neq_12_flag_aux_inv = trace_eval!(trace_eval, Column::Neq12AuxInv);
+        let neq_34_flag_aux_inv = trace_eval!(trace_eval, Column::Neq34AuxInv);
 
         // is_bne・((a_val_1 + a_val_2·2^8 − b_val_1 - b_val_2·2^8)・neq_12_flag_aux - neq_12_flag) = 0
         eval.add_constraint(

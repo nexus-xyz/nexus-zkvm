@@ -101,16 +101,16 @@ impl MachineChip for SubChip {
         trace_eval: &TraceEval<E>,
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let (is_sub, _) = trace_eval!(trace_eval, IsSub);
+        let is_sub = trace_eval!(trace_eval, IsSub);
         let is_sub = is_sub[0].clone();
 
         // modulus for 8-bit limbs
         let modulus = E::F::from(256u32.into());
 
-        let (borrow_flag, _) = trace_eval!(trace_eval, CarryFlag);
-        let (value_b, _) = trace_eval!(trace_eval, ValueB);
-        let (value_c, _) = trace_eval!(trace_eval, ValueC);
-        let (value_a, _) = trace_eval!(trace_eval, ValueA);
+        let borrow_flag = trace_eval!(trace_eval, CarryFlag);
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_c = trace_eval!(trace_eval, ValueC);
+        let value_a = trace_eval!(trace_eval, ValueA);
 
         for i in 0..WORD_SIZE {
             let borrow = i

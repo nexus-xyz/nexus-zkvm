@@ -108,16 +108,16 @@ impl MachineChip for Range128Chip {
 
         // Add checked occurrences to logup sum.
         // not using trace_eval! macro because it doesn't accept *col as an argument.
-        let ([is_slt], _) = trace_eval.column_eval(IsSlt);
+        let [is_slt] = trace_eval.column_eval(IsSlt);
         for col in [Helper2, Helper3].into_iter() {
-            let (value, _) = trace_eval.column_eval::<WORD_SIZE>(col);
+            let value = trace_eval.column_eval::<WORD_SIZE>(col);
             let denom: E::EF = lookup_elements.combine(&[value[3].clone()]);
             let numerator = is_slt.clone();
             logup.write_frac(eval, Fraction::new(numerator.into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
         let ([range], _) = preprocessed_trace_eval!(trace_eval, Range128);
-        let ([multiplicity], _) = trace_eval!(trace_eval, Multiplicity128);
+        let [multiplicity] = trace_eval!(trace_eval, Multiplicity128);
         let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
         logup.write_frac(eval, Fraction::new(numerator, denom));
