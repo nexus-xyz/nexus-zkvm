@@ -26,6 +26,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2024-01-04
+      - run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
       - run: cargo check --all-features --all-targets
       - run: cargo check --all-features --examples
       - run: cd prover-benches && cargo check --benches
