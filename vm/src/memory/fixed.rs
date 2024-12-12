@@ -93,7 +93,7 @@ impl<M: Mode> FixedMemory<M> {
         let s = (start - self.base_address) / WORD_SIZE as u32;
 
         if let Some(mut e) = end {
-            e -= self.base_address;
+            e = (e - self.base_address) / WORD_SIZE as u32;
             &self.vec[s as usize..e as usize]
         } else {
             &self.vec[s as usize..]

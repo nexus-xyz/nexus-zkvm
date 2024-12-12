@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test {
+    use nexus_common::constants::WORD_SIZE;
     use nexus_common::cpu::InstructionResult;
 
     use nexus_vm::elf::ElfFile;
@@ -69,6 +70,23 @@ mod test {
                 expected_output: None,
                 expected_result: Err(nexus_vm::error::VMError::VMExited(1)),
             }
+        }
+    }
+
+    /// Parse the output bytes as exit code and output.
+    fn parse_output<T: DeserializeOwned>(
+        output: Vec<u8>,
+    ) -> Result<(u32, Option<T>), postcard::Error> {
+        // The first 4 bytes store the exit code.
+        let exit_code =
+            u32::from_le_bytes(output[0..4].try_into().expect("Failed to parse exit code"));
+
+        if output.len() == WORD_SIZE {
+            Ok((exit_code, None))
+        } else {
+            // Deserialize the rest as the output.
+            let output: T = from_bytes(&output[WORD_SIZE..]).expect("Deserialization failed");
+            Ok((exit_code, Some(output)))
         }
     }
 
@@ -197,6 +215,7 @@ mod test {
         }
 
         let mut deserialized_output: Option<V> = None;
+        let mut exit_code: u32;
         let ad = vec![0u8; 0xbeef as usize]; // placeholder ad until we have use for it
 
         for elf in elfs {
@@ -210,11 +229,12 @@ mod test {
                     assert_eq!(&emulator.execute(), &io_args.expected_result);
 
                     // Deserialize the output.
-                    if io_args.expected_output.is_some() {
-                        let output_bytes = emulator.get_output().unwrap();
-                        deserialized_output =
-                            Some(from_bytes(&output_bytes).expect("Deserialization failed"));
-                    }
+                    (exit_code, deserialized_output) =
+                        parse_output(emulator.get_output().unwrap()).unwrap();
+                    assert_eq!(
+                        Err(nexus_vm::error::VMError::VMExited(exit_code)),
+                        io_args.expected_result
+                    );
 
                     // Run a second pass with a linear emulator constructed from the harvard emulator.
                     if matches!(emulator_type, EmulatorType::TwoPass) {
@@ -230,11 +250,12 @@ mod test {
                         assert_eq!(&linear_emulator.execute(), &io_args.expected_result);
 
                         // Deserialize the output.
-                        if io_args.expected_output.is_some() {
-                            let output_bytes = linear_emulator.get_output().unwrap();
-                            deserialized_output =
-                                Some(from_bytes(&output_bytes).expect("Deserialization failed"));
-                        }
+                        (exit_code, deserialized_output) =
+                            parse_output(linear_emulator.get_output().unwrap()).unwrap();
+                        assert_eq!(
+                            Err(nexus_vm::error::VMError::VMExited(exit_code)),
+                            io_args.expected_result
+                        );
                     }
                 }
                 EmulatorType::Linear(heap_size, stack_size, program_size) => {
@@ -269,11 +290,12 @@ mod test {
                     assert_eq!(&emulator.execute(), &io_args.expected_result);
 
                     // Deserialize the output.
-                    if io_args.expected_output.is_some() {
-                        let output_bytes = emulator.get_output().unwrap();
-                        deserialized_output =
-                            Some(from_bytes(&output_bytes).expect("Deserialization failed"));
-                    }
+                    (exit_code, deserialized_output) =
+                        parse_output(emulator.get_output().unwrap()).unwrap();
+                    assert_eq!(
+                        Err(nexus_vm::error::VMError::VMExited(exit_code)),
+                        io_args.expected_result
+                    );
                 }
             };
         }

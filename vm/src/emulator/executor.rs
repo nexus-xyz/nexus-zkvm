@@ -520,7 +520,7 @@ impl LinearEmulator {
                     * WORD_SIZE) as u32,
                 ad.len() as u32,
                 public_input.len() as u32,
-                output_memory.len() as u32,
+                (output_memory.len() - WORD_SIZE) as u32, // Exclude the first word which is the exit code
             )
             .unwrap();
 
@@ -615,10 +615,13 @@ impl LinearEmulator {
             let _ = memory.add_fixed_ro(&input_memory).unwrap();
         }
 
-        let output_len = (memory_layout.public_output_end() - memory_layout.panic()) as usize; // we include panic in the output segment
+        let output_len = (memory_layout.public_output_end() - memory_layout.exit_code()) as usize; // we include the exit code in the output segment
         if output_len > 0 {
-            let output_memory =
-                FixedMemory::<WO>::from_vec(memory_layout.panic(), output_len, vec![0; output_len]);
+            let output_memory = FixedMemory::<WO>::from_vec(
+                memory_layout.exit_code(),
+                output_len,
+                vec![0; output_len],
+            );
             let _ = memory.add_fixed_wo(&output_memory).unwrap();
         }
 
@@ -656,7 +659,7 @@ impl LinearEmulator {
                 8,
                 &[
                     memory_layout.public_input_start(),
-                    memory_layout.public_output_start(),
+                    memory_layout.exit_code(), // The exit code is the first word of the output
                 ],
             ))
             .unwrap();
@@ -682,7 +685,7 @@ impl LinearEmulator {
     pub fn get_output(&self) -> Result<Vec<u8>, MemoryError> {
         Ok(self.memory.segment_bytes(
             (Modes::WO as usize, 0),
-            self.memory_layout.public_output_start(),
+            self.memory_layout.exit_code(),
             Some(self.memory_layout.public_output_end()),
         )?)
     }

@@ -87,7 +87,7 @@ macro_rules! ecall {
 
 /// Reads word from specified byte address of the public input.
 #[macro_export]
-macro_rules! rin {
+macro_rules! read_input {
     ($i:expr) => {{
         let mut out: u32;
         unsafe {
@@ -106,7 +106,7 @@ macro_rules! rin {
 
 /// Writes word to the public output at specified byte address.
 #[macro_export]
-macro_rules! wou {
+macro_rules! write_output {
     ($i:expr, $data:expr) => {
         unsafe {
             core::arch::asm!(

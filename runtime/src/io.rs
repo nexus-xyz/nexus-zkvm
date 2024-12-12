@@ -5,7 +5,8 @@ extern crate alloc;
 mod riscv32 {
     extern crate alloc;
     use crate::{
-        ecall, rin, wou, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG, SYS_READ_PRIVATE_INPUT, WORD_SIZE,
+        ecall, read_input, write_output, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG,
+        SYS_READ_PRIVATE_INPUT, WORD_SIZE,
     };
     use serde::{de::DeserializeOwned, Serialize};
 
@@ -24,6 +25,9 @@ mod riscv32 {
 
     /// Exit the program with the given exit code.
     pub fn exit(exit_code: i32) -> ! {
+        // Write the exit code to the output.
+        let _ = write_output!(0, exit_code);
+        // Exit the program.
         let _ = ecall!(SYS_EXIT, exit_code);
         // Ecall will trigger exit syscall, so we will never return.
         unsafe {
@@ -54,13 +58,13 @@ mod riscv32 {
     pub fn read_public_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
         // The first word stores the length of the input (in bytes).
         // This length does not take into account the first word itself.
-        let len = rin!(0) as usize;
+        let len = read_input!(0) as usize;
         let padded_len = (len + 3) & !3;
         let mut input = alloc::vec![0u8; padded_len];
 
         // Read the input into the vector.
         for i in 0..((padded_len) / WORD_SIZE) {
-            let word = rin!((i + 1) * WORD_SIZE);
+            let word = read_input!((i + 1) * WORD_SIZE);
             input[i * WORD_SIZE..(i + 1) * WORD_SIZE].copy_from_slice(&word.to_le_bytes());
         }
 
@@ -78,7 +82,7 @@ mod riscv32 {
         // Write bytes in word chunks to output memory.
         bytes.chunks(WORD_SIZE).enumerate().for_each(|(i, chunk)| {
             let word = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
-            wou!(i * WORD_SIZE, word);
+            write_output!((i + 1) * WORD_SIZE, word); // word 0 is reserved for the exit code
         });
 
         Ok(())
