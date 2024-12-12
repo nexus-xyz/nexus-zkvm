@@ -58,7 +58,7 @@ If you have examples of other tools that have the feature you are requesting, pl
 Pull requests are the way concrete changes are made to the code, documentation, and dependencies of the Nexus zkVM.
 
 Before making a large change, it is usually a good idea to first open an issue describing the change to solicit feedback and guidance. 
-This will increase the likelihood of the PR getting merged. Striking up a discussion the [dev Telegram][dev-tg] to let the community know
+This will increase the likelihood of the PR getting merged. Striking up a discussion in the [dev Telegram][dev-tg] to let the community know
 what you'll be working on can also be helpful for getting early feedback before diving in.
 
 If you are working on a larger feature, we encourage you to open up a draft pull request and also check in with the [dev Telegram][dev-tg], to make sure that other
