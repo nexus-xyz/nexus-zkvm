@@ -18,9 +18,12 @@ use crate::{
     traits::MachineChip,
 };
 
-use nexus_vm::riscv::{
-    BuiltinOpcode,
-    InstructionType::{BType, IType, ITypeShamt, JType, RType, SType, UType, Unimpl},
+use nexus_vm::{
+    riscv::{
+        BuiltinOpcode,
+        InstructionType::{BType, IType, ITypeShamt, JType, RType, SType, UType, Unimpl},
+    },
+    WORD_SIZE,
 };
 
 pub struct CpuChip;
@@ -96,6 +99,7 @@ impl MachineChip for CpuChip {
         };
 
         traces.fill_columns(row_idx, pc, Pc);
+        traces.fill_columns(row_idx, pc.wrapping_add(WORD_SIZE as u32), PcNext); // default expectation of the next Pc; might be overwritten by Branch or Jump chips
 
         // Fill ValueB and ValueC to the main trace
         traces.fill_columns(row_idx, vm_step.get_value_b(), ValueB);
@@ -339,5 +343,16 @@ impl MachineChip for CpuChip {
         eval.add_constraint(is_type_b_s.clone() * op_c);
         // Always using reg3 for ValueA and OpA, even when it's not the destination; this simplifies the register memory checking.
         eval.add_constraint(is_type_b_s * (op_a - reg3_address));
+
+        // PcNext should be Pc on the next row, unless the next row is the first row or padding.
+        let pc_next = trace_eval!(trace_eval, Column::PcNext);
+        let pc_on_next_row = trace_eval_next_row!(trace_eval, Column::Pc);
+        for limb_idx in 0..WORD_SIZE {
+            eval.add_constraint(
+                (E::F::one() - next_is_first.clone())
+                    * (E::F::one() - next_is_padding.clone())
+                    * (pc_next[limb_idx].clone() - pc_on_next_row[limb_idx].clone()),
+            );
+        }
     }
 }
