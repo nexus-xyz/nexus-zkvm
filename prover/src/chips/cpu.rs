@@ -36,7 +36,7 @@ impl MachineChip for CpuChip {
         let pc = step.pc;
         // Sanity check: preprocessed column `Clk` contains `row_idx + 1`
         if !step.is_padding {
-            debug_assert!(step.timestamp as usize == row_idx + 1);
+            assert!(step.timestamp as usize == row_idx + 1);
         }
 
         // When row != 0 && pc == 0 are allowed
