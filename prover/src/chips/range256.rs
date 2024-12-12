@@ -88,7 +88,7 @@ impl MachineChip for Range256Chip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        _step: &ProgramStep,
+        _step: &Option<ProgramStep>,
         side_note: &mut SideNote,
     ) {
         for col in Self::CHECKED_WORDS.iter() {
@@ -256,7 +256,7 @@ mod test {
             Range256Chip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }
@@ -285,7 +285,7 @@ mod test {
             Range256Chip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }

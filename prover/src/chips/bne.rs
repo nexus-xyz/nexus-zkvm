@@ -111,9 +111,13 @@ impl MachineChip for BneChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        vm_step: &ProgramStep,
+        vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
     ) {
+        let vm_step = match vm_step {
+            Some(vm_step) => vm_step,
+            None => return,
+        };
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
             Some(BuiltinOpcode::BNE)

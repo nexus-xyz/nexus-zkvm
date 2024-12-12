@@ -62,12 +62,13 @@ impl MachineChip for AddChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        vm_step: &ProgramStep,
+        vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
     ) {
-        if vm_step.step.is_padding {
-            return;
-        }
+        let vm_step = match vm_step {
+            Some(vm_step) => vm_step,
+            None => return, // padding
+        };
         if !matches!(
             vm_step.step.instruction.opcode.builtin(),
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI)

@@ -43,10 +43,11 @@ impl MachineChip for ProgramMemCheckChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        vm_step: &ProgramStep,
+        vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
     ) {
-        if !vm_step.step.is_padding {
+        if let Some(_vm_step) = vm_step {
+            // not padding
             let pc = traces.column(row_idx, Column::Pc);
             let pc = u32::from_base_fields(pc);
             let last_access_counter = side_note
@@ -579,15 +580,15 @@ mod test {
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
             assert_eq!(block.steps.len(), 1);
-            ProgramStep {
+            Some(ProgramStep {
                 regs,
                 step: block.steps[0].clone(),
-            }
+            })
         });
         let num_steps = program_steps.clone().count();
         assert_eq!(num_steps, basic_block[0].len());
         let trace_steps = program_steps
-            .chain(std::iter::repeat(ProgramStep::padding()))
+            .chain(std::iter::repeat(None))
             .take(traces.num_rows());
 
         for (row_idx, program_step) in trace_steps.enumerate() {

@@ -56,7 +56,7 @@ impl MachineChip for RegisterMemCheckChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        _vm_step: &ProgramStep,
+        _vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
     ) {
         // Fill ValueAEffective

@@ -32,24 +32,61 @@ impl MachineChip for CpuChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        vm_step: &ProgramStep,
+        vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
     ) {
-        let step = &vm_step.step;
-        let pc = step.pc;
-        // Sanity check: preprocessed column `Clk` contains `row_idx + 1`
-        if !step.is_padding {
-            assert!(step.timestamp as usize == row_idx + 1);
-        }
-
         // When row != 0 && pc == 0 are allowed
         // TODO: revise this 0th row check, see https://github.com/nexus-xyz/nexus-zkvm-neo/pull/145#discussion_r1842726498
         // assert!(!(row_idx == 0) || pc == 0);
 
-        // Fill IsPadding row
-        if step.is_padding {
-            traces.fill_columns(row_idx, true, IsPadding);
-        }
+        // Fill ValueAEffectiveFlag to the main trace
+        let value_a_effective_flag = match vm_step {
+            Some(vm_step) => vm_step.value_a_effectitve_flag(),
+            None => false,
+        };
+        traces.fill_columns(row_idx, value_a_effective_flag, ValueAEffectiveFlag);
+
+        // Fill ValueAEffectiveFlagAux to the main trace
+        // Note op_a is u8 so it is always smaller than M31.
+        let value_a_effective_flag_aux = if let Some(vm_step) = vm_step {
+            let op_a = vm_step.step.instruction.op_a as u8;
+            if op_a == 0 {
+                BaseField::one()
+            } else {
+                BaseField::inverse(&BaseField::from(op_a as u32))
+            }
+        } else {
+            BaseField::one()
+        };
+
+        traces.fill_columns_basefield(
+            row_idx,
+            &[value_a_effective_flag_aux],
+            ValueAEffectiveFlagAux,
+        );
+
+        // Fill ValueAEffectiveFlagAuxInv to the main trace
+        let value_a_effective_flag_aux_inv = BaseField::inverse(&value_a_effective_flag_aux);
+        traces.fill_columns_basefield(
+            row_idx,
+            &[value_a_effective_flag_aux_inv],
+            ValueAEffectiveFlagAuxInv,
+        );
+
+        let vm_step = match vm_step {
+            Some(vm_step) => vm_step,
+            None => {
+                // padding
+                traces.fill_columns(row_idx, true, IsPadding);
+                return;
+            }
+        };
+
+        let step = &vm_step.step;
+        let pc = step.pc;
+        // Sanity check: preprocessed column `Clk` contains `row_idx + 1`
+        assert!(step.timestamp as usize == row_idx + 1);
+        traces.fill_columns(row_idx, pc, Pc);
 
         // Add opcode to the main trace
         // TODO: We should also set ImmC or ImmB flags here.
@@ -89,16 +126,12 @@ impl MachineChip for CpuChip {
                 traces.fill_columns(row_idx, true, IsBgeu);
             }
             _ => {
-                if !step.is_padding {
-                    panic!(
-                        "Unsupported opcode: {:?}",
-                        step.instruction.opcode.builtin()
-                    );
-                }
+                panic!(
+                    "Unsupported opcode: {:?}",
+                    step.instruction.opcode.builtin()
+                );
             }
-        };
-
-        traces.fill_columns(row_idx, pc, Pc);
+        }
         traces.fill_columns(row_idx, pc.wrapping_add(WORD_SIZE as u32), PcNext); // default expectation of the next Pc; might be overwritten by Branch or Jump chips
 
         // Fill ValueB and ValueC to the main trace
@@ -116,7 +149,6 @@ impl MachineChip for CpuChip {
         // Fill OpB to the main trace
         let op_b = vm_step.step.instruction.op_b as u8;
         traces.fill_columns(row_idx, op_b, OpB);
-
         // Fill OpC (if register index) or ImmC (if immediate) to the main trace
         let op_c_raw = vm_step.step.instruction.op_c;
         match vm_step.step.instruction.ins_type {
@@ -136,69 +168,42 @@ impl MachineChip for CpuChip {
 
         // Fill register access flags in the main trace
         // We use Reg3 for the destination because Reg{1,2,3} have to be accessed in this order.
-        if !vm_step.step.is_padding {
-            match vm_step.step.instruction.ins_type {
-                RType => {
-                    traces.fill_columns(row_idx, true, Reg1Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
-                    traces.fill_columns(row_idx, true, Reg2Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_c as u8, Reg2Address);
-                    traces.fill_columns(row_idx, true, Reg3Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
-                }
-                IType | ITypeShamt => {
-                    traces.fill_columns(row_idx, true, Reg1Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
-                    traces.fill_columns(row_idx, true, Reg3Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
-                }
-                UType => {
-                    traces.fill_columns(row_idx, true, Reg3Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
-                }
-                BType | SType => {
-                    traces.fill_columns(row_idx, true, Reg1Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
-                    traces.fill_columns(row_idx, true, Reg3Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
-                }
-                JType => {
-                    traces.fill_columns(row_idx, true, Reg3Accessed);
-                    traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
-                }
-                Unimpl => {
-                    panic!(
-                        "Unsupported instruction type: {:?}",
-                        vm_step.step.instruction.ins_type
-                    );
-                }
+        match vm_step.step.instruction.ins_type {
+            RType => {
+                traces.fill_columns(row_idx, true, Reg1Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+                traces.fill_columns(row_idx, true, Reg2Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_c as u8, Reg2Address);
+                traces.fill_columns(row_idx, true, Reg3Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+            }
+            IType | ITypeShamt => {
+                traces.fill_columns(row_idx, true, Reg1Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+                traces.fill_columns(row_idx, true, Reg3Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+            }
+            UType => {
+                traces.fill_columns(row_idx, true, Reg3Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+            }
+            BType | SType => {
+                traces.fill_columns(row_idx, true, Reg1Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
+                traces.fill_columns(row_idx, true, Reg3Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+            }
+            JType => {
+                traces.fill_columns(row_idx, true, Reg3Accessed);
+                traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+            }
+            Unimpl => {
+                panic!(
+                    "Unsupported instruction type: {:?}",
+                    vm_step.step.instruction.ins_type
+                );
             }
         }
-
-        // Fill ValueAEffectiveFlag to the main trace
-        let value_a_effective_flag = vm_step.value_a_effectitve_flag();
-        traces.fill_columns(row_idx, value_a_effective_flag, ValueAEffectiveFlag);
-
-        // Fill ValueAEffectiveFlagAux to the main trace
-        // Note op_a is u8 so it is always smaller than M31.
-        let value_a_effective_flag_aux = if op_a == 0 {
-            BaseField::one()
-        } else {
-            BaseField::inverse(&BaseField::from(op_a as u32))
-        };
-        traces.fill_columns_basefield(
-            row_idx,
-            &[value_a_effective_flag_aux],
-            ValueAEffectiveFlagAux,
-        );
-
-        // Fill ValueAEffectiveFlagAuxInv to the main trace
-        let value_a_effective_flag_aux_inv = BaseField::inverse(&value_a_effective_flag_aux);
-        traces.fill_columns_basefield(
-            row_idx,
-            &[value_a_effective_flag_aux_inv],
-            ValueAEffectiveFlagAuxInv,
-        );
     }
 
     fn add_constraints<E: EvalAtRow>(

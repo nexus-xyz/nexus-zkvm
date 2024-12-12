@@ -30,7 +30,7 @@ impl MachineChip for TimestampChip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        _step: &ProgramStep,
+        _step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
     ) {
         // TODO: fetch these values from the preprocessed trace
@@ -198,15 +198,15 @@ mod test {
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
             debug_assert_eq!(block.steps.len(), 1);
-            ProgramStep {
+            Some(ProgramStep {
                 regs,
                 step: block.steps[0].clone(),
-            }
+            })
         });
         let num_steps = program_steps.clone().count();
         assert_eq!(num_steps, basic_block[0].len());
         let trace_steps = program_steps
-            .chain(std::iter::repeat(ProgramStep::padding()))
+            .chain(std::iter::repeat(None))
             .take(traces.num_rows());
 
         for (row_idx, program_step) in trace_steps.enumerate() {

@@ -44,7 +44,7 @@ impl MachineChip for Range128Chip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        _step: &ProgramStep,
+        _step: &Option<ProgramStep>,
         side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
@@ -208,7 +208,7 @@ mod test {
             Range128Chip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }
@@ -236,7 +236,7 @@ mod test {
             Range128Chip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }

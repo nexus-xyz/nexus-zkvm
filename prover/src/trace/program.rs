@@ -77,34 +77,25 @@ impl ProgramStep {
         let c = self.get_value_c().0;
         (c[WORD_SIZE - 1] >> 7) == 1
     }
-
-    /// Returns a step so that MachineChips can fill unused rows
-    ///
-    /// MachineChips will make sure padding steps don't cause constraint failures and don't affect memory checking
-    pub fn padding() -> Self {
-        let mut ret = Self::default();
-        ret.step.is_padding = true;
-        ret
-    }
 }
 
-/// Iterates over the program steps in `trace``, padded to `num_rows`
+/// Iterates over the program steps in `trace``, padded to `num_rows` with `None`
 ///
 /// Panics if `trace` contains more than `num_rows` steps.
 pub fn iter_program_steps<TR: Trace>(
     trace: &TR,
     num_rows: usize,
-) -> impl Iterator<Item = ProgramStep> + '_ {
+) -> impl Iterator<Item = Option<ProgramStep>> + '_ {
     assert!(trace.get_num_steps() <= num_rows, "Too many ProgramSteps");
     trace
         .get_blocks_iter()
         .map(|block| {
             assert_eq!(block.steps.len(), 1, "Only k = 1 traces are supported.");
-            ProgramStep {
+            Some(ProgramStep {
                 step: block.steps[0].clone(),
                 regs: block.regs,
-            }
+            })
         })
-        .chain(std::iter::repeat(ProgramStep::padding()))
+        .chain(std::iter::repeat(None))
         .take(num_rows)
 }

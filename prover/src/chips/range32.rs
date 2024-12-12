@@ -43,7 +43,7 @@ impl MachineChip for Range32Chip {
     fn fill_main_trace(
         traces: &mut Traces,
         row_idx: usize,
-        _step: &ProgramStep,
+        _step: &Option<ProgramStep>,
         side_note: &mut SideNote,
     ) {
         for col in CHECKED.into_iter() {
@@ -166,7 +166,7 @@ mod test {
             Range32Chip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }
@@ -191,7 +191,7 @@ mod test {
             Range32Chip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }

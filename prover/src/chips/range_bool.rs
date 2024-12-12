@@ -53,7 +53,7 @@ impl MachineChip for RangeBoolChip {
     fn fill_main_trace(
         _traces: &mut Traces,
         _row_idx: usize,
-        _step: &ProgramStep,
+        _step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
     ) {
         // Intentionally empty. Logup isn't used.
@@ -112,7 +112,7 @@ mod test {
             RangeBoolChip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }
@@ -141,7 +141,7 @@ mod test {
             RangeBoolChip::fill_main_trace(
                 &mut traces,
                 row_idx,
-                &ProgramStep::default(),
+                &Some(ProgramStep::default()),
                 &mut side_note,
             );
         }
