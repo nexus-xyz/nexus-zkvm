@@ -32,7 +32,7 @@ impl fmt::Display for ClientConfig {
             .map(|port| [":", &port.to_string()].concat())
             .unwrap_or_default();
 
-        write!(f, "{hostname}{port}")
+        write!(f, "{}{}", hostname, port)
     }
 }
 
