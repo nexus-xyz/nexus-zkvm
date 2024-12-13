@@ -344,6 +344,9 @@ pub enum PreprocessedColumn {
     /// Contains numbers from 0 to 31, and 0 after wards
     #[size = 1]
     Range32,
+    /// Contains numbers from 0 to 1023, and 0 afterwards
+    #[size = 1]
+    Range1024,
     /// Contains one-byte output of bit-wise AND
     #[size = 1]
     BitwiseAndByteA,

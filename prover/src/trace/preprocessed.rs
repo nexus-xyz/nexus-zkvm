@@ -45,6 +45,7 @@ impl PreprocessedTraces {
         ret.fill_row_idx();
         ret.fill_is_first32();
         ret.fill_timestamps();
+        ret.fill_range1024();
         ret.fill_range256();
         ret.fill_range128();
         ret.fill_range32();
@@ -166,6 +167,12 @@ impl PreprocessedTraces {
     fn fill_range16(&mut self) {
         for row_idx in 0..16 {
             self.0.cols[PreprocessedColumn::Range16.offset()][row_idx] = BaseField::from(row_idx);
+        }
+    }
+
+    fn fill_range1024(&mut self) {
+        for row_idx in 0..1024 {
+            self.0.cols[PreprocessedColumn::Range1024.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
 
