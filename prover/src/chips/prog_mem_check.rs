@@ -185,7 +185,7 @@ impl MachineChip for ProgramMemCheckChip {
         // Don't allow overflow
         eval.add_constraint(prg_ctr_carry[WORD_SIZE - 1].clone());
         // Logup constraints
-        let (_, [is_first]) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
         // add initial digest

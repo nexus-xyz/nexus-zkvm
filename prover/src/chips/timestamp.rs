@@ -84,9 +84,9 @@ impl MachineChip for TimestampChip {
         let reg1_ts_prev = trace_eval!(trace_eval, Reg1TsPrev);
         let reg2_ts_prev = trace_eval!(trace_eval, Reg2TsPrev);
         let reg3_ts_prev = trace_eval!(trace_eval, Reg3TsPrev);
-        let (reg1_ts_cur, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg1TsCur);
-        let (reg2_ts_cur, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg2TsCur);
-        let (reg3_ts_cur, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg3TsCur);
+        let reg1_ts_cur = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg1TsCur);
+        let reg2_ts_cur = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg2TsCur);
+        let reg3_ts_cur = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Reg3TsCur);
         let c_reg1_ts_prev = trace_eval!(trace_eval, CReg1TsPrev);
         let c_reg2_ts_prev = trace_eval!(trace_eval, CReg2TsPrev);
         let c_reg3_ts_prev = trace_eval!(trace_eval, CReg3TsPrev);

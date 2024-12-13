@@ -252,7 +252,7 @@ impl MachineChip for BitOpChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let ([is_first], _) = preprocessed_trace_eval!(trace_eval, IsFirst);
+        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
@@ -282,16 +282,16 @@ impl MachineChip for BitOpChip {
         }
 
         // Subtract looked up multiplicities from logup sum
-        let ([answer_b], _) = preprocessed_trace_eval!(trace_eval, BitwiseByteB);
-        let ([answer_c], _) = preprocessed_trace_eval!(trace_eval, BitwiseByteC);
+        let [answer_b] = preprocessed_trace_eval!(trace_eval, BitwiseByteB);
+        let [answer_c] = preprocessed_trace_eval!(trace_eval, BitwiseByteC);
 
-        let ([answer_a_and], _) = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
+        let [answer_a_and] = preprocessed_trace_eval!(trace_eval, BitwiseAndByteA);
         let [mult_and] = trace_eval!(trace_eval, MultiplicityAnd);
 
-        let ([answer_a_or], _) = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
+        let [answer_a_or] = preprocessed_trace_eval!(trace_eval, BitwiseOrByteA);
         let [mult_or] = trace_eval!(trace_eval, MultiplicityOr);
 
-        let ([answer_a_xor], _) = preprocessed_trace_eval!(trace_eval, BitwiseXorByteA);
+        let [answer_a_xor] = preprocessed_trace_eval!(trace_eval, BitwiseXorByteA);
         let [mult_xor] = trace_eval!(trace_eval, MultiplicityXor);
         for (op_type, answer_a, mult) in [
             (BitOp::And, answer_a_and, mult_and),

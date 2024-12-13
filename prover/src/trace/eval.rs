@@ -43,17 +43,21 @@ impl<E: EvalAtRow> TraceEval<E> {
     }
 
     #[doc(hidden)]
-    pub fn preprocessed_column_eval<const N: usize>(
+    pub fn preprocessed_column_eval<const N: usize>(&self, col: PreprocessedColumn) -> [E::F; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        let offset = col.offset();
+        array::from_fn(|i| self.preprocessed_evals[offset + i][0].clone())
+    }
+
+    #[doc(hidden)]
+    pub fn preprocessed_column_eval_next_row<const N: usize>(
         &self,
         col: PreprocessedColumn,
-    ) -> ([E::F; N], [E::F; N]) {
+    ) -> [E::F; N] {
         assert_eq!(col.size(), N, "column size mismatch");
         let offset = col.offset();
 
-        (
-            array::from_fn(|i| self.preprocessed_evals[offset + i][0].clone()),
-            array::from_fn(|i| self.preprocessed_evals[offset + i][1].clone()),
-        )
+        array::from_fn(|i| self.preprocessed_evals[offset + i][1].clone())
     }
 }
 
@@ -92,7 +96,7 @@ pub(crate) use trace_eval_next_row;
 /// ```ignore
 /// let trace_eval = TraceEval::new(&mut eval);
 /// let curr_pc = trace_eval!(trace_eval, Column::Pc);
-/// let (is_first, _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+/// let is_first = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
 /// for i in 0..WORD_SIZE {
 ///     eval.add_constraint(curr_pc[i] * is_first[0]);
 /// }
@@ -104,3 +108,22 @@ macro_rules! preprocessed_trace_eval {
 }
 
 pub(crate) use preprocessed_trace_eval;
+
+/// Returns evaluations for a given column in preprocessed trace.
+///
+/// ```ignore
+/// let trace_eval = TraceEval::new(&mut eval);
+/// let curr_pc = trace_eval!(trace_eval, Column::Pc);
+/// // When the next row has IsFirst, the current row is the last row.
+/// let is_last = preprocessed_trace_eval_next_row!(trace_eval, PreprocessedColumn::IsFirst);
+/// for i in 0..WORD_SIZE {
+///     eval.add_constraint(curr_pc[i] * is_last[0]);
+/// }
+/// ```
+macro_rules! preprocessed_trace_eval_next_row {
+    ($traces:expr, $col:expr) => {{
+        $traces.preprocessed_column_eval_next_row::<{ PreprocessedColumn::size($col) }>($col)
+    }};
+}
+
+pub(crate) use preprocessed_trace_eval_next_row;

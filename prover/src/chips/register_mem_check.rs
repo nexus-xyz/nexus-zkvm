@@ -142,8 +142,7 @@ impl MachineChip for RegisterMemCheckChip {
             );
         }
 
-        let ([is_first_32], _) =
-            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
+        let [is_first_32] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
         let final_reg_value = trace_eval!(trace_eval, Column::FinalRegValue);
         let final_reg_ts = trace_eval!(trace_eval, Column::FinalRegTs);
         // After the first 32 rows, FinalRegValue and FinalRegTs should be zero
@@ -154,7 +153,7 @@ impl MachineChip for RegisterMemCheckChip {
         }
 
         // Logup constraints
-        let ([is_first], _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
@@ -386,10 +385,9 @@ impl RegisterMemCheckChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let ([is_first_32], _) =
-            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
+        let [is_first_32] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
         let mut tuple: [E::F; Self::TUPLE_SIZE] = std::array::from_fn(|_| E::F::zero());
-        let ([row_idx], _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::RowIdx);
+        let [row_idx] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::RowIdx);
         tuple[0] = row_idx; // Using row_idx as register index
         let denom = lookup_elements.combine(tuple.as_slice());
         let numerator = is_first_32;
@@ -428,9 +426,8 @@ impl RegisterMemCheckChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let ([is_first_32], _) =
-            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
-        let ([row_idx], _) = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::RowIdx);
+        let [is_first_32] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
+        let [row_idx] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::RowIdx);
         let final_reg_ts = trace_eval!(trace_eval, Column::FinalRegTs);
         let final_reg_value = trace_eval!(trace_eval, Column::FinalRegValue);
         let mut tuple = vec![row_idx];
@@ -532,7 +529,7 @@ impl RegisterMemCheckChip {
     ) {
         let [reg_accessed] = trace_eval.column_eval(accessed);
         let [reg_idx] = trace_eval.column_eval(reg_address);
-        let (reg_cur_ts, _) = trace_eval.preprocessed_column_eval::<WORD_SIZE>(cur_ts);
+        let reg_cur_ts = trace_eval.preprocessed_column_eval::<WORD_SIZE>(cur_ts);
         let reg_cur_value = trace_eval.column_eval::<WORD_SIZE>(cur_value);
         let mut tuple = vec![reg_idx];
         for elm in reg_cur_ts.into_iter().chain(reg_cur_value.into_iter()) {

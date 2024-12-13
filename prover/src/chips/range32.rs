@@ -101,7 +101,7 @@ impl MachineChip for Range32Chip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let ([is_first], _) = preprocessed_trace_eval!(trace_eval, IsFirst);
+        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
@@ -113,7 +113,7 @@ impl MachineChip for Range32Chip {
             logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
-        let ([range], _) = preprocessed_trace_eval!(trace_eval, Range32);
+        let [range] = preprocessed_trace_eval!(trace_eval, Range32);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity32);
         let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();

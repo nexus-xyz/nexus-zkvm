@@ -11,7 +11,7 @@ use crate::{
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval, trace_eval_next_row, TraceEval},
+        eval::{preprocessed_trace_eval_next_row, trace_eval, trace_eval_next_row, TraceEval},
         sidenote::SideNote,
         ProgramStep, Traces,
     },
@@ -228,8 +228,8 @@ impl MachineChip for CpuChip {
 
         // Padding cannot go from 1 to zero, unless the current line is the first
         // TODO: consider forcing IsPadding == 0 on the first row, if we prefer to ban zero-step empty executions.
-        let (_, [next_is_first]) =
-            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        let [next_is_first] =
+            preprocessed_trace_eval_next_row!(trace_eval, PreprocessedColumn::IsFirst);
         eval.add_constraint(
             (E::F::one() - next_is_first.clone())
                 * is_padding.clone()
