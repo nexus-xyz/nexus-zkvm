@@ -160,11 +160,11 @@ fn const_prop(insn: &[Inst]) -> Option<Vec<Inst>> {
 }
 
 pub fn add32(a: u32, b: u32) -> u32 {
-    a.overflowing_add(b).0
+    a.wrapping_add(b)
 }
 
 pub fn sub32(a: u32, b: u32) -> u32 {
-    a.overflowing_sub(b).0
+    a.wrapping_sub(b)
 }
 
 fn br_op(bop: BOP, x: u32, y: u32) -> bool {

@@ -1117,7 +1117,7 @@ fn sx16(cs: &mut R1CS, output: &str, input: &str) {
 }
 
 fn load(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    let addr = vm.X.overflowing_add(vm.I).0;
+    let addr = vm.X.wrapping_add(vm.I);
     cs.to_bits("X+I", addr);
     load_select(cs, "X+I", "read_mem", addr, false);
 
@@ -1143,7 +1143,7 @@ fn load(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
 }
 
 fn store(cs: &mut R1CS, vm: &Witness<impl MemoryProof>) {
-    let addr = vm.X.overflowing_add(vm.I).0;
+    let addr = vm.X.wrapping_add(vm.I);
     load_select(cs, "X+I", "write_mem", addr, false);
 
     store_word(cs);
@@ -1578,8 +1578,8 @@ mod test {
                 add(&mut cs, &vm);
                 addi(&mut cs, &vm);
                 assert!(cs.is_sat());
-                assert!(cs.get_var("Z29") == &F::from(x.overflowing_add(y).0));
-                assert!(cs.get_var("Z19") == &F::from(x.overflowing_add(y).0));
+                assert!(cs.get_var("Z29") == &F::from(x.wrapping_add(y)));
+                assert!(cs.get_var("Z19") == &F::from(x.wrapping_add(y)));
             }
         }
     }
@@ -1602,8 +1602,8 @@ mod test {
                 sub(&mut cs, &vm);
                 subi(&mut cs, &vm);
                 assert!(cs.is_sat());
-                assert!(cs.get_var("Z30") == &F::from(x.overflowing_sub(y).0));
-                assert!(cs.get_var("Z20") == &F::from(x.overflowing_sub(y).0));
+                assert!(cs.get_var("Z30") == &F::from(x.wrapping_sub(y)));
+                assert!(cs.get_var("Z20") == &F::from(x.wrapping_sub(y)));
 
                 assert!(cs.get_var("X<Y") == &F::from(x < y));
                 assert!(cs.get_var("X>=Y") == &F::from(x >= y));
@@ -1677,7 +1677,7 @@ mod test {
         let mut vm = Witness::<Path>::default();
         for x in [0u32, 0xaaaaaaaa, 0x55555555, 0xffffffff] {
             for y in [0u32, 0xaaaaaaaa, 0x55555555, 0xffffffff] {
-                let i = y.overflowing_add(7).0;
+                let i = y.wrapping_add(7);
                 vm.X = x;
                 vm.Y = y;
                 vm.I = i;
