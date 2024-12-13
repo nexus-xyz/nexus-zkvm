@@ -95,6 +95,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a BLTU.
     #[size = 1]
     IsBltu,
+    /// Boolean flag on whether the row is a BLT.
+    #[size = 1]
+    IsBlt,
     /// Boolean flag on whether the row is a BGEU.
     #[size = 1]
     IsBgeu,
@@ -111,6 +114,9 @@ pub enum Column {
     /// Helper variable 3. Called h_3 in document.
     #[size = 4]
     Helper3,
+    /// Signed bit of A.
+    #[size = 1]
+    SgnA,
     /// Signed bit of B.
     #[size = 1]
     SgnB,
@@ -126,6 +132,9 @@ pub enum Column {
     /// Negate flag. Called neg_34_flag in document.
     #[size = 1]
     Neq34,
+    /// Less than flag. Called lt_flag in document.
+    #[size = 1]
+    LtFlag,
 
     #[size = 1]
     Neq12Aux,

@@ -66,6 +66,12 @@ impl ProgramStep {
         self.step.instruction.op_a != Register::X0
     }
 
+    /// Returns the signed bit of ValueA
+    pub(crate) fn get_sgn_a(&self) -> bool {
+        let a = self.get_value_a();
+        (a[WORD_SIZE - 1] >> 7) == 1
+    }
+
     /// Returns the signed bit of ValueB
     pub(crate) fn get_sgn_b(&self) -> bool {
         let b = self.get_value_b();
