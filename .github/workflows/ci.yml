@@ -51,7 +51,7 @@ jobs:
           toolchain: nightly-2024-01-04
 
       - name: Install cargo-expand
-        run: cargo install cargo-expand
+        run: cargo install cargo-expand --locked
 
       - name: Add RISC-V target
         run: rustup target add riscv32i-unknown-none-elf
