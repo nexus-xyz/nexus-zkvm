@@ -73,7 +73,7 @@ fn parse_instructions(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Vec<I
                     target: LOG_TARGET,
                     ?addr,
                     error = ?err,
-                    "Failed to pass the instruction",
+                    "Failed to parse the instruction",
                 );
                 Inst {
                     pc: addr as u32,
