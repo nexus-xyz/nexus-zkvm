@@ -7,6 +7,7 @@ use crate::{
     error::{Result, VMError},
     memory::MemoryRecords,
     riscv::{BasicBlock, Instruction},
+    WORD_SIZE,
 };
 
 /// A program step.
@@ -232,14 +233,17 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
 
                 return (Some(block), Err(e));
             }
-            Ok(basic_block) => {
-                for instruction in basic_block.0.iter() {
+            Ok(basic_block_entry) => {
+                let at = (vm.executor.cpu.pc.value as usize - basic_block_entry.start as usize)
+                    / WORD_SIZE;
+
+                for instruction in basic_block_entry.block.0[at..].iter() {
                     if block.steps.len() == k {
                         return (Some(block), Ok(()));
                     }
 
-                    let pc = vm.executor.cpu.pc.value;
                     let timestamp = vm.executor.global_clock as u32;
+                    let pc = vm.executor.cpu.pc.value;
 
                     match step(vm, instruction, pc, timestamp) {
                         Ok(step) => block.steps.push(step),
@@ -358,8 +362,8 @@ fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
 
     match vm.fetch_block(vm.get_executor().cpu.pc.value) {
         Err(e) => return (None, Err(e)),
-        Ok(basic_block) => {
-            for instruction in basic_block.0.iter() {
+        Ok(basic_block_entry) => {
+            for instruction in basic_block_entry.block.0.iter() {
                 let pc = vm.executor.cpu.pc.value;
                 let timestamp = vm.executor.global_clock as u32;
 

@@ -49,7 +49,7 @@
 //!
 //! ```rust
 //! use nexus_vm::riscv::{BasicBlock, Instruction, Opcode, BuiltinOpcode, InstructionType};
-//! use nexus_vm::emulator::{Emulator, HarvardEmulator};
+//! use nexus_vm::emulator::{BasicBlockEntry, Emulator, HarvardEmulator};
 //!
 //! // Create a basic block with some instructions
 //! let basic_block = BasicBlock::new(vec![
@@ -59,7 +59,7 @@
 //! ]);
 //!
 //! let mut emulator = HarvardEmulator::default();
-//! emulator.execute_basic_block(&basic_block).unwrap();
+//! emulator.execute_basic_block(&BasicBlockEntry{ start: 0, end: 8, block: basic_block }).unwrap();
 //!
 //! assert_eq!(emulator.executor.cpu.registers[3.into()], 15); // x3 should be 15
 //! ```
@@ -85,16 +85,35 @@ use nexus_common::{
     cpu::{InstructionExecutor, Registers},
     word_align,
 };
+use rangemap::RangeMap;
 use std::{
     cmp::max,
-    collections::{btree_map, BTreeMap, HashMap, HashSet, VecDeque},
+    collections::{BTreeMap, HashMap, HashSet, VecDeque},
 };
 
 pub type MemoryTranscript = Vec<MemoryRecords>;
 
+#[derive(Debug)]
 pub struct ProgramMemoryEntry {
     pub pc: u32,
     pub instruction_word: u32,
+}
+
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
+pub struct BasicBlockEntry {
+    pub start: u32,
+    pub end: u32,
+    pub block: BasicBlock,
+}
+
+impl BasicBlockEntry {
+    fn new(start: u32, block: BasicBlock) -> Self {
+        BasicBlockEntry {
+            start,
+            end: start + (block.len() * WORD_SIZE) as u32,
+            block,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -111,8 +130,11 @@ pub struct Executor {
     // The global clock counter
     pub global_clock: usize,
 
+    // Reference component of basic block cache to improve performance
+    basic_block_ref_cache: RangeMap<u32, u32>,
+
     // Basic block cache to improve performance
-    basic_block_cache: BTreeMap<u32, BasicBlock>,
+    basic_block_cache: BTreeMap<u32, BasicBlockEntry>,
 
     // The base address of the program
     #[allow(unused)]
@@ -145,6 +167,7 @@ pub trait Emulator {
     /// 3. Execute the system call, modify the emulator if necessary
     /// 4. Write results back to memory
     /// 5. Update CPU state, the return result is stored in register a0
+    #[allow(clippy::type_complexity)]
     fn execute_syscall(
         executor: &mut Executor,
         memory: &mut impl MemoryProcessor,
@@ -176,13 +199,13 @@ pub trait Emulator {
     /// Fetches or decodes a basic block starting from the current PC.
     ///
     /// This function performs the following steps:
-    /// 1. Checks if the basic block at the current PC is already in the cache.
+    /// 1. Checks if a basic block containing the current PC is already in the cache.
     /// 2. If cached, returns the existing block.
     /// 3. If not cached, decodes a new block, caches it, and returns it.
     ///
     /// # Returns
-    /// if success, return a clone of `BasicBlock` starting at the current PC.
-    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlock>;
+    /// if success, return a `BasicBlockEntry` starting at the current PC.
+    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlockEntry>;
 
     /// Return a reference to the internal executor component used by the emulator.
     fn get_executor(&self) -> &Executor;
@@ -193,16 +216,21 @@ pub trait Emulator {
     /// Execute an entire basic block.
     fn execute_basic_block(
         &mut self,
-        basic_block: &BasicBlock,
+        basic_block_entry: &BasicBlockEntry,
     ) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
         #[cfg(debug_assertions)]
-        basic_block.print_with_offset(self.get_executor().cpu.pc.value as usize);
+        basic_block_entry
+            .block
+            .print_with_offset(self.get_executor().cpu.pc.value as usize);
 
         let mut results: Vec<InstructionResult> = Vec::new();
         let mut transcript: MemoryTranscript = Vec::new();
 
+        let at = (self.get_executor().cpu.pc.value as usize - basic_block_entry.start as usize)
+            / WORD_SIZE;
+
         // Execute the instructions in the basic block
-        for instruction in basic_block.0.iter() {
+        for instruction in basic_block_entry.block.0[at..].iter() {
             let (res, mem) = self.execute_instruction(instruction)?;
             results.push(res);
             transcript.push(mem);
@@ -217,8 +245,8 @@ pub trait Emulator {
         let mut transcript: MemoryTranscript = Vec::new();
 
         loop {
-            let basic_block = self.fetch_block(self.get_executor().cpu.pc.value)?;
-            let (res, mem) = self.execute_basic_block(&basic_block)?;
+            let basic_block_entry = self.fetch_block(self.get_executor().cpu.pc.value)?;
+            let (res, mem) = self.execute_basic_block(&basic_block_entry)?;
 
             results.extend(res);
             transcript.extend(mem);
@@ -275,12 +303,7 @@ impl HarvardEmulator {
     pub fn from_elf(elf: ElfFile, public_input: &[u8], private_input: &[u8]) -> Self {
         // the stack and heap will also be stored in this variable memory segment
         let text_end = (elf.instructions.len() * WORD_SIZE) as u32 + elf.base;
-        let mut data_end = elf
-            .ram_image
-            .last_key_value()
-            .unwrap_or((&text_end, &0))
-            .0
-            .clone();
+        let mut data_end = *elf.ram_image.last_key_value().unwrap_or((&text_end, &0)).0;
         let mut data_memory =
             UnifiedMemory::from(VariableMemory::<RW>::from(elf.ram_image.clone()));
 
@@ -427,21 +450,30 @@ impl Emulator for HarvardEmulator {
     /// Fetches or decodes a basic block starting from the current PC.
     ///
     /// This function performs the following steps:
-    /// 1. Checks if the basic block at the current PC is already in the cache.
+    /// 1. Checks if a basic block containing the current PC is already in the cache.
     /// 2. If cached, returns the existing block.
     /// 3. If not cached, decodes a new block, caches it, and returns it.
     ///
     /// # Returns
-    /// if success, return a clone of `BasicBlock` starting at the current PC.
-    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlock> {
-        if let btree_map::Entry::Vacant(e) = self.executor.basic_block_cache.entry(pc) {
-            let block = decode_until_end_of_a_block(self.instruction_memory.segment(pc, None));
-            if block.is_empty() {
-                return Err(VMError::VMOutOfInstructions);
-            }
-            e.insert(block);
+    /// if success, return a `BasicBlockEntry` starting at the current PC.
+    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlockEntry> {
+        if let Some(start) = self.executor.basic_block_ref_cache.get(&pc) {
+            return Ok(self.executor.basic_block_cache.get(start).unwrap().clone());
         }
-        Ok(self.executor.basic_block_cache.get(&pc).unwrap().clone())
+
+        let block = decode_until_end_of_a_block(self.instruction_memory.segment(pc, None));
+        if block.is_empty() {
+            return Err(VMError::VMOutOfInstructions);
+        }
+
+        let entry = BasicBlockEntry::new(pc, block);
+        let _ = self.executor.basic_block_cache.insert(pc, entry.clone());
+
+        self.executor
+            .basic_block_ref_cache
+            .insert(entry.start..entry.end, pc);
+
+        Ok(entry)
     }
 
     fn get_executor(&self) -> &Executor {
@@ -688,11 +720,11 @@ impl LinearEmulator {
 
     /// Returns the output memory segment.
     pub fn get_output(&self) -> Result<Vec<u8>, MemoryError> {
-        Ok(self.memory.segment_bytes(
+        self.memory.segment_bytes(
             (Modes::WO as usize, 0),
             self.memory_layout.exit_code(),
             Some(self.memory_layout.public_output_end()),
-        )?)
+        )
     }
 
     /// Creates a Linear Emulator from a basic block IR, for simple testing purposes.
@@ -886,25 +918,31 @@ impl Emulator for LinearEmulator {
     /// Fetches or decodes a basic block starting from the current PC.
     ///
     /// This function performs the following steps:
-    /// 1. Checks if the basic block at the current PC is already in the cache.
+    /// 1. Checks if a basic block containing the current PC is already in the cache.
     /// 2. If cached, returns the existing block.
     /// 3. If not cached, decodes a new block, caches it, and returns it.
     ///
     /// # Returns
-    /// if success, return a clone of `BasicBlock` starting at the current PC.
-    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlock> {
-        if let btree_map::Entry::Vacant(e) = self.executor.basic_block_cache.entry(pc) {
-            let block = decode_until_end_of_a_block(self.memory.segment(
-                self.instruction_index,
-                pc,
-                None,
-            )?);
-            if block.is_empty() {
-                return Err(VMError::VMOutOfInstructions);
-            }
-            e.insert(block);
+    /// if success, return a `BasicBlockEntry` starting at the current PC.
+    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlockEntry> {
+        if let Some(start) = self.executor.basic_block_ref_cache.get(&pc) {
+            return Ok(self.executor.basic_block_cache.get(start).unwrap().clone());
         }
-        Ok(self.executor.basic_block_cache.get(&pc).unwrap().clone())
+
+        let block =
+            decode_until_end_of_a_block(self.memory.segment(self.instruction_index, pc, None)?);
+        if block.is_empty() {
+            return Err(VMError::VMOutOfInstructions);
+        }
+
+        let entry = BasicBlockEntry::new(pc, block);
+        let _ = self.executor.basic_block_cache.insert(pc, entry.clone());
+
+        self.executor
+            .basic_block_ref_cache
+            .insert(entry.start..entry.end, pc);
+
+        Ok(entry)
     }
 
     fn get_executor(&self) -> &Executor {
@@ -978,7 +1016,9 @@ mod tests {
 
         let mut emulator = HarvardEmulator::default();
         basic_blocks.iter().for_each(|basic_block| {
-            emulator.execute_basic_block(basic_block).unwrap();
+            emulator
+                .execute_basic_block(&BasicBlockEntry::new(0, basic_block.clone()))
+                .unwrap();
         });
 
         assert_eq!(emulator.executor.cpu.registers[31.into()], 1346269);
@@ -1010,7 +1050,9 @@ mod tests {
 
         let mut emulator = LinearEmulator::default();
         basic_blocks.iter().for_each(|basic_block| {
-            emulator.execute_basic_block(basic_block).unwrap();
+            emulator
+                .execute_basic_block(&BasicBlockEntry::new(0, basic_block.clone()))
+                .unwrap();
         });
 
         assert_eq!(emulator.executor.cpu.registers[31.into()], 1346269);
@@ -1039,20 +1081,23 @@ mod tests {
     #[test]
     fn test_unimplemented_instruction() {
         let op = Opcode::new(0, None, None, "unsupported");
-        let basic_block = BasicBlock::new(vec![Instruction::new(
-            op.clone(),
-            1,
+        let basic_block_entry = BasicBlockEntry::new(
             0,
-            1,
-            InstructionType::IType,
-        )]);
+            BasicBlock::new(vec![Instruction::new(
+                op.clone(),
+                1,
+                0,
+                1,
+                InstructionType::IType,
+            )]),
+        );
         let mut emulator = HarvardEmulator::default();
-        let res = emulator.execute_basic_block(&basic_block);
+        let res = emulator.execute_basic_block(&basic_block_entry);
 
         assert_eq!(res, Err(VMError::UndefinedInstruction(op.clone())));
 
         let mut emulator = LinearEmulator::default();
-        let res = emulator.execute_basic_block(&basic_block);
+        let res = emulator.execute_basic_block(&basic_block_entry);
 
         assert_eq!(res, Err(VMError::UndefinedInstruction(op)));
     }
