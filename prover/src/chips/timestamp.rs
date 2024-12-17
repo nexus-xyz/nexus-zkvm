@@ -132,12 +132,13 @@ mod test {
     };
 
     use crate::{
+        chips::{AddChip, CpuChip, RegisterMemCheckChip, TimestampChip},
         test_utils::assert_chip,
-        {
-            chips::{AddChip, CpuChip, RegisterMemCheckChip, TimestampChip},
-            trace::{sidenote::SideNote, PreprocessedTraces, ProgramStep, Traces},
-            traits::MachineChip,
+        trace::{
+            program_trace::ProgramTraces, sidenote::SideNote, PreprocessedTraces, ProgramStep,
+            Traces,
         },
+        traits::MachineChip,
     };
 
     #[rustfmt::skip]
@@ -193,7 +194,8 @@ mod test {
         // Trace circuit
         const LOG_SIZE: u32 = 8;
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
@@ -228,6 +230,6 @@ mod test {
         preprocessed_column.fill_is_first32();
         //        preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<TimestampChip>(traces, Some(preprocessed_column));
+        assert_chip::<TimestampChip>(traces, Some(preprocessed_column), None);
     }
 }

@@ -31,6 +31,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
+        program_trace::ProgramTraces,
         regs::AccessResult,
         sidenote::SideNote,
         utils::FromBaseFields,
@@ -268,6 +269,7 @@ impl MachineChip for RegisterMemCheckChip {
     fn fill_interaction_trace(
         original_traces: &Traces,
         preprocessed_trace: &PreprocessedTraces,
+        _program_trace: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -574,7 +576,9 @@ mod test {
     use crate::{
         chips::{AddChip, CpuChip, RegisterMemCheckChip},
         test_utils::assert_chip,
-        trace::{program::iter_program_steps, PreprocessedTraces, Traces},
+        trace::{
+            program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces, Traces,
+        },
         traits::MachineChip,
     };
 
@@ -631,7 +635,8 @@ mod test {
         const LOG_SIZE: u32 = 8;
         let mut traces = Traces::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let mut side_note = super::SideNote::default();
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = super::SideNote::new(&program_traces);
 
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -652,6 +657,6 @@ mod test {
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<RegisterMemCheckChip>(traces, Some(preprocessed_column));
+        assert_chip::<RegisterMemCheckChip>(traces, Some(preprocessed_column), None);
     }
 }

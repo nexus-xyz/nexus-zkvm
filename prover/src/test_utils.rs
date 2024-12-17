@@ -16,7 +16,7 @@ use stwo_prover::{
 };
 
 use super::{
-    trace::{eval::TraceEval, PreprocessedTraces, Traces},
+    trace::{eval::TraceEval, program_trace::ProgramTraces, PreprocessedTraces, Traces},
     traits::MachineChip,
 };
 
@@ -46,6 +46,7 @@ pub(crate) struct CommittedTraces<'a> {
     pub(crate) lookup_elements: LookupElements<12>,
     pub(crate) preprocessed_trace: PreprocessedTraces,
     pub(crate) interaction_trace: Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
+    pub(crate) program_trace: ProgramTraces,
 }
 
 /// Testing utility for filling in traces
@@ -54,6 +55,7 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
     traces: &Traces,
     custom_preprocessed: Option<PreprocessedTraces>,
+    program_traces: Option<ProgramTraces>,
 ) -> CommittedTraces<'a> {
     let mut commitment_scheme =
         CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
@@ -72,18 +74,32 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     tree_builder.commit(&mut prover_channel);
     let lookup_elements = LookupElements::draw(&mut prover_channel);
 
+    let program_trace = program_traces.unwrap_or_else(|| ProgramTraces::new(traces.log_size(), []));
+
     // Interaction Trace
-    let interaction_trace =
-        C::fill_interaction_trace(traces, &preprocessed_trace, &lookup_elements);
+    let interaction_trace = C::fill_interaction_trace(
+        traces,
+        &preprocessed_trace,
+        &program_trace,
+        &lookup_elements,
+    );
     let mut tree_builder = commitment_scheme.tree_builder();
     let _interaction_trace_location = tree_builder.extend_evals(interaction_trace.clone());
     tree_builder.commit(&mut prover_channel);
+
+    // Program Trace
+    let mut tree_builder = commitment_scheme.tree_builder();
+    let _program_trace_location = tree_builder.extend_evals(program_trace.circle_evaluation());
+    tree_builder.commit(&mut prover_channel);
+    // TODO: make the verifier check the program trace commitment against the expected value
+
     CommittedTraces {
         commitment_scheme,
         prover_channel,
         lookup_elements,
         preprocessed_trace,
         interaction_trace,
+        program_trace,
     }
 }
 
@@ -91,6 +107,7 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
 pub(crate) fn assert_chip<C: MachineChip>(
     traces: Traces,
     custom_preprocessed: Option<PreprocessedTraces>,
+    program_trace: Option<ProgramTraces>,
 ) {
     let (config, twiddles) = test_params(traces.log_size());
 
@@ -100,7 +117,14 @@ pub(crate) fn assert_chip<C: MachineChip>(
         lookup_elements,
         preprocessed_trace,
         interaction_trace,
-    } = commit_traces::<C>(config, &twiddles, &traces, custom_preprocessed);
+        program_trace,
+    } = commit_traces::<C>(
+        config,
+        &twiddles,
+        &traces,
+        custom_preprocessed,
+        program_trace,
+    );
 
     let trace_evals = TreeVec::new(vec![
         preprocessed_trace.circle_evaluation(),
@@ -109,6 +133,7 @@ pub(crate) fn assert_chip<C: MachineChip>(
             .iter()
             .map(|col| col.to_cpu())
             .collect_vec(),
+        program_trace.circle_evaluation(),
     ]);
     let trace_polys = trace_evals.map(|trace| {
         trace

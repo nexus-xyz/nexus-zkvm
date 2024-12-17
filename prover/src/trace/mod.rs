@@ -19,6 +19,7 @@ use super::column::Column;
 pub mod eval;
 pub mod preprocessed;
 pub mod program;
+pub mod program_trace;
 pub mod regs;
 pub mod sidenote;
 pub mod utils;

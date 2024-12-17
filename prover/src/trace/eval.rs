@@ -2,12 +2,17 @@ use std::array;
 
 use stwo_prover::constraint_framework::{EvalAtRow, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 
-use crate::column::{Column, PreprocessedColumn};
+use crate::column::{
+    Column, {PreprocessedColumn, ProgramColumn},
+};
+
+pub const PROGRAM_TRACE_IDX: usize = 3; // After INTERACTION_TRACE_IDX; the verifier is supposed to know the commitment of the program trace
 
 // Trace evaluation at the current row and the next row.
 pub struct TraceEval<E: EvalAtRow> {
     evals: Vec<[E::F; 2]>,
     preprocessed_evals: Vec<[E::F; 2]>,
+    program_evals: Vec<[E::F; 1]>, // only the current row
 }
 
 impl<E: EvalAtRow> TraceEval<E> {
@@ -20,9 +25,14 @@ impl<E: EvalAtRow> TraceEval<E> {
             std::iter::repeat_with(|| eval.next_interaction_mask(PREPROCESSED_TRACE_IDX, [0, 1]))
                 .take(PreprocessedColumn::COLUMNS_NUM)
                 .collect();
+        let program_evals =
+            std::iter::repeat_with(|| eval.next_interaction_mask(PROGRAM_TRACE_IDX, [0]))
+                .take(ProgramColumn::COLUMNS_NUM)
+                .collect();
         Self {
             evals,
             preprocessed_evals,
+            program_evals,
         }
     }
 
@@ -58,6 +68,14 @@ impl<E: EvalAtRow> TraceEval<E> {
         let offset = col.offset();
 
         array::from_fn(|i| self.preprocessed_evals[offset + i][1].clone())
+    }
+
+    #[doc(hidden)]
+    pub fn program_column_eval<const N: usize>(&self, col: ProgramColumn) -> [E::F; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        let offset = col.offset();
+
+        array::from_fn(|i| self.program_evals[offset + i][0].clone())
     }
 }
 
@@ -127,3 +145,21 @@ macro_rules! preprocessed_trace_eval_next_row {
 }
 
 pub(crate) use preprocessed_trace_eval_next_row;
+
+/// Returns evaluations for a given column in program trace.
+///
+/// ```ignore
+/// let trace_eval = TraceEval::new(&mut eval);
+/// let curr_pc = trace_eval!(trace_eval, Column::Pc);
+/// let program_flag = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
+/// for i in 0..WORD_SIZE {
+///     eval.add_constraint(curr_pc[i] * program_flag[0]);
+/// }
+/// ```
+macro_rules! program_trace_eval {
+    ($traces:expr, $col:expr) => {{
+        $traces.program_column_eval::<{ ProgramColumn::size($col) }>($col)
+    }};
+}
+
+pub(crate) use program_trace_eval;

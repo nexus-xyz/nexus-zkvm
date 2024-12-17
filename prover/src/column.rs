@@ -227,18 +227,9 @@ pub enum Column {
     /// Carry flags for incrementing PrgPrevCtr into PrgCurCtr
     #[size = 4]
     ProgCtrCarry,
-    /// Program memory content: every Pc accessed during the execution, filled after the execution
-    #[size = 4]
-    PrgMemoryPc,
-    /// Program memory content: Instruction word at PrgMemoryPc
-    #[size = 4]
-    PrgMemoryWord,
     /// Program memory content: final counter at PrgMemoryPc, filled after the execution
     #[size = 4]
     FinalPrgMemoryCtr,
-    /// Program memory content: 1 means the row contains real PrgMemory*. 0 otherwise.
-    #[size = 1]
-    PrgMemoryFlag,
 
     /// Aux variables for comparing previous and current timestamps
     #[size = 4]
@@ -314,6 +305,27 @@ pub enum Column {
 // proc macro derived:
 //
 // impl Column {
+//     pub const COLUMNS_NUM: usize = /* ... */;
+//     pub const fn size(self) -> usize { /* ... */ }
+//     pub const fn offset(self) -> usize { /* ... */ }
+// }
+
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
+pub enum ProgramColumn {
+    /// Program memory content: every Pc in the program memory
+    #[size = 4]
+    PrgMemoryPc,
+    /// Program memory content: Instruction word at PrgMemoryPc
+    #[size = 4]
+    PrgMemoryWord,
+    /// Program memory content: 1 means the row contains real PrgMemory*. 0 otherwise.
+    #[size = 1]
+    PrgMemoryFlag,
+}
+
+// proc macro derived:
+//
+// impl ProgramColumn {
 //     pub const COLUMNS_NUM: usize = /* ... */;
 //     pub const fn size(self) -> usize { /* ... */ }
 //     pub const fn offset(self) -> usize { /* ... */ }

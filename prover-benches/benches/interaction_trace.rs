@@ -1,11 +1,15 @@
 use std::time::Duration;
 
 use nexus_vm::{
+    emulator::{LinearEmulator, LinearMemoryLayout},
     riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
-    trace::{k_trace_direct, UniformTrace},
+    trace::k_trace_direct,
 };
 use nexus_vm_prover::{
-    trace::{program::iter_program_steps, sidenote::SideNote, PreprocessedTraces, Traces},
+    trace::{
+        program::iter_program_steps, program_trace::ProgramTraces, sidenote::SideNote,
+        PreprocessedTraces, Traces,
+    },
     traits::MachineChip,
 };
 
@@ -39,15 +43,19 @@ criterion_group! {
 criterion_main!(interaction_trace);
 
 fn bench_interaction_trace(c: &mut Criterion) {
-    let program_trace = program_trace();
+    let blocks = program_trace();
+    let program_trace = k_trace_direct(&blocks, K).expect("error generating trace");
 
+    let emulator = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &blocks);
     for &log_size in LOG_SIZES {
         let mut group = c.benchmark_group(format!("Interaction-Trace-LogSize-{log_size}"));
         group.sample_size(10);
 
+        let program_memory = emulator.iter_program_memory();
+        let program_traces = ProgramTraces::new(log_size, program_memory);
         let preprocessed_trace = PreprocessedTraces::new(log_size);
         let mut prover_traces = Traces::new(log_size);
-        let mut prover_side_note = SideNote::default();
+        let mut prover_side_note = SideNote::new(&program_traces);
 
         let program_steps = iter_program_steps(&program_trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -67,6 +75,7 @@ fn bench_interaction_trace(c: &mut Criterion) {
                 black_box(nexus_vm_prover::Components::fill_interaction_trace(
                     black_box(&prover_traces),
                     black_box(&preprocessed_trace),
+                    black_box(&program_traces),
                     black_box(&lookup_elements),
                 ))
             })
@@ -75,7 +84,7 @@ fn bench_interaction_trace(c: &mut Criterion) {
     }
 }
 
-fn program_trace() -> UniformTrace {
+fn program_trace() -> Vec<BasicBlock> {
     let mut i = 0u8;
     let mut j = 1u8;
     let mut k = 2u8;
@@ -106,6 +115,5 @@ fn program_trace() -> UniformTrace {
     }))
     .take(2usize.pow(14))
     .collect();
-
-    k_trace_direct(&vec![BasicBlock::new(insts)], K).expect("error generating trace")
+    vec![BasicBlock::new(insts)]
 }

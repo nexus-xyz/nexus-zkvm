@@ -19,10 +19,11 @@ use stwo_prover::{
 };
 
 use crate::{
-    column::{Column, PreprocessedColumn},
+    column::{Column, PreprocessedColumn, ProgramColumn},
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
+        eval::{preprocessed_trace_eval, program_trace_eval, trace_eval, TraceEval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         utils::FromBaseFields,
         PreprocessedTraces, ProgramStep, Traces,
@@ -77,39 +78,16 @@ impl MachineChip for ProgramMemCheckChip {
                 .program_mem_check
                 .last_access_counter
                 .insert(pc, new_access_counter);
-            // Note: no need to udpate the access counter for pc + {1,2,3}. They are not used.
-            let instruction_word = traces.column(row_idx, Column::InstrVal);
-            let instruction_word = u32::from_base_fields(instruction_word);
-            let known_instruction_word = side_note
-                .program_mem_check
-                .accessed_program_memory
-                .insert(pc, instruction_word);
-            known_instruction_word
-                .and_then(|known_word| Some(assert_eq!(known_word, instruction_word)));
         }
         // Use accessed_program_memory sidenote to fill in the final program memory contents
         if row_idx == traces.num_rows() - 1 {
-            assert!(
-                side_note.program_mem_check.accessed_program_memory.len() <= 1 << traces.log_size(),
-                "More Pc access than the size of trace, unexpected."
-            );
-            let mut final_program_row_idx: usize = 0;
-            for (pc, instruction_word) in side_note.program_mem_check.accessed_program_memory.iter()
-            {
-                traces.fill_columns(final_program_row_idx, *pc, Column::PrgMemoryPc);
-                traces.fill_columns(
-                    final_program_row_idx,
-                    *instruction_word,
-                    Column::PrgMemoryWord,
-                );
-                let counter = side_note
+            for (pc, counter) in side_note.program_mem_check.last_access_counter.iter() {
+                let traget_row_idx = side_note
                     .program_mem_check
-                    .last_access_counter
-                    .get(pc)
-                    .expect("counter not found with an accessed Pc");
-                traces.fill_columns(final_program_row_idx, *counter, Column::FinalPrgMemoryCtr);
-                traces.fill_columns(final_program_row_idx, true, Column::PrgMemoryFlag);
-                final_program_row_idx += 1;
+                    .program_trace
+                    .find_row_idx(*pc)
+                    .expect("Pc not found in program trace");
+                traces.fill_columns(traget_row_idx, *counter, Column::FinalPrgMemoryCtr);
             }
         }
     }
@@ -134,16 +112,27 @@ impl MachineChip for ProgramMemCheckChip {
     fn fill_interaction_trace(
         original_traces: &Traces,
         _preprocessed_trace: &PreprocessedTraces,
+        program_trace: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
         // add initial digest
         // For every used Pc, a tuple (address, instruction_as_word, 0u32) is added.
-        Self::add_initial_digest(&mut logup_trace_gen, original_traces, lookup_element);
+        Self::add_initial_digest(
+            &mut logup_trace_gen,
+            original_traces,
+            program_trace,
+            lookup_element,
+        );
 
         // subtract final digest
         // For every used Pc, a tuple (address, instruction_as_word, final_counter) is subtracted.
-        Self::subtract_final_digest(&mut logup_trace_gen, original_traces, lookup_element);
+        Self::subtract_final_digest(
+            &mut logup_trace_gen,
+            original_traces,
+            program_trace,
+            lookup_element,
+        );
 
         // subtract program memory access, previous counter reads
         // For each access, a tuple of the form (address, instruction_as_word, previous_couter) is subtracted.
@@ -217,11 +206,13 @@ impl ProgramMemCheckChip {
     fn add_initial_digest(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &Traces,
+        program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let [prg_memory_flag] = original_traces.get_base_column(Column::PrgMemoryFlag);
-        let prg_memory_pc = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryPc);
-        let prg_memory_word = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryWord);
+        let [prg_memory_flag] = program_traces.get_base_column(ProgramColumn::PrgMemoryFlag);
+        let prg_memory_pc = program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryPc);
+        let prg_memory_word =
+            program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryWord);
         // The counter is not used because initially the counters are zero.
         let mut logup_col_gen = logup_trace_gen.new_col();
         // Add (Pc, prg_memory_word, 0u32)
@@ -256,9 +247,9 @@ impl ProgramMemCheckChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let [prg_memory_flag] = trace_eval!(trace_eval, Column::PrgMemoryFlag);
-        let prg_memory_pc = trace_eval!(trace_eval, Column::PrgMemoryPc);
-        let prg_memory_word = trace_eval!(trace_eval, Column::PrgMemoryWord);
+        let [prg_memory_flag] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
+        let prg_memory_pc = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryPc);
+        let prg_memory_word = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryWord);
         // Add (Pc, prg_memory_word, 0u32)
         let mut tuple = vec![];
         for prg_memory_pc_byte in prg_memory_pc.into_iter() {
@@ -289,11 +280,13 @@ impl ProgramMemCheckChip {
     fn subtract_final_digest(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &Traces,
+        program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let [prg_memory_flag] = original_traces.get_base_column(Column::PrgMemoryFlag);
-        let prg_memory_pc = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryPc);
-        let prg_memory_word = original_traces.get_base_column::<WORD_SIZE>(Column::PrgMemoryWord);
+        let [prg_memory_flag] = program_traces.get_base_column(ProgramColumn::PrgMemoryFlag);
+        let prg_memory_pc = program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryPc);
+        let prg_memory_word =
+            program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryWord);
         let prg_memory_ctr =
             original_traces.get_base_column::<WORD_SIZE>(Column::FinalPrgMemoryCtr);
         let mut logup_col_gen = logup_trace_gen.new_col();
@@ -331,9 +324,9 @@ impl ProgramMemCheckChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
-        let [prg_memory_flag] = trace_eval!(trace_eval, Column::PrgMemoryFlag);
-        let prg_memory_pc = trace_eval!(trace_eval, Column::PrgMemoryPc);
-        let prg_memory_word = trace_eval!(trace_eval, Column::PrgMemoryWord);
+        let [prg_memory_flag] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
+        let prg_memory_pc = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryPc);
+        let prg_memory_word = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryWord);
         let prg_memory_ctr = trace_eval!(trace_eval, Column::FinalPrgMemoryCtr);
         let mut tuple = vec![];
         for prg_memory_pc_byte in prg_memory_pc.into_iter() {
@@ -508,14 +501,18 @@ impl ProgramMemCheckChip {
 }
 #[cfg(test)]
 mod test {
+
     use crate::{
-        chips::{AddChip, CpuChip},
         test_utils::assert_chip,
-        trace::{utils::IntoBaseFields, PreprocessedTraces},
+        {
+            chips::{AddChip, CpuChip},
+            trace::{program_trace::ProgramTraces, utils::IntoBaseFields, PreprocessedTraces},
+        },
     };
 
     use super::*;
     use nexus_vm::{
+        emulator::{LinearEmulator, LinearMemoryLayout},
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
     };
@@ -572,10 +569,14 @@ mod test {
 
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let emulator =
+            LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_block);
+        let program_memory = emulator.iter_program_memory();
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_trace = ProgramTraces::new(LOG_SIZE, program_memory);
+        let mut side_note = SideNote::new(&program_trace);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
@@ -625,6 +626,6 @@ mod test {
             assert_eq!(*item.1, 1, "unexpected number of accesses to Pc");
         }
         let preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
-        assert_chip::<ProgramMemCheckChip>(traces, Some(preprocessed_column));
+        assert_chip::<ProgramMemCheckChip>(traces, Some(preprocessed_column), Some(program_trace));
     }
 }

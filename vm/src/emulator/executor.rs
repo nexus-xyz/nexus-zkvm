@@ -92,6 +92,11 @@ use std::{
 
 pub type MemoryTranscript = Vec<MemoryRecords>;
 
+pub struct ProgramMemoryEntry {
+    pub pc: u32,
+    pub instruction_word: u32,
+}
+
 #[derive(Debug, Default)]
 pub struct Executor {
     // The CPU
@@ -781,6 +786,23 @@ impl LinearEmulator {
         self.access_timestamps
             .insert(*address, self.executor.global_clock);
         prev
+    }
+
+    /// Returns the whole program as a map of program counter -> instruction word
+    pub fn iter_program_memory(&self) -> impl Iterator<Item = ProgramMemoryEntry> + '_ {
+        self.memory
+            .segment(
+                self.instruction_index,
+                self.memory_layout.program_start(),
+                None,
+            )
+            .expect("Cannot find program memory in LinearEmulator")
+            .iter()
+            .enumerate()
+            .map(|(pc_offset, instruction)| ProgramMemoryEntry {
+                pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
+                instruction_word: *instruction,
+            })
     }
 }
 

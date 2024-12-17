@@ -21,15 +21,16 @@ use stwo_prover::{
 use crate::{
     column::Column::{
         self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, FinalRegTs, FinalRegValue,
-        Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, PrgMemoryPc, PrgMemoryWord, ProgCtrCur,
-        ProgCtrPrev, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2ValCur, Ram2ValPrev,
-        Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur, Ram4ValPrev, RamBaseAddr,
-        Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+        Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, ProgCtrCur, ProgCtrPrev, Ram1TsPrev,
+        Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3ValCur,
+        Ram3ValPrev, Ram4TsPrev, Ram4ValCur, Ram4ValPrev, RamBaseAddr, Reg1TsPrev, Reg2TsPrev,
+        Reg3TsPrev, ValueA, ValueB, ValueC,
     },
     column::PreprocessedColumn::{self, IsFirst, Range256},
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         PreprocessedTraces, ProgramStep, Traces,
     },
@@ -43,7 +44,7 @@ use crate::{
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED_WORDS: [Column; 25] = [
+    const CHECKED_WORDS: [Column; 23] = [
         Pc,
         InstrVal,
         PrevCtr,
@@ -58,8 +59,6 @@ impl Range256Chip {
         ProgCtrPrev,
         FinalRegTs,
         FinalRegValue,
-        PrgMemoryPc,
-        PrgMemoryWord,
         FinalPrgMemoryCtr,
         CReg1TsPrev,
         CReg2TsPrev,
@@ -82,6 +81,8 @@ impl Range256Chip {
         Ram4ValPrev,
     ];
 }
+
+// TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace
 
 impl MachineChip for Range256Chip {
     /// Increments Multiplicity256 for every number checked
@@ -106,6 +107,7 @@ impl MachineChip for Range256Chip {
     fn fill_interaction_trace(
         original_traces: &Traces,
         preprocessed_traces: &PreprocessedTraces,
+        _program_traces: &ProgramTraces,
         lookup_element: &LookupElements<12>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -244,7 +246,8 @@ mod test {
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_traces = ProgramTraces::new(LOG_SIZE, []);
+        let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
@@ -263,7 +266,7 @@ mod test {
         let mut preprocessed_256_rows = PreprocessedTraces::empty(LOG_SIZE);
         preprocessed_256_rows.fill_is_first();
         preprocessed_256_rows.fill_range256();
-        assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows));
+        assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows), None);
     }
 
     #[test]
@@ -272,7 +275,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {
@@ -295,7 +299,8 @@ mod test {
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
-        } = commit_traces::<Range256Chip>(config, &twiddles, &traces, None);
+            program_trace: _,
+        } = commit_traces::<Range256Chip>(config, &twiddles, &traces, None, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

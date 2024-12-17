@@ -13,7 +13,8 @@ use stwo_prover::{
 use super::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::TraceEval, preprocessed::PreprocessedTraces, sidenote::SideNote, ProgramStep, Traces,
+        eval::TraceEval, preprocessed::PreprocessedTraces, program_trace::ProgramTraces,
+        sidenote::SideNote, ProgramStep, Traces,
     },
 };
 
@@ -49,6 +50,7 @@ pub trait MachineChip {
     fn fill_interaction_trace(
         _original_traces: &Traces,
         _preprocessed_trace: &PreprocessedTraces,
+        _program_traces: &ProgramTraces,
         _lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         vec![]
@@ -77,10 +79,11 @@ impl MachineChip for Tuple {
     fn fill_interaction_trace(
         original_traces: &Traces,
         preprocessed_traces: &PreprocessedTraces,
+        program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut result = ColumnVec::new();
-        for_tuples!( #( result.append(&mut Tuple::fill_interaction_trace(original_traces, preprocessed_traces, lookup_element)); )* );
+        for_tuples!( #( result.append(&mut Tuple::fill_interaction_trace(original_traces, preprocessed_traces, program_traces, lookup_element)); )* );
         result
     }
 }

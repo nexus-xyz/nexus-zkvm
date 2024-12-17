@@ -36,6 +36,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         PreprocessedTraces, ProgramStep, Traces, Word,
     },
@@ -178,6 +179,7 @@ impl MachineChip for BitOpChip {
     fn fill_interaction_trace(
         original_traces: &Traces,
         preprocessed_trace: &PreprocessedTraces,
+        _program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -360,7 +362,8 @@ mod test {
 
         let mut traces = Traces::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let mut side_note = SideNote::default();
+        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_trace);
 
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
@@ -388,6 +391,6 @@ mod test {
 
         assert_eq!(output, 0b0110100);
 
-        assert_chip::<Chips>(traces, None);
+        assert_chip::<Chips>(traces, None, None);
     }
 }

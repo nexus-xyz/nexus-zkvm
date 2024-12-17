@@ -7,9 +7,9 @@ use num_traits::One;
 use crate::{
     column::Column::{
         self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsBge,
-        IsBgeu, IsBlt, IsBltu, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor, LtFlag, PrgMemoryFlag,
-        Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed, Reg2Accessed,
-        Reg3Accessed, SgnA, SgnB, SgnC,
+        IsBgeu, IsBlt, IsBltu, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor, LtFlag, Ram1Accessed,
+        Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnA,
+        SgnB, SgnC,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
@@ -23,7 +23,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 26] = [
+const CHECKED_SINGLE: [Column; 25] = [
     ImmB,
     ImmC,
     IsAdd,
@@ -45,13 +45,14 @@ const CHECKED_SINGLE: [Column; 26] = [
     Reg1Accessed,
     Reg2Accessed,
     Reg3Accessed,
-    PrgMemoryFlag,
     Ram1Accessed,
     Ram2Accessed,
     Ram3Accessed,
     Ram4Accessed,
 ];
 const CHECKED_WORD: [Column; 5] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus];
+
+// TODO: also range-check PrgMemoryFlag in program trace
 
 impl MachineChip for RangeBoolChip {
     fn fill_main_trace(
@@ -87,6 +88,7 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::trace::program_trace::ProgramTraces;
     use crate::trace::PreprocessedTraces;
     use crate::traits::MachineChip;
 
@@ -101,7 +103,8 @@ mod test {
     fn test_range_bool_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_trace = ProgramTraces::new(LOG_SIZE, []);
+        let mut side_note = SideNote::new(&program_trace);
 
         for row_idx in 0..traces.num_rows() {
             let b = row_idx % 2 == 0;
@@ -121,7 +124,7 @@ mod test {
             );
         }
         let preprocessed_bool_rows = PreprocessedTraces::empty(LOG_SIZE);
-        assert_chip::<RangeBoolChip>(traces, Some(preprocessed_bool_rows));
+        assert_chip::<RangeBoolChip>(traces, Some(preprocessed_bool_rows), None);
     }
 
     #[test]
@@ -130,7 +133,8 @@ mod test {
         const LOG_SIZE: u32 = 10;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_trace);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 2 == 0) as u8 + 1; // sometimes out of range
@@ -155,7 +159,8 @@ mod test {
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
-        } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces, None);
+            program_trace: _,
+        } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces, None, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

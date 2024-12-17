@@ -24,6 +24,7 @@ use crate::{
     trace::{
         eval::TraceEval,
         eval::{preprocessed_trace_eval, trace_eval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         PreprocessedTraces, ProgramStep, Traces,
     },
@@ -57,6 +58,7 @@ impl MachineChip for Range32Chip {
     fn fill_interaction_trace(
         original_traces: &Traces,
         preprocessed_traces: &PreprocessedTraces,
+        _program_traces: &ProgramTraces,
         lookup_element: &LookupElements<12>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -154,7 +156,8 @@ mod test {
     fn test_range32_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_traces = ProgramTraces::new(LOG_SIZE, []);
+        let mut side_note = SideNote::new(&program_traces);
 
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 32) as u8;
@@ -173,7 +176,7 @@ mod test {
         let mut preprocessed_32_rows = PreprocessedTraces::empty(LOG_SIZE);
         preprocessed_32_rows.fill_is_first();
         preprocessed_32_rows.fill_range32();
-        assert_chip::<Range32Chip>(traces, Some(preprocessed_32_rows));
+        assert_chip::<Range32Chip>(traces, Some(preprocessed_32_rows), None);
     }
 
     #[test]
@@ -182,7 +185,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 32) as u8 + 1; // sometimes out of range
@@ -201,7 +205,8 @@ mod test {
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
-        } = commit_traces::<Range32Chip>(config, &twiddles, &traces, None);
+            program_trace: _,
+        } = commit_traces::<Range32Chip>(config, &twiddles, &traces, None, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

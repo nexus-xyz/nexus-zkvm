@@ -217,7 +217,7 @@ mod test {
     use crate::{
         chips::{AddChip, CpuChip, RegisterMemCheckChip, SubChip},
         test_utils::assert_chip,
-        trace::{program::iter_program_steps, PreprocessedTraces},
+        trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
     };
 
     use super::*;
@@ -322,7 +322,8 @@ mod test {
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
-        let mut side_note = SideNote::default();
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
         // We iterate each block in the trace for each instruction
@@ -335,6 +336,6 @@ mod test {
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(traces, Some(preprocessed_column));
+        assert_chip::<Chips>(traces, Some(preprocessed_column), Some(program_traces));
     }
 }
