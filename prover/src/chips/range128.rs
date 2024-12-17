@@ -4,7 +4,7 @@
 
 use stwo_prover::{
     constraint_framework::logup::{LogupTraceGenerator, LookupElements},
-    core::fields::m31,
+    core::{backend::simd::m31::PackedBaseField, fields::m31},
 };
 
 use nexus_vm::WORD_SIZE;
@@ -31,7 +31,7 @@ use crate::{
     traits::MachineChip,
 };
 
-use crate::column::Column::{self, Helper2, Helper3, IsSlt, Multiplicity128};
+use crate::column::Column::{self, Helper2, Helper3, IsBge, IsBlt, IsSlt, Multiplicity128};
 use crate::column::PreprocessedColumn::{self, IsFirst, Range128};
 
 /// A Chip for range-checking values for 0..=127
@@ -49,11 +49,13 @@ impl MachineChip for Range128Chip {
         side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
-        let last_limb_checked_slt = [Helper2, Helper3];
-        for col in last_limb_checked_slt.into_iter() {
+        let [is_bge] = traces.column(row_idx, IsBge);
+        let [is_blt] = traces.column(row_idx, IsBlt);
+        let last_limb_checked = [Helper2, Helper3];
+        for col in last_limb_checked.into_iter() {
             let word: [_; WORD_SIZE] = traces.column(row_idx, col);
             let last_limb = word[3];
-            fill_main_col(last_limb, is_slt, traces, side_note);
+            fill_main_col(last_limb, is_slt + is_bge + is_blt, traces, side_note);
         }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -70,11 +72,13 @@ impl MachineChip for Range128Chip {
         // Add checked occurrences to logup sum.
         // TODO: range-check other byte-ranged columns.
         let [is_slt]: [BaseColumn; 1] = original_traces.get_base_column(IsSlt);
+        let [is_bge]: [BaseColumn; 1] = original_traces.get_base_column(IsBge);
+        let [is_blt]: [BaseColumn; 1] = original_traces.get_base_column(IsBlt);
         for col in [Helper2, Helper3].into_iter() {
             let helper: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(col);
             check_col(
                 &helper[3],
-                &is_slt,
+                &[&is_slt, &is_bge, &is_blt],
                 original_traces.log_size(),
                 &mut logup_trace_gen,
                 lookup_element,
@@ -111,10 +115,12 @@ impl MachineChip for Range128Chip {
         // Add checked occurrences to logup sum.
         // not using trace_eval! macro because it doesn't accept *col as an argument.
         let [is_slt] = trace_eval.column_eval(IsSlt);
+        let [is_bge] = trace_eval.column_eval(IsBge);
+        let [is_blt] = trace_eval.column_eval(IsBlt);
         for col in [Helper2, Helper3].into_iter() {
             let value = trace_eval.column_eval::<WORD_SIZE>(col);
             let denom: E::EF = lookup_elements.combine(&[value[3].clone()]);
-            let numerator = is_slt.clone();
+            let numerator = is_slt.clone() + is_bge.clone() + is_blt.clone();
             logup.write_frac(eval, Fraction::new(numerator.into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
@@ -151,7 +157,7 @@ fn fill_main_col(
 
 fn check_col(
     base_column: &BaseColumn,
-    selector: &BaseColumn,
+    selectors: &[&BaseColumn],
     log_size: u32,
     logup_trace_gen: &mut LogupTraceGenerator,
     lookup_element: &LookupElements<12>,
@@ -161,7 +167,11 @@ fn check_col(
     for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
         let checked_tuple = vec![base_column.data[vec_row]];
         let denom = lookup_element.combine(&checked_tuple);
-        let numerator = selector.data[vec_row];
+        let mut numerator = PackedBaseField::zero();
+        for selector in selectors.iter() {
+            let numerator_selector = selector.data[vec_row];
+            numerator += numerator_selector;
+        }
         logup_col_gen.write_frac(vec_row, numerator.into(), denom);
     }
     logup_col_gen.finalize_col();

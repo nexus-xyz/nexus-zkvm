@@ -207,15 +207,13 @@ impl MachineChip for BgeChip {
                         - pc_next[i].clone()),
             );
         }
-
-        // TODO: range check h2[WORD_SIZE - 1] and h3[WORD_SIZE - 1] to be in the range 0..=127
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, RegisterMemCheckChip, SubChip},
+        chips::{AddChip, CpuChip, Range128Chip, RegisterMemCheckChip, SubChip},
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
     };
@@ -313,7 +311,14 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_bge_instructions() {
-        type Chips = (CpuChip, AddChip, SubChip, BgeChip, RegisterMemCheckChip);
+        type Chips = (
+            CpuChip,
+            AddChip,
+            SubChip,
+            BgeChip,
+            Range128Chip,
+            RegisterMemCheckChip,
+        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -330,12 +335,6 @@ mod test {
         for (row_idx, program_step) in program_steps.enumerate() {
             Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
-
-        let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
-        preprocessed_column.fill_is_first();
-        preprocessed_column.fill_is_first32();
-        preprocessed_column.fill_row_idx();
-        preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(traces, Some(preprocessed_column), Some(program_traces));
+        assert_chip::<Chips>(traces, None, Some(program_traces));
     }
 }
