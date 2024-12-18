@@ -151,4 +151,12 @@ impl ProgramTraces {
         }
         Some(row_idx)
     }
+
+    pub(crate) fn column<const N: usize>(&self, row: usize, col: ProgramColumn) -> [BaseField; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+
+        let offset = col.offset();
+        let mut iter = self.traces.cols[offset..].iter();
+        std::array::from_fn(|_idx| iter.next().expect("invalid offset; must be unreachable")[row])
+    }
 }

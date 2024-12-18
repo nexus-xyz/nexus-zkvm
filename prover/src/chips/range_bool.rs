@@ -11,9 +11,11 @@ use crate::{
         Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnA,
         SgnB, SgnC,
     },
+    column::ProgramColumn,
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, ProgramStep, Traces,
+        eval::program_trace_eval, eval::TraceEval, program_trace::ProgramTraces,
+        sidenote::SideNote, ProgramStep, Traces,
     },
     traits::MachineChip,
     WORD_SIZE,
@@ -81,6 +83,8 @@ impl MachineChip for RangeBoolChip {
                 eval.add_constraint(limb.clone() * (limb - E::F::one()));
             }
         }
+        let [prg_memory_flg] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
+        eval.add_constraint(prg_memory_flg.clone() * (prg_memory_flg - E::F::one()));
     }
 }
 

@@ -19,14 +19,17 @@ use stwo_prover::{
 };
 
 use crate::{
-    column::Column::{
-        self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, FinalRegTs, FinalRegValue,
-        Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, ProgCtrCur, ProgCtrPrev, Ram1TsPrev,
-        Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3ValCur,
-        Ram3ValPrev, Ram4TsPrev, Ram4ValCur, Ram4ValPrev, RamBaseAddr, Reg1TsPrev, Reg2TsPrev,
-        Reg3TsPrev, ValueA, ValueB, ValueC,
+    column::{
+        Column::{
+            self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, FinalRegTs,
+            FinalRegValue, Helper1, InstrVal, Multiplicity256, Pc, PrevCtr, ProgCtrCur,
+            ProgCtrPrev, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2ValCur, Ram2ValPrev,
+            Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur, Ram4ValPrev, RamBaseAddr,
+            Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+        },
+        PreprocessedColumn::{self, IsFirst, Range256},
+        ProgramColumn,
     },
-    column::PreprocessedColumn::{self, IsFirst, Range256},
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
@@ -80,6 +83,9 @@ impl Range256Chip {
         Ram3ValPrev,
         Ram4ValPrev,
     ];
+
+    const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 2] =
+        [ProgramColumn::PrgMemoryPc, ProgramColumn::PrgMemoryWord];
 }
 
 // TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace
@@ -90,11 +96,15 @@ impl MachineChip for Range256Chip {
         traces: &mut Traces,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
         for col in Self::CHECKED_WORDS.iter() {
             let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
+            fill_main_cols(value_col, traces, side_note);
+        }
+        for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
+            let value_col: [BaseField; WORD_SIZE] = program_traces.column(row_idx, *col);
             fill_main_cols(value_col, traces, side_note);
         }
         for col in Self::CHECKED_BYTES.iter() {
@@ -108,7 +118,7 @@ impl MachineChip for Range256Chip {
     fn fill_interaction_trace(
         original_traces: &Traces,
         preprocessed_traces: &PreprocessedTraces,
-        _program_traces: &ProgramTraces,
+        program_traces: &ProgramTraces,
         lookup_element: &LookupElements<12>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -125,6 +135,15 @@ impl MachineChip for Range256Chip {
         }
         for col in Self::CHECKED_BYTES.iter() {
             let value_basecolumn = original_traces.get_base_column::<1>(*col);
+            check_bytes(
+                value_basecolumn,
+                original_traces.log_size(),
+                &mut logup_trace_gen,
+                lookup_element,
+            );
+        }
+        for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
+            let value_basecolumn: [BaseColumn; WORD_SIZE] = program_traces.get_base_column(*col);
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
@@ -173,6 +192,13 @@ impl MachineChip for Range256Chip {
             let [value] = trace_eval.column_eval(*col);
             let denom: E::EF = lookup_elements.combine(&[value.clone()]);
             logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
+        }
+        for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
+            let value = trace_eval.program_column_eval::<WORD_SIZE>(*col);
+            for limb in value.iter().take(WORD_SIZE) {
+                let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
+                logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
+            }
         }
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range256);
