@@ -338,7 +338,24 @@ impl MachineChip for CpuChip {
         );
         eval.add_constraint(is_type_r.clone() * (op_c.clone() - reg2_address));
         eval.add_constraint(is_type_i.clone() * op_c.clone());
-        eval.add_constraint((is_type_r + is_type_i) * (op_a.clone() - reg3_address.clone()));
+        eval.add_constraint(
+            (is_type_r.clone() + is_type_i.clone()) * (op_a.clone() - reg3_address.clone()),
+        );
+
+        // Constrain read access doesn't change register values for type R and type I instructions
+        let reg1_val_prev = trace_eval!(trace_eval, Column::Reg1ValPrev);
+        let reg2_val_prev = trace_eval!(trace_eval, Column::Reg2ValPrev);
+        let value_b = trace_eval!(trace_eval, Column::ValueB);
+        let value_c = trace_eval!(trace_eval, Column::ValueC);
+        for limb_idx in 0..WORD_SIZE {
+            eval.add_constraint(
+                (is_type_r.clone() + is_type_i.clone())
+                    * (reg1_val_prev[limb_idx].clone() - value_b[limb_idx].clone()),
+            );
+            eval.add_constraint(
+                is_type_r.clone() * (reg2_val_prev[limb_idx].clone() - value_c[limb_idx].clone()),
+            );
+        }
 
         // is_type_b = is_beq + is_bne + is_blt + is_bge + is_bltu + is_bgeu
         let is_type_b = is_beq + is_bne + is_bltu + is_bgeu + is_blt + is_bge;
@@ -359,7 +376,20 @@ impl MachineChip for CpuChip {
         eval.add_constraint(is_type_b_s.clone() * (op_b - reg1_address));
         eval.add_constraint(is_type_b_s.clone() * op_c);
         // Always using reg3 for ValueA and OpA, even when it's not the destination; this simplifies the register memory checking.
-        eval.add_constraint(is_type_b_s * (op_a - reg3_address));
+        eval.add_constraint(is_type_b_s.clone() * (op_a - reg3_address));
+
+        let reg3_val_prev = trace_eval!(trace_eval, Column::Reg3ValPrev);
+        let value_a = trace_eval!(trace_eval, Column::ValueA);
+
+        // Constrain read access doesn't change register values for type B and type S instructions
+        for limb_idx in 0..WORD_SIZE {
+            eval.add_constraint(
+                is_type_b_s.clone() * (reg1_val_prev[limb_idx].clone() - value_b[limb_idx].clone()),
+            );
+            eval.add_constraint(
+                is_type_b_s.clone() * (reg3_val_prev[limb_idx].clone() - value_a[limb_idx].clone()),
+            );
+        }
 
         // PcNext should be Pc on the next row, unless the next row is the first row or padding.
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
