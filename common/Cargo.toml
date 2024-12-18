@@ -13,7 +13,7 @@ publish.workspace = true
 
 [dependencies]
 rrs-lib = { git = "https://github.com/GregAC/rrs/" }
-thiserror = "1.0"
+thiserror = "2.0"
 variant_count = "1.1"
 
 serde.workspace = true

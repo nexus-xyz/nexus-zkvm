@@ -25,6 +25,7 @@
 //! Note: This parser assumes a little-endian RISC-V architecture and is specifically designed for 32-bit executables.
 //! It does not make assumptions about the order of sections in the ELF file.
 
+use core::str;
 use elf::{
     abi,
     endian::LittleEndian,
@@ -32,9 +33,10 @@ use elf::{
     segment::ProgramHeader,
     ElfBytes,
 };
-use nexus_common::constants::WORD_SIZE;
+use nexus_common::constants::{PRECOMPILE_SYMBOL_PREFIX, WORD_SIZE};
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
+use tracing::debug;
 
 use super::error::{ParserError, Result};
 
@@ -70,7 +72,7 @@ const ALLOWED_SECTIONS: [&str; 10] = [
     ".bss",
     ".sbss",
     ".got",
-    ".nexus_precompile_metadata",
+    ".note.nexus-precompiles",
 ];
 
 #[derive(Debug, Clone, Copy)]
@@ -129,7 +131,7 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
     let virtual_address: u32 = segment
         .p_vaddr
         .try_into()
-        .map_err(|_| ParserError::InvalidVirtualAddress)?;
+        .map_err(|_| ParserError::InvalidVirtualAddress(segment.p_vaddr))?;
 
     // Convert file size to u32 and check for validity
     let file_size: u32 = segment
@@ -293,6 +295,119 @@ fn parse_segment_content(
     Ok(())
 }
 
+/// Represents a precompile description as found in the ELF file.
+#[derive(PartialEq, Eq)]
+struct PrecompileDescription<'a>(u16, &'a str);
+
+impl<'a> PartialOrd for PrecompileDescription<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.0.cmp(&other.0))
+    }
+}
+
+impl<'a> Ord for PrecompileDescription<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
+/// Parses the precompile metadata from the ELF file. This function finds all symbols that indicate
+/// pieces of precompile metadata and then ensures that there is a complete contiguous set of unique
+/// precompiles labeled 0 though N-1 via heapification.
+#[allow(dead_code)]
+fn parse_precompile_metadata(
+    elf: &ElfBytes<LittleEndian>,
+    data: &[u8],
+) -> Result<HashMap<u16, String>> {
+    let (section_headers, _section_headers_string_table) = elf
+        .section_headers_with_strtab()
+        .map_err(ParserError::ELFError)?;
+    let symbol_table = elf.symbol_table().map_err(ParserError::ELFError)?;
+    let section_headers = section_headers.ok_or(ParserError::NoSectionHeader)?;
+    let (symbol_table, symbol_string_table) = symbol_table.ok_or(ParserError::NoSymbolTable)?;
+
+    // There is no actual meaning to the order of the precompiles; the indices are arbitrary and map
+    // directly onto custom instructions.
+    let mut precompiles = HashMap::<u16, String>::default();
+
+    for symbol in symbol_table {
+        // We don't care about functions/anything other than objects.
+        if symbol.st_symtype() != abi::STT_OBJECT {
+            continue;
+        }
+
+        // Search for PRECOMPILE_X symbols, which are strings that contain precompile metadata.
+        let name = symbol_string_table.get(symbol.st_name as usize)?;
+        if !name.starts_with(PRECOMPILE_SYMBOL_PREFIX) {
+            continue;
+        }
+
+        let suffix: &str = &name[PRECOMPILE_SYMBOL_PREFIX.len()..];
+        let precompile_index = suffix.parse::<u16>()?;
+
+        // str is represented as a [u8], which contains two words: a pointer and a length.
+        let symbol_size: usize = symbol.st_size as usize;
+        if symbol_size != WORD_SIZE * 2 {
+            return Err(ParserError::InvalidPrecompileSize(symbol.st_size));
+        }
+
+        // Recover the symbol's offset in the file. Requires some address conversions.
+        let virtual_address: u32 = symbol
+            .st_value
+            .try_into()
+            .map_err(|_| ParserError::InvalidVirtualAddress(symbol.st_value))?;
+
+        // Need section data to calculate the offset in the file.
+        let section = match symbol.st_shndx {
+            x if x == abi::SHN_XINDEX => {
+                return Err(ParserError::InvalidSectionIndex(x));
+            }
+            x => section_headers.get(x as usize)?,
+        };
+
+        // Virtual address of the section start
+        let section_addr: u32 = section
+            .sh_addr
+            .try_into()
+            .map_err(|_| ParserError::InvalidSectionAddress(section.sh_addr))?;
+        // File offset of the section start
+        let section_offset: u32 = section
+            .sh_offset
+            .try_into()
+            .map_err(|_| ParserError::InvalidSectionOffset(section.sh_offset))?;
+
+        let offset_in_section = virtual_address
+            .checked_sub(section_addr)
+            .ok_or(ParserError::InvalidOffsetInSection)?;
+        let offset_in_file = section_offset
+            .checked_add(offset_in_section)
+            .ok_or(ParserError::InvalidOffsetInFile)? as usize;
+
+        // These must be encoded as valid Rust strings, so we should decode them immediately,
+        // erroring if necessary.
+        let str_struct_bytes = &data[offset_in_file..offset_in_file + symbol_size];
+
+        let str_ptr = u32::from_le_bytes(str_struct_bytes[..WORD_SIZE].try_into()?);
+        let str_len = u32::from_le_bytes(str_struct_bytes[WORD_SIZE..].try_into()?);
+
+        // str_ptr is a virtual address again, so we have to again convert it to a file address.
+        // We assume the data is stored in the same section as the str representation.
+        let str_section_offset = str_ptr
+            .checked_sub(section_addr)
+            .ok_or(ParserError::InvalidOffsetInSection)? as usize;
+        let str_offset = section_offset as usize + str_section_offset;
+
+        let str_slice = &data[str_offset..str_offset + str_len as usize];
+        let str_value = str::from_utf8(str_slice)?;
+
+        precompiles.insert(precompile_index, str_value.into());
+    }
+
+    debug!("Loaded precompile metadata: {precompiles:?}");
+
+    Ok(precompiles)
+}
+
 #[allow(dead_code)]
 fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64, u64)>) {
     println!("Program Header Information:");
@@ -383,4 +498,60 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
         base_address,
         nexus_metadata: metadata,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_precompile_metadata, validate_elf_header};
+
+    use elf::{endian::LittleEndian, ElfBytes};
+    use std::{collections::HashMap, path::PathBuf};
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_parse_elf_file_with_precompile() {
+        let elf_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/program_with_dummy_div.elf");
+        let elf_bytes = std::fs::read(elf_path).unwrap();
+        let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
+
+        validate_elf_header(&elf.ehdr).unwrap();
+        assert_eq!(
+            parse_precompile_metadata(&elf, &elf_bytes).unwrap(),
+            HashMap::<u16, String>::from([(0, "\":: dummy_div :: DummyDiv\"".into())])
+        );
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_parse_elf_file_with_precompiles() {
+        let elf_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/program_with_two_precompiles.elf");
+        let elf_bytes = std::fs::read(elf_path).unwrap();
+        let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
+
+        validate_elf_header(&elf.ehdr).unwrap();
+        assert_eq!(
+            parse_precompile_metadata(&elf, &elf_bytes).unwrap(),
+            HashMap::<u16, String>::from([
+                (0, "\":: dummy_div :: DummyDiv\"".into()),
+                (1, "\":: dummy_hash :: DummyHash\"".into())
+            ])
+        );
+    }
+
+    #[tracing_test::traced_test]
+    #[test]
+    fn test_parse_elf_file_with_no_precompiles() {
+        let elf_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/program_with_no_precompiles.elf");
+        let elf_bytes = std::fs::read(elf_path).unwrap();
+        let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
+
+        validate_elf_header(&elf.ehdr).unwrap();
+        assert_eq!(
+            parse_precompile_metadata(&elf, &elf_bytes).unwrap(),
+            HashMap::<u16, String>::default()
+        );
+    }
 }

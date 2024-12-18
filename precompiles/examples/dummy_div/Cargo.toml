@@ -1,10 +1,18 @@
+[workspace]
+
 [package]
 name = "dummy-div"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[target.'cfg(not(target_arch = "riscv32"))'.dependencies]
 nexus-common = { path = "../../../common" }
 nexus-precompiles = { path = "../.." }
+nexus-rt = { path = "../../../runtime" }

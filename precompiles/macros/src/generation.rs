@@ -1,3 +1,4 @@
+use nexus_common::constants::PRECOMPILE_SYMBOL_PREFIX;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -51,29 +52,29 @@ pub(crate) fn generate_instruction_impls(paths: &[PrecompilePath]) -> TokenStrea
 }
 
 /// Generate the static variables that hold the precompile metadata.
-#[cfg(target_arch = "riscv32")]
 pub(crate) fn generate_statics(paths: &Vec<PrecompilePath>) -> Result<TokenStream, syn::Error> {
+    use crate::precompile_path::SerializablePath;
+    use proc_macro2::Span;
+    use syn::{spanned::Spanned, Ident};
+
     let num_precompiles = paths.len() as u16;
-    let mut statics = quote! {
-        #[no_mangle]
-        #[link_section = ".note.nexus-precompiles"]
-        pub static PRECOMPILE_COUNT: u16 = #num_precompiles;
-    };
+    let mut statics = TokenStream::new();
 
     for (i, path) in (0..num_precompiles).zip(paths) {
-        let symbol_name = Ident::new(&format!("PRECOMPILE_{i}"), Span::call_site());
+        let symbol_name = Ident::new(&format!("{PRECOMPILE_SYMBOL_PREFIX}{i}"), Span::call_site());
         let serializable_path = SerializablePath::from((*path).clone());
-        let data = serde_json::to_string(&serializable_path);
+        let data = match serde_json::to_string(&serializable_path) {
+            Err(e) => {
+                return Err(syn::Error::new(
+                    path.as_syn_path().span(),
+                    format!("Failed to serialize metadata for {}", e),
+                ));
+            }
+            Ok(data) => data,
+        };
 
-        if let Err(e) = data {
-            return Err(syn::Error::new(
-                path.as_syn_path().span(),
-                format!("Failed to serialize metadata for {}", e),
-            ));
-        }
-
-        let data = data.unwrap();
         statics.extend(quote! {
+            #[cfg(target_arch = "riscv32")]
             #[no_mangle]
             #[link_section = ".note.nexus-precompiles"]
             pub static #symbol_name: &'static str = #data;

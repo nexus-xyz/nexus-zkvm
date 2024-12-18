@@ -1,7 +1,7 @@
 // Nexus VM runtime environment
 // Note: adapted from riscv-rt, which was adapted from cortex-m.
 use crate::alloc::sys_alloc_aligned;
-use crate::{ecall, write_output, EXIT_PANIC, EXIT_SUCCESS, SYS_EXIT, SYS_LOG, SYS_OVERWRITE_SP};
+use crate::{ecall, write_output, EXIT_PANIC, EXIT_SUCCESS, SYS_EXIT};
 use core::alloc::{GlobalAlloc, Layout};
 use core::panic::PanicInfo;
 

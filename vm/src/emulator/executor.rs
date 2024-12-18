@@ -501,6 +501,8 @@ pub struct LinearEmulator {
 
     // The linear memory
     pub memory: UnifiedMemory,
+
+    pub precompile_metadata: HashMap<String, Vec<u32>>,
 }
 
 impl LinearEmulator {

@@ -4,8 +4,6 @@ mod generation;
 mod precompile_path;
 
 use generation::generate_instruction_impls;
-#[cfg(target_arch = "riscv32")]
-use generation::generate_statics;
 use precompile_path::PrecompilePath;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -68,28 +66,7 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
     });
     output.extend(imports);
 
-    // 3. For each path, check that it is a valid precompile at compile time.
-    let valid_checks: Vec<proc_macro2::TokenStream> = paths
-        .iter()
-        .map(|path| {
-            let path = path.as_syn_path();
-            quote! { is_valid::<#path>() }
-        })
-        .collect();
-
-    // The strange syntax here serves to create an anonymous namespace that doesn't pollute the
-    // global namespace with the `is_valid` function.
-    let check_output = quote! {
-        const _: () = {
-            // This function will not compile if T does not implement the required traits.
-            const fn is_valid<T: ::nexus_precompiles::PrecompileInstruction>() {}
-
-            #(#valid_checks)*
-        };
-    };
-    output.extend(check_output);
-
-    // 4. Define the trait that will emit the instruction for each precompile.
+    // 3. Define the trait that will emit the instruction for each precompile.
     let emitter_trait = quote! {
         pub trait InstructionEmitter {
             fn emit_instruction(rs1: u32, rs2: u32, imm: u32) -> u32;
@@ -97,28 +74,25 @@ pub fn use_precompiles(input: TokenStream) -> TokenStream {
     };
     output.extend(emitter_trait);
 
-    // 5. Generate code that picks a 10-bit index 0-1023 for each precompile and uses it to generate
+    // 4. Generate code that picks a 10-bit index 0-1023 for each precompile and uses it to generate
     // a custom RISC-V instruction for each precompile. This is done by encoding the precompile
     // index into the `func3` and `func7` fields of the custom RISC-V instruction we use.
     output.extend(generate_instruction_impls(&paths));
 
-    // 6. Generate a `#[no_mangle]` static variable that expresses the number of precompiles present
+    // 5. Generate a `#[no_mangle]` static variable that expresses the number of precompiles present
     // in the guest binary. This is not likely super useful but serves as a guard against this macro
     // being called more than once globally (redefining a static symbol is a compiler error). In a
     // future update, this will be omitted and replaced by embedding the precompile metadata in the
     // binary itself.
-    #[cfg(target_arch = "riscv32")]
-    {
-        let statics = generate_statics(&paths);
+    let statics = generation::generate_statics(&paths);
 
-        if let Err(e) = statics {
-            return e.into_compile_error().into();
-        }
-
-        output.extend(statics.unwrap());
+    if let Err(e) = statics {
+        return e.into_compile_error().into();
     }
 
-    // 7. Call each precompile's call-generating macro. This macro is expected to define and
+    output.extend(statics.unwrap());
+
+    // 6. Call each precompile's call-generating macro. This macro is expected to define and
     // implement a trait which is used for the actual precompile call. This should have the name
     // and interface that the user actually calls, for example,
     // `MyHash::hash(data: &[u8]) -> [u8; 32]`. The precompile's implementer is responsible for

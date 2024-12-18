@@ -55,7 +55,7 @@ impl Parse for PrecompilePath {
 
             if input.parse::<Token![as]>().is_ok() {
                 let ident = input.parse::<Ident>()?;
-                if !input.is_empty() {
+                if !(input.is_empty() || input.peek(Token![,])) {
                     return Err(syn::Error::new(
                         input.span(),
                         "Unexpected tokens after precompile rename.",

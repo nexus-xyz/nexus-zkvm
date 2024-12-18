@@ -29,6 +29,7 @@ pub(crate) const SYS_READ_PRIVATE_INPUT: u32 = 1024;
 #[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_CYCLE_COUNT: u32 = 1025;
 #[cfg(target_arch = "riscv32")]
+#[allow(dead_code)]
 pub(crate) const SYS_OVERWRITE_SP: u32 = 1026;
 #[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_ALLOC_ALIGNED: u32 = 1027;

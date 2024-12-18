@@ -1,0 +1,33 @@
+[workspace]
+
+[package]
+name = "program_with_dummy_div"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "program_with_dummy_div"
+path = "src/program_with_dummy_div.rs"
+
+[[bin]]
+name = "program_with_no_precompiles"
+path = "src/program_with_no_precompiles.rs"
+
+[[bin]]
+name = "program_with_two_precompiles"
+path = "src/program_with_two_precompiles.rs"
+
+# Profile that generates a minimal binary to use in tests (release)
+[profile.release-for-tests]
+inherits = "release"
+lto = true
+strip = "debuginfo"
+codegen-units = 1
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dummy-div = { path = "../dummy_div" }
+dummy-hash = { path = "../dummy_hash" }
+nexus-precompiles = { path = "../.." }
+nexus-rt = { path = "../../../runtime" }

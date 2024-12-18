@@ -8,11 +8,17 @@ repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 publish.workspace = true
+autotests = false
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
 
 [dependencies]
+nexus-precompile-macros = { path = "macros" }
+
+[target.'cfg(not(target_arch = "riscv32"))'.dependencies]
 nexus-common = { path = "../common" }
-nexus-precompile-macros = { path = "macros", version = "0.1.0" }
-thiserror = "1.0"
 
 [dev-dependencies]
-dummy-div = { path = "tests/dummy_div" }
+nexus-vm = { path = "../vm" }

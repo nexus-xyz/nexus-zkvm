@@ -26,6 +26,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2024-01-04
+          targets: riscv32i-unknown-none-elf
       - run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
       - run: cargo check --all-features --all-targets
       - run: cargo check --all-features --examples
@@ -39,6 +40,7 @@ jobs:
         with:
           components: clippy
           toolchain: nightly-2024-01-04
+          targets: riscv32i-unknown-none-elf
       - run: cargo clippy --no-deps --all-targets --all-features
 
   test:
@@ -49,6 +51,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2024-01-04
+          targets: riscv32i-unknown-none-elf
 
       - name: Install cargo-expand
         run: cargo install cargo-expand --locked

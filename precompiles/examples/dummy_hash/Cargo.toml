@@ -1,0 +1,19 @@
+[workspace]
+
+[package]
+name = "dummy-hash"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[target.'cfg(not(target_arch = "riscv32"))'.dependencies]
+blake2 = "0.10"
+nexus-common = { path = "../../../common" }
+nexus-precompiles = { path = "../.." }
+nexus-rt = { path = "../../../runtime" }
