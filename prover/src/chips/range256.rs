@@ -90,6 +90,7 @@ impl MachineChip for Range256Chip {
         traces: &mut Traces,
         row_idx: usize,
         _step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
         for col in Self::CHECKED_WORDS.iter() {
@@ -260,6 +261,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_traces,
                 &mut side_note,
             );
         }
@@ -290,6 +292,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_traces,
                 &mut side_note,
             );
         }

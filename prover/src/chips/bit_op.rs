@@ -120,6 +120,7 @@ impl MachineChip for BitOpChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -367,7 +368,13 @@ mod test {
 
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &program_trace,
+                &mut side_note,
+            );
         }
 
         let and_vals = traces

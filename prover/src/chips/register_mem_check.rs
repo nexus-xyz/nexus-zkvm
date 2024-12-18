@@ -58,6 +58,7 @@ impl MachineChip for RegisterMemCheckChip {
         traces: &mut Traces,
         row_idx: usize,
         _vm_step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
         // Fill ValueAEffective
@@ -641,14 +642,27 @@ mod test {
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            CpuChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &program_traces,
+                &mut side_note,
+            );
 
             // Now fill in the traces with ValueA and CarryFlags
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            AddChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &program_traces,
+                &mut side_note,
+            );
             RegisterMemCheckChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &Default::default(),
+                &program_traces,
                 &mut side_note,
             );
         }

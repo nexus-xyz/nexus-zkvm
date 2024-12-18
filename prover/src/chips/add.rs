@@ -8,6 +8,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         BoolWord, ProgramStep, Traces, Word,
     },
@@ -63,6 +64,7 @@ impl MachineChip for AddChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -202,7 +204,13 @@ mod test {
         let mut side_note = SideNote::new(&program_trace);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &program_trace,
+                &mut side_note,
+            );
         }
         let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
         preprocessed_column.fill_is_first();

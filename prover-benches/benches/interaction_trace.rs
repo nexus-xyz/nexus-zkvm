@@ -63,6 +63,7 @@ fn bench_interaction_trace(c: &mut Criterion) {
                 &mut prover_traces,
                 row_idx,
                 &program_step,
+                &program_traces,
                 &mut prover_side_note,
             );
         }

@@ -12,6 +12,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval_next_row, trace_eval, trace_eval_next_row, TraceEval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         ProgramStep, Traces,
     },
@@ -33,6 +34,7 @@ impl MachineChip for CpuChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
         // When row != 0 && pc == 0 are allowed

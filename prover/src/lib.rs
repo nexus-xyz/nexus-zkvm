@@ -100,6 +100,7 @@ impl<C: MachineChip + Sync> Machine<C> {
                 &mut prover_traces,
                 row_idx,
                 &program_step,
+                &program_traces,
                 &mut prover_side_note,
             );
         }
@@ -109,12 +110,11 @@ impl<C: MachineChip + Sync> Machine<C> {
         tree_builder.commit(prover_channel);
 
         let lookup_elements = LookupElements::draw(prover_channel);
-        let program_trace = ProgramTraces::new(log_size, []);
         let mut tree_builder = commitment_scheme.tree_builder();
         let interaction_trace = C::fill_interaction_trace(
             &prover_traces,
             &preprocessed_trace,
-            &program_trace,
+            &program_traces,
             &lookup_elements,
         );
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
@@ -122,7 +122,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the program trace.
         let mut tree_builder = commitment_scheme.tree_builder();
-        let _program_trace_location = tree_builder.extend_evals(program_trace.circle_evaluation());
+        let _program_trace_location = tree_builder.extend_evals(program_traces.circle_evaluation());
         tree_builder.commit(prover_channel);
 
         let component = MachineComponent::new(

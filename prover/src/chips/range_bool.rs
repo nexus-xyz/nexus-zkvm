@@ -12,7 +12,9 @@ use crate::{
         SgnB, SgnC,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, Traces},
+    trace::{
+        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, ProgramStep, Traces,
+    },
     traits::MachineChip,
     WORD_SIZE,
 };
@@ -59,6 +61,7 @@ impl MachineChip for RangeBoolChip {
         _traces: &mut Traces,
         _row_idx: usize,
         _step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
         // Intentionally empty. Logup isn't used.
@@ -103,7 +106,7 @@ mod test {
     fn test_range_bool_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let program_trace = ProgramTraces::new(LOG_SIZE, []);
+        let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);
 
         for row_idx in 0..traces.num_rows() {
@@ -120,6 +123,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_trace,
                 &mut side_note,
             );
         }
@@ -150,6 +154,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_trace,
                 &mut side_note,
             );
         }

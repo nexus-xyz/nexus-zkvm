@@ -46,6 +46,7 @@ impl MachineChip for Range128Chip {
         traces: &mut Traces,
         row_idx: usize,
         _step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
@@ -199,7 +200,7 @@ mod test {
     fn test_range128_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let program_trace = ProgramTraces::new(LOG_SIZE, []);
+        let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
@@ -222,6 +223,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_trace,
                 &mut side_note,
             );
         }
@@ -251,6 +253,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_traces,
                 &mut side_note,
             );
         }

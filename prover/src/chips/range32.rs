@@ -45,6 +45,7 @@ impl MachineChip for Range32Chip {
         traces: &mut Traces,
         row_idx: usize,
         _step: &Option<ProgramStep>,
+        _program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
         for col in CHECKED.into_iter() {
@@ -156,7 +157,7 @@ mod test {
     fn test_range32_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let program_traces = ProgramTraces::new(LOG_SIZE, []);
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
 
         for row_idx in 0..traces.num_rows() {
@@ -170,6 +171,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_traces,
                 &mut side_note,
             );
         }
@@ -196,6 +198,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
+                &program_traces,
                 &mut side_note,
             );
         }

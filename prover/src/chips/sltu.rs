@@ -9,6 +9,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         BoolWord, ProgramStep, Traces, Word,
     },
@@ -45,6 +46,7 @@ impl MachineChip for SltuChip {
         traces: &mut Traces,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
+        _program_trace: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -191,7 +193,13 @@ mod test {
         let mut side_note = SideNote::new(&program_traces);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &program_traces,
+                &mut side_note,
+            );
         }
         assert_chip::<Chips>(traces, None, None);
     }
