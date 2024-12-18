@@ -29,13 +29,30 @@ pub struct Instruction {
     pub opcode: Opcode,
     pub op_a: Register,
     pub op_b: Register,
-    // Op_c can be either 12-bit immediate, 20-bit immediate, or a register index
+    // Op_c can be either 12-bit immediate, 20-bit immediate, or a register index 5 bits wide.
     pub op_c: u32,
     pub ins_type: InstructionType,
 }
 
 impl Instruction {
     pub fn new(opcode: Opcode, op_a: u8, op_b: u8, op_c: u32, ins_type: InstructionType) -> Self {
+        // Assert op_a and op_b in 5 bits.
+        assert!(op_a <= 0x1F);
+        assert!(op_b <= 0x1F);
+
+        // Sanity check the IR representation, panic if it's invalid.
+        // We assume the code generate from compiler wouldn't have any invalid instructions.
+
+        if ins_type == InstructionType::RType || ins_type == InstructionType::ITypeShamt {
+            // R-type instruction has 5 bits for op_c.
+            // I-type instruction with shamt has 5 bits for shamt.
+            assert!(
+                op_c <= 0x1F,
+                "op_c must be in the range [0..32), got {}",
+                op_c
+            );
+        }
+
         Self {
             opcode,
             op_a: Register::from(op_a),
@@ -241,5 +258,78 @@ impl Display for Instruction {
         };
 
         f.write_str(&output)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_r_type() {
+        Instruction::new(
+            Opcode::from(BuiltinOpcode::ADD),
+            1,
+            2,
+            3,
+            InstructionType::RType,
+        );
+        Instruction::new(
+            Opcode::from(BuiltinOpcode::SUB),
+            10,
+            20,
+            30,
+            InstructionType::RType,
+        );
+    }
+
+    #[test]
+    fn test_new_i_type_shamt() {
+        Instruction::new(
+            Opcode::from(BuiltinOpcode::SLLI),
+            1,
+            2,
+            5,
+            InstructionType::ITypeShamt,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_new_invalid_register() {
+        // Test with an invalid register number (32 is out of range, valid range is 0-31)
+        Instruction::new(
+            Opcode::from(BuiltinOpcode::ADD),
+            32,
+            0,
+            0,
+            InstructionType::RType,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_new_invalid_r_type_immediate() {
+        // Test with an invalid immediate for R-type (32 is out of range, valid range is 0-31)
+        Instruction::new(
+            Opcode::from(BuiltinOpcode::ADD),
+            1,
+            2,
+            32,
+            InstructionType::RType,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_new_invalid_i_type_shamt_immediate() {
+        // Test with an invalid shift amount for I-type shift instructions (32 is out of range, valid range is 0-31)
+        Instruction::new(
+            Opcode::from(BuiltinOpcode::SLLI),
+            1,
+            2,
+            32,
+            InstructionType::ITypeShamt,
+        );
     }
 }
