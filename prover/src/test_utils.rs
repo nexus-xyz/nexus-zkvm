@@ -74,7 +74,7 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     tree_builder.commit(&mut prover_channel);
     let lookup_elements = LookupElements::draw(&mut prover_channel);
 
-    let program_trace = program_traces.unwrap_or_else(|| ProgramTraces::new(traces.log_size(), []));
+    let program_trace = program_traces.unwrap_or_else(|| ProgramTraces::dummy(traces.log_size()));
 
     // Interaction Trace
     let interaction_trace = C::fill_interaction_trace(

@@ -273,7 +273,7 @@ mod test {
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = Traces::new(LOG_SIZE);
-        let program_traces = ProgramTraces::new(LOG_SIZE, []);
+        let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {

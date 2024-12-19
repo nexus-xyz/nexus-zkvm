@@ -93,7 +93,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = trace::Traces::new(log_size);
-        let program_traces = ProgramTraces::new(log_size, []);
+        let program_traces = ProgramTraces::dummy(log_size);
         let mut prover_side_note = SideNote::new(&program_traces);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
