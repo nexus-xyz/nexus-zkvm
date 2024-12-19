@@ -99,6 +99,21 @@ pub struct ProgramMemoryEntry {
     pub instruction_word: u32,
 }
 
+pub struct ProgramInfo<I: IntoIterator<Item = ProgramMemoryEntry>> {
+    // The program counter where the execution starts
+    pub initial_pc: u32,
+    pub program: I,
+}
+
+impl ProgramInfo<Vec<ProgramMemoryEntry>> {
+    pub fn dummy() -> Self {
+        Self {
+            initial_pc: 0,
+            program: vec![],
+        }
+    }
+}
+
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct BasicBlockEntry {
     pub start: u32,
@@ -823,20 +838,24 @@ impl LinearEmulator {
     }
 
     /// Returns the whole program as a map of program counter -> instruction word
-    pub fn iter_program_memory(&self) -> impl Iterator<Item = ProgramMemoryEntry> + '_ {
-        self.memory
-            .segment(
-                self.instruction_index,
-                self.memory_layout.program_start(),
-                None,
-            )
-            .expect("Cannot find program memory in LinearEmulator")
-            .iter()
-            .enumerate()
-            .map(|(pc_offset, instruction)| ProgramMemoryEntry {
-                pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
-                instruction_word: *instruction,
-            })
+    pub fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_> {
+        ProgramInfo {
+            initial_pc: self.memory_layout.program_start(),
+            program: self
+                .memory
+                .segment(
+                    self.instruction_index,
+                    self.memory_layout.program_start(),
+                    None,
+                )
+                .expect("Cannot find program memory in LinearEmulator")
+                .iter()
+                .enumerate()
+                .map(|(pc_offset, instruction)| ProgramMemoryEntry {
+                    pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
+                    instruction_word: *instruction,
+                }),
+        }
     }
 }
 

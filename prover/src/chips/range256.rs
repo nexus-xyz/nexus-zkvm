@@ -84,8 +84,11 @@ impl Range256Chip {
         Ram4ValPrev,
     ];
 
-    const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 2] =
-        [ProgramColumn::PrgMemoryPc, ProgramColumn::PrgMemoryWord];
+    const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 3] = [
+        ProgramColumn::PrgMemoryPc,
+        ProgramColumn::PrgMemoryWord,
+        ProgramColumn::PrgInitialPc,
+    ];
 }
 
 // TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace

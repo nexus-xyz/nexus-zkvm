@@ -152,6 +152,16 @@ impl MachineChip for ProgramMemCheckChip {
         trace_eval: &TraceEval<E>,
         lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
+        // Constrain the program counter on the first row
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        let initial_pc = program_trace_eval!(trace_eval, ProgramColumn::PrgInitialPc);
+        for limb_idx in 0..WORD_SIZE {
+            eval.add_constraint(
+                is_first.clone() * (pc[limb_idx].clone() - initial_pc[limb_idx].clone()),
+            );
+        }
+
         let _ = lookup_elements;
         // Constrain PrgCurCtr = PrgPrevCtr + 1
         let [is_padding] = trace_eval.column_eval(Column::IsPadding);
@@ -572,11 +582,10 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
         let emulator =
             LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_block);
-        let program_memory = emulator.iter_program_memory();
 
         // Trace circuit
         let mut traces = Traces::new(LOG_SIZE);
-        let program_trace = ProgramTraces::new(LOG_SIZE, program_memory);
+        let program_trace = ProgramTraces::new(LOG_SIZE, emulator.get_program_memory());
         let mut side_note = SideNote::new(&program_trace);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {

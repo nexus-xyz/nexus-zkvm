@@ -51,8 +51,7 @@ fn bench_interaction_trace(c: &mut Criterion) {
         let mut group = c.benchmark_group(format!("Interaction-Trace-LogSize-{log_size}"));
         group.sample_size(10);
 
-        let program_memory = emulator.iter_program_memory();
-        let program_traces = ProgramTraces::new(log_size, program_memory);
+        let program_traces = ProgramTraces::new(log_size, emulator.get_program_memory());
         let preprocessed_trace = PreprocessedTraces::new(log_size);
         let mut prover_traces = Traces::new(log_size);
         let mut prover_side_note = SideNote::new(&program_traces);

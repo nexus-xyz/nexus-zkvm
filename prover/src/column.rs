@@ -324,6 +324,9 @@ pub enum ProgramColumn {
     /// Program memory content: 1 means the row contains real PrgMemory*. 0 otherwise.
     #[size = 1]
     PrgMemoryFlag,
+    /// The first program counter for finding the first executed instruction
+    #[size = 4]
+    PrgInitialPc,
 }
 
 // proc macro derived:

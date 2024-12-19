@@ -17,11 +17,14 @@ use super::{
 };
 use crate::column::ProgramColumn;
 
-use nexus_vm::{emulator::ProgramMemoryEntry, WORD_SIZE};
+use nexus_vm::{
+    emulator::{ProgramInfo, ProgramMemoryEntry},
+    WORD_SIZE,
+};
 
 /// Program (constant) trace containing [`ProgramColumn`].
 ///
-/// These columns contain the whole program. They don't depend on the runtime information. The commitment of the program trace will be checked by the verifier.
+/// These columns contain the whole program and the first program counter. They don't depend on the runtime information. The commitment of the program trace will be checked by the verifier.
 /// pc_offset is the program counter written on the first row. The current assumption is that the program is in contiguous memory starting from pc_offset.
 /// pc_offset is used by the program memory checking when it computes the row index corresponding to a pc value.
 pub struct ProgramTraces {
@@ -32,10 +35,10 @@ pub struct ProgramTraces {
 
 impl ProgramTraces {
     /// Returns [`ProgramColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with program content.
-    pub fn new<I>(log_size: u32, program: I) -> Self
-    where
-        I: IntoIterator<Item = ProgramMemoryEntry>,
-    {
+    pub fn new(
+        log_size: u32,
+        program: ProgramInfo<impl IntoIterator<Item = ProgramMemoryEntry>>,
+    ) -> Self {
         assert!(log_size >= LOG_N_LANES);
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; ProgramColumn::COLUMNS_NUM];
         let mut ret = Self {
@@ -43,13 +46,14 @@ impl ProgramTraces {
             pc_offset: 0u32,
             num_instructions: 0usize,
         };
+        ret.fill_program_columns(0, program.initial_pc, ProgramColumn::PrgInitialPc);
         for (
             row_idx,
             ProgramMemoryEntry {
                 pc,
                 instruction_word,
             },
-        ) in program.into_iter().enumerate()
+        ) in program.program.into_iter().enumerate()
         {
             if row_idx == 0 {
                 ret.pc_offset = pc;
@@ -68,7 +72,7 @@ impl ProgramTraces {
     }
 
     pub fn dummy(log_size: u32) -> Self {
-        Self::new(log_size, [])
+        Self::new(log_size, ProgramInfo::dummy())
     }
 
     /// Returns the log_size of columns.

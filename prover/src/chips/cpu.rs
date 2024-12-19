@@ -37,10 +37,6 @@ impl MachineChip for CpuChip {
         _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
-        // When row != 0 && pc == 0 are allowed
-        // TODO: revise this 0th row check, see https://github.com/nexus-xyz/nexus-zkvm-neo/pull/145#discussion_r1842726498
-        // assert!(!(row_idx == 0) || pc == 0);
-
         // Fill ValueAEffectiveFlag to the main trace
         let value_a_effective_flag = match vm_step {
             Some(vm_step) => vm_step.value_a_effectitve_flag(),
