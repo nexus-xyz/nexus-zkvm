@@ -122,7 +122,7 @@ impl Traces {
     ) {
         let src_len = src.size();
         let dst_len = dst.size();
-        debug_assert_eq!(src_len, dst_len, "column size mismatch");
+        assert_eq!(src_len, dst_len, "column size mismatch");
         let src: [_; WORD_SIZE] = self.column(row, src);
         let [sel] = self.column(row, selector);
         let dst: [_; WORD_SIZE] = self.column_mut(row, dst);

@@ -84,7 +84,7 @@ impl MachineChip for AddChip {
         } = Self::execute(vm_step);
 
         // Before filling the trace, we check the result of 8-bit limbs is correct.
-        debug_assert_eq!(
+        assert_eq!(
             sum_bytes,
             vm_step
                 .get_result()

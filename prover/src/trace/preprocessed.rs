@@ -127,14 +127,14 @@ impl PreprocessedTraces {
     }
 
     pub(crate) fn fill_row_idx(&mut self) {
-        debug_assert!(self.log_size() < 31);
+        assert!(self.log_size() < 31);
         for row_idx in 0..self.num_rows() {
             self.0.cols[PreprocessedColumn::RowIdx.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
 
     pub(crate) fn fill_is_first32(&mut self) {
-        debug_assert_eq!(NUM_REGISTERS, 32);
+        assert_eq!(NUM_REGISTERS, 32);
         for row_idx in 0..32 {
             self.0.cols[PreprocessedColumn::IsFirst32.offset()][row_idx] = BaseField::one();
         }
@@ -178,7 +178,7 @@ impl PreprocessedTraces {
 
     pub(crate) fn fill_timestamps(&mut self) {
         // Make sure the last reg3_ts_cur computation doesn't overflow
-        debug_assert!(self.num_rows() < (u32::MAX as usize - 3) / 3);
+        assert!(self.num_rows() < (u32::MAX as usize - 3) / 3);
         for row_idx in 0..(1 << self.log_size()) {
             let clk = (row_idx + 1) as u32;
             self.fill_preprocessed_word(row_idx, PreprocessedColumn::Clk, clk.to_le_bytes());

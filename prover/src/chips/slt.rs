@@ -96,7 +96,7 @@ impl MachineChip for SltChip {
         traces.fill_columns(row_idx, diff_bytes, Helper1);
         traces.fill_columns(row_idx, borrow_bits, CarryFlag);
 
-        debug_assert_eq!(result, vm_step.get_result().expect("STL must have result"));
+        assert_eq!(result, vm_step.get_result().expect("STL must have result"));
 
         traces.fill_columns(row_idx, result, ValueA);
     }

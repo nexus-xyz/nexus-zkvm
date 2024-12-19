@@ -201,7 +201,7 @@ mod test {
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
-            debug_assert_eq!(block.steps.len(), 1);
+            assert_eq!(block.steps.len(), 1);
             Some(ProgramStep {
                 regs,
                 step: block.steps[0].clone(),

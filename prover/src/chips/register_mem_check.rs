@@ -355,7 +355,7 @@ impl MachineChip for RegisterMemCheckChip {
         );
 
         let (ret, total_sum) = logup_trace_gen.finalize_last();
-        debug_assert_eq!(total_sum, SecureField::zero());
+        assert_eq!(total_sum, SecureField::zero());
         ret
     }
 }
@@ -416,7 +416,7 @@ impl RegisterMemCheckChip {
             for col in final_reg_ts.iter().chain(final_reg_value.iter()) {
                 tuple.push(col.data[vec_row]);
             }
-            debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+            assert_eq!(tuple.len(), Self::TUPLE_SIZE);
             let denom = lookup_element.combine(tuple.as_slice());
             let numerator = is_first_32.data[vec_row]; // Only the first 32 rows contribute to the sum.
             logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
@@ -437,7 +437,7 @@ impl RegisterMemCheckChip {
         for elm in final_reg_ts.into_iter().chain(final_reg_value.into_iter()) {
             tuple.push(elm);
         }
-        debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+        assert_eq!(tuple.len(), Self::TUPLE_SIZE);
         let denom = lookup_elements.combine(tuple.as_slice());
         let numerator = is_first_32;
         logup.write_frac(eval, Fraction::new((-numerator).into(), denom));
@@ -461,7 +461,7 @@ impl RegisterMemCheckChip {
             for col in reg_prev_ts.iter().chain(reg_prev_value.iter()) {
                 tuple.push(col.data[vec_row]);
             }
-            debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+            assert_eq!(tuple.len(), Self::TUPLE_SIZE);
             let denom = lookup_element.combine(tuple.as_slice());
             let numerator = -reg_accessed.data[vec_row];
             logup_col_gen.write_frac(vec_row, numerator.into(), denom);
@@ -486,7 +486,7 @@ impl RegisterMemCheckChip {
         for elm in reg_prev_ts.into_iter().chain(reg_prev_value.into_iter()) {
             tuple.push(elm);
         }
-        debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+        assert_eq!(tuple.len(), Self::TUPLE_SIZE);
         let denom = lookup_elements.combine(tuple.as_slice());
         let numerator = -reg_accessed;
         logup.write_frac(eval, Fraction::new(numerator.into(), denom));
@@ -513,7 +513,7 @@ impl RegisterMemCheckChip {
             for col in reg_cur_ts.iter().chain(reg_cur_value.iter()) {
                 tuple.push(col.data[vec_row]);
             }
-            debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+            assert_eq!(tuple.len(), Self::TUPLE_SIZE);
             let denom = lookup_element.combine(tuple.as_slice());
             let numerator = reg_accessed.data[vec_row];
             logup_col_gen.write_frac(vec_row, numerator.into(), denom);
@@ -538,7 +538,7 @@ impl RegisterMemCheckChip {
         for elm in reg_cur_ts.into_iter().chain(reg_cur_value.into_iter()) {
             tuple.push(elm);
         }
-        debug_assert_eq!(tuple.len(), Self::TUPLE_SIZE);
+        assert_eq!(tuple.len(), Self::TUPLE_SIZE);
         let denom = lookup_elements.combine(tuple.as_slice());
         let numerator = reg_accessed;
         logup.write_frac(eval, Fraction::new(numerator.into(), denom));

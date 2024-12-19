@@ -142,7 +142,7 @@ impl MachineChip for BitOpChip {
         let ExecutionResult { out_bytes, bit_op } = Self::execute(vm_step);
 
         // Before filling the trace, we check the result of 8-bit limbs is correct.
-        debug_assert_eq!(
+        assert_eq!(
             out_bytes,
             vm_step
                 .get_result()
@@ -246,7 +246,7 @@ impl MachineChip for BitOpChip {
             logup_col_gen.finalize_col();
         }
         let (ret, total_logup_sum) = logup_trace_gen.finalize_last();
-        debug_assert_eq!(total_logup_sum, SecureField::zero());
+        assert_eq!(total_logup_sum, SecureField::zero());
         ret
     }
 
