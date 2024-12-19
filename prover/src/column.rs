@@ -104,6 +104,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a BGE.
     #[size = 1]
     IsBge,
+    /// Boolean flag on whether the row is a JAL.
+    #[size = 1]
+    IsJal,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

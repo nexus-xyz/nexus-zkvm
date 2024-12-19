@@ -28,7 +28,7 @@ mod test_utils;
 pub(crate) use nexus_vm::WORD_SIZE;
 
 use chips::{
-    AddChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
+    AddChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip, JalChip,
     Range128Chip, Range256Chip, Range32Chip, RangeBoolChip, SltChip, SltuChip, SubChip,
     TimestampChip,
 };
@@ -48,6 +48,7 @@ pub type Components = (
     BltChip,
     BgeuChip,
     BgeChip,
+    JalChip,
     TimestampChip,
     // Range checks must be positioned at the end. They use values filled by instruction chips.
     RangeBoolChip,

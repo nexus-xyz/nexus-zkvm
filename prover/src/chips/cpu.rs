@@ -133,6 +133,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::BGE) => {
                 traces.fill_columns(row_idx, true, IsBge);
             }
+            Some(BuiltinOpcode::JAL) => {
+                traces.fill_columns(row_idx, true, IsJal);
+            }
             _ => {
                 panic!(
                     "Unsupported opcode: {:?}",
@@ -276,6 +279,7 @@ impl MachineChip for CpuChip {
         let [is_blt] = trace_eval!(trace_eval, IsBlt);
         let [is_bgeu] = trace_eval!(trace_eval, IsBgeu);
         let [is_bge] = trace_eval!(trace_eval, IsBge);
+        let [is_jal] = trace_eval!(trace_eval, IsJal);
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         eval.add_constraint(
             is_add.clone()
@@ -291,6 +295,7 @@ impl MachineChip for CpuChip {
                 + is_bgeu.clone()
                 + is_blt.clone()
                 + is_bge.clone()
+                + is_jal.clone()
                 + is_padding
                 - E::F::one(),
         );
