@@ -396,6 +396,13 @@ impl MachineChip for CpuChip {
             );
         }
 
+        let is_type_j = is_jal; // Note: JALR is type I, so not here.
+
+        // Constrain only reg{3} is accessed for type J
+        eval.add_constraint(is_type_j.clone() * reg1_accessed.clone());
+        eval.add_constraint(is_type_j.clone() * reg2_accessed.clone());
+        eval.add_constraint((is_type_j.clone()) * (E::F::one() - reg3_accessed.clone()));
+
         // PcNext should be Pc on the next row, unless the next row is the first row or padding.
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let pc_on_next_row = trace_eval_next_row!(trace_eval, Column::Pc);
