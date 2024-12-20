@@ -13,5 +13,9 @@ stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "ba90cee" 
 criterion = "0.5"
 
 [[bench]]
-name = "interaction_trace"
+name = "trace_gen"
+harness = false
+
+[[bench]]
+name = "stark_prove"
 harness = false

@@ -13,7 +13,10 @@ use stwo_prover::{
 };
 
 use nexus_vm::trace::Trace;
-use trace::{program::iter_program_steps, program_trace::ProgramTraces, sidenote::SideNote};
+use trace::{
+    program::iter_program_steps, program_trace::ProgramTraces, sidenote::SideNote,
+    PreprocessedTraces, TracesBuilder,
+};
 
 pub mod chips;
 pub mod components;
@@ -85,14 +88,10 @@ impl<C: MachineChip + Sync> Machine<C> {
             );
 
         // Fill columns of the preprocessed trace.
-        let preprocessed_trace = trace::PreprocessedTraces::new(log_size);
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_trace.circle_evaluation());
-        tree_builder.commit(prover_channel);
+        let preprocessed_trace = PreprocessedTraces::new(log_size);
 
         // Fill columns of the original trace.
-        let mut prover_traces = trace::Traces::new(log_size);
+        let mut prover_traces = TracesBuilder::new(log_size);
         let program_traces = ProgramTraces::dummy(log_size);
         let mut prover_side_note = SideNote::new(&program_traces);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
@@ -105,25 +104,34 @@ impl<C: MachineChip + Sync> Machine<C> {
                 &mut prover_side_note,
             );
         }
-
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _main_trace_location = tree_builder.extend_evals(prover_traces.circle_evaluation());
-        tree_builder.commit(prover_channel);
+        let finalized_trace = prover_traces.finalize();
 
         let lookup_elements = LookupElements::draw(prover_channel);
-        let mut tree_builder = commitment_scheme.tree_builder();
         let interaction_trace = C::fill_interaction_trace(
-            &prover_traces,
+            &finalized_trace,
             &preprocessed_trace,
             &program_traces,
             &lookup_elements,
         );
+
+        let mut tree_builder = commitment_scheme.tree_builder();
+        let _preprocessed_trace_location =
+            tree_builder.extend_evals(preprocessed_trace.into_circle_evaluation());
+        tree_builder.commit(prover_channel);
+
+        let mut tree_builder = commitment_scheme.tree_builder();
+        let _main_trace_location =
+            tree_builder.extend_evals(finalized_trace.into_circle_evaluation());
+        tree_builder.commit(prover_channel);
+
+        let mut tree_builder = commitment_scheme.tree_builder();
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
         tree_builder.commit(prover_channel);
 
         // Fill columns of the program trace.
         let mut tree_builder = commitment_scheme.tree_builder();
-        let _program_trace_location = tree_builder.extend_evals(program_traces.circle_evaluation());
+        let _program_trace_location =
+            tree_builder.extend_evals(program_traces.into_circle_evaluation());
         tree_builder.commit(prover_channel);
 
         let component = MachineComponent::new(

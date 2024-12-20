@@ -3,12 +3,12 @@ use std::time::Duration;
 use nexus_vm::{
     emulator::{LinearEmulator, LinearMemoryLayout},
     riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
-    trace::k_trace_direct,
+    trace::{k_trace_direct, UniformTrace},
 };
 use nexus_vm_prover::{
     trace::{
         program::iter_program_steps, program_trace::ProgramTraces, sidenote::SideNote,
-        PreprocessedTraces, Traces,
+        PreprocessedTraces, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -35,45 +35,53 @@ const _: () = {
 };
 
 criterion_group! {
-    name = interaction_trace;
+    name = trace_gen;
     config = Criterion::default().warm_up_time(Duration::from_millis(3000));
-    targets = bench_interaction_trace,
+    targets = bench_trace_gen,
 }
 
-criterion_main!(interaction_trace);
+criterion_main!(trace_gen);
 
-fn bench_interaction_trace(c: &mut Criterion) {
+fn bench_trace_gen(c: &mut Criterion) {
     let blocks = program_trace();
-    let program_trace = k_trace_direct(&blocks, K).expect("error generating trace");
+    let execution_trace = k_trace_direct(&blocks, K).expect("error generating trace");
 
     let emulator = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &blocks);
+
     for &log_size in LOG_SIZES {
-        let mut group = c.benchmark_group(format!("Interaction-Trace-LogSize-{log_size}"));
+        let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
         group.sample_size(10);
 
-        let program_traces = ProgramTraces::new(log_size, emulator.get_program_memory());
+        group.bench_function("PreprocessedTraces", |b| {
+            b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))
+        });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
-        let mut prover_traces = Traces::new(log_size);
-        let mut prover_side_note = SideNote::new(&program_traces);
+        let program_memory_iter = emulator.get_program_memory();
+        let program_traces = ProgramTraces::new(log_size, program_memory_iter);
 
-        let program_steps = iter_program_steps(&program_trace, prover_traces.num_rows());
-        for (row_idx, program_step) in program_steps.enumerate() {
-            nexus_vm_prover::Components::fill_main_trace(
-                &mut prover_traces,
-                row_idx,
-                &program_step,
-                &program_traces,
-                &mut prover_side_note,
-            );
-        }
-
-        let prover_channel = &mut Blake2sChannel::default();
-        let lookup_elements = LookupElements::draw(prover_channel);
-
-        group.bench_function("Fill", |b| {
+        group.bench_function("MainTrace", |b| {
             b.iter(|| {
+                let mut prover_traces = TracesBuilder::new(black_box(log_size));
+                fill_main_trace(&mut prover_traces, &execution_trace, &program_traces);
+            })
+        });
+
+        let mut prover_traces = TracesBuilder::new(log_size);
+        fill_main_trace(&mut prover_traces, &execution_trace, &program_traces);
+
+        group.bench_function("FinalizeTrace", |b| {
+            b.iter(|| {
+                black_box(prover_traces.clone().finalize());
+            })
+        });
+        let finalized_trace = prover_traces.finalize();
+        group.bench_function("InteractionTrace", |b| {
+            b.iter(|| {
+                let prover_channel = &mut black_box(Blake2sChannel::default());
+                let lookup_elements = black_box(LookupElements::draw(prover_channel));
+
                 black_box(nexus_vm_prover::Components::fill_interaction_trace(
-                    black_box(&prover_traces),
+                    black_box(&finalized_trace),
                     black_box(&preprocessed_trace),
                     black_box(&program_traces),
                     black_box(&lookup_elements),
@@ -81,6 +89,24 @@ fn bench_interaction_trace(c: &mut Criterion) {
             })
         });
         group.finish();
+    }
+}
+
+fn fill_main_trace(
+    prover_traces: &mut TracesBuilder,
+    execution_trace: &UniformTrace,
+    program_memory: &ProgramTraces,
+) {
+    let mut prover_side_note = SideNote::new(&program_memory);
+    let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());
+    for (row_idx, program_step) in black_box(program_steps.enumerate()) {
+        nexus_vm_prover::Components::fill_main_trace(
+            black_box(prover_traces),
+            black_box(row_idx),
+            black_box(&program_step),
+            black_box(program_memory),
+            black_box(&mut prover_side_note),
+        )
     }
 }
 

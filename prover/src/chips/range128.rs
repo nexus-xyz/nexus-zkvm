@@ -26,7 +26,7 @@ use crate::{
         eval::{preprocessed_trace_eval, trace_eval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
-        PreprocessedTraces, ProgramStep, Traces,
+        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -43,7 +43,7 @@ pub struct Range128Chip;
 impl MachineChip for Range128Chip {
     /// Increments Multiplicity256 for every number checked
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -63,7 +63,7 @@ impl MachineChip for Range128Chip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &LookupElements<12>,
@@ -72,11 +72,11 @@ impl MachineChip for Range128Chip {
 
         // Add checked occurrences to logup sum.
         // TODO: range-check other byte-ranged columns.
-        let [is_slt]: [BaseColumn; 1] = original_traces.get_base_column(IsSlt);
-        let [is_bge]: [BaseColumn; 1] = original_traces.get_base_column(IsBge);
-        let [is_blt]: [BaseColumn; 1] = original_traces.get_base_column(IsBlt);
+        let [is_slt]: [_; 1] = original_traces.get_base_column(IsSlt);
+        let [is_bge]: [_; 1] = original_traces.get_base_column(IsBge);
+        let [is_blt]: [_; 1] = original_traces.get_base_column(IsBlt);
         for col in [Helper2, Helper3].into_iter() {
-            let helper: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(col);
+            let helper: [_; WORD_SIZE] = original_traces.get_base_column(col);
             check_col(
                 &helper[3],
                 &[&is_slt, &is_bge, &is_blt],
@@ -86,9 +86,9 @@ impl MachineChip for Range128Chip {
             );
         }
         // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [BaseColumn; Range128.size()] =
+        let range_basecolumn: [_; Range128.size()] =
             preprocessed_traces.get_preprocessed_base_column(Range128);
-        let multiplicity_basecolumn: [BaseColumn; Multiplicity128.size()] =
+        let multiplicity_basecolumn: [_; Multiplicity128.size()] =
             original_traces.get_base_column(Multiplicity128);
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
@@ -137,7 +137,7 @@ impl MachineChip for Range128Chip {
 fn fill_main_col(
     value_col: BaseField,
     selector_col: BaseField,
-    traces: &mut Traces,
+    traces: &mut TracesBuilder,
     side_note: &mut SideNote,
 ) {
     if selector_col.is_zero() {
@@ -187,7 +187,7 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
-    use crate::trace::Word;
+    use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
     use stwo_prover::constraint_framework::TraceLocationAllocator;
@@ -199,7 +199,7 @@ mod test {
     #[test]
     fn test_range128_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);
         // Write in-range values to ValueA columns.
@@ -227,7 +227,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_128_rows = PreprocessedTraces::empty(LOG_SIZE);
+        let mut preprocessed_128_rows = PreprocessedBuilder::empty(LOG_SIZE);
         preprocessed_128_rows.fill_is_first();
         preprocessed_128_rows.fill_range128();
         assert_chip::<Range128Chip>(traces, Some(preprocessed_128_rows), None);
@@ -236,9 +236,9 @@ mod test {
     #[test]
     #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range128_chip_fail_out_of_range_release() {
-        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
+        const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
@@ -264,7 +264,7 @@ mod test {
             preprocessed_trace: _,
             program_trace: _,
             interaction_trace: _,
-        } = commit_traces::<Range128Chip>(config, &twiddles, &traces, None, None);
+        } = commit_traces::<Range128Chip>(config, &twiddles, &traces.finalize(), None, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

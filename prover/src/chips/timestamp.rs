@@ -18,7 +18,7 @@ use crate::{
         program_trace::ProgramTraces,
         sidenote::SideNote,
         utils::FromBaseFields,
-        ProgramStep, Traces,
+        ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -29,7 +29,7 @@ pub struct TimestampChip;
 
 impl MachineChip for TimestampChip {
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -137,8 +137,8 @@ mod test {
         chips::{AddChip, CpuChip, RegisterMemCheckChip, TimestampChip},
         test_utils::assert_chip,
         trace::{
-            program_trace::ProgramTraces, sidenote::SideNote, PreprocessedTraces, ProgramStep,
-            Traces,
+            preprocessed::PreprocessedBuilder, program_trace::ProgramTraces, sidenote::SideNote,
+            ProgramStep, TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -195,7 +195,7 @@ mod test {
 
         // Trace circuit
         const LOG_SIZE: u32 = 8;
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
 
@@ -246,7 +246,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
+        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
         preprocessed_column.fill_is_first();
         preprocessed_column.fill_is_first32();
         //        preprocessed_column.fill_row_idx();

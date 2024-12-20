@@ -1,38 +1,34 @@
-use itertools::Itertools;
 use num_traits::{One, Zero};
-
 use stwo_prover::core::{
-    backend::{
-        simd::{column::BaseColumn, m31::LOG_N_LANES},
-        Backend,
-    },
+    backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
     fields::m31::BaseField,
-    poly::{circle::CircleEvaluation, BitReversedOrder},
+    poly::{
+        circle::{CanonicCoset, CircleEvaluation},
+        BitReversedOrder,
+    },
     ColumnVec,
 };
 
 use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
 
-use super::{
-    utils::{bit_reverse, coset_order_to_circle_domain_order},
-    Traces,
-};
+use super::{utils::finalize_columns, TracesBuilder};
 use crate::column::PreprocessedColumn;
 
-/// Preprocessed (constant) traces corresponding to [`PreprocessedColumn`].
+/// Preprocessed (constant) traces builder corresponding to [`PreprocessedColumn`].
 ///
-/// These columns are predefined and must not be altered during trace generation.
-pub struct PreprocessedTraces(Traces);
+/// Should not be used outside of tests that require a subset of constant column, e.g. to bypass [`Self::MIN_LOG_SIZE`]
+/// limitation.
+pub(crate) struct PreprocessedBuilder(TracesBuilder);
 
-impl PreprocessedTraces {
+impl PreprocessedBuilder {
     /// 2^MIN_LOG_SIZE is the smallest number of rows supported
     ///
     /// 2^16 rows are needed to accommodate (byte, byte) lookup tables
     pub const MIN_LOG_SIZE: u32 = 16;
 
     /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
-    pub fn new(log_size: u32) -> Self {
+    fn new(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
             log_size >= Self::MIN_LOG_SIZE,
@@ -40,7 +36,7 @@ impl PreprocessedTraces {
             Self::MIN_LOG_SIZE,
         );
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
-        let mut ret = Self(Traces { cols, log_size });
+        let mut ret = Self(TracesBuilder { cols, log_size });
         ret.fill_is_first();
         ret.fill_row_idx();
         ret.fill_is_first32();
@@ -62,7 +58,7 @@ impl PreprocessedTraces {
     pub(crate) fn empty(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
-        Self(Traces { cols, log_size })
+        Self(TracesBuilder { cols, log_size })
     }
 
     /// Returns the log_size of columns.
@@ -73,41 +69,6 @@ impl PreprocessedTraces {
     /// Returns the number of rows
     pub fn num_rows(&self) -> usize {
         self.0.num_rows()
-    }
-
-    /// Returns a copy of `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
-    ///
-    /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
-    /// It's desirable to merge this function with get_base_column() by turning PreprocessedColumn into a type-parameter,
-    /// but that requires a Rust experimental feature called `const_trait_impl`. We avoid Rust experimental features.
-    pub fn get_preprocessed_base_column<const N: usize>(
-        &self,
-        col: PreprocessedColumn,
-    ) -> [BaseColumn; N] {
-        assert_eq!(col.size(), N, "column size mismatch");
-        self.0.cols[col.offset()..]
-            .iter()
-            .take(N)
-            .map(|column_in_trace_order| {
-                let mut tmp_col =
-                    coset_order_to_circle_domain_order(column_in_trace_order.as_slice());
-                bit_reverse(&mut tmp_col);
-                BaseColumn::from_iter(tmp_col)
-            })
-            .collect_vec()
-            .try_into()
-            .expect("wrong size?")
-    }
-
-    /// Converts preprocessed traces into circle domain evaluations, bit-reversing row indices
-    /// according to circle domain ordering.
-    pub fn circle_evaluation<B>(
-        &self,
-    ) -> ColumnVec<CircleEvaluation<B, BaseField, BitReversedOrder>>
-    where
-        B: Backend,
-    {
-        self.0.circle_evaluation()
     }
 
     fn fill_preprocessed_word(
@@ -222,5 +183,51 @@ impl PreprocessedTraces {
             }
         }
         // Notice, (0, 0, 0) is a valid entry for XOR, AND and OR. A malicious prover can use these entries; that's fine.
+    }
+
+    pub(crate) fn finalize(self) -> PreprocessedTraces {
+        let log_size = self.log_size();
+        let cols = finalize_columns(self.0.cols);
+
+        PreprocessedTraces { cols, log_size }
+    }
+}
+
+/// Preprocessed (constant) traces corresponding to [`PreprocessedColumn`].
+///
+/// These columns are predefined and must not be altered during trace generation.
+#[derive(Debug, Clone)]
+pub struct PreprocessedTraces {
+    cols: Vec<BaseColumn>,
+    log_size: u32,
+}
+
+impl PreprocessedTraces {
+    pub const MIN_LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
+
+    pub fn new(log_size: u32) -> Self {
+        PreprocessedBuilder::new(log_size).finalize()
+    }
+
+    pub fn log_size(&self) -> u32 {
+        self.log_size
+    }
+
+    pub fn get_preprocessed_base_column<const N: usize>(
+        &self,
+        col: PreprocessedColumn,
+    ) -> [&BaseColumn; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        std::array::from_fn(|i| &self.cols[col.offset() + i])
+    }
+
+    pub fn into_circle_evaluation(
+        self,
+    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+        let domain = CanonicCoset::new(self.log_size).circle_domain();
+        self.cols
+            .into_iter()
+            .map(|col| CircleEvaluation::new(domain, col))
+            .collect()
     }
 }

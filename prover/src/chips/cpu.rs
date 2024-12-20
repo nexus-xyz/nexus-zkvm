@@ -14,7 +14,7 @@ use crate::{
         eval::{preprocessed_trace_eval_next_row, trace_eval, trace_eval_next_row, TraceEval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
-        ProgramStep, Traces,
+        ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -31,7 +31,7 @@ pub struct CpuChip;
 
 impl MachineChip for CpuChip {
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -57,7 +57,7 @@ impl MachineChip for CpuChip {
             BaseField::one()
         };
 
-        traces.fill_columns_basefield(
+        traces.fill_columns_base_field(
             row_idx,
             &[value_a_effective_flag_aux],
             ValueAEffectiveFlagAux,
@@ -65,7 +65,7 @@ impl MachineChip for CpuChip {
 
         // Fill ValueAEffectiveFlagAuxInv to the main trace
         let value_a_effective_flag_aux_inv = BaseField::inverse(&value_a_effective_flag_aux);
-        traces.fill_columns_basefield(
+        traces.fill_columns_base_field(
             row_idx,
             &[value_a_effective_flag_aux_inv],
             ValueAEffectiveFlagAuxInv,

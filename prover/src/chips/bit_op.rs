@@ -6,7 +6,6 @@ use stwo_prover::{
     },
     core::{
         backend::simd::{
-            column::BaseColumn,
             m31::{PackedBaseField, LOG_N_LANES},
             SimdBackend,
         },
@@ -38,7 +37,7 @@ use crate::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
-        PreprocessedTraces, ProgramStep, Traces, Word,
+        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -117,7 +116,7 @@ impl ExecuteChip for BitOpChip {
 
 impl MachineChip for BitOpChip {
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -178,7 +177,7 @@ impl MachineChip for BitOpChip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen rows.
     fn fill_interaction_trace(
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
@@ -189,9 +188,9 @@ impl MachineChip for BitOpChip {
         let [is_and] = original_traces.get_base_column(IsAnd);
         let [is_or] = original_traces.get_base_column(IsOr);
         let [is_xor] = original_traces.get_base_column(IsXor);
-        let value_a: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueA);
-        let value_b: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueB);
-        let value_c: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(ValueC);
+        let value_a: [_; WORD_SIZE] = original_traces.get_base_column(ValueA);
+        let value_b: [_; WORD_SIZE] = original_traces.get_base_column(ValueB);
+        let value_c: [_; WORD_SIZE] = original_traces.get_base_column(ValueC);
         for limb_idx in 0..WORD_SIZE {
             for (op_type, is_op) in [
                 (BitOp::And, &is_and),
@@ -316,6 +315,7 @@ mod test {
     use crate::{
         chips::{AddChip, CpuChip, RegisterMemCheckChip},
         test_utils::assert_chip,
+        trace::preprocessed::PreprocessedBuilder,
         trace::program::iter_program_steps,
     };
 
@@ -326,7 +326,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
+    const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         #[rustfmt::skip]
@@ -361,7 +361,7 @@ mod test {
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);

@@ -14,6 +14,8 @@ nexus-vm-prover-macros = { path = "./macros" }
 nexus-vm = { path = "../vm" }
 nexus-common = { path = "../common" }
 
+rayon = "1.10"
+
 impl-trait-for-tuples = "0.2.2"
 itertools = "0.13.0"
 num-traits = { workspace = true }

@@ -10,7 +10,7 @@ use crate::{
         eval::{trace_eval, TraceEval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
-        BoolWord, ProgramStep, Traces, Word,
+        BoolWord, ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -77,7 +77,7 @@ impl ExecuteChip for BgeChip {
 
 impl MachineChip for BgeChip {
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -328,7 +328,7 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         // Trace circuit
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());

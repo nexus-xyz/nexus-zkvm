@@ -26,7 +26,7 @@ use crate::{
         program_trace::ProgramTraces,
         sidenote::SideNote,
         utils::FromBaseFields,
-        PreprocessedTraces, ProgramStep, Traces,
+        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -42,7 +42,7 @@ impl MachineChip for ProgramMemCheckChip {
     ///
     /// Assumes other chips have written to `Pc` on the current row
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -111,7 +111,7 @@ impl MachineChip for ProgramMemCheckChip {
     /// * 1 / lookup_element.combine(tuple) is subtracted for each instruction
     /// where tuples contain (the address, the whole word of the instruction, final counter value).
     fn fill_interaction_trace(
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         _preprocessed_trace: &PreprocessedTraces,
         program_trace: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
@@ -216,7 +216,7 @@ impl ProgramMemCheckChip {
     /// The initial content of the memory is located on rows where PrgMemoryFlag is 1.
     fn add_initial_digest(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
@@ -290,7 +290,7 @@ impl ProgramMemCheckChip {
     /// The final counter is located on the FinalPrgMemoryCtr column.
     fn subtract_final_digest(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         program_traces: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
@@ -369,7 +369,7 @@ impl ProgramMemCheckChip {
     /// The numerator is zero on the padding rows, so that the row doesn't contribute to the logup sum.
     fn subtract_access(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_padding] = original_traces.get_base_column(Column::IsPadding);
@@ -445,7 +445,7 @@ impl ProgramMemCheckChip {
     /// The numerator is zero when the row is padding, so that the row doesn't contribute to the logup sum.
     fn add_access(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_padding] = original_traces.get_base_column(Column::IsPadding);
@@ -517,7 +517,10 @@ mod test {
         test_utils::assert_chip,
         {
             chips::{AddChip, CpuChip},
-            trace::{program_trace::ProgramTraces, utils::IntoBaseFields, PreprocessedTraces},
+            trace::{
+                preprocessed::PreprocessedBuilder, program_trace::ProgramTraces,
+                utils::IntoBaseFields,
+            },
         },
     };
 
@@ -584,7 +587,7 @@ mod test {
             LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_block);
 
         // Trace circuit
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::new(LOG_SIZE, emulator.get_program_memory());
         let mut side_note = SideNote::new(&program_trace);
 
@@ -648,7 +651,7 @@ mod test {
         for item in side_note.program_mem_check.last_access_counter.iter() {
             assert_eq!(*item.1, 1, "unexpected number of accesses to Pc");
         }
-        let preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
+        let preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
         assert_chip::<ProgramMemCheckChip>(traces, Some(preprocessed_column), Some(program_trace));
     }
 }

@@ -1,4 +1,8 @@
-use stwo_prover::core::fields::{m31::BaseField, Field};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+use stwo_prover::core::{
+    backend::simd::column::BaseColumn,
+    fields::{m31::BaseField, Field},
+};
 
 use nexus_vm::WORD_SIZE;
 
@@ -74,16 +78,33 @@ impl FromBaseFields<WORD_SIZE> for u32 {
 
 // TODO: patch upstream to make it public and remove / or use pub methods from tests.
 pub fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
-    let mut circle_domain_order = Vec::with_capacity(values.len());
+    let mut ret = Vec::with_capacity(values.len());
     let n = values.len();
     let half_len = n / 2;
-    for i in 0..half_len {
-        circle_domain_order.push(values[i << 1]);
-    }
-    for i in 0..half_len {
-        circle_domain_order.push(values[n - 1 - (i << 1)]);
-    }
-    circle_domain_order
+
+    (0..half_len)
+        .into_par_iter()
+        .map(|i| values[i << 1])
+        .chain(
+            (0..half_len)
+                .into_par_iter()
+                .map(|i| values[n - 1 - (i << 1)]),
+        )
+        .collect_into_vec(&mut ret);
+    ret
+}
+
+pub fn finalize_columns(columns: Vec<Vec<BaseField>>) -> Vec<BaseColumn> {
+    let mut ret = Vec::with_capacity(columns.len());
+    columns
+        .into_par_iter()
+        .map(|col| {
+            let mut eval = coset_order_to_circle_domain_order(col.as_slice());
+            bit_reverse(&mut eval);
+            BaseColumn::from_iter(eval)
+        })
+        .collect_into_vec(&mut ret);
+    ret
 }
 
 #[cfg(test)]

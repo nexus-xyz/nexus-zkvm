@@ -15,7 +15,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::program_trace_eval, eval::TraceEval, program_trace::ProgramTraces,
-        sidenote::SideNote, ProgramStep, Traces,
+        sidenote::SideNote, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
     WORD_SIZE,
@@ -61,7 +61,7 @@ const CHECKED_WORD: [Column; 5] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH
 
 impl MachineChip for RangeBoolChip {
     fn fill_main_trace(
-        _traces: &mut Traces,
+        _traces: &mut TracesBuilder,
         _row_idx: usize,
         _step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -96,8 +96,8 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::trace::preprocessed::PreprocessedBuilder;
     use crate::trace::program_trace::ProgramTraces;
-    use crate::trace::PreprocessedTraces;
     use crate::traits::MachineChip;
 
     use nexus_vm::WORD_SIZE;
@@ -110,7 +110,7 @@ mod test {
     #[test]
     fn test_range_bool_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);
 
@@ -132,7 +132,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let preprocessed_bool_rows = PreprocessedTraces::empty(LOG_SIZE);
+        let preprocessed_bool_rows = PreprocessedBuilder::empty(LOG_SIZE);
         assert_chip::<RangeBoolChip>(traces, Some(preprocessed_bool_rows), None);
     }
 
@@ -141,7 +141,7 @@ mod test {
     fn range_bool_chip_fail_out_of_range() {
         const LOG_SIZE: u32 = 10;
         let (config, twiddles) = test_params(LOG_SIZE);
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);
         // Write in-range values to ValueA columns.
@@ -170,7 +170,7 @@ mod test {
             preprocessed_trace: _,
             interaction_trace: _,
             program_trace: _,
-        } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces, None, None);
+        } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces.finalize(), None, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

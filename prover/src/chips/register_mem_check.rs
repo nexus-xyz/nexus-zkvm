@@ -8,7 +8,6 @@ use stwo_prover::{
     },
     core::{
         backend::simd::{
-            column::BaseColumn,
             m31::{PackedM31, LOG_N_LANES},
             SimdBackend,
         },
@@ -35,7 +34,7 @@ use crate::{
         regs::AccessResult,
         sidenote::SideNote,
         utils::FromBaseFields,
-        PreprocessedTraces, ProgramStep, Traces,
+        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -55,7 +54,7 @@ impl MachineChip for RegisterMemCheckChip {
     ///
     /// Assumes other chips have written to `Reg{1,2,3}Accessed` `Reg{1,2,3}Address` `Reg{1,2,3}Value`
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         _vm_step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
@@ -268,7 +267,7 @@ impl MachineChip for RegisterMemCheckChip {
         // TODO: add constraints so that branch and store operations do not change rs1 and rs2.
     }
     fn fill_interaction_trace(
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         _program_trace: &ProgramTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
@@ -363,7 +362,7 @@ impl MachineChip for RegisterMemCheckChip {
 impl RegisterMemCheckChip {
     fn add_initial_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
@@ -399,16 +398,15 @@ impl RegisterMemCheckChip {
 
     fn subtract_final_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_first_32] =
             preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::IsFirst32);
         let [row_idx] = preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::RowIdx);
-        let final_reg_ts: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(FinalRegTs);
-        let final_reg_value: [BaseColumn; WORD_SIZE] =
-            original_traces.get_base_column(FinalRegValue);
+        let final_reg_ts: [_; WORD_SIZE] = original_traces.get_base_column(FinalRegTs);
+        let final_reg_value: [_; WORD_SIZE] = original_traces.get_base_column(FinalRegValue);
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let row_idx = row_idx.data[vec_row];
@@ -444,7 +442,7 @@ impl RegisterMemCheckChip {
     }
     fn subtract_prev_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
         accessed: Column,
         reg_address: Column,
@@ -454,8 +452,8 @@ impl RegisterMemCheckChip {
         let mut logup_col_gen = logup_trace_gen.new_col();
         let [reg_accessed] = original_traces.get_base_column(accessed);
         let [reg_idx] = original_traces.get_base_column(reg_address);
-        let reg_prev_ts: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(prev_ts);
-        let reg_prev_value: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(prev_value);
+        let reg_prev_ts: [_; WORD_SIZE] = original_traces.get_base_column(prev_ts);
+        let reg_prev_value: [_; WORD_SIZE] = original_traces.get_base_column(prev_value);
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![reg_idx.data[vec_row]];
             for col in reg_prev_ts.iter().chain(reg_prev_value.iter()) {
@@ -494,7 +492,7 @@ impl RegisterMemCheckChip {
 
     fn add_cur_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
         accessed: Column,
@@ -505,9 +503,8 @@ impl RegisterMemCheckChip {
         let mut logup_col_gen = logup_trace_gen.new_col();
         let [reg_accessed] = original_traces.get_base_column(accessed);
         let [reg_idx] = original_traces.get_base_column(reg_address);
-        let reg_cur_ts: [BaseColumn; WORD_SIZE] =
-            preprocessed_trace.get_preprocessed_base_column(cur_ts);
-        let reg_cur_value: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(cur_value);
+        let reg_cur_ts: [_; WORD_SIZE] = preprocessed_trace.get_preprocessed_base_column(cur_ts);
+        let reg_cur_value: [_; WORD_SIZE] = original_traces.get_base_column(cur_value);
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![reg_idx.data[vec_row]];
             for col in reg_cur_ts.iter().chain(reg_cur_value.iter()) {
@@ -552,7 +549,7 @@ fn fill_prev_values(
     reg_cur_ts: u32,
     dst_ts: Column,
     dst_val: Column,
-    traces: &mut Traces,
+    traces: &mut TracesBuilder,
     row_idx: usize,
 ) {
     let reg_idx = reg_address[0].0;
@@ -578,7 +575,8 @@ mod test {
         chips::{AddChip, CpuChip, RegisterMemCheckChip},
         test_utils::assert_chip,
         trace::{
-            program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces, Traces,
+            preprocessed::PreprocessedBuilder, program::iter_program_steps,
+            program_trace::ProgramTraces, TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -634,7 +632,7 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         const LOG_SIZE: u32 = 8;
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = super::SideNote::new(&program_traces);
@@ -666,7 +664,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
+        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
         preprocessed_column.fill_is_first();
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();

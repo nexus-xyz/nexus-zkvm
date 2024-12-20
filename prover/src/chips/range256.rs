@@ -35,7 +35,7 @@ use crate::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
-        PreprocessedTraces, ProgramStep, Traces,
+        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -96,7 +96,7 @@ impl Range256Chip {
 impl MachineChip for Range256Chip {
     /// Increments Multiplicity256 for every number checked
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
         program_traces: &ProgramTraces,
@@ -119,7 +119,7 @@ impl MachineChip for Range256Chip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
-        original_traces: &Traces,
+        original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         program_traces: &ProgramTraces,
         lookup_element: &LookupElements<12>,
@@ -128,7 +128,7 @@ impl MachineChip for Range256Chip {
 
         // Add checked occurrences to logup sum.
         for col in Self::CHECKED_WORDS.iter() {
-            let value_basecolumn: [BaseColumn; WORD_SIZE] = original_traces.get_base_column(*col);
+            let value_basecolumn: [_; WORD_SIZE] = original_traces.get_base_column(*col);
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
@@ -146,7 +146,7 @@ impl MachineChip for Range256Chip {
             );
         }
         for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
-            let value_basecolumn: [BaseColumn; WORD_SIZE] = program_traces.get_base_column(*col);
+            let value_basecolumn: [_; WORD_SIZE] = program_traces.get_base_column(*col);
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
@@ -155,9 +155,9 @@ impl MachineChip for Range256Chip {
             );
         }
         // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [BaseColumn; Range256.size()] =
+        let range_basecolumn: [_; Range256.size()] =
             preprocessed_traces.get_preprocessed_base_column(Range256);
-        let multiplicity_basecolumn: [BaseColumn; Multiplicity256.size()] =
+        let multiplicity_basecolumn: [_; Multiplicity256.size()] =
             original_traces.get_base_column(Multiplicity256);
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
@@ -215,7 +215,7 @@ impl MachineChip for Range256Chip {
 
 fn fill_main_cols<const N: usize>(
     value_col: [BaseField; N],
-    traces: &mut Traces,
+    traces: &mut TracesBuilder,
     side_note: &mut SideNote,
 ) {
     for (_limb_index, limb) in value_col.iter().enumerate() {
@@ -234,7 +234,7 @@ fn fill_main_cols<const N: usize>(
 }
 
 fn check_bytes<const N: usize>(
-    basecolumn: [BaseColumn; N],
+    basecolumn: [&BaseColumn; N],
     log_size: u32,
     logup_trace_gen: &mut LogupTraceGenerator,
     lookup_element: &LookupElements<12>,
@@ -261,7 +261,7 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
-    use crate::trace::Word;
+    use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
     use stwo_prover::constraint_framework::TraceLocationAllocator;
@@ -275,7 +275,7 @@ mod test {
     #[test]
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
@@ -294,7 +294,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_256_rows = PreprocessedTraces::empty(LOG_SIZE);
+        let mut preprocessed_256_rows = PreprocessedBuilder::empty(LOG_SIZE);
         preprocessed_256_rows.fill_is_first();
         preprocessed_256_rows.fill_range256();
         assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows), None);
@@ -303,9 +303,9 @@ mod test {
     #[test]
     #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range256_chip_fail_out_of_range_release() {
-        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
+        const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces);
         // Write in-range values to ValueA columns.
@@ -315,7 +315,7 @@ mod test {
                 let t = ((row_idx + i) as u8) as u32 + 1u32;
                 BaseField::from(t)
             });
-            traces.fill_columns_basefield(row_idx, &buf, ValueB);
+            traces.fill_columns_base_field(row_idx, &buf, ValueB);
 
             Range256Chip::fill_main_trace(
                 &mut traces,
@@ -332,7 +332,7 @@ mod test {
             preprocessed_trace: _,
             interaction_trace: _,
             program_trace: _,
-        } = commit_traces::<Range256Chip>(config, &twiddles, &traces, None, None);
+        } = commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None, None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

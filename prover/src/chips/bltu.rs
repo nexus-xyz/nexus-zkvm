@@ -10,7 +10,7 @@ use crate::{
         eval::{trace_eval, TraceEval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
-        BoolWord, ProgramStep, Traces, Word,
+        BoolWord, ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -57,7 +57,7 @@ impl ExecuteChip for BltuChip {
 
 impl MachineChip for BltuChip {
     fn fill_main_trace(
-        traces: &mut Traces,
+        traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _program_trace: &ProgramTraces,
@@ -157,7 +157,10 @@ mod test {
     use crate::{
         chips::{AddChip, CpuChip, RegisterMemCheckChip, SubChip},
         test_utils::assert_chip,
-        trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
+        trace::{
+            preprocessed::PreprocessedBuilder, program::iter_program_steps,
+            program_trace::ProgramTraces,
+        },
     };
 
     use super::*;
@@ -166,7 +169,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
+    const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
     #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
@@ -238,7 +241,7 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         // Trace circuit
-        let mut traces = Traces::new(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
@@ -254,7 +257,7 @@ mod test {
             );
         }
 
-        let mut preprocessed_column = PreprocessedTraces::empty(LOG_SIZE);
+        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
         preprocessed_column.fill_is_first();
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();

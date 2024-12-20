@@ -2,10 +2,7 @@ use itertools::Itertools;
 use nexus_vm::WORD_SIZE;
 use num_traits::Zero;
 use stwo_prover::core::{
-    backend::{
-        simd::{column::BaseColumn, m31::LOG_N_LANES},
-        Backend,
-    },
+    backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
     fields::m31::BaseField,
     poly::{
         circle::{CanonicCoset, CircleEvaluation},
@@ -27,14 +24,19 @@ pub mod utils;
 pub use preprocessed::PreprocessedTraces;
 pub use program::{BoolWord, ProgramStep, Word, WordWithEffectiveBits};
 
-use utils::{bit_reverse, coset_order_to_circle_domain_order, IntoBaseFields};
+use utils::{finalize_columns, IntoBaseFields};
 
-pub struct Traces {
+/// Main ([`stwo_prover::constraint_framework::ORIGINAL_TRACE_IDX`]) trace builder which implements
+/// mutable access to columns.
+///
+/// Values are stored in original (coset) order.
+#[derive(Debug, Clone)]
+pub struct TracesBuilder {
     cols: Vec<Vec<BaseField>>,
     log_size: u32,
 }
 
-impl Traces {
+impl TracesBuilder {
     /// Returns [`Column::TOTAL_COLUMNS_NUM`] zeroed columns, each one `2.pow(log_size)` in length.
     pub fn new(log_size: u32) -> Self {
         assert!(log_size >= LOG_N_LANES);
@@ -89,7 +91,7 @@ impl Traces {
         col: Column,
     ) {
         let base_field_values = value.into_base_fields();
-        self.fill_columns_basefield(row, &base_field_values, col);
+        self.fill_columns_base_field(row, &base_field_values, col);
     }
 
     /// Fills columns with values from a byte slice.
@@ -98,11 +100,11 @@ impl Traces {
             .iter()
             .map(|b| BaseField::from(*b as u32))
             .collect_vec();
-        self.fill_columns_basefield(row, base_field_values.as_slice(), col);
+        self.fill_columns_base_field(row, base_field_values.as_slice(), col);
     }
 
     /// Fills columns with values from BaseField slice.
-    pub fn fill_columns_basefield(&mut self, row: usize, value: &[BaseField], col: Column) {
+    pub fn fill_columns_base_field(&mut self, row: usize, value: &[BaseField], col: Column) {
         let n = value.len();
         assert_eq!(col.size(), n, "column size mismatch");
         for (i, b) in value.iter().enumerate() {
@@ -137,42 +139,41 @@ impl Traces {
         }
     }
 
-    /// Returns a copy of `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
-    ///
-    /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
-    pub fn get_base_column<const N: usize>(&self, col: Column) -> [BaseColumn; N] {
-        assert_eq!(col.size(), N, "column size mismatch");
-        self.cols[col.offset()..]
-            .iter()
-            .take(N)
-            .map(|column_in_trace_order| {
-                let mut tmp_col =
-                    coset_order_to_circle_domain_order(column_in_trace_order.as_slice());
-                bit_reverse(&mut tmp_col);
-                BaseColumn::from_iter(tmp_col)
-            })
-            .collect_vec()
-            .try_into()
-            .expect("wrong size?")
+    /// Finalize trace and convert raw columns to [`BaseColumn`].
+    pub fn finalize(self) -> FinalizedTraces {
+        let cols = finalize_columns(self.cols);
+
+        FinalizedTraces {
+            cols,
+            log_size: self.log_size,
+        }
+    }
+}
+
+/// Finalized main trace that stores columns in (bit reversed) circle domain order.
+#[derive(Debug, Clone)]
+pub struct FinalizedTraces {
+    cols: Vec<BaseColumn>,
+    log_size: u32,
+}
+
+impl FinalizedTraces {
+    pub fn log_size(&self) -> u32 {
+        self.log_size
     }
 
-    /// Converts traces into circle domain evaluations, bit-reversing row indices
-    /// according to circle domain ordering.
-    pub fn circle_evaluation<B>(
-        &self,
-    ) -> ColumnVec<CircleEvaluation<B, BaseField, BitReversedOrder>>
-    where
-        B: Backend,
-    {
+    pub fn get_base_column<const N: usize>(&self, col: Column) -> [&BaseColumn; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        std::array::from_fn(|i| &self.cols[col.offset() + i])
+    }
+
+    pub fn into_circle_evaluation(
+        self,
+    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let domain = CanonicCoset::new(self.log_size).circle_domain();
         self.cols
-            .iter()
-            .map(|col| {
-                let mut eval = coset_order_to_circle_domain_order(col.as_slice());
-                bit_reverse(&mut eval);
-
-                CircleEvaluation::<B, _, BitReversedOrder>::new(domain, eval.into_iter().collect())
-            })
+            .into_iter()
+            .map(|col| CircleEvaluation::new(domain, col))
             .collect()
     }
 }
