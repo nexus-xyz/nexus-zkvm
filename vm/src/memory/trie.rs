@@ -136,7 +136,7 @@ impl Node {
         }
     }
 
-    // same as `child`, but with a allocated node, and reversing the
+    // same as `child`, but with an allocated node, and reversing the
     // use of the `left` parameter
     fn sibling(node: &Node, left: bool) -> &Option<Box<Node>> {
         if left {
