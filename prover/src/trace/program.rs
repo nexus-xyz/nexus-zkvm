@@ -48,8 +48,7 @@ impl ProgramStep {
                 (instruction.op_c, 12)
             }
             InstructionType::ITypeShamt => (instruction.op_c, 5),
-            InstructionType::JType => (instruction.op_c, 20),
-            InstructionType::UType => (instruction.op_c, 32),
+            InstructionType::JType | InstructionType::UType => (instruction.op_c, 20),
             InstructionType::Unimpl => (0, 0),
         };
 

@@ -142,6 +142,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::SW) => {
                 traces.fill_columns(row_idx, true, IsSw);
             }
+            Some(BuiltinOpcode::LUI) => {
+                traces.fill_columns(row_idx, true, IsLui);
+            }
             _ => {
                 panic!(
                     "Unsupported opcode: {:?}",
@@ -154,7 +157,13 @@ impl MachineChip for CpuChip {
         // Fill ValueB and ValueC to the main trace
         traces.fill_columns(row_idx, vm_step.get_value_b(), ValueB);
 
-        traces.fill_columns(row_idx, vm_step.get_value_c(), ValueC);
+        if step.instruction.ins_type == UType {
+            // Fill Imm << 12 to the main trace
+            let imm_12 = step.instruction.op_c << 12;
+            traces.fill_columns(row_idx, imm_12.to_le_bytes(), ValueC);
+        } else {
+            traces.fill_columns(row_idx, vm_step.get_value_c(), ValueC);
+        }
 
         // Fill InstructionWord to the main trace
         traces.fill_columns(row_idx, step.raw_instruction, InstrVal);
@@ -286,6 +295,7 @@ impl MachineChip for CpuChip {
         let [is_bgeu] = trace_eval!(trace_eval, IsBgeu);
         let [is_bge] = trace_eval!(trace_eval, IsBge);
         let [is_jal] = trace_eval!(trace_eval, IsJal);
+        let [is_lui] = trace_eval!(trace_eval, IsLui);
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         let [is_sb] = trace_eval!(trace_eval, IsSb);
         let [is_sh] = trace_eval!(trace_eval, IsSh);
@@ -308,6 +318,7 @@ impl MachineChip for CpuChip {
                 + is_sb.clone()
                 + is_sh.clone()
                 + is_sw.clone()
+                + is_lui.clone()
                 + is_padding
                 - E::F::one(),
         );

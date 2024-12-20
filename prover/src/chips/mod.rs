@@ -7,6 +7,7 @@ mod blt;
 mod bltu;
 mod bne;
 mod jal;
+mod lui;
 mod slt;
 mod sub;
 
@@ -24,8 +25,9 @@ mod timestamp;
 
 pub use self::{
     add::AddChip, beq::BeqChip, bge::BgeChip, bgeu::BgeuChip, bit_op::BitOpChip, blt::BltChip,
-    bltu::BltuChip, bne::BneChip, cpu::CpuChip, jal::JalChip, prog_mem_check::ProgramMemCheckChip,
-    range128::Range128Chip, range16::Range16Chip, range256::Range256Chip, range32::Range32Chip,
-    range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip, slt::SltChip,
-    sltu::SltuChip, store::StoreChip, sub::SubChip, timestamp::TimestampChip,
+    bltu::BltuChip, bne::BneChip, cpu::CpuChip, jal::JalChip, lui::LuiChip,
+    prog_mem_check::ProgramMemCheckChip, range128::Range128Chip, range16::Range16Chip,
+    range256::Range256Chip, range32::Range32Chip, range_bool::RangeBoolChip,
+    register_mem_check::RegisterMemCheckChip, slt::SltChip, sltu::SltuChip, store::StoreChip,
+    sub::SubChip, timestamp::TimestampChip,
 };

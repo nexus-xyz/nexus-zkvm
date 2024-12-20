@@ -125,6 +125,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a LW
     #[size = 1]
     IsLw,
+    /// Boolean flag on whether the row is a LUI.
+    #[size = 1]
+    IsLui,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
