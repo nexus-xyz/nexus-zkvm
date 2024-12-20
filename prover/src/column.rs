@@ -107,6 +107,24 @@ pub enum Column {
     /// Boolean flag on whether the row is a JAL.
     #[size = 1]
     IsJal,
+    /// Boolean flag on whether the row is a SB
+    #[size = 1]
+    IsSb,
+    /// Boolean flag on whether the row is a SH
+    #[size = 1]
+    IsSh,
+    /// Boolean flag on whether the row is a SW
+    #[size = 1]
+    IsSw,
+    /// Boolean flag on whether the row is a LB
+    #[size = 1]
+    IsLb,
+    /// Boolean flag on whether the row is a LH
+    #[size = 1]
+    IsLh,
+    /// Boolean flag on whether the row is a LW
+    #[size = 1]
+    IsLw,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

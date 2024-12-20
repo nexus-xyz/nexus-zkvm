@@ -1,4 +1,4 @@
-use num_traits::{One, Zero};
+use num_traits::One;
 use stwo_prover::{
     constraint_framework::{logup::LookupElements, EvalAtRow},
     core::fields::{m31::BaseField, FieldExpOps},
@@ -132,6 +132,15 @@ impl MachineChip for CpuChip {
             }
             Some(BuiltinOpcode::JAL) => {
                 traces.fill_columns(row_idx, true, IsJal);
+            }
+            Some(BuiltinOpcode::SB) => {
+                traces.fill_columns(row_idx, true, IsSb);
+            }
+            Some(BuiltinOpcode::SH) => {
+                traces.fill_columns(row_idx, true, IsSh);
+            }
+            Some(BuiltinOpcode::SW) => {
+                traces.fill_columns(row_idx, true, IsSw);
             }
             _ => {
                 panic!(
@@ -278,6 +287,9 @@ impl MachineChip for CpuChip {
         let [is_bge] = trace_eval!(trace_eval, IsBge);
         let [is_jal] = trace_eval!(trace_eval, IsJal);
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
+        let [is_sb] = trace_eval!(trace_eval, IsSb);
+        let [is_sh] = trace_eval!(trace_eval, IsSh);
+        let [is_sw] = trace_eval!(trace_eval, IsSw);
         eval.add_constraint(
             is_add.clone()
                 + is_sub.clone()
@@ -293,6 +305,9 @@ impl MachineChip for CpuChip {
                 + is_blt.clone()
                 + is_bge.clone()
                 + is_jal.clone()
+                + is_sb.clone()
+                + is_sh.clone()
+                + is_sw.clone()
                 + is_padding
                 - E::F::one(),
         );
@@ -357,7 +372,7 @@ impl MachineChip for CpuChip {
 
         // is_type_s = is_sb + is_sh + is_sw
         // TODO: define is_type_s when flags are available
-        let is_type_s = E::F::zero();
+        let is_type_s = is_sb + is_sh + is_sw;
 
         // type S and type B access registers in similar ways
         let is_type_b_s = is_type_b + is_type_s;
