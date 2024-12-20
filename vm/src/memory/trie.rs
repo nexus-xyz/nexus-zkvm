@@ -100,7 +100,7 @@ impl NodeData {
 impl Node {
     // descend into a child, allocating if necessary
     fn descend(&mut self, left: bool, leaf: bool) -> &mut Box<Node> {
-        // descending into a leaf node is an fatal error.
+        // descending into a leaf node is a fatal error.
         let Node { data: Branch { left: l, right: r }, .. } = self else {
             panic!()
         };
