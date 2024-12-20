@@ -148,7 +148,7 @@ impl<F: Field, RO> IPForMLSumcheck<F, RO> {
         #[cfg(not(feature = "parallel"))]
         let products_sum = fold_result.0;
 
-        // When rayon is used, the `fold` operation results in a iterator of `Vec<F>` rather than a single `Vec<F>`. In this case, we simply need to sum them.
+        // When rayon is used, the `fold` operation results in an iterator of `Vec<F>` rather than a single `Vec<F>`. In this case, we simply need to sum them.
         #[cfg(feature = "parallel")]
         let products_sum = fold_result.map(|scratch| scratch.0).reduce(
             || vec![F::zero(); degree + 1],
