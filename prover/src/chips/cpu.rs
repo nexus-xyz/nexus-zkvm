@@ -17,6 +17,7 @@ use crate::{
         ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
+    virtual_column::{self, VirtualColumn},
 };
 
 use nexus_vm::{
@@ -299,14 +300,7 @@ impl MachineChip for CpuChip {
         let [imm_c] = trace_eval!(trace_eval, Column::ImmC);
 
         // is_type_r = (1-imm_c) ・(is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra)
-        let is_type_r = (E::F::one() - imm_c.clone())
-            * (is_add.clone()
-                + is_sub.clone()
-                + is_slt.clone()
-                + is_sltu.clone()
-                + is_xor.clone()
-                + is_or.clone()
-                + is_and.clone());
+        let [is_type_r] = virtual_column::IsTypeR::eval(trace_eval);
 
         // is_alu_imm_no_shift = imm_c・(is_add + is_slt + is_sltu + is_xor + is_or + is_and)
         let is_alu_imm_no_shift =

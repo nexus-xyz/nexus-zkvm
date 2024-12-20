@@ -5,19 +5,24 @@ use stwo_prover::constraint_framework::logup::LookupElements;
 use num_traits::One;
 
 use crate::{
-    column::Column::{
-        self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd, IsBge,
-        IsBgeu, IsBlt, IsBltu, IsJal, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor, LtFlag,
-        Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed, Reg2Accessed,
-        Reg3Accessed, SgnA, SgnB, SgnC,
+    column::{
+        Column::{
+            self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
+            IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsOr, IsPadding, IsSlt, IsSltu, IsSub, IsXor,
+            LtFlag, OpA0, OpB0, OpC4, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed,
+            Reg1Accessed, Reg2Accessed, Reg3Accessed, SgnA, SgnB, SgnC,
+        },
+        ProgramColumn,
     },
-    column::ProgramColumn,
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::program_trace_eval, eval::TraceEval, program_trace::ProgramTraces,
-        sidenote::SideNote, ProgramStep, TracesBuilder,
+        eval::{program_trace_eval, TraceEval},
+        program_trace::ProgramTraces,
+        sidenote::SideNote,
+        ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
+    virtual_column::{self, VirtualColumn},
     WORD_SIZE,
 };
 
@@ -56,6 +61,7 @@ const CHECKED_SINGLE: [Column; 26] = [
     Ram4Accessed,
 ];
 const CHECKED_WORD: [Column; 5] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus];
+const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 
 // TODO: also range-check PrgMemoryFlag in program trace
 
@@ -77,6 +83,11 @@ impl MachineChip for RangeBoolChip {
         for col in CHECKED_SINGLE.into_iter() {
             let [col] = trace_eval.column_eval(col);
             eval.add_constraint(col.clone() * (col - E::F::one()));
+        }
+        for col in TYPE_R_CHECKED_SINGLE.into_iter() {
+            let [type_r] = virtual_column::IsTypeR::eval(trace_eval);
+            let [col] = trace_eval.column_eval(col);
+            eval.add_constraint(type_r * col.clone() * (col - E::F::one()));
         }
         for col_word in CHECKED_WORD.into_iter() {
             let col_word = trace_eval.column_eval::<WORD_SIZE>(col_word);

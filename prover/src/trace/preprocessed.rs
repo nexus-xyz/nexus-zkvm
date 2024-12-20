@@ -125,7 +125,7 @@ impl PreprocessedBuilder {
         }
     }
 
-    fn fill_range16(&mut self) {
+    pub(crate) fn fill_range16(&mut self) {
         for row_idx in 0..16 {
             self.0.cols[PreprocessedColumn::Range16.offset()][row_idx] = BaseField::from(row_idx);
         }

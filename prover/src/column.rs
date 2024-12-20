@@ -151,6 +151,9 @@ pub enum Column {
     #[size = 1]
     Neq34AuxInv,
 
+    /// Multiplicity column for Range16Chip. Multiplicity16[row_idx] counts how many times the number row_idx is checked against Range16 in the entire trace.
+    #[size = 1]
+    Multiplicity16,
     /// Multiplicity column for Range32Chip. Multiplicity32[row_idx] counts how many times the number row_idx is checked against Range32 in the entire trace.
     #[size = 1]
     Multiplicity32,
@@ -303,6 +306,25 @@ pub enum Column {
     /// The flag indicating whether the read-write memory at RamBaseAddr + 3 is accessed
     #[size = 1]
     Ram4Accessed,
+
+    /// Auxiliary variable for decoding instruction: bits[0..=3] of OpC argument
+    #[size = 1]
+    OpC03,
+    /// Auxiliary variable for decoding instruction: bits[1..=4] of OpA argument
+    #[size = 1]
+    OpA14,
+    /// Auxiliary variable for decoding instruction: bits[1..=4] of OpB argument
+    #[size = 1]
+    OpB14,
+    /// Auxiliary variable for decoding instruction: bits[4] of OpC argument
+    #[size = 1]
+    OpC4,
+    /// Auxiliary variable for decoding instruction: bits[0] of OpA argument
+    #[size = 1]
+    OpA0,
+    /// Auxiliary variable for decoding instruction: bits[0] of OpB argument
+    #[size = 1]
+    OpB0,
 }
 
 // proc macro derived:

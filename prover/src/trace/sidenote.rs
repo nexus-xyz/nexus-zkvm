@@ -26,8 +26,14 @@ pub struct Range128SideNote {
     pub(crate) global_multiplicity: u32,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub struct Range16SideNote {
+    pub(crate) global_multiplicity: u32,
+}
+
 pub struct SideNote<'a> {
     pub program_mem_check: ProgramMemCheckSideNote<'a>,
+    pub(crate) range16: Range16SideNote,
     pub(crate) range32: Range32SideNote,
     pub(crate) range128: Range128SideNote,
     pub(crate) range256: Range256SideNote,
@@ -41,6 +47,7 @@ impl<'a> SideNote<'a> {
                 program_trace: program_traces,
                 last_access_counter: BTreeMap::new(),
             },
+            range16: Range16SideNote::default(),
             range32: Range32SideNote::default(),
             range128: Range128SideNote::default(),
             range256: Range256SideNote::default(),
