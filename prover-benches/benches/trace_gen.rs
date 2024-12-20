@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nexus_vm::{
-    emulator::{LinearEmulator, LinearMemoryLayout},
+    emulator::{Emulator, HarvardEmulator},
     riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
     trace::{k_trace_direct, UniformTrace},
 };
@@ -46,8 +46,7 @@ fn bench_trace_gen(c: &mut Criterion) {
     let blocks = program_trace();
     let execution_trace = k_trace_direct(&blocks, K).expect("error generating trace");
 
-    let emulator = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &blocks);
-
+    let emulator = HarvardEmulator::from_basic_blocks(&blocks);
     for &log_size in LOG_SIZES {
         let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
         group.sample_size(10);

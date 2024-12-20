@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_parse_elf_files() {
-        let test_cases = [("test/fib_10.elf", 4096, 4096, 244)];
+        let test_cases = [("test/fib_10.elf", 4096, 4096, 1467)];
 
         for (file_path, entry_point, base_address, number_of_instruction) in test_cases.iter() {
             let elf = ElfFile::from_path(file_path).unwrap();

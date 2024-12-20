@@ -33,10 +33,10 @@
 //! use nexus_vm::emulator::{Emulator, HarvardEmulator};
 //!
 //! // Load an ELF file
-//! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+//! let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
 //!
 //! // Create an emulator instance
-//! let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
+//! let mut emulator = HarvardEmulator::from_elf(&mut elf_file, &[], &[]);
 //!
 //! // Run the emulator
 //! match emulator.execute() {
@@ -81,7 +81,7 @@ use crate::{
     system::SyscallInstruction,
 };
 use nexus_common::{
-    constants::{MEMORY_TOP, WORD_SIZE},
+    constants::{ELF_TEXT_START, MEMORY_TOP, WORD_SIZE},
     cpu::{InstructionExecutor, Registers},
     word_align,
 };
@@ -160,6 +160,9 @@ pub struct Executor {
 
     // The cycles tracker: (name, (cycle_count, occurrence))
     pub cycle_tracker: HashMap<String, (usize, usize)>,
+
+    // A map of memory addresses to the last timestamp when they were accessed
+    pub access_timestamps: HashMap<u32, usize>,
 }
 
 impl Executor {
@@ -228,6 +231,9 @@ pub trait Emulator {
     /// Return a mutable reference to the internal executor component used by the emulator.
     fn get_executor_mut(&mut self) -> &mut Executor;
 
+    /// Return information about the structure of the program memory.
+    fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_>;
+
     /// Execute an entire basic block.
     fn execute_basic_block(
         &mut self,
@@ -277,6 +283,56 @@ pub trait Emulator {
     fn set_private_input(&mut self, private_input: &[u8]) {
         self.get_executor_mut().set_private_input(private_input)
     }
+
+    fn manage_timestamps(&mut self, size: &MemAccessSize, address: &u32) -> usize {
+        let half_aligned_address = address & !(WORD_SIZE / 2 - 1) as u32;
+        let full_aligned_address = address & !(WORD_SIZE - 1) as u32;
+
+        let prev = match size {
+            MemAccessSize::Byte => max(
+                *self
+                    .get_executor()
+                    .access_timestamps
+                    .get(address)
+                    .unwrap_or(&0),
+                max(
+                    *self
+                        .get_executor()
+                        .access_timestamps
+                        .get(&half_aligned_address)
+                        .unwrap_or(&0),
+                    *self
+                        .get_executor()
+                        .access_timestamps
+                        .get(&full_aligned_address)
+                        .unwrap_or(&0),
+                ),
+            ),
+            MemAccessSize::HalfWord => max(
+                *self
+                    .get_executor()
+                    .access_timestamps
+                    .get(address)
+                    .unwrap_or(&0),
+                *self
+                    .get_executor()
+                    .access_timestamps
+                    .get(&full_aligned_address)
+                    .unwrap_or(&0),
+            ),
+            MemAccessSize::Word => *self
+                .get_executor()
+                .access_timestamps
+                .get(address)
+                .unwrap_or(&0),
+        };
+
+        let clk = self.get_executor().global_clock;
+        self.get_executor_mut()
+            .access_timestamps
+            .insert(*address, clk);
+        prev
+    }
 }
 
 #[derive(Debug)]
@@ -315,7 +371,7 @@ impl Default for HarvardEmulator {
 }
 
 impl HarvardEmulator {
-    pub fn from_elf(elf: ElfFile, public_input: &[u8], private_input: &[u8]) -> Self {
+    pub fn from_elf(elf: &ElfFile, public_input: &[u8], private_input: &[u8]) -> Self {
         // the stack and heap will also be stored in this variable memory segment
         let text_end = (elf.instructions.len() * WORD_SIZE) as u32 + elf.base;
         let mut data_end = *elf.ram_image.last_key_value().unwrap_or((&text_end, &0)).0;
@@ -365,12 +421,41 @@ impl HarvardEmulator {
             instruction_memory: FixedMemory::<RO>::from_vec(
                 elf.base,
                 elf.instructions.len() * WORD_SIZE,
-                elf.instructions,
+                elf.instructions.clone(),
             ),
             input_memory: FixedMemory::<RO>::from_bytes(0, &public_input_with_len),
             output_memory: VariableMemory::<WO>::default(),
             data_memory,
             memory_stats: MemoryStats::new(data_end, MEMORY_TOP),
+        };
+        emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
+        emulator
+    }
+
+    /// Creates a HarvardEmulator from a basic block IR, for simple testing purposes.
+    ///
+    /// This function initializes a Harvard with a single basic block of instructions.
+    /// It's primarily used for testing and simple emulation scenarios.
+    pub fn from_basic_blocks(basic_blocks: &Vec<BasicBlock>) -> Self {
+        let mut encoded_basic_blocks = Vec::new();
+        for block in basic_blocks {
+            encoded_basic_blocks.extend(block.encode());
+        }
+
+        let mut emulator = Self {
+            executor: Executor {
+                base_address: ELF_TEXT_START,
+                entrypoint: ELF_TEXT_START,
+                global_clock: 1, // global_clock = 0 captures initalization for memory records
+                ..Default::default()
+            },
+            instruction_memory: FixedMemory::<RO>::from_vec(
+                ELF_TEXT_START,
+                encoded_basic_blocks.len() * WORD_SIZE,
+                encoded_basic_blocks,
+            ),
+            data_memory: UnifiedMemory::from(VariableMemory::<RW>::default()),
+            ..Default::default()
         };
         emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
         emulator
@@ -392,7 +477,7 @@ impl Emulator for HarvardEmulator {
         &mut self,
         bare_instruction: &Instruction,
     ) -> Result<(InstructionResult, MemoryRecords)> {
-        let ((_, (load_ops, store_ops)), accessed_io_memory) = match (
+        let ((res, (load_ops, store_ops)), accessed_io_memory) = match (
             self.executor
                 .instruction_executor
                 .get_for_read_input(&bare_instruction.opcode),
@@ -439,6 +524,28 @@ impl Emulator for HarvardEmulator {
             (_, _, Err(e)) => return Err(e),
         };
 
+        let mut memory_records = MemoryRecords::new();
+
+        load_ops.clone().iter().for_each(|op| {
+            let size = op.get_size();
+            let address = op.get_address();
+
+            memory_records.insert(op.as_record(
+                self.executor.global_clock,
+                self.manage_timestamps(&size, &address),
+            ));
+        });
+
+        store_ops.clone().iter().for_each(|op| {
+            let size = op.get_size();
+            let address = op.get_address();
+
+            memory_records.insert(op.as_record(
+                self.executor.global_clock,
+                self.manage_timestamps(&size, &address),
+            ));
+        });
+
         // Update the memory size statistics.
         if !accessed_io_memory {
             self.memory_stats.update(
@@ -458,8 +565,7 @@ impl Emulator for HarvardEmulator {
         // increment the global clock by 1.
         self.executor.global_clock += 1;
 
-        // nb: we don't need any sort of operation records from the first pass
-        Ok((None, MemoryRecords::new()))
+        Ok((res, memory_records))
     }
 
     /// Fetches or decodes a basic block starting from the current PC.
@@ -498,6 +604,22 @@ impl Emulator for HarvardEmulator {
     fn get_executor_mut(&mut self) -> &mut Executor {
         &mut self.executor
     }
+
+    /// Return information about the structure of the program memory.
+    fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_> {
+        ProgramInfo {
+            initial_pc: self.executor.entrypoint,
+            program: self
+                .instruction_memory
+                .segment(self.executor.base_address, None)
+                .iter()
+                .enumerate()
+                .map(|(pc_offset, instruction)| ProgramMemoryEntry {
+                    pc: self.executor.base_address + (pc_offset * WORD_SIZE) as u32,
+                    instruction_word: *instruction,
+                }),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -507,9 +629,6 @@ pub struct LinearEmulator {
 
     // The unified index for the program instruction memory segment
     instruction_index: (usize, usize),
-
-    // A map of memory addresses to the last timestamp when they were accessed
-    access_timestamps: HashMap<u32, usize>,
 
     // The memory layout
     pub memory_layout: LinearMemoryLayout,
@@ -522,8 +641,8 @@ pub struct LinearEmulator {
 
 impl LinearEmulator {
     pub fn from_harvard(
-        emulator_harvard: HarvardEmulator,
-        mut elf: ElfFile,
+        emulator_harvard: &HarvardEmulator,
+        elf: &mut ElfFile,
         ad: &[u8],
         private_input: &[u8],
     ) -> Result<Self> {
@@ -600,7 +719,7 @@ impl LinearEmulator {
     pub fn from_elf(
         memory_layout: LinearMemoryLayout,
         ad: &[u8],
-        elf: ElfFile,
+        elf: &ElfFile,
         public_input: &[u8],
         private_input: &[u8],
     ) -> Self {
@@ -613,7 +732,7 @@ impl LinearEmulator {
         let code_memory = FixedMemory::<RO>::from_vec(
             code_start,
             elf.instructions.len() * WORD_SIZE,
-            elf.instructions,
+            elf.instructions.clone(),
         );
         let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
 
@@ -743,120 +862,6 @@ impl LinearEmulator {
             Some(self.memory_layout.public_output_end()),
         )
     }
-
-    /// Creates a Linear Emulator from a basic block IR, for simple testing purposes.
-    ///
-    /// This function initializes a Linear Emulator with a single basic block of instructions,
-    /// along with the necessary memory layout and input data. It's primarily used for testing
-    /// and simple emulation scenarios.
-    ///
-    /// # Note
-    ///
-    /// This function currently only sets up simple instruction memory. It may be extended
-    /// in the future to support more features and memory configurations.
-    pub fn from_basic_blocks(
-        memory_layout: LinearMemoryLayout,
-        basic_blocks: &Vec<BasicBlock>,
-    ) -> Self {
-        let mut memory = UnifiedMemory::default();
-
-        let mut encoded_basic_blocks = Vec::new();
-        for block in basic_blocks {
-            encoded_basic_blocks.extend(block.encode());
-        }
-
-        // Add basic blocks instructions to memory
-        let code_start = memory_layout.program_start();
-        let code_memory = FixedMemory::<RO>::from_vec(
-            code_start,
-            encoded_basic_blocks.len() * WORD_SIZE,
-            encoded_basic_blocks,
-        );
-
-        let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
-
-        let heap_len = (memory_layout.heap_end() - memory_layout.heap_start()) as usize;
-        let heap_memory =
-            FixedMemory::<RW>::from_vec(memory_layout.heap_start(), heap_len, vec![0; heap_len]);
-        let _ = memory.add_fixed_rw(&heap_memory).unwrap();
-
-        let stack_len = (memory_layout.stack_top() - memory_layout.stack_bottom()) as usize;
-        let stack_memory = FixedMemory::<RW>::from_vec(
-            memory_layout.stack_bottom(),
-            stack_len,
-            vec![0; stack_len],
-        );
-        let _ = memory.add_fixed_rw(&stack_memory).unwrap();
-
-        let mut emulator = Self {
-            executor: Executor {
-                base_address: code_start,
-                entrypoint: code_start,
-                global_clock: 1, // global_clock = 0 captures initalization for memory records
-                ..Default::default()
-            },
-            instruction_index,
-            memory_layout,
-            memory,
-            ..Default::default()
-        };
-        emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
-        emulator
-    }
-
-    fn manage_timestamps(&mut self, size: &MemAccessSize, address: &u32) -> usize {
-        let half_aligned_address = address & !(WORD_SIZE / 2 - 1) as u32;
-        let full_aligned_address = address & !(WORD_SIZE - 1) as u32;
-
-        let prev = match size {
-            MemAccessSize::Byte => max(
-                *self.access_timestamps.get(address).unwrap_or(&0),
-                max(
-                    *self
-                        .access_timestamps
-                        .get(&half_aligned_address)
-                        .unwrap_or(&0),
-                    *self
-                        .access_timestamps
-                        .get(&full_aligned_address)
-                        .unwrap_or(&0),
-                ),
-            ),
-            MemAccessSize::HalfWord => max(
-                *self.access_timestamps.get(address).unwrap_or(&0),
-                *self
-                    .access_timestamps
-                    .get(&full_aligned_address)
-                    .unwrap_or(&0),
-            ),
-            MemAccessSize::Word => *self.access_timestamps.get(address).unwrap_or(&0),
-        };
-
-        self.access_timestamps
-            .insert(*address, self.executor.global_clock);
-        prev
-    }
-
-    /// Returns the whole program as a map of program counter -> instruction word
-    pub fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_> {
-        ProgramInfo {
-            initial_pc: self.memory_layout.program_start(),
-            program: self
-                .memory
-                .segment(
-                    self.instruction_index,
-                    self.memory_layout.program_start(),
-                    None,
-                )
-                .expect("Cannot find program memory in LinearEmulator")
-                .iter()
-                .enumerate()
-                .map(|(pc_offset, instruction)| ProgramMemoryEntry {
-                    pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
-                    instruction_word: *instruction,
-                }),
-        }
-    }
 }
 
 impl Emulator for LinearEmulator {
@@ -973,6 +978,27 @@ impl Emulator for LinearEmulator {
     fn get_executor_mut(&mut self) -> &mut Executor {
         &mut self.executor
     }
+
+    /// Return information about the structure of the program memory.
+    fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_> {
+        ProgramInfo {
+            initial_pc: self.memory_layout.program_start(),
+            program: self
+                .memory
+                .segment(
+                    self.instruction_index,
+                    self.memory_layout.program_start(),
+                    None,
+                )
+                .expect("Cannot find program memory in LinearEmulator")
+                .iter()
+                .enumerate()
+                .map(|(pc_offset, instruction)| ProgramMemoryEntry {
+                    pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
+                    instruction_word: *instruction,
+                }),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -980,6 +1006,7 @@ mod tests {
     use super::*;
     use crate::elf::ElfFile;
     use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode};
+    use serial_test::serial;
 
     #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock>
@@ -1024,9 +1051,10 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_harvard_emulate_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let mut emulator = HarvardEmulator::from_elf(elf_file, &[], &[]);
+        let mut emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 
         assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
     }
@@ -1057,10 +1085,19 @@ mod tests {
     }
 
     #[test]
+    fn test_harvard_from_basic_block() {
+        let basic_blocks = setup_basic_block_ir();
+        let mut emulator = HarvardEmulator::from_basic_blocks(&basic_blocks);
+
+        assert_eq!(emulator.execute(), Err(VMError::VMOutOfInstructions));
+    }
+
+    #[test]
+    #[serial]
     fn test_linear_emulate_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
         let mut emulator =
-            LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], elf_file, &[], &[]);
+            LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], &elf_file, &[], &[]);
 
         assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
     }
@@ -1088,15 +1125,6 @@ mod tests {
         emulator.set_private_input(&private_input);
 
         assert_eq!(emulator.executor.private_input_tape, private_input_vec);
-    }
-
-    #[test]
-    fn test_linear_from_basic_block() {
-        let basic_blocks = setup_basic_block_ir();
-        let mut emulator =
-            LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_blocks);
-
-        assert_eq!(emulator.execute(), Err(VMError::VMOutOfInstructions));
     }
 
     #[test]

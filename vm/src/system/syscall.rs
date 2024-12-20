@@ -269,8 +269,8 @@ impl SyscallInstruction {
         match self.code {
             SyscallCode::Write => {
                 // No-op on second pass.
-                #[cfg(not(debug_assertions))]
                 if memory_layout.is_some() {
+                    self.result.1 = 0;
                     return Ok(());
                 }
 
@@ -282,13 +282,14 @@ impl SyscallInstruction {
 
             SyscallCode::CycleCount => {
                 // no-op on second pass
-                if memory_layout.is_none() {
-                    let buf = self.args[0];
-                    let buflen = self.args[1];
-                    return self.execute_cyclecount(executor, memory, buf, buflen);
+                if memory_layout.is_some() {
+                    self.result.1 = 0;
+                    return Ok(());
                 }
 
-                Ok(())
+                let buf = self.args[0];
+                let buflen = self.args[1];
+                self.execute_cyclecount(executor, memory, buf, buflen)
             }
 
             SyscallCode::Exit => {

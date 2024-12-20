@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cpu::{instructions::InstructionResult, RegisterFile},
     elf::ElfFile,
-    emulator::{Emulator, LinearEmulator, LinearMemoryLayout},
+    emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout},
     error::{Result, VMError},
     memory::MemoryRecords,
     riscv::{BasicBlock, Instruction},
@@ -171,14 +171,14 @@ impl BBTrace {
 
 // Generate a `Step` by evaluating the next instruction of `vm`.
 fn step(
-    vm: &mut LinearEmulator,
+    vm: &mut impl Emulator,
     instruction: &Instruction,
     pc: u32,
     timestamp: u32,
 ) -> Result<Step> {
     let (result, memory_records) = vm.execute_instruction(instruction)?;
 
-    let next_pc = vm.executor.cpu.pc.value;
+    let next_pc = vm.get_executor().cpu.pc.value;
 
     let step = Step {
         timestamp,
@@ -194,9 +194,9 @@ fn step(
 }
 
 // Generate a `Block` by evaluating `k` steps of `vm`.
-fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
+fn k_step(vm: &mut impl Emulator, k: usize) -> (Option<Block>, Result<()>) {
     let mut block = Block {
-        regs: vm.executor.cpu.registers,
+        regs: vm.get_executor().cpu.registers,
         steps: Vec::new(),
     };
 
@@ -214,11 +214,11 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
 
                     for _ in block.steps.len()..k {
                         // 1. Increment the global_clock for each padding step.
-                        vm.executor.global_clock += 1;
+                        vm.get_executor_mut().global_clock += 1;
 
                         // 2. Repeat the last state, but with the global_clock incremented.
                         padding_steps.push(Step {
-                            timestamp: vm.executor.global_clock as u32,
+                            timestamp: vm.get_executor().global_clock as u32,
                             pc: last_step.next_pc,
                             next_pc: last_step.next_pc,
                             raw_instruction: unimpl_instruction.encode(),
@@ -234,7 +234,8 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
                 return (Some(block), Err(e));
             }
             Ok(basic_block_entry) => {
-                let at = (vm.executor.cpu.pc.value as usize - basic_block_entry.start as usize)
+                let at = (vm.get_executor().cpu.pc.value as usize
+                    - basic_block_entry.start as usize)
                     / WORD_SIZE;
 
                 for instruction in basic_block_entry.block.0[at..].iter() {
@@ -242,8 +243,8 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
                         return (Some(block), Ok(()));
                     }
 
-                    let timestamp = vm.executor.global_clock as u32;
-                    let pc = vm.executor.cpu.pc.value;
+                    let pc = vm.get_executor().cpu.pc.value;
+                    let timestamp = vm.get_executor().global_clock as u32;
 
                     match step(vm, instruction, pc, timestamp) {
                         Ok(step) => block.steps.push(step),
@@ -274,68 +275,70 @@ fn k_step(vm: &mut LinearEmulator, k: usize) -> (Option<Block>, Result<()>) {
 ///
 /// This function generates a trace of the program execution using the provided ELF file.
 /// It creates a `UniformTrace` where each block contains `k` steps.
+///
 /// # Note
 ///
 /// If a block in the trace is smaller than `k`,
 /// the block will be padded with UNIMPL instruction to reach the size of `k`.
 /// These padded instructions are not executed in the VM.
 pub fn k_trace(
-    elf: ElfFile,
-    ad_hash: &[u8],
+    elf: &mut ElfFile,
+    ad: &[u8],
     public_input: &[u8],
     private_input: &[u8],
     k: usize,
 ) -> Result<UniformTrace> {
     assert!(k > 0);
+    let mut harvard = HarvardEmulator::from_elf(elf, public_input, private_input);
 
-    // todo: get memory segment using a first-pass trace
-    let mut vm = LinearEmulator::from_elf(
-        LinearMemoryLayout::default(),
-        ad_hash,
-        elf,
-        public_input,
-        private_input,
-    );
+    match harvard.execute() {
+        Err(VMError::VMExited(_)) => {
+            // todo: consistency check i/o between harvard and linear?
+            let mut linear = LinearEmulator::from_harvard(&harvard, elf, ad, private_input)?;
 
-    let mut trace = UniformTrace {
-        memory_layout: vm.memory_layout,
-        k,
-        start: 0,
-        blocks: Vec::new(),
-    };
+            let mut trace = UniformTrace {
+                memory_layout: linear.memory_layout,
+                k,
+                start: 0,
+                blocks: Vec::new(),
+            };
 
-    loop {
-        match k_step(&mut vm, k) {
-            (Some(block), Ok(())) => trace.blocks.push(block),
-            (Some(block), Err(e)) => {
-                if !block.steps.is_empty() {
-                    trace.blocks.push(block);
-                }
+            loop {
+                match k_step(&mut linear, k) {
+                    (Some(block), Ok(())) => trace.blocks.push(block),
+                    (Some(block), Err(e)) => {
+                        if !block.steps.is_empty() {
+                            trace.blocks.push(block);
+                        }
 
-                match e {
-                    VMError::VMExited(0) => return Ok(trace),
-                    _ => return Err(e),
+                        match e {
+                            VMError::VMExited(_) => return Ok(trace),
+                            _ => return Err(e),
+                        }
+                    }
+                    (None, Err(e)) => return Err(e),
+                    (None, Ok(())) => unreachable!(),
                 }
             }
-            (None, Err(e)) => return Err(e),
-            (None, Ok(())) => unreachable!(),
         }
+        Err(e) => return Err(e),
+        Ok(_) => unreachable!(),
     }
 }
 
-/// Similar to `k_trace`, but support Intermediate Representation (IR) as input instead of an ELF file.
+/// Similar to `k_trace`, but uses HarvardEmulator and supports Intermediate Representation (IR) as input instead of an ELF file.
 pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<UniformTrace> {
-    let mut vm = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), basic_blocks);
+    let mut harvard = HarvardEmulator::from_basic_blocks(basic_blocks);
 
     let mut trace = UniformTrace {
-        memory_layout: vm.memory_layout,
+        memory_layout: LinearMemoryLayout::default(), // dummy
         k,
         start: 0,
         blocks: Vec::new(),
     };
 
     loop {
-        match k_step(&mut vm, k) {
+        match k_step(&mut harvard, k) {
             (Some(block), Ok(())) => trace.blocks.push(block),
             (Some(block), Err(e)) => {
                 if !block.steps.is_empty() {
@@ -343,7 +346,7 @@ pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<Unifor
                 }
 
                 match e {
-                    VMError::VMExited(0) | VMError::VMOutOfInstructions => return Ok(trace),
+                    VMError::VMExited(_) | VMError::VMOutOfInstructions => return Ok(trace),
                     _ => return Err(e),
                 }
             }
@@ -353,19 +356,22 @@ pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<Unifor
     }
 }
 
-// Generate a `Block` by evaluating a basic block in the `vm`.
-fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
+/// Generate a `Block` by evaluating a basic block in the `vm`.
+fn bb_step(vm: &mut impl Emulator) -> (Option<Block>, Result<()>) {
     let mut block = Block {
-        regs: vm.executor.cpu.registers,
+        regs: vm.get_executor().cpu.registers,
         steps: Vec::new(),
     };
 
     match vm.fetch_block(vm.get_executor().cpu.pc.value) {
         Err(e) => return (None, Err(e)),
         Ok(basic_block_entry) => {
-            for instruction in basic_block_entry.block.0.iter() {
-                let pc = vm.executor.cpu.pc.value;
-                let timestamp = vm.executor.global_clock as u32;
+            let at = (vm.get_executor().cpu.pc.value as usize - basic_block_entry.start as usize)
+                / WORD_SIZE;
+
+            for instruction in basic_block_entry.block.0[at..].iter() {
+                let pc = vm.get_executor().cpu.pc.value;
+                let timestamp = vm.get_executor().global_clock as u32;
 
                 match step(vm, instruction, pc, timestamp) {
                     Ok(step) => block.steps.push(step),
@@ -393,57 +399,59 @@ fn bb_step(vm: &mut LinearEmulator) -> (Option<Block>, Result<()>) {
 
 /// Trace a program over basic blocks.
 pub fn bb_trace(
-    elf: ElfFile,
-    ad_hash: &[u8],
+    elf: &mut ElfFile,
+    ad: &[u8],
     public_input: &[u8],
     private_input: &[u8],
 ) -> Result<BBTrace> {
-    // todo: get memory segment using a first-pass trace
-    let mut vm = LinearEmulator::from_elf(
-        LinearMemoryLayout::default(),
-        ad_hash,
-        elf,
-        public_input,
-        private_input,
-    );
+    let mut harvard = HarvardEmulator::from_elf(elf, public_input, private_input);
 
-    let mut trace = BBTrace {
-        memory_layout: vm.memory_layout,
-        start: 0,
-        blocks: Vec::new(),
-    };
+    match harvard.execute() {
+        Err(VMError::VMExited(_)) => {
+            // todo: consistency check i/o between harvard and linear?
+            let mut linear = LinearEmulator::from_harvard(&harvard, elf, ad, private_input)?;
 
-    loop {
-        match bb_step(&mut vm) {
-            (Some(block), Ok(())) => trace.blocks.push(block),
-            (Some(block), Err(e)) => {
-                if !block.steps.is_empty() {
-                    trace.blocks.push(block);
-                }
+            let mut trace = BBTrace {
+                memory_layout: linear.memory_layout,
+                start: 0,
+                blocks: Vec::new(),
+            };
 
-                match e {
-                    VMError::VMExited(0) => return Ok(trace),
-                    _ => return Err(e),
+            loop {
+                match bb_step(&mut linear) {
+                    (Some(block), Ok(())) => trace.blocks.push(block),
+                    (Some(block), Err(e)) => {
+                        if !block.steps.is_empty() {
+                            trace.blocks.push(block);
+                        }
+
+                        match e {
+                            VMError::VMExited(_) => return Ok(trace),
+                            _ => return Err(e),
+                        }
+                    }
+                    (None, Err(e)) => return Err(e),
+                    (None, Ok(())) => unreachable!(),
                 }
             }
-            (None, Err(e)) => return Err(e),
-            (None, Ok(())) => unreachable!(),
         }
+        Err(e) => return Err(e),
+        Ok(_) => unreachable!(),
     }
 }
 
-/// Trace a program over basic blocks.
+/// Similar to `bb_trace`, but uses HarvardEmulator and supports Intermediate Representation (IR) as input instead of an ELF file.
 pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<BBTrace> {
-    let mut vm = LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), basic_blocks);
+    let mut harvard = HarvardEmulator::from_basic_blocks(basic_blocks);
 
     let mut trace = BBTrace {
-        memory_layout: vm.memory_layout,
+        memory_layout: LinearMemoryLayout::default(), // dummy
         start: 0,
         blocks: Vec::new(),
     };
 
     loop {
-        match bb_step(&mut vm) {
+        match bb_step(&mut harvard) {
             (Some(block), Ok(())) => trace.blocks.push(block),
             (Some(block), Err(e)) => {
                 if !block.steps.is_empty() {
@@ -451,7 +459,7 @@ pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<BBTrace> {
                 }
 
                 match e {
-                    VMError::VMExited(0) => return Ok(trace),
+                    VMError::VMExited(_) => return Ok(trace),
                     _ => return Err(e),
                 }
             }
@@ -468,26 +476,28 @@ mod tests {
     use crate::memory::{MemAccessSize, MemoryRecord};
     use crate::riscv::{BuiltinOpcode, Opcode, Register};
     use nexus_common::riscv::instruction::InstructionType;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_k1_trace_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = k_trace(elf_file, &[], &[], &[], 1).unwrap();
+        let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let trace = k_trace(&mut elf_file, &[], &[], &[], 1).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
 
         assert_eq!(block.steps.len(), 1);
-        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 8192); // check global pointer is updated
+        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 12288); // check global pointer is updated
 
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 4096);
         assert_eq!(step.next_pc, 4100);
-        assert_eq!(step.raw_instruction, 0x00001197);
+        assert_eq!(step.raw_instruction, 0x00002197);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
-        assert_eq!(step.result, Some(8192));
+        assert_eq!(step.result, Some(12288));
         assert!(step.memory_records.is_empty());
 
         // check a memory operation
@@ -499,18 +509,17 @@ mod tests {
         let mut step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 13);
-        assert_eq!(step.pc, 4156);
-        assert_eq!(step.next_pc, 4160);
-        assert_eq!(step.raw_instruction, 0x00112E23);
+        assert_eq!(step.pc, 4144);
+        assert_eq!(step.next_pc, 4148);
+        assert_eq!(step.raw_instruction, 0x00112623);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
 
-        dbg!(&step.memory_records);
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 9969664, 4128, 0),
+                (MemAccessSize::Word, 0x80403898, 4128, 0),
                 13,
                 0
             ))
@@ -523,8 +532,8 @@ mod tests {
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, trace.blocks.len() as u32);
-        assert_eq!(step.pc, 4188);
-        assert_eq!(step.next_pc, 4188);
+        assert_eq!(step.pc, 4176);
+        assert_eq!(step.next_pc, 4176);
         assert_eq!(step.raw_instruction, 0x00000073);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
@@ -532,24 +541,25 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_k8_trace_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = k_trace(elf_file, &[], &[], &[], 8).unwrap();
+        let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let trace = k_trace(&mut elf_file, &[], &[], &[], 8).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
 
         assert_eq!(block.steps.len(), 8);
-        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 7120); // check global pointer is updated (also after `addi gp, gp, -1072` at timestamp 2)
+        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 12024); // check global pointer is updated (also after `addi gp, gp, -264` at timestamp 2)
 
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 4096);
         assert_eq!(step.next_pc, 4100);
-        assert_eq!(step.raw_instruction, 0x00001197);
+        assert_eq!(step.raw_instruction, 0x00002197);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
-        assert_eq!(step.result, Some(8192));
+        assert_eq!(step.result, Some(12288));
         assert!(step.memory_records.is_empty());
 
         // check a memory operation
@@ -560,9 +570,9 @@ mod tests {
         let mut step = block.steps[4].clone();
 
         assert_eq!(step.timestamp, 13);
-        assert_eq!(step.pc, 4156);
-        assert_eq!(step.next_pc, 4160);
-        assert_eq!(step.raw_instruction, 0x00112E23);
+        assert_eq!(step.pc, 4144);
+        assert_eq!(step.next_pc, 4148);
+        assert_eq!(step.raw_instruction, 0x00112623);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
@@ -570,7 +580,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 9969664, 4128, 0),
+                (MemAccessSize::Word, 0x80403898, 4128, 0),
                 13,
                 0
             ))
@@ -586,8 +596,8 @@ mod tests {
             step.timestamp,
             (8 * (trace.blocks.len() as u32 - 1) + block.steps.len() as u32)
         );
-        assert_eq!(step.pc, 4188);
-        assert_eq!(step.next_pc, 4188);
+        assert_eq!(step.pc, 4176);
+        assert_eq!(step.next_pc, 4176);
         assert_eq!(step.raw_instruction, 0x00000073);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));
@@ -595,23 +605,24 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_bb_trace_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = bb_trace(elf_file, &[], &[], &[]).unwrap();
+        let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let trace = bb_trace(&mut elf_file, &[], &[], &[]).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
 
-        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 7120); // check global pointer is updated (also after `addi gp, gp, -1072` at timestamp 2)
+        assert_eq!(trace.block(1).unwrap().regs[Register::X3], 12024); // check global pointer is updated (also after `addi gp, gp, -264` at timestamp 2)
 
         let step = block.steps[0].clone();
 
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 4096);
         assert_eq!(step.next_pc, 4100);
-        assert_eq!(step.raw_instruction, 0x00001197);
+        assert_eq!(step.raw_instruction, 0x00002197);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::AUIPC));
-        assert_eq!(step.result, Some(8192));
+        assert_eq!(step.result, Some(12288));
         assert!(step.memory_records.is_empty());
 
         // check a memory operation
@@ -620,9 +631,9 @@ mod tests {
         let mut step = block.steps[1].clone();
 
         assert_eq!(step.timestamp, 13);
-        assert_eq!(step.pc, 4156);
-        assert_eq!(step.next_pc, 4160);
-        assert_eq!(step.raw_instruction, 0x00112E23);
+        assert_eq!(step.pc, 4144);
+        assert_eq!(step.next_pc, 4148);
+        assert_eq!(step.raw_instruction, 0x00112623);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::SW));
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
@@ -630,7 +641,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 9969664, 4128, 0),
+                (MemAccessSize::Word, 0x80403898, 4128, 0),
                 13,
                 0
             ))
@@ -638,12 +649,12 @@ mod tests {
 
         let block = trace.block(trace.blocks.len() - 1).unwrap();
 
-        assert!(block.steps.len() <= 8);
+        assert!(block.steps.len() <= 9);
 
         let step = block.steps.last().unwrap().clone();
 
-        assert_eq!(step.pc, 4188);
-        assert_eq!(step.next_pc, 4188);
+        assert_eq!(step.pc, 4176);
+        assert_eq!(step.next_pc, 4176);
         assert_eq!(step.raw_instruction, 0x00000073);
         assert_eq!(step.instruction.opcode, Opcode::from(BuiltinOpcode::ECALL));
         assert_eq!(step.result, Some(0));

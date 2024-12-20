@@ -114,11 +114,10 @@ pub use riscv32::*;
 #[macro_export]
 macro_rules! print {
     ($($as:tt)*) => {
-            <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
-                &mut nexus_rt::NexusLog,
-                core::format_args!($($as)*),
-            )
-            .unwrap()
+        <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
+            &mut nexus_rt::NexusLog,
+            core::format_args!($($as)*),
+        ).unwrap()
     }
 }
 
@@ -130,11 +129,10 @@ macro_rules! println {
         nexus_rt::print!("\n")
     };
     ($($as:tt)*) => {
-            <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
-                &mut nexus_rt::NexusLog,
-                core::format_args!("{}\n", core::format_args!($($as)*)),
-            )
-            .unwrap()
+        <nexus_rt::NexusLog as core::fmt::Write>::write_fmt(
+            &mut nexus_rt::NexusLog,
+            core::format_args!("{}\n", core::format_args!($($as)*)),
+        ).unwrap()
     }
 }
 

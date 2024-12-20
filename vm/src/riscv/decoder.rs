@@ -235,17 +235,13 @@ mod tests {
         let test_cases = [("test/fib_10.elf", 4096)];
 
         let gold_test = [
-            "│   0: addi sp, sp, -80",
-            "│   1: sw ra, 76(sp)",
-            "│   2: li a1, 0",
-            "│   3: sw a1, 20(sp)",
-            "│   4: li a0, 1",
-            "│   5: sw a0, 24(sp)",
-            "│   6: addi a0, sp, 40",
-            "│   7: sw a0, 16(sp)",
-            "│   8: li a2, 10",
-            "│   9: auipc ra, 0x0",
-            "│  10: jalr ra, ra, -164",
+            "│   0: addi a0, s1, 1",
+            "│   1: lw ra, 12(sp)",
+            "│   2: lw s0, 8(sp)",
+            "│   3: lw s1, 4(sp)",
+            "│   4: lw s2, 0(sp)",
+            "│   5: addi sp, sp, 16",
+            "│   6: ret",
         ];
 
         for (file_path, entrypoint) in test_cases.iter() {
@@ -258,7 +254,7 @@ mod tests {
                     [entry_instruction as usize..(entry_instruction + want_instructions) as usize],
             );
 
-            for (asm, gold_asm) in program[24]
+            for (asm, gold_asm) in program[21]
                 .to_string()
                 .split_terminator('\n')
                 .zip(gold_test)
@@ -272,8 +268,8 @@ mod tests {
     fn test_decode_instruction_from_elf_until_end_of_block() {
         let test_cases = [("test/fib_10.elf", 4096)];
         let gold_test = [
-            "│   0: auipc gp, 0x1",
-            "│   1: addi gp, gp, -1072",
+            "│   0: auipc gp, 0x2",
+            "│   1: addi gp, gp, -264",
             "│   2: auipc sp, 0x803ff",
             "│   3: addi sp, sp, -12",
             "│   4: jal ra, 0x0",

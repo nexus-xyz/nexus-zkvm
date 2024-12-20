@@ -15,4 +15,6 @@ nexus-common = { path = "../../common" }
 nexus-vm = { path = "../../vm" }
 postcard = { version = "1.0.10", features = ["alloc"] }
 serde.workspace = true
+
+[dev-dependencies]
 serial_test = "3.2.0"

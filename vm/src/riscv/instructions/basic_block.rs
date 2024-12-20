@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode_consistency_in_a_block() {
-        let file_path = "test/fib_10.elf";
+        let file_path = "test/fib_10_no_precompiles.elf";
         let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");
 
         // Get the entry point and calculate the instruction index
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_encode_decode_consistency_from_elf() {
-        let file_path = "test/fib_10.elf";
+        let file_path = "test/fib_10_no_precompiles.elf";
         let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");
 
         // Get the entry point and calculate the instruction index

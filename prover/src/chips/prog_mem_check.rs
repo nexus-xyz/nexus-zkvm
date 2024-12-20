@@ -526,7 +526,7 @@ mod test {
 
     use super::*;
     use nexus_vm::{
-        emulator::{LinearEmulator, LinearMemoryLayout},
+        emulator::{Emulator, HarvardEmulator},
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
     };
@@ -583,8 +583,7 @@ mod test {
 
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
-        let emulator =
-            LinearEmulator::from_basic_blocks(LinearMemoryLayout::default(), &basic_block);
+        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
