@@ -1,4 +1,5 @@
 mod add;
+mod auipc;
 mod beq;
 mod bge;
 mod bgeu;
@@ -24,8 +25,8 @@ mod store;
 mod timestamp;
 
 pub use self::{
-    add::AddChip, beq::BeqChip, bge::BgeChip, bgeu::BgeuChip, bit_op::BitOpChip, blt::BltChip,
-    bltu::BltuChip, bne::BneChip, cpu::CpuChip, jal::JalChip, lui::LuiChip,
+    add::AddChip, auipc::AuipcChip, beq::BeqChip, bge::BgeChip, bgeu::BgeuChip, bit_op::BitOpChip,
+    blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, jal::JalChip, lui::LuiChip,
     prog_mem_check::ProgramMemCheckChip, range128::Range128Chip, range16::Range16Chip,
     range256::Range256Chip, range32::Range32Chip, range_bool::RangeBoolChip,
     register_mem_check::RegisterMemCheckChip, slt::SltChip, sltu::SltuChip, store::StoreChip,

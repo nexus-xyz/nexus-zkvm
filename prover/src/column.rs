@@ -128,6 +128,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a LUI.
     #[size = 1]
     IsLui,
+    /// Boolean flag on whether the row is a AUIPC.
+    #[size = 1]
+    IsAuipc,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

@@ -8,8 +8,8 @@ use crate::{
     column::{
         Column::{
             self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
-            IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsLb, IsLh, IsLui, IsLw, IsOr, IsPadding, IsSb,
-            IsSh, IsSlt, IsSltu, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpC4, Ram1Accessed,
+            IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsLb, IsLh, IsLui, IsLw, IsOr, IsPadding,
+            IsSb, IsSh, IsSlt, IsSltu, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpC4, Ram1Accessed,
             Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed, Reg2Accessed, Reg3Accessed,
             SgnA, SgnB, SgnC,
         },
@@ -33,7 +33,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 33] = [
+const CHECKED_SINGLE: [Column; 34] = [
     ImmB,
     ImmC,
     IsAdd,
@@ -55,6 +55,7 @@ const CHECKED_SINGLE: [Column; 33] = [
     IsLh,
     IsLw,
     IsLui,
+    IsAuipc,
     IsPadding,
     LtFlag,
     SgnA,
