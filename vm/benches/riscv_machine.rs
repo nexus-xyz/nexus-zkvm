@@ -26,9 +26,17 @@ fn bench_trace_riscv_machine_with_checked_memory(machine: &str) {
         .expect("Failed to trace RISC-V VM with MerkleTrie memory");
 }
 
+#[library_benchmark]
+#[benches::multiple("nop10")]
+fn bench_trace_riscv_machine_with_custom_memory(machine: &str) {
+    // Assuming there is a CustomMemory type available
+    trace_riscv_machine::<CustomMemory>(machine)
+        .expect("Failed to trace RISC-V VM with CustomMemory");
+}
+
 library_benchmark_group!(
     name = bench_riscv_emulator;
-    benchmarks = bench_trace_riscv_machine_with_unchecked_memory, bench_trace_riscv_machine_with_checked_memory
+    benchmarks = bench_trace_riscv_machine_with_unchecked_memory, bench_trace_riscv_machine_with_checked_memory, bench_trace_riscv_machine_with_custom_memory
 );
 
 main!(library_benchmark_groups = bench_riscv_emulator);

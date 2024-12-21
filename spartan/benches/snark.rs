@@ -42,6 +42,35 @@ fn snark_encode_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Cr
   }
 }
 
+fn snark_encode_benchmark_varied_inputs<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Criterion) {
+  for s in 10..21 {
+    let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
+    let mut group = c.benchmark_group("SNARK_encode_benchmark_varied_inputs");
+    group.plot_config(plot_config);
+
+    let num_vars = (2_usize).pow(s as u32);
+    let num_cons = num_vars;
+    let num_inputs = 20;
+    let (inst, _vars, _inputs) =
+      Instance::<G::ScalarField>::produce_synthetic_r1cs(num_cons, num_vars, num_inputs);
+
+    // produce public parameters
+    let min_num_vars =
+      SNARKGens::<G, PC>::get_min_num_vars(num_cons, num_vars, num_inputs, num_cons);
+    let srs = PC::setup(min_num_vars, b"SNARK_profiler_SRS_varied_inputs", &mut test_rng()).unwrap();
+    let gens = SNARKGens::<G, PC>::new(&srs, num_cons, num_vars, num_inputs, num_cons);
+
+    // produce a commitment to R1CS instance
+    let name = format!("SNARK_encode_varied_inputs_{}", num_cons);
+    group.bench_function(&name, move |b| {
+      b.iter(|| {
+        SNARK::encode(black_box(&inst), black_box(&gens));
+      });
+    });
+    group.finish();
+  }
+}
+
 fn snark_prove_benchmark<G: CurveGroup, PC: PolyCommitmentScheme<G>>(c: &mut Criterion) {
   for s in 9..21 {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
@@ -143,8 +172,7 @@ fn set_duration() -> Criterion {
 criterion_group! {
 name = benches_snark;
 config = set_duration();
-targets = snark_encode_benchmark::<G1Projective, Hyrax<G1Projective>>,
-snark_prove_benchmark::<G1Projective, Hyrax<G1Projective>>, snark_verify_benchmark::<G1Projective, Hyrax<G1Projective>>
+targets = snark_encode_benchmark::<G1Projective, Hyrax<G1Projective>>, snark_encode_benchmark_varied_inputs::<G1Projective, Hyrax<G1Projective>>, snark_prove_benchmark::<G1Projective, Hyrax<G1Projective>>, snark_verify_benchmark::<G1Projective, Hyrax<G1Projective>>
 }
 
 criterion_main!(benches_snark);
