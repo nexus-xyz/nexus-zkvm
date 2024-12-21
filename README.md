@@ -5,7 +5,7 @@
         <img src="https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&url=https%3A%2F%2Fmogyo.ro%2Fquart-apis%2Ftgmembercount%3Fchat_id%3Dnexus_zkvm"/></a>
     <a href="https://github.com/nexus-xyz/nexus-zkvm/graphs/contributors">
         <img src="https://img.shields.io/github/contributors/nexus-xyz/nexus-zkvm.svg"></a>
-    <a href="https://twitter.com/NexusLabsHQ">
+    <a href="https://x.com/NexusLabsHQ">
         <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/></a>
     <a href="https://nexus.xyz">
         <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/></a>
@@ -135,4 +135,4 @@ Run `cargo nexus --help` to see all the available commands.
 
 Also check out the documentation at [docs.nexus.xyz](https://docs.nexus.xyz), or join our [Telegram](https://t.me/nexus_zkvm) chat to discuss!
 
-Nexus is committed to open-source. All of our code is dual licensed under MIT and Apache licenses. We encourage and appreciate contributions.
+Nexus is committed to open-source. All of our code is dual [licensed MIT](https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-MIT) and [Apache licenses](https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE-APACHE). We encourage and appreciate contributions.
