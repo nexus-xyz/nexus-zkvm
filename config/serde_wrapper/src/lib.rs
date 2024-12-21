@@ -35,12 +35,15 @@ pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     };
 
     for field in struct_item.fields.iter_mut() {
-        let rename_ident = field
-            .ident
-            .as_ref()
-            .map(|ident| ident.to_string().replace('_', "").to_lowercase())
-            .filter(|ident| !ident.is_empty());
-        if let Some(rename_ident) = rename_ident {
+        let rename_ident = match &field.ident {
+            Some(ident) => ident.to_string().replace('_', "").to_lowercase(),
+            None => {
+                // Handle unnamed fields (tuple structs)
+                continue;
+            }
+        };
+        
+        if !rename_ident.is_empty() {
             let rename_attr: TokenStream = quote! {
                 #[serde(rename = #rename_ident)]
             }
