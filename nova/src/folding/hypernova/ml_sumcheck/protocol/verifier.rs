@@ -327,7 +327,7 @@ mod test {
 
         assert_eq!(poly.evaluate(&query), interpolate_uni_poly(&evals, query));
 
-        // test interpolation when we ask for the value at an x-cordinate
+        // test interpolation when we ask for the value at an x-coordinate
         // we are already passing, i.e. in the range 0 <= x < len(values) - 1
         let evals = vec![0, 1, 4, 9]
             .into_iter()
