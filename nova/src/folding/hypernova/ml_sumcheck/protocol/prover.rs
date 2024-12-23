@@ -51,7 +51,7 @@ impl<F: Field, RO> IPForMLSumcheck<F, RO> {
     ///
     /// The polynomial is represented by a list of products of polynomials along with its coefficient that is meant to be added together.
     ///
-    /// This data structure of the polynomial is a list of list of `(coefficient, DenseMultilinearExtension)`.
+    /// This data structure of the polynomial is a list of `(coefficient, DenseMultilinearExtension)`.
     /// * Number of products n = `polynomial.products.len()`,
     /// * Number of multiplicands of ith product m_i = `polynomial.products[i].1.len()`,
     /// * Coefficient of ith product c_i = `polynomial.products[i].0`
