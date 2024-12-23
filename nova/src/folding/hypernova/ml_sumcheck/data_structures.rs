@@ -12,7 +12,7 @@ use ark_std::{cmp::max, rc::Rc};
 ///
 /// The polynomial is represented by a list of products of polynomials along with its coefficient that is meant to be added together.
 ///
-/// This data structure of the polynomial is a list of list of `(coefficient, DenseMultilinearExtension)`.
+/// This data structure of the polynomial is a list of `(coefficient, DenseMultilinearExtension)`.
 /// * Number of products n = `self.products.len()`,
 /// * Number of multiplicands of ith product m_i = `self.products[i].1.len()`,
 /// * Coefficient of ith product c_i = `self.products[i].0`
