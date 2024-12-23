@@ -10,10 +10,10 @@ pub use nexus_vm::error::NexusVMError;
 /// Errors related to proof generation
 #[derive(Debug)]
 pub enum ProofError {
-    /// An error occurred loading or executing program
+    /// An error occurred while loading or executing the program
     NexusVMError(NexusVMError),
 
-    /// An error occurred reading file system
+    /// An error occurred reading the file system
     IOError(std::io::Error),
 
     /// An error occurred during circuit synthesis
@@ -28,7 +28,7 @@ pub enum ProofError {
     /// Invalid folding step index
     InvalidIndex(usize),
 
-    /// Public Parameters do not match circuit
+    /// Public Parameters do not match the circuit
     InvalidPP,
 
     /// The Nova prover produced an invalid proof
