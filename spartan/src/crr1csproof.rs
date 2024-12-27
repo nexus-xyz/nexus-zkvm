@@ -256,6 +256,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     transcript: &mut Transcript,
   ) -> (CRR1CSProof<G, PC>, Vec<G::ScalarField>, Vec<G::ScalarField>) {
     let timer_prove = Timer::new("CRR1CSProof::prove");
+    
+    // Check if witness size is a power of two
+    let witness_size = witness.W.len();
+    assert!(witness_size.is_power_of_two(), "Witness size must be a power of two");
+    
     <Transcript as ProofTranscript<G>>::append_protocol_name(
       transcript,
       CRR1CSProof::<G, PC>::protocol_name(),
@@ -275,6 +280,11 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     // we currently require the number of |inputs| + 1 to be at most number of vars
     assert!(input.len() < vars.len());
+    
+    // Check if E vector size is power of two and matches witness size
+    assert!(E.len().is_power_of_two(), "Error vector size must be a power of two");
+    assert_eq!(witness_size, E.len(), "Witness and error vector sizes must match");
+
     <Transcript as ProofTranscript<G>>::append_scalars(transcript, b"input", input);
     <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"u", u);
     comm_W.append_to_transcript(b"comm_W", transcript);
@@ -675,5 +685,26 @@ mod tests {
         &gens.gens_r1cs_sat.keys.vk,
       )
       .is_ok());
+  }
+
+  #[test]
+  #[should_panic(expected = "Witness size must be a power of two")]
+  fn test_witness_size_not_power_of_two() {
+    let num_vars = 1023; // Not a power of two
+    let num_cons = 1024;
+    let num_inputs = 10;
+    let (shape, instance, witness, gens) =
+      produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
+    
+    let mut prover_transcript = Transcript::new(b"example");
+    
+    // This should panic because witness size is not power of two
+    let _ = CRR1CSProof::prove(
+      &shape,
+      &instance,
+      witness,
+      &gens.gens_r1cs_sat,
+      &mut prover_transcript,
+    );
   }
 }
