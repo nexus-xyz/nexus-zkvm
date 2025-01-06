@@ -263,7 +263,7 @@ impl MachineChip for BneChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, RegisterMemCheckChip, SubChip},
+        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip},
         test_utils::assert_chip,
         trace::{
             preprocessed::PreprocessedBuilder, program::iter_program_steps,
@@ -273,6 +273,7 @@ mod test {
 
     use super::*;
     use nexus_vm::{
+        emulator::{Emulator, HarvardEmulator},
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
     };
@@ -319,16 +320,25 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_bne_instructions() {
-        type Chips = (CpuChip, AddChip, SubChip, BneChip, RegisterMemCheckChip);
+        type Chips = (
+            CpuChip,
+            AddChip,
+            SubChip,
+            BneChip,
+            RegisterMemCheckChip,
+            ProgramMemCheckChip,
+        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
+        let program_memory = emulator.get_program_memory();
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let program_trace = ProgramTraces::new(LOG_SIZE, program_memory);
         let mut side_note = SideNote::new(&program_trace);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
@@ -348,6 +358,6 @@ mod test {
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(traces, Some(preprocessed_column), None);
+        assert_chip::<Chips>(traces, Some(preprocessed_column), Some(program_trace));
     }
 }

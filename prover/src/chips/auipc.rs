@@ -107,13 +107,14 @@ impl MachineChip for AuipcChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{CpuChip, RegisterMemCheckChip},
+        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip},
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
     };
 
     use super::*;
     use nexus_vm::{
+        emulator::{Emulator, HarvardEmulator},
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
     };
@@ -148,16 +149,23 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_auipc_instructions() {
-        type Chips = (CpuChip, AuipcChip, RegisterMemCheckChip);
+        type Chips = (
+            CpuChip,
+            AuipcChip,
+            ProgramMemCheckChip,
+            RegisterMemCheckChip,
+        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
+        let program_memory = emulator.get_program_memory();
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let program_traces = ProgramTraces::new(LOG_SIZE, program_memory);
         let mut side_note = SideNote::new(&program_traces);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 

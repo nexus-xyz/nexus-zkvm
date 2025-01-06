@@ -137,7 +137,7 @@ impl MachineChip for SubChip {
 mod test {
     use super::*;
     use crate::{
-        chips::{cpu::CpuChip, AddChip, RegisterMemCheckChip},
+        chips::{cpu::CpuChip, AddChip, ProgramMemCheckChip, RegisterMemCheckChip},
         test_utils::assert_chip,
         trace::{
             preprocessed::PreprocessedBuilder, program::iter_program_steps,
@@ -145,6 +145,7 @@ mod test {
         },
     };
     use nexus_vm::{
+        emulator::{Emulator, HarvardEmulator},
         riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
         trace::k_trace_direct,
     };
@@ -195,17 +196,25 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_sub_instructions() {
-        type Chips = (CpuChip, AddChip, SubChip, RegisterMemCheckChip);
+        type Chips = (
+            CpuChip,
+            AddChip,
+            SubChip,
+            RegisterMemCheckChip,
+            ProgramMemCheckChip,
+        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
+        let program_memory = emulator.get_program_memory();
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let program_traces = ProgramTraces::new(LOG_SIZE, program_memory);
         let mut side_note = SideNote::new(&program_traces);
 
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -217,6 +226,6 @@ mod test {
                 &mut side_note,
             );
         }
-        assert_chip::<Chips>(traces, None, None);
+        assert_chip::<Chips>(traces, None, Some(program_traces));
     }
 }
