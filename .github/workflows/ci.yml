@@ -54,7 +54,7 @@ jobs:
           targets: riscv32i-unknown-none-elf
 
       - name: Install cargo-expand
-        run: cargo install cargo-expand --locked
+        run: cargo install cargo-expand --locked --version 1.0.95 # blocked on upgrading rust; might involve upgrading stwo-prover
 
       - name: Add RISC-V target
         run: rustup target add riscv32i-unknown-none-elf
