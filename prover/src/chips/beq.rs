@@ -275,49 +275,39 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = 8; // PreprocessedBuilder::MIN_LOG_SIZE; makes the test more than a minute long.
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x1 = 10
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10),
             // Set x2 = 20
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20),
             // Set x3 = 10 (same as x1)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10),
             // Set x4 = -10
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1),
             // Case 1: BEQ with different values (should not branch)
             // BEQ x1, x2, 0xff (branch to PC + 0xff if x1 == x2)
-            Instruction::new(Opcode::from(BuiltinOpcode::BEQ), 1, 2, 0xff, InstructionType::BType),
-
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 2, 0xff),
             // Case 2: BEQ with equal values (should branch)
             // BEQ x1, x3, 12 (should branch as x1 == x3)
-            Instruction::new(Opcode::from(BuiltinOpcode::BEQ), 1, 3, 12, InstructionType::BType),
-            
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 3, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
-            
             // Case 3: BEQ with zero and non-zero (should not branch)
             // BEQ x0, x1, 0xff (branch to PC + 0xff if x0 == x1)
-            Instruction::new(Opcode::from(BuiltinOpcode::BEQ), 0, 1, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 0, 1, 0xff),
             // Case 4: BEQ with zero and zero (should branch)
             // BEQ x0, x0, 8 (should branch as x0 == x0)
-            Instruction::new(Opcode::from(BuiltinOpcode::BEQ), 0, 0, 8, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 0, 0, 8),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
-
             Instruction::nop(),
         ]);
         vec![basic_block]

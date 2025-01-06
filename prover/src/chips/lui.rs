@@ -91,34 +91,29 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Case 1: LUI with a small positive value
             // LUI x1, 0x1 (Load 0x1000 into x1)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 1, 0, 0x1, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 1, 0, 0x1),
             // Case 2: LUI with a large positive value
             // LUI x2, 0xFFFFF (Load 0xFFFFF000 into x2)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 2, 0, 0xFFFFF, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 2, 0, 0xFFFFF),
             // Case 3: LUI with zero
             // LUI x3, 0x0 (Load 0x0 into x3)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 3, 0, 0x0, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 3, 0, 0x0),
             // Case 4: LUI with a value that sets some lower bits
             // LUI x4, 0xABCDE (Load 0xABCDE000 into x4)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 4, 0, 0xABCDE, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 4, 0, 0xABCDE),
             // Case 5: LUI with x0 as destination (should not change x0)
             // LUI x0, 0x12345 (Should not change x0)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 0, 0, 0x12345, InstructionType::UType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 0, 0, 0x12345),
         ]);
         vec![basic_block]
     }

@@ -211,56 +211,47 @@ mod test {
     use nexus_common::constants::ELF_TEXT_START;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
+        // Make sure the 12 lowest bit of ELF_TEXT_START are zeros.
+        assert_eq!(ELF_TEXT_START & 0xFFF, 0);
         let basic_block = BasicBlock::new(vec![
             // Initialize registers
             // Set x1 = ELF_TEXT_START + 16 (base address for first JALR)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 1, 0, ELF_TEXT_START >> 12, InstructionType::UType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 1, 16, InstructionType::IType),
-            
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 1, 0, ELF_TEXT_START >> 12),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 1, 16),
             // Set x2 = ELF_TEXT_START + 44 (base address for second JALR)
-            Instruction::new(Opcode::from(BuiltinOpcode::LUI), 2, 0, ELF_TEXT_START >> 12, InstructionType::UType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 2, 44, InstructionType::IType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 2, 0, ELF_TEXT_START >> 12),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 2, 44),
             // Case 1: JALR with positive offset
             // JALR x3, x1, 4 (Jump to x1 + 4 and store return address in x3)
-            Instruction::new(Opcode::from(BuiltinOpcode::JALR), 3, 1, 12, InstructionType::IType),
-            
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 3, 1, 12),
             // Instructions to skip
             Instruction::unimpl(),
-            
             // Target of first JALR
             // ADDI x4, x0, 1 (Set x4 = 1 to indicate this instruction was reached)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 1, InstructionType::IType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 1),
             // Case 2: JALR with negative offset
             // JALR x5, x2, -8 (Jump to x2 - 8 and store return address in x5)
-            Instruction::new(Opcode::from(BuiltinOpcode::JALR), 5, 2, 0xFF8, InstructionType::IType), // -8 in 12-bit two's complement
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 5, 2, 0xFF8), // -8 in 12-bit two's complement
             // Instructions to skip
             Instruction::unimpl(),
-
             // Target of second JALR
             // ADDI x6, x0, 2 (Set x6 = 2 to indicate this instruction was reached)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 6, 0, 2, InstructionType::IType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 6, 0, 2),
             // Case 3: JALR with x0 as destination (used for unconditional jumps without saving return address)
             // JALR x0, x1, 24 (Jump to x1 + 24 without saving return address)
-            Instruction::new(Opcode::from(BuiltinOpcode::JALR), 0, 1, 32, InstructionType::IType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 0, 1, 32),
             // Instruction to skip
             Instruction::unimpl(),
-
             // Target of last JALR
             // ADDI x7, x0, 3 (Set x7 = 3 to indicate this instruction was reached)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 3, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 3),
         ]);
         vec![basic_block]
     }

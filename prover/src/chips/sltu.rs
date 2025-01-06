@@ -139,44 +139,41 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
-    fn setup_basic_block_ir() -> Vec<BasicBlock>
-    {
+    fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x0 = 0 (default constant), x1 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             // x2 = 1 because 0 < 1
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTU), 2, 0, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTU), 2, 0, 1),
             // x2 = 0 because 1 < 1 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTU), 2, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTU), 2, 1, 1),
             // x2 = 0 because 1 < 0 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTU), 2, 1, 0, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTU), 2, 1, 0),
             // Testing SLTIU
             // x3 = 1 because 0 < 1 (immediate)
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 0, 1),
             // x3 = 0 because 1 < 1 (immediate) doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 1),
             // x3 = 1 because 1 < 2 (immediate)
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 2, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 2),
             // x3 = 0 because 2 < 1 (immediate) doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 2, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 2, 1),
             // x3 = 1 because any number < 0xFFF (4095 in decimal, treated as unsigned)
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 0xFFF, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 1, 0xFFF),
             // x3 = 0 because 0 < 0 doesn't hold (testing with immediate 0)
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 0, 0, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 0, 0),
             // Set x4 = 10 for further testing
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 10),
             // x3 = 1 because 10 < 15 (immediate)
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 4, 15, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 4, 15),
             // x3 = 0 because 10 < 5 (immediate) doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLTIU), 3, 4, 5, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTIU), 3, 4, 5),
         ]);
         vec![basic_block]
     }

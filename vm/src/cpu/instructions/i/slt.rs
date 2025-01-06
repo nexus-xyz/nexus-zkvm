@@ -98,7 +98,7 @@ mod tests {
     use super::*;
     use crate::{
         cpu::Cpu,
-        riscv::{BuiltinOpcode, InstructionType, Opcode},
+        riscv::{BuiltinOpcode, Opcode},
     };
 
     #[test]
@@ -107,13 +107,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SLT),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 3, 1, 2);
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -129,13 +123,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SLT),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 3, 1, 2);
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -151,13 +139,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // -1 in two's complement
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SLT),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 3, 1, 2);
         let mut instruction = SltInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -173,13 +155,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SLTU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTU), 3, 1, 2);
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -195,13 +171,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SLTU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTU), 3, 1, 2);
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -217,13 +187,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // Maximum unsigned 32-bit value
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SLTU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTU), 3, 1, 2);
         let mut instruction = SltuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();

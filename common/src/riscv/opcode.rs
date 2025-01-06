@@ -7,6 +7,8 @@ use variant_count::VariantCount;
 
 use crate::error::OpcodeError;
 
+use super::instruction::InstructionType;
+
 /// `Opcode` does not directly correspond to an opcode as defined by RISC-V (which is the 7 least
 /// significant bits of an instruction). Instead, it contains everything necessary to specify a
 /// unique instruction, which may correspond to either a standard RISC-V instruction _or_ a custom
@@ -73,6 +75,130 @@ impl Opcode {
 
     pub fn fn7(&self) -> SubByte<7> {
         self.fn7
+    }
+
+    pub fn ins_type(&self) -> InstructionType {
+        if self.is_r_type() {
+            InstructionType::RType
+        } else if self.is_i_type() {
+            InstructionType::IType
+        } else if self.is_i_shamt_type() {
+            InstructionType::ITypeShamt
+        } else if self.is_s_type() {
+            InstructionType::SType
+        } else if self.is_b_type() {
+            InstructionType::BType
+        } else if self.is_u_type() {
+            InstructionType::UType
+        } else if self.is_j_type() {
+            InstructionType::JType
+        } else if self.is_unimpl_type() {
+            InstructionType::Unimpl
+        } else {
+            unreachable!("Opcodes should be one of the above types")
+        }
+    }
+
+    fn is_r_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::ADD)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SUB)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SLL)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SLT)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SLTU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::XOR)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SRL)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SRA)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::OR)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::AND)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::MUL)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::MULH)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::MULHSU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::MULHU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::DIV)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::DIVU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::REM)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::REMU)
+                | OpcodeIdentifier::Custom(_)
+        )
+    }
+
+    fn is_i_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::ADDI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SLTI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SLTIU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::XORI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::ORI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::ANDI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::LB)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::LH)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::LW)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::LBU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::LHU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::JALR)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::ECALL)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::EBREAK)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::FENCE)
+                | OpcodeIdentifier::Custom(_)
+        )
+    }
+
+    fn is_i_shamt_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::SLLI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SRLI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SRAI)
+        )
+    }
+
+    fn is_s_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::SB)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SH)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::SW)
+                | OpcodeIdentifier::Custom(_)
+        )
+    }
+
+    fn is_b_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::BEQ)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::BNE)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::BLT)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::BGE)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::BLTU)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::BGEU)
+                | OpcodeIdentifier::Custom(_)
+        )
+    }
+
+    fn is_u_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::LUI)
+                | OpcodeIdentifier::Builtin(BuiltinOpcode::AUIPC)
+                | OpcodeIdentifier::Custom(_)
+        )
+    }
+
+    fn is_j_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::JAL) | OpcodeIdentifier::Custom(_)
+        )
+    }
+
+    fn is_unimpl_type(&self) -> bool {
+        matches!(
+            self.identifier,
+            OpcodeIdentifier::Builtin(BuiltinOpcode::UNIMPL)
+        )
     }
 }
 

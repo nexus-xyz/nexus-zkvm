@@ -146,50 +146,48 @@ mod test {
     };
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
-    fn setup_basic_block_ir() -> Vec<BasicBlock>
-    {
+    fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x0 = 0 (default constant), x1 = 1, there is no SUBI instruction
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             // x2 = x1 - x0
             // x3 = x2 - x1 ... and so on
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 2, 1, 0, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 3, 2, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 4, 3, 2, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 5, 4, 3, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 6, 5, 4, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 7, 6, 5, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 8, 7, 6, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 9, 8, 7, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 10, 9, 8, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 11, 10, 9, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 12, 11, 10, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 13, 12, 11, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 14, 13, 12, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 15, 14, 13, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 16, 15, 14, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 17, 16, 15, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 18, 17, 16, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 19, 18, 17, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 20, 19, 18, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 21, 20, 19, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 22, 21, 20, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 23, 22, 21, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 24, 23, 22, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 25, 24, 23, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 26, 25, 24, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 27, 26, 25, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 28, 27, 26, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 29, 28, 27, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 30, 29, 28, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 31, 30, 29, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 2, 1, 0),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 3, 2, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 3, 2),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 5, 4, 3),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 6, 5, 4),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 7, 6, 5),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 8, 7, 6),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 9, 8, 7),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 10, 9, 8),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 11, 10, 9),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 12, 11, 10),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 13, 12, 11),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 14, 13, 12),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 15, 14, 13),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 16, 15, 14),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 17, 16, 15),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 18, 17, 16),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 19, 18, 17),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 20, 19, 18),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 21, 20, 19),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 22, 21, 20),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 23, 22, 21),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 24, 23, 22),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 25, 24, 23),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 26, 25, 24),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 27, 26, 25),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 28, 27, 26),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 29, 28, 27),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 30, 29, 28),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 31, 30, 29),
         ]);
         vec![basic_block]
     }

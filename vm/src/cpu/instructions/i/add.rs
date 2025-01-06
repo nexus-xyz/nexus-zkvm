@@ -28,13 +28,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::ADD),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 1, 2);
 
         let mut instruction = AddInstruction::decode(&bare_instruction, &cpu.registers);
         // Execute the add instruction
@@ -54,13 +48,7 @@ mod tests {
         cpu.registers.write(Register::X1, u32::MAX);
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::ADD),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 1, 2);
 
         let mut instruction = AddInstruction::decode(&bare_instruction, &cpu.registers);
 

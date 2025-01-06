@@ -166,72 +166,59 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = 8; // PreprocessedBuilder::MIN_LOG_SIZE makes the test more than a minute long
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x10 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 10, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 10, 0, 1),
             // Set x1 = 10
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10),
             // Set x2 = 20
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20),
             // Set x3 = 10 (same as x1)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10),
             // Set x4 = -10
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1),
             // Set x5 = 0xFFFFFFFF (max unsigned value)
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 5, 0, 10, InstructionType::RType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 5, 0, 10),
             // Case 1: BGEU with equal values (should branch)
             // BGEU x1, x3, 0xff (should branch as x1 >= x3 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 1, 3, 12, InstructionType::BType),
-            
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 3, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 2: BGEU with different values (should not branch)
             // BGEU x1, x2, 12 (should not branch as x1 >= x2 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 1, 2, 0xff, InstructionType::BType),
-
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 2, 0xff),
             // Case 3: BGEU with zero and non-zero (should not branch)
             // BGEU x0, x1, 8 (should not branch as x0 >= x1 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 0, 1, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 0, 1, 0xff),
             // Case 4: BGEU with zero and zero (should branch)
             // BGEU x0, x0, 0xff (should branch as x0 >= x0 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 0, 0, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 0, 0, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 5: BGEU with negative and positive values (should branch)
             // BGEU x4, x1, 0xff (should branch as 0xfffffff6 >= 10 unsigned)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 4, 1, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 4, 1, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 6: BGEU with max unsigned value and zero (should branch)
             // BGEU x5, x0, 0xff (should branch as 0xFFFFFFFF >= 0)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 5, 0, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 5, 0, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 7: BGEU with zero and max unsigned value (should not branch)
             // BGEU x0, x5, 12 (should not branch as 0 >= 0xFFFFFFFF is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGEU), 0, 5, 0xff, InstructionType::BType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 0, 5, 0xff),
         ]);
         vec![basic_block]
     }

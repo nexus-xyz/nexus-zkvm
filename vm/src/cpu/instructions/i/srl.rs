@@ -28,13 +28,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0b1000);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SRL),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2);
 
         let mut instruction = SrlInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -54,13 +48,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SRL),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2);
 
         let mut instruction = SrlInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -79,13 +67,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SRL),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2);
 
         let mut instruction = SrlInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -104,13 +86,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0x80000000);
         cpu.registers.write(Register::X2, 31);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SRL),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2);
 
         let mut instruction = SrlInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -129,13 +105,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 32);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SRL),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2);
 
         let mut instruction = SrlInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -155,13 +125,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0x80000000);
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SRL),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2);
 
         let mut instruction = SrlInstruction::decode(&bare_instruction, &cpu.registers);
 

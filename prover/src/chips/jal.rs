@@ -157,30 +157,25 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Case 1: JAL with positive offset
             // JAL x3, 12 (Jump forward 12 bytes (3 instructions) and store return address in x3)
-            Instruction::new(Opcode::from(BuiltinOpcode::JAL), 3, 0, 12, InstructionType::JType),
-            
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::JAL), 3, 0, 12),
             // Instructions to skip
             Instruction::unimpl(),
             Instruction::unimpl(),
-            
             // Case 2: JAL with x0 as destination (used for unconditional jumps without saving return address)
             // JAL x0, 8 (Jump forward 8 bytes (2 instructions) without saving return address)
-            Instruction::new(Opcode::from(BuiltinOpcode::JAL), 0, 0, 8, InstructionType::JType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::JAL), 0, 0, 8),
             // Instruction to skip
             Instruction::unimpl(),
-
             Instruction::nop(),
         ]);
         vec![basic_block]

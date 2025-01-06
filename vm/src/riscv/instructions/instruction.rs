@@ -16,6 +16,7 @@ use crate::riscv::instructions::macros::{
 };
 use nexus_common::riscv::instruction::{Instruction, InstructionType};
 use nexus_common::riscv::opcode::BuiltinOpcode;
+use nexus_common::riscv::register::Register;
 use nexus_common::riscv::Opcode;
 use rrs_lib::instruction_formats::{
     BType, IType, ITypeCSR, ITypeShamt, JType, RType, SType, UType,
@@ -106,8 +107,8 @@ impl InstructionProcessor for InstructionDecoder {
     fn process_jal(&mut self, dec_insn: JType) -> Self::InstructionResult {
         Instruction::new(
             Opcode::from(BuiltinOpcode::JAL),
-            dec_insn.rd as _,
-            0,
+            Register::from(dec_insn.rd as u8),
+            Register::from(0),
             dec_insn.imm as _,
             InstructionType::JType,
         )
@@ -116,8 +117,8 @@ impl InstructionProcessor for InstructionDecoder {
     fn process_jalr(&mut self, dec_insn: IType) -> Self::InstructionResult {
         Instruction::new(
             Opcode::from(BuiltinOpcode::JALR),
-            dec_insn.rd as _,
-            dec_insn.rs1 as _,
+            Register::from(dec_insn.rd as u8),
+            Register::from(dec_insn.rs1 as u8),
             dec_insn.imm as _,
             InstructionType::IType,
         )

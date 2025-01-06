@@ -225,88 +225,72 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x10 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 10, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 10, 0, 1),
             // Set x1 = 10
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10),
             // Set x2 = 20
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20),
             // Set x3 = 10 (same as x1)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10),
             // Set x4 = -10
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1),
             // Set x5 = -1
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 5, 0, 10, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 5, 0, 10),
             // Set x6 = 1000 (a large positive number)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 6, 0, 1000, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 6, 0, 1000),
             // Set x7 = -1000 (a large negative number)
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 7, 0, 6, InstructionType::RType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 7, 0, 6),
             // Case 1: BGE with equal values (should branch)
             // BGE x1, x3, 12 (should branch as x1 >= x3 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 1, 3, 12, InstructionType::BType),
-            
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 3, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 2: BGE with different values (should not branch)
             // BGE x1, x2, 0xff (should not branch as x1 >= x2 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 1, 2, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 2, 0xff),
             // Case 3: BGE with zero and positive (should not branch)
             // BGE x0, x1, 0xff (should not branch as x0 >= x1 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 0, 1, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 0, 1, 0xff),
             // Case 4: BGE with zero and zero (should branch)
             // BGE x0, x0, 12 (should branch as x0 >= x0 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 0, 0, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 0, 0, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 5: BGE with negative and positive values (should not branch)
             // BGE x4, x1, 0xff (should not branch as -10 >= 10 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 4, 1, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 4, 1, 0xff),
             // Case 6: BGE with negative and zero (should not branch)
             // BGE x5, x0, 0xff (should not branch as -1 >= 0 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 5, 0, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 5, 0, 0xff),
             // Case 7: BGE with zero and negative value (should branch)
             // BGE x0, x5, 12 (should branch as 0 >= -1 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 0, 5, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 0, 5, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 8: BGE with large positive and zero (should branch)
             // BGE x6, x0, 12 (should branch as 1000 >= 0 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 6, 0, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 6, 0, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 9: BGE with large negative and zero (should not branch)
             // BGE x7, x0, 0xff (should not branch as -1000 >= 0 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 7, 0, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 7, 0, 0xff),
             // Case 10: BGE with large positive and large negative (should branch)
             // BGE x6, x7, 12 (should branch as 1000 >= -1000 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BGE), 6, 7, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 6, 7, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),

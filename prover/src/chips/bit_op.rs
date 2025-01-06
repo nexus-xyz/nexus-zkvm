@@ -323,32 +323,29 @@ mod test {
 
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
-        #[rustfmt::skip]
         let basic_block = BasicBlock::new(vec![
             // 0b11100 & 0b01010 = 0b01000
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 28, InstructionType::IType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 8, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 28),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 8),
             // x3 = x1 & x2
-            Instruction::new(Opcode::from(BuiltinOpcode::AND), 3, 1, 2, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AND), 3, 1, 2),
             // 0b100010 | 0b011011 = 0b111011
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 34, InstructionType::IType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 27, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 34),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 27),
             // x6 = x4 | x5
-            Instruction::new(Opcode::from(BuiltinOpcode::OR), 6, 4, 5, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::OR), 6, 4, 5),
             // 0b1100101 ^ 0b1010001 = 0b0110100
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 101, InstructionType::IType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 8, 0, 81, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 101),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 8, 0, 81),
             // x9 = x7 ^ x8
-            Instruction::new(Opcode::from(BuiltinOpcode::XOR), 9, 7, 8, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::XOR), 9, 7, 8),
         ]);
         vec![basic_block]
     }

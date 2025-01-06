@@ -325,7 +325,7 @@ mod tests {
     use super::*;
     use crate::emulator::HarvardEmulator;
     use crate::memory::{VariableMemory, RW};
-    use crate::riscv::{BuiltinOpcode, InstructionType, Opcode};
+    use crate::riscv::{BuiltinOpcode, Opcode};
 
     fn setup_emulator() -> HarvardEmulator {
         let mut emul = HarvardEmulator::default();
@@ -507,13 +507,7 @@ mod tests {
         cpu.registers.write(Register::X11, 100);
         cpu.registers.write(Register::X12, 5);
 
-        let instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::ECALL),
-            0,
-            1,
-            2,
-            InstructionType::IType,
-        ); // Assuming this creates an ECALL instruction
+        let instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::ECALL), 0, 1, 2); // Assuming this creates an ECALL instruction
 
         let syscall = SyscallInstruction::decode(&instruction, &cpu).unwrap();
         assert!(matches!(syscall.code, SyscallCode::Write));

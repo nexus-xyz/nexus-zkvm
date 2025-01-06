@@ -53,7 +53,7 @@ impl InstructionExecutor for BeqInstruction {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_beq_branch_taken() {
@@ -64,13 +64,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BEQ),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 2, 0x100);
 
         let instruction = BeqInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -91,13 +85,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BEQ),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 2, 0x100);
 
         let instruction = BeqInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -118,13 +106,7 @@ mod tests {
         cpu.registers.write(Register::X1, 5);
         cpu.registers.write(Register::X2, 5);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BEQ),
-            1,
-            2,
-            0,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 2, 0);
 
         let instruction = BeqInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -147,13 +129,7 @@ mod tests {
 
         // Use a negative offset (-0x100)
         let offset = (!256u32).wrapping_add(1);
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BEQ),
-            1,
-            2,
-            offset,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 2, offset);
 
         let instruction = BeqInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -173,13 +149,7 @@ mod tests {
         // Set a value in a register
         cpu.registers.write(Register::X1, 25);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BEQ),
-            1,
-            1,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BEQ), 1, 1, 0x100);
 
         let instruction = BeqInstruction::decode(&bare_instruction, &cpu.registers);
 

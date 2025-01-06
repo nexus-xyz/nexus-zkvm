@@ -115,34 +115,29 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Case 1: AUIPC with a small positive value
             // AUIPC x1, 0x1 (x1 = PC + 0x1000)
-            Instruction::new(Opcode::from(BuiltinOpcode::AUIPC), 1, 0, 0x1, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 1, 0, 0x1),
             // Case 2: AUIPC with a large positive value
             // AUIPC x2, 0xFFFFF (x2 = PC + 0xFFFFF000)
-            Instruction::new(Opcode::from(BuiltinOpcode::AUIPC), 2, 0, 0xFFFFF, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 2, 0, 0xFFFFF),
             // Case 3: AUIPC with zero
             // AUIPC x3, 0x0 (x3 = PC + 0x0)
-            Instruction::new(Opcode::from(BuiltinOpcode::AUIPC), 3, 0, 0x0, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 3, 0, 0x0),
             // Case 4: AUIPC with a value that sets some interesting bit patterns
             // AUIPC x4, 0xABCDE (x4 = PC + 0xABCDE000)
-            Instruction::new(Opcode::from(BuiltinOpcode::AUIPC), 4, 0, 0xABCDE, InstructionType::UType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 4, 0, 0xABCDE),
             // Case 5: AUIPC with x0 as destination (should not change x0)
             // AUIPC x0, 0x12345 (Should not change x0)
-            Instruction::new(Opcode::from(BuiltinOpcode::AUIPC), 0, 0, 0x12345, InstructionType::UType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 0, 0, 0x12345),
         ]);
         vec![basic_block]
     }

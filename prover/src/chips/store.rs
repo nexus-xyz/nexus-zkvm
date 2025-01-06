@@ -146,64 +146,62 @@ mod test {
 
     use super::*;
     use nexus_vm::{
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     // PreprocessedTraces::MIN_LOG_SIZE makes the test consume more than 40 seconds.
     const LOG_SIZE: u32 = 8;
 
-    #[rustfmt::skip]
-    fn setup_basic_block_ir() -> Vec<BasicBlock>
-    {
+    fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // First we create a usable address. heap start: 528392, heap end: 8917000
             // Aiming to create 0x81008
             // TODO: shrink the following sequence of ADDs using SLL when it's available
             // Set x0 = 0 (default constant), x1 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             // repeat doubling x1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             // here x1 should be 0x8
             // Copying x1 to x2
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             // here x1 should be 0x10
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             // here x1 should be 0x100
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             // here x1 should be 0x1000
             // Adding x1 to x2
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 2, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 2),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             // here x1 should be 0x10000
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             // here x1 should be 0x80000
             // Adding x1 to x2
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 2, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 2),
             // Now x2 should be 0x81008
             // Seeting x3 to be 3
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 3, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 3),
             // Storing a byte *x3 = 3 to memory address *x2
-            Instruction::new(Opcode::from(BuiltinOpcode::SB), 2, 3, 0, InstructionType::SType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SB), 2, 3, 0),
             // Storing two-bytes *x3 = 3 to memory address *x2 + 10
-            Instruction::new(Opcode::from(BuiltinOpcode::SH), 2, 3, 10, InstructionType::SType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SH), 2, 3, 10),
             // Storing four-bytes *x3 = 3 to memory address *x2 + 20
-            Instruction::new(Opcode::from(BuiltinOpcode::SW), 2, 3, 20, InstructionType::SType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SW), 2, 3, 20),
         ]);
         vec![basic_block]
     }

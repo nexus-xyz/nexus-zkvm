@@ -47,20 +47,15 @@ impl InstructionExecutor for AuipcInstruction {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode};
 
     #[test]
     fn test_auipc_basic() {
         let mut cpu = Cpu::default();
         cpu.pc.value = 0x1000;
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AUIPC),
-            1,
-            0,
-            0x12345,
-            InstructionType::UType,
-        );
+        let bare_instruction =
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 1, 0, 0x12345);
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -77,13 +72,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.pc.value = 0x2000;
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AUIPC),
-            2,
-            0,
-            0,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 2, 0, 0);
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -99,13 +88,8 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.pc.value = 0x1000;
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AUIPC),
-            3,
-            0,
-            0xFFFFF,
-            InstructionType::UType,
-        );
+        let bare_instruction =
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 3, 0, 0xFFFFF);
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -121,13 +105,7 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.pc.value = 0xFFFFFFFF;
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AUIPC),
-            4,
-            0,
-            0x1,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 4, 0, 0x1);
 
         let instruction = AuipcInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -143,25 +121,15 @@ mod tests {
         let mut cpu = Cpu::default();
         cpu.pc.value = 0x1000;
 
-        let bare_instruction1 = Instruction::new(
-            Opcode::from(BuiltinOpcode::AUIPC),
-            1,
-            0,
-            0x12345,
-            InstructionType::UType,
-        );
+        let bare_instruction1 =
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 1, 0, 0x12345);
         let instruction1 = AuipcInstruction::decode(&bare_instruction1, &cpu.registers);
         let res1 = instruction1.write_back(&mut cpu);
 
         cpu.pc.value = 0x2000;
 
-        let bare_instruction2 = Instruction::new(
-            Opcode::from(BuiltinOpcode::AUIPC),
-            2,
-            0,
-            0x6789A,
-            InstructionType::UType,
-        );
+        let bare_instruction2 =
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::AUIPC), 2, 0, 0x6789A);
         let instruction2 = AuipcInstruction::decode(&bare_instruction2, &cpu.registers);
         let res2 = instruction2.write_back(&mut cpu);
 

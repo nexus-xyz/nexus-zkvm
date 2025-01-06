@@ -47,19 +47,13 @@ impl InstructionExecutor for LuiInstruction {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode};
 
     #[test]
     fn test_lui_basic() {
         let mut cpu = Cpu::default();
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            1,
-            0,
-            0x12345,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 1, 0, 0x12345);
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -75,13 +69,7 @@ mod tests {
     fn test_lui_zero_immediate() {
         let mut cpu = Cpu::default();
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            2,
-            0,
-            0,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 2, 0, 0);
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -96,13 +84,7 @@ mod tests {
     fn test_lui_max_immediate() {
         let mut cpu = Cpu::default();
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            3,
-            0,
-            0xFFFFF,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 3, 0, 0xFFFFF);
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -120,13 +102,7 @@ mod tests {
         // First, set a value in the register
         cpu.registers.write(Register::X4, 0xFFFFFFFF);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            4,
-            0,
-            0x12345,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 4, 0, 0x12345);
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -141,23 +117,13 @@ mod tests {
     fn test_lui_multiple_instructions() {
         let mut cpu = Cpu::default();
 
-        let bare_instruction1 = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            1,
-            0,
-            0x12345,
-            InstructionType::UType,
-        );
+        let bare_instruction1 =
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 1, 0, 0x12345);
         let instruction1 = LuiInstruction::decode(&bare_instruction1, &cpu.registers);
         let res1 = instruction1.write_back(&mut cpu);
 
-        let bare_instruction2 = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            2,
-            0,
-            0x6789A,
-            InstructionType::UType,
-        );
+        let bare_instruction2 =
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 2, 0, 0x6789A);
         let instruction2 = LuiInstruction::decode(&bare_instruction2, &cpu.registers);
         let res2 = instruction2.write_back(&mut cpu);
 
@@ -175,13 +141,7 @@ mod tests {
         // Set a value with non-zero lower 12 bits
         cpu.registers.write(Register::X5, 0x00000FFF);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LUI),
-            5,
-            0,
-            0x12345,
-            InstructionType::UType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 5, 0, 0x12345);
 
         let instruction = LuiInstruction::decode(&bare_instruction, &cpu.registers);
 

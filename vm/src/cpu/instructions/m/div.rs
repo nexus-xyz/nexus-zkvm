@@ -43,7 +43,7 @@ implement_arithmetic_executor!(DivuInstruction, |a: u32, b: u32| {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_div_normal() {
@@ -51,13 +51,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIV),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 3, 1, 2);
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -73,13 +67,7 @@ mod tests {
         cpu.registers.write(Register::X1, (-20i32) as u32);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIV),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 3, 1, 2);
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -95,13 +83,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIV),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 3, 1, 2);
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -117,13 +99,7 @@ mod tests {
         cpu.registers.write(Register::X1, i32::MIN as u32);
         cpu.registers.write(Register::X2, (-1i32) as u32);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIV),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 3, 1, 2);
         let mut instruction = DivInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -139,13 +115,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIVU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 3, 1, 2);
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -161,13 +131,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 2);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIVU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 3, 1, 2);
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -183,13 +147,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIVU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 3, 1, 2);
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -205,13 +163,7 @@ mod tests {
         cpu.registers.write(Register::X1, u32::MAX);
         cpu.registers.write(Register::X2, u32::MAX);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::DIVU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 3, 1, 2);
         let mut instruction = DivuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();

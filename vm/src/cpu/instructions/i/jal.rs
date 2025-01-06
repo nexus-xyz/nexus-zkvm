@@ -86,7 +86,7 @@ impl InstructionExecutor for JalrInstruction {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_jal_positive_offset() {
@@ -95,13 +95,7 @@ mod tests {
 
         // Use a positive offset (0x100)
         let offset = 0x100;
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::JAL),
-            1,
-            0,
-            offset,
-            InstructionType::JType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::JAL), 1, 0, offset);
         let instruction = JalInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jal instruction
@@ -122,13 +116,7 @@ mod tests {
 
         // Use a negative offset (-0x100)
         let offset = (!256u32).wrapping_add(1);
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::JAL),
-            2,
-            0,
-            offset,
-            InstructionType::JType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::JAL), 2, 0, offset);
         let instruction = JalInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jal instruction
@@ -152,13 +140,7 @@ mod tests {
 
         // Use a positive offset (0x100)
         let offset = 0x100;
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::JALR),
-            2,
-            1,
-            offset,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 2, 1, offset);
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
@@ -182,13 +164,7 @@ mod tests {
 
         // Use a negative offset (-0x100)
         let offset = (!256u32).wrapping_add(1);
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::JALR),
-            3,
-            1,
-            offset,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 3, 1, offset);
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction
@@ -209,13 +185,7 @@ mod tests {
 
         // Use x0 as rs1 (should always be 0)
         let offset = 0x100;
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::JALR),
-            4,
-            0,
-            offset,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 4, 0, offset);
         let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
 
         // Execute the jalr instruction

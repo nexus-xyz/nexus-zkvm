@@ -195,106 +195,91 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
-    fn setup_basic_block_ir() -> Vec<BasicBlock>
-    {
+    fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x0 = 0 (default constant)
             // Set x1 = 2000 (smaller positive number)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 2000, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 2000),
             // Set x2 = 4000 (larger positive number)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 4000, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 4000),
             // Set x3 = -2000 (smaller negative number)
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 3, 0, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 3, 0, 1),
             // Set x4 = -4000 (larger negative number)
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 4, 0, 2, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 0, 2),
             // Case 1: Smaller Positive < Larger Positive
             // x5 = 1 because 2000 < 4000
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 5, 1, 2, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 5, 1, 2),
             // Case 2: Larger Positive > Smaller Positive
             // x6 = 0 because 4000 < 2000 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 6, 2, 1, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 6, 2, 1),
             // Case 3: Larger Negative < Smaller Negative
             // x7 = 1 because -4000 < -2000
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 7, 4, 3, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 7, 4, 3),
             // Case 4: Smaller Negative > Larger Negative
             // x8 = 0 because -2000 < -4000 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 8, 3, 4, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 8, 3, 4),
             // Case 5: Positive < Negative (should always be false)
             // x9 = 0 because 2000 < -2000 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 9, 1, 3, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 9, 1, 3),
             // Case 6: Negative < Positive (should always be true)
             // x10 = 1 because -2000 < 2000
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 10, 3, 1, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 10, 3, 1),
             // Case 7: Equal positive numbers
             // x11 = 0 because 2000 < 2000 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 11, 1, 1, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 11, 1, 1),
             // Case 8: Equal negative numbers
             // x12 = 0 because -2000 < -2000 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 12, 3, 3, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 12, 3, 3),
             // Case 9: Zero and positive
             // x13 = 1 because 0 < 2000
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 13, 0, 1, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 13, 0, 1),
             // Case 10: Zero and negative
             // x14 = 0 because 0 < -2000 doesn't hold
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 14, 0, 3, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 14, 0, 3),
             // Case 11: Largest possible negative vs smallest possible negative
             // Set x15 = 0x80000000 (smallest negative 32-bit number)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 15, 0, 1, InstructionType::IType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 2
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 4
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 8
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 16
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 32
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 64
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 128
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 256
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 512
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 1024
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 2048
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 4096
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 8192
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 16384
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 32768
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 65536
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 131072
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 262144
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 524288
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 1048576
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 2097152
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 4194304
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 8388608
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 16777216
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 33554432
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 67108864
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 134217728
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 268435456
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 536870912
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = 1073741824
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15, InstructionType::RType), // x15 = -2147483648 (0x80000000)
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 15, 0, 1), // 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), //  2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), //  4
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), //  8
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 16
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 32
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 64
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 28
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 56
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 12
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 24
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 48
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 96
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 92
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 84
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 68
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 36
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 72
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 44
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 88
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 76
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 52
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 04
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 08
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 16
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 32
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 64
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 28
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 56
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 12
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // 24
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 15, 15), // x15 = -0)
             // Set x16 = -1 (largest negative 32-bit number)
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 16, 0, 1, InstructionType::RType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 16, 0, 1),
             // x17 = 1 because -2147483648 < -1
-            Instruction::new(Opcode::from(BuiltinOpcode::SLT), 17, 15, 16, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 17, 15, 16),
         ]);
         vec![basic_block]
     }

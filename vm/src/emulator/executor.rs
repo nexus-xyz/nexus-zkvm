@@ -53,9 +53,9 @@
 //!
 //! // Create a basic block with some instructions
 //! let basic_block = BasicBlock::new(vec![
-//!     Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 5, InstructionType::IType),  // x1 = x0 + 5
-//!     Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 10, InstructionType::IType), // x2 = x0 + 10
-//!     Instruction::new(Opcode::from(BuiltinOpcode::ADD), 3, 1, 2, InstructionType::RType),   // x3 = x1 + x2
+//!     Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 5),  // x1 = x0 + 5
+//!     Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 10), // x2 = x0 + 10
+//!     Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 1, 2),   // x3 = x1 + x2
 //! ]);
 //!
 //! let mut emulator = HarvardEmulator::default();
@@ -1005,47 +1005,45 @@ impl Emulator for LinearEmulator {
 mod tests {
     use super::*;
     use crate::elf::ElfFile;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode};
     use serial_test::serial;
 
-    #[rustfmt::skip]
-    fn setup_basic_block_ir() -> Vec<BasicBlock>
-    {
+    fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x0 = 0 (default constant), x1 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             // x2 = x1 + x0
             // x3 = x2 + x1 ... and so on
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 7, 6, 5, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 8, 7, 6, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 9, 8, 7, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 10, 9, 8, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 11, 10, 9, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 12, 11, 10, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 13, 12, 11, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 14, 13, 12, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 15, 14, 13, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 16, 15, 14, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 17, 16, 15, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 18, 17, 16, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 19, 18, 17, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 20, 19, 18, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 21, 20, 19, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 22, 21, 20, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 23, 22, 21, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 24, 23, 22, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 25, 24, 23, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 26, 25, 24, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 27, 26, 25, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 28, 27, 26, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 29, 28, 27, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28, InstructionType::RType),
-            Instruction::new(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 7, 6, 5),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 8, 7, 6),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 9, 8, 7),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 10, 9, 8),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 11, 10, 9),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 12, 11, 10),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 13, 12, 11),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 14, 13, 12),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 15, 14, 13),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 16, 15, 14),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 17, 16, 15),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 18, 17, 16),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 19, 18, 17),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 20, 19, 18),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 21, 20, 19),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 22, 21, 20),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 23, 22, 21),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 24, 23, 22),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 25, 24, 23),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 26, 25, 24),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 27, 26, 25),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 28, 27, 26),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 29, 28, 27),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29),
         ]);
         vec![basic_block]
     }
@@ -1132,13 +1130,7 @@ mod tests {
         let op = Opcode::new(0, None, None, "unsupported");
         let basic_block_entry = BasicBlockEntry::new(
             0,
-            BasicBlock::new(vec![Instruction::new(
-                op.clone(),
-                1,
-                0,
-                1,
-                InstructionType::IType,
-            )]),
+            BasicBlock::new(vec![Instruction::new_ir(op.clone(), 1, 0, 1)]),
         );
         let mut emulator = HarvardEmulator::default();
         let res = emulator.execute_basic_block(&basic_block_entry);

@@ -35,10 +35,34 @@ pub struct Instruction {
 }
 
 impl Instruction {
-    pub fn new(opcode: Opcode, op_a: u8, op_b: u8, op_c: u32, ins_type: InstructionType) -> Self {
+    /// Creates a new `Instruction` with the given opcode, operands, and instruction type.
+    /// Note: This function assumes that the input is valid and does not perform any validation checks.
+    /// It is the caller's responsibility to ensure that the provided arguments are correct and consistent with the instruction type.
+    /// For IR instruction, it's recommended to use `new_ir` function.
+    pub fn new(
+        opcode: Opcode,
+        op_a: Register,
+        op_b: Register,
+        op_c: u32,
+        ins_type: InstructionType,
+    ) -> Self {
+        Self {
+            opcode,
+            op_a,
+            op_b,
+            op_c,
+            ins_type,
+        }
+    }
+
+    // Creates a new `Instruction` struct from IR, with human-friendly interface.
+    pub fn new_ir(opcode: Opcode, op_a: u8, op_b: u8, op_c: u32) -> Self {
         // Assert op_a and op_b in 5 bits.
-        assert!(op_a <= 0x1F);
-        assert!(op_b <= 0x1F);
+        debug_assert!(op_a <= 0x1F);
+        debug_assert!(op_b <= 0x1F);
+
+        // Assign the instruction type based on the opcode.
+        let ins_type = opcode.ins_type();
 
         // Sanity check the IR representation, panic if it's invalid.
         // We assume the code generate from compiler wouldn't have any invalid instructions.
@@ -46,20 +70,20 @@ impl Instruction {
         if ins_type == InstructionType::RType || ins_type == InstructionType::ITypeShamt {
             // R-type instruction has 5 bits for op_c.
             // I-type instruction with shamt has 5 bits for shamt.
-            assert!(
+            debug_assert!(
                 op_c <= 0x1F,
                 "op_c must be in the range [0..32), got {}",
                 op_c
             );
         }
 
-        Self {
+        Self::new(
             opcode,
-            op_a: Register::from(op_a),
-            op_b: Register::from(op_b),
+            Register::from(op_a),
+            Register::from(op_b),
             op_c,
             ins_type,
-        }
+        )
     }
 
     /// Returns true if the instruction is a branch or jump instruction.
@@ -94,8 +118,8 @@ impl Instruction {
     pub fn from_r_type(opcode: Opcode, dec_insn: RType) -> Self {
         Self::new(
             opcode,
-            dec_insn.rd as _,
-            dec_insn.rs1 as _,
+            Register::from(dec_insn.rd as u8),
+            Register::from(dec_insn.rs1 as u8),
             dec_insn.rs2 as _,
             InstructionType::RType,
         )
@@ -103,16 +127,21 @@ impl Instruction {
 
     /// Creates a new instruction from an I-type instruction.
     pub fn from_i_type(opcode: Opcode, dec_insn: IType) -> Self {
-        let (rd, rs1, imm) = (dec_insn.rd as _, dec_insn.rs1 as _, dec_insn.imm as _);
-        Self::new(opcode, rd, rs1, imm, InstructionType::IType)
+        Self::new(
+            opcode,
+            Register::from(dec_insn.rd as u8),
+            Register::from(dec_insn.rs1 as u8),
+            dec_insn.imm as _,
+            InstructionType::IType,
+        )
     }
 
     /// Creates a new instruction from an I-type instruction with a shift amount (shamt).
     pub fn from_i_type_shamt(opcode: Opcode, dec_insn: ITypeShamt) -> Self {
         Self::new(
             opcode,
-            dec_insn.rd as _,
-            dec_insn.rs1 as _,
+            Register::from(dec_insn.rd as u8),
+            Register::from(dec_insn.rs1 as u8),
             dec_insn.shamt as _,
             InstructionType::ITypeShamt,
         )
@@ -122,8 +151,8 @@ impl Instruction {
     pub fn from_s_type(opcode: Opcode, dec_insn: SType) -> Self {
         Self::new(
             opcode,
-            dec_insn.rs1 as _,
-            dec_insn.rs2 as _,
+            Register::from(dec_insn.rs1 as u8),
+            Register::from(dec_insn.rs2 as u8),
             dec_insn.imm as _,
             InstructionType::SType,
         )
@@ -133,8 +162,8 @@ impl Instruction {
     pub fn from_b_type(opcode: Opcode, dec_insn: BType) -> Self {
         Self::new(
             opcode,
-            dec_insn.rs1 as _,
-            dec_insn.rs2 as _,
+            Register::from(dec_insn.rs1 as u8),
+            Register::from(dec_insn.rs2 as u8),
             dec_insn.imm as _,
             InstructionType::BType,
         )
@@ -146,8 +175,8 @@ impl Instruction {
     pub fn unimpl() -> Self {
         Self::new(
             Opcode::from(BuiltinOpcode::UNIMPL),
-            0,
-            0,
+            Register::from(0),
+            Register::from(0),
             0,
             InstructionType::Unimpl,
         )
@@ -158,8 +187,8 @@ impl Instruction {
     pub fn nop() -> Self {
         Self::new(
             Opcode::from(BuiltinOpcode::ADDI),
-            0,
-            0,
+            Register::from(0),
+            Register::from(0),
             0,
             InstructionType::IType,
         )
@@ -258,78 +287,5 @@ impl Display for Instruction {
         };
 
         f.write_str(&output)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_new_r_type() {
-        Instruction::new(
-            Opcode::from(BuiltinOpcode::ADD),
-            1,
-            2,
-            3,
-            InstructionType::RType,
-        );
-        Instruction::new(
-            Opcode::from(BuiltinOpcode::SUB),
-            10,
-            20,
-            30,
-            InstructionType::RType,
-        );
-    }
-
-    #[test]
-    fn test_new_i_type_shamt() {
-        Instruction::new(
-            Opcode::from(BuiltinOpcode::SLLI),
-            1,
-            2,
-            5,
-            InstructionType::ITypeShamt,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_new_invalid_register() {
-        // Test with an invalid register number (32 is out of range, valid range is 0-31)
-        Instruction::new(
-            Opcode::from(BuiltinOpcode::ADD),
-            32,
-            0,
-            0,
-            InstructionType::RType,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_new_invalid_r_type_immediate() {
-        // Test with an invalid immediate for R-type (32 is out of range, valid range is 0-31)
-        Instruction::new(
-            Opcode::from(BuiltinOpcode::ADD),
-            1,
-            2,
-            32,
-            InstructionType::RType,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_new_invalid_i_type_shamt_immediate() {
-        // Test with an invalid shift amount for I-type shift instructions (32 is out of range, valid range is 0-31)
-        Instruction::new(
-            Opcode::from(BuiltinOpcode::SLLI),
-            1,
-            2,
-            32,
-            InstructionType::ITypeShamt,
-        );
     }
 }

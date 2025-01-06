@@ -28,13 +28,7 @@ mod tests {
         cpu.registers.write(Register::X1, 50);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SUB),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 3, 1, 2);
 
         let mut instruction = SubInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -55,13 +49,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0);
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::SUB),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 3, 1, 2);
 
         let mut instruction = SubInstruction::decode(&bare_instruction, &cpu.registers);
 

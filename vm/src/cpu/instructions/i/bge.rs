@@ -92,7 +92,7 @@ impl InstructionExecutor for BgeuInstruction {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_bge_branch_taken_greater() {
@@ -102,13 +102,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGE),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 2, 0x100);
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -126,13 +120,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGE),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 2, 0x100);
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -150,13 +138,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGE),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 2, 0x100);
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -175,13 +157,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // -1 in two's complement
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGE),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 2, 0x100);
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -201,13 +177,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 10);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGEU),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 2, 0x100);
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -225,13 +195,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGEU),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 2, 0x100);
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -249,13 +213,7 @@ mod tests {
         cpu.registers.write(Register::X1, 10);
         cpu.registers.write(Register::X2, 20);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGEU),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 2, 0x100);
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -274,13 +232,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF); // Max unsigned 32-bit value
         cpu.registers.write(Register::X2, 1);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGEU),
-            1,
-            2,
-            0x100,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 2, 0x100);
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -302,13 +254,7 @@ mod tests {
         let offset = (!256u32).wrapping_add(1);
 
         // Test BGE
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGE),
-            1,
-            2,
-            offset,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGE), 1, 2, offset);
         let mut instruction = BgeInstruction::decode(&bare_instruction, &cpu.registers);
         instruction.execute();
         let res = instruction.write_back(&mut cpu);
@@ -320,13 +266,7 @@ mod tests {
         cpu.pc.value = 0x1000;
 
         // Test BGEU
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::BGEU),
-            1,
-            2,
-            offset,
-            InstructionType::BType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::BGEU), 1, 2, offset);
         let mut instruction = BgeuInstruction::decode(&bare_instruction, &cpu.registers);
         instruction.execute();
         let res = instruction.write_back(&mut cpu);

@@ -29,7 +29,7 @@ mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
     use crate::memory::{VariableMemory, RW};
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     fn setup_memory() -> VariableMemory<RW> {
         let mut memory = VariableMemory::<RW>::default();
@@ -47,13 +47,7 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LB),
-            2,
-            1,
-            2,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LB), 2, 1, 2);
         let mut instruction = LbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -70,13 +64,7 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LB),
-            2,
-            1,
-            1,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LB), 2, 1, 1);
         let mut instruction = LbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -93,13 +81,7 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LB),
-            2,
-            1,
-            0,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LB), 2, 1, 0);
         let mut instruction = LbInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -116,13 +98,7 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LBU),
-            2,
-            1,
-            2,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LBU), 2, 1, 2);
         let mut instruction = LbuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -139,13 +115,7 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LBU),
-            2,
-            1,
-            1,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LBU), 2, 1, 1);
         let mut instruction = LbuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
@@ -162,13 +132,7 @@ mod tests {
 
         cpu.registers.write(Register::X1, 0x1000);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::LBU),
-            2,
-            1,
-            0,
-            InstructionType::IType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::LBU), 2, 1, 0);
         let mut instruction = LbuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();

@@ -28,13 +28,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0b1010);
         cpu.registers.write(Register::X2, 0b1100);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AND),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::AND), 3, 1, 2);
 
         let mut instruction = AndInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -55,13 +49,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AND),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::AND), 3, 1, 2);
 
         let mut instruction = AndInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -82,13 +70,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xABCDEF12);
         cpu.registers.write(Register::X2, 0xFFFFFFFF);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AND),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::AND), 3, 1, 2);
 
         let mut instruction = AndInstruction::decode(&bare_instruction, &cpu.registers);
 
@@ -108,13 +90,7 @@ mod tests {
         // Set initial register value
         cpu.registers.write(Register::X1, 0xAA55AA55);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::AND),
-            1,
-            1,
-            1,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::AND), 1, 1, 1);
 
         let mut instruction = AndInstruction::decode(&bare_instruction, &cpu.registers);
 

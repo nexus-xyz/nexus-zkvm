@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nexus_vm::{
-    riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+    riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
     trace::{k_trace_direct, UniformTrace},
 };
 use nexus_vm_prover::trace::PreprocessedTraces;
@@ -58,21 +58,14 @@ fn program_trace(log_size: u32) -> UniformTrace {
     let mut j = 1u8;
     let mut k = 2u8;
 
-    let insts = std::iter::once(Instruction::new(
+    let insts = std::iter::once(Instruction::new_ir(
         Opcode::from(BuiltinOpcode::ADDI),
         1,
         0,
         1,
-        InstructionType::IType,
     ))
     .chain(std::iter::from_fn(|| {
-        let inst = Instruction::new(
-            Opcode::from(BuiltinOpcode::ADD),
-            k,
-            j,
-            i.into(),
-            InstructionType::RType,
-        );
+        let inst = Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), k, j, i.into());
         const NUM_REGISTERS: u8 = {
             assert!(nexus_common::constants::NUM_REGISTERS <= u8::MAX as u32);
             nexus_common::constants::NUM_REGISTERS as u8

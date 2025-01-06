@@ -24,8 +24,8 @@ macro_rules! impl_systemcall_instructions {
             fn $name(&mut self) -> Self::InstructionResult {
                 Instruction::new(
                     $opcode,
-                    0,
-                    0,
+                    Register::from(0),
+                    Register::from(0),
                     0,
                     InstructionType::IType,
                 )
@@ -70,8 +70,8 @@ macro_rules! impl_u_type_instructions {
             fn $name(&mut self, dec_insn: UType) -> Self::InstructionResult {
                 Instruction::new(
                     $opcode,
-                    dec_insn.rd as _,
-                    0,
+                    Register::from(dec_insn.rd as u8),
+                    Register::from(0),
                     ((dec_insn.imm as u32) >> 12) as _,
                     InstructionType::UType,
                 )

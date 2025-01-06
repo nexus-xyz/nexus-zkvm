@@ -166,67 +166,55 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::{Emulator, HarvardEmulator},
-        riscv::{BasicBlock, BuiltinOpcode, Instruction, InstructionType, Opcode},
+        riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
-    #[rustfmt::skip]
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
             // Set x10 = 1
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 10, 0, 1, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 10, 0, 1),
             // Set x1 = 10
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 10),
             // Set x2 = 20
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 20),
             // Set x3 = 10 (same as x1)
-            Instruction::new(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10, InstructionType::IType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 10),
             // Set x4 = -10
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1, InstructionType::RType),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 0, 1),
             // Set x5 = 0xFFFFFFFF (max unsigned value)
-            Instruction::new(Opcode::from(BuiltinOpcode::SUB), 5, 0, 10, InstructionType::RType),
-    
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 5, 0, 10),
             // Case 1: BLTU with equal values (should not branch)
             // BLTU x1, x3, 0xff (should not branch as x1 < x3 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 1, 3, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 1, 3, 0xff),
             // Case 2: BLTU with different values (should branch)
             // BLTU x1, x2, 12 (branch to PC + 12 as x1 < x2 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 1, 2, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 1, 2, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-
             // Case 3: BLTU with zero and non-zero (should branch)
             // BLTU x0, x1, 8 (branch to PC + 8 as x0 < x1 is true)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 0, 1, 8, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 0, 1, 8),
             // No-op instruction to fill the gap (should not be executed)
             Instruction::unimpl(),
-
             // Case 4: BLTU with zero and zero (should not branch)
             // BLTU x0, x0, 8 (should not branch as x0 < x0 is false)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 0, 0, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 0, 0, 0xff),
             // Case 5: BLTU with negative and positive values (should not branch)
             // BLTU x4, x1, 8 (should not branch as 0xfffffff6 > 10 unsigned)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 4, 1, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 4, 1, 0xff),
             // Case 6: BLTU with max unsigned value and zero (should not branch)
             // BLTU x5, x0, 8 (should not branch as 0xFFFFFFFF > 0)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 5, 0, 0xff, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 5, 0, 0xff),
             // Case 7: BLTU with zero and max unsigned value (should branch)
             // BLTU x0, x5, 12 (branch to PC + 12 as 0 < 0xFFFFFFFF)
-            Instruction::new(Opcode::from(BuiltinOpcode::BLTU), 0, 5, 12, InstructionType::BType),
-
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::BLTU), 0, 5, 12),
             // Unimpl instructions to fill the gap (trigger error when executed)
             Instruction::unimpl(),
             Instruction::unimpl(),
-            
             Instruction::nop(),
         ]);
         vec![basic_block]

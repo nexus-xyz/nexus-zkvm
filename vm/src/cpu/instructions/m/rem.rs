@@ -42,7 +42,7 @@ implement_arithmetic_executor!(RemuInstruction, |a: u32, b: u32| {
 mod tests {
     use super::*;
     use crate::cpu::state::Cpu;
-    use crate::riscv::{BuiltinOpcode, Instruction, InstructionType, Opcode, Register};
+    use crate::riscv::{BuiltinOpcode, Instruction, Opcode, Register};
 
     #[test]
     fn test_rem_normal() {
@@ -50,13 +50,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REM),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 3, 1, 2);
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -73,13 +67,7 @@ mod tests {
         cpu.registers.write(Register::X1, (-20i32) as u32);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REM),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 3, 1, 2);
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -97,13 +85,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REM),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 3, 1, 2);
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -120,13 +102,7 @@ mod tests {
         cpu.registers.write(Register::X1, i32::MIN as u32);
         cpu.registers.write(Register::X2, (-1i32) as u32);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REM),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 3, 1, 2);
         let mut instruction = RemInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -144,13 +120,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REMU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 3, 1, 2);
         let mut instruction = RemuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -167,13 +137,7 @@ mod tests {
         cpu.registers.write(Register::X1, 0xFFFFFFFF);
         cpu.registers.write(Register::X2, 3);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REMU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 3, 1, 2);
         let mut instruction = RemuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
@@ -191,13 +155,7 @@ mod tests {
         cpu.registers.write(Register::X1, 20);
         cpu.registers.write(Register::X2, 0);
 
-        let bare_instruction = Instruction::new(
-            Opcode::from(BuiltinOpcode::REMU),
-            3,
-            1,
-            2,
-            InstructionType::RType,
-        );
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 3, 1, 2);
         let mut instruction = RemuInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.execute();
