@@ -148,6 +148,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::AUIPC) => {
                 traces.fill_columns(row_idx, true, IsAuipc);
             }
+            Some(BuiltinOpcode::JALR) => {
+                traces.fill_columns(row_idx, true, IsJalr);
+            }
             _ => {
                 panic!(
                     "Unsupported opcode: {:?}",
@@ -300,6 +303,7 @@ impl MachineChip for CpuChip {
         let [is_jal] = trace_eval!(trace_eval, IsJal);
         let [is_lui] = trace_eval!(trace_eval, IsLui);
         let [is_auipc] = trace_eval!(trace_eval, IsAuipc);
+        let [is_jalr] = trace_eval!(trace_eval, IsJalr);
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         let [is_sb] = trace_eval!(trace_eval, IsSb);
         let [is_sh] = trace_eval!(trace_eval, IsSh);
@@ -324,6 +328,7 @@ impl MachineChip for CpuChip {
                 + is_sw.clone()
                 + is_lui.clone()
                 + is_auipc.clone()
+                + is_jalr.clone()
                 + is_padding
                 - E::F::one(),
         );
@@ -338,7 +343,7 @@ impl MachineChip for CpuChip {
             imm_c.clone() * (is_add + is_slt + is_sltu + is_xor + is_or + is_and);
 
         // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
-        let is_type_i = is_alu_imm_no_shift; // TODO: Add more flags when they are available
+        let is_type_i = is_alu_imm_no_shift + is_jalr; // TODO: Add more flags when they are available
 
         // Constrain Reg{1,2,3}Accessed for type R and type I instructions
         let [reg1_accessed] = trace_eval!(trace_eval, Reg1Accessed);

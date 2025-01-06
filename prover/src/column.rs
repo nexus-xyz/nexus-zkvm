@@ -18,6 +18,9 @@ pub enum Column {
     /// The next value of the program counter register.
     #[size = 4]
     PcNext,
+    /// The next aux value of the program counter register.
+    #[size = 4]
+    PcNextAux,
     /// The opcode defining the instruction.
     #[size = 1]
     Opcode,
@@ -131,6 +134,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a AUIPC.
     #[size = 1]
     IsAuipc,
+    /// Boolean flag on whether the row is a JALR.
+    #[size = 1]
+    IsJalr,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
@@ -165,6 +171,12 @@ pub enum Column {
     /// Less than flag. Called lt_flag in document.
     #[size = 1]
     LtFlag,
+    /// Remainder flag. Called rem_aux in document.
+    #[size = 1]
+    RemAux,
+    /// Qt_aux flag. Called qt_aux in document.
+    #[size = 1]
+    QtAux,
 
     #[size = 1]
     Neq12Aux,
