@@ -37,3 +37,9 @@ lto = true
 [profile.bench]
 inherits = "release"
 debug = true
+
+# This profile is used for CI tests. Optimized for faster compilation vs. absolute speed.
+[profile.ci-test]
+inherits = "release"
+strip = "debuginfo"
+lto = "thin"

@@ -1,0 +1,4 @@
+[[profile.default.overrides]]
+# high-memory or multi-threaded tests should be added here
+filter = 'test(trace_nexus_rt_binary) | package(testing-framework)'
+threads-required = 2

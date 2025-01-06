@@ -8,6 +8,32 @@ fn main() {
     println!("cargo::rerun-if-changed=../precompiles/examples/dummy_div/*");
     println!("cargo::rerun-if-changed=../precompiles/examples/dummy_hash/*");
 
+    // Determine whether to run.
+    match std::env::var("NEXUS_VM_BUILD_GUEST_TEST_BINARIES") {
+        // Force-disable building.
+        Ok(true_val) if true_val == "0" || true_val == "false" => {
+            println!(
+                "cargo:info=Skipping building test guest programs because \
+                NEXUS_VM_BUILD_GUEST_TEST_BINARIES is set to 0/false."
+            );
+            return;
+        }
+        // Force-enable building.
+        Ok(val) => {
+            println!(
+                "cargo:info=Building test guest programs because \
+                NEXUS_VM_BUILD_GUEST_TEST_BINARIES is set to {val}."
+            );
+        }
+        Err(_) => {
+            println!(
+                "cargo:info=Skipping building test guest programs because \
+                NEXUS_VM_BUILD_GUEST_TEST_BINARIES is not set."
+            );
+            return;
+        }
+    }
+
     // Rust guarantees that the build script's cwd is the directory containing the package's `src`
     // directory.
     let vm_src_dir = std::env::current_dir().unwrap();

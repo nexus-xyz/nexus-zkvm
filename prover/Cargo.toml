@@ -20,3 +20,8 @@ impl-trait-for-tuples = "0.2.2"
 itertools = "0.13.0"
 num-traits = { workspace = true }
 stwo-prover = { workspace = true }
+
+# TODO(): fix or ignore these at the code level.
+[lints.clippy]
+unused-enumerate-index = { level = "allow", priority = 0 }
+too-many-arguments = { level = "allow", priority = 0 }
