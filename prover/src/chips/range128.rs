@@ -81,7 +81,7 @@ impl MachineChip for Range128Chip {
         for col in [Helper2, Helper3].into_iter() {
             let helper: [_; WORD_SIZE] = original_traces.get_base_column(col);
             check_col(
-                &helper[3],
+                helper[3],
                 &[&is_slt, &is_bge, &is_blt],
                 original_traces.log_size(),
                 &mut logup_trace_gen,

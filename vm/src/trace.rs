@@ -321,7 +321,7 @@ pub fn k_trace(
                 }
             }
         }
-        Err(e) => return Err(e),
+        Err(e) => Err(e),
         Ok(_) => unreachable!(),
     }
 }
@@ -435,7 +435,7 @@ pub fn bb_trace(
                 }
             }
         }
-        Err(e) => return Err(e),
+        Err(e) => Err(e),
         Ok(_) => unreachable!(),
     }
 }
