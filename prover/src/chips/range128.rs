@@ -58,6 +58,9 @@ impl MachineChip for Range128Chip {
             let last_limb = word[3];
             fill_main_col(last_limb, is_slt + is_bge + is_blt, traces, side_note);
         }
+        let [is_jalr] = traces.column(row_idx, Column::IsJalr);
+        let [qt_aux] = traces.column(row_idx, Column::QtAux);
+        fill_main_col(qt_aux, is_jalr, traces, side_note);
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -85,6 +88,16 @@ impl MachineChip for Range128Chip {
                 lookup_element,
             );
         }
+        let [is_jalr] = original_traces.get_base_column(Column::IsJalr);
+        let [qt_aux] = original_traces.get_base_column(Column::QtAux);
+        check_col(
+            qt_aux,
+            &[&is_jalr],
+            original_traces.log_size(),
+            &mut logup_trace_gen,
+            lookup_element,
+        );
+
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [_; Range128.size()] =
             preprocessed_traces.get_preprocessed_base_column(Range128);
@@ -124,6 +137,12 @@ impl MachineChip for Range128Chip {
             let numerator = is_slt.clone() + is_bge.clone() + is_blt.clone();
             logup.write_frac(eval, Fraction::new(numerator.into(), denom));
         }
+        let [is_jalr] = trace_eval.column_eval(Column::IsJalr);
+        let [qt_aux] = trace_eval.column_eval(Column::QtAux);
+        let denom: E::EF = lookup_elements.combine(&[qt_aux.clone()]);
+        let numerator = is_jalr.clone();
+        logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range128);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity128);

@@ -194,15 +194,15 @@ impl MachineChip for JalrChip {
         for i in 1..WORD_SIZE {
             eval.add_constraint(is_jalr.clone() * (pc_next_aux[i].clone() - pc_next[i].clone()));
         }
-
-        // TODO: range check for QtAux in 0..=127
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, LuiChip, ProgramMemCheckChip, RegisterMemCheckChip},
+        chips::{
+            AddChip, CpuChip, LuiChip, ProgramMemCheckChip, Range128Chip, RegisterMemCheckChip,
+        },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
     };
@@ -272,6 +272,7 @@ mod test {
             AddChip,
             LuiChip,
             JalrChip,
+            Range128Chip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
         );
