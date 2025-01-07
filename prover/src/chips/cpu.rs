@@ -392,7 +392,6 @@ impl MachineChip for CpuChip {
         let is_type_b = is_beq + is_bne + is_bltu + is_bgeu + is_blt + is_bge;
 
         // is_type_s = is_sb + is_sh + is_sw
-        // TODO: define is_type_s when flags are available
         let is_type_s = is_sb + is_sh + is_sw;
 
         // type S and type B access registers in similar ways
