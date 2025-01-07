@@ -12,7 +12,10 @@ use stwo_prover::{
     },
 };
 
-use nexus_vm::trace::Trace;
+use nexus_vm::{
+    emulator::{ProgramInfo, ProgramMemoryEntry},
+    trace::Trace,
+};
 use trace::{
     program::iter_program_steps, program_trace::ProgramTraces, sidenote::SideNote,
     PreprocessedTraces, TracesBuilder,
@@ -72,7 +75,10 @@ pub struct Machine<C = Components> {
 }
 
 impl<C: MachineChip + Sync> Machine<C> {
-    pub fn prove(trace: &impl Trace) -> Result<Proof, ProvingError> {
+    pub fn prove<I: IntoIterator<Item = ProgramMemoryEntry>>(
+        trace: &impl Trace,
+        program: ProgramInfo<I>,
+    ) -> Result<Proof, ProvingError> {
         let num_steps = trace.get_num_steps();
         let log_size: u32 = num_steps.next_power_of_two().trailing_zeros();
 
@@ -98,7 +104,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
-        let program_traces = ProgramTraces::dummy(log_size);
+        let program_traces = ProgramTraces::new(log_size, program);
         let mut prover_side_note = SideNote::new(&program_traces);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
