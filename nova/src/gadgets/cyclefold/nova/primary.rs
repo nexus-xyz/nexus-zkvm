@@ -87,8 +87,10 @@ where
 
         let r1cs = f()?;
         let X = &r1cs.borrow().X;
-        // Only allocate valid instance, which starts with F::ONE.
-        assert_eq!(X[0], G1::ScalarField::ONE);
+        
+        if X[0] != G1::ScalarField::ONE {
+            return Err(SynthesisError::Unsatisfiable);
+        }
 
         let commitment_W = EmulatedFpAffineVar::new_variable(
             cs.clone(),
@@ -117,7 +119,7 @@ where
     C1: CommitmentScheme<Projective<G1>>,
 {
     fn to_sponge_bytes(&self) -> Result<Vec<UInt8<G1::ScalarField>>, SynthesisError> {
-        unreachable!()
+        Err(SynthesisError::Unsatisfiable)
     }
 
     fn to_sponge_field_elements(&self) -> Result<Vec<FpVar<G1::ScalarField>>, SynthesisError> {
@@ -259,7 +261,7 @@ where
     C1: CommitmentScheme<Projective<G1>>,
 {
     fn to_sponge_bytes(&self) -> Result<Vec<UInt8<G1::ScalarField>>, SynthesisError> {
-        unreachable!()
+        Err(SynthesisError::Unsatisfiable)
     }
 
     fn to_sponge_field_elements(&self) -> Result<Vec<FpVar<G1::ScalarField>>, SynthesisError> {
