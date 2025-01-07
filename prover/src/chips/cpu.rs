@@ -151,6 +151,21 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::JALR) => {
                 traces.fill_columns(row_idx, true, IsJalr);
             }
+            Some(BuiltinOpcode::LB) => {
+                traces.fill_columns(row_idx, true, IsLb);
+            }
+            Some(BuiltinOpcode::LH) => {
+                traces.fill_columns(row_idx, true, IsLh);
+            }
+            Some(BuiltinOpcode::LBU) => {
+                traces.fill_columns(row_idx, true, IsLbu);
+            }
+            Some(BuiltinOpcode::LHU) => {
+                traces.fill_columns(row_idx, true, IsLhu);
+            }
+            Some(BuiltinOpcode::LW) => {
+                traces.fill_columns(row_idx, true, IsLw);
+            }
             _ => {
                 panic!(
                     "Unsupported opcode: {:?}",
@@ -308,6 +323,11 @@ impl MachineChip for CpuChip {
         let [is_sb] = trace_eval!(trace_eval, IsSb);
         let [is_sh] = trace_eval!(trace_eval, IsSh);
         let [is_sw] = trace_eval!(trace_eval, IsSw);
+        let [is_lb] = trace_eval!(trace_eval, IsLb);
+        let [is_lh] = trace_eval!(trace_eval, IsLh);
+        let [is_lbu] = trace_eval!(trace_eval, IsLbu);
+        let [is_lhu] = trace_eval!(trace_eval, IsLhu);
+        let [is_lw] = trace_eval!(trace_eval, IsLw);
         eval.add_constraint(
             is_add.clone()
                 + is_sub.clone()
@@ -329,6 +349,11 @@ impl MachineChip for CpuChip {
                 + is_lui.clone()
                 + is_auipc.clone()
                 + is_jalr.clone()
+                + is_lb.clone()
+                + is_lbu.clone()
+                + is_lh.clone()
+                + is_lhu.clone()
+                + is_lw.clone()
                 + is_padding
                 - E::F::one(),
         );
@@ -342,8 +367,10 @@ impl MachineChip for CpuChip {
         let is_alu_imm_no_shift =
             imm_c.clone() * (is_add + is_slt + is_sltu + is_xor + is_or + is_and);
 
+        let is_load = is_lb + is_lbu + is_lh + is_lhu + is_lw;
+
         // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
-        let is_type_i = is_alu_imm_no_shift + is_jalr; // TODO: Add more flags when they are available
+        let is_type_i = is_load + is_alu_imm_no_shift + is_jalr; // TODO: Add more flags when they are available
 
         // Constrain Reg{1,2,3}Accessed for type R and type I instructions
         let [reg1_accessed] = trace_eval!(trace_eval, Reg1Accessed);

@@ -125,6 +125,12 @@ pub enum Column {
     /// Boolean flag on whether the row is a LH
     #[size = 1]
     IsLh,
+    /// Boolean flag on whether the row is a LBU
+    #[size = 1]
+    IsLbu,
+    /// Boolean flag on whether the row is a LHU
+    #[size = 1]
+    IsLhu,
     /// Boolean flag on whether the row is a LW
     #[size = 1]
     IsLw,
