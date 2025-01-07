@@ -162,7 +162,6 @@ impl MachineChip for ProgramMemCheckChip {
             );
         }
 
-        let _ = lookup_elements;
         // Constrain PrgCurCtr = PrgPrevCtr + 1
         let [is_padding] = trace_eval.column_eval(Column::IsPadding);
         let prg_prev_ctr = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrPrev);
