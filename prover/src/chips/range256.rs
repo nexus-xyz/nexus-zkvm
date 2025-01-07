@@ -5,7 +5,7 @@ use stwo_prover::{
     core::fields::m31,
 };
 
-use nexus_vm::WORD_SIZE;
+use nexus_vm::{riscv::InstructionType, WORD_SIZE};
 use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
@@ -22,10 +22,10 @@ use crate::{
     column::{
         Column::{
             self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, FinalRegTs,
-            FinalRegValue, Helper1, InstrVal, Multiplicity256, Pc, PcNextAux, PrevCtr, ProgCtrCur,
-            ProgCtrPrev, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2ValCur, Ram2ValPrev,
-            Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur, Ram4ValPrev, RamBaseAddr,
-            Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+            FinalRegValue, Helper1, InstrVal, Multiplicity256, OpC16_23, OpC24_31, Pc, PcNextAux,
+            PrevCtr, ProgCtrCur, ProgCtrPrev, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev,
+            Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur,
+            Ram4ValPrev, RamBaseAddr, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
         },
         PreprocessedColumn::{self, IsFirst, Range256},
         ProgramColumn,
@@ -38,6 +38,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
+    virtual_column::{self, VirtualColumn},
 };
 
 /// A Chip for range-checking values for 0..=255
@@ -85,6 +86,8 @@ impl Range256Chip {
         Ram4ValPrev,
     ];
 
+    const TYPE_U_CHECKED_BYTES: [Column; 2] = [OpC16_23, OpC24_31];
+
     const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 3] = [
         ProgramColumn::PrgMemoryPc,
         ProgramColumn::PrgMemoryWord,
@@ -99,7 +102,7 @@ impl MachineChip for Range256Chip {
     fn fill_main_trace(
         traces: &mut TracesBuilder,
         row_idx: usize,
-        _step: &Option<ProgramStep>,
+        step: &Option<ProgramStep>,
         program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
@@ -112,6 +115,16 @@ impl MachineChip for Range256Chip {
             fill_main_cols(value_col, traces, side_note);
         }
         for col in Self::CHECKED_BYTES.iter() {
+            let value_col = traces.column::<1>(row_idx, *col);
+            fill_main_cols(value_col, traces, side_note);
+        }
+        for col in Self::TYPE_U_CHECKED_BYTES.iter() {
+            let step_is_type_u = step
+                .as_ref()
+                .is_some_and(|step| step.step.instruction.ins_type == InstructionType::UType);
+            if !step_is_type_u {
+                continue;
+            }
             let value_col = traces.column::<1>(row_idx, *col);
             fill_main_cols(value_col, traces, side_note);
         }
@@ -154,6 +167,28 @@ impl MachineChip for Range256Chip {
                 &mut logup_trace_gen,
                 lookup_element,
             );
+        }
+        for col in Self::TYPE_U_CHECKED_BYTES.iter() {
+            let value_basecolumn = original_traces.get_base_column::<1>(*col);
+            {
+                let log_size = original_traces.log_size();
+                let logup_trace_gen: &mut LogupTraceGenerator = &mut logup_trace_gen;
+                // TODO: we can deal with two limbs at a time.
+                for limb in value_basecolumn.iter() {
+                    let mut logup_col_gen = logup_trace_gen.new_col();
+                    // vec_row is row_idx divided by 16. Because SIMD.
+                    for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
+                        let checked_tuple = vec![limb.data[vec_row]];
+                        let denom = lookup_element.combine(&checked_tuple);
+                        let [type_u] = virtual_column::IsTypeU::read_from_finalized_traces(
+                            original_traces,
+                            vec_row,
+                        );
+                        logup_col_gen.write_frac(vec_row, type_u.into(), denom);
+                    }
+                    logup_col_gen.finalize_col();
+                }
+            };
         }
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [_; Range256.size()] =
@@ -203,6 +238,12 @@ impl MachineChip for Range256Chip {
                 let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
                 logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
             }
+        }
+        for col in Self::TYPE_U_CHECKED_BYTES.iter() {
+            let [value] = trace_eval.column_eval(*col);
+            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
+            let [numerator] = virtual_column::IsTypeR::eval(trace_eval);
+            logup.write_frac(eval, Fraction::new(numerator.into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range256);

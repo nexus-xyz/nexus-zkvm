@@ -7,7 +7,7 @@ use stwo_prover::{
 };
 
 use crate::{
-    column::Column::{self, ImmC, IsAdd, IsAnd, IsOr, IsSlt, IsSltu, IsSub, IsXor},
+    column::Column::{self, ImmC, IsAdd, IsAnd, IsAuipc, IsLui, IsOr, IsSlt, IsSltu, IsSub, IsXor},
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
 
@@ -63,6 +63,41 @@ impl VirtualColumn<1> for IsTypeR {
                 let [is_op] = trace_eval.column_eval(op);
                 acc + is_op
             });
+        [ret]
+    }
+}
+
+pub(crate) struct IsTypeU;
+
+impl IsTypeU {
+    const TYPE_U_OPS: [Column; 2] = [IsLui, IsAuipc];
+}
+
+impl VirtualColumn<1> for IsTypeU {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
+        let ret = Self::TYPE_U_OPS.iter().fold(BaseField::zero(), |acc, &op| {
+            let [is_op] = traces.column(row_idx, op);
+            acc + is_op
+        });
+        [ret]
+    }
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; 1] {
+        let ret = Self::TYPE_U_OPS
+            .iter()
+            .fold(PackedBaseField::zero(), |acc, &op| {
+                let is_op = traces.get_base_column::<1>(op)[0].data[vec_idx];
+                acc + is_op
+            });
+        [ret]
+    }
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
+        let ret = Self::TYPE_U_OPS.iter().fold(E::F::zero(), |acc, &op| {
+            let [is_op] = trace_eval.column_eval(op);
+            acc + is_op
+        });
         [ret]
     }
 }

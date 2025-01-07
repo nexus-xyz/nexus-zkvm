@@ -367,6 +367,16 @@ pub enum Column {
     /// Auxiliary variable for decoding instruction: bits[0] of OpB argument
     #[size = 1]
     OpB0,
+
+    /// Auxiliary variable for decoding type_u immediates: bits[12..=15] of the instruction
+    #[size = 1]
+    OpC12_15,
+    /// Auxiliary variable for decoding type_u immediates: bits[16..=23] of the instruction
+    #[size = 1]
+    OpC16_23,
+    /// Auxiliary variable for decoding type_u immediates: bits[24..=31] of the instruction
+    #[size = 1]
+    OpC24_31,
 }
 
 // proc macro derived:

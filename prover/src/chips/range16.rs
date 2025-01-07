@@ -20,7 +20,7 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity16, OpA14, OpB14, OpC03},
+        Column::{self, Multiplicity16, OpA14, OpB14, OpC03, OpC12_15},
         PreprocessedColumn::{self, IsFirst, Range16},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -31,7 +31,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{self, VirtualColumn},
+    virtual_column::{IsTypeR, IsTypeU, VirtualColumn},
 };
 
 /// A Chip for range-checking values for 0..=15
@@ -41,6 +41,7 @@ use crate::{
 pub struct Range16Chip;
 
 const TYPE_R_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
+const TYPE_U_CHECKED: [Column; 1] = [OpC12_15];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
@@ -51,24 +52,22 @@ impl MachineChip for Range16Chip {
         _program_traces: &ProgramTraces,
         side_note: &mut SideNote,
     ) {
-        let step_is_type_r = step
-            .as_ref()
-            .is_some_and(|step| step.step.instruction.ins_type == InstructionType::RType);
-        debug_assert_eq!(
-            step_is_type_r,
-            {
-                let [is_type_r] =
-                    virtual_column::IsTypeR::read_from_traces_builder(traces, row_idx);
-                !is_type_r.is_zero()
-            },
-            "ProgramStep and the TraceBuilder seem to disagree whether this row is type R",
+        fill_main_for_type::<IsTypeR>(
+            traces,
+            row_idx,
+            step,
+            side_note,
+            InstructionType::RType,
+            &TYPE_R_CHECKED,
         );
-        if step_is_type_r {
-            for col in TYPE_R_CHECKED.into_iter() {
-                let [val] = traces.column(row_idx, col);
-                fill_main_elm(val, traces, side_note);
-            }
-        }
+        fill_main_for_type::<IsTypeU>(
+            traces,
+            row_idx,
+            step,
+            side_note,
+            InstructionType::UType,
+            &TYPE_U_CHECKED,
+        );
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -82,22 +81,18 @@ impl MachineChip for Range16Chip {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
 
         // Add checked occurrences to logup sum.
-        for col in TYPE_R_CHECKED.iter() {
-            let [value_basecolumn]: [&BaseColumn; 1] = original_traces.get_base_column(*col);
-            let log_size = original_traces.log_size();
-            let logup_trace_gen: &mut LogupTraceGenerator = &mut logup_trace_gen;
-            // TODO: we can deal with two limbs at a time.
-            let mut logup_col_gen = logup_trace_gen.new_col();
-            // vec_row is row_idx divided by 16. Because SIMD.
-            for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
-                let checked_tuple = vec![value_basecolumn.data[vec_row]];
-                let denom = lookup_element.combine(&checked_tuple);
-                let [type_r] =
-                    virtual_column::IsTypeR::read_from_finalized_traces(original_traces, vec_row);
-                logup_col_gen.write_frac(vec_row, type_r.into(), denom);
-            }
-            logup_col_gen.finalize_col();
-        }
+        fill_interaction_for_type::<IsTypeR>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_R_CHECKED,
+        );
+        fill_interaction_for_type::<IsTypeU>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_U_CHECKED,
+        );
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [&BaseColumn; Range16.size()] =
             preprocessed_traces.get_preprocessed_base_column(Range16);
@@ -127,13 +122,20 @@ impl MachineChip for Range16Chip {
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum.
-        for col in TYPE_R_CHECKED.iter() {
-            // not using trace_eval! macro because it doesn't accept *col as an argument.
-            let [value] = trace_eval.column_eval(*col);
-            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-            let [numerator] = virtual_column::IsTypeR::eval(trace_eval);
-            logup.write_frac(eval, Fraction::new(numerator.into(), denom));
-        }
+        add_constraints_for_type::<E, IsTypeR>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_R_CHECKED,
+        );
+        add_constraints_for_type::<E, IsTypeU>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_U_CHECKED,
+        );
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range16);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity16);
@@ -141,6 +143,78 @@ impl MachineChip for Range16Chip {
         let numerator: E::EF = (-multiplicity.clone()).into();
         logup.write_frac(eval, Fraction::new(numerator, denom));
         logup.finalize(eval);
+    }
+}
+
+fn add_constraints_for_type<
+    E: stwo_prover::constraint_framework::EvalAtRow,
+    VR: VirtualColumn<1>,
+>(
+    eval: &mut E,
+    trace_eval: &TraceEval<E>,
+    lookup_elements: &LookupElements<12>,
+    logup: &mut LogupAtRow<E>,
+    cols: &[Column],
+) {
+    for col in cols.iter() {
+        // not using trace_eval! macro because it doesn't accept *col as an argument.
+        let [value] = trace_eval.column_eval(*col);
+        let denom: E::EF = lookup_elements.combine(&[value.clone()]);
+        let [numerator] = VR::eval(trace_eval);
+        logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+    }
+}
+
+fn fill_interaction_for_type<VC: VirtualColumn<1>>(
+    original_traces: &FinalizedTraces,
+    lookup_element: &LookupElements<12>,
+    logup_trace_gen: &mut LogupTraceGenerator,
+    cols: &[Column],
+) {
+    for col in cols.iter() {
+        let [value_basecolumn]: [&BaseColumn; 1] = original_traces.get_base_column(*col);
+        let log_size = original_traces.log_size();
+        let logup_trace_gen: &mut LogupTraceGenerator = logup_trace_gen;
+        // TODO: we can deal with two limbs at a time.
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        // vec_row is row_idx divided by 16. Because SIMD.
+        for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
+            let checked_tuple = vec![value_basecolumn.data[vec_row]];
+            let denom = lookup_element.combine(&checked_tuple);
+            let [is_type] = VC::read_from_finalized_traces(original_traces, vec_row);
+            logup_col_gen.write_frac(vec_row, is_type.into(), denom);
+        }
+        logup_col_gen.finalize_col();
+    }
+}
+
+fn fill_main_for_type<VC: VirtualColumn<1>>(
+    traces: &mut TracesBuilder,
+    row_idx: usize,
+    step: &Option<ProgramStep>,
+    side_note: &mut SideNote<'_>,
+    instruction_type: InstructionType,
+    columns: &[Column],
+) {
+    let step_is_of_type = step
+        .as_ref()
+        .is_some_and(|step| step.step.instruction.ins_type == instruction_type);
+    debug_assert_eq!(
+        step_is_of_type,
+        {
+            let [is_type] = VC::read_from_traces_builder(traces, row_idx);
+            !is_type.is_zero()
+        },
+        "ProgramStep and the TraceBuilder seem to disagree which type of instruction is being processed at row {}; step: {:?}, instruction_type: {:?}",
+        row_idx,
+        step,
+        instruction_type,
+    );
+    if step_is_of_type {
+        for col in columns.iter() {
+            let [val] = traces.column(row_idx, *col);
+            fill_main_elm(val, traces, side_note);
+        }
     }
 }
 
