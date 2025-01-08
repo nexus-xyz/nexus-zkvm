@@ -7,7 +7,10 @@ use stwo_prover::{
 };
 
 use crate::{
-    column::Column::{self, ImmC, IsAdd, IsAnd, IsAuipc, IsLui, IsOr, IsSlt, IsSltu, IsSub, IsXor},
+    column::Column::{
+        self, ImmC, IsAdd, IsAnd, IsAuipc, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh,
+        IsSlt, IsSltu, IsSub, IsSw, IsXor,
+    },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
 
@@ -23,6 +26,41 @@ pub(crate) trait VirtualColumn<const N: usize> {
     fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; N];
 }
 
+/// Many virtual columns are just a sum of several columns
+trait VirtualColumnForSum {
+    /// columns to be added up
+    fn columns() -> &'static [Column];
+}
+
+impl<S: VirtualColumnForSum> VirtualColumn<1> for S {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
+        let ret = S::columns().iter().fold(BaseField::zero(), |acc, &op| {
+            let [is_op] = traces.column(row_idx, op);
+            acc + is_op
+        });
+        [ret]
+    }
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; 1] {
+        let ret = S::columns()
+            .iter()
+            .fold(PackedBaseField::zero(), |acc, &op| {
+                let is_op = traces.get_base_column::<1>(op)[0].data[vec_idx];
+                acc + is_op
+            });
+        [ret]
+    }
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
+        let ret = S::columns().iter().fold(E::F::zero(), |acc, &op| {
+            let [is_op] = trace_eval.column_eval(op);
+            acc + is_op
+        });
+        [ret]
+    }
+}
+
 pub(crate) struct IsTypeR;
 
 impl IsTypeR {
@@ -32,6 +70,7 @@ impl IsTypeR {
     ];
 }
 
+// Type R cannot be made a VirtualColumnForSum because of the extra multiplication with (1 - ImmC)
 impl VirtualColumn<1> for IsTypeR {
     fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
         let [imm_c] = traces.column(row_idx, ImmC);
@@ -69,35 +108,32 @@ impl VirtualColumn<1> for IsTypeR {
 
 pub(crate) struct IsTypeU;
 
-impl IsTypeU {
-    const TYPE_U_OPS: [Column; 2] = [IsLui, IsAuipc];
+impl VirtualColumnForSum for IsTypeU {
+    fn columns() -> &'static [Column] {
+        &[IsLui, IsAuipc]
+    }
 }
 
-impl VirtualColumn<1> for IsTypeU {
-    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
-        let ret = Self::TYPE_U_OPS.iter().fold(BaseField::zero(), |acc, &op| {
-            let [is_op] = traces.column(row_idx, op);
-            acc + is_op
-        });
-        [ret]
+pub(crate) struct IsAlu;
+
+impl VirtualColumnForSum for IsAlu {
+    fn columns() -> &'static [Column] {
+        &[IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd] // TODO: add shift related columns
     }
-    fn read_from_finalized_traces(
-        traces: &FinalizedTraces,
-        vec_idx: usize,
-    ) -> [PackedBaseField; 1] {
-        let ret = Self::TYPE_U_OPS
-            .iter()
-            .fold(PackedBaseField::zero(), |acc, &op| {
-                let is_op = traces.get_base_column::<1>(op)[0].data[vec_idx];
-                acc + is_op
-            });
-        [ret]
+}
+
+pub(crate) struct IsLoad;
+
+impl VirtualColumnForSum for IsLoad {
+    fn columns() -> &'static [Column] {
+        &[IsLb, IsLh, IsLw, IsLbu, IsLhu]
     }
-    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
-        let ret = Self::TYPE_U_OPS.iter().fold(E::F::zero(), |acc, &op| {
-            let [is_op] = trace_eval.column_eval(op);
-            acc + is_op
-        });
-        [ret]
+}
+
+pub(crate) struct IsTypeS;
+
+impl VirtualColumnForSum for IsTypeS {
+    fn columns() -> &'static [Column] {
+        &[IsSb, IsSh, IsSw]
     }
 }

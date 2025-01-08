@@ -367,7 +367,7 @@ impl MachineChip for CpuChip {
         let is_alu_imm_no_shift =
             imm_c.clone() * (is_add + is_slt + is_sltu + is_xor + is_or + is_and);
 
-        let is_load = is_lb + is_lbu + is_lh + is_lhu + is_lw;
+        let [is_load] = virtual_column::IsLoad::eval(trace_eval);
 
         // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
         let is_type_i = is_load + is_alu_imm_no_shift + is_jalr; // TODO: Add more flags when they are available
@@ -419,7 +419,7 @@ impl MachineChip for CpuChip {
         let is_type_b = is_beq + is_bne + is_bltu + is_bgeu + is_blt + is_bge;
 
         // is_type_s = is_sb + is_sh + is_sw
-        let is_type_s = is_sb + is_sh + is_sw;
+        let [is_type_s] = virtual_column::IsTypeS::eval(trace_eval);
 
         // type S and type B access registers in similar ways
         let is_type_b_s = is_type_b + is_type_s;
