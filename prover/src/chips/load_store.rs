@@ -26,7 +26,7 @@ impl MachineChip for LoadStoreChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
-        _side_note: &mut SideNote,
+        side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
             Some(vm_step) => vm_step,
@@ -141,6 +141,30 @@ impl MachineChip for LoadStoreChip {
                 traces.fill_columns(row_idx, prev_value[i], val_prev);
                 traces.fill_columns(row_idx, memory_record.get_prev_timestamp(), ts_prev);
                 traces.fill_columns(row_idx, true, accessed);
+                let prev_access = side_note.rw_mem_check.last_access.insert(
+                    byte_address
+                        .checked_add(i as u32)
+                        .expect("memory access range overflowed back to address zero"),
+                    (clk, cur_value[i]),
+                );
+                match prev_access {
+                    Some((prev_clk, prev_val)) => {
+                        assert_eq!(
+                            prev_clk,
+                            memory_record.get_prev_timestamp(),
+                            "memory access timestamp mismatch"
+                        );
+                        assert_eq!(prev_val, prev_value[i], "memory access value mismatch");
+                    }
+                    None => {
+                        assert_eq!(
+                            memory_record.get_prev_timestamp(),
+                            0,
+                            "memory access timestamp mismatch"
+                        );
+                        assert_eq!(prev_value[i], 0, "memory access value mismatch");
+                    }
+                }
             }
         }
     }

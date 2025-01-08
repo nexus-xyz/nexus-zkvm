@@ -21,6 +21,13 @@ pub struct ProgramMemCheckSideNote<'a> {
     pub(crate) program_trace: &'a ProgramTraces,
 }
 
+/// Side note for committing to the final RW memory content and for computing the final read digest
+#[derive(Default)]
+pub struct ReadWriteMemCheckSideNote {
+    /// u32 is the access counter, u8 is the value of the byte
+    pub(crate) last_access: BTreeMap<u32, (u32, u8)>,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct Range128SideNote {
     pub(crate) global_multiplicity: u32,
@@ -38,6 +45,7 @@ pub struct SideNote<'a> {
     pub(crate) range128: Range128SideNote,
     pub(crate) range256: Range256SideNote,
     pub(crate) register_mem_check: RegisterMemCheckSideNote,
+    pub(crate) rw_mem_check: ReadWriteMemCheckSideNote,
 }
 
 impl<'a> SideNote<'a> {
@@ -52,6 +60,7 @@ impl<'a> SideNote<'a> {
             range128: Range128SideNote::default(),
             range256: Range256SideNote::default(),
             register_mem_check: RegisterMemCheckSideNote::default(),
+            rw_mem_check: ReadWriteMemCheckSideNote::default(),
         }
     }
 }
