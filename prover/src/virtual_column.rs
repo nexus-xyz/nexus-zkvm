@@ -137,3 +137,39 @@ impl VirtualColumnForSum for IsTypeS {
         &[IsSb, IsSh, IsSw]
     }
 }
+
+/// Instead of having is_pc_inc_std as a separate column and having
+/// `(is_alu + is_load + is_type_s + is_type_sys + is_type_u - is_pc_inc_std) = 0`,
+/// we can just have a virtual column is_pc_incremented. This change doesn't change the degree of any constraints.
+
+pub(crate) struct IsPcIncremented;
+
+impl VirtualColumn<1> for IsPcIncremented {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
+        let [is_alu] = IsAlu::read_from_traces_builder(traces, row_idx);
+        let [is_load] = IsLoad::read_from_traces_builder(traces, row_idx);
+        let [is_type_s] = IsTypeS::read_from_traces_builder(traces, row_idx);
+        let [is_type_u] = IsTypeU::read_from_traces_builder(traces, row_idx);
+        let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
+        [ret]
+    }
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; 1] {
+        let is_alu = IsAlu::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_load = IsLoad::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_s = IsTypeS::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_u = IsTypeU::read_from_finalized_traces(traces, vec_idx)[0];
+        let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
+        [ret]
+    }
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
+        let [is_alu] = IsAlu::eval(trace_eval);
+        let [is_load] = IsLoad::eval(trace_eval);
+        let [is_type_s] = IsTypeS::eval(trace_eval);
+        let [is_type_u] = IsTypeU::eval(trace_eval);
+        let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
+        [ret]
+    }
+}
