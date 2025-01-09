@@ -108,7 +108,7 @@ impl InstructionProcessor for InstructionDecoder {
         Instruction::new(
             Opcode::from(BuiltinOpcode::JAL),
             Register::from(dec_insn.rd as u8),
-            Register::from(0),
+            Register::X0,
             dec_insn.imm as _,
             InstructionType::JType,
         )

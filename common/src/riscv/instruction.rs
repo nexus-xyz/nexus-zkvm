@@ -175,8 +175,8 @@ impl Instruction {
     pub fn unimpl() -> Self {
         Self::new(
             Opcode::from(BuiltinOpcode::UNIMPL),
-            Register::from(0),
-            Register::from(0),
+            Register::X0,
+            Register::X0,
             0,
             InstructionType::Unimpl,
         )
@@ -187,8 +187,8 @@ impl Instruction {
     pub fn nop() -> Self {
         Self::new(
             Opcode::from(BuiltinOpcode::ADDI),
-            Register::from(0),
-            Register::from(0),
+            Register::X0,
+            Register::X0,
             0,
             InstructionType::IType,
         )
