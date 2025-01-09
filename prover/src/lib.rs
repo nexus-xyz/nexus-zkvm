@@ -37,7 +37,7 @@ pub(crate) use nexus_vm::WORD_SIZE;
 use chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
     JalChip, JalrChip, LoadStoreChip, LuiChip, Range128Chip, Range16Chip, Range256Chip,
-    Range32Chip, RangeBoolChip, SltChip, SltuChip, SubChip, TimestampChip,
+    Range32Chip, RangeBoolChip, SllChip, SltChip, SltuChip, SubChip, TimestampChip,
 };
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
@@ -59,6 +59,7 @@ pub type Components = (
     LuiChip,
     AuipcChip,
     JalrChip,
+    SllChip,
     TimestampChip,
     LoadStoreChip,
     // Range checks must be positioned at the end. They use values filled by instruction chips.

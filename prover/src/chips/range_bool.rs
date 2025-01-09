@@ -9,9 +9,10 @@ use crate::{
         Column::{
             self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
             IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui,
-            IsLw, IsOr, IsPadding, IsSb, IsSh, IsSlt, IsSltu, IsSub, IsSw, IsXor, LtFlag, OpA0,
-            OpB0, OpC4, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed,
-            Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
+            IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSub, IsSw, IsXor, LtFlag,
+            OpA0, OpB0, OpC4, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed,
+            Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3,
+            ShiftBit4, ShiftBit5,
         },
         ProgramColumn,
     },
@@ -33,7 +34,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 38] = [
+const CHECKED_SINGLE: [Column; 44] = [
     ImmB,
     ImmC,
     IsAdd,
@@ -59,6 +60,7 @@ const CHECKED_SINGLE: [Column; 38] = [
     IsLui,
     IsAuipc,
     IsJalr,
+    IsSll,
     IsPadding,
     LtFlag,
     RemAux,
@@ -72,6 +74,11 @@ const CHECKED_SINGLE: [Column; 38] = [
     Ram2Accessed,
     Ram3Accessed,
     Ram4Accessed,
+    ShiftBit1,
+    ShiftBit2,
+    ShiftBit3,
+    ShiftBit4,
+    ShiftBit5,
 ];
 const CHECKED_WORD: [Column; 5] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus];
 const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];

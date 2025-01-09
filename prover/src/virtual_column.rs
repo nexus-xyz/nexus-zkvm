@@ -9,7 +9,7 @@ use stwo_prover::{
 use crate::{
     column::Column::{
         self, ImmC, IsAdd, IsAnd, IsAuipc, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh,
-        IsSlt, IsSltu, IsSub, IsSw, IsXor,
+        IsSll, IsSlt, IsSltu, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -64,8 +64,8 @@ impl<S: VirtualColumnForSum> VirtualColumn<1> for S {
 pub(crate) struct IsTypeR;
 
 impl IsTypeR {
-    const TYPE_R_OPS: [Column; 7] = [
-        IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd,
+    const TYPE_R_OPS: [Column; 8] = [
+        IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll,
         // TODO: SLL SRL SRA
     ];
 }

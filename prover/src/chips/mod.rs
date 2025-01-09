@@ -10,6 +10,7 @@ mod bne;
 mod jal;
 mod jalr;
 mod lui;
+mod sll;
 mod slt;
 mod sub;
 
@@ -30,6 +31,6 @@ pub use self::{
     blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, jal::JalChip, jalr::JalrChip,
     load_store::LoadStoreChip, lui::LuiChip, prog_mem_check::ProgramMemCheckChip,
     range128::Range128Chip, range16::Range16Chip, range256::Range256Chip, range32::Range32Chip,
-    range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip, slt::SltChip,
-    sltu::SltuChip, sub::SubChip, timestamp::TimestampChip,
+    range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip, sll::SllChip,
+    slt::SltChip, sltu::SltuChip, sub::SubChip, timestamp::TimestampChip,
 };

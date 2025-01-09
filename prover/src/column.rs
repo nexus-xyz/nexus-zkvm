@@ -143,6 +143,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a JALR.
     #[size = 1]
     IsJalr,
+    /// Boolean flag on whether the row is a SLL.
+    #[size = 1]
+    IsSll,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
@@ -180,9 +183,33 @@ pub enum Column {
     /// Remainder flag. Called rem_aux in document.
     #[size = 1]
     RemAux,
-    /// Qt_aux flag. Called qt_aux in document.
+    /// Remainder flag. Called rem in document.
+    #[size = 4]
+    Rem,
+    /// Qt_aux flag. Called qt_aux or qt in document.
     #[size = 1]
     QtAux,
+    /// Qt flag. Called qt in document.
+    #[size = 4]
+    Qt,
+    // ShiftBit flag. Called sh1 in document.
+    #[size = 1]
+    ShiftBit1,
+    // ShiftBit flag. Called sh2 in document.
+    #[size = 1]
+    ShiftBit2,
+    // ShiftBit flag. Called sh3 in document.
+    #[size = 1]
+    ShiftBit3,
+    // ShiftBit flag. Called sh4 in document.
+    #[size = 1]
+    ShiftBit4,
+    // ShiftBit flag. Called sh5 in document.
+    #[size = 1]
+    ShiftBit5,
+    // Exp1_3 flag. Called exp1_3 in document.
+    #[size = 1]
+    Exp1_3,
 
     #[size = 1]
     Neq12Aux,
