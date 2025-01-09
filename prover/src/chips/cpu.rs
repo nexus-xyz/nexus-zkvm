@@ -199,13 +199,21 @@ impl MachineChip for CpuChip {
         // Fill OpB to the main trace
         let op_b = vm_step.step.instruction.op_b as u8;
         traces.fill_columns(row_idx, op_b, OpB);
-        // Fill OpC (if register index) or ImmC (if immediate) to the main trace
+        // Fill OpC (register index or immediate value) or ImmC (true if immediate) to the main trace
         let op_c_raw = vm_step.step.instruction.op_c;
         match vm_step.step.instruction.ins_type {
             RType => {
                 traces.fill_columns(row_idx, op_c_raw as u8, OpC);
             }
             IType | BType | SType | ITypeShamt | JType | UType => {
+                let (op_c_word, op_c_bits) = vm_step.get_value_c();
+                assert_eq!(op_c_raw, u32::from_le_bytes(op_c_word));
+                let op_c_zero_extended = op_c_raw & ((1u32 << op_c_bits) - 1);
+                traces.fill_columns(
+                    row_idx,
+                    BaseField::from_u32_unchecked(op_c_zero_extended),
+                    OpC,
+                );
                 traces.fill_columns(row_idx, true, ImmC); // ImmC is a boolean flag
             }
             Unimpl => {
@@ -253,6 +261,16 @@ impl MachineChip for CpuChip {
                     vm_step.step.instruction.ins_type
                 );
             }
+        }
+
+        // Fill auxiliary columns for type U immediate value parsing
+        if step.instruction.ins_type == UType {
+            let op_c12_15 = op_c_raw & 0xF;
+            let op_c16_23 = (op_c_raw >> 4) & 0xFF;
+            let op_c24_31 = (op_c_raw >> 12) & 0xFF;
+            traces.fill_columns(row_idx, op_c12_15 as u8, OpC12_15);
+            traces.fill_columns(row_idx, op_c16_23 as u8, OpC16_23);
+            traces.fill_columns(row_idx, op_c24_31 as u8, OpC24_31);
         }
     }
 
@@ -400,7 +418,6 @@ impl MachineChip for CpuChip {
             (is_type_r.clone() + is_type_i.clone()) * (op_b.clone() - reg1_address.clone()),
         );
         eval.add_constraint(is_type_r.clone() * (op_c.clone() - reg2_address));
-        eval.add_constraint(is_type_i.clone() * op_c.clone());
         eval.add_constraint(
             (is_type_r.clone() + is_type_i.clone()) * (op_a.clone() - reg3_address.clone()),
         );
@@ -436,7 +453,6 @@ impl MachineChip for CpuChip {
 
         // Constraint reg{1,2,3}_address uniquely for type B and type S instructions
         eval.add_constraint(is_type_b_s.clone() * (op_b - reg1_address));
-        eval.add_constraint(is_type_b_s.clone() * op_c);
         // Always using reg3 for ValueA and OpA, even when it's not the destination; this simplifies the register memory checking.
         eval.add_constraint(is_type_b_s.clone() * (op_a - reg3_address));
 
@@ -470,5 +486,29 @@ impl MachineChip for CpuChip {
                     * (pc_next[limb_idx].clone() - pc_on_next_row[limb_idx].clone()),
             );
         }
+
+        let [is_type_u] = virtual_column::IsTypeU::eval(trace_eval);
+        let [op_c12_15] = trace_eval!(trace_eval, Column::OpC12_15);
+        let [op_c16_23] = trace_eval!(trace_eval, Column::OpC16_23);
+        let [op_c24_31] = trace_eval!(trace_eval, Column::OpC24_31);
+        // is_type_u・ (op_c12_15 + op_c16_23・2^4 + op_c24_31・2^{12} – op_c) = 0
+        eval.add_constraint(
+            is_type_u.clone()
+                * (op_c12_15.clone()
+                    + op_c16_23.clone() * BaseField::from(1 << 4)
+                    + op_c24_31.clone() * BaseField::from(1 << 12)
+                    - op_c.clone()),
+        );
+
+        // is_type_u・ (c_val_1) = 0
+        eval.add_constraint(is_type_u.clone() * value_c[0].clone());
+        // is_type_u・ (op_c_12_15・2^4 – c_val_2) = 0
+        eval.add_constraint(
+            is_type_u.clone() * (op_c12_15.clone() * BaseField::from(1 << 4) - value_c[1].clone()),
+        );
+        // is_type_u・ (op_c_16_23 – c_val_3) = 0
+        eval.add_constraint(is_type_u.clone() * (op_c16_23.clone() - value_c[2].clone()));
+        // is_type_u・ (op_c_24_32 – c_val_4) = 0
+        eval.add_constraint(is_type_u.clone() * (op_c24_31.clone() - value_c[3].clone()));
     }
 }

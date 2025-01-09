@@ -52,6 +52,12 @@ impl IntoBaseFields<{ WORD_SIZE }> for u32 {
     }
 }
 
+impl IntoBaseFields<1> for BaseField {
+    fn into_base_fields(self) -> [BaseField; 1] {
+        [self]
+    }
+}
+
 /// Trait for reading Basefields
 pub(crate) trait FromBaseFields<const N: usize> {
     fn from_base_fields(elms: [BaseField; N]) -> Self;

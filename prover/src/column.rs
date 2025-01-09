@@ -32,7 +32,7 @@ pub enum Column {
     /// The register-index of the second operand of the instruction.
     #[size = 1]
     OpB,
-    /// The register-index of the third operand of the instruction.
+    /// The register-index or the immediate value of the third operand of the instruction. Immediate values are zero-extended out of the effective bits.
     #[size = 1]
     OpC,
 
