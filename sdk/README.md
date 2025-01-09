@@ -60,7 +60,7 @@ As an example, you can change the content of `./src/guest/src/main.rs` to:
 ```rust
 #![cfg_attr(target_arch = "riscv32", no_std, no_main)]
 
-use nexus_rt::{println, read_private_input, write_output};
+use nexus_rt::{postcard, println, read_private_input, write_output};
 
 #[nexus_rt::main]
 fn main() {
