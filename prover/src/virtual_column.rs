@@ -138,8 +138,8 @@ impl VirtualColumnForSum for IsTypeS {
     }
 }
 
-/// Instead of having is_pc_inc_std as a separate column and having
-/// `(is_alu + is_load + is_type_s + is_type_sys + is_type_u - is_pc_inc_std) = 0`,
+/// Instead of having is_pc_incremented as a separate column and having
+/// `(is_alu + is_load + is_type_s + is_type_sys + is_type_u - is_pc_incremented) = 0`,
 /// we can just have a virtual column is_pc_incremented. This change doesn't change the degree of any constraints.
 
 pub(crate) struct IsPcIncremented;
