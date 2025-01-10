@@ -89,11 +89,14 @@ impl Range256Chip {
 
     const TYPE_U_CHECKED_BYTES: [Column; 2] = [OpC16_23, OpC24_31];
 
-    const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 3] = [
+    const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 4] = [
         ProgramColumn::PrgMemoryPc,
         ProgramColumn::PrgMemoryWord,
         ProgramColumn::PrgInitialPc,
+        ProgramColumn::PublicInputAddr,
     ];
+
+    const CHECKED_PROGRAM_BYTE_COLUMNS: [ProgramColumn; 1] = [ProgramColumn::PublicInputValue];
 }
 
 // TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace
@@ -113,6 +116,10 @@ impl MachineChip for Range256Chip {
         }
         for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
             let value_col: [BaseField; WORD_SIZE] = program_traces.column(row_idx, *col);
+            fill_main_cols(value_col, traces, side_note);
+        }
+        for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
+            let value_col: [BaseField; 1] = program_traces.column(row_idx, *col);
             fill_main_cols(value_col, traces, side_note);
         }
         for col in Self::CHECKED_BYTES.iter() {
@@ -162,6 +169,15 @@ impl MachineChip for Range256Chip {
         }
         for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
             let value_basecolumn: [_; WORD_SIZE] = program_traces.get_base_column(*col);
+            check_bytes(
+                value_basecolumn,
+                original_traces.log_size(),
+                &mut logup_trace_gen,
+                lookup_element,
+            );
+        }
+        for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
+            let value_basecolumn: [_; 1] = program_traces.get_base_column(*col);
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
@@ -239,6 +255,11 @@ impl MachineChip for Range256Chip {
                 let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
                 logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
             }
+        }
+        for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
+            let [value] = trace_eval.program_column_eval(*col);
+            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
+            logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
         }
         for col in Self::TYPE_U_CHECKED_BYTES.iter() {
             let [value] = trace_eval.column_eval(*col);

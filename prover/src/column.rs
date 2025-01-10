@@ -436,6 +436,15 @@ pub enum ProgramColumn {
     /// The first program counter for finding the first executed instruction
     #[size = 4]
     PrgInitialPc,
+    /// The byte-address of public input
+    #[size = 4]
+    PublicInputAddr,
+    /// The one-byte content of public input at PublicInputAddr
+    #[size = 1]
+    PublicInputValue,
+    /// A flag indicating PublicInput{Addr, Value} is used
+    #[size = 1]
+    PublicInputFlag,
 }
 
 // proc macro derived:

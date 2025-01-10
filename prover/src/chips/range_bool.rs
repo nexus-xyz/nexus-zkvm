@@ -118,6 +118,8 @@ impl MachineChip for RangeBoolChip {
         }
         let [prg_memory_flg] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
         eval.add_constraint(prg_memory_flg.clone() * (prg_memory_flg - E::F::one()));
+        let [pub_input_flg] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
+        eval.add_constraint(pub_input_flg.clone() * (pub_input_flg - E::F::one()));
     }
 }
 
