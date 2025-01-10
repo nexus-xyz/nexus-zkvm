@@ -1,4 +1,4 @@
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
@@ -111,17 +111,12 @@ impl MachineChip for SltuChip {
                         - (value_b[i].clone() - value_c[i].clone() - borrow)),
             );
 
-            // Enforce value_a[0] is in {0, 1} and value_a[1..=3] are 0.
-            if i == 0 {
-                eval.add_constraint(
-                    is_sltu.clone() * (value_a[0].clone() - E::F::one()) * value_a[0].clone(),
-                );
-            } else {
+            // value_a[0] is constrained to be equal to the borrow flag, which is in {0, 1}.
+            // Constraint value_a[1..=3] to equal 0.
+            if i != 0 {
                 eval.add_constraint(is_sltu.clone() * value_a[i].clone());
             }
         }
-
-        // TODO: range check rd_val[i] to be in {0, 1}.
     }
 }
 

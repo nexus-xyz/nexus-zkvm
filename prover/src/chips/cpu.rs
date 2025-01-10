@@ -306,10 +306,7 @@ impl MachineChip for CpuChip {
 
         // Constrain ValueAEffectiveFlag's range
         let [value_a_effective_flag] = trace_eval!(trace_eval, ValueAEffectiveFlag);
-        eval.add_constraint(
-            value_a_effective_flag.clone() * (E::F::one() - value_a_effective_flag.clone()),
-        );
-        // TODO: relate OpA and ValueAEffectiveFlag; this can be done with ValueAEffectiveFlagAux and ValueAEffectiveFlagAuxInv.
+
         let [value_a_effective_flag_aux] = trace_eval!(trace_eval, ValueAEffectiveFlagAux);
         let [value_a_effective_flag_aux_inv] = trace_eval!(trace_eval, ValueAEffectiveFlagAuxInv);
         // Below is just for making sure value_a_effective_flag_aux is not zero.

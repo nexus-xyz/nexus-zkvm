@@ -108,7 +108,6 @@ impl MachineChip for AddChip {
         let value_b = trace_eval!(trace_eval, ValueB);
         let value_c = trace_eval!(trace_eval, ValueC);
         let value_a = trace_eval!(trace_eval, ValueA);
-        // TODO: constrain ValueAEffective to be zero or equal to ValueA depending on whether rd is x0 (in CPU chip, when it exists)
 
         for i in 0..WORD_SIZE {
             let carry = i

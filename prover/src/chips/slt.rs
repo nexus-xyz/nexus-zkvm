@@ -174,10 +174,6 @@ impl MachineChip for SltChip {
                 * (modulus_7.clone() * sgn_c[0].clone() + helper3_val[3].clone()
                     - value_c[3].clone()),
         );
-
-        // TODO: range check CarryFlag to be in {0, 1}.
-        // TODO: range check rd_val[i] to be in {0, 1}.
-        // TODO: constrain ValueAEffective in CpuChip.
     }
 }
 

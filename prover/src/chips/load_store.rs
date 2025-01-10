@@ -232,7 +232,7 @@ impl MachineChip for LoadStoreChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, BeqChip, CpuChip, RegisterMemCheckChip},
+        chips::{AddChip, BeqChip, CpuChip, RegisterMemCheckChip, SllChip},
         test_utils::assert_chip,
         trace::{
             preprocessed::PreprocessedBuilder, program::iter_program_steps,
@@ -253,39 +253,9 @@ mod test {
         let basic_block = BasicBlock::new(vec![
             // First we create a usable address. heap start: 528392, heap end: 8917000
             // Aiming to create 0x81008
-            // TODO: shrink the following sequence of ADDs using SLL when it's available
             // Set x0 = 0 (default constant), x1 = 1
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
-            // repeat doubling x1
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            // here x1 should be 0x8
-            // Copying x1 to x2
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            // here x1 should be 0x10
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            // here x1 should be 0x100
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            // here x1 should be 0x1000
-            // Adding x1 to x2
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 2),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            // here x1 should be 0x10000
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLLI), 1, 1, 19),
             // here x1 should be 0x80000
             // Adding x1 to x2
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 2),
@@ -340,6 +310,7 @@ mod test {
             CpuChip,
             AddChip,
             BeqChip,
+            SllChip,
             LoadStoreChip,
             RegisterMemCheckChip,
         );
@@ -367,31 +338,31 @@ mod test {
 
         // Assert results of loads
         let load_vals = traces
-            .column(28, Column::ValueA)
+            .column(7, Column::ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
         let output = u32::from_le_bytes(load_vals);
         assert_eq!(output, 0xffffff80);
 
         let load_vals = traces
-            .column(31, Column::ValueA)
+            .column(10, Column::ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
         let output = u32::from_le_bytes(load_vals);
         assert_eq!(output, 128);
 
         let load_vals = traces
-            .column(33, Column::ValueA)
+            .column(12, Column::ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
         let output = u32::from_le_bytes(load_vals);
         assert_eq!(output, 128);
 
         let load_vals = traces
-            .column(35, Column::ValueA)
+            .column(14, Column::ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
         let output = u32::from_le_bytes(load_vals);
         assert_eq!(output, 128);
 
         let load_vals = traces
-            .column(37, Column::ValueA)
+            .column(16, Column::ValueA)
             .map(|v| u8::try_from(v.0).expect("limb value out of bounds"));
         let output = u32::from_le_bytes(load_vals);
         assert_eq!(output, 128);

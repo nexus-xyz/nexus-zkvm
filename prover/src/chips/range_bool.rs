@@ -12,7 +12,7 @@ use crate::{
             IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSub, IsSw, IsXor, LtFlag,
             OpA0, OpB0, OpC4, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, Reg1Accessed,
             Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3,
-            ShiftBit4, ShiftBit5,
+            ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -34,7 +34,8 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 44] = [
+const CHECKED_SINGLE: [Column; 45] = [
+    ValueAEffectiveFlag,
     ImmB,
     ImmC,
     IsAdd,

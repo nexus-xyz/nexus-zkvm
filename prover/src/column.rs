@@ -192,31 +192,35 @@ pub enum Column {
     /// Qt flag. Called qt in document.
     #[size = 4]
     Qt,
-    // ShiftBit flag. Called sh1 in document.
+    /// ShiftBit flag. Called sh1 in document.
     #[size = 1]
     ShiftBit1,
-    // ShiftBit flag. Called sh2 in document.
+    /// ShiftBit flag. Called sh2 in document.
     #[size = 1]
     ShiftBit2,
-    // ShiftBit flag. Called sh3 in document.
+    /// ShiftBit flag. Called sh3 in document.
     #[size = 1]
     ShiftBit3,
-    // ShiftBit flag. Called sh4 in document.
+    /// ShiftBit flag. Called sh4 in document.
     #[size = 1]
     ShiftBit4,
-    // ShiftBit flag. Called sh5 in document.
+    /// ShiftBit flag. Called sh5 in document.
     #[size = 1]
     ShiftBit5,
-    // Exp1_3 flag. Called exp1_3 in document.
+    /// Exp1_3 flag. Called exp1_3 in document.
     #[size = 1]
     Exp1_3,
 
+    /// neq_12_flag_aux in document. Inverse of (valueA - valueB) first 2 limbs, when it's non-zero.
     #[size = 1]
     Neq12Aux,
+    /// neq_34_flag_aux in document. Inverse of (valueA - valueB) last 2 limbs, when it's non-zero.
     #[size = 1]
     Neq34Aux,
+    /// neq_12_flag_aux_inv in document. Inverse of [`Column::Neq12Aux`].
     #[size = 1]
     Neq12AuxInv,
+    /// neq_34_flag_aux_inv in document. Inverse of [`Column::Neq34Aux`].
     #[size = 1]
     Neq34AuxInv,
 

@@ -118,7 +118,7 @@ pub(crate) struct IsAlu;
 
 impl VirtualColumnForSum for IsAlu {
     fn columns() -> &'static [Column] {
-        &[IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd] // TODO: add shift related columns
+        &[IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll] // TODO: add shift related columns
     }
 }
 
