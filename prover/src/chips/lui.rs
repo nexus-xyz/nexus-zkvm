@@ -79,7 +79,7 @@ impl MachineChip for LuiChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip},
+        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeUChip},
         test_utils::assert_chip,
         trace::{
             program::iter_program_steps,
@@ -120,7 +120,13 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_lui_instructions() {
-        type Chips = (CpuChip, LuiChip, ProgramMemCheckChip, RegisterMemCheckChip);
+        type Chips = (
+            CpuChip,
+            TypeUChip,
+            LuiChip,
+            ProgramMemCheckChip,
+            RegisterMemCheckChip,
+        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
