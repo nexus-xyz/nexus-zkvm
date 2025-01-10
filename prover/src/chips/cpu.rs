@@ -170,6 +170,9 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::SLL) | Some(BuiltinOpcode::SLLI) => {
                 traces.fill_columns(row_idx, true, IsSll);
             }
+            Some(BuiltinOpcode::SRL) | Some(BuiltinOpcode::SRLI) => {
+                traces.fill_columns(row_idx, true, IsSrl);
+            }
             _ => {
                 panic!(
                     "Unsupported opcode: {:?}",
@@ -334,6 +337,7 @@ impl MachineChip for CpuChip {
         let [is_auipc] = trace_eval!(trace_eval, IsAuipc);
         let [is_jalr] = trace_eval!(trace_eval, IsJalr);
         let [is_sll] = trace_eval!(trace_eval, IsSll);
+        let [is_srl] = trace_eval!(trace_eval, IsSrl);
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         let [is_sb] = trace_eval!(trace_eval, IsSb);
         let [is_sh] = trace_eval!(trace_eval, IsSh);
@@ -370,6 +374,7 @@ impl MachineChip for CpuChip {
                 + is_lhu.clone()
                 + is_lw.clone()
                 + is_sll.clone()
+                + is_srl.clone()
                 + is_padding
                 - E::F::one(),
         );

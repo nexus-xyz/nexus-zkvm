@@ -9,7 +9,7 @@ use stwo_prover::{
 use crate::{
     column::Column::{
         self, ImmC, IsAdd, IsAnd, IsAuipc, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh,
-        IsSll, IsSlt, IsSltu, IsSub, IsSw, IsXor,
+        IsSll, IsSlt, IsSltu, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -64,9 +64,8 @@ impl<S: VirtualColumnForSum> VirtualColumn<1> for S {
 pub(crate) struct IsTypeR;
 
 impl IsTypeR {
-    const TYPE_R_OPS: [Column; 8] = [
-        IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll,
-        // TODO: SLL SRL SRA
+    const TYPE_R_OPS: [Column; 9] = [
+        IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, // TODO: SRA
     ];
 }
 
@@ -118,7 +117,9 @@ pub(crate) struct IsAlu;
 
 impl VirtualColumnForSum for IsAlu {
     fn columns() -> &'static [Column] {
-        &[IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll] // TODO: add shift related columns
+        &[
+            IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl,
+        ] // TODO: add SRA
     }
 }
 

@@ -12,6 +12,7 @@ mod jalr;
 mod lui;
 mod sll;
 mod slt;
+mod srl;
 mod sub;
 
 mod cpu;
@@ -33,5 +34,5 @@ pub use self::{
     jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip, prog_mem_check::ProgramMemCheckChip,
     range128::Range128Chip, range16::Range16Chip, range256::Range256Chip, range32::Range32Chip,
     range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip, sll::SllChip,
-    slt::SltChip, sltu::SltuChip, sub::SubChip, timestamp::TimestampChip,
+    slt::SltChip, sltu::SltuChip, srl::SrlChip, sub::SubChip, timestamp::TimestampChip,
 };

@@ -146,6 +146,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a SLL.
     #[size = 1]
     IsSll,
+    /// Boolean flag on whether the row is a SRL.
+    #[size = 1]
+    IsSrl,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

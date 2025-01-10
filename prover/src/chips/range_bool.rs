@@ -9,10 +9,10 @@ use crate::{
         Column::{
             self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
             IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui,
-            IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSub, IsSw, IsXor, LtFlag,
-            OpA0, OpB0, OpC4, PcCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed,
-            Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1,
-            ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
+            IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSrl, IsSub, IsSw, IsXor,
+            LtFlag, OpA0, OpB0, OpC4, PcCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed,
+            Ram4Accessed, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
+            ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -34,7 +34,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 45] = [
+const CHECKED_SINGLE: [Column; 46] = [
     ValueAEffectiveFlag,
     ImmB,
     ImmC,
@@ -62,6 +62,7 @@ const CHECKED_SINGLE: [Column; 45] = [
     IsAuipc,
     IsJalr,
     IsSll,
+    IsSrl,
     IsPadding,
     LtFlag,
     RemAux,
