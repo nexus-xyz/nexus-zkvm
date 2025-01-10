@@ -5,6 +5,7 @@ use stwo_prover::{
 };
 
 use crate::{
+    chips::add::add_with_carries,
     column::{
         Column::{self, *},
         PreprocessedColumn,
@@ -272,6 +273,11 @@ impl MachineChip for CpuChip {
             traces.fill_columns(row_idx, op_c16_23 as u8, OpC16_23);
             traces.fill_columns(row_idx, op_c24_31 as u8, OpC24_31);
         }
+
+        // Fill PcCarry
+        // PcCarry isn't used in jump or branch instructions, but we fill it anyway.
+        let (_, pc_carry) = add_with_carries(pc.to_le_bytes(), 4u32.to_le_bytes());
+        traces.fill_columns(row_idx, pc_carry, PcCarry);
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -507,5 +513,29 @@ impl MachineChip for CpuChip {
         eval.add_constraint(is_type_u.clone() * (op_c16_23.clone() - value_c[2].clone()));
         // is_type_u・ (op_c_24_32 – c_val_4) = 0
         eval.add_constraint(is_type_u.clone() * (op_c24_31.clone() - value_c[3].clone()));
+
+        // Increment PC by four
+        // (is_pc_incremented)・(pc_next_1 + pc_carry_1·2^8 - pc_1 - 4) = 0
+        let [is_pc_incremented] = virtual_column::IsPcIncremented::eval(trace_eval);
+        let pc_carry = trace_eval!(trace_eval, Column::PcCarry);
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        eval.add_constraint(
+            is_pc_incremented.clone()
+                * (pc_next[0].clone() + pc_carry[0].clone() * BaseField::from(1 << 8)
+                    - pc[0].clone()
+                    - BaseField::from(4).into()),
+        );
+        // (is_pc_incremented)・(pc_next_2 + pc_carry_2·2^8 - pc_2 - pc_carry_1) = 0
+        // (is_pc_incremented)・(pc_next_3 + pc_carry_3·2^8 - pc_3 - pc_carry_2) = 0
+        // (is_pc_incremented)・(pc_next_4 + pc_carry_4·2^8 - pc_4 - pc_carry_3) = 0
+        for limb_idx in 1..WORD_SIZE {
+            eval.add_constraint(
+                is_pc_incremented.clone()
+                    * (pc_next[limb_idx].clone()
+                        + pc_carry[limb_idx].clone() * BaseField::from(1 << 8)
+                        - pc[limb_idx].clone()
+                        - pc_carry[limb_idx - 1].clone()),
+            );
+        }
     }
 }

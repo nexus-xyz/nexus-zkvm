@@ -408,6 +408,10 @@ pub enum Column {
     /// Auxiliary variable for decoding type_u immediates: bits[24..=31] of the instruction
     #[size = 1]
     OpC24_31,
+
+    /// Auxiliary variable for incrementing program counter by four
+    #[size = 4]
+    PcCarry,
 }
 
 // proc macro derived:
