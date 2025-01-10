@@ -15,6 +15,7 @@ mod slt;
 mod sub;
 
 mod cpu;
+mod decoding;
 mod load_store;
 mod prog_mem_check;
 mod range128;
@@ -28,8 +29,8 @@ mod timestamp;
 
 pub use self::{
     add::AddChip, auipc::AuipcChip, beq::BeqChip, bge::BgeChip, bgeu::BgeuChip, bit_op::BitOpChip,
-    blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, jal::JalChip, jalr::JalrChip,
-    load_store::LoadStoreChip, lui::LuiChip, prog_mem_check::ProgramMemCheckChip,
+    blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, decoding::TypeUChip, jal::JalChip,
+    jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip, prog_mem_check::ProgramMemCheckChip,
     range128::Range128Chip, range16::Range16Chip, range256::Range256Chip, range32::Range32Chip,
     range_bool::RangeBoolChip, register_mem_check::RegisterMemCheckChip, sll::SllChip,
     slt::SltChip, sltu::SltuChip, sub::SubChip, timestamp::TimestampChip,

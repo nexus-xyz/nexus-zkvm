@@ -37,13 +37,14 @@ pub(crate) use nexus_vm::WORD_SIZE;
 use chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
     JalChip, JalrChip, LoadStoreChip, LuiChip, Range128Chip, Range16Chip, Range256Chip,
-    Range32Chip, RangeBoolChip, SllChip, SltChip, SltuChip, SubChip, TimestampChip,
+    Range32Chip, RangeBoolChip, SllChip, SltChip, SltuChip, SubChip, TimestampChip, TypeUChip,
 };
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
 pub type Components = (
     CpuChip,
+    TypeUChip,
     AddChip,
     SubChip,
     SltuChip,
