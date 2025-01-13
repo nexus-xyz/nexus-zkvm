@@ -131,7 +131,7 @@ impl MachineChip for AddChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip},
+        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeRChip},
         test_utils::assert_chip,
         trace::{
             preprocessed::PreprocessedBuilder, program::iter_program_steps,
@@ -191,7 +191,13 @@ mod test {
 
     #[test]
     fn test_k_trace_constrained_add_instructions() {
-        type Chips = (CpuChip, AddChip, RegisterMemCheckChip, ProgramMemCheckChip);
+        type Chips = (
+            CpuChip,
+            TypeRChip,
+            AddChip,
+            RegisterMemCheckChip,
+            ProgramMemCheckChip,
+        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 

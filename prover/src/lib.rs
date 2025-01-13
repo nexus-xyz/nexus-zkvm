@@ -38,13 +38,14 @@ use chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
     JalChip, JalrChip, LoadStoreChip, LuiChip, Range128Chip, Range16Chip, Range256Chip,
     Range32Chip, RangeBoolChip, SllChip, SltChip, SltuChip, SrlChip, SubChip, TimestampChip,
-    TypeUChip,
+    TypeRChip, TypeUChip,
 };
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
 
 pub type Components = (
     CpuChip,
+    TypeRChip,
     TypeUChip,
     AddChip,
     SubChip,

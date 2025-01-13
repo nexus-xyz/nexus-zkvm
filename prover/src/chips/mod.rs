@@ -26,10 +26,10 @@ mod timestamp;
 
 pub use self::{
     add::AddChip, auipc::AuipcChip, beq::BeqChip, bge::BgeChip, bgeu::BgeuChip, bit_op::BitOpChip,
-    blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, decoding::TypeUChip, jal::JalChip,
-    jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip, prog_mem_check::ProgramMemCheckChip,
-    range_check::Range128Chip, range_check::Range16Chip, range_check::Range256Chip,
-    range_check::Range32Chip, range_check::RangeBoolChip, register_mem_check::RegisterMemCheckChip,
-    sll::SllChip, slt::SltChip, sltu::SltuChip, srl::SrlChip, sub::SubChip,
-    timestamp::TimestampChip,
+    blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, decoding::TypeRChip,
+    decoding::TypeUChip, jal::JalChip, jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip,
+    prog_mem_check::ProgramMemCheckChip, range_check::Range128Chip, range_check::Range16Chip,
+    range_check::Range256Chip, range_check::Range32Chip, range_check::RangeBoolChip,
+    register_mem_check::RegisterMemCheckChip, sll::SllChip, slt::SltChip, sltu::SltuChip,
+    srl::SrlChip, sub::SubChip, timestamp::TimestampChip,
 };

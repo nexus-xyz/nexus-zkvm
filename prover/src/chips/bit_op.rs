@@ -313,10 +313,9 @@ impl MachineChip for BitOpChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip},
+        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeRChip},
         test_utils::assert_chip,
-        trace::preprocessed::PreprocessedBuilder,
-        trace::program::iter_program_steps,
+        trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
 
     use super::*;
@@ -354,6 +353,7 @@ mod test {
     fn test_k_trace_values() {
         type Chips = (
             CpuChip,
+            TypeRChip,
             AddChip,
             BitOpChip,
             RegisterMemCheckChip,

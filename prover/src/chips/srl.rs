@@ -208,7 +208,10 @@ impl MachineChip for SrlChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SllChip, SubChip},
+        chips::{
+            AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SllChip, SubChip,
+            TypeRChip,
+        },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
     };
@@ -265,6 +268,7 @@ mod test {
     fn test_k_trace_constrained_srl_instructions() {
         type Chips = (
             CpuChip,
+            TypeRChip,
             SubChip,
             AddChip,
             SrlChip,
