@@ -41,7 +41,7 @@ use crate::{
 pub struct Range16Chip;
 
 const TYPE_R_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
-const TYPE_U_CHECKED: [Column; 1] = [OpC12_15];
+const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA14];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
