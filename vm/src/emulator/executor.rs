@@ -93,10 +93,18 @@ use std::{
 
 pub type MemoryTranscript = Vec<MemoryRecords>;
 
+// One entry per instruction because program memory is always accessed instruction-wise
 #[derive(Debug)]
 pub struct ProgramMemoryEntry {
     pub pc: u32,
     pub instruction_word: u32,
+}
+
+// One entry per byte because RW memory can be accessed bytewise
+#[derive(Debug)]
+pub struct PublicInputEntry {
+    pub address: u32,
+    pub value: u8,
 }
 
 pub struct ProgramInfo<I: IntoIterator<Item = ProgramMemoryEntry>> {
@@ -233,6 +241,9 @@ pub trait Emulator {
 
     /// Return information about the structure of the program memory.
     fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_>;
+
+    /// Return information about the public input.
+    fn get_public_input(&self) -> impl Iterator<Item = PublicInputEntry>;
 
     /// Execute an entire basic block.
     fn execute_basic_block(
@@ -620,6 +631,18 @@ impl Emulator for HarvardEmulator {
                 }),
         }
     }
+
+    /// Return information about the public input
+    fn get_public_input(&self) -> impl Iterator<Item = PublicInputEntry> {
+        self.input_memory
+            .segment_bytes(0, None)
+            .into_iter()
+            .enumerate()
+            .map(|(i, byte)| PublicInputEntry {
+                address: self.input_memory.base_address + i as u32,
+                value: byte,
+            })
+    }
 }
 
 #[derive(Debug, Default)]
@@ -629,6 +652,9 @@ pub struct LinearEmulator {
 
     // The unified index for the program instruction memory segment
     instruction_index: (usize, usize),
+
+    // The unified index for the public input memory segment
+    public_input_index: (usize, usize),
 
     // The memory layout
     pub memory_layout: LinearMemoryLayout,
@@ -780,13 +806,11 @@ impl LinearEmulator {
         let input_len =
             (memory_layout.public_input_end() - memory_layout.public_input_start()) as usize;
         assert_eq!(word_align!(public_input_with_len.len()), input_len);
-        if input_len > 0 {
-            let input_memory = FixedMemory::<RO>::from_bytes(
-                memory_layout.public_input_start(),
-                &public_input_with_len,
-            );
-            let _ = memory.add_fixed_ro(&input_memory).unwrap();
-        }
+        let input_memory = FixedMemory::<RO>::from_bytes(
+            memory_layout.public_input_start(),
+            &public_input_with_len,
+        );
+        let public_input_index = memory.add_fixed_ro(&input_memory).unwrap();
 
         let output_len = (memory_layout.public_output_end() - memory_layout.exit_code()) as usize; // we include the exit code in the output segment
         if output_len > 0 {
@@ -846,6 +870,7 @@ impl LinearEmulator {
                 ..Default::default()
             },
             instruction_index,
+            public_input_index,
             memory_layout,
             memory,
             ..Default::default()
@@ -998,6 +1023,30 @@ impl Emulator for LinearEmulator {
                     instruction_word: *instruction,
                 }),
         }
+    }
+
+    /// Return information about the public input
+    fn get_public_input(&self) -> impl Iterator<Item = PublicInputEntry> {
+        self.memory
+            .segment(
+                self.public_input_index,
+                self.memory_layout.public_input_start(),
+                Some(self.memory_layout.public_input_end()),
+            )
+            .expect("Cannot find public input in LinearEmulator")
+            .iter()
+            .enumerate()
+            .flat_map(|(i, byte)| {
+                let base_address =
+                    self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
+                let word = byte.to_le_bytes();
+                word.into_iter()
+                    .enumerate()
+                    .map(move |(j, byte)| PublicInputEntry {
+                        address: base_address + j as u32,
+                        value: byte,
+                    })
+            })
     }
 }
 
