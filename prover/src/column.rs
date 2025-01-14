@@ -421,6 +421,10 @@ pub enum Column {
     /// Auxiliary variable for incrementing program counter by four
     #[size = 4]
     PcCarry,
+
+    /// The final value of the RAM at address RamInitFinalAddr
+    #[size = 1]
+    RamFinalValue,
 }
 
 // proc macro derived:
@@ -445,15 +449,21 @@ pub enum ProgramColumn {
     /// The first program counter for finding the first executed instruction
     #[size = 4]
     PrgInitialPc,
-    /// The byte-address of public input
+    /// The byte-address of RAM
     #[size = 4]
-    PublicInputAddr,
+    RamInitFinalAddr,
     /// The one-byte content of public input at PublicInputAddr
     #[size = 1]
-    PublicInputValue,
-    /// A flag indicating PublicInput{Addr, Value} is used
+    RamInitialValue,
+    /// A flag indicating PublicInput{RamInitFinalAddr, RamInitialValue} is a byte in the public input
     #[size = 1]
     PublicInputFlag,
+    /// A flag indicating RamInitFinalAddr is a part of the RAM (including those never accessed)
+    #[size = 1]
+    RamInitFinalFlag,
+    /// A flag indicating the row's (RamInitFinalAddr, PublicOutputValue) is a byte in the public output
+    #[size = 1]
+    PublicOutputFlag,
 }
 
 // proc macro derived:

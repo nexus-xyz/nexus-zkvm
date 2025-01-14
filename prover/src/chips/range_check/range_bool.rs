@@ -122,6 +122,10 @@ impl MachineChip for RangeBoolChip {
         eval.add_constraint(prg_memory_flg.clone() * (prg_memory_flg - E::F::one()));
         let [pub_input_flg] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
         eval.add_constraint(pub_input_flg.clone() * (pub_input_flg - E::F::one()));
+        let [pub_output_flg] = program_trace_eval!(trace_eval, ProgramColumn::PublicOutputFlag);
+        eval.add_constraint(pub_output_flg.clone() * (pub_output_flg - E::F::one()));
+        let [ram_init_final_flg] = program_trace_eval!(trace_eval, ProgramColumn::RamInitFinalFlag);
+        eval.add_constraint(ram_init_final_flg.clone() * (ram_init_final_flg - E::F::one()));
     }
 }
 
