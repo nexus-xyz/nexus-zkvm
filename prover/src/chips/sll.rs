@@ -203,7 +203,6 @@ impl MachineChip for SllChip {
                     - rem[0].clone() * sh4.clone() * sh5.clone()),
         );
 
-        // TODO: Range check rem{1,2,3,4}
         // TODO: Range check h1
     }
 }

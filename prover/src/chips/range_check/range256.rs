@@ -25,7 +25,8 @@ use crate::{
             FinalRegValue, Helper1, InstrVal, Multiplicity256, OpC16_23, OpC24_31, Pc, PcNextAux,
             PrevCtr, ProgCtrCur, ProgCtrPrev, Qt, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev,
             Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur,
-            Ram4ValPrev, RamBaseAddr, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, ValueA, ValueB, ValueC,
+            Ram4ValPrev, RamBaseAddr, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Rem, ValueA, ValueB,
+            ValueC,
         },
         PreprocessedColumn::{self, IsFirst, Range256},
         ProgramColumn,
@@ -48,7 +49,7 @@ use crate::{
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED_WORDS: [Column; 25] = [
+    const CHECKED_WORDS: [Column; 26] = [
         Pc,
         PcNextAux,
         InstrVal,
@@ -73,6 +74,7 @@ impl Range256Chip {
         Ram2TsPrev,
         Ram3TsPrev,
         Ram4TsPrev,
+        Rem,
         Qt,
     ];
 
