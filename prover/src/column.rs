@@ -149,6 +149,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a SRL.
     #[size = 1]
     IsSrl,
+    /// Boolean flag on whether the row is a SRA.
+    #[size = 1]
+    IsSra,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
@@ -213,6 +216,9 @@ pub enum Column {
     /// Exp1_3 flag. Called exp1_3 in document.
     #[size = 1]
     Exp1_3,
+    /// Exp flag. Called exp in document.
+    #[size = 1]
+    Exp,
 
     /// neq_12_flag_aux in document. Inverse of (valueA - valueB) first 2 limbs, when it's non-zero.
     #[size = 1]
