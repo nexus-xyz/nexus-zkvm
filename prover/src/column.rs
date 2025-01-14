@@ -219,6 +219,9 @@ pub enum Column {
     /// Exp flag. Called exp in document.
     #[size = 1]
     Exp,
+    /// RemDiff. Called rem{1,2,3,4}_diff in document.
+    #[size = 4]
+    RemDiff,
 
     /// neq_12_flag_aux in document. Inverse of (valueA - valueB) first 2 limbs, when it's non-zero.
     #[size = 1]

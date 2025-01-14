@@ -27,6 +27,7 @@ pub struct ExecutionResult {
     h1: u8,
     h2: u8,
     rem: Word,
+    rem_diff: Word,
     qt: Word,
     sgn_b: bool,
 }
@@ -54,6 +55,7 @@ impl ExecuteChip for SraChip {
         sh[4] = ((imm >> 4) & 1) == 1;
 
         let mut rem = [0u8; WORD_SIZE];
+        let mut rem_diff = [0u8; WORD_SIZE];
         let mut qt = [0u8; WORD_SIZE];
         let srl = u32::from_le_bytes(value_b) >> (imm & 0x1F);
 
@@ -68,6 +70,10 @@ impl ExecuteChip for SraChip {
         let sgn_b = program_step.get_sgn_b();
         let h2 = value_b[3] & 0b0111_1111;
 
+        for i in 0..WORD_SIZE {
+            rem_diff[i] = exp1_3 - 1 - rem[i];
+        }
+
         Self::ExecutionResult {
             result,
             srl: srl.to_le_bytes(),
@@ -76,6 +82,7 @@ impl ExecuteChip for SraChip {
             h1,
             h2,
             rem,
+            rem_diff,
             qt,
             sgn_b,
         }
@@ -109,6 +116,7 @@ impl MachineChip for SraChip {
             h1,
             h2,
             rem,
+            rem_diff,
             qt,
             sgn_b,
         } = Self::execute(vm_step);
@@ -118,6 +126,7 @@ impl MachineChip for SraChip {
 
         traces.fill_columns(row_idx, result, Column::ValueA);
         traces.fill_columns(row_idx, rem, Column::Rem);
+        traces.fill_columns(row_idx, rem_diff, Column::RemDiff);
         traces.fill_columns(row_idx, qt, Column::Qt);
         traces.fill_columns(row_idx, [h1, 0u8, 0u8, 0u8], Column::Helper1);
         traces.fill_columns(row_idx, [h2, 0u8, 0u8, 0u8], Column::Helper2);
@@ -155,6 +164,7 @@ impl MachineChip for SraChip {
         let qt = trace_eval!(trace_eval, Column::Qt);
         let [is_sra] = trace_eval!(trace_eval, Column::IsSra);
         let [sgn_b] = trace_eval!(trace_eval, Column::SgnB);
+        let rem_diff = trace_eval!(trace_eval, Column::RemDiff);
 
         // is_sra・(sh1 + sh2・2 + sh3・4 + sh4・8 + sh5・16 + h1・32 - c_val_1) = 0
         eval.add_constraint(
@@ -294,7 +304,18 @@ impl MachineChip for SraChip {
                             + sgn_b.clone() * (exp1_3.clone() - E::F::one()) * exp.clone())),
         );
 
-        // TODO: Range check rem{1,2,3,4}
+        // Range checks for remainder values rem{1,2,3,4}
+        // is_sra・(exp1_3 - 1 - rem1 - rem1_diff) = 0
+        // is_sra・(exp1_3 - 1 - rem2 - rem2_diff) = 0
+        // is_sra・(exp1_3 - 1 - rem3 - rem3_diff) = 0
+        // is_sra・(exp1_3 - 1 - rem4 - rem4_diff) = 0
+        for i in 0..WORD_SIZE {
+            eval.add_constraint(
+                is_sra.clone()
+                    * (exp1_3.clone() - E::F::one() - rem[i].clone() - rem_diff[i].clone()),
+            );
+        }
+
         // TODO: Range check h1
     }
 }
