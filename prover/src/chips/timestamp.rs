@@ -4,7 +4,7 @@ use num_traits::One;
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use crate::{
-    chips::sub::subtract_with_borrow,
+    chips::subtract_with_borrow,
     column::{
         Column::{
             self, CH1Minus, CH2Minus, CH3Minus, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, Reg1TsPrev,

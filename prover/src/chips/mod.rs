@@ -1,36 +1,22 @@
-mod add;
-mod auipc;
-mod beq;
-mod bge;
-mod bgeu;
-mod bit_op;
-mod blt;
-mod bltu;
-mod bne;
-mod jal;
-mod jalr;
-mod lui;
-mod sll;
-mod slt;
-mod sra;
-mod srl;
-mod sub;
-
 mod cpu;
 mod decoding;
-mod load_store;
+mod instructions;
 mod prog_mem_check;
 mod range_check;
 mod register_mem_check;
-mod sltu;
 mod timestamp;
 
-pub use self::{
-    add::AddChip, auipc::AuipcChip, beq::BeqChip, bge::BgeChip, bgeu::BgeuChip, bit_op::BitOpChip,
-    blt::BltChip, bltu::BltuChip, bne::BneChip, cpu::CpuChip, decoding::TypeRChip,
-    decoding::TypeUChip, jal::JalChip, jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip,
-    prog_mem_check::ProgramMemCheckChip, range_check::Range128Chip, range_check::Range16Chip,
-    range_check::Range256Chip, range_check::Range32Chip, range_check::RangeBoolChip,
-    register_mem_check::RegisterMemCheckChip, sll::SllChip, slt::SltChip, sltu::SltuChip,
-    sra::SraChip, srl::SrlChip, sub::SubChip, timestamp::TimestampChip,
+pub use instructions::{
+    add_with_carries, subtract_with_borrow, AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip,
+    BitOpChip, BltChip, BltuChip, BneChip, JalChip, JalrChip, LoadStoreChip, LuiChip, SllChip,
+    SltChip, SltuChip, SraChip, SrlChip, SubChip,
 };
+
+pub use range_check::{Range128Chip, Range16Chip, Range256Chip, Range32Chip, RangeBoolChip};
+
+pub use decoding::{TypeRChip, TypeUChip};
+
+pub use cpu::CpuChip;
+pub use prog_mem_check::ProgramMemCheckChip;
+pub use register_mem_check::RegisterMemCheckChip;
+pub use timestamp::TimestampChip;

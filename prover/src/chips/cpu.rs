@@ -5,7 +5,7 @@ use stwo_prover::{
 };
 
 use crate::{
-    chips::add::add_with_carries,
+    chips::add_with_carries,
     column::{
         Column::{self, *},
         PreprocessedColumn,

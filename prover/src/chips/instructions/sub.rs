@@ -23,7 +23,7 @@ pub struct ExecutionResult {
     pub diff_bytes: Word,
 }
 
-pub(crate) fn subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
+pub fn subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
     let mut diff_bytes = [0u8; WORD_SIZE];
     let mut borrow_bits: BoolWord = [false; WORD_SIZE];
 
