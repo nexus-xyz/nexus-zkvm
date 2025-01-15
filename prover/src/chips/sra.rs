@@ -378,13 +378,13 @@ mod test {
     fn test_k_trace_constrained_sra_instructions() {
         type Chips = (
             CpuChip,
+            TypeRChip,
             SubChip,
             AddChip,
             SraChip,
             SllChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
-            TypeRChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

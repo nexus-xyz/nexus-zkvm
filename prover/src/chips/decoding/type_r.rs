@@ -169,8 +169,16 @@ impl MachineChip for TypeRChip {
                     - instr_val[1].clone()),
         );
 
-        // TODO: Add the condition about is_sra for instr_val[1]
         // (is_sra) ・ (1-imm_c)・ (op_a1_4 + b101・2^4 + op_b0・2^7 - instr_val_2) = 0
+        let [is_sra] = trace_eval!(trace_eval, Column::IsSra);
+        eval.add_constraint(
+            is_sra.clone()
+                * (one.clone() - imm_c.clone())
+                * (op_a1_4.clone()
+                    + E::F::from(BaseField::from(0b101)) * BaseField::from(1 << 4)
+                    + op_b0.clone() * BaseField::from(1 << 7)
+                    - instr_val[1].clone()),
+        );
 
         // (is_or)  ・ (1-imm_c)・ (op_a1_4 + b110・2^4 + op_b0・2^7 - instr_val_2) = 0
         let [is_or] = trace_eval!(trace_eval, Column::IsOr);
@@ -264,7 +272,14 @@ impl MachineChip for TypeRChip {
                     - instr_val[3].clone()),
         );
 
-        // TODO: add constraint: (is_sra) ・ (1-imm_c)・ (op_c4 + b0100000・2 - instr_val_4) = 0
+        // (is_sra) ・ (1-imm_c)・ (op_c4 + b0100000・2 - instr_val_4) = 0
+        eval.add_constraint(
+            is_sra.clone()
+                * (one.clone() - imm_c.clone())
+                * (op_c4.clone()
+                    + E::F::from(BaseField::from(0b0100000)) * BaseField::from(1 << 1)
+                    - instr_val[3].clone()),
+        );
 
         // (is_or)  ・ (1-imm_c)・ (op_c4 + b0000000・2 - instr_val_4) = 0
         eval.add_constraint(
