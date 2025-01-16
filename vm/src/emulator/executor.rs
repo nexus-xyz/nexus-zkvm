@@ -812,6 +812,13 @@ impl LinearEmulator {
         );
         let public_input_index = memory.add_fixed_ro(&input_memory).unwrap();
 
+        let ad_len = (memory_layout.ad_end() - memory_layout.ad_start()) as usize;
+        assert_eq!(ad_len, word_align!(ad.len()));
+        if ad_len > 0 {
+            let ad_memory = FixedMemory::<NA>::from_bytes(memory_layout.ad_start(), ad);
+            let _ = memory.add_fixed_na(&ad_memory).unwrap();
+        }
+
         let output_len = (memory_layout.public_output_end() - memory_layout.exit_code()) as usize; // we include the exit code in the output segment
         if output_len > 0 {
             let output_memory = FixedMemory::<WO>::from_vec(
@@ -840,13 +847,6 @@ impl LinearEmulator {
                 vec![0; stack_len],
             );
             let _ = memory.add_fixed_rw(&stack_memory).unwrap();
-        }
-
-        let ad_len = (memory_layout.ad_end() - memory_layout.ad_start()) as usize;
-        assert_eq!(ad_len, word_align!(ad.len()));
-        if ad_len > 0 {
-            let ad_memory = FixedMemory::<NA>::from_bytes(memory_layout.ad_start(), ad);
-            let _ = memory.add_fixed_na(&ad_memory).unwrap();
         }
 
         // Add the public input and public output start locations.

@@ -152,6 +152,7 @@ mod tests {
         assert_eq!(layout.stack_bottom(), 9600);
         assert_eq!(layout.stack_top(), 1006596);
         assert_eq!(layout.public_input_end(), 4400);
-        assert_eq!(layout.public_output_end(), 4404);
+        assert_eq!(layout.ad_end(), 4500);
+        assert_eq!(layout.public_output_end(), 4504);
     }
 }

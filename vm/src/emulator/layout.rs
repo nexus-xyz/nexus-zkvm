@@ -8,12 +8,12 @@ use serde::{Deserialize, Serialize};
 pub struct LinearMemoryLayout {
     // start of the public input
     public_input: u32,
+    // start of the associated data hash
+    ad: u32,
     // location of the exit code
     exit_code: u32,
     // start of the public output
     public_output: u32,
-    // start of the associated data hash
-    ad: u32,
     // start of the heap
     heap: u32,
     // start of the gap between heap and stack
@@ -47,10 +47,10 @@ impl LinearMemoryLayout {
         if self.stack_top() < self.stack_bottom()
             || self.stack_bottom() < self.gap_start()
             || self.gap_start() < self.heap_start()
-            || self.heap_start() < self.ad_start()
-            || self.ad_start() < self.public_output_start()
+            || self.heap_start() < self.public_output_start()
             || self.public_output_start() <= self.exit_code()
-            || self.exit_code() <= self.public_input_start() // First word of input stores input length, so must be non-empty
+            || self.exit_code() < self.ad_start()
+            || self.ad_start() <= self.public_input_start() // First word of input stores input length, so must be non-empty
             || self.public_input_start() <= self.program_start() // Program assumed to be non-empty
             || self.program_start() <= self.public_output_start_location()
         {
@@ -69,19 +69,19 @@ impl LinearMemoryLayout {
         ad_size: u32,
     ) -> Self {
         let public_input = ELF_TEXT_START + program_size;
-        let exit_code = public_input + public_input_size + WORD_SIZE as u32;
+        let ad = public_input + public_input_size + WORD_SIZE as u32;
+        let exit_code = ad + ad_size;
         let public_output = exit_code + WORD_SIZE as u32;
-        let ad = public_output + public_output_size;
-        let heap = ad + ad_size;
+        let heap = public_output + public_output_size;
         let gap = heap + max_heap_size;
         let stack_bottom = gap + MEMORY_GAP;
         let stack_top = stack_bottom + max_stack_size;
 
         Self {
             public_input,
+            ad,
             exit_code,
             public_output,
-            ad,
             heap,
             gap,
             stack_bottom,
@@ -143,6 +143,14 @@ impl LinearMemoryLayout {
     }
 
     pub fn public_input_end(&self) -> u32 {
+        self.ad
+    }
+
+    pub fn ad_start(&self) -> u32 {
+        self.ad
+    }
+
+    pub fn ad_end(&self) -> u32 {
         self.exit_code
     }
 
@@ -155,14 +163,6 @@ impl LinearMemoryLayout {
     }
 
     pub fn public_output_end(&self) -> u32 {
-        self.ad
-    }
-
-    pub fn ad_start(&self) -> u32 {
-        self.ad
-    }
-
-    pub fn ad_end(&self) -> u32 {
         self.heap
     }
 
