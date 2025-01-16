@@ -1,4 +1,6 @@
-// This file contains range-checking values for 0..=15.
+#![allow(unused)] // TODO: remove
+
+// This file contains range-checking values for 0..=7.
 
 use nexus_vm::riscv::InstructionType;
 use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
@@ -17,8 +19,8 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity16, OpA14, OpB14, OpC03, OpC12_15},
-        PreprocessedColumn::{self, IsFirst, Range16},
+        Column::{self, Multiplicity8},
+        PreprocessedColumn::{self, IsFirst, Range8},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
@@ -28,20 +30,17 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{IsTypeR, IsTypeU, VirtualColumn},
+    virtual_column::VirtualColumn,
 };
 
-/// A Chip for range-checking values for 0..=15
+/// A Chip for range-checking values for 0..=7
 ///
-/// Range16Chip needs to be located at the end of the chip composition together with the other range check chips
+/// Range8Chip needs to be located at the end of the chip composition together with the other range check chips
 
-pub struct Range16Chip;
+pub struct Range8Chip;
 
-const TYPE_R_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
-const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA14];
-
-impl MachineChip for Range16Chip {
-    /// Increments Multiplicity16 for every number checked
+impl MachineChip for Range8Chip {
+    /// Increments Multiplicity8 for every number checked
     fn fill_main_trace(
         traces: &mut TracesBuilder,
         row_idx: usize,
@@ -49,21 +48,9 @@ impl MachineChip for Range16Chip {
         _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
-        fill_main_for_type::<IsTypeR>(
-            traces,
-            row_idx,
-            step,
-            InstructionType::RType,
-            &TYPE_R_CHECKED,
-        );
-        fill_main_for_type::<IsTypeU>(
-            traces,
-            row_idx,
-            step,
-            InstructionType::UType,
-            &TYPE_U_CHECKED,
-        );
+        // TODO
     }
+
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
@@ -75,24 +62,13 @@ impl MachineChip for Range16Chip {
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
 
-        // Add checked occurrences to logup sum.
-        fill_interaction_for_type::<IsTypeR>(
-            original_traces,
-            lookup_element,
-            &mut logup_trace_gen,
-            &TYPE_R_CHECKED,
-        );
-        fill_interaction_for_type::<IsTypeU>(
-            original_traces,
-            lookup_element,
-            &mut logup_trace_gen,
-            &TYPE_U_CHECKED,
-        );
+        // TODO
+
         // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [&BaseColumn; Range16.size()] =
-            preprocessed_traces.get_preprocessed_base_column(Range16);
-        let multiplicity_basecolumn: [&BaseColumn; Multiplicity16.size()] =
-            original_traces.get_base_column(Multiplicity16);
+        let range_basecolumn: [&BaseColumn; Range8.size()] =
+            preprocessed_traces.get_preprocessed_base_column(Range8);
+        let multiplicity_basecolumn: [&BaseColumn; Multiplicity8.size()] =
+            original_traces.get_base_column(Multiplicity8);
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let reference_tuple = vec![range_basecolumn[0].data[vec_row]];
@@ -107,6 +83,7 @@ impl MachineChip for Range16Chip {
         assert_eq!(_total_logup_sum, SecureField::zero());
         ret
     }
+
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
@@ -116,24 +93,11 @@ impl MachineChip for Range16Chip {
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
-        // Add checked occurrences to logup sum.
-        add_constraints_for_type::<E, IsTypeR>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_R_CHECKED,
-        );
-        add_constraints_for_type::<E, IsTypeU>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_U_CHECKED,
-        );
+        // TODO
+
         // Subtract looked up multiplicites from logup sum.
-        let [range] = preprocessed_trace_eval!(trace_eval, Range16);
-        let [multiplicity] = trace_eval!(trace_eval, Multiplicity16);
+        let [range] = preprocessed_trace_eval!(trace_eval, Range8);
+        let [multiplicity] = trace_eval!(trace_eval, Multiplicity8);
         let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
         logup.write_frac(eval, Fraction::new(numerator, denom));
@@ -215,100 +179,9 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
 fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-    assert!(checked < 16, "value is out of range {}", checked);
-    let multiplicity_col: [&mut BaseField; 1] = traces.column_mut(checked as usize, Multiplicity16);
+    assert!(checked < 8, "value is out of range {}", checked);
+    let multiplicity_col: [&mut BaseField; 1] = traces.column_mut(checked as usize, Multiplicity8);
     *multiplicity_col[0] += BaseField::one();
     // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
     assert_ne!(*multiplicity_col[0], BaseField::zero());
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use crate::components::{MachineComponent, MachineEval};
-
-    use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
-    use crate::trace::preprocessed::PreprocessedBuilder;
-    use crate::traits::MachineChip;
-
-    use stwo_prover::constraint_framework::TraceLocationAllocator;
-
-    use stwo_prover::core::prover::prove;
-
-    pub type Component = MachineComponent<Range16Chip>;
-
-    #[test]
-    fn test_range16_chip_success() {
-        const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
-        let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces);
-
-        let mut program_step = ProgramStep::default();
-        program_step.step.instruction.ins_type = InstructionType::RType;
-
-        for row_idx in 0..traces.num_rows() {
-            let b = (row_idx % 16) as u8;
-
-            for col in TYPE_R_CHECKED.iter() {
-                traces.fill_columns(row_idx, b, *col);
-            }
-            traces.fill_columns(row_idx, true, Column::IsAdd);
-
-            Range16Chip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &Some(program_step.clone()),
-                &program_traces,
-                &mut side_note,
-            );
-        }
-        let mut preprocessed_16_rows = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_16_rows.fill_is_first();
-        preprocessed_16_rows.fill_range16();
-        assert_chip::<Range16Chip>(traces, Some(preprocessed_16_rows), None);
-    }
-
-    #[test]
-    #[should_panic(expected = "ConstraintsNotSatisfied")]
-    fn test_range16_chip_fail_out_of_range_release() {
-        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
-        let (config, twiddles) = test_params(LOG_SIZE);
-        let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces);
-        let mut program_step = ProgramStep::default();
-        program_step.step.instruction.ins_type = InstructionType::RType;
-
-        // Write in-range values to ValueA columns.
-        for row_idx in 0..traces.num_rows() {
-            let b = (row_idx % 16) as u8 + 1; // sometimes out of range
-            traces.fill_columns(row_idx, b, Column::OpB14);
-            traces.fill_columns(row_idx, true, Column::IsAdd);
-
-            Range16Chip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &Some(program_step.clone()),
-                &program_traces,
-                &mut side_note,
-            );
-        }
-        let CommittedTraces {
-            mut commitment_scheme,
-            mut prover_channel,
-            lookup_elements,
-            preprocessed_trace: _,
-            interaction_trace: _,
-            program_trace: _,
-        } = commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None, None);
-
-        let component = Component::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<Range16Chip>::new(LOG_SIZE, lookup_elements),
-        );
-
-        prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
-    }
 }

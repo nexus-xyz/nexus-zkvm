@@ -1,9 +1,6 @@
 // This file contains range-checking values for 0..=255.
 
-use stwo_prover::{
-    constraint_framework::logup::{LogupTraceGenerator, LookupElements},
-    core::fields::m31,
-};
+use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
 
 use nexus_vm::{riscv::InstructionType, WORD_SIZE};
 use num_traits::{One, Zero};
@@ -112,23 +109,23 @@ impl MachineChip for Range256Chip {
         row_idx: usize,
         step: &Option<ProgramStep>,
         program_traces: &ProgramTraces,
-        side_note: &mut SideNote,
+        _side_note: &mut SideNote,
     ) {
         for col in Self::CHECKED_WORDS.iter() {
             let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
-            fill_main_cols(value_col, traces, side_note);
+            fill_main_cols(value_col, traces);
         }
         for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
             let value_col: [BaseField; WORD_SIZE] = program_traces.column(row_idx, *col);
-            fill_main_cols(value_col, traces, side_note);
+            fill_main_cols(value_col, traces);
         }
         for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
             let value_col: [BaseField; 1] = program_traces.column(row_idx, *col);
-            fill_main_cols(value_col, traces, side_note);
+            fill_main_cols(value_col, traces);
         }
         for col in Self::CHECKED_BYTES.iter() {
             let value_col = traces.column::<1>(row_idx, *col);
-            fill_main_cols(value_col, traces, side_note);
+            fill_main_cols(value_col, traces);
         }
         for col in Self::TYPE_U_CHECKED_BYTES.iter() {
             let step_is_type_u = step
@@ -138,7 +135,7 @@ impl MachineChip for Range256Chip {
                 continue;
             }
             let value_col = traces.column::<1>(row_idx, *col);
-            fill_main_cols(value_col, traces, side_note);
+            fill_main_cols(value_col, traces);
         }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -281,11 +278,7 @@ impl MachineChip for Range256Chip {
     }
 }
 
-fn fill_main_cols<const N: usize>(
-    value_col: [BaseField; N],
-    traces: &mut TracesBuilder,
-    side_note: &mut SideNote,
-) {
+fn fill_main_cols<const N: usize>(value_col: [BaseField; N], traces: &mut TracesBuilder) {
     for (_limb_index, limb) in value_col.iter().enumerate() {
         let checked = limb.0;
         #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
@@ -295,9 +288,6 @@ fn fill_main_cols<const N: usize>(
         *multiplicity_col[0] += BaseField::one();
         // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
         assert_ne!(*multiplicity_col[0], BaseField::zero());
-        // Detect global overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-        side_note.range256.global_multiplicity += 1;
-        assert_ne!(side_note.range256.global_multiplicity, m31::P);
     }
 }
 

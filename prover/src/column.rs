@@ -236,6 +236,9 @@ pub enum Column {
     #[size = 1]
     Neq34AuxInv,
 
+    /// Multiplicity column for Range8Chip. Multiplicity8[row_idx] counts how many times the number row_idx is checked against Range8 in the entire trace.
+    #[size = 1]
+    Multiplicity8,
     /// Multiplicity column for Range16Chip. Multiplicity16[row_idx] counts how many times the number row_idx is checked against Range16 in the entire trace.
     #[size = 1]
     Multiplicity16,
@@ -248,13 +251,13 @@ pub enum Column {
     /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
     #[size = 1]
     Multiplicity256,
-    /// Multiplicity column for bitwise-AND check. Multiplicity256[b * 256 + c] counts how many times (b & c) is looked up in the entire trace.
+    /// Multiplicity column for bitwise-AND check. MultiplicityAnd[b * 256 + c] counts how many times (b & c) is looked up in the entire trace.
     #[size = 1]
     MultiplicityAnd,
-    /// Multiplicity column for bitwise-OR check. Multiplicity256[b * 256 + c] counts how many times (b | c) is looked up in the entire trace.
+    /// Multiplicity column for bitwise-OR check. MultiplicityOr[b * 256 + c] counts how many times (b | c) is looked up in the entire trace.
     #[size = 1]
     MultiplicityOr,
-    /// Multiplicity column for bitwise-XOR check. Multiplicity256[b * 256 + c] counts how many times (b ^ c) is looked up in the entire trace.
+    /// Multiplicity column for bitwise-XOR check. MultiplicityXor[b * 256 + c] counts how many times (b ^ c) is looked up in the entire trace.
     #[size = 1]
     MultiplicityXor,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
@@ -263,7 +266,7 @@ pub enum Column {
     /// Auxiliary variable for computing ValueAEffectiveFlag
     #[size = 1]
     ValueAEffectiveFlagAux,
-    /// Another auxiliary variable for computeing ValueAEffectiveFlag
+    /// Another auxiliary variable for computing ValueAEffectiveFlag
     #[size = 1]
     ValueAEffectiveFlagAuxInv,
 

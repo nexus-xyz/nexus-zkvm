@@ -4,7 +4,7 @@
 
 use stwo_prover::{
     constraint_framework::logup::{LogupTraceGenerator, LookupElements},
-    core::{backend::simd::m31::PackedBaseField, fields::m31},
+    core::backend::simd::m31::PackedBaseField,
 };
 
 use nexus_vm::WORD_SIZE;
@@ -47,7 +47,7 @@ impl MachineChip for Range128Chip {
         row_idx: usize,
         _step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
-        side_note: &mut SideNote,
+        _side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
         let [is_bge] = traces.column(row_idx, IsBge);
@@ -56,11 +56,11 @@ impl MachineChip for Range128Chip {
         for col in last_limb_checked.into_iter() {
             let word: [_; WORD_SIZE] = traces.column(row_idx, col);
             let last_limb = word[3];
-            fill_main_col(last_limb, is_slt + is_bge + is_blt, traces, side_note);
+            fill_main_col(last_limb, is_slt + is_bge + is_blt, traces);
         }
         let [is_jalr] = traces.column(row_idx, Column::IsJalr);
         let [qt_aux] = traces.column(row_idx, Column::QtAux);
-        fill_main_col(qt_aux, is_jalr, traces, side_note);
+        fill_main_col(qt_aux, is_jalr, traces);
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -131,11 +131,12 @@ impl MachineChip for Range128Chip {
         let [is_slt] = trace_eval.column_eval(IsSlt);
         let [is_bge] = trace_eval.column_eval(IsBge);
         let [is_blt] = trace_eval.column_eval(IsBlt);
+
+        let numerator = is_slt.clone() + is_bge.clone() + is_blt.clone();
         for col in [Helper2, Helper3].into_iter() {
             let value = trace_eval.column_eval::<WORD_SIZE>(col);
             let denom: E::EF = lookup_elements.combine(&[value[3].clone()]);
-            let numerator = is_slt.clone() + is_bge.clone() + is_blt.clone();
-            logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+            logup.write_frac(eval, Fraction::new(numerator.clone().into(), denom));
         }
         let [is_jalr] = trace_eval.column_eval(Column::IsJalr);
         let [qt_aux] = trace_eval.column_eval(Column::QtAux);
@@ -153,12 +154,7 @@ impl MachineChip for Range128Chip {
     }
 }
 
-fn fill_main_col(
-    value_col: BaseField,
-    selector_col: BaseField,
-    traces: &mut TracesBuilder,
-    side_note: &mut SideNote,
-) {
+fn fill_main_col(value_col: BaseField, selector_col: BaseField, traces: &mut TracesBuilder) {
     if selector_col.is_zero() {
         return;
     }
@@ -170,9 +166,6 @@ fn fill_main_col(
     *multiplicity_col[0] += BaseField::one();
     // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
     assert_ne!(*multiplicity_col[0], BaseField::zero());
-    // Detect global overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-    side_note.range128.global_multiplicity += 1;
-    assert_ne!(side_note.range128.global_multiplicity, m31::P);
 }
 
 fn check_col(

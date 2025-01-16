@@ -12,7 +12,9 @@ pub use instructions::{
     SltChip, SltuChip, SraChip, SrlChip, SubChip,
 };
 
-pub use range_check::{Range128Chip, Range16Chip, Range256Chip, Range32Chip, RangeBoolChip};
+pub use range_check::{
+    Range128Chip, Range16Chip, Range256Chip, Range32Chip, Range8Chip, RangeBoolChip,
+};
 
 pub use decoding::{TypeRChip, TypeUChip};
 

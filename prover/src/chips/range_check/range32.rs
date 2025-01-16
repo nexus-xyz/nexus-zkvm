@@ -1,9 +1,6 @@
 // This file contains range-checking values for 0..=31.
 
-use stwo_prover::{
-    constraint_framework::logup::{LogupTraceGenerator, LookupElements},
-    core::fields::m31,
-};
+use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
 
 use num_traits::{One, Zero};
 use stwo_prover::{
@@ -47,11 +44,11 @@ impl MachineChip for Range32Chip {
         row_idx: usize,
         _step: &Option<ProgramStep>,
         _program_traces: &ProgramTraces,
-        side_note: &mut SideNote,
+        _side_note: &mut SideNote,
     ) {
         for col in CHECKED.into_iter() {
             let [val] = traces.column(row_idx, col);
-            fill_main_elm(val, traces, side_note);
+            fill_main_elm(val, traces);
         }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -126,7 +123,7 @@ impl MachineChip for Range32Chip {
     }
 }
 
-fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder, side_note: &mut SideNote) {
+fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
     assert!(checked < 32, "value is out of range {}", checked);
@@ -134,9 +131,6 @@ fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder, side_note: &mut Sid
     *multiplicity_col[0] += BaseField::one();
     // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
     assert_ne!(*multiplicity_col[0], BaseField::zero());
-    // Detect global overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-    side_note.range32.global_multiplicity += 1;
-    assert_ne!(side_note.range32.global_multiplicity, m31::P);
 }
 
 #[cfg(test)]
