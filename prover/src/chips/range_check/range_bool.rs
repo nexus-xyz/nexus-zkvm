@@ -11,8 +11,8 @@ use crate::{
             IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui,
             IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw,
             IsXor, LtFlag, OpA0, OpB0, OpC4, PcCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed,
-            Ram4Accessed, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
-            ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
+            Ram4Accessed, RamInitFinalFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA,
+            SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -34,7 +34,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 47] = [
+const CHECKED_SINGLE: [Column; 48] = [
     ValueAEffectiveFlag,
     ImmB,
     ImmC,
@@ -82,6 +82,7 @@ const CHECKED_SINGLE: [Column; 47] = [
     ShiftBit3,
     ShiftBit4,
     ShiftBit5,
+    RamInitFinalFlag,
 ];
 const CHECKED_WORD: [Column; 6] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, PcCarry];
 const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
@@ -124,8 +125,6 @@ impl MachineChip for RangeBoolChip {
         eval.add_constraint(pub_input_flg.clone() * (pub_input_flg - E::F::one()));
         let [pub_output_flg] = program_trace_eval!(trace_eval, ProgramColumn::PublicOutputFlag);
         eval.add_constraint(pub_output_flg.clone() * (pub_output_flg - E::F::one()));
-        let [ram_init_final_flg] = program_trace_eval!(trace_eval, ProgramColumn::RamInitFinalFlag);
-        eval.add_constraint(ram_init_final_flg.clone() * (ram_init_final_flg - E::F::one()));
     }
 }
 

@@ -22,8 +22,8 @@ use crate::{
             FinalRegValue, Helper1, InstrVal, Multiplicity256, OpC16_23, OpC24_31, Pc, PcNextAux,
             PrevCtr, ProgCtrCur, ProgCtrPrev, Qt, Ram1TsPrev, Ram1ValCur, Ram1ValPrev, Ram2TsPrev,
             Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4ValCur,
-            Ram4ValPrev, RamBaseAddr, RamFinalValue, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Rem,
-            RemDiff, ValueA, ValueB, ValueC,
+            Ram4ValPrev, RamBaseAddr, RamFinalValue, RamInitFinalAddr, Reg1TsPrev, Reg2TsPrev,
+            Reg3TsPrev, Rem, RemDiff, ValueA, ValueB, ValueC,
         },
         PreprocessedColumn::{self, IsFirst, Range256},
         ProgramColumn,
@@ -46,7 +46,7 @@ use crate::{
 pub struct Range256Chip;
 
 impl Range256Chip {
-    const CHECKED_WORDS: [Column; 27] = [
+    const CHECKED_WORDS: [Column; 28] = [
         Pc,
         PcNextAux,
         InstrVal,
@@ -74,6 +74,7 @@ impl Range256Chip {
         Rem,
         Qt,
         RemDiff,
+        RamInitFinalAddr,
     ];
 
     const CHECKED_BYTES: [Column; 9] = [
@@ -94,10 +95,13 @@ impl Range256Chip {
         ProgramColumn::PrgMemoryPc,
         ProgramColumn::PrgMemoryWord,
         ProgramColumn::PrgInitialPc,
-        ProgramColumn::RamInitFinalAddr,
+        ProgramColumn::PublicInputOutputAddr,
     ];
 
-    const CHECKED_PROGRAM_BYTE_COLUMNS: [ProgramColumn; 1] = [ProgramColumn::RamInitialValue];
+    const CHECKED_PROGRAM_BYTE_COLUMNS: [ProgramColumn; 2] = [
+        ProgramColumn::PublicInputValue,
+        ProgramColumn::PublicOutputValue,
+    ];
 }
 
 // TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace

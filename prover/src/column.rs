@@ -428,9 +428,18 @@ pub enum Column {
     #[size = 4]
     PcCarry,
 
+    /// The byte-address of RAM initial & final states. Each row contains information about one byte of initial & final RAM states.
+    #[size = 4]
+    RamInitFinalAddr,
+    /// The flag indicating whether (RamInitFinalAddr, RamFinalValue, RamFinalCounter) represents a byte in the final RAM state.
+    #[size = 1]
+    RamInitFinalFlag,
     /// The final value of the RAM at address RamInitFinalAddr
     #[size = 1]
     RamFinalValue,
+    /// The final access counter value of the RAM at address RamInitFinalAddr
+    #[size = 1]
+    RamFinalCounter,
 }
 
 // proc macro derived:
@@ -455,21 +464,21 @@ pub enum ProgramColumn {
     /// The first program counter for finding the first executed instruction
     #[size = 4]
     PrgInitialPc,
-    /// The byte-address of RAM
-    #[size = 4]
-    RamInitFinalAddr,
     /// The one-byte content of public input at PublicInputAddr
     #[size = 1]
-    RamInitialValue,
-    /// A flag indicating PublicInput{RamInitFinalAddr, RamInitialValue} is a byte in the public input
+    PublicInputValue,
+    /// A flag indicating (PublicInputOutputAddr, PublicInputValue) is a byte in the public input
     #[size = 1]
     PublicInputFlag,
-    /// A flag indicating RamInitFinalAddr is a part of the RAM (including those never accessed)
+    /// The one-byte content of public output at PublicInputOutputAddr
     #[size = 1]
-    RamInitFinalFlag,
-    /// A flag indicating the row's (RamInitFinalAddr, PublicOutputValue) is a byte in the public output
+    PublicOutputValue,
+    /// A flag indicating the row's (PublicInputOutputAddr, PublicOutputValue) is a byte in the public output
     #[size = 1]
     PublicOutputFlag,
+    /// The address of public input/output; actually a selective copy of RamInitFinalAddr that the verifier knows
+    #[size = 4]
+    PublicInputOutputAddr,
 }
 
 // proc macro derived:
