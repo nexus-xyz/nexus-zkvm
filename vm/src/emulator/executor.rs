@@ -80,6 +80,7 @@ use crate::{
     },
     system::SyscallInstruction,
 };
+
 use nexus_common::{
     constants::{ELF_TEXT_START, MEMORY_TOP, WORD_SIZE},
     cpu::{InstructionExecutor, Registers},
@@ -656,6 +657,12 @@ pub struct LinearEmulator {
     // The unified index for the public input memory segment
     public_input_index: (usize, usize),
 
+    /// The unified index for the read-only statically allocated region in elf
+    static_rom_image_index: Option<(usize, usize)>,
+
+    /// The unified index for the read-write statically allocated region in elf
+    static_ram_image_index: Option<(usize, usize)>,
+
     // The memory layout
     pub memory_layout: LinearMemoryLayout,
 
@@ -762,7 +769,9 @@ impl LinearEmulator {
         );
         let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
 
-        if !elf.rom_image.is_empty() {
+        let elf_rom_image_index = if elf.rom_image.is_empty() {
+            None
+        } else {
             let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap().0;
             let ro_data_len = (*elf.rom_image.keys().max().unwrap() as usize + WORD_SIZE
                 - ro_data_base_address as usize)
@@ -779,10 +788,12 @@ impl LinearEmulator {
                 ro_data,
             );
 
-            let _ = memory.add_fixed_ro(&ro_data_memory).unwrap();
-        }
+            Some(memory.add_fixed_ro(&ro_data_memory).unwrap())
+        };
 
-        if !elf.ram_image.is_empty() {
+        let elf_ram_image_index = if elf.ram_image.is_empty() {
+            None
+        } else {
             let data_base_address: u32 = *elf.ram_image.first_key_value().unwrap().0;
             let data_len = (*elf.ram_image.keys().max().unwrap() as usize + WORD_SIZE
                 - data_base_address as usize)
@@ -796,8 +807,8 @@ impl LinearEmulator {
             let data_memory =
                 FixedMemory::<RW>::from_vec(data_base_address, data.len() * WORD_SIZE, data);
 
-            let _ = memory.add_fixed_rw(&data_memory).unwrap();
-        }
+            Some(memory.add_fixed_rw(&data_memory).unwrap())
+        };
 
         // Add the public input length to the beginning of the public input.
         let len_bytes = public_input.len() as u32;
@@ -871,6 +882,8 @@ impl LinearEmulator {
             },
             instruction_index,
             public_input_index,
+            static_rom_image_index: elf_rom_image_index,
+            static_ram_image_index: elf_ram_image_index,
             memory_layout,
             memory,
             ..Default::default()
@@ -886,6 +899,26 @@ impl LinearEmulator {
             self.memory_layout.exit_code(),
             Some(self.memory_layout.public_output_end()),
         )
+    }
+
+    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
+        let Some(uidx) = self.static_rom_image_index else {
+            return 0u32..0u32;
+        };
+        self.memory.addresses_bytes(uidx).unwrap()
+    }
+
+    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        let Some(uidx) = self.static_ram_image_index else {
+            return 0u32..0u32;
+        };
+        self.memory.addresses_bytes(uidx).unwrap()
+    }
+
+    /// Returns addresses in elf where LOAD and STORE are allowed
+    pub fn get_elf_rom_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        self.get_static_rom_addresses()
+            .chain(self.get_static_ram_addresses())
     }
 }
 

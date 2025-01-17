@@ -2,7 +2,10 @@ use nexus_common::error::MemoryError;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rangemap::RangeMap;
-use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+use std::{
+    fmt::{Debug, Display, Formatter, Result as FmtResult},
+    ops::Range,
+};
 
 use nexus_common::words_to_bytes;
 
@@ -166,6 +169,42 @@ impl UnifiedMemory {
     add_fixed!(add_fixed_ro, fro, fro_store, RO);
     add_fixed!(add_fixed_wo, fwo, fwo_store, WO);
     add_fixed!(add_fixed_na, fna, fna_store, NA);
+
+    pub fn addresses_bytes(&self, uidx: (usize, usize)) -> Result<Range<u32>, MemoryError> {
+        let (store, idx) = uidx;
+
+        match FromPrimitive::from_usize(store) {
+            Some(Modes::RW) => {
+                if idx < self.frw_store.len() {
+                    Ok(self.frw_store[idx].addresses_bytes())
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::RO) => {
+                if idx < self.fro_store.len() {
+                    Ok(self.fro_store[idx].addresses_bytes())
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::WO) => {
+                if idx < self.fwo_store.len() {
+                    Ok(self.fwo_store[idx].addresses_bytes())
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::NA) => {
+                if idx < self.fna_store.len() {
+                    Ok(self.fna_store[idx].addresses_bytes())
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            _ => Err(MemoryError::UndefinedMemoryRegion),
+        }
+    }
 
     pub fn segment(
         &self,

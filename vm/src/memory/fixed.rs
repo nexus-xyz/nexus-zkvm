@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::{fmt::Debug, marker::PhantomData};
 
 use nexus_common::constants::WORD_SIZE;
@@ -102,6 +103,11 @@ impl<M: Mode> FixedMemory<M> {
 
     pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> Vec<u8> {
         words_to_bytes!(self.segment(start, end))
+    }
+
+    /// addresses in the fixed memory, given bytewise
+    pub fn addresses_bytes(&self) -> Range<u32> {
+        self.base_address..self.base_address + self.vec.len() as u32 * WORD_SIZE as u32
     }
 }
 
