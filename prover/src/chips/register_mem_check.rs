@@ -633,7 +633,7 @@ mod test {
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = super::SideNote::new(&program_traces);
+        let mut side_note = super::SideNote::new(&program_traces, []);
 
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {

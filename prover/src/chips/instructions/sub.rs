@@ -214,7 +214,7 @@ mod test {
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let program_traces = ProgramTraces::new(LOG_SIZE, program_memory);
-        let mut side_note = SideNote::new(&program_traces);
+        let mut side_note = SideNote::new(&program_traces, emulator.get_public_input());
 
         for (row_idx, program_step) in program_steps.enumerate() {
             Chips::fill_main_trace(

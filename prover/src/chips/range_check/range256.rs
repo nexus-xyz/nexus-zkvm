@@ -339,7 +339,7 @@ mod test {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces);
+        let mut side_note = SideNote::new(&program_traces, []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
@@ -369,7 +369,7 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces);
+        let mut side_note = SideNote::new(&program_traces, []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {

@@ -48,6 +48,7 @@ fn bench_prove(c: &mut Criterion) {
                 nexus_vm_prover::Machine::<nexus_vm_prover::Components>::prove(
                     black_box(&program_trace),
                     black_box(emulator.get_program_memory()),
+                    black_box(emulator.get_public_input()),
                 )
             })
         });

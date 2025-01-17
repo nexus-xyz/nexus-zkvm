@@ -195,7 +195,7 @@ mod test {
         const LOG_SIZE: u32 = 8;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces);
+        let mut side_note = SideNote::new(&program_traces, []);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;

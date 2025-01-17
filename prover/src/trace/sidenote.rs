@@ -2,6 +2,8 @@
 
 use std::collections::BTreeMap;
 
+use nexus_vm::emulator::PublicInputEntry;
+
 use super::{program_trace::ProgramTraces, regs::RegisterMemCheckSideNote};
 
 pub struct ProgramMemCheckSideNote<'a> {
@@ -18,6 +20,17 @@ pub struct ReadWriteMemCheckSideNote {
     pub(crate) last_access: BTreeMap<u32, (u32, u8)>,
 }
 
+impl ReadWriteMemCheckSideNote {
+    pub fn new<I: Iterator<Item = PublicInputEntry>>(iter: I) -> Self {
+        let mut ret: Self = Default::default();
+        for PublicInputEntry { address, value } in iter {
+            let old = ret.last_access.insert(address, (0, value));
+            assert!(old.is_none(), "Duplicate public input entry");
+        }
+        ret
+    }
+}
+
 pub struct SideNote<'a> {
     pub program_mem_check: ProgramMemCheckSideNote<'a>,
     pub(crate) register_mem_check: RegisterMemCheckSideNote,
@@ -25,14 +38,17 @@ pub struct SideNote<'a> {
 }
 
 impl<'a> SideNote<'a> {
-    pub fn new(program_traces: &'a ProgramTraces) -> Self {
+    pub fn new<I>(program_traces: &'a ProgramTraces, public_input: I) -> Self
+    where
+        I: IntoIterator<Item = PublicInputEntry>,
+    {
         Self {
             program_mem_check: ProgramMemCheckSideNote {
                 program_trace: program_traces,
                 last_access_counter: BTreeMap::new(),
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
-            rw_mem_check: ReadWriteMemCheckSideNote::default(),
+            rw_mem_check: ReadWriteMemCheckSideNote::new(public_input.into_iter()),
         }
     }
 }

@@ -585,7 +585,7 @@ mod test {
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::new(LOG_SIZE, emulator.get_program_memory());
-        let mut side_note = SideNote::new(&program_trace);
+        let mut side_note = SideNote::new(&program_trace, emulator.get_public_input());
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;

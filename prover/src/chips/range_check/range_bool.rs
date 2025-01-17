@@ -151,7 +151,7 @@ mod test {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_trace);
+        let mut side_note = SideNote::new(&program_trace, []);
 
         for row_idx in 0..traces.num_rows() {
             let b = row_idx % 2 == 0;
@@ -182,7 +182,7 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_trace = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_trace);
+        let mut side_note = SideNote::new(&program_trace, []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 2 == 0) as u8 + 1; // sometimes out of range
