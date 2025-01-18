@@ -177,7 +177,7 @@ fn verify_proof(
         }
     }
     .to_str()
-    .context("path is not utf8")?
+    .context("path is not utf-8")?
     .to_owned();
 
     let mut term = TerminalHandle::new_enabled();
