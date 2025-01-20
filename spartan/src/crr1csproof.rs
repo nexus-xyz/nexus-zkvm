@@ -707,4 +707,28 @@ mod tests {
       &mut prover_transcript,
     );
   }
+
+  #[test]
+  #[should_panic(expected = "Error vector size must be a power of two")]
+  fn test_error_vector_size_not_power_of_two() {
+    let num_vars = 1024;
+    let num_cons = 1024;
+    let num_inputs = 10;
+    let (shape, instance, mut witness, gens) =
+      produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
+    
+    // Modify error vector to have non-power-of-two size
+    witness.E = vec![Fr::zero(); 1023]; // Not a power of two
+    
+    let mut prover_transcript = Transcript::new(b"example");
+    
+    // This should panic because error vector size is not power of two
+    let _ = CRR1CSProof::prove(
+      &shape,
+      &instance,
+      witness,
+      &gens.gens_r1cs_sat,
+      &mut prover_transcript,
+    );
+  }
 }
