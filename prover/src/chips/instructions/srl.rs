@@ -22,6 +22,7 @@ pub struct ExecutionResult {
     exp1_3: u8,
     h1: u8,
     rem: Word,
+    rem_diff: Word,
     qt: Word,
 }
 
@@ -47,6 +48,7 @@ impl ExecuteChip for SrlChip {
         sh[4] = ((imm >> 4) & 1) == 1;
 
         let mut rem = [0u8; WORD_SIZE];
+        let mut rem_diff = [0u8; WORD_SIZE];
         let mut qt = [0u8; WORD_SIZE];
 
         (qt[3], rem[3]) = value_b[3].div_rem_euclid(&exp1_3);
@@ -58,12 +60,17 @@ impl ExecuteChip for SrlChip {
             qt[i] = q as u8;
         }
 
+        for i in 0..WORD_SIZE {
+            rem_diff[i] = exp1_3 - 1 - rem[i];
+        }
+
         Self::ExecutionResult {
             result,
             shift_bits: sh,
             exp1_3,
             h1,
             rem,
+            rem_diff,
             qt,
         }
     }
@@ -94,11 +101,13 @@ impl MachineChip for SrlChip {
             exp1_3,
             h1,
             rem,
+            rem_diff,
             qt,
         } = Self::execute(vm_step);
 
         traces.fill_columns(row_idx, result, Column::ValueA);
         traces.fill_columns(row_idx, rem, Column::Rem);
+        traces.fill_columns(row_idx, rem_diff, Column::RemDiff);
         traces.fill_columns(row_idx, qt, Column::Qt);
         traces.fill_columns(row_idx, [h1, 0u8, 0u8, 0u8], Column::Helper1);
         traces.fill_columns(row_idx, shift_bits[0], Column::ShiftBit1);
@@ -200,7 +209,18 @@ impl MachineChip for SrlChip {
                     - qt[3].clone() * sh4.clone() * sh5.clone()),
         );
 
-        // TODO: Range check rem{1,2,3,4}
+        // Range checks for remainder values rem{1,2,3,4}
+        // is_srl・(exp1_3 - 1 - rem1 - rem1_diff) = 0
+        // is_srl・(exp1_3 - 1 - rem2 - rem2_diff) = 0
+        // is_srl・(exp1_3 - 1 - rem3 - rem3_diff) = 0
+        // is_srl・(exp1_3 - 1 - rem4 - rem4_diff) = 0
+        let rem_diff = trace_eval!(trace_eval, Column::RemDiff);
+        for i in 0..WORD_SIZE {
+            eval.add_constraint(
+                is_srl.clone()
+                    * (exp1_3.clone() - E::F::one() - rem[i].clone() - rem_diff[i].clone()),
+            );
+        }
     }
 }
 
