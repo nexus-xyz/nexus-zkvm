@@ -27,7 +27,7 @@ pub(crate) trait VirtualColumn<const N: usize> {
 }
 
 /// Many virtual columns are just a sum of several columns
-trait VirtualColumnForSum {
+pub(crate) trait VirtualColumnForSum {
     /// columns to be added up
     fn columns() -> &'static [Column];
 }

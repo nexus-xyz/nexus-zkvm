@@ -202,15 +202,16 @@ impl MachineChip for SllChip {
                     - rem[1].clone() * (E::F::one() - sh4.clone()) * sh5.clone()
                     - rem[0].clone() * sh4.clone() * sh5.clone()),
         );
-
-        // TODO: Range check h1
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip, TypeRChip},
+        chips::{
+            AddChip, CpuChip, ProgramMemCheckChip, Range8Chip, RegisterMemCheckChip, SubChip,
+            TypeRChip,
+        },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
     };
@@ -270,6 +271,7 @@ mod test {
             SllChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
+            Range8Chip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

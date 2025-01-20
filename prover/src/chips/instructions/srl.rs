@@ -201,7 +201,6 @@ impl MachineChip for SrlChip {
         );
 
         // TODO: Range check rem{1,2,3,4}
-        // TODO: Range check h1
     }
 }
 
@@ -209,8 +208,8 @@ impl MachineChip for SrlChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SllChip, SubChip,
-            TypeRChip,
+            AddChip, CpuChip, ProgramMemCheckChip, Range8Chip, RegisterMemCheckChip, SllChip,
+            SubChip, TypeRChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
@@ -275,6 +274,7 @@ mod test {
             SllChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
+            Range8Chip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

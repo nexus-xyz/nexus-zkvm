@@ -2,7 +2,10 @@
 
 // This file contains range-checking values for 0..=7.
 
-use nexus_vm::riscv::InstructionType;
+use nexus_vm::{
+    riscv::{BuiltinOpcode, InstructionType},
+    WORD_SIZE,
+};
 use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
 
 use num_traits::{One, Zero};
@@ -30,8 +33,17 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::VirtualColumn,
+    virtual_column::{VirtualColumn, VirtualColumnForSum},
 };
+
+/// A flag for Helper1[0] to be checked against 0..=7.
+struct Helper1MsbChecked;
+
+impl VirtualColumnForSum for Helper1MsbChecked {
+    fn columns() -> &'static [Column] {
+        &[Column::IsSll, Column::IsSrl, Column::IsSra]
+    }
+}
 
 /// A Chip for range-checking values for 0..=7
 ///
@@ -48,7 +60,23 @@ impl MachineChip for Range8Chip {
         _program_traces: &ProgramTraces,
         _side_note: &mut SideNote,
     ) {
-        // TODO
+        let step = match step {
+            None => return, // Nothing to check in padding rows
+            Some(step) => step,
+        };
+        // Add multiplicities for Helper1[0] in case of SLL, SLLI, SRL SRLI, SRA and SRAI
+        if matches!(
+            step.step.instruction.opcode.builtin(),
+            Some(BuiltinOpcode::SLL)
+                | Some(BuiltinOpcode::SLLI)
+                | Some(BuiltinOpcode::SRL)
+                | Some(BuiltinOpcode::SRLI)
+                | Some(BuiltinOpcode::SRA)
+                | Some(BuiltinOpcode::SRAI)
+        ) {
+            let [helper1_0, _, _, _] = traces.column(row_idx, Column::Helper1);
+            fill_main_elm(helper1_0, traces);
+        }
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -58,11 +86,24 @@ impl MachineChip for Range8Chip {
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<12>,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
 
-        // TODO
+        // Fill the interaction trace for Helper1[0] in case of SLL, SRL and SRA
+        let [value_basecolumn, _, _, _]: [&BaseColumn; WORD_SIZE] =
+            original_traces.get_base_column(Column::Helper1);
+        let log_size = original_traces.log_size();
+        // TODO: we can deal with two limbs at a time.
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        // vec_row is row_idx divided by 16. Because SIMD.
+        for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
+            let checked_tuple = vec![value_basecolumn.data[vec_row]];
+            let denom = lookup_element.combine(&checked_tuple);
+            let [is_type] = Helper1MsbChecked::read_from_finalized_traces(original_traces, vec_row);
+            logup_col_gen.write_frac(vec_row, is_type.into(), denom);
+        }
+        logup_col_gen.finalize_col();
 
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [&BaseColumn; Range8.size()] =
@@ -93,7 +134,11 @@ impl MachineChip for Range8Chip {
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
-        // TODO
+        // Add checked multiplicities for Helper1[0] in case of SLL, SRL and SRA
+        let [numerator] = Helper1MsbChecked::eval(trace_eval);
+        let [value, _, _, _] = trace_eval.column_eval(Column::Helper1);
+        let denom: E::EF = lookup_elements.combine(&[value.clone()]);
+        logup.write_frac(eval, Fraction::new(numerator.clone().into(), denom));
 
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range8);
