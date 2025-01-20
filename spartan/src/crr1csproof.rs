@@ -690,11 +690,14 @@ mod tests {
   #[test]
   #[should_panic(expected = "Witness size must be a power of two")]
   fn test_witness_size_not_power_of_two() {
-    let num_vars = 1023; // Not a power of two
+    let num_vars = 1024;
     let num_cons = 1024;
     let num_inputs = 10;
-    let (shape, instance, witness, gens) =
+    let (shape, instance, mut witness, gens) =
       produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
+    
+    // Modify witness to have non-power-of-two size
+    witness.W = vec![Fr::zero(); 1023]; // Not a power of two
     
     let mut prover_transcript = Transcript::new(b"example");
     
