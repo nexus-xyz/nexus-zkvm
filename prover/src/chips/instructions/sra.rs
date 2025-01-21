@@ -315,7 +315,6 @@ impl MachineChip for SraChip {
                     * (exp1_3.clone() - E::F::one() - rem[i].clone() - rem_diff[i].clone()),
             );
         }
-        // TODO: range-check h2
     }
 }
 
@@ -323,8 +322,8 @@ impl MachineChip for SraChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, Range8Chip, RegisterMemCheckChip, SllChip,
-            SubChip, TypeRChip,
+            AddChip, CpuChip, ProgramMemCheckChip, Range128Chip, Range8Chip, RegisterMemCheckChip,
+            SllChip, SubChip, TypeRChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
@@ -385,6 +384,7 @@ mod test {
             RegisterMemCheckChip,
             ProgramMemCheckChip,
             Range8Chip,
+            Range128Chip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;
