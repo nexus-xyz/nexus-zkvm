@@ -345,6 +345,18 @@ pub trait Emulator {
             .insert(*address, clk);
         prev
     }
+
+    /// Returns addresses in elf where LOAD is allowed
+    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32>;
+
+    /// Returns addresses in elf wehre LOAD and STORE are allowed
+    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32>;
+
+    /// Returns union of get_static_{rom,ram}_addresses
+    fn get_elf_rom_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        self.get_static_rom_addresses()
+            .chain(self.get_static_ram_addresses())
+    }
 }
 
 #[derive(Debug)]
@@ -361,6 +373,18 @@ pub struct HarvardEmulator {
     // The output memory image
     output_memory: VariableMemory<WO>,
 
+    // The starting address of rom in the elf
+    static_rom_base: u32,
+
+    // The size of rom in the elf
+    static_rom_size: u32,
+
+    // The starting address of ram in the elf
+    static_ram_base: u32,
+
+    // The size of ram in the elf
+    static_ram_size: u32,
+
     // A combined read-only (in part) and read-write (in part) memory image
     pub data_memory: UnifiedMemory,
 
@@ -374,6 +398,10 @@ impl Default for HarvardEmulator {
         Self {
             executor: Executor::default(),
             instruction_memory: FixedMemory::<RO>::new(0, 0x1000),
+            static_rom_base: 0,
+            static_rom_size: 0,
+            static_ram_base: 0,
+            static_ram_size: 0,
             input_memory: FixedMemory::<RO>::new(0, 0x1000),
             output_memory: VariableMemory::<WO>::default(),
             data_memory: UnifiedMemory::default(),
@@ -390,9 +418,9 @@ impl HarvardEmulator {
         let mut data_memory =
             UnifiedMemory::from(VariableMemory::<RW>::from(elf.ram_image.clone()));
 
+        let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap_or((&0, &0)).0;
+        let ro_data_end = *elf.rom_image.keys().max().unwrap_or(&0);
         if !elf.rom_image.is_empty() {
-            let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap().0;
-            let ro_data_end = *elf.rom_image.keys().max().unwrap_or(&0);
             let mut ro_data: Vec<u32> =
                 vec![0; ro_data_end as usize + 1 - ro_data_base_address as usize];
 
@@ -422,6 +450,9 @@ impl HarvardEmulator {
         let len_bytes = (public_input.len()) as u32;
         let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
 
+        let elf_ram_base_address: u32 = *elf.ram_image.first_key_value().unwrap_or((&0, &0)).0;
+        let elf_ram_end = *elf.ram_image.keys().max().unwrap_or(&0);
+
         let mut emulator = Self {
             executor: Executor {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
@@ -435,6 +466,10 @@ impl HarvardEmulator {
                 elf.instructions.len() * WORD_SIZE,
                 elf.instructions.clone(),
             ),
+            static_rom_base: ro_data_base_address,
+            static_rom_size: ro_data_end - ro_data_base_address,
+            static_ram_base: elf_ram_base_address,
+            static_ram_size: elf_ram_end - elf_ram_base_address,
             input_memory: FixedMemory::<RO>::from_bytes(0, &public_input_with_len),
             output_memory: VariableMemory::<WO>::default(),
             data_memory,
@@ -643,6 +678,14 @@ impl Emulator for HarvardEmulator {
                 address: self.input_memory.base_address + i as u32,
                 value: byte,
             })
+    }
+
+    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
+        self.static_rom_base..(self.static_rom_base + self.static_rom_size)
+    }
+
+    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        self.static_ram_base..(self.static_ram_base + self.static_ram_size)
     }
 }
 
@@ -900,26 +943,6 @@ impl LinearEmulator {
             Some(self.memory_layout.public_output_end()),
         )
     }
-
-    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
-        let Some(uidx) = self.static_rom_image_index else {
-            return 0u32..0u32;
-        };
-        self.memory.addresses_bytes(uidx).unwrap()
-    }
-
-    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        let Some(uidx) = self.static_ram_image_index else {
-            return 0u32..0u32;
-        };
-        self.memory.addresses_bytes(uidx).unwrap()
-    }
-
-    /// Returns addresses in elf where LOAD and STORE are allowed
-    pub fn get_elf_rom_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        self.get_static_rom_addresses()
-            .chain(self.get_static_ram_addresses())
-    }
 }
 
 impl Emulator for LinearEmulator {
@@ -1080,6 +1103,20 @@ impl Emulator for LinearEmulator {
                         value: byte,
                     })
             })
+    }
+
+    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
+        let Some(uidx) = self.static_rom_image_index else {
+            return 0u32..0u32;
+        };
+        self.memory.addresses_bytes(uidx).unwrap()
+    }
+
+    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        let Some(uidx) = self.static_ram_image_index else {
+            return 0u32..0u32;
+        };
+        self.memory.addresses_bytes(uidx).unwrap()
     }
 }
 

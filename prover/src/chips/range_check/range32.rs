@@ -143,6 +143,7 @@ mod test {
     use crate::trace::preprocessed::PreprocessedBuilder;
     use crate::traits::MachineChip;
 
+    use nexus_vm::emulator::HarvardEmulator;
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 
     use stwo_prover::core::prover::prove;
@@ -154,7 +155,7 @@ mod test {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, []);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
 
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 32) as u8;
@@ -184,7 +185,7 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, []);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 32) as u8 + 1; // sometimes out of range

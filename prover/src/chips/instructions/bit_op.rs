@@ -370,7 +370,7 @@ mod test {
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let program_trace = ProgramTraces::new(LOG_SIZE, program_memory);
-        let mut side_note = SideNote::new(&program_trace, emulator.get_public_input());
+        let mut side_note = SideNote::new(&program_trace, &emulator);
 
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode

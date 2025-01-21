@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use nexus_vm::emulator::Emulator;
 use nexus_vm::emulator::HarvardEmulator;
 use nexus_vm::{
     riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
@@ -47,8 +46,7 @@ fn bench_prove(c: &mut Criterion) {
             b.iter(|| {
                 nexus_vm_prover::Machine::<nexus_vm_prover::Components>::prove(
                     black_box(&program_trace),
-                    black_box(emulator.get_program_memory()),
-                    black_box(emulator.get_public_input()),
+                    black_box(&emulator),
                 )
             })
         });

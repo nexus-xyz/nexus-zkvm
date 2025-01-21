@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use nexus_vm::emulator::PublicInputEntry;
+use nexus_vm::emulator::{Emulator, PublicInputEntry};
 
 use super::{program_trace::ProgramTraces, regs::RegisterMemCheckSideNote};
 
@@ -21,11 +21,23 @@ pub struct ReadWriteMemCheckSideNote {
 }
 
 impl ReadWriteMemCheckSideNote {
-    pub fn new<I: Iterator<Item = PublicInputEntry>>(iter: I) -> Self {
+    /// Create a new side note for read write memory checking
+    ///
+    /// The side note will be used for keeping track of the latest value and access counter for each address, to be put under memory checking.
+    /// * `public_input` an iterator of public input entries given byte-wise.
+    /// * `touched_addresses` an iterator of addresses that are guaranteed to be included in memory checking
+    pub fn new<I: Iterator<Item = PublicInputEntry>, I2: Iterator<Item = u32>>(
+        public_input: I,
+        touched_addresses: I2,
+    ) -> Self {
         let mut ret: Self = Default::default();
-        for PublicInputEntry { address, value } in iter {
+        for PublicInputEntry { address, value } in public_input {
             let old = ret.last_access.insert(address, (0, value));
             assert!(old.is_none(), "Duplicate public input entry");
+        }
+        for touched_address in touched_addresses {
+            let old = ret.last_access.insert(touched_address, (0, 0));
+            assert!(old.is_none(), "Duplicate touched address");
         }
         ret
     }
@@ -38,9 +50,9 @@ pub struct SideNote<'a> {
 }
 
 impl<'a> SideNote<'a> {
-    pub fn new<I>(program_traces: &'a ProgramTraces, public_input: I) -> Self
+    pub fn new<E>(program_traces: &'a ProgramTraces, emulator: &E) -> Self
     where
-        I: IntoIterator<Item = PublicInputEntry>,
+        E: Emulator,
     {
         Self {
             program_mem_check: ProgramMemCheckSideNote {
@@ -48,7 +60,10 @@ impl<'a> SideNote<'a> {
                 last_access_counter: BTreeMap::new(),
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
-            rw_mem_check: ReadWriteMemCheckSideNote::new(public_input.into_iter()),
+            rw_mem_check: ReadWriteMemCheckSideNote::new(
+                emulator.get_public_input(),
+                emulator.get_elf_rom_ram_addresses(),
+            ),
         }
     }
 }

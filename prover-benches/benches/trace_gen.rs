@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nexus_vm::{
-    emulator::{Emulator, HarvardEmulator, PublicInputEntry},
+    emulator::{Emulator, HarvardEmulator},
     riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
     trace::{k_trace_direct, UniformTrace},
 };
@@ -65,7 +65,7 @@ fn bench_trace_gen(c: &mut Criterion) {
                     &mut prover_traces,
                     &execution_trace,
                     &program_traces,
-                    black_box(emulator.get_public_input()),
+                    black_box(&emulator),
                 );
             })
         });
@@ -75,7 +75,7 @@ fn bench_trace_gen(c: &mut Criterion) {
             &mut prover_traces,
             &execution_trace,
             &program_traces,
-            black_box(emulator.get_public_input()),
+            black_box(&emulator),
         );
 
         group.bench_function("FinalizeTrace", |b| {
@@ -101,15 +101,15 @@ fn bench_trace_gen(c: &mut Criterion) {
     }
 }
 
-fn fill_main_trace<I>(
+fn fill_main_trace<E>(
     prover_traces: &mut TracesBuilder,
     execution_trace: &UniformTrace,
     program_memory: &ProgramTraces,
-    public_input: I,
+    emulator: &E,
 ) where
-    I: IntoIterator<Item = PublicInputEntry>,
+    E: Emulator,
 {
-    let mut prover_side_note = SideNote::new(program_memory, public_input.into_iter());
+    let mut prover_side_note = SideNote::new(program_memory, emulator);
     let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());
     for (row_idx, program_step) in black_box(program_steps.enumerate()) {
         nexus_vm_prover::Components::fill_main_trace(

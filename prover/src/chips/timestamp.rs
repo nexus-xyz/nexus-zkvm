@@ -129,6 +129,7 @@ fn constrain_diff_minus_one<E: EvalAtRow>(
 mod test {
 
     use nexus_vm::{
+        emulator::HarvardEmulator,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
@@ -195,7 +196,8 @@ mod test {
         const LOG_SIZE: u32 = 8;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_traces = ProgramTraces::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, []);
+        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
+        let mut side_note = SideNote::new(&program_traces, &emulator);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
