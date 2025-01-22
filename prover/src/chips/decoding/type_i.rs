@@ -12,17 +12,17 @@ use crate::{
     virtual_column::{self, VirtualColumn},
 };
 
-#[allow(unused)]
 use nexus_vm::riscv::InstructionType::{IType, ITypeShamt};
 
 use crate::column::Column::{
-    self, ImmC, InstrVal, IsAdd, IsAnd, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsOr, IsSlt,
-    IsSltu, IsXor, OpA, OpA0, OpA14, OpB, OpB0, OpB14, OpC, OpC03, OpC11, OpC47, OpC8_10, ValueC,
+    self, ImmC, InstrVal, IsAdd, IsAnd, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsOr, IsSll, IsSlt,
+    IsSltu, IsSra, IsSrl, IsXor, OpA, OpA0, OpA14, OpB, OpB0, OpB14, OpC, OpC03, OpC11, OpC4,
+    OpC47, OpC8_10, ValueC,
 };
 
 use crate::trace::eval::trace_eval;
 
-pub type TypeIChip = (TypeINoShiftChip,);
+pub type TypeIChip = (TypeINoShiftChip, TypeIShiftChip);
 
 pub struct TypeINoShiftChip;
 
@@ -270,16 +270,173 @@ impl MachineChip for TypeINoShiftChip {
                 * (op_a1_4.clone() + op_b0.clone() * BaseField::from(1 << 7) - instr_val_2.clone()),
         );
 
-        // // (is_type_i_no_shift)・(op_b1_4 + op_c0_3・2^4 - instr_val_3) = 0
+        // (is_type_i_no_shift)・(op_b1_4 + op_c0_3・2^4 - instr_val_3) = 0
         eval.add_constraint(
             is_type_i_no_shift.clone()
                 * (op_b1_4.clone() + op_c0_3.clone() * BaseField::from(1 << 4) - instr_val_3),
         );
-        // // (is_type_i_no_shift)・(op_c4_7 + op_c8_10・2^4 + op_c11・2^7 - instr_val_4) = 0
+        // (is_type_i_no_shift)・(op_c4_7 + op_c8_10・2^4 + op_c11・2^7 - instr_val_4) = 0
         eval.add_constraint(
             is_type_i_no_shift
                 * (op_c4_7 + op_c8_10 * BaseField::from(1 << 4) + op_c11 * BaseField::from(1 << 7)
                     - instr_val_4),
+        );
+    }
+}
+
+pub struct TypeIShiftChip;
+
+impl MachineChip for TypeIShiftChip {
+    fn fill_main_trace(
+        traces: &mut TracesBuilder,
+        row_idx: usize,
+        vm_step: &Option<ProgramStep>,
+        _program_traces: &mut ProgramTracesBuilder,
+        _side_note: &mut SideNote,
+    ) {
+        let vm_step = match vm_step {
+            Some(vm_step) => vm_step,
+            None => {
+                return;
+            }
+        };
+        let step = &vm_step.step;
+        if step.instruction.ins_type != ITypeShamt {
+            return;
+        }
+
+        let op_a_raw = vm_step.step.instruction.op_a as u8;
+        let op_b_raw = vm_step.step.instruction.op_b as u8;
+        let op_c_raw = vm_step.step.instruction.op_c;
+
+        // Fill auxiliary columns for type I immediate value parsing
+        let op_a0 = op_a_raw & 0x1;
+        let op_a1_4 = (op_a_raw >> 1) & 0xF;
+        traces.fill_columns(row_idx, op_a0, OpA0);
+        traces.fill_columns(row_idx, op_a1_4, OpA14);
+
+        let op_b0 = op_b_raw & 0x1;
+        let op_b1_4 = (op_b_raw >> 1) & 0xF;
+        traces.fill_columns(row_idx, op_b0, OpB0);
+        traces.fill_columns(row_idx, op_b1_4, OpB14);
+
+        let op_c0_3 = op_c_raw & 0xF;
+        let op_c4 = (op_c_raw >> 4) & 0x1;
+        traces.fill_columns(row_idx, op_c0_3 as u8, OpC03);
+        traces.fill_columns(row_idx, op_c4 as u8, OpC4);
+    }
+
+    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<E>,
+        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) {
+        let [is_alu_imm_shift] = virtual_column::IsAluImmShift::eval(trace_eval);
+        let [op_c0_3] = trace_eval!(trace_eval, OpC03);
+        let [op_c4] = trace_eval!(trace_eval, OpC4);
+        let [op_c] = trace_eval!(trace_eval, OpC);
+
+        // (is_alu_imm_shift)・(op_c0_3 + op_c4・2^4 – op_c) = 0
+        eval.add_constraint(
+            is_alu_imm_shift.clone()
+                * (op_c0_3.clone() + op_c4.clone() * BaseField::from(1 << 4) - op_c.clone()),
+        );
+
+        // constrain value c
+        let value_c = trace_eval!(trace_eval, ValueC);
+
+        // (is_alu_imm_shift)・(op_c0_3 + op_c4・2^4 – c_val_1) = 0
+        eval.add_constraint(
+            is_alu_imm_shift.clone()
+                * (op_c0_3.clone() + op_c4.clone() * BaseField::from(1 << 4) - value_c[0].clone()),
+        );
+        // (is_alu_imm_shift)・(c_val_2) = 0
+        eval.add_constraint(is_alu_imm_shift.clone() * (value_c[1].clone()));
+        // (is_alu_imm_shift)・(c_val_3) = 0
+        eval.add_constraint(is_alu_imm_shift.clone() * (value_c[2].clone()));
+        // (is_alu_imm_shift)・(c_val_4) = 0
+        eval.add_constraint(is_alu_imm_shift.clone() * (value_c[3].clone()));
+
+        // constrain op_a
+        let [op_a] = trace_eval!(trace_eval, OpA);
+        let [op_a0] = trace_eval!(trace_eval, OpA0);
+        let [op_a1_4] = trace_eval!(trace_eval, OpA14);
+
+        // is_alu_imm_shift・(op_a0 + op_a1_4・2 – op_a) = 0
+        eval.add_constraint(
+            is_alu_imm_shift.clone()
+                * (op_a0.clone() + op_a1_4.clone() * BaseField::from(2) - op_a.clone()),
+        );
+
+        // constrain op_b
+        let [op_b] = trace_eval!(trace_eval, OpB);
+        let [op_b0] = trace_eval!(trace_eval, OpB0);
+        let [op_b1_4] = trace_eval!(trace_eval, OpB14);
+
+        // is_alu_imm_shift・(op_b0 + op_b1_4・2 – op_b) = 0
+        eval.add_constraint(
+            is_alu_imm_shift.clone()
+                * (op_b0.clone() + op_b1_4.clone() * BaseField::from(2) - op_b.clone()),
+        );
+
+        // instructions constraints
+        let [instr_val_1, instr_val_2, instr_val_3, instr_val_4] =
+            trace_eval!(trace_eval, InstrVal);
+        let [is_sll] = trace_eval!(trace_eval, IsSll);
+        let [is_srl] = trace_eval!(trace_eval, IsSrl);
+        let [is_sra] = trace_eval!(trace_eval, IsSra);
+        let [imm_c] = trace_eval!(trace_eval, ImmC);
+        // (is_alu_imm_shift) ・(b0010011 + op_a0・2^7 - instr_val_1) = 0
+        eval.add_constraint(
+            is_alu_imm_shift.clone()
+                * (E::F::from(BaseField::from(0b0010011))
+                    + op_a0.clone() * BaseField::from(1 << 7)
+                    - instr_val_1.clone()),
+        );
+        // (is_sll)・imm_c・ (op_a1_4 + b001・2^4 + op_b0・2^7 - instr_val_2) = 0
+        eval.add_constraint(
+            is_sll.clone()
+                * imm_c.clone()
+                * (op_a1_4.clone()
+                    + E::F::from(BaseField::from(0b001 * 2u32.pow(4)))
+                    + op_b0.clone() * BaseField::from(1 << 7)
+                    - instr_val_2.clone()),
+        );
+        // (is_srl)・imm_c・(op_a1_4 + b101・2^4 + op_b0・2^7 - instr_val_2) = 0
+        eval.add_constraint(
+            is_srl.clone()
+                * imm_c.clone()
+                * (op_a1_4.clone()
+                    + E::F::from(BaseField::from(0b101 * 2u32.pow(4)))
+                    + op_b0.clone() * BaseField::from(1 << 7)
+                    - instr_val_2.clone()),
+        );
+        // (is_sra)・imm_c・(op_a1_4 + b101・2^4 + op_b0・2^7 - instr_val_2) = 0
+        eval.add_constraint(
+            is_sra.clone()
+                * imm_c.clone()
+                * (op_a1_4.clone()
+                    + E::F::from(BaseField::from(0b101 * 2u32.pow(4)))
+                    + op_b0.clone() * BaseField::from(1 << 7)
+                    - instr_val_2.clone()),
+        );
+
+        // (is_alu_imm_shift)・(op_b1_4 + op_c0_3・2^4 - instr_val_3) = 0
+        eval.add_constraint(
+            is_alu_imm_shift.clone()
+                * (op_b1_4.clone() + op_c0_3.clone() * BaseField::from(1 << 4)
+                    - instr_val_3.clone()),
+        );
+        // (is_sll)・imm_c・ (op_c4 + b0000000・2 - instr_val_4) = 0
+        eval.add_constraint(is_sll * imm_c.clone() * (op_c4.clone() - instr_val_4.clone()));
+        // (is_srl)・imm_c・(op_c4 + b0000000・2 - instr_val_4) = 0
+        eval.add_constraint(is_srl * imm_c.clone() * (op_c4.clone() - instr_val_4.clone()));
+        // (is_sra)・imm_c・(op_c4 + b0100000・2 - instr_val_4) = 0
+        eval.add_constraint(
+            is_sra
+                * imm_c.clone()
+                * (op_c4.clone() + E::F::from(BaseField::from(0b0100000 * 2))
+                    - instr_val_4.clone()),
         );
     }
 }

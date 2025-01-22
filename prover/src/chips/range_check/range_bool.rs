@@ -88,6 +88,7 @@ const CHECKED_SINGLE: [Column; 48] = [
 const CHECKED_WORD: [Column; 6] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, PcCarry];
 const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
+const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 
 // TODO: also range-check PrgMemoryFlag in program trace
 
@@ -122,6 +123,13 @@ impl MachineChip for RangeBoolChip {
             let [col] = trace_eval.column_eval(col);
             eval.add_constraint(is_type_i_no_shift.clone() * col.clone() * (col - E::F::one()));
         }
+
+        let [is_alu_imm_shift] = virtual_column::IsAluImmShift::eval(trace_eval);
+        for col in TYPE_I_SHIFT_SINGLE {
+            let [col] = trace_eval.column_eval(col);
+            eval.add_constraint(is_alu_imm_shift.clone() * col.clone() * (col - E::F::one()));
+        }
+
         for col_word in CHECKED_WORD.into_iter() {
             let col_word = trace_eval.column_eval::<WORD_SIZE>(col_word);
             for limb in col_word.into_iter() {

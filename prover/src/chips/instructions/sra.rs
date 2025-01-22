@@ -323,7 +323,7 @@ mod test {
     use crate::{
         chips::{
             AddChip, CpuChip, ProgramMemCheckChip, Range128Chip, Range8Chip, RegisterMemCheckChip,
-            SllChip, SubChip, TypeRChip,
+            SllChip, SubChip, TypeIChip, TypeRChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
@@ -376,6 +376,7 @@ mod test {
     fn test_k_trace_constrained_sra_instructions() {
         type Chips = (
             CpuChip,
+            TypeIChip,
             TypeRChip,
             SubChip,
             AddChip,

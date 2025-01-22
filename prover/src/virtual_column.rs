@@ -186,6 +186,53 @@ impl VirtualColumn<1> for IsAluImmNoShift {
     }
 }
 
+/// is_alu_imm_shift = imm_c・(is_sll + is_srl + is_sra)
+pub(crate) struct IsAluImmShift;
+impl IsAluImmShift {
+    const COLS: &'static [Column] = &[IsSll, IsSrl, IsSra];
+}
+
+impl VirtualColumn<1> for IsAluImmShift {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
+        let [imm_c] = traces.column(row_idx, ImmC);
+
+        let is_alu_imm_no_shift = imm_c
+            * Self::COLS
+                .iter()
+                .map(|col| traces.column::<1>(row_idx, *col)[0])
+                .sum::<BaseField>();
+
+        [is_alu_imm_no_shift]
+    }
+
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; 1] {
+        let imm_c = traces.get_base_column::<1>(ImmC)[0].data[vec_idx];
+
+        let is_alu_imm_no_shift = imm_c
+            * Self::COLS
+                .iter()
+                .map(|col| traces.get_base_column::<1>(*col)[0].data[vec_idx])
+                .sum::<PackedBaseField>();
+        [is_alu_imm_no_shift]
+    }
+
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
+        let [imm_c] = trace_eval!(trace_eval, ImmC);
+
+        let is_alu_imm_no_shift = imm_c
+            * Self::COLS
+                .iter()
+                .map(|col| trace_eval.column_eval::<1>(*col)[0].clone())
+                .reduce(|acc, x| acc + x)
+                .expect("flag array is not empty");
+
+        [is_alu_imm_no_shift]
+    }
+}
+
 /// is_type_i_no_shift = is_load + is_alu_imm_no_shift + is_jalr
 pub(crate) struct IsTypeINoShift;
 

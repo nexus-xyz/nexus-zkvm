@@ -28,7 +28,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{IsTypeINoShift, IsTypeR, IsTypeU, VirtualColumn},
+    virtual_column::{IsAluImmShift, IsTypeINoShift, IsTypeR, IsTypeU, VirtualColumn},
 };
 
 /// A Chip for range-checking values for 0..=15
@@ -40,6 +40,7 @@ pub struct Range16Chip;
 const TYPE_R_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
 const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA14];
 const TYPE_I_NO_SHIFT_CHECKED: [Column; 4] = [OpC03, OpC47, OpA14, OpB14];
+const TYPE_I_SHIFT_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
@@ -70,6 +71,13 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::IType,
             &TYPE_I_NO_SHIFT_CHECKED,
+        );
+        fill_main_for_type::<IsAluImmShift>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::ITypeShamt,
+            &TYPE_I_SHIFT_CHECKED,
         );
     }
 
@@ -102,6 +110,12 @@ impl MachineChip for Range16Chip {
             lookup_element,
             &mut logup_trace_gen,
             &TYPE_I_NO_SHIFT_CHECKED,
+        );
+        fill_interaction_for_type::<IsAluImmShift>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_I_SHIFT_CHECKED,
         );
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [&BaseColumn; Range16.size()] =
@@ -152,6 +166,13 @@ impl MachineChip for Range16Chip {
             lookup_elements,
             &mut logup,
             &TYPE_I_NO_SHIFT_CHECKED,
+        );
+        add_constraints_for_type::<E, IsAluImmShift>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_I_SHIFT_CHECKED,
         );
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range16);
@@ -269,20 +290,37 @@ mod test {
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
 
         let mut program_step = ProgramStep::default();
+        let mut i = 0;
 
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 16) as u8;
 
-            for col in TYPE_R_CHECKED.into_iter().chain(TYPE_I_NO_SHIFT_CHECKED) {
+            for col in TYPE_R_CHECKED
+                .into_iter()
+                .chain(TYPE_I_NO_SHIFT_CHECKED)
+                .chain(TYPE_I_SHIFT_CHECKED)
+            {
                 traces.fill_columns(row_idx, b, col);
             }
-            traces.fill_columns(row_idx, true, Column::IsAdd);
-            if row_idx & 1 == 0 {
-                program_step.step.instruction.ins_type = InstructionType::IType;
-                traces.fill_columns(row_idx, true, Column::ImmC);
-            } else {
-                program_step.step.instruction.ins_type = InstructionType::RType;
+
+            match i {
+                0 => {
+                    traces.fill_columns(row_idx, true, Column::IsAdd);
+                    program_step.step.instruction.ins_type = InstructionType::IType;
+                    traces.fill_columns(row_idx, true, Column::ImmC);
+                }
+                1 => {
+                    traces.fill_columns(row_idx, true, Column::IsAdd);
+                    program_step.step.instruction.ins_type = InstructionType::RType;
+                }
+                2 => {
+                    traces.fill_columns(row_idx, true, Column::IsSll);
+                    program_step.step.instruction.ins_type = InstructionType::ITypeShamt;
+                    traces.fill_columns(row_idx, true, Column::ImmC);
+                }
+                _ => panic!("i must be in 0..3 range"),
             }
+            i = (i + 1) % 3;
 
             Range16Chip::fill_main_trace(
                 &mut traces,
