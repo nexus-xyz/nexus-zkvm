@@ -1,11 +1,16 @@
 use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode};
 use num_traits::One;
+use stwo_prover::core::fields::m31::{self, BaseField};
 
 use crate::{
-    column::Column::{
-        self, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsSb, IsSh, IsSw, Ram1Accessed, Ram1TsPrev,
-        Ram1ValCur, Ram1ValPrev, Ram2Accessed, Ram2TsPrev, Ram2ValCur, Ram2ValPrev, Ram3Accessed,
-        Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4Accessed, Ram4TsPrev, Ram4ValCur, Ram4ValPrev,
+    column::{
+        Column::{
+            self, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsSb, IsSh, IsSw, Ram1Accessed, Ram1TsPrev,
+            Ram1ValCur, Ram1ValPrev, Ram2Accessed, Ram2TsPrev, Ram2ValCur, Ram2ValPrev,
+            Ram3Accessed, Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4Accessed, Ram4TsPrev,
+            Ram4ValCur, Ram4ValPrev,
+        },
+        ProgramColumn,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
@@ -22,6 +27,80 @@ pub struct LoadStoreChip;
 
 impl MachineChip for LoadStoreChip {
     fn fill_main_trace(
+        traces: &mut TracesBuilder,
+        row_idx: usize,
+        vm_step: &Option<ProgramStep>,
+        program_traces: &mut ProgramTracesBuilder,
+        side_note: &mut SideNote,
+    ) {
+        Self::fill_main_trace_step(traces, row_idx, vm_step, program_traces, side_note);
+        if (row_idx + 1) == traces.num_rows() {
+            Self::fill_main_trace_finish(traces, row_idx, vm_step, program_traces, side_note);
+        }
+    }
+
+    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &crate::trace::eval::TraceEval<E>,
+        _lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+            MAX_LOOKUP_TUPLE_SIZE,
+        >,
+    ) {
+        let [is_sb] = trace_eval!(trace_eval, IsSb);
+        let [is_sh] = trace_eval!(trace_eval, IsSh);
+        let [is_sw] = trace_eval!(trace_eval, IsSw);
+        let [is_lb] = trace_eval!(trace_eval, IsLb);
+        let [is_lh] = trace_eval!(trace_eval, IsLh);
+        let [is_lbu] = trace_eval!(trace_eval, IsLbu);
+        let [is_lhu] = trace_eval!(trace_eval, IsLhu);
+        let [is_lw] = trace_eval!(trace_eval, IsLw);
+        // Constrain the value of Ram1Accessed to be true when load or store happens. All of them access at least one byte of RAM.
+        let [ram1_accessed] = trace_eval!(trace_eval, Ram1Accessed);
+        eval.add_constraint(
+            (is_sb.clone()
+                + is_sh.clone()
+                + is_sw.clone()
+                + is_lb.clone()
+                + is_lh.clone()
+                + is_lbu.clone()
+                + is_lhu.clone()
+                + is_lw.clone())
+                * (E::F::one() - ram1_accessed),
+        );
+        // Constrain the value of Ram2Accessed to be true for multi-byte memory access; false for single-byte memory access.
+        let [ram2_accessed] = trace_eval!(trace_eval, Ram2Accessed);
+        eval.add_constraint(
+            (is_sb.clone() + is_lb.clone() + is_lbu.clone()) * ram2_accessed.clone(),
+        );
+        eval.add_constraint(
+            (is_sh.clone() + is_sw.clone() + is_lh.clone() + is_lhu.clone() + is_lw.clone())
+                * (E::F::one() - ram2_accessed),
+        );
+        // Constrain the value of Ram3Accessed to be true for word memory access; false for half-word and single-byte memory access.
+        let [ram3_accessed] = trace_eval!(trace_eval, Ram3Accessed);
+        eval.add_constraint(
+            (is_sb.clone()
+                + is_sh.clone()
+                + is_lb.clone()
+                + is_lh.clone()
+                + is_lhu.clone()
+                + is_lbu.clone())
+                * ram3_accessed.clone(),
+        );
+        eval.add_constraint((is_sw.clone() + is_lw.clone()) * (E::F::one() - ram3_accessed));
+        // Constrain the value of Ram4Accessed to be true for word memory access; false for half-word and single-byte memory access.
+        let [ram4_accessed] = trace_eval!(trace_eval, Ram4Accessed);
+        eval.add_constraint(
+            (is_sb + is_sh + is_lb + is_lbu + is_lh + is_lhu) * ram4_accessed.clone(),
+        );
+        eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed));
+
+        // TODO: implement the logup
+    }
+}
+
+impl LoadStoreChip {
+    fn fill_main_trace_step(
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
@@ -168,64 +247,62 @@ impl MachineChip for LoadStoreChip {
             }
         }
     }
-
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
-        eval: &mut E,
-        trace_eval: &crate::trace::eval::TraceEval<E>,
-        _lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+    /// fill in trace elements for initial and final states of the touched addresses
+    ///
+    /// Only to be called on the last row after the usual trace filling.
+    fn fill_main_trace_finish(
+        traces: &mut TracesBuilder,
+        row_idx: usize,
+        _vm_step: &Option<ProgramStep>,
+        program_traces: &mut ProgramTracesBuilder,
+        side_note: &mut SideNote,
     ) {
-        let [is_sb] = trace_eval!(trace_eval, IsSb);
-        let [is_sh] = trace_eval!(trace_eval, IsSh);
-        let [is_sw] = trace_eval!(trace_eval, IsSw);
-        let [is_lb] = trace_eval!(trace_eval, IsLb);
-        let [is_lh] = trace_eval!(trace_eval, IsLh);
-        let [is_lbu] = trace_eval!(trace_eval, IsLbu);
-        let [is_lhu] = trace_eval!(trace_eval, IsLhu);
-        let [is_lw] = trace_eval!(trace_eval, IsLw);
-        // Constrain the value of Ram1Accessed to be true when load or store happens. All of them access at least one byte of RAM.
-        let [ram1_accessed] = trace_eval!(trace_eval, Ram1Accessed);
-        eval.add_constraint(
-            (is_sb.clone()
-                + is_sh.clone()
-                + is_sw.clone()
-                + is_lb.clone()
-                + is_lh.clone()
-                + is_lbu.clone()
-                + is_lhu.clone()
-                + is_lw.clone())
-                * (E::F::one() - ram1_accessed),
-        );
-        // Constrain the value of Ram2Accessed to be true for multi-byte memory access; false for single-byte memory access.
-        let [ram2_accessed] = trace_eval!(trace_eval, Ram2Accessed);
-        eval.add_constraint(
-            (is_sb.clone() + is_lb.clone() + is_lbu.clone()) * ram2_accessed.clone(),
-        );
-        eval.add_constraint(
-            (is_sh.clone() + is_sw.clone() + is_lh.clone() + is_lhu.clone() + is_lw.clone())
-                * (E::F::one() - ram2_accessed),
-        );
-        // Constrain the value of Ram3Accessed to be true for word memory access; false for half-word and single-byte memory access.
-        let [ram3_accessed] = trace_eval!(trace_eval, Ram3Accessed);
-        eval.add_constraint(
-            (is_sb.clone()
-                + is_sh.clone()
-                + is_lb.clone()
-                + is_lh.clone()
-                + is_lhu.clone()
-                + is_lbu.clone())
-                * ram3_accessed.clone(),
-        );
-        eval.add_constraint((is_sw.clone() + is_lw.clone()) * (E::F::one() - ram3_accessed));
-        // Constrain the value of Ram4Accessed to be true for word memory access; false for half-word and single-byte memory access.
-        let [ram4_accessed] = trace_eval!(trace_eval, Ram4Accessed);
-        eval.add_constraint(
-            (is_sb + is_sh + is_lb + is_lbu + is_lh + is_lhu) * ram4_accessed.clone(),
-        );
-        eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed));
+        assert_eq!(row_idx + 1, traces.num_rows());
 
-        // TODO: implement the logup
+        // side_note.rw_mem_check.last_access contains the last access time and value for every address under RW memory checking
+        for (row_idx, (address, (last_access, last_value))) in
+            side_note.rw_mem_check.last_access.iter().enumerate()
+        {
+            traces.fill_columns(row_idx, *address, Column::RamInitFinalAddr);
+            traces.fill_columns(row_idx, true, Column::RamInitFinalFlag);
+            assert!(
+                *last_access < m31::P,
+                "Access counter overflowed BaseField, redesign needed"
+            );
+            traces.fill_columns(
+                row_idx,
+                BaseField::from_u32_unchecked(*last_access),
+                Column::RamFinalCounter,
+            );
+            traces.fill_columns(row_idx, *last_value, Column::RamFinalValue);
+
+            // remove public input entry if it exists
+            match side_note.rw_mem_check.public_input.remove(address) {
+                None => (),
+                Some(public_input_value) => {
+                    program_traces.fill_program_columns(
+                        row_idx,
+                        public_input_value,
+                        ProgramColumn::PublicInputValue,
+                    );
+                    program_traces.fill_program_columns(
+                        row_idx,
+                        true,
+                        ProgramColumn::PublicInputFlag,
+                    );
+                    program_traces.fill_program_columns(
+                        row_idx,
+                        *address,
+                        ProgramColumn::PublicInputOutputAddr,
+                    );
+                }
+            }
+        }
+        // Assert that the public input entries are all used
+        assert!(
+            side_note.rw_mem_check.public_input.is_empty(),
+            "Public input entries out of the RW memory checking range"
+        );
     }
 }
 

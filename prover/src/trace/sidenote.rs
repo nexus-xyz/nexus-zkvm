@@ -23,6 +23,8 @@ pub struct ProgramMemCheckSideNote {
 pub struct ReadWriteMemCheckSideNote {
     /// u32 is the access counter, u8 is the value of the byte
     pub(crate) last_access: BTreeMap<u32, (u32, u8)>,
+    /// Public input values
+    pub(crate) public_input: BTreeMap<u32, u8>,
 }
 
 impl ReadWriteMemCheckSideNote {
@@ -38,6 +40,8 @@ impl ReadWriteMemCheckSideNote {
         let mut ret: Self = Default::default();
         for PublicInputEntry { address, value } in public_input {
             let old = ret.last_access.insert(address, (0, value));
+            assert!(old.is_none(), "Duplicate public input entry");
+            let old = ret.public_input.insert(address, value);
             assert!(old.is_none(), "Duplicate public input entry");
         }
         for touched_address in touched_addresses {
