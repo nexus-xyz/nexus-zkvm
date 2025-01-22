@@ -35,7 +35,7 @@ use chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
     JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip, Range128Chip, Range16Chip,
     Range256Chip, Range32Chip, Range8Chip, RangeBoolChip, RegisterMemCheckChip, SllChip, SltChip,
-    SltuChip, SraChip, SrlChip, SubChip, TimestampChip, TypeRChip, TypeUChip,
+    SltuChip, SraChip, SrlChip, SubChip, TimestampChip, TypeIChip, TypeRChip, TypeUChip,
 };
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
@@ -44,6 +44,7 @@ pub type Components = (
     CpuChip,
     TypeRChip,
     TypeUChip,
+    TypeIChip,
     AddChip,
     SubChip,
     SltuChip,

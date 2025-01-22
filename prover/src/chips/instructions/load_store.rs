@@ -232,7 +232,7 @@ impl MachineChip for LoadStoreChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, BeqChip, CpuChip, RegisterMemCheckChip, SllChip},
+        chips::{AddChip, BeqChip, CpuChip, RegisterMemCheckChip, SllChip, TypeIChip},
         test_utils::assert_chip,
         trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
@@ -306,6 +306,7 @@ mod test {
     fn test_k_trace_constrained_store_instructions() {
         type Chips = (
             CpuChip,
+            TypeIChip,
             AddChip,
             BeqChip,
             SllChip,

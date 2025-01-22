@@ -180,7 +180,10 @@ impl MachineChip for SltChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip, TypeRChip},
+        chips::{
+            AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip, TypeIChip,
+            TypeRChip,
+        },
         test_utils::assert_chip,
         trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
@@ -283,6 +286,7 @@ mod test {
         let k = 1;
         type Chips = (
             CpuChip,
+            TypeIChip,
             TypeRChip,
             AddChip,
             SubChip,

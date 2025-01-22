@@ -17,7 +17,7 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity16, OpA14, OpB14, OpC03, OpC12_15},
+        Column::{self, Multiplicity16, OpA14, OpB14, OpC03, OpC12_15, OpC47},
         PreprocessedColumn::{self, IsFirst, Range16},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -28,7 +28,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{IsTypeR, IsTypeU, VirtualColumn},
+    virtual_column::{IsTypeINoShift, IsTypeR, IsTypeU, VirtualColumn},
 };
 
 /// A Chip for range-checking values for 0..=15
@@ -39,6 +39,7 @@ pub struct Range16Chip;
 
 const TYPE_R_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
 const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA14];
+const TYPE_I_NO_SHIFT_CHECKED: [Column; 4] = [OpC03, OpC47, OpA14, OpB14];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
@@ -63,7 +64,15 @@ impl MachineChip for Range16Chip {
             InstructionType::UType,
             &TYPE_U_CHECKED,
         );
+        fill_main_for_type::<IsTypeINoShift>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::IType,
+            &TYPE_I_NO_SHIFT_CHECKED,
+        );
     }
+
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
@@ -87,6 +96,12 @@ impl MachineChip for Range16Chip {
             lookup_element,
             &mut logup_trace_gen,
             &TYPE_U_CHECKED,
+        );
+        fill_interaction_for_type::<IsTypeINoShift>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_I_NO_SHIFT_CHECKED,
         );
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [&BaseColumn; Range16.size()] =
@@ -130,6 +145,13 @@ impl MachineChip for Range16Chip {
             lookup_elements,
             &mut logup,
             &TYPE_U_CHECKED,
+        );
+        add_constraints_for_type::<E, IsTypeINoShift>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_I_NO_SHIFT_CHECKED,
         );
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range16);
@@ -247,15 +269,20 @@ mod test {
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
 
         let mut program_step = ProgramStep::default();
-        program_step.step.instruction.ins_type = InstructionType::RType;
 
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 16) as u8;
 
-            for col in TYPE_R_CHECKED.iter() {
-                traces.fill_columns(row_idx, b, *col);
+            for col in TYPE_R_CHECKED.into_iter().chain(TYPE_I_NO_SHIFT_CHECKED) {
+                traces.fill_columns(row_idx, b, col);
             }
             traces.fill_columns(row_idx, true, Column::IsAdd);
+            if row_idx & 1 == 0 {
+                program_step.step.instruction.ins_type = InstructionType::IType;
+                traces.fill_columns(row_idx, true, Column::ImmC);
+            } else {
+                program_step.step.instruction.ins_type = InstructionType::RType;
+            }
 
             Range16Chip::fill_main_trace(
                 &mut traces,

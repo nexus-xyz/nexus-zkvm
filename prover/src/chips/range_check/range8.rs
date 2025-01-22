@@ -1,5 +1,3 @@
-#![allow(unused)] // TODO: remove
-
 // This file contains range-checking values for 0..=7.
 
 use nexus_vm::{
@@ -22,7 +20,7 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity8},
+        Column::{self, Multiplicity8, OpC8_10},
         PreprocessedColumn::{self, IsFirst, Range8},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -33,7 +31,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{VirtualColumn, VirtualColumnForSum},
+    virtual_column::{IsTypeINoShift, VirtualColumn, VirtualColumnForSum},
 };
 
 /// A flag for Helper1[0] to be checked against 0..=7.
@@ -50,6 +48,8 @@ impl VirtualColumnForSum for Helper1MsbChecked {
 /// Range8Chip needs to be located at the end of the chip composition together with the other range check chips
 
 pub struct Range8Chip;
+
+const TYPE_I_NO_SHIFT_CHECKED: [Column; 1] = [OpC8_10];
 
 impl MachineChip for Range8Chip {
     /// Increments Multiplicity8 for every number checked
@@ -77,6 +77,14 @@ impl MachineChip for Range8Chip {
             let [helper1_0, _, _, _] = traces.column(row_idx, Column::Helper1);
             fill_main_elm(helper1_0, traces);
         }
+
+        fill_main_for_type::<IsTypeINoShift>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::IType,
+            &TYPE_I_NO_SHIFT_CHECKED,
+        );
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -89,6 +97,13 @@ impl MachineChip for Range8Chip {
         lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+
+        fill_interaction_for_type::<IsTypeINoShift>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_I_NO_SHIFT_CHECKED,
+        );
 
         // Fill the interaction trace for Helper1[0] in case of SLL, SRL and SRA
         let [value_basecolumn, _, _, _]: [&BaseColumn; WORD_SIZE] =
@@ -133,6 +148,14 @@ impl MachineChip for Range8Chip {
         let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
+
+        add_constraints_for_type::<E, IsTypeINoShift>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_I_NO_SHIFT_CHECKED,
+        );
 
         // Add checked multiplicities for Helper1[0] in case of SLL, SRL and SRA
         let [numerator] = Helper1MsbChecked::eval(trace_eval);
@@ -195,13 +218,11 @@ fn fill_interaction_for_type<VC: VirtualColumn<1>>(
 fn fill_main_for_type<VC: VirtualColumn<1>>(
     traces: &mut TracesBuilder,
     row_idx: usize,
-    step: &Option<ProgramStep>,
+    step: &ProgramStep,
     instruction_type: InstructionType,
     columns: &[Column],
 ) {
-    let step_is_of_type = step
-        .as_ref()
-        .is_some_and(|step| step.step.instruction.ins_type == instruction_type);
+    let step_is_of_type = step.step.instruction.ins_type == instruction_type;
     debug_assert_eq!(
         step_is_of_type,
         {

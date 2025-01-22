@@ -16,7 +16,7 @@ pub use range_check::{
     Range128Chip, Range16Chip, Range256Chip, Range32Chip, Range8Chip, RangeBoolChip,
 };
 
-pub use decoding::{TypeRChip, TypeUChip};
+pub use decoding::{TypeIChip, TypeRChip, TypeUChip};
 
 pub use cpu::CpuChip;
 pub use prog_mem_check::ProgramMemCheckChip;

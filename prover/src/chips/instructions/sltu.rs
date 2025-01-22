@@ -123,7 +123,9 @@ impl MachineChip for SltuChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeRChip},
+        chips::{
+            AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeIChip, TypeRChip,
+        },
         test_utils::assert_chip,
         trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
@@ -174,6 +176,7 @@ mod test {
     fn test_k_trace_constrained_stlu_instructions() {
         type Chips = (
             CpuChip,
+            TypeIChip,
             TypeRChip,
             AddChip,
             SltuChip,
