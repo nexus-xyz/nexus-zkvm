@@ -30,7 +30,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
+        program_trace::{ProgramTraces, ProgramTracesBuilder},
         regs::AccessResult,
         sidenote::SideNote,
         utils::FromBaseFields,
@@ -57,7 +57,7 @@ impl MachineChip for RegisterMemCheckChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         // Fill ValueAEffective
@@ -577,7 +577,7 @@ mod test {
         test_utils::assert_chip,
         trace::{
             preprocessed::PreprocessedBuilder, program::iter_program_steps,
-            program_trace::ProgramTraces, TracesBuilder,
+            program_trace::ProgramTracesBuilder, TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -633,7 +633,7 @@ mod test {
         const LOG_SIZE: u32 = 8;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = super::SideNote::new(&program_traces, &HarvardEmulator::default());
 
         // We iterate each block in the trace for each instruction

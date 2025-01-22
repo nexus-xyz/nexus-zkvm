@@ -10,11 +10,10 @@ use stwo_prover::core::{
         circle::{CanonicCoset, CircleEvaluation},
         BitReversedOrder,
     },
-    utils::{bit_reverse_index, coset_index_to_circle_domain_index},
     ColumnVec,
 };
 
-use super::{utils::finalize_columns, IntoBaseFields};
+use super::{utils::finalize_columns, IntoBaseFields, TracesBuilder};
 use crate::column::ProgramColumn;
 
 use nexus_vm::{
@@ -22,21 +21,20 @@ use nexus_vm::{
     WORD_SIZE,
 };
 
-/// Program (constant) trace containing [`ProgramColumn`].
-///
-/// These columns contain the whole program and the first program counter. They don't depend on the runtime information.
-/// The commitment to the program trace will be checked by the verifier.
-#[derive(Debug, Clone)]
-pub struct ProgramTraces {
-    cols: Vec<BaseColumn>,
-    log_size: u32,
+/// Warapper around [`TracesBuilder`] that contains the program layout for figuring out the row_idx out of pc.
+pub struct ProgramTracesBuilder {
+    traces_builder: TracesBuilder,
     /// Program counter written on the first row. The current assumption is that the program is in contiguous memory starting from [`Self::pc_offset`].
     /// This value is used by the program memory checking when it computes the row index corresponding to a pc value.
     pc_offset: u32,
     num_instructions: usize,
 }
 
-impl ProgramTraces {
+impl ProgramTracesBuilder {
+    pub fn dummy(log_size: u32) -> Self {
+        Self::new(log_size, ProgramInfo::dummy())
+    }
+
     /// Returns [`ProgramColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with program content.
     pub fn new(
         log_size: u32,
@@ -79,41 +77,11 @@ impl ProgramTraces {
             );
             Self::fill_program_columns(&mut cols, row_idx, true, ProgramColumn::PrgMemoryFlag);
         }
-        let finalized = finalize_columns(cols);
-
         Self {
-            cols: finalized,
-            log_size,
+            traces_builder: TracesBuilder { cols, log_size },
             pc_offset,
             num_instructions,
         }
-    }
-
-    pub fn dummy(log_size: u32) -> Self {
-        Self::new(log_size, ProgramInfo::dummy())
-    }
-
-    /// Returns the log_size of columns.
-    pub fn log_size(&self) -> u32 {
-        self.log_size
-    }
-
-    /// Returns reference to `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
-    ///
-    /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
-    pub fn get_base_column<const N: usize>(&self, col: ProgramColumn) -> [&BaseColumn; N] {
-        assert_eq!(col.size(), N, "column size mismatch");
-        std::array::from_fn(|i| &self.cols[col.offset() + i])
-    }
-
-    pub fn into_circle_evaluation(
-        self,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let domain = CanonicCoset::new(self.log_size).circle_domain();
-        self.cols
-            .into_iter()
-            .map(|col| CircleEvaluation::new(domain, col))
-            .collect()
     }
 
     #[doc(hidden)]
@@ -131,9 +99,8 @@ impl ProgramTraces {
         }
     }
 
-    #[doc(hidden)]
-    /// Fills four columns with u32 value.
-    fn fill_program_columns<const N: usize, T: IntoBaseFields<N>>(
+    /// Fills four columns with values that can be turned into BaseField elements.
+    pub(crate) fn fill_program_columns<const N: usize, T: IntoBaseFields<N>>(
         cols: &mut [Vec<BaseField>],
         row: usize,
         value: T,
@@ -141,6 +108,14 @@ impl ProgramTraces {
     ) {
         let base_field_values = value.into_base_fields();
         Self::fill_program_columns_base_field(cols, row, &base_field_values, col);
+    }
+
+    /// Finalize the building and produce ProgramTraces.
+    pub fn finalize(self) -> ProgramTraces {
+        ProgramTraces {
+            cols: finalize_columns(self.traces_builder.cols),
+            log_size: self.traces_builder.log_size,
+        }
     }
 
     /// Finds the row_idx from pc
@@ -163,18 +138,48 @@ impl ProgramTraces {
     pub(crate) fn column<const N: usize>(&self, row: usize, col: ProgramColumn) -> [BaseField; N] {
         assert_eq!(col.size(), N, "column size mismatch");
 
-        // TODO: range checks can fill trace in any order, this conversion is needed for correctness.
-        let row = bit_reverse_index(
-            coset_index_to_circle_domain_index(row, self.log_size),
-            self.log_size,
-        );
-
         let offset = col.offset();
-        let mut iter = self.cols[offset..].iter();
+        let mut iter = self.traces_builder.cols[offset..].iter();
         std::array::from_fn(|_idx| {
             iter.next()
                 .expect("invalid offset; must be unreachable")
                 .at(row)
         })
+    }
+}
+
+/// Program (constant) trace containing [`ProgramColumn`].
+///
+/// These columns contain the whole program and the first program counter. They don't depend on the runtime information.
+/// Moreover, the public input and output are included in the program trace. These depend on the runtime information.
+/// The commitment to the program trace will be checked by the verifier.
+#[derive(Debug, Clone)]
+pub struct ProgramTraces {
+    cols: Vec<BaseColumn>,
+    log_size: u32,
+}
+
+impl ProgramTraces {
+    /// Returns the log_size of columns.
+    pub fn log_size(&self) -> u32 {
+        self.log_size
+    }
+
+    /// Returns reference to `N` raw columns in range `[offset..offset + N]` in the bit-reversed BaseColumn format.
+    ///
+    /// This function allows SIMD-aware stwo libraries (for instance, logup) to read columns in the format they expect.
+    pub fn get_base_column<const N: usize>(&self, col: ProgramColumn) -> [&BaseColumn; N] {
+        assert_eq!(col.size(), N, "column size mismatch");
+        std::array::from_fn(|i| &self.cols[col.offset() + i])
+    }
+
+    pub fn into_circle_evaluation(
+        self,
+    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+        let domain = CanonicCoset::new(self.log_size).circle_domain();
+        self.cols
+            .into_iter()
+            .map(|col| CircleEvaluation::new(domain, col))
+            .collect()
     }
 }

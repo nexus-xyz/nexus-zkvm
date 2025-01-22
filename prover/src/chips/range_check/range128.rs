@@ -24,7 +24,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
-        program_trace::ProgramTraces,
+        program_trace::{ProgramTraces, ProgramTracesBuilder},
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
@@ -46,7 +46,7 @@ impl MachineChip for Range128Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
@@ -232,7 +232,7 @@ mod test {
     fn test_range128_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default());
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
@@ -271,7 +271,7 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {

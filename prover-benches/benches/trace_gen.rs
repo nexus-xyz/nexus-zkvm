@@ -7,7 +7,7 @@ use nexus_vm::{
 };
 use nexus_vm_prover::{
     trace::{
-        program::iter_program_steps, program_trace::ProgramTraces, sidenote::SideNote,
+        program::iter_program_steps, program_trace::ProgramTracesBuilder, sidenote::SideNote,
         PreprocessedTraces, TracesBuilder,
     },
     traits::MachineChip,
@@ -56,7 +56,7 @@ fn bench_trace_gen(c: &mut Criterion) {
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
         let program_memory_iter = emulator.get_program_memory();
-        let program_traces = ProgramTraces::new(log_size, program_memory_iter);
+        let program_traces = ProgramTracesBuilder::new(log_size, program_memory_iter);
 
         group.bench_function("MainTrace", |b| {
             b.iter(|| {
@@ -84,6 +84,7 @@ fn bench_trace_gen(c: &mut Criterion) {
             })
         });
         let finalized_trace = prover_traces.finalize();
+        let finalized_program_trace = program_traces.finalize();
         group.bench_function("InteractionTrace", |b| {
             b.iter(|| {
                 let prover_channel = &mut black_box(Blake2sChannel::default());
@@ -92,7 +93,7 @@ fn bench_trace_gen(c: &mut Criterion) {
                 black_box(nexus_vm_prover::Components::fill_interaction_trace(
                     black_box(&finalized_trace),
                     black_box(&preprocessed_trace),
-                    black_box(&program_traces),
+                    black_box(&finalized_program_trace),
                     black_box(&lookup_elements),
                 ))
             })
@@ -104,7 +105,7 @@ fn bench_trace_gen(c: &mut Criterion) {
 fn fill_main_trace<E>(
     prover_traces: &mut TracesBuilder,
     execution_trace: &UniformTrace,
-    program_memory: &ProgramTraces,
+    program_memory: &ProgramTracesBuilder,
     emulator: &E,
 ) where
     E: Emulator,

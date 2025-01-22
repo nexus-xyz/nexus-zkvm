@@ -15,7 +15,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
+        program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         utils::FromBaseFields,
         ProgramStep, TracesBuilder,
@@ -32,7 +32,7 @@ impl MachineChip for TimestampChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         // TODO: fetch these values from the preprocessed trace
@@ -138,8 +138,8 @@ mod test {
         chips::{AddChip, CpuChip, RegisterMemCheckChip, TimestampChip},
         test_utils::assert_chip,
         trace::{
-            preprocessed::PreprocessedBuilder, program_trace::ProgramTraces, sidenote::SideNote,
-            ProgramStep, TracesBuilder,
+            preprocessed::PreprocessedBuilder, program_trace::ProgramTracesBuilder,
+            sidenote::SideNote, ProgramStep, TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -195,7 +195,7 @@ mod test {
         // Trace circuit
         const LOG_SIZE: u32 = 8;
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTraces::dummy(LOG_SIZE);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
         let mut side_note = SideNote::new(&program_traces, &emulator);
 

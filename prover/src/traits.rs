@@ -11,8 +11,11 @@ use stwo_prover::{
 };
 
 use crate::trace::{
-    eval::TraceEval, preprocessed::PreprocessedTraces, program_trace::ProgramTraces,
-    sidenote::SideNote, FinalizedTraces, ProgramStep, TracesBuilder,
+    eval::TraceEval,
+    preprocessed::PreprocessedTraces,
+    program_trace::{ProgramTraces, ProgramTracesBuilder},
+    sidenote::SideNote,
+    FinalizedTraces, ProgramStep, TracesBuilder,
 };
 
 use super::components::MAX_LOOKUP_TUPLE_SIZE;
@@ -29,7 +32,7 @@ pub trait MachineChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>, // None for padding
-        program_traces: &ProgramTraces,
+        program_traces: &ProgramTracesBuilder,
         side_note: &mut SideNote,
     );
 
@@ -63,7 +66,7 @@ impl MachineChip for Tuple {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        program_traces: &ProgramTraces,
+        program_traces: &ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step, program_traces, side_note); )* );

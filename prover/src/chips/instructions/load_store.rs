@@ -9,7 +9,7 @@ use crate::{
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::trace_eval, program_trace::ProgramTraces, sidenote::SideNote, ProgramStep,
+        eval::trace_eval, program_trace::ProgramTracesBuilder, sidenote::SideNote, ProgramStep,
         TracesBuilder, Word,
     },
     traits::MachineChip,
@@ -25,7 +25,7 @@ impl MachineChip for LoadStoreChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -234,10 +234,7 @@ mod test {
     use crate::{
         chips::{AddChip, BeqChip, CpuChip, RegisterMemCheckChip, SllChip},
         test_utils::assert_chip,
-        trace::{
-            preprocessed::PreprocessedBuilder, program::iter_program_steps,
-            program_trace::ProgramTraces,
-        },
+        trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
 
     use super::*;
@@ -325,7 +322,7 @@ mod test {
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace, &emulator);
 
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -374,6 +371,10 @@ mod test {
         preprocessed_column.fill_is_first32();
         preprocessed_column.fill_row_idx();
         preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(traces, Some(preprocessed_column), Some(program_trace));
+        assert_chip::<Chips>(
+            traces,
+            Some(preprocessed_column),
+            Some(program_trace.finalize()),
+        );
     }
 }

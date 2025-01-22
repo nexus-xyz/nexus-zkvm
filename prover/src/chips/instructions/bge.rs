@@ -8,7 +8,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        program_trace::ProgramTraces,
+        program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         BoolWord, ProgramStep, TracesBuilder, Word,
     },
@@ -80,7 +80,7 @@ impl MachineChip for BgeChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -219,7 +219,9 @@ mod test {
             AddChip, CpuChip, ProgramMemCheckChip, Range128Chip, RegisterMemCheckChip, SubChip,
         },
         test_utils::assert_chip,
-        trace::{program::iter_program_steps, program_trace::ProgramTraces, PreprocessedTraces},
+        trace::{
+            program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
+        },
     };
 
     use super::*;
@@ -319,7 +321,7 @@ mod test {
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTraces::new(LOG_SIZE, program_memory);
+        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_memory);
         let mut side_note = SideNote::new(&program_traces, &emulator);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
@@ -333,6 +335,6 @@ mod test {
                 &mut side_note,
             );
         }
-        assert_chip::<Chips>(traces, None, Some(program_traces));
+        assert_chip::<Chips>(traces, None, Some(program_traces.finalize()));
     }
 }

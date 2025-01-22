@@ -1,7 +1,7 @@
 use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, ProgramStep,
+        eval::TraceEval, program_trace::ProgramTracesBuilder, sidenote::SideNote, ProgramStep,
         TracesBuilder,
     },
     traits::MachineChip,
@@ -23,7 +23,7 @@ impl MachineChip for TypeRChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_trace: &ProgramTraces,
+        _program_trace: &ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {

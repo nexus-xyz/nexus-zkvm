@@ -23,7 +23,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, program_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
+        program_trace::{ProgramTraces, ProgramTracesBuilder},
         sidenote::SideNote,
         utils::FromBaseFields,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
@@ -45,7 +45,7 @@ impl MachineChip for ProgramMemCheckChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         if let Some(_vm_step) = vm_step {
@@ -516,10 +516,7 @@ mod test {
         test_utils::assert_chip,
         {
             chips::{AddChip, CpuChip},
-            trace::{
-                preprocessed::PreprocessedBuilder, program_trace::ProgramTraces,
-                utils::IntoBaseFields,
-            },
+            trace::{preprocessed::PreprocessedBuilder, utils::IntoBaseFields},
         },
     };
 
@@ -584,7 +581,7 @@ mod test {
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = ProgramTraces::new(LOG_SIZE, emulator.get_program_memory());
+        let program_trace = ProgramTracesBuilder::new(LOG_SIZE, emulator.get_program_memory());
         let mut side_note = SideNote::new(&program_trace, &emulator);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
@@ -648,6 +645,10 @@ mod test {
             assert_eq!(*item.1, 1, "unexpected number of accesses to Pc");
         }
         let preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        assert_chip::<ProgramMemCheckChip>(traces, Some(preprocessed_column), Some(program_trace));
+        assert_chip::<ProgramMemCheckChip>(
+            traces,
+            Some(preprocessed_column),
+            Some(program_trace.finalize()),
+        );
     }
 }

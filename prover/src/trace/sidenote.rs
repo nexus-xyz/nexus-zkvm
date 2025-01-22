@@ -4,13 +4,13 @@ use std::collections::BTreeMap;
 
 use nexus_vm::emulator::{Emulator, PublicInputEntry};
 
-use super::{program_trace::ProgramTraces, regs::RegisterMemCheckSideNote};
+use super::{program_trace::ProgramTracesBuilder, regs::RegisterMemCheckSideNote};
 
 pub struct ProgramMemCheckSideNote<'a> {
     /// For each Pc, the number of accesses to that Pc so far (None if never)
     pub(crate) last_access_counter: BTreeMap<u32, u32>,
     /// program trace
-    pub(crate) program_trace: &'a ProgramTraces,
+    pub(crate) program_trace: &'a ProgramTracesBuilder,
 }
 
 /// Side note for committing to the final RW memory content and for computing the final read digest
@@ -50,7 +50,7 @@ pub struct SideNote<'a> {
 }
 
 impl<'a> SideNote<'a> {
-    pub fn new<E>(program_traces: &'a ProgramTraces, emulator: &E) -> Self
+    pub fn new<E>(program_traces: &'a ProgramTracesBuilder, emulator: &E) -> Self
     where
         E: Emulator,
     {

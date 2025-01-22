@@ -19,7 +19,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{program_trace_eval, TraceEval},
-        program_trace::ProgramTraces,
+        program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         ProgramStep, TracesBuilder,
     },
@@ -94,7 +94,7 @@ impl MachineChip for RangeBoolChip {
         _traces: &mut TracesBuilder,
         _row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &ProgramTraces,
+        _program_traces: &ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         // Intentionally empty. Logup isn't used.
@@ -136,7 +136,7 @@ mod test {
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::preprocessed::PreprocessedBuilder;
-    use crate::trace::program_trace::ProgramTraces;
+
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::HarvardEmulator;
@@ -151,7 +151,7 @@ mod test {
     fn test_range_bool_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default());
 
         for row_idx in 0..traces.num_rows() {
@@ -182,7 +182,7 @@ mod test {
         const LOG_SIZE: u32 = 10;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = ProgramTraces::dummy(LOG_SIZE);
+        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default());
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
