@@ -46,7 +46,7 @@ impl MachineChip for Range16Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         fill_main_for_type::<IsTypeR>(
@@ -243,7 +243,7 @@ mod test {
     fn test_range16_chip_success() {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
 
         let mut program_step = ProgramStep::default();
@@ -261,7 +261,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(program_step.clone()),
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
         }
@@ -277,7 +277,7 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
         let mut program_step = ProgramStep::default();
         program_step.step.instruction.ins_type = InstructionType::RType;
@@ -292,7 +292,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(program_step.clone()),
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
         }

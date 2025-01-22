@@ -37,7 +37,7 @@ impl MachineChip for LuiChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -137,7 +137,7 @@ mod test {
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = program_trace::ProgramTracesBuilder::new(LOG_SIZE, program_memory);
+        let mut program_traces = program_trace::ProgramTracesBuilder::new(LOG_SIZE, program_memory);
         let mut side_note = SideNote::new(&program_traces, &emulator);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
@@ -147,7 +147,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
         }

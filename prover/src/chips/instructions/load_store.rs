@@ -25,7 +25,7 @@ impl MachineChip for LoadStoreChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -322,7 +322,7 @@ mod test {
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace, &emulator);
 
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -330,7 +330,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_trace,
+                &mut program_trace,
                 &mut side_note,
             );
         }

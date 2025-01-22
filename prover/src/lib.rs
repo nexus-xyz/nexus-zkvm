@@ -107,7 +107,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
-        let program_traces = ProgramTracesBuilder::new(log_size, emulator.get_program_memory());
+        let mut program_traces = ProgramTracesBuilder::new(log_size, emulator.get_program_memory());
         let mut prover_side_note = SideNote::new(&program_traces, emulator);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -115,7 +115,7 @@ impl<C: MachineChip + Sync> Machine<C> {
                 &mut prover_traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut prover_side_note,
             );
         }

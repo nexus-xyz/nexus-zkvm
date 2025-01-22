@@ -23,7 +23,7 @@ impl MachineChip for TypeUChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_trace: &ProgramTracesBuilder,
+        _program_trace: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {

@@ -56,7 +56,7 @@ fn bench_trace_gen(c: &mut Criterion) {
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
         let program_memory_iter = emulator.get_program_memory();
-        let program_traces = ProgramTracesBuilder::new(log_size, program_memory_iter);
+        let mut program_traces = ProgramTracesBuilder::new(log_size, program_memory_iter);
 
         group.bench_function("MainTrace", |b| {
             b.iter(|| {
@@ -64,7 +64,7 @@ fn bench_trace_gen(c: &mut Criterion) {
                 fill_main_trace(
                     &mut prover_traces,
                     &execution_trace,
-                    &program_traces,
+                    &mut program_traces,
                     black_box(&emulator),
                 );
             })
@@ -74,7 +74,7 @@ fn bench_trace_gen(c: &mut Criterion) {
         fill_main_trace(
             &mut prover_traces,
             &execution_trace,
-            &program_traces,
+            &mut program_traces,
             black_box(&emulator),
         );
 
@@ -105,7 +105,7 @@ fn bench_trace_gen(c: &mut Criterion) {
 fn fill_main_trace<E>(
     prover_traces: &mut TracesBuilder,
     execution_trace: &UniformTrace,
-    program_memory: &ProgramTracesBuilder,
+    program_memory: &mut ProgramTracesBuilder,
     emulator: &E,
 ) where
     E: Emulator,

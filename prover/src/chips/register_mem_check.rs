@@ -57,7 +57,7 @@ impl MachineChip for RegisterMemCheckChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         // Fill ValueAEffective
@@ -633,7 +633,7 @@ mod test {
         const LOG_SIZE: u32 = 8;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = super::SideNote::new(&program_traces, &HarvardEmulator::default());
 
         // We iterate each block in the trace for each instruction
@@ -643,7 +643,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
 
@@ -652,14 +652,14 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
             RegisterMemCheckChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &Default::default(),
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
         }

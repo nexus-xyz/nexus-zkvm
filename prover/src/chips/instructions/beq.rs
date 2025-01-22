@@ -113,7 +113,7 @@ impl MachineChip for BeqChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -333,7 +333,7 @@ mod test {
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = program_trace::ProgramTracesBuilder::new(LOG_SIZE, program_memory);
+        let mut program_trace = program_trace::ProgramTracesBuilder::new(LOG_SIZE, program_memory);
         let mut side_note = SideNote::new(&program_trace, &emulator);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
@@ -343,7 +343,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_trace,
+                &mut program_trace,
                 &mut side_note,
             );
         }

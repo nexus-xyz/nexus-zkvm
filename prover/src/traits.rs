@@ -32,7 +32,7 @@ pub trait MachineChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>, // None for padding
-        program_traces: &ProgramTracesBuilder,
+        program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     );
 
@@ -66,7 +66,7 @@ impl MachineChip for Tuple {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        program_traces: &ProgramTracesBuilder,
+        program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step, program_traces, side_note); )* );

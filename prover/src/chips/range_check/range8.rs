@@ -57,7 +57,7 @@ impl MachineChip for Range8Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let step = match step {

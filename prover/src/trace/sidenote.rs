@@ -2,15 +2,20 @@
 
 use std::collections::BTreeMap;
 
-use nexus_vm::emulator::{Emulator, PublicInputEntry};
+use nexus_vm::{
+    emulator::{Emulator, PublicInputEntry},
+    WORD_SIZE,
+};
 
 use super::{program_trace::ProgramTracesBuilder, regs::RegisterMemCheckSideNote};
 
-pub struct ProgramMemCheckSideNote<'a> {
+pub struct ProgramMemCheckSideNote {
     /// For each Pc, the number of accesses to that Pc so far (None if never)
     pub(crate) last_access_counter: BTreeMap<u32, u32>,
-    /// program trace
-    pub(crate) program_trace: &'a ProgramTracesBuilder,
+    /// Program counter written on the first row. The current assumption is that the program is in contiguous memory starting from [`Self::pc_offset`].
+    /// This value is used by the program memory checking when it computes the row index corresponding to a pc value.
+    pc_offset: u32,
+    num_instructions: usize,
 }
 
 /// Side note for committing to the final RW memory content and for computing the final read digest
@@ -43,21 +48,41 @@ impl ReadWriteMemCheckSideNote {
     }
 }
 
-pub struct SideNote<'a> {
-    pub program_mem_check: ProgramMemCheckSideNote<'a>,
+impl ProgramMemCheckSideNote {
+    /// Finds the row_idx from pc
+    pub(crate) fn find_row_idx(&self, pc: u32) -> Option<usize> {
+        if pc < self.pc_offset {
+            return None;
+        }
+        let pc = pc - self.pc_offset;
+        let pc = pc as usize;
+        if pc % WORD_SIZE != 0 {
+            return None;
+        }
+        let row_idx = pc / WORD_SIZE;
+        if row_idx >= self.num_instructions {
+            return None;
+        }
+        Some(row_idx)
+    }
+}
+
+pub struct SideNote {
+    pub program_mem_check: ProgramMemCheckSideNote,
     pub(crate) register_mem_check: RegisterMemCheckSideNote,
     pub(crate) rw_mem_check: ReadWriteMemCheckSideNote,
 }
 
-impl<'a> SideNote<'a> {
-    pub fn new<E>(program_traces: &'a ProgramTracesBuilder, emulator: &E) -> Self
+impl SideNote {
+    pub fn new<E>(program_traces: &ProgramTracesBuilder, emulator: &E) -> Self
     where
         E: Emulator,
     {
         Self {
             program_mem_check: ProgramMemCheckSideNote {
-                program_trace: program_traces,
                 last_access_counter: BTreeMap::new(),
+                pc_offset: program_traces.pc_offset,
+                num_instructions: program_traces.num_instructions,
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
             rw_mem_check: ReadWriteMemCheckSideNote::new(

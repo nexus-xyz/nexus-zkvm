@@ -32,7 +32,7 @@ impl MachineChip for TimestampChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         // TODO: fetch these values from the preprocessed trace
@@ -195,7 +195,7 @@ mod test {
         // Trace circuit
         const LOG_SIZE: u32 = 8;
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
         let mut side_note = SideNote::new(&program_traces, &emulator);
 
@@ -219,7 +219,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
 
@@ -228,21 +228,21 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
             RegisterMemCheckChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &Default::default(),
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
             TimestampChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_traces,
+                &mut program_traces,
                 &mut side_note,
             );
         }

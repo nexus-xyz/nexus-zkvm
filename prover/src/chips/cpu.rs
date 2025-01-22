@@ -36,7 +36,7 @@ impl MachineChip for CpuChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         // Fill ValueAEffectiveFlag to the main trace

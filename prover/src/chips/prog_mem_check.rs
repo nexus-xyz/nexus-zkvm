@@ -45,7 +45,7 @@ impl MachineChip for ProgramMemCheckChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &ProgramTracesBuilder,
+        _program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         if let Some(_vm_step) = vm_step {
@@ -85,7 +85,6 @@ impl MachineChip for ProgramMemCheckChip {
             for (pc, counter) in side_note.program_mem_check.last_access_counter.iter() {
                 let traget_row_idx = side_note
                     .program_mem_check
-                    .program_trace
                     .find_row_idx(*pc)
                     .expect("Pc not found in program trace");
                 traces.fill_columns(traget_row_idx, *counter, Column::FinalPrgMemoryCtr);
@@ -581,7 +580,7 @@ mod test {
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_trace = ProgramTracesBuilder::new(LOG_SIZE, emulator.get_program_memory());
+        let mut program_trace = ProgramTracesBuilder::new(LOG_SIZE, emulator.get_program_memory());
         let mut side_note = SideNote::new(&program_trace, &emulator);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
@@ -604,7 +603,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_trace,
+                &mut program_trace,
                 &mut side_note,
             );
 
@@ -613,7 +612,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_trace,
+                &mut program_trace,
                 &mut side_note,
             );
 
@@ -622,7 +621,7 @@ mod test {
                 &mut traces,
                 row_idx,
                 &program_step,
-                &program_trace,
+                &mut program_trace,
                 &mut side_note,
             );
         }
