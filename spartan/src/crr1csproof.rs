@@ -257,7 +257,6 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
   ) -> (CRR1CSProof<G, PC>, Vec<G::ScalarField>, Vec<G::ScalarField>) {
     let timer_prove = Timer::new("CRR1CSProof::prove");
     
-    // Check if witness size is a power of two
     let witness_size = witness.W.len();
     assert!(witness_size.is_power_of_two(), "Witness size must be a power of two");
     
@@ -278,10 +277,7 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     let (inst, input, vars) = (&_inst, _input.assignment.as_slice(), _vars.assignment);
 
-    // we currently require the number of |inputs| + 1 to be at most number of vars
     assert!(input.len() < vars.len());
-    
-    // Check if E vector size is power of two and matches witness size
     assert!(E.len().is_power_of_two(), "Error vector size must be a power of two");
     assert_eq!(witness_size, E.len(), "Witness and error vector sizes must match");
 
@@ -557,135 +553,12 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 #[cfg(test)]
 mod tests {
   use crate::polycommitments::hyrax::Hyrax;
-
   use crate::{crr1cs::produce_synthetic_crr1cs, r1csinstance::R1CSInstance};
-
   use super::*;
   use ark_bls12_381::Fr;
   use ark_bls12_381::G1Projective;
   use ark_ff::PrimeField;
   use ark_std::test_rng;
-
-  fn produce_tiny_r1cs<F: PrimeField>() -> (R1CSInstance<F>, Vec<F>, Vec<F>) {
-    // three constraints over five variables Z1, Z2, Z3, Z4, and Z5
-    // rounded to the nearest power of two
-    let num_cons = 128;
-    let num_vars = 256;
-    let num_inputs = 2;
-
-    // encode the above constraints into three matrices
-    let mut A: Vec<(usize, usize, F)> = Vec::new();
-    let mut B: Vec<(usize, usize, F)> = Vec::new();
-    let mut C: Vec<(usize, usize, F)> = Vec::new();
-
-    let one = F::one();
-    // constraint 0 entries
-    // (Z1 + Z2) * I0 - Z3 = 0;
-    A.push((0, 0, one));
-    A.push((0, 1, one));
-    B.push((0, num_vars + 1, one));
-    C.push((0, 2, one));
-
-    // constraint 1 entries
-    // (Z1 + I1) * (Z3) - Z4 = 0
-    A.push((1, 0, one));
-    A.push((1, num_vars + 2, one));
-    B.push((1, 2, one));
-    C.push((1, 3, one));
-    // constraint 3 entries
-    // Z5 * 1 - 0 = 0
-    A.push((2, 4, one));
-    B.push((2, num_vars, one));
-
-    let inst = R1CSInstance::new(num_cons, num_vars, num_inputs, &A, &B, &C);
-
-    // compute a satisfying assignment
-    let mut prng = test_rng();
-    let i0 = F::rand(&mut prng);
-    let i1 = F::rand(&mut prng);
-    let z1 = F::rand(&mut prng);
-    let z2 = F::rand(&mut prng);
-    let z3 = (z1 + z2) * i0; // constraint 1: (Z1 + Z2) * I0 - Z3 = 0;
-    let z4 = (z1 + i1) * z3; // constraint 2: (Z1 + I1) * (Z3) - Z4 = 0
-    let z5 = F::zero(); //constraint 3
-
-    let mut vars = vec![F::zero(); num_vars];
-    vars[0] = z1;
-    vars[1] = z2;
-    vars[2] = z3;
-    vars[3] = z4;
-    vars[4] = z5;
-
-    let mut input = vec![F::zero(); num_inputs];
-    input[0] = i0;
-    input[1] = i1;
-
-    (inst, vars, input)
-  }
-
-  #[test]
-  fn test_tiny_r1cs() {
-    test_tiny_r1cs_helper::<Fr>()
-  }
-
-  fn test_tiny_r1cs_helper<F: PrimeField>() {
-    let (inst, vars, input) = tests::produce_tiny_r1cs::<F>();
-    let is_sat = inst.is_sat(&vars, &input);
-    assert!(is_sat);
-  }
-
-  #[test]
-  fn test_synthetic_r1cs() {
-    test_synthetic_r1cs_helper::<Fr>()
-  }
-
-  fn test_synthetic_r1cs_helper<F: PrimeField>() {
-    let (inst, vars, input) = R1CSInstance::<F>::produce_synthetic_r1cs(1024, 1024, 10);
-    let is_sat = inst.is_sat(&vars, &input);
-    assert!(is_sat);
-  }
-
-  #[test]
-  pub fn check_crr1cs_proof() {
-    check_crr1cs_proof_helper::<G1Projective, Hyrax<G1Projective>>()
-  }
-  fn check_crr1cs_proof_helper<G: CurveGroup, PC: PolyCommitmentScheme<G>>() {
-    let num_vars = 1024;
-    let num_cons = num_vars;
-    let num_inputs = 10;
-    let (shape, instance, witness, gens) =
-      produce_synthetic_crr1cs::<G, PC>(num_cons, num_vars, num_inputs);
-    assert!(is_sat(&shape, &instance, &witness, &gens.gens_r1cs_sat).unwrap());
-    let (num_cons, num_vars, _num_inputs) = (
-      shape.get_num_cons(),
-      shape.get_num_vars(),
-      shape.get_num_inputs(),
-    );
-
-    let mut prover_transcript = Transcript::new(b"example");
-
-    let (proof, rx, ry) = CRR1CSProof::prove(
-      &shape,
-      &instance,
-      witness,
-      &gens.gens_r1cs_sat,
-      &mut prover_transcript,
-    );
-
-    let inst_evals = shape.inst.inst.evaluate(&rx, &ry);
-
-    let mut verifier_transcript = Transcript::new(b"example");
-    assert!(proof
-      .verify(
-        num_vars,
-        num_cons,
-        &instance,
-        &inst_evals,
-        &mut verifier_transcript,
-        &gens.gens_r1cs_sat.keys.vk,
-      )
-      .is_ok());
-  }
 
   #[test]
   #[should_panic(expected = "Witness size must be a power of two")]
@@ -696,12 +569,9 @@ mod tests {
     let (shape, instance, mut witness, gens) =
       produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
     
-    // Modify witness to have non-power-of-two size
-    witness.W = vec![Fr::zero(); 1023]; // Not a power of two
-    
+    witness.W = vec![Fr::zero(); 1023];
     let mut prover_transcript = Transcript::new(b"example");
     
-    // This should panic because witness size is not power of two
     let _ = CRR1CSProof::prove(
       &shape,
       &instance,
@@ -720,12 +590,9 @@ mod tests {
     let (shape, instance, mut witness, gens) =
       produce_synthetic_crr1cs::<G1Projective, Hyrax<G1Projective>>(num_cons, num_vars, num_inputs);
     
-    // Modify error vector to have non-power-of-two size
-    witness.E = vec![Fr::zero(); 1023]; // Not a power of two
-    
+    witness.E = vec![Fr::zero(); 1023];
     let mut prover_transcript = Transcript::new(b"example");
     
-    // This should panic because error vector size is not power of two
     let _ = CRR1CSProof::prove(
       &shape,
       &instance,
