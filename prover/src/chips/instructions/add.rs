@@ -131,11 +131,12 @@ impl MachineChip for AddChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeIChip, TypeRChip},
+        chips::{
+            CpuChip, ProgramMemCheckChip, Range256Chip, RegisterMemCheckChip, TypeIChip, TypeRChip,
+        },
         test_utils::assert_chip,
         trace::{
-            preprocessed::PreprocessedBuilder, program::iter_program_steps,
-            program_trace::ProgramTracesBuilder,
+            program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
         },
     };
 
@@ -146,8 +147,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    // PreprocessedTraces::MIN_LOG_SIZE makes the test consume more than 40 seconds.
-    const LOG_SIZE: u32 = 8;
+    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
@@ -198,6 +198,7 @@ mod test {
             AddChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
+            Range256Chip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;
@@ -222,15 +223,6 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_column.fill_is_first();
-        preprocessed_column.fill_is_first32();
-        preprocessed_column.fill_row_idx();
-        preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(
-            traces,
-            Some(preprocessed_column),
-            Some(program_trace.finalize()),
-        );
+        assert_chip::<Chips>(traces, None, Some(program_trace.finalize()));
     }
 }

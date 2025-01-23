@@ -2,7 +2,7 @@
 
 use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
 
-use nexus_vm::{riscv::InstructionType, WORD_SIZE};
+use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
@@ -111,35 +111,39 @@ impl MachineChip for Range256Chip {
     fn fill_main_trace(
         traces: &mut TracesBuilder,
         row_idx: usize,
-        step: &Option<ProgramStep>,
+        _step: &Option<ProgramStep>,
         program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
-        for col in Self::CHECKED_WORDS.iter() {
-            let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
-            fill_main_cols(value_col, traces);
+        // This chip needs to wait till every other chip finishes writing bytes.
+        // Since some other chips write bytes above the current row, we need to wait till other chips finished filling for the last row.
+        if row_idx + 1 < traces.num_rows() {
+            return;
         }
-        for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
-            let value_col: [BaseField; WORD_SIZE] = program_traces.column(row_idx, *col);
-            fill_main_cols(value_col, traces);
-        }
-        for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
-            let value_col: [BaseField; 1] = program_traces.column(row_idx, *col);
-            fill_main_cols(value_col, traces);
-        }
-        for col in Self::CHECKED_BYTES.iter() {
-            let value_col = traces.column::<1>(row_idx, *col);
-            fill_main_cols(value_col, traces);
-        }
-        for col in Self::TYPE_U_CHECKED_BYTES.iter() {
-            let step_is_type_u = step
-                .as_ref()
-                .is_some_and(|step| step.step.instruction.ins_type == InstructionType::UType);
-            if !step_is_type_u {
-                continue;
+        for row_idx in 0..traces.num_rows() {
+            for col in Self::CHECKED_WORDS.iter() {
+                let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
+                fill_main_cols(value_col, traces);
             }
-            let value_col = traces.column::<1>(row_idx, *col);
-            fill_main_cols(value_col, traces);
+            for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
+                let value_col: [BaseField; WORD_SIZE] = program_traces.column(row_idx, *col);
+                fill_main_cols(value_col, traces);
+            }
+            for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
+                let value_col: [BaseField; 1] = program_traces.column(row_idx, *col);
+                fill_main_cols(value_col, traces);
+            }
+            for col in Self::CHECKED_BYTES.iter() {
+                let value_col = traces.column::<1>(row_idx, *col);
+                fill_main_cols(value_col, traces);
+            }
+            let [type_u] = virtual_column::IsTypeU::read_from_traces_builder(traces, row_idx);
+            if !type_u.is_zero() {
+                for col in Self::TYPE_U_CHECKED_BYTES.iter() {
+                    let value_col = traces.column::<1>(row_idx, *col);
+                    fill_main_cols(value_col, traces);
+                }
+            }
         }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -269,7 +273,7 @@ impl MachineChip for Range256Chip {
         for col in Self::TYPE_U_CHECKED_BYTES.iter() {
             let [value] = trace_eval.column_eval(*col);
             let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-            let [numerator] = virtual_column::IsTypeR::eval(trace_eval);
+            let [numerator] = virtual_column::IsTypeU::eval(trace_eval);
             logup.write_frac(eval, Fraction::new(numerator.into(), denom));
         }
         // Subtract looked up multiplicites from logup sum.
