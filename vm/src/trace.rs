@@ -282,14 +282,14 @@ fn k_step(vm: &mut impl Emulator, k: usize) -> (Option<Block>, Result<()>) {
 /// the block will be padded with UNIMPL instruction to reach the size of `k`.
 /// These padded instructions are not executed in the VM.
 pub fn k_trace(
-    elf: &mut ElfFile,
+    elf: ElfFile,
     ad: &[u8],
     public_input: &[u8],
     private_input: &[u8],
     k: usize,
 ) -> Result<UniformTrace> {
     assert!(k > 0);
-    let mut harvard = HarvardEmulator::from_elf(elf, public_input, private_input);
+    let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
 
     match harvard.execute() {
         Err(VMError::VMExited(_)) => {
@@ -399,12 +399,12 @@ fn bb_step(vm: &mut impl Emulator) -> (Option<Block>, Result<()>) {
 
 /// Trace a program over basic blocks.
 pub fn bb_trace(
-    elf: &mut ElfFile,
+    elf: ElfFile,
     ad: &[u8],
     public_input: &[u8],
     private_input: &[u8],
 ) -> Result<BBTrace> {
-    let mut harvard = HarvardEmulator::from_elf(elf, public_input, private_input);
+    let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
 
     match harvard.execute() {
         Err(VMError::VMExited(_)) => {
@@ -480,8 +480,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_k1_trace_nexus_rt_binary() {
-        let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = k_trace(&mut elf_file, &[], &[], &[], 1).unwrap();
+        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let trace = k_trace(elf_file, &[], &[], &[], 1).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -542,8 +542,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_k8_trace_nexus_rt_binary() {
-        let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = k_trace(&mut elf_file, &[], &[], &[], 8).unwrap();
+        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let trace = k_trace(elf_file, &[], &[], &[], 8).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -606,8 +606,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_bb_trace_nexus_rt_binary() {
-        let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = bb_trace(&mut elf_file, &[], &[], &[]).unwrap();
+        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let trace = bb_trace(elf_file, &[], &[], &[]).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();

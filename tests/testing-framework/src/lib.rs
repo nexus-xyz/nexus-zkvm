@@ -218,7 +218,7 @@ mod test {
         let mut exit_code: u32;
         let ad = vec![0u8; 0xbeef as usize]; // placeholder ad until we have use for it
 
-        for mut elf in elfs {
+        for elf in elfs {
             match emulator_type {
                 EmulatorType::Harvard | EmulatorType::TwoPass => {
                     // Use elf file to build the harvard emulator.
@@ -242,13 +242,9 @@ mod test {
                         assert_eq!(deserialized_output, io_args.expected_output);
 
                         // Use the data obtained from the harvard emulator to construct the linear emulator.
-                        let mut linear_emulator = LinearEmulator::from_harvard(
-                            &emulator,
-                            &mut elf,
-                            &ad,
-                            &private_input_bytes,
-                        )
-                        .unwrap();
+                        let mut linear_emulator =
+                            LinearEmulator::from_harvard(&emulator, elf, &ad, &private_input_bytes)
+                                .unwrap();
 
                         // Check that the program exits correctly.
                         assert_eq!(&linear_emulator.execute(), &io_args.expected_result);

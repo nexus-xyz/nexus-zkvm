@@ -718,7 +718,7 @@ pub struct LinearEmulator {
 impl LinearEmulator {
     pub fn from_harvard(
         emulator_harvard: &HarvardEmulator,
-        elf: &mut ElfFile,
+        compiled_elf: ElfFile,
         ad: &[u8],
         private_input: &[u8],
     ) -> Result<Self> {
@@ -731,7 +731,7 @@ impl LinearEmulator {
         let output_memory = emulator_harvard.get_output()?;
 
         // Replace custom instructions `rin` and `wou` with `lw` and `sw`.
-        elf.instructions = elf
+        let instructions = compiled_elf
             .instructions
             .iter()
             .map(|instr| {
@@ -757,6 +757,11 @@ impl LinearEmulator {
             })
             .collect();
 
+        let elf = ElfFile {
+            instructions,
+            ..compiled_elf
+        };
+
         // Create an optimized memory layout using memory statistics from the first pass.
         let memory_layout = emulator_harvard
             .memory_stats
@@ -776,7 +781,7 @@ impl LinearEmulator {
         Ok(Self::from_elf(
             memory_layout,
             ad,
-            elf,
+            &elf,
             public_input.as_slice(),
             private_input,
         ))
