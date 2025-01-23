@@ -1,6 +1,6 @@
 // This file defines the side note structures for main trace filling
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use nexus_vm::{
     emulator::{Emulator, PublicInputEntry},
@@ -25,6 +25,8 @@ pub struct ReadWriteMemCheckSideNote {
     pub(crate) last_access: BTreeMap<u32, (u32, u8)>,
     /// Public input values
     pub(crate) public_input: BTreeMap<u32, u8>,
+    /// Public output addresses
+    pub(crate) public_output_addresses: BTreeSet<u32>,
 }
 
 impl ReadWriteMemCheckSideNote {
@@ -33,9 +35,14 @@ impl ReadWriteMemCheckSideNote {
     /// The side note will be used for keeping track of the latest value and access counter for each address, to be put under memory checking.
     /// * `public_input` an iterator of public input entries given byte-wise.
     /// * `touched_addresses` an iterator of addresses that are guaranteed to be included in memory checking
-    pub fn new<I: Iterator<Item = PublicInputEntry>, I2: Iterator<Item = u32>>(
+    pub fn new<
+        I: Iterator<Item = PublicInputEntry>,
+        I2: Iterator<Item = u32>,
+        I3: Iterator<Item = u32>,
+    >(
         public_input: I,
         touched_addresses: I2,
+        public_output_addresses: I3,
     ) -> Self {
         let mut ret: Self = Default::default();
         for PublicInputEntry { address, value } in public_input {
@@ -47,6 +54,10 @@ impl ReadWriteMemCheckSideNote {
         for touched_address in touched_addresses {
             let old = ret.last_access.insert(touched_address, (0, 0));
             assert!(old.is_none(), "Duplicate touched address");
+        }
+        for public_output_address in public_output_addresses {
+            let old = ret.public_output_addresses.insert(public_output_address);
+            assert!(old, "Duplicate public output address");
         }
         ret
     }
@@ -78,9 +89,14 @@ pub struct SideNote {
 }
 
 impl SideNote {
-    pub fn new<E>(program_traces: &ProgramTracesBuilder, emulator: &E) -> Self
+    pub fn new<E, I>(
+        program_traces: &ProgramTracesBuilder,
+        emulator: &E,
+        public_output_addresses: I,
+    ) -> Self
     where
         E: Emulator,
+        I: IntoIterator<Item = u32>,
     {
         Self {
             program_mem_check: ProgramMemCheckSideNote {
@@ -92,6 +108,7 @@ impl SideNote {
             rw_mem_check: ReadWriteMemCheckSideNote::new(
                 emulator.get_public_input(),
                 emulator.get_elf_rom_ram_addresses(),
+                public_output_addresses.into_iter(),
             ),
         }
     }

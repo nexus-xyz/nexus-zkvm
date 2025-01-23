@@ -401,7 +401,11 @@ mod test {
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_trace, &emulator);
+        let mut side_note = SideNote::new(
+            &program_trace,
+            &emulator,
+            vm_traces.memory_layout.public_output_addresses(),
+        );
 
         for (row_idx, program_step) in program_steps.enumerate() {
             Chips::fill_main_trace(

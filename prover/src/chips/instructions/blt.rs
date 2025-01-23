@@ -303,7 +303,11 @@ mod test {
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_memory);
-        let mut side_note = SideNote::new(&program_traces, &emulator);
+        let mut side_note = SideNote::new(
+            &program_traces,
+            &emulator,
+            vm_traces.memory_layout.public_output_addresses(),
+        );
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
         // We iterate each block in the trace for each instruction

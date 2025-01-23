@@ -82,7 +82,14 @@ pub struct Machine<C = Components> {
 }
 
 impl<C: MachineChip + Sync> Machine<C> {
-    pub fn prove<E: Emulator>(trace: &impl Trace, emulator: &E) -> Result<Proof, ProvingError> {
+    pub fn prove<E: Emulator, I>(
+        trace: &impl Trace,
+        emulator: &E,
+        public_output_addresses: I,
+    ) -> Result<Proof, ProvingError>
+    where
+        I: IntoIterator<Item = u32>,
+    {
         let num_steps = trace.get_num_steps();
         let log_size: u32 = num_steps.next_power_of_two().trailing_zeros();
 
@@ -109,7 +116,8 @@ impl<C: MachineChip + Sync> Machine<C> {
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
         let mut program_traces = ProgramTracesBuilder::new(log_size, emulator.get_program_memory());
-        let mut prover_side_note = SideNote::new(&program_traces, emulator);
+        let mut prover_side_note =
+            SideNote::new(&program_traces, emulator, public_output_addresses);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
             C::fill_main_trace(

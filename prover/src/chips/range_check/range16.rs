@@ -287,7 +287,7 @@ mod test {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
 
         let mut program_step = ProgramStep::default();
         let mut i = 0;
@@ -343,7 +343,7 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
         let mut program_step = ProgramStep::default();
         program_step.step.instruction.ins_type = InstructionType::RType;
 

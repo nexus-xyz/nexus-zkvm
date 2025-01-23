@@ -197,7 +197,7 @@ mod test {
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
-        let mut side_note = SideNote::new(&program_traces, &emulator);
+        let mut side_note = SideNote::new(&program_traces, &emulator, []);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;

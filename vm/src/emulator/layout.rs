@@ -166,6 +166,10 @@ impl LinearMemoryLayout {
         self.heap
     }
 
+    pub fn public_output_addresses(&self) -> impl Iterator<Item = u32> {
+        self.public_output_start()..self.public_output_end()
+    }
+
     pub const fn heap_start(&self) -> u32 {
         self.heap
     }

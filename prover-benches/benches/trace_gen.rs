@@ -110,7 +110,11 @@ fn fill_main_trace<E>(
 ) where
     E: Emulator,
 {
-    let mut prover_side_note = SideNote::new(program_memory, emulator);
+    let mut prover_side_note = SideNote::new(
+        program_memory,
+        emulator,
+        execution_trace.memory_layout.public_output_addresses(),
+    );
     let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());
     for (row_idx, program_step) in black_box(program_steps.enumerate()) {
         nexus_vm_prover::Components::fill_main_trace(

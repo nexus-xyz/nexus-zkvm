@@ -233,7 +233,7 @@ mod test {
         const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default());
+        let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default(), []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8 % 128);
@@ -272,7 +272,7 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default());
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
             let buf: Word = array::from_fn(
