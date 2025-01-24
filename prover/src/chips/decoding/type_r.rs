@@ -9,7 +9,7 @@ use crate::{
 };
 
 use crate::column::Column::{
-    self, ImmC, InstrVal, IsAdd, IsSub, OpA, OpA0, OpA14, OpB, OpB0, OpB14, OpC, OpC03, OpC4,
+    self, ImmC, InstrVal, IsAdd, IsSub, OpA, OpA0, OpA1_4, OpB, OpB0, OpB1_4, OpC, OpC0_3, OpC4,
 };
 use crate::trace::eval::trace_eval;
 use nexus_vm::riscv::InstructionType::RType;
@@ -41,18 +41,18 @@ impl MachineChip for TypeRChip {
         let op_a0 = op_a_raw & 0x1;
         let op_a1_4 = (op_a_raw >> 1) & 0xF;
         traces.fill_columns(row_idx, op_a0, OpA0);
-        traces.fill_columns(row_idx, op_a1_4, OpA14);
+        traces.fill_columns(row_idx, op_a1_4, OpA1_4);
 
         let op_b_raw = vm_step.step.instruction.op_b as u8;
         let op_b0 = op_b_raw & 0x1;
         let op_b1_4 = (op_b_raw >> 1) & 0xF;
         traces.fill_columns(row_idx, op_b0, OpB0);
-        traces.fill_columns(row_idx, op_b1_4, OpB14);
+        traces.fill_columns(row_idx, op_b1_4, OpB1_4);
 
         let op_c_raw = vm_step.step.instruction.op_c as u8;
         let op_c0_3 = op_c_raw & 0xF;
         let op_c4 = (op_c_raw >> 4) & 0x1;
-        traces.fill_columns(row_idx, op_c0_3, OpC03);
+        traces.fill_columns(row_idx, op_c0_3, OpC0_3);
         traces.fill_columns(row_idx, op_c4, OpC4);
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -62,7 +62,7 @@ impl MachineChip for TypeRChip {
     ) {
         // (is_type_r)・ (op_c0_3 + op_c4・2^4 – op_c) = 0
         let [is_type_r] = virtual_column::IsTypeR::eval(trace_eval);
-        let [op_c0_3] = trace_eval!(trace_eval, OpC03);
+        let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);
         let [op_c4] = trace_eval!(trace_eval, OpC4);
         let [op_c] = trace_eval!(trace_eval, OpC);
         eval.add_constraint(
@@ -71,7 +71,7 @@ impl MachineChip for TypeRChip {
 
         // (is_type_r)・ (op_a0 + op_a1_4・2 – op_a) = 0
         let [op_a0] = trace_eval!(trace_eval, OpA0);
-        let [op_a1_4] = trace_eval!(trace_eval, OpA14);
+        let [op_a1_4] = trace_eval!(trace_eval, OpA1_4);
         let [op_a] = trace_eval!(trace_eval, OpA);
         eval.add_constraint(
             is_type_r.clone() * (op_a0.clone() + op_a1_4.clone() * BaseField::from(1 << 1) - op_a),
@@ -79,7 +79,7 @@ impl MachineChip for TypeRChip {
 
         // (is_type_r)・ (op_b0 + op_b1_4・2 – op_b) = 0
         let [op_b0] = trace_eval!(trace_eval, OpB0);
-        let [op_b1_4] = trace_eval!(trace_eval, OpB14);
+        let [op_b1_4] = trace_eval!(trace_eval, OpB1_4);
         let [op_b] = trace_eval!(trace_eval, OpB);
         eval.add_constraint(
             is_type_r.clone() * (op_b0.clone() + op_b1_4.clone() * BaseField::from(1 << 1) - op_b),

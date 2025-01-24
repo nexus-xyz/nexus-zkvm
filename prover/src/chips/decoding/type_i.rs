@@ -16,8 +16,8 @@ use nexus_vm::riscv::InstructionType::{IType, ITypeShamt};
 
 use crate::column::Column::{
     self, ImmC, InstrVal, IsAdd, IsAnd, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsOr, IsSll, IsSlt,
-    IsSltu, IsSra, IsSrl, IsXor, OpA, OpA0, OpA14, OpB, OpB0, OpB14, OpC, OpC03, OpC11, OpC4,
-    OpC47, OpC8_10, ValueC,
+    IsSltu, IsSra, IsSrl, IsXor, OpA, OpA0, OpA1_4, OpB, OpB0, OpB1_4, OpC, OpC0_3, OpC11, OpC4,
+    OpC4_7, OpC8_10, ValueC,
 };
 
 use crate::trace::eval::trace_eval;
@@ -52,19 +52,19 @@ impl MachineChip for TypeINoShiftChip {
         let op_a0 = op_a_raw & 0x1;
         let op_a1_4 = (op_a_raw >> 1) & 0xF;
         traces.fill_columns(row_idx, op_a0, OpA0);
-        traces.fill_columns(row_idx, op_a1_4, OpA14);
+        traces.fill_columns(row_idx, op_a1_4, OpA1_4);
 
         let op_b0 = op_b_raw & 0x1;
         let op_b1_4 = (op_b_raw >> 1) & 0xF;
         traces.fill_columns(row_idx, op_b0, OpB0);
-        traces.fill_columns(row_idx, op_b1_4, OpB14);
+        traces.fill_columns(row_idx, op_b1_4, OpB1_4);
 
         let op_c0_3 = op_c_raw & 0xF;
         let op_c4_7 = (op_c_raw >> 4) & 0xF;
         let op_c8_10 = (op_c_raw >> 8) & 0x7;
         let op_c11 = (op_c_raw >> 11) & 0x1;
-        traces.fill_columns(row_idx, op_c0_3 as u8, OpC03);
-        traces.fill_columns(row_idx, op_c4_7 as u8, OpC47);
+        traces.fill_columns(row_idx, op_c0_3 as u8, OpC0_3);
+        traces.fill_columns(row_idx, op_c4_7 as u8, OpC4_7);
         traces.fill_columns(row_idx, op_c8_10 as u8, OpC8_10);
         traces.fill_columns(row_idx, op_c11 as u8, OpC11);
     }
@@ -75,8 +75,8 @@ impl MachineChip for TypeINoShiftChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_type_i_no_shift] = virtual_column::IsTypeINoShift::eval(trace_eval);
-        let [op_c0_3] = trace_eval!(trace_eval, OpC03);
-        let [op_c4_7] = trace_eval!(trace_eval, OpC47);
+        let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);
+        let [op_c4_7] = trace_eval!(trace_eval, OpC4_7);
         let [op_c8_10] = trace_eval!(trace_eval, OpC8_10);
         let [op_c11] = trace_eval!(trace_eval, OpC11);
         let [op_c] = trace_eval!(trace_eval, OpC);
@@ -118,7 +118,7 @@ impl MachineChip for TypeINoShiftChip {
 
         let [op_a] = trace_eval!(trace_eval, OpA);
         let [op_a0] = trace_eval!(trace_eval, OpA0);
-        let [op_a1_4] = trace_eval!(trace_eval, OpA14);
+        let [op_a1_4] = trace_eval!(trace_eval, OpA1_4);
 
         // is_type_i_no_shift・(op_a0 + op_a1_4・2 – op_a) = 0
         eval.add_constraint(
@@ -128,7 +128,7 @@ impl MachineChip for TypeINoShiftChip {
 
         let [op_b] = trace_eval!(trace_eval, OpB);
         let [op_b0] = trace_eval!(trace_eval, OpB0);
-        let [op_b1_4] = trace_eval!(trace_eval, OpB14);
+        let [op_b1_4] = trace_eval!(trace_eval, OpB1_4);
         // is_type_i_no_shift・(op_b0 + op_b1_4・2 – op_b) = 0
         eval.add_constraint(
             is_type_i_no_shift.clone()
@@ -313,16 +313,16 @@ impl MachineChip for TypeIShiftChip {
         let op_a0 = op_a_raw & 0x1;
         let op_a1_4 = (op_a_raw >> 1) & 0xF;
         traces.fill_columns(row_idx, op_a0, OpA0);
-        traces.fill_columns(row_idx, op_a1_4, OpA14);
+        traces.fill_columns(row_idx, op_a1_4, OpA1_4);
 
         let op_b0 = op_b_raw & 0x1;
         let op_b1_4 = (op_b_raw >> 1) & 0xF;
         traces.fill_columns(row_idx, op_b0, OpB0);
-        traces.fill_columns(row_idx, op_b1_4, OpB14);
+        traces.fill_columns(row_idx, op_b1_4, OpB1_4);
 
         let op_c0_3 = op_c_raw & 0xF;
         let op_c4 = (op_c_raw >> 4) & 0x1;
-        traces.fill_columns(row_idx, op_c0_3 as u8, OpC03);
+        traces.fill_columns(row_idx, op_c0_3 as u8, OpC0_3);
         traces.fill_columns(row_idx, op_c4 as u8, OpC4);
     }
 
@@ -332,7 +332,7 @@ impl MachineChip for TypeIShiftChip {
         _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
     ) {
         let [is_alu_imm_shift] = virtual_column::IsAluImmShift::eval(trace_eval);
-        let [op_c0_3] = trace_eval!(trace_eval, OpC03);
+        let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);
         let [op_c4] = trace_eval!(trace_eval, OpC4);
         let [op_c] = trace_eval!(trace_eval, OpC);
 
@@ -360,7 +360,7 @@ impl MachineChip for TypeIShiftChip {
         // constrain op_a
         let [op_a] = trace_eval!(trace_eval, OpA);
         let [op_a0] = trace_eval!(trace_eval, OpA0);
-        let [op_a1_4] = trace_eval!(trace_eval, OpA14);
+        let [op_a1_4] = trace_eval!(trace_eval, OpA1_4);
 
         // is_alu_imm_shift・(op_a0 + op_a1_4・2 – op_a) = 0
         eval.add_constraint(
@@ -371,7 +371,7 @@ impl MachineChip for TypeIShiftChip {
         // constrain op_b
         let [op_b] = trace_eval!(trace_eval, OpB);
         let [op_b0] = trace_eval!(trace_eval, OpB0);
-        let [op_b1_4] = trace_eval!(trace_eval, OpB14);
+        let [op_b1_4] = trace_eval!(trace_eval, OpB1_4);
 
         // is_alu_imm_shift・(op_b0 + op_b1_4・2 – op_b) = 0
         eval.add_constraint(

@@ -397,10 +397,10 @@ pub enum Column {
 
     /// Auxiliary variable for decoding instruction: bits[0..=3] of OpC argument
     #[size = 1]
-    OpC03,
+    OpC0_3,
     /// Auxiliary variable for decoding instruction: bits[4..=7] of OpC argument
     #[size = 1]
-    OpC47,
+    OpC4_7,
     /// Auxiliary variable for decoding instruction: bits[8..=10] of OpC argument
     #[size = 1]
     OpC8_10,
@@ -409,10 +409,10 @@ pub enum Column {
     OpC11,
     /// Auxiliary variable for decoding instruction: bits[1..=4] of OpA argument
     #[size = 1]
-    OpA14,
+    OpA1_4,
     /// Auxiliary variable for decoding instruction: bits[1..=4] of OpB argument
     #[size = 1]
-    OpB14,
+    OpB1_4,
     /// Auxiliary variable for decoding instruction: bits[4] of OpC argument
     #[size = 1]
     OpC4,

@@ -12,7 +12,7 @@ use crate::{
 
 use nexus_vm::riscv::InstructionType::UType;
 
-use crate::column::Column::{self, OpA, OpA0, OpA14, OpC, OpC12_15, OpC16_23, OpC24_31, ValueC};
+use crate::column::Column::{self, OpA, OpA0, OpA1_4, OpC, OpC12_15, OpC16_23, OpC24_31, ValueC};
 
 use crate::trace::eval::trace_eval;
 
@@ -50,7 +50,7 @@ impl MachineChip for TypeUChip {
         let op_a0 = op_a as u8 & 0x1;
         let op_a14 = (op_a as u8 >> 1) & 0xF;
         traces.fill_columns(row_idx, op_a0, OpA0);
-        traces.fill_columns(row_idx, op_a14, OpA14);
+        traces.fill_columns(row_idx, op_a14, OpA1_4);
     }
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
@@ -86,7 +86,7 @@ impl MachineChip for TypeUChip {
 
         // is_type_u・ (op_a0 + op_a1_4・2 – op_a) = 0
         let [op_a0] = trace_eval!(trace_eval, OpA0);
-        let [op_a1_4] = trace_eval!(trace_eval, OpA14);
+        let [op_a1_4] = trace_eval!(trace_eval, OpA1_4);
         let [op_a] = trace_eval!(trace_eval, OpA);
         eval.add_constraint(
             is_type_u.clone()

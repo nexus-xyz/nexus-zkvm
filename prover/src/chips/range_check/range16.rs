@@ -17,7 +17,7 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity16, OpA14, OpB14, OpC03, OpC12_15, OpC47},
+        Column::{self, Multiplicity16, OpA1_4, OpB1_4, OpC0_3, OpC12_15, OpC4_7},
         PreprocessedColumn::{self, IsFirst, Range16},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -37,10 +37,10 @@ use crate::{
 
 pub struct Range16Chip;
 
-const TYPE_R_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
-const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA14];
-const TYPE_I_NO_SHIFT_CHECKED: [Column; 4] = [OpC03, OpC47, OpA14, OpB14];
-const TYPE_I_SHIFT_CHECKED: [Column; 3] = [OpC03, OpA14, OpB14];
+const TYPE_R_CHECKED: [Column; 3] = [OpC0_3, OpA1_4, OpB1_4];
+const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA1_4];
+const TYPE_I_NO_SHIFT_CHECKED: [Column; 4] = [OpC0_3, OpC4_7, OpA1_4, OpB1_4];
+const TYPE_I_SHIFT_CHECKED: [Column; 3] = [OpC0_3, OpA1_4, OpB1_4];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
@@ -350,7 +350,7 @@ mod test {
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 16) as u8 + 1; // sometimes out of range
-            traces.fill_columns(row_idx, b, Column::OpB14);
+            traces.fill_columns(row_idx, b, Column::OpB1_4);
             traces.fill_columns(row_idx, true, Column::IsAdd);
 
             Range16Chip::fill_main_trace(
