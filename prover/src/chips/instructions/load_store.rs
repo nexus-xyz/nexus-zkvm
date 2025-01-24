@@ -297,11 +297,35 @@ impl LoadStoreChip {
                     );
                 }
             }
+
+            // remove public output entry if it exists
+            if side_note
+                .rw_mem_check
+                .public_output_addresses
+                .remove(address)
+            {
+                program_traces.fill_program_columns(
+                    row_idx,
+                    *last_value,
+                    ProgramColumn::PublicOutputValue,
+                );
+                program_traces.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
+                program_traces.fill_program_columns(
+                    row_idx,
+                    *address,
+                    ProgramColumn::PublicInputOutputAddr,
+                );
+            }
         }
         // Assert that the public input entries are all used
         assert!(
             side_note.rw_mem_check.public_input.is_empty(),
             "Public input entries out of the RW memory checking range"
+        );
+        // Assert that the public output entries are all used
+        assert!(
+            side_note.rw_mem_check.public_output_addresses.is_empty(),
+            "Public output entries out of the RW memory checking range"
         );
     }
 }
