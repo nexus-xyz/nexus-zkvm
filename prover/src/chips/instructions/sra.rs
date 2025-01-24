@@ -368,6 +368,9 @@ mod test {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SRAI), 16, 15, 1),
             // x17 = x15 >> 31 using SRAI (should be 0)
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SRAI), 17, 15, 31),
+            // x9 = x17 >> 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRA), 9, 17, 0),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRAI), 9, 17, 0),
         ]);
         vec![basic_block]
     }

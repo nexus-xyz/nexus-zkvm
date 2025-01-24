@@ -260,6 +260,10 @@ mod test {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 8),
             // x8 = x7 >> 16
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 16),
+            // x9 = x8 >> 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 9, 8, 0),
+            // x9 = x8 >> 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 9, 8, 0),
             // Testing shift right with arbitrary values
             // Set x1 = 20
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 20),

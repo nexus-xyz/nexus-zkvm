@@ -240,6 +240,10 @@ mod test {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SLLI), 8, 7, 8),
             // x8 = x7 << 16
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SLLI), 8, 7, 16),
+            // x9 = x8 << 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLLI), 9, 8, 0),
+            // x9 = x8 << 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLL), 9, 8, 0),
             // Testing shift left with arbitrary values
             // Set x1 = 5
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 5),
