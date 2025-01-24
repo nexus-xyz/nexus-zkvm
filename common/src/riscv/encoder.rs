@@ -100,7 +100,7 @@ fn encode_j_type(instruction: &Instruction) -> u32 {
     let imm_11 = ((imm >> 11) & 1) << 20;
     let imm_19_12 = ((imm >> 12) & 0xFF) << 12;
 
-    opcode | rd | imm_20 as u32 | imm_19_12 as u32 | imm_11 as u32 | imm_10_1 as u32
+    imm_20 as u32 | imm_10_1 as u32 | imm_11 as u32 | imm_19_12 as u32 | rd | opcode
 }
 
 /// Encodes an instruction into its binary representation to little-endian format.
