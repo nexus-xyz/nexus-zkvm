@@ -145,7 +145,7 @@ impl MachineChip for JalChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip},
+        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeJChip},
         test_utils::assert_chip,
         trace::{
             program::iter_program_steps,
@@ -185,6 +185,7 @@ mod test {
     fn test_k_trace_constrained_jal_instructions() {
         type Chips = (
             CpuChip,
+            TypeJChip,
             AddChip,
             JalChip,
             ProgramMemCheckChip,

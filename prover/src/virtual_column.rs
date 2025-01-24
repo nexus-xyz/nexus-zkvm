@@ -8,8 +8,8 @@ use stwo_prover::{
 
 use crate::{
     column::Column::{
-        self, ImmC, IsAdd, IsAnd, IsAuipc, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr,
-        IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
+        self, ImmC, IsAdd, IsAnd, IsAuipc, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw,
+        IsOr, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -265,6 +265,14 @@ impl VirtualColumn<1> for IsTypeINoShift {
 
         let ret = is_load + is_alu_imm_no_shift + is_jalr;
         [ret]
+    }
+}
+
+pub(crate) struct IsTypeJ;
+
+impl VirtualColumnForSum for IsTypeJ {
+    fn columns() -> &'static [Column] {
+        &[IsJal]
     }
 }
 
