@@ -16,7 +16,7 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity32, OpA, OpB, OpC, Reg1Address, Reg2Address, Reg3Address},
+        Column::{self, Multiplicity32, OpA, OpB, Reg1Address, Reg2Address, Reg3Address},
         PreprocessedColumn::{self, IsFirst, Range32},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -35,7 +35,7 @@ use crate::{
 
 pub struct Range32Chip;
 
-const CHECKED: [Column; 6] = [OpA, OpB, OpC, Reg1Address, Reg2Address, Reg3Address];
+const CHECKED: [Column; 5] = [OpA, OpB, Reg1Address, Reg2Address, Reg3Address];
 
 impl MachineChip for Range32Chip {
     /// Increments Multiplicity32 for every number checked
