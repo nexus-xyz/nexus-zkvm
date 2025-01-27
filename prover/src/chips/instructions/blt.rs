@@ -215,8 +215,7 @@ impl MachineChip for BltChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, Range128Chip, Range32Chip, RegisterMemCheckChip,
-            SubChip,
+            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
@@ -289,10 +288,9 @@ mod test {
             AddChip,
             SubChip,
             BltChip,
-            Range128Chip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
-            Range32Chip,
+            RangeCheckChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

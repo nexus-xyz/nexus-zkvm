@@ -33,9 +33,9 @@ pub(crate) use nexus_vm::WORD_SIZE;
 
 use chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
-    JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip, Range128Chip, Range16Chip,
-    Range256Chip, Range32Chip, Range8Chip, RangeBoolChip, RegisterMemCheckChip, SllChip, SltChip,
-    SltuChip, SraChip, SrlChip, SubChip, TimestampChip, TypeIChip, TypeJChip, TypeRChip, TypeUChip,
+    JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
+    RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, TimestampChip,
+    TypeIChip, TypeJChip, TypeRChip, TypeUChip,
 };
 use components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use traits::MachineChip;
@@ -69,12 +69,7 @@ pub type Components = (
     RegisterMemCheckChip,
     TimestampChip,
     // Range checks must be positioned at the end. They use values filled by instruction chips.
-    RangeBoolChip,
-    Range8Chip,
-    Range16Chip,
-    Range32Chip,
-    Range128Chip,
-    Range256Chip,
+    RangeCheckChip,
 );
 pub type Proof = StarkProof<Blake2sMerkleHasher>;
 

@@ -216,7 +216,7 @@ impl MachineChip for BgeChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, Range128Chip, RegisterMemCheckChip, SubChip,
+            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -307,9 +307,9 @@ mod test {
             AddChip,
             SubChip,
             BgeChip,
-            Range128Chip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
+            RangeCheckChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

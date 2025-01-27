@@ -207,9 +207,10 @@ impl MachineChip for SllChip {
 
 #[cfg(test)]
 mod test {
+
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, Range8Chip, RegisterMemCheckChip, SubChip,
+            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SubChip,
             TypeIChip, TypeRChip,
         },
         test_utils::assert_chip,
@@ -276,7 +277,7 @@ mod test {
             SllChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
-            Range8Chip,
+            RangeCheckChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

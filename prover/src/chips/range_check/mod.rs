@@ -18,7 +18,11 @@ mod range32;
 mod range8;
 mod range_bool;
 
-pub use self::{
-    range128::Range128Chip, range16::Range16Chip, range256::Range256Chip, range32::Range32Chip,
-    range8::Range8Chip, range_bool::RangeBoolChip,
-};
+pub type RangeCheckChip = (
+    range8::Range8Chip,
+    range16::Range16Chip,
+    range32::Range32Chip,
+    range128::Range128Chip,
+    range256::Range256Chip,
+    range_bool::RangeBoolChip,
+);

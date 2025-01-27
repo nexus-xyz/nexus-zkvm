@@ -201,7 +201,7 @@ impl MachineChip for JalrChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, LuiChip, ProgramMemCheckChip, Range128Chip, RegisterMemCheckChip,
+            AddChip, CpuChip, LuiChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip,
             TypeIChip,
         },
         test_utils::assert_chip,
@@ -265,9 +265,9 @@ mod test {
             AddChip,
             LuiChip,
             JalrChip,
-            Range128Chip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
+            RangeCheckChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

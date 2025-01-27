@@ -228,7 +228,7 @@ impl MachineChip for SrlChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, Range8Chip, RegisterMemCheckChip, SllChip,
+            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SllChip,
             SubChip, TypeIChip, TypeRChip,
         },
         test_utils::assert_chip,
@@ -299,7 +299,7 @@ mod test {
             SllChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
-            Range8Chip,
+            RangeCheckChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;

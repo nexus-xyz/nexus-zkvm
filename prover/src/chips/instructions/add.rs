@@ -130,9 +130,10 @@ impl MachineChip for AddChip {
 
 #[cfg(test)]
 mod test {
+
     use crate::{
         chips::{
-            CpuChip, ProgramMemCheckChip, Range256Chip, RegisterMemCheckChip, TimestampChip,
+            CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, TimestampChip,
             TypeIChip, TypeRChip,
         },
         test_utils::assert_chip,
@@ -210,7 +211,7 @@ mod test {
             RegisterMemCheckChip,
             ProgramMemCheckChip,
             TimestampChip,
-            Range256Chip,
+            RangeCheckChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;
