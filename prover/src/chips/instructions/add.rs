@@ -132,7 +132,8 @@ impl MachineChip for AddChip {
 mod test {
     use crate::{
         chips::{
-            CpuChip, ProgramMemCheckChip, Range256Chip, RegisterMemCheckChip, TypeIChip, TypeRChip,
+            CpuChip, ProgramMemCheckChip, Range256Chip, RegisterMemCheckChip, TimestampChip,
+            TypeIChip, TypeRChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -186,7 +187,17 @@ mod test {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 30, 29, 28),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 31, 30, 29),
         ]);
-        vec![basic_block]
+        // The second basic block found some completeness issues in TimestampChip in the past.
+        let basic_block_2 = BasicBlock::new(vec![
+            Instruction::new_ir(
+                Opcode::from(BuiltinOpcode::ADD),
+                2,
+                1,
+                0
+            );
+            60
+        ]);
+        vec![basic_block, basic_block_2]
     }
 
     #[test]
@@ -198,6 +209,7 @@ mod test {
             AddChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,
+            TimestampChip,
             Range256Chip,
         );
         let basic_block = setup_basic_block_ir();

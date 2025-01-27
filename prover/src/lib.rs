@@ -64,10 +64,10 @@ pub type Components = (
     SllChip,
     SrlChip,
     SraChip,
-    TimestampChip,
     LoadStoreChip,
     ProgramMemCheckChip,
     RegisterMemCheckChip,
+    TimestampChip,
     // Range checks must be positioned at the end. They use values filled by instruction chips.
     RangeBoolChip,
     Range8Chip,

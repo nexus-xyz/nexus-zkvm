@@ -1,6 +1,7 @@
 use nexus_vm::WORD_SIZE;
 use num_traits::One;
 
+use std::array;
 use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
 
 use crate::{
@@ -18,12 +19,13 @@ use crate::{
         program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         utils::FromBaseFields,
-        ProgramStep, TracesBuilder,
+        BoolWord, ProgramStep, TracesBuilder, Word,
     },
     traits::MachineChip,
 };
 
 /// This chip adds constraints that the previous timestamp is smaller than the current timestamp
+/// This Chip needs to fill the main trace after RegisterMemCheckChip
 
 pub struct TimestampChip;
 
@@ -54,11 +56,11 @@ impl MachineChip for TimestampChip {
         assert!(reg3_ts_prev < reg3_ts_cur);
 
         let (c_reg1_ts_prev, ch1_minus) =
-            subtract_with_borrow(reg1_ts_cur.to_le_bytes(), (reg1_ts_prev + 1).to_le_bytes());
+            decr_subtract_with_borrow(reg1_ts_cur.to_le_bytes(), (reg1_ts_prev).to_le_bytes());
         let (c_reg2_ts_prev, ch2_minus) =
-            subtract_with_borrow(reg2_ts_cur.to_le_bytes(), (reg2_ts_prev + 1).to_le_bytes());
+            decr_subtract_with_borrow(reg2_ts_cur.to_le_bytes(), (reg2_ts_prev).to_le_bytes());
         let (c_reg3_ts_prev, ch3_minus) =
-            subtract_with_borrow(reg3_ts_cur.to_le_bytes(), (reg3_ts_prev + 1).to_le_bytes());
+            decr_subtract_with_borrow(reg3_ts_cur.to_le_bytes(), (reg3_ts_prev).to_le_bytes());
         traces.fill_columns(row_idx, c_reg1_ts_prev, CReg1TsPrev);
         traces.fill_columns(row_idx, c_reg2_ts_prev, CReg2TsPrev);
         traces.fill_columns(row_idx, c_reg3_ts_prev, CReg3TsPrev);
@@ -97,6 +99,19 @@ impl MachineChip for TimestampChip {
         constrain_diff_minus_one(eval, ch2_minus, c_reg2_ts_prev, reg2_ts_cur, reg2_ts_prev);
         constrain_diff_minus_one(eval, ch3_minus, c_reg3_ts_prev, reg3_ts_cur, reg3_ts_prev);
     }
+}
+
+/// Performs x - 1 - y, returning the result and the borrow bits
+///
+/// Note that for - 1 - y, for every limb, just one borrow bit suffices
+fn decr_subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
+    let (diff, borrow1) = subtract_with_borrow(x, 1u32.to_le_bytes());
+    let (diff, borrow2) = subtract_with_borrow(diff, y);
+    for i in 0..WORD_SIZE {
+        assert!(!borrow1[i] || !borrow2[i]);
+    }
+    let borrow = array::from_fn(|i| borrow1[i] | borrow2[i]);
+    (diff, borrow)
 }
 
 fn constrain_diff_minus_one<E: EvalAtRow>(
