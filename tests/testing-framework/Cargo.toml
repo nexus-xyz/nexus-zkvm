@@ -10,11 +10,18 @@ categories.workspace = true
 publish.workspace = true
 
 [dependencies]
-tempfile = "3.13.0"
 nexus-common = { path = "../../common" }
 nexus-vm = { path = "../../vm" }
+nexus-rt = { path = "../../runtime" }
 postcard = { version = "1.0.10", features = ["alloc"] }
 serde.workspace = true
+tempfile = "3.13"
 
 [dev-dependencies]
 serial_test = "3.2.0"
+chrono = "0.4"
+libc = "0.2"
+
+[[bench]]
+name = "benchmarks"
+harness = true

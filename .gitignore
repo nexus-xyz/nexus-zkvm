@@ -17,3 +17,6 @@ nexus-proof
 
 # macos
 .DS_Store
+
+# benchmarks
+benchmark_results.csv
