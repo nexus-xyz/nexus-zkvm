@@ -456,7 +456,7 @@ pub enum Column {
     #[size = 1]
     RamFinalValue,
     /// The final access counter value of the RAM at address RamInitFinalAddr
-    #[size = 1]
+    #[size = 4]
     RamFinalCounter,
 }
 

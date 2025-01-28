@@ -1,6 +1,6 @@
 use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode};
 use num_traits::One;
-use stwo_prover::core::fields::m31::{self, BaseField};
+use stwo_prover::core::fields::m31::{self};
 
 use crate::{
     column::{
@@ -269,11 +269,7 @@ impl LoadStoreChip {
                 *last_access < m31::P,
                 "Access counter overflowed BaseField, redesign needed"
             );
-            traces.fill_columns(
-                row_idx,
-                BaseField::from_u32_unchecked(*last_access),
-                Column::RamFinalCounter,
-            );
+            traces.fill_columns(row_idx, *last_access, Column::RamFinalCounter);
             traces.fill_columns(row_idx, *last_value, Column::RamFinalValue);
 
             // remove public input entry if it exists
