@@ -76,7 +76,7 @@ fn encode_b_type(instruction: &Instruction) -> u32 {
     let imm_10_5 = (imm & 0x7E0) << 20;
     let imm_12 = (imm & 0x1000) << 19;
 
-    opcode | imm_11 | imm_4_1 | funct3 | rs1 | rs2 | imm_10_5 | imm_12
+    imm_12 | imm_10_5 | rs2 | rs1 | funct3 | imm_4_1 | imm_11 | opcode
 }
 
 /// Encodes a U-type instruction into its binary representation.
