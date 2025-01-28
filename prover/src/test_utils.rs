@@ -14,7 +14,10 @@ use stwo_prover::{
     },
 };
 
-use crate::trace::{program_trace::ProgramTracesBuilder, FinalizedTraces, PreprocessedTraces};
+use crate::{
+    components::LOG_CONSTRAINT_DEGREE,
+    trace::{program_trace::ProgramTracesBuilder, FinalizedTraces, PreprocessedTraces},
+};
 
 use super::{
     trace::{
@@ -35,8 +38,7 @@ pub(crate) fn test_params(
         fri_config: FriConfig::new(5, 4, 64), // should I change this?
     };
     let twiddles = SimdBackend::precompute_twiddles(
-        // The + 1 is taken from the stwo examples. I don't know why it's needed.
-        CanonicCoset::new(log_size + config.fri_config.log_blowup_factor + 1)
+        CanonicCoset::new(log_size + config.fri_config.log_blowup_factor + LOG_CONSTRAINT_DEGREE)
             .circle_domain()
             .half_coset,
     );

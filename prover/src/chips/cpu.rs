@@ -283,10 +283,7 @@ impl MachineChip for CpuChip {
     ) {
         // TODO: add more constraints for the CPU chip.
 
-        // Constrain IsPadding's range
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
-        eval.add_constraint(is_padding.clone() * (E::F::one() - is_padding.clone()));
-
         // Padding rows should not access registers
         let [next_is_padding] = trace_eval_next_row!(trace_eval, Column::IsPadding);
         let [reg1_accessed] = trace_eval!(trace_eval, Column::Reg1Accessed);

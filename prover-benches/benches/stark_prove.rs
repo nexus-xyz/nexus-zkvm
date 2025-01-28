@@ -49,6 +49,7 @@ fn bench_prove(c: &mut Criterion) {
                     black_box(&emulator),
                     black_box(program_trace.memory_layout.public_output_addresses()),
                 )
+                .unwrap()
             })
         });
 

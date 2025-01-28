@@ -21,9 +21,6 @@ pub enum Column {
     /// The next aux value of the program counter register.
     #[size = 4]
     PcNextAux,
-    /// The opcode defining the instruction.
-    #[size = 1]
-    Opcode,
 
     // OP_A is the destination register, following RISC-V assembly syntax, e.g. ADD x1, x2, x3
     /// The register-index of the first operand of the instruction.
