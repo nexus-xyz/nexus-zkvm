@@ -1,11 +1,14 @@
 use std::array;
 
-use stwo_prover::constraint_framework::{EvalAtRow, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use crate::column::{
     Column, {PreprocessedColumn, ProgramColumn},
 };
 
+pub use stwo_prover::constraint_framework::{
+    INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
+};
 pub const PROGRAM_TRACE_IDX: usize = 3; // After INTERACTION_TRACE_IDX; the verifier is supposed to know the commitment of the program trace
 
 // Trace evaluation at the current row and the next row.

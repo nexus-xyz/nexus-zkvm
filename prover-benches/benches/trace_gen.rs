@@ -6,6 +6,7 @@ use nexus_vm::{
     trace::{k_trace_direct, UniformTrace},
 };
 use nexus_vm_prover::{
+    machine::BaseComponents,
     trace::{
         program::iter_program_steps, program_trace::ProgramTracesBuilder, sidenote::SideNote,
         PreprocessedTraces, TracesBuilder,
@@ -90,7 +91,7 @@ fn bench_trace_gen(c: &mut Criterion) {
                 let prover_channel = &mut black_box(Blake2sChannel::default());
                 let lookup_elements = black_box(LookupElements::draw(prover_channel));
 
-                black_box(nexus_vm_prover::Components::fill_interaction_trace(
+                black_box(BaseComponents::fill_interaction_trace(
                     black_box(&finalized_trace),
                     black_box(&preprocessed_trace),
                     black_box(&finalized_program_trace),
@@ -117,7 +118,7 @@ fn fill_main_trace<E>(
     );
     let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());
     for (row_idx, program_step) in black_box(program_steps.enumerate()) {
-        nexus_vm_prover::Components::fill_main_trace(
+        BaseComponents::fill_main_trace(
             black_box(prover_traces),
             black_box(row_idx),
             black_box(&program_step),

@@ -21,7 +21,7 @@ use nexus_vm::{
     WORD_SIZE,
 };
 
-/// Warapper around [`TracesBuilder`] that contains the program layout for figuring out the row_idx out of pc.
+/// Wrapper around [`TracesBuilder`] that contains the program layout for figuring out the row_idx out of pc.
 pub struct ProgramTracesBuilder {
     traces_builder: TracesBuilder,
     /// Program counter written on the first row. The current assumption is that the program is in contiguous memory starting from [`Self::pc_offset`].

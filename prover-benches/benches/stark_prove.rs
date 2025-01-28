@@ -44,7 +44,7 @@ fn bench_prove(c: &mut Criterion) {
 
         group.bench_function("ComputeProof", |b| {
             b.iter(|| {
-                nexus_vm_prover::Machine::<nexus_vm_prover::Components>::prove(
+                nexus_vm_prover::prove(
                     black_box(&program_trace),
                     black_box(&emulator),
                     black_box(program_trace.memory_layout.public_output_addresses()),
