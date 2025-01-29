@@ -1,6 +1,6 @@
 // This file contains range-checking values for 0..=15.
 
-use nexus_vm::riscv::InstructionType;
+use nexus_vm::riscv::{BuiltinOpcode, InstructionType};
 use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
 
 use num_traits::{One, Zero};
@@ -285,6 +285,17 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     let step_is_of_type = step
         .as_ref()
         .is_some_and(|step| step.step.instruction.ins_type == instruction_type);
+
+    // For some reasons ECALL and EBREAK are considered to be IType, but they don't contain immediate values to range-check.
+    if step.as_ref().is_some_and(|step| {
+        matches!(
+            step.step.instruction.opcode.builtin(),
+            Some(BuiltinOpcode::ECALL) | Some(BuiltinOpcode::EBREAK)
+        )
+    }) {
+        return;
+    }
+
     debug_assert_eq!(
         step_is_of_type,
         {

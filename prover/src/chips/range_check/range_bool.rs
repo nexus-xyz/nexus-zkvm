@@ -8,12 +8,12 @@ use crate::{
     column::{
         Column::{
             self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
-            IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui,
-            IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw,
-            IsXor, LtFlag, OpA0, OpB0, OpB4, OpC11, OpC12, OpC20, OpC4, PcCarry, Ram1Accessed,
-            Ram2Accessed, Ram3Accessed, Ram4Accessed, RamInitFinalFlag, Reg1Accessed, Reg2Accessed,
-            Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4,
-            ShiftBit5, ValueAEffectiveFlag,
+            IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu,
+            IsLh, IsLhu, IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra,
+            IsSrl, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC11, OpC12, OpC20, OpC4,
+            PcCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, RamInitFinalFlag,
+            Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1,
+            ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -35,7 +35,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 48] = [
+const CHECKED_SINGLE: [Column; 50] = [
     ValueAEffectiveFlag,
     ImmB,
     ImmC,
@@ -65,6 +65,8 @@ const CHECKED_SINGLE: [Column; 48] = [
     IsSll,
     IsSrl,
     IsSra,
+    IsEcall,
+    IsEbreak,
     IsPadding,
     LtFlag,
     RemAux,

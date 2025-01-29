@@ -265,6 +265,15 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     columns: &[Column],
 ) {
     let step_is_of_type = step.step.instruction.ins_type == instruction_type;
+
+    // For some reasons ECALL and EBREAK are considered to be IType, but they don't contain immediate values to range-check.
+    if matches!(
+        step.step.instruction.opcode.builtin(),
+        Some(BuiltinOpcode::ECALL) | Some(BuiltinOpcode::EBREAK)
+    ) {
+        return;
+    }
+
     debug_assert_eq!(
         step_is_of_type,
         {

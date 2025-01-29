@@ -8,9 +8,9 @@ use stwo_prover::{
 
 use crate::{
     column::Column::{
-        self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsJal,
-        IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh, IsSll, IsSlt, IsSltu,
-        IsSra, IsSrl, IsSub, IsSw, IsXor,
+        self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsEbreak,
+        IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh, IsSll,
+        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -137,6 +137,14 @@ pub(crate) struct IsTypeS;
 impl VirtualColumnForSum for IsTypeS {
     fn columns() -> &'static [Column] {
         &[IsSb, IsSh, IsSw]
+    }
+}
+
+pub(crate) struct IsTypeSys;
+
+impl VirtualColumnForSum for IsTypeSys {
+    fn columns() -> &'static [Column] {
+        &[IsEcall, IsEbreak]
     }
 }
 

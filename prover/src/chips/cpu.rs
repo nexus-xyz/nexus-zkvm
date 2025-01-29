@@ -176,6 +176,12 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::SRA) | Some(BuiltinOpcode::SRAI) => {
                 traces.fill_columns(row_idx, true, IsSra);
             }
+            Some(BuiltinOpcode::ECALL) => {
+                traces.fill_columns(row_idx, true, IsEcall);
+            }
+            Some(BuiltinOpcode::EBREAK) => {
+                traces.fill_columns(row_idx, true, IsEbreak);
+            }
             _ => {
                 panic!(
                     "Unsupported opcode: {:?}",
@@ -348,6 +354,8 @@ impl MachineChip for CpuChip {
         let [is_lbu] = trace_eval!(trace_eval, IsLbu);
         let [is_lhu] = trace_eval!(trace_eval, IsLhu);
         let [is_lw] = trace_eval!(trace_eval, IsLw);
+        let [is_ecall] = trace_eval!(trace_eval, IsEcall);
+        let [is_ebreak] = trace_eval!(trace_eval, IsEbreak);
         eval.add_constraint(
             is_add.clone()
                 + is_sub.clone()
@@ -377,6 +385,8 @@ impl MachineChip for CpuChip {
                 + is_sll.clone()
                 + is_srl.clone()
                 + is_sra.clone()
+                + is_ecall.clone()
+                + is_ebreak.clone()
                 + is_padding
                 - E::F::one(),
         );

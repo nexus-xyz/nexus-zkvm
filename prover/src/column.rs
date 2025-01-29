@@ -149,6 +149,12 @@ pub enum Column {
     /// Boolean flag on whether the row is a SRA.
     #[size = 1]
     IsSra,
+    /// Boolean flag on whether the row is an ECALL.
+    #[size = 1]
+    IsEcall,
+    /// Boolean flag on whether the row is an EBREAK.
+    #[size = 1]
+    IsEbreak,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,
