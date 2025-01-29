@@ -1,6 +1,24 @@
-use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode};
-use num_traits::One;
-use stwo_prover::core::fields::m31::{self};
+use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode, WORD_SIZE};
+use num_traits::{One, Zero};
+use stwo_prover::{
+    constraint_framework::{
+        logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
+        EvalAtRow, INTERACTION_TRACE_IDX,
+    },
+    core::{
+        backend::simd::{
+            m31::{PackedBaseField, LOG_N_LANES},
+            SimdBackend,
+        },
+        fields::{
+            m31::{self, BaseField},
+            qm31::SecureField,
+        },
+        lookups::utils::Fraction,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+        ColumnVec,
+    },
+};
 
 use crate::{
     column::{
@@ -10,12 +28,14 @@ use crate::{
             Ram3Accessed, Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4Accessed, Ram4TsPrev,
             Ram4ValCur, Ram4ValPrev,
         },
-        ProgramColumn,
+        PreprocessedColumn, ProgramColumn,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
-        eval::trace_eval, program_trace::ProgramTracesBuilder, sidenote::SideNote, ProgramStep,
-        TracesBuilder, Word,
+        eval::{preprocessed_trace_eval, program_trace_eval, trace_eval},
+        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        sidenote::SideNote,
+        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
     },
     traits::MachineChip,
 };
@@ -39,10 +59,92 @@ impl MachineChip for LoadStoreChip {
         }
     }
 
+    fn fill_interaction_trace(
+        original_traces: &FinalizedTraces,
+        preprocessed_trace: &PreprocessedTraces,
+        program_traces: &ProgramTraces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+        // This function looks at the main trace and the program trace and fills the logup sums.
+        // On each row, values written to the RW memory are added, and values read from the RW memory are subtracted.
+        // The initial value is considered to be a write. The final value is considered as a read.
+        // A load or a store operation is considered to be a read followed by a write.
+        // Each addition or subtraction is computed using `lookup_element` on tuples of the form
+        // `[address0, address1, address2, address3, value, counter0, counter1, counter2, counter3]` where
+        // - `address{0,1,2,3}` is the accessed memory address in four-limbs each containing one byte
+        // - `value` is the one-byte value written to or read from the memory.
+        // - `counter{0,1,2,3}` is the timestamp of the memory access. In four-limbs each containing one byte.
+
+        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+
+        // Add initial values to logup sum
+        Self::add_initial_values(
+            original_traces,
+            program_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+        );
+
+        // Subtract and add address1 access components from/to logup sum
+        // TODO: make it a loop or four calls
+        Self::subtract_add_access(
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            &mut logup_trace_gen,
+            Ram1ValPrev,
+            Ram1TsPrev,
+            Ram1ValCur,
+            Ram1Accessed,
+            0,
+        );
+        Self::subtract_add_access(
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            &mut logup_trace_gen,
+            Ram2ValPrev,
+            Ram2TsPrev,
+            Ram2ValCur,
+            Ram2Accessed,
+            1,
+        );
+        Self::subtract_add_access(
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            &mut logup_trace_gen,
+            Ram3ValPrev,
+            Ram3TsPrev,
+            Ram3ValCur,
+            Ram3Accessed,
+            2,
+        );
+        Self::subtract_add_access(
+            original_traces,
+            preprocessed_trace,
+            lookup_element,
+            &mut logup_trace_gen,
+            Ram4ValPrev,
+            Ram4TsPrev,
+            Ram4ValCur,
+            Ram4Accessed,
+            3,
+        );
+
+        // Subtract final values from logup sum
+        Self::subtract_final_values(original_traces, lookup_element, &mut logup_trace_gen);
+
+        let (ret, _total_sum) = logup_trace_gen.finalize_last();
+        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
+        assert_eq!(_total_sum, SecureField::zero());
+        ret
+    }
+
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        _lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
             MAX_LOOKUP_TUPLE_SIZE,
         >,
     ) {
@@ -95,7 +197,56 @@ impl MachineChip for LoadStoreChip {
         );
         eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed));
 
-        // TODO: implement the logup
+        let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
+        let mut logup =
+            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
+        Self::constrain_add_initial_values(&mut logup, eval, trace_eval, lookup_elements);
+        Self::constrain_subtract_add_access(
+            &mut logup,
+            eval,
+            trace_eval,
+            lookup_elements,
+            Ram1ValPrev,
+            Ram1TsPrev,
+            Ram1ValCur,
+            Ram1Accessed,
+            0,
+        );
+        Self::constrain_subtract_add_access(
+            &mut logup,
+            eval,
+            trace_eval,
+            lookup_elements,
+            Ram2ValPrev,
+            Ram2TsPrev,
+            Ram2ValCur,
+            Ram2Accessed,
+            1,
+        );
+        Self::constrain_subtract_add_access(
+            &mut logup,
+            eval,
+            trace_eval,
+            lookup_elements,
+            Ram3ValPrev,
+            Ram3TsPrev,
+            Ram3ValCur,
+            Ram3Accessed,
+            2,
+        );
+        Self::constrain_subtract_add_access(
+            &mut logup,
+            eval,
+            trace_eval,
+            lookup_elements,
+            Ram4ValPrev,
+            Ram4TsPrev,
+            Ram4ValCur,
+            Ram4Accessed,
+            3,
+        );
+        Self::constrain_final_values(&mut logup, eval, trace_eval, lookup_elements);
+        logup.finalize(eval);
     }
 }
 
@@ -324,12 +475,361 @@ impl LoadStoreChip {
             "Public output entries out of the RW memory checking range"
         );
     }
+
+    /// Fills the interaction trace for adding the initial content of the RW memory.
+    ///
+    /// - `RamInitFinalFlag` indicates whether a row should contain an initial byte of the RW memory.
+    /// - `RamInitFinalAddr` contains the address of the RW memory
+    /// - `PublicInputFlag` indicates whether a row should contain a public input byte of the RW memory, zero means the initial value is zero.
+    /// - `PublicInputValue` contains the public input value of the RW memory, used if `PublicInputFlag` is true.
+    ///
+    /// The counter of the initial value is always zero.
+    fn add_initial_values(
+        original_traces: &FinalizedTraces,
+        program_traces: &ProgramTraces,
+        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        logup_trace_gen: &mut LogupTraceGenerator,
+    ) {
+        let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
+        let ram_init_final_addr =
+            original_traces.get_base_column::<WORD_SIZE>(Column::RamInitFinalAddr);
+        let [public_input_flag] = program_traces.get_base_column(ProgramColumn::PublicInputFlag);
+        let [public_input_value] = program_traces.get_base_column(ProgramColumn::PublicInputValue);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        // Add (address, value, 0)
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            for address_byte in ram_init_final_addr.iter() {
+                tuple.push(address_byte.data[vec_row]);
+            }
+            tuple.push(public_input_flag.data[vec_row] * public_input_value.data[vec_row]); // Is this too much degree?
+                                                                                            // The counter is zero
+            tuple.extend_from_slice(&[PackedBaseField::zero(); WORD_SIZE]);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+            let denom = lookup_element.combine(&tuple);
+            let numerator = ram_init_final_flag.data[vec_row];
+            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    fn constrain_add_initial_values<E: EvalAtRow>(
+        logup: &mut LogupAtRow<E>,
+        eval: &mut E,
+        trace_eval: &crate::trace::eval::TraceEval<E>,
+        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+            MAX_LOOKUP_TUPLE_SIZE,
+        >,
+    ) {
+        let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
+        let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
+        let [public_input_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
+        let [public_input_value] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputValue);
+        let mut tuple = vec![];
+        for address_byte in ram_init_final_addr.iter() {
+            tuple.push(address_byte.clone());
+        }
+        tuple.push(public_input_flag * public_input_value); // Is this too much degree?
+                                                            // The counter is zero
+        for _ in 0..WORD_SIZE {
+            tuple.extend_from_slice(&[E::F::zero()]);
+        }
+        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+        let numerator = ram_init_final_flag;
+        logup.write_frac(
+            eval,
+            Fraction::new(numerator.into(), lookup_elements.combine(tuple.as_slice())),
+        );
+    }
+
+    fn subtract_add_access(
+        original_traces: &FinalizedTraces,
+        preprocessed_traces: &PreprocessedTraces,
+        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        logup_trace_gen: &mut LogupTraceGenerator,
+        val_prev: Column,
+        ts_prev: Column,
+        val_cur: Column,
+        accessed: Column,
+        address_offset: u8,
+    ) {
+        Self::subtract_access(
+            original_traces,
+            lookup_elements,
+            logup_trace_gen,
+            val_prev,
+            ts_prev,
+            accessed,
+            address_offset,
+        );
+        Self::add_access(
+            original_traces,
+            preprocessed_traces,
+            lookup_elements,
+            logup_trace_gen,
+            val_cur,
+            accessed,
+            address_offset,
+        );
+    }
+
+    fn constrain_subtract_add_access<E: EvalAtRow>(
+        logup: &mut LogupAtRow<E>,
+        eval: &mut E,
+        trace_eval: &crate::trace::eval::TraceEval<E>,
+        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+            MAX_LOOKUP_TUPLE_SIZE,
+        >,
+        val_prev: Column,
+        ts_prev: Column,
+        val_cur: Column,
+        accessed: Column,
+        address_offset: u8,
+    ) {
+        Self::constrain_subtract_address(
+            logup,
+            eval,
+            trace_eval,
+            lookup_elements,
+            val_prev,
+            ts_prev,
+            accessed,
+            address_offset,
+        );
+        Self::constrain_add_access(
+            logup,
+            eval,
+            trace_eval,
+            lookup_elements,
+            val_cur,
+            accessed,
+            address_offset,
+        );
+    }
+
+    fn subtract_access(
+        original_traces: &FinalizedTraces,
+        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        logup_trace_gen: &mut LogupTraceGenerator,
+        val_prev: Column,
+        ts_prev: Column,
+        accessed: Column,
+        address_offset: u8,
+    ) {
+        let [val_prev] = original_traces.get_base_column(val_prev);
+        let ts_prev = original_traces.get_base_column::<WORD_SIZE>(ts_prev);
+        let [accessed] = original_traces.get_base_column(accessed);
+        let base_address = original_traces.get_base_column::<WORD_SIZE>(Column::RamBaseAddr);
+        // Subtract previous tuple
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            // The least significant byte of the address is base_address[0] + address_offset
+            tuple.push(
+                base_address[0].data[vec_row]
+                    + PackedBaseField::broadcast(BaseField::from(address_offset as u32)),
+            );
+            for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
+                tuple.push(base_address_limb.data[vec_row]);
+            }
+            tuple.push(val_prev.data[vec_row]);
+            for ts_prev_byte in ts_prev.into_iter() {
+                tuple.push(ts_prev_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+            let accessed = accessed.data[vec_row];
+            logup_col_gen.write_frac(
+                vec_row,
+                (-accessed).into(),
+                lookup_elements.combine(tuple.as_slice()),
+            );
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    fn constrain_subtract_address<E: EvalAtRow>(
+        logup: &mut LogupAtRow<E>,
+        eval: &mut E,
+        trace_eval: &crate::trace::eval::TraceEval<E>,
+        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+            MAX_LOOKUP_TUPLE_SIZE,
+        >,
+        val_prev: Column,
+        ts_prev: Column,
+        accessed: Column,
+        address_offset: u8,
+    ) {
+        let [val_prev] = trace_eval.column_eval(val_prev);
+        let ts_prev = trace_eval.column_eval::<WORD_SIZE>(ts_prev);
+        let [accessed] = trace_eval.column_eval(accessed);
+        let base_address = trace_eval!(trace_eval, Column::RamBaseAddr);
+        let mut tuple = vec![];
+        // The least significant byte of the address is base_address[0] + address_offset
+        tuple.push(base_address[0].clone() + E::F::from(BaseField::from(address_offset as u32)));
+        for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
+            tuple.push(base_address_limb.clone());
+        }
+        tuple.push(val_prev);
+        for ts_prev_byte in ts_prev.into_iter() {
+            tuple.push(ts_prev_byte);
+        }
+        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+        logup.write_frac(
+            eval,
+            Fraction::new(
+                (-accessed).into(),
+                lookup_elements.combine(tuple.as_slice()),
+            ),
+        );
+    }
+
+    fn add_access(
+        original_traces: &FinalizedTraces,
+        preprocessed_traces: &PreprocessedTraces,
+        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        logup_trace_gen: &mut LogupTraceGenerator,
+        val_cur: Column,
+        accessed: Column,
+        address_offset: u8,
+    ) {
+        let [val_cur] = original_traces.get_base_column(val_cur);
+        let [accessed] = original_traces.get_base_column(accessed);
+        let base_address = original_traces.get_base_column::<WORD_SIZE>(Column::RamBaseAddr);
+        // Add current tuple
+        let clk =
+            preprocessed_traces.get_preprocessed_base_column::<WORD_SIZE>(PreprocessedColumn::Clk);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            // The least significant byte of the address is base_address[0] + address_offset
+            tuple.push(
+                base_address[0].data[vec_row]
+                    + PackedBaseField::broadcast(BaseField::from(address_offset as u32)),
+            );
+            for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
+                tuple.push(base_address_limb.data[vec_row]);
+            }
+            tuple.push(val_cur.data[vec_row]);
+            for clk_byte in clk.into_iter() {
+                tuple.push(clk_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+            let accessed = accessed.data[vec_row];
+            logup_col_gen.write_frac(
+                vec_row,
+                accessed.into(),
+                lookup_elements.combine(tuple.as_slice()),
+            );
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    fn constrain_add_access<E: EvalAtRow>(
+        logup: &mut LogupAtRow<E>,
+        eval: &mut E,
+        trace_eval: &crate::trace::eval::TraceEval<E>,
+        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+            MAX_LOOKUP_TUPLE_SIZE,
+        >,
+        val_cur: Column,
+        accessed: Column,
+        address_offset: u8,
+    ) {
+        let [val_cur] = trace_eval.column_eval(val_cur);
+        let [accessed] = trace_eval.column_eval(accessed);
+        let base_address = trace_eval!(trace_eval, Column::RamBaseAddr);
+        let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
+        let mut tuple = vec![];
+        // The least significant byte of the address is base_address[0] + address_offset
+        tuple.push(base_address[0].clone() + E::F::from(BaseField::from(address_offset as u32)));
+        for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
+            tuple.push(base_address_limb.clone());
+        }
+        tuple.push(val_cur);
+        for clk_byte in clk.into_iter() {
+            tuple.push(clk_byte);
+        }
+        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+        logup.write_frac(
+            eval,
+            Fraction::new(accessed.into(), lookup_elements.combine(tuple.as_slice())),
+        );
+    }
+
+    /// Fills the interaction trace for subtracting the final content of the RW memory.
+    ///
+    /// - `RamInitFinalFlag` indicates whether a row should contain an final byte of the RW memory.
+    /// - `RamInitFinalAddr` contains the address of the RW memory
+    /// - `RamFinalValue` contains the final value of the RW memory, used if `RamInitFinalFlag` is true.
+    /// - `RamFinalCounter` contains the final counter value of the RW memory at `RamInitFinalAddr`.
+    ///
+    /// The public output related columns do not appear here because they are constrained to use `RamFinalValue`.
+    fn subtract_final_values(
+        original_traces: &FinalizedTraces,
+        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        logup_trace_gen: &mut LogupTraceGenerator,
+    ) {
+        let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
+        let ram_init_final_addr =
+            original_traces.get_base_column::<WORD_SIZE>(Column::RamInitFinalAddr);
+        let [ram_final_value] = original_traces.get_base_column(Column::RamFinalValue);
+        let ram_final_counter =
+            original_traces.get_base_column::<WORD_SIZE>(Column::RamFinalCounter);
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
+            let mut tuple = vec![];
+            for address_byte in ram_init_final_addr.iter() {
+                tuple.push(address_byte.data[vec_row]);
+            }
+            tuple.push(ram_final_value.data[vec_row]);
+            for counter_byte in ram_final_counter.iter() {
+                tuple.push(counter_byte.data[vec_row]);
+            }
+            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+            let denom = lookup_elements.combine(&tuple);
+            let numerator = ram_init_final_flag.data[vec_row];
+            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
+        }
+        logup_col_gen.finalize_col();
+    }
+
+    fn constrain_final_values<E: EvalAtRow>(
+        logup: &mut LogupAtRow<E>,
+        eval: &mut E,
+        trace_eval: &crate::trace::eval::TraceEval<E>,
+        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
+            MAX_LOOKUP_TUPLE_SIZE,
+        >,
+    ) {
+        let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
+        let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
+        let [ram_final_value] = trace_eval!(trace_eval, Column::RamFinalValue);
+        let ram_final_counter = trace_eval!(trace_eval, Column::RamFinalCounter);
+        let mut tuple = vec![];
+        for address_byte in ram_init_final_addr.iter() {
+            tuple.push(address_byte.clone());
+        }
+        tuple.push(ram_final_value);
+        for counter_byte in ram_final_counter.iter() {
+            tuple.push(counter_byte.clone());
+        }
+        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+        let numerator = ram_init_final_flag;
+        logup.write_frac(
+            eval,
+            Fraction::new(
+                (-numerator).into(),
+                lookup_elements.combine(tuple.as_slice()),
+            ),
+        );
+    }
 }
 
 #[cfg(test)]
 mod test {
     use crate::{
         chips::{AddChip, BeqChip, CpuChip, RegisterMemCheckChip, SllChip, TypeIChip},
+        machine::Machine,
         test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
     };
@@ -468,5 +968,11 @@ mod test {
         assert_eq!(output, 128);
 
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
+        Machine::<Chips>::prove(
+            &vm_traces,
+            &emulator,
+            vm_traces.memory_layout.public_output_addresses(),
+        )
+        .unwrap();
     }
 }
