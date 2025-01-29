@@ -240,6 +240,6 @@ mod test {
                 &mut side_note,
             );
         }
-        assert_chip::<Chips>(traces, None, Some(program_trace.finalize()));
+        assert_chip::<Chips>(traces, Some(program_trace.finalize()));
     }
 }

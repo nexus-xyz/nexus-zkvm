@@ -20,10 +20,7 @@ use crate::{
 };
 
 use super::{
-    trace::{
-        eval::TraceEval, preprocessed::PreprocessedBuilder, program_trace::ProgramTraces,
-        TracesBuilder,
-    },
+    trace::{eval::TraceEval, program_trace::ProgramTraces, TracesBuilder},
     traits::MachineChip,
 };
 
@@ -60,16 +57,13 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     config: PcsConfig,
     twiddles: &'a stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
     traces: &FinalizedTraces,
-    custom_preprocessed: Option<PreprocessedBuilder>,
     program_traces: Option<ProgramTraces>,
 ) -> CommittedTraces<'a> {
     let mut commitment_scheme =
         CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
     let mut prover_channel = Blake2sChannel::default();
     // Preprocessed trace
-    let preprocessed_trace = custom_preprocessed
-        .map(PreprocessedBuilder::finalize)
-        .unwrap_or_else(|| PreprocessedTraces::new(traces.log_size()));
+    let preprocessed_trace = PreprocessedTraces::new(traces.log_size());
     let mut tree_builder = commitment_scheme.tree_builder();
     let _preprocessed_trace_location =
         tree_builder.extend_evals(preprocessed_trace.clone().into_circle_evaluation());
@@ -115,7 +109,6 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
 /// Assuming traces are filled, assert constraints
 pub(crate) fn assert_chip<C: MachineChip>(
     traces: TracesBuilder,
-    custom_preprocessed: Option<PreprocessedBuilder>,
     program_trace: Option<ProgramTraces>,
 ) {
     let (config, twiddles) = test_params(traces.log_size());
@@ -130,13 +123,7 @@ pub(crate) fn assert_chip<C: MachineChip>(
         preprocessed_trace,
         interaction_trace,
         program_trace,
-    } = commit_traces::<C>(
-        config,
-        &twiddles,
-        &finalized_trace,
-        custom_preprocessed,
-        program_trace,
-    );
+    } = commit_traces::<C>(config, &twiddles, &finalized_trace, program_trace);
 
     let trace_evals = TreeVec::new(vec![
         preprocessed_trace.into_circle_evaluation(),

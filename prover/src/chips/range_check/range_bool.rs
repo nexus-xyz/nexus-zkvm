@@ -159,8 +159,8 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
-    use crate::trace::preprocessed::PreprocessedBuilder;
 
+    use crate::trace::PreprocessedTraces;
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::HarvardEmulator;
@@ -173,7 +173,7 @@ mod test {
 
     #[test]
     fn test_range_bool_chip_success() {
-        const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default(), []);
@@ -196,14 +196,13 @@ mod test {
                 &mut side_note,
             );
         }
-        let preprocessed_bool_rows = PreprocessedBuilder::empty(LOG_SIZE);
-        assert_chip::<RangeBoolChip>(traces, Some(preprocessed_bool_rows), None);
+        assert_chip::<RangeBoolChip>(traces, None);
     }
 
     #[test]
     #[should_panic]
     fn range_bool_chip_fail_out_of_range() {
-        const LOG_SIZE: u32 = 10;
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
@@ -234,7 +233,7 @@ mod test {
             preprocessed_trace: _,
             interaction_trace: _,
             program_trace: _,
-        } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces.finalize(), None, None);
+        } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces.finalize(), None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

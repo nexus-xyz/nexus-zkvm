@@ -279,7 +279,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    const LOG_SIZE: u32 = 8; // PreprocessedBuilder::MIN_LOG_SIZE; makes the test more than a minute long.
+    const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
@@ -352,15 +352,6 @@ mod test {
             );
         }
 
-        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_column.fill_is_first();
-        preprocessed_column.fill_is_first32();
-        preprocessed_column.fill_row_idx();
-        preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(
-            traces,
-            Some(preprocessed_column),
-            Some(program_trace.finalize()),
-        );
+        assert_chip::<Chips>(traces, Some(program_trace.finalize()));
     }
 }

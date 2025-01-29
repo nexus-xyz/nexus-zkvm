@@ -293,7 +293,7 @@ fn fill_main_cols<const N: usize>(value_col: [BaseField; N], traces: &mut Traces
         #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
         assert!(checked < 256, "value[{}] is out of range", _limb_index);
         let multiplicity_col: [&mut BaseField; 1] =
-            traces.column_mut(checked as usize, Multiplicity256);
+            traces.column_mut(checked as usize % traces.num_rows(), Multiplicity256);
         *multiplicity_col[0] += BaseField::one();
         // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
         assert_ne!(*multiplicity_col[0], BaseField::zero());
@@ -342,7 +342,7 @@ mod test {
 
     #[test]
     fn test_range256_chip_success() {
-        const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
@@ -362,10 +362,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_256_rows = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_256_rows.fill_is_first();
-        preprocessed_256_rows.fill_range256();
-        assert_chip::<Range256Chip>(traces, Some(preprocessed_256_rows), None);
+        assert_chip::<Range256Chip>(traces, None);
     }
 
     #[test]
@@ -400,7 +397,7 @@ mod test {
             preprocessed_trace: _,
             interaction_trace: _,
             program_trace: _,
-        } = commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None, None);
+        } = commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

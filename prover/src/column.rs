@@ -455,6 +455,25 @@ pub enum Column {
     /// The final access counter value of the RAM at address RamInitFinalAddr
     #[size = 4]
     RamFinalCounter,
+
+    /// On bit-op rows, the less-significant four bits of each limb of ValueA. On those rows, ValueA0_3[i] contains ValueA[i] & 0xF.
+    #[size = 4]
+    ValueA0_3,
+    /// On bit-op rows, the less-significant four bits of each limb of ValueB. On those rows, ValueB0_3[i] contains ValueB[i] & 0xF.
+    #[size = 4]
+    ValueB0_3,
+    /// On bit-op rows, the less-significant four bits of each limb of ValueC. On those rows, ValueC0_3[i] contains ValueC[i] & 0xF.
+    #[size = 4]
+    ValueC0_3,
+    /// On bit-op rows, the more-significant four bits of each limb of ValueA. On those rows, ValueA4_7[i] contains ValueA[i] >> 4.
+    #[size = 4]
+    ValueA4_7,
+    /// On bit-op rows, the more-significant four bits of each limb of ValueB. On those rows, ValueB4_7[i] contains ValueB[i] >> 4.
+    #[size = 4]
+    ValueB4_7,
+    /// On bit-op rows, the more-significant four bits of each limb of ValueC. On those rows, ValueC4_7[i] contains ValueC[i] >> 4.
+    #[size = 4]
+    ValueC4_7,
 }
 
 // proc macro derived:
@@ -541,24 +560,21 @@ pub enum PreprocessedColumn {
     /// Contains numbers from 0 to 31, and 0 after wards
     #[size = 1]
     Range32,
-    /// Contains numbers from 0 to 1023, and 0 afterwards
+    /// Contains four-bit output of bit-wise AND
     #[size = 1]
-    Range1024,
-    /// Contains one-byte output of bit-wise AND
+    BitwiseAndA,
+    /// Contains four-bit output of bit-wise OR
     #[size = 1]
-    BitwiseAndByteA,
-    /// Contains one-byte output of bit-wise OR
+    BitwiseOrA,
+    /// Contains four-bit output of bit-wise XOR
     #[size = 1]
-    BitwiseOrByteA,
-    /// Contains one-byte output of bit-wise XOR
+    BitwiseXorA,
+    /// Contains four-bit first input of bit-wise lookup table
     #[size = 1]
-    BitwiseXorByteA,
-    /// Contains one-byte first input of bit-wise lookup table
+    BitwiseB,
+    /// Contains four-bit second input of bit-wise lookup table
     #[size = 1]
-    BitwiseByteB,
-    /// Contains one-byte second input of bit-wise lookup table
-    #[size = 1]
-    BitwiseByteC,
+    BitwiseC,
 }
 
 // proc macro derived:

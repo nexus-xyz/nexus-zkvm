@@ -153,8 +153,8 @@ mod test {
         chips::{AddChip, CpuChip, RegisterMemCheckChip, TimestampChip},
         test_utils::assert_chip,
         trace::{
-            preprocessed::PreprocessedBuilder, program_trace::ProgramTracesBuilder,
-            sidenote::SideNote, ProgramStep, TracesBuilder,
+            program_trace::ProgramTracesBuilder, sidenote::SideNote, PreprocessedTraces,
+            ProgramStep, TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -208,7 +208,7 @@ mod test {
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         // Trace circuit
-        const LOG_SIZE: u32 = 8;
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
@@ -261,11 +261,6 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_column.fill_is_first();
-        preprocessed_column.fill_is_first32();
-        //        preprocessed_column.fill_row_idx();
-        preprocessed_column.fill_timestamps();
-        assert_chip::<TimestampChip>(traces, Some(preprocessed_column), None);
+        assert_chip::<TimestampChip>(traces, None);
     }
 }

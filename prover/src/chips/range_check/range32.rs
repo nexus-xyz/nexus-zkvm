@@ -152,7 +152,7 @@ mod test {
 
     #[test]
     fn test_range32_chip_success() {
-        const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
+        const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
@@ -172,10 +172,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_32_rows = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_32_rows.fill_is_first();
-        preprocessed_32_rows.fill_range32();
-        assert_chip::<Range32Chip>(traces, Some(preprocessed_32_rows), None);
+        assert_chip::<Range32Chip>(traces, None);
     }
 
     #[test]
@@ -206,7 +203,7 @@ mod test {
             preprocessed_trace: _,
             interaction_trace: _,
             program_trace: _,
-        } = commit_traces::<Range32Chip>(config, &twiddles, &traces.finalize(), None, None);
+        } = commit_traces::<Range32Chip>(config, &twiddles, &traces.finalize(), None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

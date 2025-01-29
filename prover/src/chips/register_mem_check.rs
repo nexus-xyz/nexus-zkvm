@@ -576,8 +576,8 @@ mod test {
         chips::{AddChip, CpuChip, RegisterMemCheckChip},
         test_utils::assert_chip,
         trace::{
-            preprocessed::PreprocessedBuilder, program::iter_program_steps,
-            program_trace::ProgramTracesBuilder, TracesBuilder,
+            program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
+            TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -630,7 +630,7 @@ mod test {
         // Get traces from VM K-Trace interface
         let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
-        const LOG_SIZE: u32 = 8;
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
@@ -663,11 +663,6 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_column.fill_is_first();
-        preprocessed_column.fill_is_first32();
-        preprocessed_column.fill_row_idx();
-        preprocessed_column.fill_timestamps();
-        assert_chip::<RegisterMemCheckChip>(traces, Some(preprocessed_column), None);
+        assert_chip::<RegisterMemCheckChip>(traces, None);
     }
 }

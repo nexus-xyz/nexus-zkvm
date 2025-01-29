@@ -24,8 +24,8 @@ pub(crate) struct PreprocessedBuilder(TracesBuilder);
 impl PreprocessedBuilder {
     /// 2^MIN_LOG_SIZE is the smallest number of rows supported
     ///
-    /// 2^16 rows are needed to accommodate (byte, byte) lookup tables
-    pub const MIN_LOG_SIZE: u32 = 16;
+    /// 2^8 rows are needed to accommodate lookup table for byte-rangecheck and bitops.
+    pub const MIN_LOG_SIZE: u32 = 8;
 
     /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
     fn new(log_size: u32) -> Self {
@@ -41,7 +41,6 @@ impl PreprocessedBuilder {
         ret.fill_row_idx();
         ret.fill_is_first32();
         ret.fill_timestamps();
-        ret.fill_range1024();
         ret.fill_range256();
         ret.fill_range128();
         ret.fill_range32();
@@ -49,16 +48,6 @@ impl PreprocessedBuilder {
         ret.fill_range16();
         ret.fill_bitwise();
         ret
-    }
-
-    /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length
-    ///
-    /// Only for tests that create custom preprocessed trace.
-    #[cfg(test)]
-    pub(crate) fn empty(log_size: u32) -> Self {
-        assert!(log_size >= LOG_N_LANES);
-        let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
-        Self(TracesBuilder { cols, log_size })
     }
 
     /// Returns the log_size of columns.
@@ -131,12 +120,6 @@ impl PreprocessedBuilder {
         }
     }
 
-    fn fill_range1024(&mut self) {
-        for row_idx in 0..1024 {
-            self.0.cols[PreprocessedColumn::Range1024.offset()][row_idx] = BaseField::from(row_idx);
-        }
-    }
-
     pub(crate) fn fill_timestamps(&mut self) {
         // Make sure the last reg3_ts_cur computation doesn't overflow
         assert!(self.num_rows() < (u32::MAX as usize - 3) / 3);
@@ -167,18 +150,18 @@ impl PreprocessedBuilder {
     fn fill_bitwise(&mut self) {
         let cols = &mut self.0.cols;
         // fill bit-wise lookup table
-        for input_b in 0..=255u8 {
-            for input_c in 0..=255u8 {
-                let row_idx = (input_b as usize) << 8 | input_c as usize;
-                cols[PreprocessedColumn::BitwiseByteB.offset()][row_idx] =
+        for input_b in 0..=15u8 {
+            for input_c in 0..=15u8 {
+                let row_idx = (input_b as usize) << 4 | input_c as usize;
+                cols[PreprocessedColumn::BitwiseB.offset()][row_idx] =
                     BaseField::from(input_b as u32);
-                cols[PreprocessedColumn::BitwiseByteC.offset()][row_idx] =
+                cols[PreprocessedColumn::BitwiseC.offset()][row_idx] =
                     BaseField::from(input_c as u32);
-                cols[PreprocessedColumn::BitwiseAndByteA.offset()][row_idx] =
+                cols[PreprocessedColumn::BitwiseAndA.offset()][row_idx] =
                     BaseField::from((input_b & input_c) as u32);
-                cols[PreprocessedColumn::BitwiseOrByteA.offset()][row_idx] =
+                cols[PreprocessedColumn::BitwiseOrA.offset()][row_idx] =
                     BaseField::from((input_b | input_c) as u32);
-                cols[PreprocessedColumn::BitwiseXorByteA.offset()][row_idx] =
+                cols[PreprocessedColumn::BitwiseXorA.offset()][row_idx] =
                     BaseField::from((input_b ^ input_c) as u32);
             }
         }

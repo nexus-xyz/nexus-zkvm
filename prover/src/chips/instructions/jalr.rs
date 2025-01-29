@@ -297,6 +297,6 @@ mod test {
                 &mut side_note,
             );
         }
-        assert_chip::<Chips>(traces, None, Some(program_traces.finalize()));
+        assert_chip::<Chips>(traces, Some(program_traces.finalize()));
     }
 }

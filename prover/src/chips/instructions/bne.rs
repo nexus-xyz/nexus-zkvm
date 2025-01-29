@@ -347,15 +347,6 @@ mod test {
             );
         }
 
-        let mut preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_column.fill_is_first();
-        preprocessed_column.fill_is_first32();
-        preprocessed_column.fill_row_idx();
-        preprocessed_column.fill_timestamps();
-        assert_chip::<Chips>(
-            traces,
-            Some(preprocessed_column),
-            Some(program_trace.finalize()),
-        );
+        assert_chip::<Chips>(traces, Some(program_trace.finalize()));
     }
 }

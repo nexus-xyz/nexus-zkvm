@@ -321,6 +321,6 @@ mod test {
             );
         }
 
-        assert_chip::<Chips>(traces, None, Some(program_traces.finalize()));
+        assert_chip::<Chips>(traces, Some(program_traces.finalize()));
     }
 }

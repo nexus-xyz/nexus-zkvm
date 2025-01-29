@@ -515,7 +515,7 @@ mod test {
         test_utils::assert_chip,
         {
             chips::{AddChip, CpuChip},
-            trace::{preprocessed::PreprocessedBuilder, utils::IntoBaseFields},
+            trace::utils::IntoBaseFields,
         },
     };
 
@@ -526,8 +526,7 @@ mod test {
         trace::k_trace_direct,
     };
 
-    // PreprocessedTraces::MIN_LOG_SIZE makes the test consume more than 40 seconds.
-    const LOG_SIZE: u32 = 10;
+    const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
         let basic_block = BasicBlock::new(vec![
@@ -643,11 +642,6 @@ mod test {
         for item in side_note.program_mem_check.last_access_counter.iter() {
             assert_eq!(*item.1, 1, "unexpected number of accesses to Pc");
         }
-        let preprocessed_column = PreprocessedBuilder::empty(LOG_SIZE);
-        assert_chip::<ProgramMemCheckChip>(
-            traces,
-            Some(preprocessed_column),
-            Some(program_trace.finalize()),
-        );
+        assert_chip::<ProgramMemCheckChip>(traces, Some(program_trace.finalize()));
     }
 }

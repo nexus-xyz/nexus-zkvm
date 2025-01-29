@@ -293,7 +293,7 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
-    use crate::trace::preprocessed::PreprocessedBuilder;
+
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::HarvardEmulator;
@@ -305,7 +305,7 @@ mod test {
 
     #[test]
     fn test_range16_chip_success() {
-        const LOG_SIZE: u32 = 10; // Traces::MIN_LOG_SIZE makes the test too slow.
+        const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
@@ -356,10 +356,7 @@ mod test {
                 &mut side_note,
             );
         }
-        let mut preprocessed_16_rows = PreprocessedBuilder::empty(LOG_SIZE);
-        preprocessed_16_rows.fill_is_first();
-        preprocessed_16_rows.fill_range16();
-        assert_chip::<Range16Chip>(traces, Some(preprocessed_16_rows), None);
+        assert_chip::<Range16Chip>(traces, None);
     }
 
     #[test]
@@ -394,7 +391,7 @@ mod test {
             preprocessed_trace: _,
             interaction_trace: _,
             program_trace: _,
-        } = commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None, None);
+        } = commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),

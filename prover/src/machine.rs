@@ -249,7 +249,6 @@ mod tests {
     };
 
     #[test]
-    #[ignore = "memory requirement"]
     fn prove_verify() {
         let basic_block = vec![BasicBlock::new(vec![
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
