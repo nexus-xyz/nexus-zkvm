@@ -26,7 +26,7 @@ use super::chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
     JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
     RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, TimestampChip,
-    TypeIChip, TypeJChip, TypeRChip, TypeUChip,
+    TypeBChip, TypeIChip, TypeJChip, TypeRChip, TypeUChip,
 };
 use super::components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use super::traits::MachineChip;
@@ -38,6 +38,7 @@ pub type BaseComponents = (
     TypeUChip,
     TypeIChip,
     TypeJChip,
+    TypeBChip,
     AddChip,
     SubChip,
     SltuChip,

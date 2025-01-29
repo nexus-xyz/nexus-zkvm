@@ -217,6 +217,7 @@ mod test {
     use crate::{
         chips::{
             AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SubChip,
+            TypeBChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -304,6 +305,7 @@ mod test {
     fn test_k_trace_constrained_bge_instructions() {
         type Chips = (
             CpuChip,
+            TypeBChip,
             AddChip,
             SubChip,
             BgeChip,

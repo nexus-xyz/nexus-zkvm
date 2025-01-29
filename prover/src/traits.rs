@@ -60,7 +60,7 @@ pub trait MachineChip {
     }
 }
 
-#[impl_for_tuples(1, 33)]
+#[impl_for_tuples(1, 34)]
 impl MachineChip for Tuple {
     fn fill_main_trace(
         traces: &mut TracesBuilder,

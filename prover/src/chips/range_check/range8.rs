@@ -20,7 +20,7 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity8, OpC1_3, OpC8_10},
+        Column::{self, Multiplicity8, OpC1_3, OpC5_7, OpC8_10},
         PreprocessedColumn::{self, IsFirst, Range8},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -31,7 +31,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{IsTypeINoShift, IsTypeJ, VirtualColumn, VirtualColumnForSum},
+    virtual_column::{IsTypeB, IsTypeINoShift, IsTypeJ, VirtualColumn, VirtualColumnForSum},
 };
 
 /// A flag for Helper1[0] to be checked against 0..=7.
@@ -51,6 +51,7 @@ pub struct Range8Chip;
 
 const TYPE_I_NO_SHIFT_CHECKED: [Column; 1] = [OpC8_10];
 const TYPE_J_CHECKED: [Column; 2] = [OpC1_3, OpC8_10];
+const TYPE_B_CHECKED: [Column; 2] = [OpC5_7, OpC8_10];
 
 impl MachineChip for Range8Chip {
     /// Increments Multiplicity8 for every number checked
@@ -93,6 +94,13 @@ impl MachineChip for Range8Chip {
             InstructionType::JType,
             &TYPE_J_CHECKED,
         );
+        fill_main_for_type::<IsTypeB>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::BType,
+            &TYPE_B_CHECKED,
+        );
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -117,6 +125,12 @@ impl MachineChip for Range8Chip {
             lookup_element,
             &mut logup_trace_gen,
             &TYPE_J_CHECKED,
+        );
+        fill_interaction_for_type::<IsTypeB>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_B_CHECKED,
         );
 
         // Fill the interaction trace for Helper1[0] in case of SLL, SRL and SRA
@@ -176,6 +190,13 @@ impl MachineChip for Range8Chip {
             lookup_elements,
             &mut logup,
             &TYPE_J_CHECKED,
+        );
+        add_constraints_for_type::<E, IsTypeB>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_B_CHECKED,
         );
 
         // Add checked multiplicities for Helper1[0] in case of SLL, SRL and SRA

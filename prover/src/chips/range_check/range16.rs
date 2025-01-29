@@ -17,7 +17,10 @@ use stwo_prover::{
 
 use crate::{
     column::{
-        Column::{self, Multiplicity16, OpA1_4, OpB1_4, OpC0_3, OpC12_15, OpC16_19, OpC4_7},
+        Column::{
+            self, Multiplicity16, OpA1_4, OpB0_3, OpB1_4, OpC0_3, OpC12_15, OpC16_19, OpC1_4,
+            OpC4_7,
+        },
         PreprocessedColumn::{self, IsFirst, Range16},
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
@@ -28,7 +31,9 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{IsAluImmShift, IsTypeINoShift, IsTypeJ, IsTypeR, IsTypeU, VirtualColumn},
+    virtual_column::{
+        IsAluImmShift, IsTypeB, IsTypeINoShift, IsTypeJ, IsTypeR, IsTypeU, VirtualColumn,
+    },
 };
 
 /// A Chip for range-checking values for 0..=15
@@ -42,6 +47,7 @@ const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA1_4];
 const TYPE_I_NO_SHIFT_CHECKED: [Column; 4] = [OpC0_3, OpC4_7, OpA1_4, OpB1_4];
 const TYPE_I_SHIFT_CHECKED: [Column; 3] = [OpC0_3, OpA1_4, OpB1_4];
 const TYPE_J_CHECKED: [Column; 4] = [OpC4_7, OpC12_15, OpC16_19, OpA1_4];
+const TYPE_B_CHECKED: [Column; 3] = [OpC1_4, OpA1_4, OpB0_3];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
@@ -87,6 +93,13 @@ impl MachineChip for Range16Chip {
             InstructionType::JType,
             &TYPE_J_CHECKED,
         );
+        fill_main_for_type::<IsTypeB>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::BType,
+            &TYPE_B_CHECKED,
+        );
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -131,6 +144,12 @@ impl MachineChip for Range16Chip {
             &mut logup_trace_gen,
             &TYPE_J_CHECKED,
         );
+        fill_interaction_for_type::<IsTypeB>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_B_CHECKED,
+        );
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [&BaseColumn; Range16.size()] =
             preprocessed_traces.get_preprocessed_base_column(Range16);
@@ -150,6 +169,7 @@ impl MachineChip for Range16Chip {
         assert_eq!(_total_logup_sum, SecureField::zero());
         ret
     }
+
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
@@ -195,6 +215,14 @@ impl MachineChip for Range16Chip {
             &mut logup,
             &TYPE_J_CHECKED,
         );
+        add_constraints_for_type::<E, IsTypeB>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_B_CHECKED,
+        );
+
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range16);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity16);
@@ -321,6 +349,7 @@ mod test {
                 .chain(TYPE_I_NO_SHIFT_CHECKED)
                 .chain(TYPE_I_SHIFT_CHECKED)
                 .chain(TYPE_J_CHECKED)
+                .chain(TYPE_B_CHECKED)
             {
                 traces.fill_columns(row_idx, b, col);
             }
@@ -344,9 +373,13 @@ mod test {
                     traces.fill_columns(row_idx, true, Column::IsJal);
                     program_step.step.instruction.ins_type = InstructionType::JType;
                 }
-                _ => panic!("i must be in 0..4 range"),
+                4 => {
+                    traces.fill_columns(row_idx, true, Column::IsBne);
+                    program_step.step.instruction.ins_type = InstructionType::BType;
+                }
+                _ => panic!("i must be in 0..5 range"),
             }
-            i = (i + 1) % 4;
+            i = (i + 1) % 5;
 
             Range16Chip::fill_main_trace(
                 &mut traces,

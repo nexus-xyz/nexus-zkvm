@@ -155,7 +155,7 @@ impl MachineChip for BltuChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip},
+        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip, TypeBChip},
         test_utils::assert_chip,
         trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
@@ -221,6 +221,7 @@ mod test {
     fn test_k_trace_constrained_bltu_instructions() {
         type Chips = (
             CpuChip,
+            TypeBChip,
             AddChip,
             SubChip,
             BltuChip,
