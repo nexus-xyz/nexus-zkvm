@@ -324,7 +324,7 @@ mod test {
 
     use crate::traits::MachineChip;
 
-    use nexus_vm::emulator::HarvardEmulator;
+    use nexus_vm::emulator::{Emulator, HarvardEmulator};
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 
     use stwo_prover::core::prover::prove;
@@ -336,7 +336,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
+        let mut side_note =
+            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
 
         let mut program_step = ProgramStep::default();
         let mut i = 0;
@@ -399,7 +400,8 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
+        let mut side_note =
+            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
         let mut program_step = ProgramStep::default();
         program_step.step.instruction.ins_type = InstructionType::RType;
 

@@ -5,7 +5,13 @@
 pub mod nvm {
     pub use nexus_vm::{
         elf::ElfFile,
+        emulator::{LinearEmulator, LinearMemoryLayout, View},
         error::VMError,
         trace::{bb_trace, k_trace, BBTrace, UniformTrace},
     };
+}
+
+/// Stwo proving
+pub mod stwo {
+    pub use nexus_vm_prover::{prove, verify, Proof, ProvingError, VerificationError};
 }

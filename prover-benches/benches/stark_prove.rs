@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use nexus_vm::emulator::HarvardEmulator;
+use nexus_vm::emulator::View;
 use nexus_vm::{
     riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
     trace::{k_trace_direct, UniformTrace},
@@ -37,7 +37,7 @@ criterion_main!(prove);
 
 fn bench_prove(c: &mut Criterion) {
     for &log_size in LOG_SIZES {
-        let (program_trace, emulator) = program_trace(log_size);
+        let (view, program_trace) = program_trace(log_size);
 
         let mut group = c.benchmark_group(format!("Prove-LogSize-{log_size}"));
         group.sample_size(20);
@@ -46,7 +46,7 @@ fn bench_prove(c: &mut Criterion) {
             b.iter(|| {
                 nexus_vm_prover::prove(
                     black_box(&program_trace),
-                    black_box(&emulator),
+                    black_box(&view),
                     black_box(program_trace.memory_layout.public_output_addresses()),
                 )
                 .unwrap()
@@ -57,7 +57,7 @@ fn bench_prove(c: &mut Criterion) {
     }
 }
 
-fn program_trace(log_size: u32) -> (UniformTrace, HarvardEmulator) {
+fn program_trace(log_size: u32) -> (View, UniformTrace) {
     let mut i = 0u8;
     let mut j = 1u8;
     let mut k = 2u8;
@@ -83,8 +83,5 @@ fn program_trace(log_size: u32) -> (UniformTrace, HarvardEmulator) {
     .collect();
 
     let basic_blocks = vec![BasicBlock::new(insts)];
-    let uniform_trace = k_trace_direct(&basic_blocks, K).expect("error generating trace");
-
-    let emulator = HarvardEmulator::from_basic_blocks(&basic_blocks);
-    (uniform_trace, emulator)
+    k_trace_direct(&basic_blocks, K).expect("error generating trace")
 }

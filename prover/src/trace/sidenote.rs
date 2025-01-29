@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use nexus_vm::{
-    emulator::{Emulator, PublicInputEntry},
+    emulator::{PublicInputEntry, View},
     WORD_SIZE,
 };
 
@@ -89,13 +89,12 @@ pub struct SideNote {
 }
 
 impl SideNote {
-    pub fn new<E, I>(
+    pub fn new<I>(
         program_traces: &ProgramTracesBuilder,
-        emulator: &E,
+        view: &View,
         public_output_addresses: I,
     ) -> Self
     where
-        E: Emulator,
         I: IntoIterator<Item = u32>,
     {
         Self {
@@ -106,8 +105,8 @@ impl SideNote {
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
             rw_mem_check: ReadWriteMemCheckSideNote::new(
-                emulator.get_public_input(),
-                emulator.get_elf_rom_ram_addresses(),
+                view.get_public_input().copied(),
+                view.get_elf_rom_ram_addresses(),
                 public_output_addresses.into_iter(),
             ),
         }

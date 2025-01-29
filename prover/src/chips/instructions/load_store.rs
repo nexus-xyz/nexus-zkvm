@@ -836,7 +836,6 @@ mod test {
 
     use super::*;
     use nexus_vm::{
-        emulator::HarvardEmulator,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
@@ -913,8 +912,7 @@ mod test {
         let k = 1;
 
         // Get traces from VM K-Trace interface
-        let vm_traces = k_trace_direct(&basic_block, k).expect("Failed to create trace");
-        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
+        let (view, vm_traces) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
@@ -922,7 +920,7 @@ mod test {
         let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
         let mut side_note = SideNote::new(
             &program_trace,
-            &emulator,
+            &view,
             vm_traces.memory_layout.public_output_addresses(),
         );
 
@@ -970,7 +968,7 @@ mod test {
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
         Machine::<Chips>::prove(
             &vm_traces,
-            &emulator,
+            &view,
             vm_traces.memory_layout.public_output_addresses(),
         )
         .unwrap();

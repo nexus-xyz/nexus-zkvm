@@ -331,7 +331,7 @@ mod test {
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
-    use nexus_vm::emulator::HarvardEmulator;
+    use nexus_vm::emulator::{Emulator, HarvardEmulator};
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 
     use stwo_prover::core::fields::m31::BaseField;
@@ -345,7 +345,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
+        let mut side_note =
+            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
@@ -372,7 +373,8 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default(), []);
+        let mut side_note =
+            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {

@@ -74,16 +74,22 @@ impl<T: Input, U: Input, V: Output> IOArgs<T, U, V> {
 
 /// Parse the output bytes as exit code and output.
 pub fn parse_output<T: DeserializeOwned>(
+    exit_code: Vec<u8>,
     output: Vec<u8>,
 ) -> Result<(u32, Option<T>), postcard::Error> {
     // The first 4 bytes store the exit code.
-    let exit_code = u32::from_le_bytes(output[0..4].try_into().expect("Failed to parse exit code"));
+    assert_eq!(exit_code.len(), WORD_SIZE);
+    let exit_code = u32::from_le_bytes(
+        exit_code[0..WORD_SIZE]
+            .try_into()
+            .expect("Failed to parse exit code"),
+    );
 
-    if output.len() == WORD_SIZE {
+    if output.len() == 0 {
         Ok((exit_code, None))
     } else {
         // Deserialize the rest as the output.
-        let output: T = from_bytes(&output[WORD_SIZE..]).expect("Deserialization failed");
+        let output: T = from_bytes(&output).expect("Deserialization failed");
         Ok((exit_code, Some(output)))
     }
 }
@@ -209,7 +215,8 @@ pub fn emulate(
     private_input_bytes: Vec<u8>,
     output_bytes_len: usize,
     emulator_type: EmulatorType,
-) -> (Vec<usize>, Vec<u8>) {
+) -> (Vec<usize>, Vec<u8>, Vec<u8>) {
+    let mut exit_code_bytes: Vec<u8> = Vec::new();
     let mut output_bytes: Vec<u8> = Vec::new();
     let ad = vec![0u8; 0xbeef as usize]; // placeholder ad until we have use for it
     let mut cycles = Vec::new();
@@ -222,7 +229,16 @@ pub fn emulate(
                     HarvardEmulator::from_elf(&elf, &public_input_bytes, &private_input_bytes);
                 let _ = emulator.execute();
                 let mut cur_cycles = emulator.executor.global_clock;
-                output_bytes = emulator.get_output().unwrap();
+
+                let view = emulator.finalize();
+                exit_code_bytes = view
+                    .get_exit_code()
+                    .map(|public_output_entry| public_output_entry.value)
+                    .collect();
+                output_bytes = view
+                    .get_public_output()
+                    .map(|public_output_entry| public_output_entry.value)
+                    .collect();
 
                 // Run a second pass with a linear emulator constructed from the harvard emulator.
                 if matches!(emulator_type, EmulatorType::TwoPass) {
@@ -234,7 +250,15 @@ pub fn emulate(
                     cur_cycles = linear_emulator.executor.global_clock;
 
                     // Get output bytes.
-                    output_bytes = linear_emulator.get_output().unwrap();
+                    let view = linear_emulator.finalize();
+                    exit_code_bytes = view
+                        .get_exit_code()
+                        .map(|public_output_entry| public_output_entry.value)
+                        .collect();
+                    output_bytes = view
+                        .get_public_output()
+                        .map(|public_output_entry| public_output_entry.value)
+                        .collect();
                 }
                 cycles.push(cur_cycles);
             }
@@ -261,11 +285,18 @@ pub fn emulate(
                 cycles.push(emulator.executor.global_clock);
                 let _ = emulator.execute();
 
-                // Get output bytes
-                output_bytes = emulator.get_output().unwrap();
+                let view = emulator.finalize();
+                exit_code_bytes = view
+                    .get_exit_code()
+                    .map(|public_output_entry| public_output_entry.value)
+                    .collect();
+                output_bytes = view
+                    .get_public_output()
+                    .map(|public_output_entry| public_output_entry.value)
+                    .collect();
             }
         }
     }
 
-    (cycles, output_bytes)
+    (cycles, exit_code_bytes, output_bytes)
 }

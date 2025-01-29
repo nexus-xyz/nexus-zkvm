@@ -20,7 +20,7 @@ use super::trace::{
     program::iter_program_steps, program_trace::ProgramTracesBuilder, sidenote::SideNote,
     PreprocessedTraces, TracesBuilder,
 };
-use nexus_vm::{emulator::Emulator, trace::Trace};
+use nexus_vm::{emulator::View, trace::Trace};
 
 use super::chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
@@ -83,9 +83,9 @@ pub struct Machine<C = BaseComponents> {
 }
 
 impl<C: MachineChip + Sync> Machine<C> {
-    pub fn prove<E: Emulator, I>(
+    pub fn prove<I>(
         trace: &impl Trace,
-        emulator: &E,
+        view: &View,
         public_output_addresses: I,
     ) -> Result<Proof, ProvingError>
     where
@@ -119,9 +119,8 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
-        let mut program_traces = ProgramTracesBuilder::new(log_size, emulator.get_program_memory());
-        let mut prover_side_note =
-            SideNote::new(&program_traces, emulator, public_output_addresses);
+        let mut program_traces = ProgramTracesBuilder::new(log_size, view.get_program_info());
+        let mut prover_side_note = SideNote::new(&program_traces, view, public_output_addresses);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
             C::fill_main_trace(
@@ -244,7 +243,6 @@ impl<C: MachineChip + Sync> Machine<C> {
 mod tests {
     use super::*;
     use nexus_vm::{
-        emulator::HarvardEmulator,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
@@ -259,12 +257,12 @@ mod tests {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4),
         ])];
-        let program_trace = k_trace_direct(&basic_block, 1).expect("error generating trace");
-        let emulator = HarvardEmulator::from_basic_blocks(&basic_block);
+        let (view, program_trace) =
+            k_trace_direct(&basic_block, 1).expect("error generating trace");
 
         let proof = Machine::<BaseComponents>::prove(
             &program_trace,
-            &emulator,
+            &view,
             program_trace.memory_layout.public_output_addresses(),
         )
         .unwrap();

@@ -69,7 +69,7 @@ use super::{layout::LinearMemoryLayout, memory_stats::*, registry::InstructionEx
 use crate::{
     cpu::{instructions::InstructionResult, Cpu},
     elf::ElfFile,
-    error::{MemoryError, Result, VMError},
+    error::{Result, VMError},
     memory::{
         FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, MemoryRecords, Modes, StoreOp,
         UnifiedMemory, VariableMemory, NA, RO, RW, WO,
@@ -90,31 +90,40 @@ use rangemap::RangeMap;
 use std::{
     cmp::max,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    ops::Range,
 };
 
 pub type MemoryTranscript = Vec<MemoryRecords>;
 
 // One entry per instruction because program memory is always accessed instruction-wise
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct ProgramMemoryEntry {
     pub pc: u32,
     pub instruction_word: u32,
 }
 
-// One entry per byte because RW memory can be accessed bytewise
-#[derive(Debug)]
+// One entry per byte because RO memory can be accessed bytewise
+#[derive(Debug, Copy, Clone)]
 pub struct PublicInputEntry {
     pub address: u32,
     pub value: u8,
 }
 
-pub struct ProgramInfo<I: IntoIterator<Item = ProgramMemoryEntry>> {
-    // The program counter where the execution starts
-    pub initial_pc: u32,
-    pub program: I,
+// One entry per byte because WO memory can be accessed bytewise
+#[derive(Debug, Copy, Clone)]
+pub struct PublicOutputEntry {
+    pub address: u32,
+    pub value: u8,
 }
 
-impl ProgramInfo<Vec<ProgramMemoryEntry>> {
+#[derive(Debug, Clone)]
+pub struct ProgramInfo {
+    // The program counter where the execution starts
+    pub initial_pc: u32,
+    pub program: Vec<ProgramMemoryEntry>,
+}
+
+impl ProgramInfo {
     pub fn dummy() -> Self {
         Self {
             initial_pc: 0,
@@ -137,6 +146,64 @@ impl BasicBlockEntry {
             end: start + (block.len() * WORD_SIZE) as u32,
             block,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct View {
+    #[allow(dead_code)]
+    memory_layout: Option<LinearMemoryLayout>,
+    static_rom_addresses: Range<u32>,
+    static_ram_addresses: Range<u32>,
+    program_memory: ProgramInfo,
+    input_memory: Vec<PublicInputEntry>,
+    exit_code: Vec<PublicOutputEntry>,
+    output_memory: Vec<PublicOutputEntry>,
+}
+
+impl View {
+    /// Return infomation about the program memory.
+    pub fn get_program_info(&self) -> &ProgramInfo {
+        &self.program_memory
+    }
+
+    /// Return components of the program memory.
+    pub fn get_program_memory(&self) -> (u32, impl Iterator<Item = &ProgramMemoryEntry>) {
+        (
+            self.program_memory.initial_pc,
+            self.program_memory.program.iter(),
+        )
+    }
+
+    /// Return information about the public input.
+    pub fn get_public_input(&self) -> impl Iterator<Item = &PublicInputEntry> {
+        self.input_memory.iter()
+    }
+
+    /// Return information about the public input.
+    pub fn get_public_output(&self) -> impl Iterator<Item = &PublicOutputEntry> {
+        self.output_memory.iter()
+    }
+
+    /// Return information about the exit code.
+    pub fn get_exit_code(&self) -> impl Iterator<Item = &PublicOutputEntry> {
+        self.exit_code.iter()
+    }
+
+    /// Returns addresses in elf where LOAD is allowed
+    pub fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
+        self.static_rom_addresses.clone()
+    }
+
+    /// Returns addresses in elf wehre LOAD and STORE are allowed
+    pub fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        self.static_ram_addresses.clone()
+    }
+
+    /// Returns union of get_static_{rom,ram}_addresses
+    pub fn get_elf_rom_ram_addresses(&self) -> impl Iterator<Item = u32> {
+        self.get_static_rom_addresses()
+            .chain(self.get_static_ram_addresses())
     }
 }
 
@@ -240,12 +307,6 @@ pub trait Emulator {
     /// Return a mutable reference to the internal executor component used by the emulator.
     fn get_executor_mut(&mut self) -> &mut Executor;
 
-    /// Return information about the structure of the program memory.
-    fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_>;
-
-    /// Return information about the public input.
-    fn get_public_input(&self) -> impl Iterator<Item = PublicInputEntry>;
-
     /// Execute an entire basic block.
     fn execute_basic_block(
         &mut self,
@@ -346,17 +407,8 @@ pub trait Emulator {
         prev
     }
 
-    /// Returns addresses in elf where LOAD is allowed
-    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32>;
-
-    /// Returns addresses in elf wehre LOAD and STORE are allowed
-    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32>;
-
-    /// Returns union of get_static_{rom,ram}_addresses
-    fn get_elf_rom_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        self.get_static_rom_addresses()
-            .chain(self.get_static_ram_addresses())
-    }
+    /// Return a `View` capturing the end-state of the emulator.
+    fn finalize(&self) -> View;
 }
 
 #[derive(Debug)]
@@ -507,10 +559,6 @@ impl HarvardEmulator {
         emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
         emulator
     }
-
-    pub fn get_output(&self) -> Result<Vec<u8>, MemoryError> {
-        self.output_memory.segment_bytes(0, None)
-    }
 }
 
 impl Emulator for HarvardEmulator {
@@ -652,40 +700,65 @@ impl Emulator for HarvardEmulator {
         &mut self.executor
     }
 
-    /// Return information about the structure of the program memory.
-    fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_> {
-        ProgramInfo {
-            initial_pc: self.executor.entrypoint,
-            program: self
-                .instruction_memory
-                .segment(self.executor.base_address, None)
+    /// Return a `View` capturing the end-state of the emulator.
+    fn finalize(&self) -> View {
+        let mut exit_code: Vec<PublicOutputEntry> = Vec::new();
+        let mut output_memory: Vec<PublicOutputEntry> = Vec::new();
+
+        if let Ok(bytes) = self.output_memory.segment_bytes(0, None) {
+            if let Some((ec, om)) = bytes.split_first_chunk::<4>() {
+                exit_code = ec
+                    .iter()
+                    .enumerate()
+                    .map(|(addr, byte)| PublicOutputEntry {
+                        address: addr as u32,
+                        value: *byte,
+                    })
+                    .collect();
+
+                output_memory = om
+                    .iter()
+                    .enumerate()
+                    .map(|(addr, byte)| PublicOutputEntry {
+                        address: addr as u32,
+                        value: *byte,
+                    })
+                    .collect();
+            }
+        }
+
+        View {
+            memory_layout: None,
+            static_rom_addresses: self.static_rom_base
+                ..(self.static_rom_base + self.static_rom_size),
+            static_ram_addresses: self.static_ram_base
+                ..(self.static_ram_base + self.static_ram_size),
+            program_memory: ProgramInfo {
+                initial_pc: self.executor.entrypoint,
+                program: self
+                    .instruction_memory
+                    .segment(self.executor.base_address, None)
+                    .iter()
+                    .enumerate()
+                    .map(|(pc_offset, instruction)| ProgramMemoryEntry {
+                        pc: self.executor.base_address + (pc_offset * WORD_SIZE) as u32,
+                        instruction_word: *instruction,
+                    })
+                    .collect(),
+            },
+            input_memory: self
+                .input_memory
+                .segment_bytes(0, None)
                 .iter()
                 .enumerate()
-                .map(|(pc_offset, instruction)| ProgramMemoryEntry {
-                    pc: self.executor.base_address + (pc_offset * WORD_SIZE) as u32,
-                    instruction_word: *instruction,
-                }),
+                .map(|(i, byte)| PublicInputEntry {
+                    address: self.input_memory.base_address + i as u32,
+                    value: *byte,
+                })
+                .collect(),
+            exit_code,
+            output_memory,
         }
-    }
-
-    /// Return information about the public input
-    fn get_public_input(&self) -> impl Iterator<Item = PublicInputEntry> {
-        self.input_memory
-            .segment_bytes(0, None)
-            .into_iter()
-            .enumerate()
-            .map(|(i, byte)| PublicInputEntry {
-                address: self.input_memory.base_address + i as u32,
-                value: byte,
-            })
-    }
-
-    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
-        self.static_rom_base..(self.static_rom_base + self.static_rom_size)
-    }
-
-    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        self.static_ram_base..(self.static_ram_base + self.static_ram_size)
     }
 }
 
@@ -728,7 +801,7 @@ impl LinearEmulator {
         let public_input = emulator_harvard
             .input_memory
             .segment_bytes(WORD_SIZE as u32, None); // exclude the first word which is the length
-        let output_memory = emulator_harvard.get_output()?;
+        let output_memory = emulator_harvard.output_memory.segment_bytes(0, None)?; // grab the whole output segment, exit code included
 
         // Replace custom instructions `rin` and `wou` with `lw` and `sw`.
         let instructions = compiled_elf
@@ -939,15 +1012,6 @@ impl LinearEmulator {
         emulator.executor.cpu.pc.value = emulator.executor.entrypoint;
         emulator
     }
-
-    /// Returns the output memory segment.
-    pub fn get_output(&self) -> Result<Vec<u8>, MemoryError> {
-        self.memory.segment_bytes(
-            (Modes::WO as usize, 0),
-            self.memory_layout.exit_code(),
-            Some(self.memory_layout.public_output_end()),
-        )
-    }
 }
 
 impl Emulator for LinearEmulator {
@@ -1065,63 +1129,94 @@ impl Emulator for LinearEmulator {
         &mut self.executor
     }
 
-    /// Return information about the structure of the program memory.
-    fn get_program_memory(&self) -> ProgramInfo<impl Iterator<Item = ProgramMemoryEntry> + '_> {
-        ProgramInfo {
-            initial_pc: self.memory_layout.program_start(),
-            program: self
+    /// Return a `View` capturing the end-state of the emulator.
+    fn finalize(&self) -> View {
+        let mut exit_code: Vec<PublicOutputEntry> = Vec::new();
+        let mut output_memory: Vec<PublicOutputEntry> = Vec::new();
+
+        if let Ok(bytes) = self.memory.segment_bytes(
+            (Modes::WO as usize, 0),
+            self.memory_layout.exit_code(),
+            Some(self.memory_layout.public_output_end()),
+        ) {
+            if let Some((ec, om)) = bytes.split_first_chunk::<4>() {
+                exit_code = ec
+                    .iter()
+                    .enumerate()
+                    .map(|(i, byte)| PublicOutputEntry {
+                        address: self.memory_layout.exit_code() + i as u32,
+                        value: *byte,
+                    })
+                    .collect();
+
+                output_memory = om
+                    .iter()
+                    .enumerate()
+                    .map(|(i, byte)| PublicOutputEntry {
+                        address: self.memory_layout.exit_code() + i as u32,
+                        value: *byte,
+                    })
+                    .collect();
+            }
+        }
+
+        View {
+            memory_layout: Some(self.memory_layout),
+            static_rom_addresses: (|| {
+                let Some(uidx) = self.static_rom_image_index else {
+                    return 0u32..0u32;
+                };
+                self.memory.addresses_bytes(uidx).unwrap()
+            })(),
+            static_ram_addresses: (|| {
+                let Some(uidx) = self.static_ram_image_index else {
+                    return 0u32..0u32;
+                };
+                self.memory.addresses_bytes(uidx).unwrap()
+            })(),
+            program_memory: ProgramInfo {
+                initial_pc: self.memory_layout.program_start(),
+                program: self
+                    .memory
+                    .segment(
+                        self.instruction_index,
+                        self.memory_layout.program_start(),
+                        None,
+                    )
+                    .expect("Cannot find program memory in LinearEmulator")
+                    .iter()
+                    .enumerate()
+                    .map(|(pc_offset, instruction)| ProgramMemoryEntry {
+                        pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
+                        instruction_word: *instruction,
+                    })
+                    .collect(),
+            },
+            input_memory: self
                 .memory
                 .segment(
-                    self.instruction_index,
-                    self.memory_layout.program_start(),
-                    None,
+                    self.public_input_index,
+                    self.memory_layout.public_input_start(),
+                    Some(self.memory_layout.public_input_end()),
                 )
-                .expect("Cannot find program memory in LinearEmulator")
+                .expect("Cannot find public input in LinearEmulator")
                 .iter()
                 .enumerate()
-                .map(|(pc_offset, instruction)| ProgramMemoryEntry {
-                    pc: self.memory_layout.program_start() + (pc_offset * WORD_SIZE) as u32,
-                    instruction_word: *instruction,
-                }),
+                .flat_map(|(i, byte)| {
+                    let base_address =
+                        self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
+                    let word = byte.to_le_bytes();
+                    word.into_iter()
+                        .enumerate()
+                        .map(move |(j, byte)| PublicInputEntry {
+                            address: base_address + j as u32,
+                            value: byte,
+                        })
+                })
+                .collect(),
+            exit_code,
+            output_memory,
         }
-    }
-
-    /// Return information about the public input
-    fn get_public_input(&self) -> impl Iterator<Item = PublicInputEntry> {
-        self.memory
-            .segment(
-                self.public_input_index,
-                self.memory_layout.public_input_start(),
-                Some(self.memory_layout.public_input_end()),
-            )
-            .expect("Cannot find public input in LinearEmulator")
-            .iter()
-            .enumerate()
-            .flat_map(|(i, byte)| {
-                let base_address =
-                    self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
-                let word = byte.to_le_bytes();
-                word.into_iter()
-                    .enumerate()
-                    .map(move |(j, byte)| PublicInputEntry {
-                        address: base_address + j as u32,
-                        value: byte,
-                    })
-            })
-    }
-
-    fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
-        let Some(uidx) = self.static_rom_image_index else {
-            return 0u32..0u32;
-        };
-        self.memory.addresses_bytes(uidx).unwrap()
-    }
-
-    fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        let Some(uidx) = self.static_ram_image_index else {
-            return 0u32..0u32;
-        };
-        self.memory.addresses_bytes(uidx).unwrap()
     }
 }
 

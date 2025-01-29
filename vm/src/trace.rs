@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cpu::{instructions::InstructionResult, RegisterFile},
     elf::ElfFile,
-    emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout},
+    emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout, View},
     error::{Result, VMError},
     memory::MemoryRecords,
     riscv::{BasicBlock, Instruction},
@@ -287,7 +287,7 @@ pub fn k_trace(
     public_input: &[u8],
     private_input: &[u8],
     k: usize,
-) -> Result<UniformTrace> {
+) -> Result<(View, UniformTrace)> {
     assert!(k > 0);
     let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
 
@@ -312,7 +312,7 @@ pub fn k_trace(
                         }
 
                         match e {
-                            VMError::VMExited(_) => return Ok(trace),
+                            VMError::VMExited(_) => return Ok((linear.finalize(), trace)),
                             _ => return Err(e),
                         }
                     }
@@ -327,7 +327,7 @@ pub fn k_trace(
 }
 
 /// Similar to `k_trace`, but uses HarvardEmulator and supports Intermediate Representation (IR) as input instead of an ELF file.
-pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<UniformTrace> {
+pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<(View, UniformTrace)> {
     let mut harvard = HarvardEmulator::from_basic_blocks(basic_blocks);
 
     let mut trace = UniformTrace {
@@ -346,7 +346,9 @@ pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<Unifor
                 }
 
                 match e {
-                    VMError::VMExited(_) | VMError::VMOutOfInstructions => return Ok(trace),
+                    VMError::VMExited(_) | VMError::VMOutOfInstructions => {
+                        return Ok((harvard.finalize(), trace))
+                    }
                     _ => return Err(e),
                 }
             }
@@ -403,7 +405,7 @@ pub fn bb_trace(
     ad: &[u8],
     public_input: &[u8],
     private_input: &[u8],
-) -> Result<BBTrace> {
+) -> Result<(View, BBTrace)> {
     let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
 
     match harvard.execute() {
@@ -426,7 +428,7 @@ pub fn bb_trace(
                         }
 
                         match e {
-                            VMError::VMExited(_) => return Ok(trace),
+                            VMError::VMExited(_) => return Ok((linear.finalize(), trace)),
                             _ => return Err(e),
                         }
                     }
@@ -441,7 +443,7 @@ pub fn bb_trace(
 }
 
 /// Similar to `bb_trace`, but uses HarvardEmulator and supports Intermediate Representation (IR) as input instead of an ELF file.
-pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<BBTrace> {
+pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<(View, BBTrace)> {
     let mut harvard = HarvardEmulator::from_basic_blocks(basic_blocks);
 
     let mut trace = BBTrace {
@@ -459,11 +461,11 @@ pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<BBTrace> {
                 }
 
                 match e {
-                    VMError::VMExited(_) => return Ok(trace),
+                    VMError::VMExited(_) => return Ok((harvard.finalize(), trace)),
                     _ => return Err(e),
                 }
             }
-            (None, Err(VMError::VMOutOfInstructions)) => return Ok(trace),
+            (None, Err(VMError::VMOutOfInstructions)) => return Ok((harvard.finalize(), trace)),
             (None, Err(e)) => return Err(e),
             (None, Ok(())) => unreachable!(),
         }
@@ -481,7 +483,7 @@ mod tests {
     #[serial]
     fn test_k1_trace_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = k_trace(elf_file, &[], &[], &[], 1).unwrap();
+        let (_, trace) = k_trace(elf_file, &[], &[], &[], 1).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -543,7 +545,7 @@ mod tests {
     #[serial]
     fn test_k8_trace_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = k_trace(elf_file, &[], &[], &[], 8).unwrap();
+        let (_, trace) = k_trace(elf_file, &[], &[], &[], 8).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -607,7 +609,7 @@ mod tests {
     #[serial]
     fn test_bb_trace_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let trace = bb_trace(elf_file, &[], &[], &[]).unwrap();
+        let (_, trace) = bb_trace(elf_file, &[], &[], &[]).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -703,7 +705,7 @@ mod tests {
     #[test]
     fn test_bb_trace_direct_from_basic_block_ir() {
         let basic_blocks = setup_basic_block_ir();
-        let trace = bb_trace_direct(&basic_blocks).expect("Failed to create trace");
+        let (_, trace) = bb_trace_direct(&basic_blocks).expect("Failed to create trace");
 
         let first_step = trace.blocks[0].steps.first().expect("No steps in trace");
         assert_eq!(first_step.result, Some(1), "Unexpected Fibonacci result",);
@@ -721,7 +723,7 @@ mod tests {
     fn test_k1_trace_direct_from_basic_block_ir() {
         let basic_block = setup_basic_block_ir();
         let k = 1;
-        let trace = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let (_, trace) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         let first_block = trace.blocks.first().expect("No blocks in trace");
         let first_step = first_block.steps.first().expect("No steps in trace");
@@ -744,7 +746,7 @@ mod tests {
         // For k=4, the trace block is completed by padding with UNIMPL instructions if necessary.
         let k = 4;
 
-        let trace = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let (_, trace) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         let first_block = trace.blocks.first().expect("No blocks in trace");
         let first_step = first_block.steps.first().expect("No steps in trace");
@@ -777,7 +779,7 @@ mod tests {
         ])];
 
         let k = 8;
-        let trace = k_trace_direct(&basic_block, k).expect("Failed to create trace");
+        let (_, trace) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
 
         let first_block = trace.blocks.first().expect("No blocks in trace");
         let first_step = first_block.steps.first().expect("No steps in trace");

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nexus_vm::{
-    emulator::{Emulator, HarvardEmulator},
+    emulator::View,
     riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
     trace::{k_trace_direct, UniformTrace},
 };
@@ -45,9 +45,8 @@ criterion_main!(trace_gen);
 
 fn bench_trace_gen(c: &mut Criterion) {
     let blocks = program_trace();
-    let execution_trace = k_trace_direct(&blocks, K).expect("error generating trace");
+    let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
 
-    let emulator = HarvardEmulator::from_basic_blocks(&blocks);
     for &log_size in LOG_SIZES {
         let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
         group.sample_size(10);
@@ -56,8 +55,8 @@ fn bench_trace_gen(c: &mut Criterion) {
             b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
-        let program_memory_iter = emulator.get_program_memory();
-        let mut program_traces = ProgramTracesBuilder::new(log_size, program_memory_iter);
+        let program_info = view.get_program_info();
+        let mut program_traces = ProgramTracesBuilder::new(log_size, program_info);
 
         group.bench_function("MainTrace", |b| {
             b.iter(|| {
@@ -66,7 +65,7 @@ fn bench_trace_gen(c: &mut Criterion) {
                     &mut prover_traces,
                     &execution_trace,
                     &mut program_traces,
-                    black_box(&emulator),
+                    black_box(&view),
                 );
             })
         });
@@ -76,7 +75,7 @@ fn bench_trace_gen(c: &mut Criterion) {
             &mut prover_traces,
             &execution_trace,
             &mut program_traces,
-            black_box(&emulator),
+            black_box(&view),
         );
 
         group.bench_function("FinalizeTrace", |b| {
@@ -103,17 +102,15 @@ fn bench_trace_gen(c: &mut Criterion) {
     }
 }
 
-fn fill_main_trace<E>(
+fn fill_main_trace(
     prover_traces: &mut TracesBuilder,
     execution_trace: &UniformTrace,
     program_memory: &mut ProgramTracesBuilder,
-    emulator: &E,
-) where
-    E: Emulator,
-{
+    view: &View,
+) {
     let mut prover_side_note = SideNote::new(
         program_memory,
-        emulator,
+        view,
         execution_trace.memory_layout.public_output_addresses(),
     );
     let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());

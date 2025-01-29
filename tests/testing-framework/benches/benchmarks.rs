@@ -138,7 +138,7 @@ fn run_benchmark(
     // Measure emulation time.
     let start_usage = start_timer(RUSAGE_SELF);
     let start = Instant::now();
-    let (cycles, _) = emulate(
+    let (cycles, _, _) = emulate(
         vec![elf],
         public_input,
         private_input,

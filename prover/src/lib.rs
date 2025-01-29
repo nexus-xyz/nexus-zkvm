@@ -17,15 +17,15 @@ pub use machine::Proof;
 
 pub use stwo_prover::core::prover::{ProvingError, VerificationError};
 
-pub fn prove<E: nexus_vm::emulator::Emulator, I>(
+pub fn prove<I>(
     trace: &impl nexus_vm::trace::Trace,
-    emulator: &E,
+    view: &nexus_vm::emulator::View,
     public_output_addresses: I,
 ) -> Result<Proof, ProvingError>
 where
     I: IntoIterator<Item = u32>,
 {
-    machine::Machine::<machine::BaseComponents>::prove(trace, emulator, public_output_addresses)
+    machine::Machine::<machine::BaseComponents>::prove(trace, view, public_output_addresses)
 }
 
 pub fn verify(proof: Proof) -> Result<(), VerificationError> {

@@ -11,3 +11,4 @@ categories = { workspace = true }
 
 [dependencies]
 nexus-vm = { path = "../vm" }
+nexus-vm-prover = { path = "../prover" }

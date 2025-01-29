@@ -32,14 +32,11 @@ pub struct ProgramTracesBuilder {
 
 impl ProgramTracesBuilder {
     pub fn dummy(log_size: u32) -> Self {
-        Self::new(log_size, ProgramInfo::dummy())
+        Self::new(log_size, &ProgramInfo::dummy())
     }
 
     /// Returns [`ProgramColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with program content.
-    pub fn new(
-        log_size: u32,
-        program: ProgramInfo<impl IntoIterator<Item = ProgramMemoryEntry>>,
-    ) -> Self {
+    pub fn new(log_size: u32, program_info: &ProgramInfo) -> Self {
         assert!(log_size >= LOG_N_LANES);
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; ProgramColumn::COLUMNS_NUM];
         let builder = TracesBuilder { cols, log_size };
@@ -49,26 +46,26 @@ impl ProgramTracesBuilder {
             num_instructions: 0usize,
         };
 
-        ret.fill_program_columns(0, program.initial_pc, ProgramColumn::PrgInitialPc);
+        ret.fill_program_columns(0, program_info.initial_pc, ProgramColumn::PrgInitialPc);
         for (
             row_idx,
             ProgramMemoryEntry {
                 pc,
                 instruction_word,
             },
-        ) in program.program.into_iter().enumerate()
+        ) in program_info.program.iter().enumerate()
         {
             if row_idx == 0 {
-                ret.pc_offset = pc;
+                ret.pc_offset = *pc;
             }
             ret.num_instructions += 1;
             assert_eq!(
                 row_idx * WORD_SIZE + ret.pc_offset as usize,
-                pc as usize,
+                *pc as usize,
                 "The program is assumed to be in contiguous memory."
             );
-            ret.fill_program_columns(row_idx, pc, ProgramColumn::PrgMemoryPc);
-            ret.fill_program_columns(row_idx, instruction_word, ProgramColumn::PrgMemoryWord);
+            ret.fill_program_columns(row_idx, *pc, ProgramColumn::PrgMemoryPc);
+            ret.fill_program_columns(row_idx, *instruction_word, ProgramColumn::PrgMemoryWord);
             ret.fill_program_columns(row_idx, true, ProgramColumn::PrgMemoryFlag);
         }
         ret

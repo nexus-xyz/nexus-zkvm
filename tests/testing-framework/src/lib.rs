@@ -37,7 +37,7 @@ fn emulate_wrapper<T: Input, U: Input, V: Output>(
     };
 
     // Run emulation
-    let (_, output_bytes) = emulate(
+    let (_, exit_code_bytes, output_bytes) = emulate(
         elfs,
         public_input_bytes,
         private_input_bytes,
@@ -46,7 +46,8 @@ fn emulate_wrapper<T: Input, U: Input, V: Output>(
     );
 
     // Parse and verify output
-    let (exit_code, output) = parse_output::<V>(output_bytes).expect("Failed to parse output");
+    let (exit_code, output) =
+        parse_output::<V>(exit_code_bytes, output_bytes).expect("Failed to parse output");
     if let Some(expected) = &io_args.expected_output {
         assert_eq!(
             output.as_ref(),
