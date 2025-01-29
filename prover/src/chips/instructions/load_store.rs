@@ -197,6 +197,30 @@ impl MachineChip for LoadStoreChip {
         );
         eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed));
 
+        // Constraints for RAM vs public I/O consistency
+        let [public_input_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
+        let [public_output_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicOutputFlag);
+        let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
+        let public_input_output_addr =
+            program_trace_eval!(trace_eval, ProgramColumn::PublicInputOutputAddr);
+        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_1 - public_input_output_addr_1) = 0
+        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_2 - public_input_output_addr_2) = 0
+        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_3 - public_input_output_addr_3) = 0
+        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_4 - public_input_output_addr_4) = 0
+        for i in 0..WORD_SIZE {
+            eval.add_constraint(
+                (public_input_flag.clone() + public_output_flag.clone())
+                    * (ram_init_final_addr[i].clone() - public_input_output_addr[i].clone()),
+            );
+        }
+        // public_output_flag ・(ram_final_value - public_output_value) = 0
+        let [ram_final_value] = trace_eval!(trace_eval, Column::RamFinalValue);
+        let [public_output_value] =
+            program_trace_eval!(trace_eval, ProgramColumn::PublicOutputValue);
+        eval.add_constraint(
+            public_output_flag.clone() * (ram_final_value.clone() - public_output_value.clone()),
+        );
+
         let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
         let mut logup =
             LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
