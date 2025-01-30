@@ -41,6 +41,7 @@ pub enum SyscallCode {
     CycleCount = 1025,
     OverwriteStackPointer = 1026,
     OverwriteHeapPointer = 1027,
+    ReadFromAuxiliaryInput = 1028,
 }
 
 impl SyscallCode {
@@ -52,6 +53,7 @@ impl SyscallCode {
             1025 => SyscallCode::CycleCount,
             1026 => SyscallCode::OverwriteStackPointer,
             1027 => SyscallCode::OverwriteHeapPointer,
+            //1028 => SyscallCode::ReadFromAuxiliaryInput,
             _ => return Err(VMError::UnimplementedSyscall(value, pc)),
         };
         Ok(code)
@@ -67,6 +69,7 @@ impl From<SyscallCode> for u32 {
             SyscallCode::CycleCount => 1025,
             SyscallCode::OverwriteStackPointer => 1026,
             SyscallCode::OverwriteHeapPointer => 1027,
+            SyscallCode::ReadFromAuxiliaryInput => 1028,
         }
     }
 }
@@ -306,6 +309,8 @@ impl SyscallInstruction {
             }
 
             SyscallCode::OverwriteHeapPointer => self.execute_overwrite_heap_pointer(memory_layout),
+
+            SyscallCode::ReadFromAuxiliaryInput => unreachable!(), // unreachable since parsing of the code will fail
         }
     }
 
