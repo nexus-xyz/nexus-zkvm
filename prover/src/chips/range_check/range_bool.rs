@@ -11,9 +11,9 @@ use crate::{
             IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu,
             IsLh, IsLhu, IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra,
             IsSrl, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC11, OpC12, OpC20, OpC4,
-            PcCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed, RamInitFinalFlag,
-            Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1,
-            ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
+            PcCarry, ProgCtrCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed,
+            RamInitFinalFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
+            ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -87,7 +87,15 @@ const CHECKED_SINGLE: [Column; 50] = [
     ShiftBit5,
     RamInitFinalFlag,
 ];
-const CHECKED_WORD: [Column; 6] = [CarryFlag, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, PcCarry];
+const CHECKED_WORD: [Column; 7] = [
+    CarryFlag,
+    BorrowFlag,
+    CH1Minus,
+    CH2Minus,
+    CH3Minus,
+    PcCarry,
+    ProgCtrCarry,
+];
 const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
