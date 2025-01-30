@@ -21,11 +21,13 @@ use stwo_prover::{
 };
 
 use crate::{
+    chips::timestamp::decr_subtract_with_borrow,
     column::{
         Column::{
-            self, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsSb, IsSh, IsSw, Ram1Accessed, Ram1TsPrev,
-            Ram1ValCur, Ram1ValPrev, Ram2Accessed, Ram2TsPrev, Ram2ValCur, Ram2ValPrev,
-            Ram3Accessed, Ram3TsPrev, Ram3ValCur, Ram3ValPrev, Ram4Accessed, Ram4TsPrev,
+            self, Helper1, Helper2, Helper3, Helper4, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsSb, IsSh,
+            IsSw, Ram1Accessed, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2Accessed,
+            Ram2TsPrev, Ram2TsPrevAux, Ram2ValCur, Ram2ValPrev, Ram3Accessed, Ram3TsPrev,
+            Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev, Ram4Accessed, Ram4TsPrev, Ram4TsPrevAux,
             Ram4ValCur, Ram4ValPrev,
         },
         PreprocessedColumn, ProgramColumn,
@@ -167,7 +169,7 @@ impl MachineChip for LoadStoreChip {
                 + is_lbu.clone()
                 + is_lhu.clone()
                 + is_lw.clone())
-                * (E::F::one() - ram1_accessed),
+                * (E::F::one() - ram1_accessed.clone()),
         );
         // Constrain the value of Ram2Accessed to be true for multi-byte memory access; false for single-byte memory access.
         let [ram2_accessed] = trace_eval!(trace_eval, Ram2Accessed);
@@ -176,7 +178,7 @@ impl MachineChip for LoadStoreChip {
         );
         eval.add_constraint(
             (is_sh.clone() + is_sw.clone() + is_lh.clone() + is_lhu.clone() + is_lw.clone())
-                * (E::F::one() - ram2_accessed),
+                * (E::F::one() - ram2_accessed.clone()),
         );
         // Constrain the value of Ram3Accessed to be true for word memory access; false for half-word and single-byte memory access.
         let [ram3_accessed] = trace_eval!(trace_eval, Ram3Accessed);
@@ -189,13 +191,15 @@ impl MachineChip for LoadStoreChip {
                 + is_lbu.clone())
                 * ram3_accessed.clone(),
         );
-        eval.add_constraint((is_sw.clone() + is_lw.clone()) * (E::F::one() - ram3_accessed));
+        eval.add_constraint(
+            (is_sw.clone() + is_lw.clone()) * (E::F::one() - ram3_accessed.clone()),
+        );
         // Constrain the value of Ram4Accessed to be true for word memory access; false for half-word and single-byte memory access.
         let [ram4_accessed] = trace_eval!(trace_eval, Ram4Accessed);
         eval.add_constraint(
             (is_sb + is_sh + is_lb + is_lbu + is_lh + is_lhu) * ram4_accessed.clone(),
         );
-        eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed));
+        eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed.clone()));
 
         // Constraints for RAM vs public I/O consistency
         let [public_input_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
@@ -220,6 +224,141 @@ impl MachineChip for LoadStoreChip {
         eval.add_constraint(
             public_output_flag.clone() * (ram_final_value.clone() - public_output_value.clone()),
         );
+
+        // Computing ram1_ts_prev_aux = clk - 1 - ram1_ts_prev
+        // Helper1 used for borrow handling
+        let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
+        let ram1_ts_prev = trace_eval!(trace_eval, Ram1TsPrev);
+        let ram1_ts_prev_aux = trace_eval!(trace_eval, Ram1TsPrevAux);
+        let helper1 = trace_eval!(trace_eval, Column::Helper1);
+        // ram1_ts_prev_aux_1 + 1    + ram1_ts_prev_1 = clk_1 + h1_1・2^8 (conditioned on ram1_accessed != 0)
+        eval.add_constraint(
+            ram1_accessed.clone()
+                * (ram1_ts_prev_aux[0].clone() + E::F::one() + ram1_ts_prev[0].clone()
+                    - clk[0].clone()
+                    - helper1[0].clone() * BaseField::from(1 << 8)),
+        );
+        // ram1_ts_prev_aux_2 + h1_1 + ram1_ts_prev_2 = clk_2 + h1_2・2^8 (conditioned on ram1_accessed != 0)
+        // ram1_ts_prev_aux_3 + h1_2 + ram1_ts_prev_3 = clk_3 + h1_3・2^8 (conditioned on ram1_accessed != 0)
+        // ram1_ts_prev_aux_4 + h1_3 + ram1_ts_prev_4 = clk_4 + h1_4・2^8 (conditioned on ram1_accessed != 0)
+        for i in 1..WORD_SIZE {
+            eval.add_constraint(
+                ram1_accessed.clone()
+                    * (ram1_ts_prev_aux[i].clone()
+                        + helper1[i - 1].clone()
+                        + ram1_ts_prev[i].clone()
+                        - clk[i].clone()
+                        - helper1[i].clone() * BaseField::from(1 << 8)),
+            );
+        }
+        // h1_1・(h1_1 - 1) = 0; h1_2・(h1_2 - 1) = 0 (conditioned on ram1_accessed != 0)
+        // h1_3・(h1_3 - 1) = 0; h1_4 = 0 (conditioned on ram1_accessed != 0)
+        for helper_limb in helper1.iter().take(WORD_SIZE - 1) {
+            eval.add_constraint(
+                helper_limb.clone() * (helper_limb.clone() - E::F::one()) * ram1_accessed.clone(),
+            );
+        }
+        eval.add_constraint(helper1[WORD_SIZE - 1].clone() * ram1_accessed.clone());
+
+        // Computing ram2_ts_prev_aux = clk - 1 - ram2_ts_prev
+        // Helper2 used for borrow handling
+        let ram2_ts_prev = trace_eval!(trace_eval, Ram2TsPrev);
+        let ram2_ts_prev_aux = trace_eval!(trace_eval, Ram2TsPrevAux);
+        let helper2 = trace_eval!(trace_eval, Column::Helper2);
+        // ram2_ts_prev_aux_1 + 1    + ram2_ts_prev_1 = clk_1 + h2_1・2^8 (conditioned on ram2_accessed != 0)
+        eval.add_constraint(
+            ram2_accessed.clone()
+                * (ram2_ts_prev_aux[0].clone() + E::F::one() + ram2_ts_prev[0].clone()
+                    - clk[0].clone()
+                    - helper2[0].clone() * BaseField::from(1 << 8)),
+        );
+        // ram2_ts_prev_aux_2 + h2_1 + ram2_ts_prev_2 = clk_2 + h2_2・2^8 (conditioned on ram2_accessed != 0)
+        // ram2_ts_prev_aux_3 + h2_2 + ram2_ts_prev_3 = clk_3 + h2_3・2^8 (conditioned on ram2_accessed != 0)
+        // ram2_ts_prev_aux_4 + h2_3 + ram2_ts_prev_4 = clk_4 + h2_4・2^8 (conditioned on ram2_accessed != 0)
+        for i in 1..WORD_SIZE {
+            eval.add_constraint(
+                ram2_accessed.clone()
+                    * (ram2_ts_prev_aux[i].clone()
+                        + helper2[i - 1].clone()
+                        + ram2_ts_prev[i].clone()
+                        - clk[i].clone()
+                        - helper2[i].clone() * BaseField::from(1 << 8)),
+            );
+        }
+        // h2_1・(h2_1 - 1) = 0; h2_2・(h2_2 - 1) = 0 (conditioned on ram2_accessed != 0)
+        // h2_3・(h2_3 - 1) = 0; h2_4 = 0 (conditioned on ram2_accessed != 0)
+        for helper2_limb in helper2.iter().take(WORD_SIZE - 1) {
+            eval.add_constraint(
+                helper2_limb.clone() * (helper2_limb.clone() - E::F::one()) * ram2_accessed.clone(),
+            );
+        }
+        eval.add_constraint(helper2[WORD_SIZE - 1].clone() * ram2_accessed.clone());
+
+        // Computing ram3_ts_prev_aux = clk - 1 - ram3_ts_prev
+        // Helper3 used for borrow handling
+        let ram3_ts_prev = trace_eval!(trace_eval, Ram3TsPrev);
+        let ram3_ts_prev_aux = trace_eval!(trace_eval, Ram3TsPrevAux);
+        let helper3 = trace_eval!(trace_eval, Column::Helper3);
+        // ram3_ts_prev_aux_1 + 1    + ram3_ts_prev_1 = clk_1 + h3_1・2^8 (conditioned on ram3_accessed != 0)
+        eval.add_constraint(
+            ram3_accessed.clone()
+                * (ram3_ts_prev_aux[0].clone() + E::F::one() + ram3_ts_prev[0].clone()
+                    - clk[0].clone()
+                    - helper3[0].clone() * BaseField::from(1 << 8)),
+        );
+        // ram3_ts_prev_aux_2 + h3_1 + ram3_ts_prev_2 = clk_2 + h3_2・2^8 (conditioned on ram3_accessed != 0)
+        // ram3_ts_prev_aux_3 + h3_2 + ram3_ts_prev_3 = clk_3 + h3_3・2^8 (conditioned on ram3_accessed != 0)
+        // ram3_ts_prev_aux_4 + h3_3 + ram3_ts_prev_4 = clk_4 + h3_4・2^8 (conditioned on ram3_accessed != 0)
+        for i in 1..WORD_SIZE {
+            eval.add_constraint(
+                ram3_accessed.clone()
+                    * (ram3_ts_prev_aux[i].clone()
+                        + helper3[i - 1].clone()
+                        + ram3_ts_prev[i].clone()
+                        - clk[i].clone()
+                        - helper3[i].clone() * BaseField::from(1 << 8)),
+            );
+        }
+        // h3_1・(h3_1 - 1) = 0; h3_2・(h3_2 - 1) = 0 (conditioned on ram3_accessed != 0)
+        // h3_3・(h3_3 - 1) = 0; h3_4 = 0 (conditioned on ram3_accessed != 0)
+        for helper3_limb in helper3.iter().take(WORD_SIZE - 1) {
+            eval.add_constraint(
+                helper3_limb.clone() * (helper3_limb.clone() - E::F::one()) * ram3_accessed.clone(),
+            );
+        }
+        eval.add_constraint(helper3[WORD_SIZE - 1].clone() * ram3_accessed.clone());
+
+        // Computing ram4_ts_prev_aux = clk - 1 - ram4_ts_prev
+        // Helper4 used for borrow handling
+        let ram4_ts_prev = trace_eval!(trace_eval, Ram4TsPrev);
+        let ram4_ts_prev_aux = trace_eval!(trace_eval, Ram4TsPrevAux);
+        let helper4 = trace_eval!(trace_eval, Column::Helper4);
+        eval.add_constraint(
+            ram4_accessed.clone()
+                * (ram4_ts_prev_aux[0].clone() + E::F::one() + ram4_ts_prev[0].clone()
+                    - clk[0].clone()
+                    - helper4[0].clone() * BaseField::from(1 << 8)),
+        );
+        for i in 1..WORD_SIZE {
+            eval.add_constraint(
+                ram4_accessed.clone()
+                    * (ram4_ts_prev_aux[i].clone()
+                        + helper4[i - 1].clone()
+                        + ram4_ts_prev[i].clone()
+                        - clk[i].clone()
+                        - helper4[i].clone() * BaseField::from(1 << 8)),
+            );
+        }
+        // h4_1・(h4_1 - 1) = 0; h4_2・(h4_2 - 1) = 0 (conditioned on ram4_accessed != 0)
+        // h4_3・(h4_3 - 1) = 0; h4_4 = 0 (conditioned on ram4_accessed != 0)
+        for helper_4_limb in helper4.iter().take(WORD_SIZE - 1) {
+            eval.add_constraint(
+                helper_4_limb.clone()
+                    * (helper_4_limb.clone() - E::F::one())
+                    * ram4_accessed.clone(),
+            );
+        }
+        eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram4_accessed.clone());
 
         let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
         let mut logup =
@@ -381,11 +520,39 @@ impl LoadStoreChip {
                     .to_le_bytes()
             };
 
-            for (i, (val_cur, val_prev, ts_prev, accessed)) in [
-                (Ram1ValCur, Ram1ValPrev, Ram1TsPrev, Ram1Accessed),
-                (Ram2ValCur, Ram2ValPrev, Ram2TsPrev, Ram2Accessed),
-                (Ram3ValCur, Ram3ValPrev, Ram3TsPrev, Ram3Accessed),
-                (Ram4ValCur, Ram4ValPrev, Ram4TsPrev, Ram4Accessed),
+            for (i, (val_cur, val_prev, ts_prev, accessed, ram_ts_prev_aux, helper)) in [
+                (
+                    Ram1ValCur,
+                    Ram1ValPrev,
+                    Ram1TsPrev,
+                    Ram1Accessed,
+                    Ram1TsPrevAux,
+                    Helper1,
+                ),
+                (
+                    Ram2ValCur,
+                    Ram2ValPrev,
+                    Ram2TsPrev,
+                    Ram2Accessed,
+                    Ram2TsPrevAux,
+                    Helper2,
+                ),
+                (
+                    Ram3ValCur,
+                    Ram3ValPrev,
+                    Ram3TsPrev,
+                    Ram3Accessed,
+                    Ram3TsPrevAux,
+                    Helper3,
+                ),
+                (
+                    Ram4ValCur,
+                    Ram4ValPrev,
+                    Ram4TsPrev,
+                    Ram4Accessed,
+                    Ram4TsPrevAux,
+                    Helper4,
+                ),
             ]
             .into_iter()
             .take(size)
@@ -395,6 +562,13 @@ impl LoadStoreChip {
                 traces.fill_columns(row_idx, prev_value[i], val_prev);
                 traces.fill_columns(row_idx, memory_record.get_prev_timestamp(), ts_prev);
                 traces.fill_columns(row_idx, true, accessed);
+                let (ram_ts_prev_aux_word, helper_word) = decr_subtract_with_borrow(
+                    clk.to_le_bytes(),
+                    memory_record.get_prev_timestamp().to_le_bytes(),
+                );
+                traces.fill_columns(row_idx, ram_ts_prev_aux_word, ram_ts_prev_aux);
+                traces.fill_columns(row_idx, helper_word, helper);
+
                 let prev_access = side_note.rw_mem_check.last_access.insert(
                     byte_address
                         .checked_add(i as u32)

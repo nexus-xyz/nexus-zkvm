@@ -168,6 +168,9 @@ pub enum Column {
     /// Helper variable 3. Called h_3 in document.
     #[size = 4]
     Helper3,
+    /// Helper variable 4. Called h_4 in document.
+    #[size = 4]
+    Helper4,
     /// Signed bit of A.
     #[size = 1]
     SgnA,
@@ -385,6 +388,18 @@ pub enum Column {
     /// The previous timestamp of the read-write memory at RamBaseAddr + 3, if accessed
     #[size = 4]
     Ram4TsPrev,
+    /// Auxiliary columns for comparing Ram1TsPrev and Clk
+    #[size = 4]
+    Ram1TsPrevAux,
+    /// Auxiliary columns for comparing Ram2TsPrev and Clk
+    #[size = 4]
+    Ram2TsPrevAux,
+    /// Auxiliary columns for comparing Ram3TsPrev and Clk
+    #[size = 4]
+    Ram3TsPrevAux,
+    /// Auxiliary columns for comparing Ram4TsPrev and Clk
+    #[size = 4]
+    Ram4TsPrevAux,
     /// The flag indicating whether the read-write memory at RamBaseAddr is accessed
     #[size = 1]
     Ram1Accessed,
