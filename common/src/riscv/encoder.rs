@@ -58,10 +58,10 @@ fn encode_s_type(instruction: &Instruction) -> u32 {
     let funct3 = (instruction.opcode.fn3.value() as u32) << 12;
     let rs1 = (instruction.op_a as u32 & 0x1F) << 15;
     let rs2 = (instruction.op_b as u32 & 0x1F) << 20;
-    let imm_lo = (instruction.op_c & 0x1F) << 7;
-    let imm_hi = (instruction.op_c & 0xFE0) << 20;
+    let imm_4_0 = (instruction.op_c & 0x1F) << 7;
+    let imm_11_5 = (instruction.op_c & 0xFE0) << 20;
 
-    opcode | imm_lo | funct3 | rs1 | rs2 | imm_hi
+    imm_11_5 | rs2 | rs1 | funct3 | imm_4_0 | opcode
 }
 
 /// Encodes a B-type instruction into its binary representation.
