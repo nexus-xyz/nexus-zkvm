@@ -133,8 +133,8 @@ mod test {
 
     use crate::{
         chips::{
-            CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, TimestampChip,
-            TypeIChip, TypeRChip,
+            CpuChip, DecodingCheckChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip,
+            TimestampChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -204,8 +204,7 @@ mod test {
     fn test_k_trace_constrained_add_instructions() {
         type Chips = (
             CpuChip,
-            TypeIChip,
-            TypeRChip,
+            DecodingCheckChip,
             AddChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,

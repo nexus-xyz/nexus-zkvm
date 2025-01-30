@@ -24,9 +24,9 @@ use nexus_vm::{emulator::View, trace::Trace};
 
 use super::chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
-    JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
-    RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, TimestampChip,
-    TypeBChip, TypeIChip, TypeJChip, TypeRChip, TypeSChip, TypeSysChip, TypeUChip,
+    DecodingCheckChip, JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip,
+    RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip,
+    TimestampChip,
 };
 use super::components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use super::traits::MachineChip;
@@ -34,13 +34,7 @@ use super::traits::MachineChip;
 /// Base components tuple for constraining virtual machine execution based on RV32I ISA.
 pub type BaseComponents = (
     CpuChip,
-    TypeRChip,
-    TypeUChip,
-    TypeIChip,
-    TypeJChip,
-    TypeBChip,
-    TypeSysChip,
-    TypeSChip,
+    DecodingCheckChip,
     AddChip,
     SubChip,
     SltuChip,

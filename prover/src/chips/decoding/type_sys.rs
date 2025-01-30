@@ -95,8 +95,8 @@ mod test {
 
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip,
-            TimestampChip, TypeIChip, TypeRChip,
+            AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip, TimestampChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -127,9 +127,7 @@ mod test {
     fn test_k_trace_decode_sys_instructions() {
         type Chips = (
             CpuChip,
-            TypeIChip,
-            TypeRChip,
-            TypeSysChip,
+            DecodingCheckChip,
             AddChip,
             RegisterMemCheckChip,
             ProgramMemCheckChip,

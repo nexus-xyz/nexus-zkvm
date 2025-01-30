@@ -107,7 +107,7 @@ impl MachineChip for AuipcChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeUChip},
+        chips::{CpuChip, DecodingCheckChip, ProgramMemCheckChip, RegisterMemCheckChip},
         test_utils::assert_chip,
         trace::{
             program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
@@ -147,7 +147,7 @@ mod test {
     fn test_k_trace_constrained_auipc_instructions() {
         type Chips = (
             CpuChip,
-            TypeUChip,
+            DecodingCheckChip,
             AuipcChip,
             ProgramMemCheckChip,
             RegisterMemCheckChip,

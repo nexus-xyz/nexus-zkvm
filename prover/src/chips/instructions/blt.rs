@@ -215,8 +215,8 @@ impl MachineChip for BltChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SubChip,
-            TypeBChip,
+            AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
@@ -285,7 +285,7 @@ mod test {
     fn test_k_trace_constrained_blt_instructions() {
         type Chips = (
             CpuChip,
-            TypeBChip,
+            DecodingCheckChip,
             AddChip,
             SubChip,
             BltChip,

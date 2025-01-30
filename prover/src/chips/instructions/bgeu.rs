@@ -155,7 +155,9 @@ impl MachineChip for BgeuChip {
 #[cfg(test)]
 mod test {
     use crate::{
-        chips::{AddChip, CpuChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip, TypeBChip},
+        chips::{
+            AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RegisterMemCheckChip, SubChip,
+        },
         test_utils::assert_chip,
         trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
@@ -223,7 +225,7 @@ mod test {
     fn test_k_trace_constrained_bgeu_instructions() {
         type Chips = (
             CpuChip,
-            TypeBChip,
+            DecodingCheckChip,
             AddChip,
             SubChip,
             BgeuChip,

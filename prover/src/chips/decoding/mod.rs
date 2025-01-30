@@ -8,7 +8,12 @@ mod type_s;
 mod type_sys;
 mod type_u;
 
-pub use self::{
-    type_b::TypeBChip, type_i::TypeIChip, type_j::TypeJChip, type_r::TypeRChip, type_s::TypeSChip,
-    type_sys::TypeSysChip, type_u::TypeUChip,
-};
+pub type DecodingCheckChip = (
+    type_r::TypeRChip,
+    type_i::TypeIChip,
+    type_s::TypeSChip,
+    type_b::TypeBChip,
+    type_u::TypeUChip,
+    type_j::TypeJChip,
+    type_sys::TypeSysChip,
+);

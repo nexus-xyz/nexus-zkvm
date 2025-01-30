@@ -322,8 +322,8 @@ impl MachineChip for SraChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SllChip,
-            SubChip, TypeIChip, TypeRChip,
+            AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip, SllChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
@@ -378,8 +378,7 @@ mod test {
     fn test_k_trace_constrained_sra_instructions() {
         type Chips = (
             CpuChip,
-            TypeIChip,
-            TypeRChip,
+            DecodingCheckChip,
             SubChip,
             AddChip,
             SraChip,

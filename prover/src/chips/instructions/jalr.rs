@@ -201,8 +201,8 @@ impl MachineChip for JalrChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, LuiChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip,
-            TypeIChip,
+            AddChip, CpuChip, DecodingCheckChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip,
         },
         test_utils::assert_chip,
         trace::{program::iter_program_steps, PreprocessedTraces},
@@ -260,7 +260,7 @@ mod test {
     fn test_k_trace_constrained_jalr_instructions() {
         type Chips = (
             CpuChip,
-            TypeIChip,
+            DecodingCheckChip,
             AddChip,
             LuiChip,
             JalrChip,

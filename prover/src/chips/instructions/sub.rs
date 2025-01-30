@@ -137,7 +137,9 @@ impl MachineChip for SubChip {
 mod test {
     use super::*;
     use crate::{
-        chips::{cpu::CpuChip, AddChip, ProgramMemCheckChip, RegisterMemCheckChip, TypeRChip},
+        chips::{
+            cpu::CpuChip, AddChip, DecodingCheckChip, ProgramMemCheckChip, RegisterMemCheckChip,
+        },
         test_utils::assert_chip,
         trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
     };
@@ -192,7 +194,7 @@ mod test {
     fn test_k_trace_constrained_sub_instructions() {
         type Chips = (
             CpuChip,
-            TypeRChip,
+            DecodingCheckChip,
             AddChip,
             SubChip,
             RegisterMemCheckChip,

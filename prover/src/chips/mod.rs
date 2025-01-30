@@ -12,11 +12,9 @@ pub use instructions::{
     SltChip, SltuChip, SraChip, SrlChip, SubChip,
 };
 
-pub use range_check::RangeCheckChip;
-
-pub use decoding::{TypeBChip, TypeIChip, TypeJChip, TypeRChip, TypeSChip, TypeSysChip, TypeUChip};
-
 pub use cpu::CpuChip;
+pub use decoding::DecodingCheckChip;
 pub use prog_mem_check::ProgramMemCheckChip;
+pub use range_check::RangeCheckChip;
 pub use register_mem_check::RegisterMemCheckChip;
 pub use timestamp::TimestampChip;
