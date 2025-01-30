@@ -14,7 +14,7 @@ pub use instructions::{
 
 pub use range_check::RangeCheckChip;
 
-pub use decoding::{TypeBChip, TypeIChip, TypeJChip, TypeRChip, TypeSysChip, TypeUChip};
+pub use decoding::{TypeBChip, TypeIChip, TypeJChip, TypeRChip, TypeSChip, TypeSysChip, TypeUChip};
 
 pub use cpu::CpuChip;
 pub use prog_mem_check::ProgramMemCheckChip;

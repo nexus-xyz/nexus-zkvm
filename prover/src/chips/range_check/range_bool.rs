@@ -10,7 +10,7 @@ use crate::{
             self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
             IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu,
             IsLh, IsLhu, IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra,
-            IsSrl, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC11, OpC12, OpC20, OpC4,
+            IsSrl, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12, OpC20, OpC4,
             PcCarry, ProgCtrCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed,
             RamInitFinalFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
             ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
@@ -101,6 +101,7 @@ const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 const TYPE_J_CHECKED_SINGLE: [Column; 3] = [OpC11, OpC20, OpA0];
 const TYPE_B_CHECKED_SINGLE: [Column; 4] = [OpC11, OpC12, OpA0, OpB4];
+const TYPE_S_CHECKED_SINGLE: [Column; 4] = [OpC0, OpC11, OpA0, OpB4];
 
 // TODO: also range-check PrgMemoryFlag in program trace
 
@@ -152,6 +153,12 @@ impl MachineChip for RangeBoolChip {
         for col in TYPE_B_CHECKED_SINGLE {
             let [col] = trace_eval.column_eval(col);
             eval.add_constraint(is_type_b.clone() * col.clone() * (col - E::F::one()));
+        }
+
+        let [is_type_s] = virtual_column::IsTypeS::eval(trace_eval);
+        for col in TYPE_S_CHECKED_SINGLE {
+            let [col] = trace_eval.column_eval(col);
+            eval.add_constraint(is_type_s.clone() * col.clone() * (col - E::F::one()));
         }
 
         for col_word in CHECKED_WORD.into_iter() {

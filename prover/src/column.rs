@@ -434,6 +434,9 @@ pub enum Column {
     /// Auxiliary variable for decoding instruction: bits[1..=4] of OpB argument
     #[size = 1]
     OpB1_4,
+    /// Auxiliary variable for decoding instruction: bits[0] of OpC argument
+    #[size = 1]
+    OpC0,
     /// Auxiliary variable for decoding instruction: bits[4] of OpC argument
     #[size = 1]
     OpC4,

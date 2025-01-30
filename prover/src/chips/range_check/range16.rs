@@ -32,7 +32,7 @@ use crate::{
     },
     traits::MachineChip,
     virtual_column::{
-        IsAluImmShift, IsTypeB, IsTypeINoShift, IsTypeJ, IsTypeR, IsTypeU, VirtualColumn,
+        IsAluImmShift, IsTypeB, IsTypeINoShift, IsTypeJ, IsTypeR, IsTypeS, IsTypeU, VirtualColumn,
     },
 };
 
@@ -48,6 +48,7 @@ const TYPE_I_NO_SHIFT_CHECKED: [Column; 4] = [OpC0_3, OpC4_7, OpA1_4, OpB1_4];
 const TYPE_I_SHIFT_CHECKED: [Column; 3] = [OpC0_3, OpA1_4, OpB1_4];
 const TYPE_J_CHECKED: [Column; 4] = [OpC4_7, OpC12_15, OpC16_19, OpA1_4];
 const TYPE_B_CHECKED: [Column; 3] = [OpC1_4, OpA1_4, OpB0_3];
+const TYPE_S_CHECKED: [Column; 3] = [OpC1_4, OpA1_4, OpB0_3];
 
 impl MachineChip for Range16Chip {
     /// Increments Multiplicity16 for every number checked
@@ -100,6 +101,13 @@ impl MachineChip for Range16Chip {
             InstructionType::BType,
             &TYPE_B_CHECKED,
         );
+        fill_main_for_type::<IsTypeS>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::SType,
+            &TYPE_S_CHECKED,
+        );
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -149,6 +157,12 @@ impl MachineChip for Range16Chip {
             lookup_element,
             &mut logup_trace_gen,
             &TYPE_B_CHECKED,
+        );
+        fill_interaction_for_type::<IsTypeS>(
+            original_traces,
+            lookup_element,
+            &mut logup_trace_gen,
+            &TYPE_S_CHECKED,
         );
         // Subtract looked up multiplicites from logup sum.
         let range_basecolumn: [&BaseColumn; Range16.size()] =
@@ -221,6 +235,13 @@ impl MachineChip for Range16Chip {
             lookup_elements,
             &mut logup,
             &TYPE_B_CHECKED,
+        );
+        add_constraints_for_type::<E, IsTypeS>(
+            eval,
+            trace_eval,
+            lookup_elements,
+            &mut logup,
+            &TYPE_S_CHECKED,
         );
 
         // Subtract looked up multiplicites from logup sum.
@@ -362,6 +383,7 @@ mod test {
                 .chain(TYPE_I_SHIFT_CHECKED)
                 .chain(TYPE_J_CHECKED)
                 .chain(TYPE_B_CHECKED)
+                .chain(TYPE_S_CHECKED)
             {
                 traces.fill_columns(row_idx, b, col);
             }
@@ -389,9 +411,13 @@ mod test {
                     traces.fill_columns(row_idx, true, Column::IsBne);
                     program_step.step.instruction.ins_type = InstructionType::BType;
                 }
-                _ => panic!("i must be in 0..5 range"),
+                5 => {
+                    traces.fill_columns(row_idx, true, Column::IsSb);
+                    program_step.step.instruction.ins_type = InstructionType::SType;
+                }
+                _ => panic!("i must be in 0..6 range"),
             }
-            i = (i + 1) % 5;
+            i = (i + 1) % 6;
 
             Range16Chip::fill_main_trace(
                 &mut traces,
