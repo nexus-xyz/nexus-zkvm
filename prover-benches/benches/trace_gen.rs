@@ -23,6 +23,9 @@ const LOG_SIZES: &[u32] = &[
     PreprocessedTraces::MIN_LOG_SIZE,
     PreprocessedTraces::MIN_LOG_SIZE + 2,
     PreprocessedTraces::MIN_LOG_SIZE + 4,
+    PreprocessedTraces::MIN_LOG_SIZE + 6,
+    PreprocessedTraces::MIN_LOG_SIZE + 8,
+    PreprocessedTraces::MIN_LOG_SIZE + 10,
 ];
 
 const _: () = {
@@ -44,10 +47,11 @@ criterion_group! {
 criterion_main!(trace_gen);
 
 fn bench_trace_gen(c: &mut Criterion) {
-    let blocks = program_trace();
-    let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
-
     for &log_size in LOG_SIZES {
+        let blocks = program_trace(log_size);
+        let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
+        let program_info = view.get_program_info();
+
         let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
         group.sample_size(10);
 
@@ -55,7 +59,6 @@ fn bench_trace_gen(c: &mut Criterion) {
             b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
-        let program_info = view.get_program_info();
         let mut program_traces = ProgramTracesBuilder::new(log_size, program_info);
 
         group.bench_function("MainTrace", |b| {
@@ -125,7 +128,7 @@ fn fill_main_trace(
     }
 }
 
-fn program_trace() -> Vec<BasicBlock> {
+fn program_trace(log_size: u32) -> Vec<BasicBlock> {
     let mut i = 0u8;
     let mut j = 1u8;
     let mut k = 2u8;
@@ -147,7 +150,7 @@ fn program_trace() -> Vec<BasicBlock> {
         k = (k + 1) % NUM_REGISTERS;
         Some(inst)
     }))
-    .take(2usize.pow(14))
+    .take(2usize.pow(log_size))
     .collect();
     vec![BasicBlock::new(insts)]
 }

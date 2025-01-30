@@ -38,6 +38,10 @@ impl ProgramTracesBuilder {
     /// Returns [`ProgramColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with program content.
     pub fn new(log_size: u32, program_info: &ProgramInfo) -> Self {
         assert!(log_size >= LOG_N_LANES);
+        assert!(
+            program_info.program.len() <= 1 << log_size,
+            "Program is longer than program trace size"
+        );
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; ProgramColumn::COLUMNS_NUM];
         let builder = TracesBuilder { cols, log_size };
         let mut ret = Self {
