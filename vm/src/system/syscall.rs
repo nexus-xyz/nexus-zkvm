@@ -33,27 +33,27 @@ use crate::{
 };
 
 pub enum SyscallCode {
-    // Syscall code defines opcodes start from 512
-    Write = 512,
-    Exit = 513,
-    // zkVM specific syscall opcodes start from 1024
-    ReadFromPrivateInput = 1024,
-    CycleCount = 1025,
-    OverwriteStackPointer = 1026,
-    OverwriteHeapPointer = 1027,
-    ReadFromAuxiliaryInput = 1028,
+    // Syscall code defines opcodes start from 0x200
+    Write = 0x200, // Is converted to NOP for tracing
+    Exit = 0x201,
+    // zkVM specific syscall opcodes start from 0x400
+    ReadFromPrivateInput = 0x400,
+    CycleCount = 0x401, // Is converted to NOP for tracing
+    OverwriteStackPointer = 0x402,
+    OverwriteHeapPointer = 0x403,
+    ReadFromAuxiliaryInput = 0x404,
 }
 
 impl SyscallCode {
     fn try_from(value: u32, pc: u32) -> Result<Self> {
         let code = match value {
-            512 => SyscallCode::Write,
-            513 => SyscallCode::Exit,
-            1024 => SyscallCode::ReadFromPrivateInput,
-            1025 => SyscallCode::CycleCount,
-            1026 => SyscallCode::OverwriteStackPointer,
-            1027 => SyscallCode::OverwriteHeapPointer,
-            //1028 => SyscallCode::ReadFromAuxiliaryInput,
+            0x200 => SyscallCode::Write,
+            0x201 => SyscallCode::Exit,
+            0x400 => SyscallCode::ReadFromPrivateInput,
+            0x401 => SyscallCode::CycleCount,
+            0x402 => SyscallCode::OverwriteStackPointer,
+            0x403 => SyscallCode::OverwriteHeapPointer,
+            //0x404 => SyscallCode::ReadFromAuxiliaryInput,
             _ => return Err(VMError::UnimplementedSyscall(value, pc)),
         };
         Ok(code)
@@ -63,13 +63,13 @@ impl SyscallCode {
 impl From<SyscallCode> for u32 {
     fn from(val: SyscallCode) -> Self {
         match val {
-            SyscallCode::Write => 512,
-            SyscallCode::Exit => 513,
-            SyscallCode::ReadFromPrivateInput => 1024,
-            SyscallCode::CycleCount => 1025,
-            SyscallCode::OverwriteStackPointer => 1026,
-            SyscallCode::OverwriteHeapPointer => 1027,
-            SyscallCode::ReadFromAuxiliaryInput => 1028,
+            SyscallCode::Write => 0x200,
+            SyscallCode::Exit => 0x201,
+            SyscallCode::ReadFromPrivateInput => 0x400,
+            SyscallCode::CycleCount => 0x401,
+            SyscallCode::OverwriteStackPointer => 0x402,
+            SyscallCode::OverwriteHeapPointer => 0x403,
+            SyscallCode::ReadFromAuxiliaryInput => 0x404,
         }
     }
 }
