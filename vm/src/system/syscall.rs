@@ -60,6 +60,21 @@ impl SyscallCode {
     }
 }
 
+impl From<u32> for SyscallCode {
+    fn from(value: u32) -> Self {
+        match value {
+            0x200 => SyscallCode::Write,
+            0x201 => SyscallCode::Exit,
+            0x400 => SyscallCode::ReadFromPrivateInput,
+            0x401 => SyscallCode::CycleCount,
+            0x402 => SyscallCode::OverwriteStackPointer,
+            0x403 => SyscallCode::OverwriteHeapPointer,
+            0x404 => SyscallCode::ReadFromAuxiliaryInput,
+            _ => panic!("Invalid syscall code"),
+        }
+    }
+}
+
 impl From<SyscallCode> for u32 {
     fn from(val: SyscallCode) -> Self {
         match val {
