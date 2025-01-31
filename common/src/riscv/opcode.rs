@@ -308,8 +308,8 @@ pub enum BuiltinOpcode {
     LHU,    // Load halfword unsigned
     JALR,   // Jump and link register
     ECALL,  // Environment call
-    EBREAK, // Environment break
-    FENCE,  // Fence (memory ordering)
+    EBREAK, // Environment break       UNSUPPORTED
+    FENCE,  // Fence (memory ordering) UNSUPPORTED
 
     // S-type instructions
     SB, // Store byte
