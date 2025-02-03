@@ -16,7 +16,7 @@ The original implementation of Nova, from which we have adopted some utility fun
 ├── gadgets       # primitives for the verifier circuits -- mirrors the "folding" module
 ├── absorb.rs     # cryptographic sponge interface extension
 ├── commitment.rs # commitment scheme interface
-├── provider      # internal traits implementors -- commitment schemes, hashers, etc.
+├── provider      # internal traits implementers -- commitment schemes, hashers, etc.
 ├── ccs           # customizable constraint system primitives
 ├── r1cs          # R1CS primitives
 ... snipped
