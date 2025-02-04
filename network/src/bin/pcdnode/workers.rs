@@ -18,6 +18,8 @@ use nexus_network::*;
 
 use crate::db::DB;
 
+use anyhow;
+
 #[derive(Clone)]
 pub struct WorkerState {
     pub pp: Arc<ParPP>,
@@ -188,9 +190,12 @@ fn local_pcd(rt: Handle, state: WorkerState) -> Result<()> {
                 send_response(ch, PCDRes(node))?;
             }
             NodeReq(mut ns) => {
-                // TODO extend to > 2 nodes
-                let (r, _) = ns.pop().unwrap();
-                let (l, lt) = ns.pop().unwrap();
+                // Verify we have exactly 2 nodes
+                if ns.len() != 2 {
+                    return Err(anyhow::anyhow!("Expected exactly 2 nodes, got {}", ns.len()));
+                }
+                let (r, _) = ns.pop().ok_or_else(|| anyhow::anyhow!("Failed to get right node"))?;
+                let (l, lt) = ns.pop().ok_or_else(|| anyhow::anyhow!("Failed to get left node"))?;
                 tracing::trace!(
                     target: LOG_TARGET,
                     "PCDNode {}-{}, {}-{} lts:{}",
