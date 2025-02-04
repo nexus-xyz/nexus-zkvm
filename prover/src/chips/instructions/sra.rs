@@ -123,6 +123,8 @@ impl MachineChip for SraChip {
 
         // Exp is in the field M31
         let exp = BaseField::from(256u32 / u32::from(exp1_3));
+        let sra_degree_aux =
+            BaseField::from(sgn_b as u32) * BaseField::from(exp1_3 as u32 - 1) * exp;
 
         traces.fill_columns(row_idx, result, Column::ValueA);
         traces.fill_columns(row_idx, rem, Column::Rem);
@@ -139,6 +141,7 @@ impl MachineChip for SraChip {
         traces.fill_columns(row_idx, exp1_3, Column::Exp1_3);
         traces.fill_columns(row_idx, exp, Column::Exp);
         traces.fill_columns(row_idx, sgn_b, Column::SgnB);
+        traces.fill_columns(row_idx, sra_degree_aux, Column::SraDegreeAux);
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -165,6 +168,7 @@ impl MachineChip for SraChip {
         let [is_sra] = trace_eval!(trace_eval, Column::IsSra);
         let [sgn_b] = trace_eval!(trace_eval, Column::SgnB);
         let rem_diff = trace_eval!(trace_eval, Column::RemDiff);
+        let [sra_degree_aux] = trace_eval!(trace_eval, Column::SraDegreeAux);
 
         // is_sra・(sh1 + sh2・2 + sh3・4 + sh4・8 + sh5・16 + h1・32 - c_val_1) = 0
         eval.add_constraint(
@@ -254,19 +258,24 @@ impl MachineChip for SraChip {
                     - exp.clone()),
         );
 
+        eval.add_constraint(
+            is_sra.clone()
+                * (sgn_b.clone() * (exp1_3.clone() - E::F::one()) * exp.clone()
+                    - sra_degree_aux.clone()),
+        );
+
         // Replicating sign bit into vacated positions during logical right shift
-        // is_sra・ (a_val_4 - (1-sh4)・(1-sh5)・(srl_4 + sgn・(exp1_3-1)・exp) - (sh4+sh5-sh4・sh5)・sgn・(2^8-1)) = 0
-        // is_sra・ (a_val_3 - (1-sh4)・(1-sh5)・(srl_3) - (sh4)・(1-sh5)・(srl_3 + sgn・(exp1_3-1)・exp) - (sh5)・sgn・(2^8-1)) = 0
-        // is_sra・ (a_val_2 -(1-sh5)・(srl_2) -(1-sh4)・(sh5)・(srl_2 + sgn・(exp1_3-1)・exp) - (sh4・sh5)・sgn・(2^8-1)) = 0
-        // is_sra・ (a_val_1 - (1-sh4・sh5)・(srl_1) - (sh4)・(sh5)・(srl_1 + sgn・(exp1_3-1)・exp)) = 0
+        // is_sra・ (a_val_4 - (1-sh4)・(1-sh5)・(srl_4 + sra_degree_aux) - (sh4+sh5-sh4・sh5)・sgn・(2^8-1)) = 0
+        // is_sra・ (a_val_3 - (1-sh4)・(1-sh5)・(srl_3) - (sh4)・(1-sh5)・(srl_3 + sra_degree_aux) - (sh5)・sgn・(2^8-1)) = 0
+        // is_sra・ (a_val_2 -(1-sh5)・(srl_2) -(1-sh4)・(sh5)・(srl_2 + sra_degree_aux) - (sh4・sh5)・sgn・(2^8-1)) = 0
+        // is_sra・ (a_val_1 - (1-sh4・sh5)・(srl_1) - (sh4)・(sh5)・(srl_1 + sra_degree_aux)) = 0
 
         eval.add_constraint(
             is_sra.clone()
                 * (value_a[3].clone()
                     - (E::F::one() - sh4.clone())
                         * (E::F::one() - sh5.clone())
-                        * (srl[3].clone()
-                            + sgn_b.clone() * (exp1_3.clone() - E::F::one()) * exp.clone())
+                        * (srl[3].clone() + sra_degree_aux.clone())
                     - (sh4.clone() + sh5.clone() - sh4.clone() * sh5.clone())
                         * sgn_b.clone()
                         * E::F::from(255.into())),
@@ -278,8 +287,7 @@ impl MachineChip for SraChip {
                     - (E::F::one() - sh4.clone()) * (E::F::one() - sh5.clone()) * srl[2].clone()
                     - sh4.clone()
                         * (E::F::one() - sh5.clone())
-                        * (srl[2].clone()
-                            + sgn_b.clone() * (exp1_3.clone() - E::F::one()) * exp.clone())
+                        * (srl[2].clone() + sra_degree_aux.clone())
                     - sh5.clone() * sgn_b.clone() * E::F::from(255.into())),
         );
 
@@ -289,8 +297,7 @@ impl MachineChip for SraChip {
                     - (E::F::one() - sh5.clone()) * srl[1].clone()
                     - (E::F::one() - sh4.clone())
                         * sh5.clone()
-                        * (srl[1].clone()
-                            + sgn_b.clone() * (exp1_3.clone() - E::F::one()) * exp.clone())
+                        * (srl[1].clone() + sra_degree_aux.clone())
                     - sh4.clone() * sh5.clone() * sgn_b.clone() * E::F::from(255.into())),
         );
 
@@ -298,10 +305,7 @@ impl MachineChip for SraChip {
             is_sra.clone()
                 * (value_a[0].clone()
                     - (E::F::one() - sh4.clone() * sh5.clone()) * srl[0].clone()
-                    - sh4.clone()
-                        * sh5.clone()
-                        * (srl[0].clone()
-                            + sgn_b.clone() * (exp1_3.clone() - E::F::one()) * exp.clone())),
+                    - sh4.clone() * sh5.clone() * (srl[0].clone() + sra_degree_aux.clone())),
         );
 
         // Range checks for remainder values rem{1,2,3,4}

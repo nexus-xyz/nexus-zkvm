@@ -259,6 +259,9 @@ pub enum Column {
     /// neq_34_flag_aux_inv in document. Inverse of [`Column::Neq34Aux`].
     #[size = 1]
     Neq34AuxInv,
+    /// Auxiliary column for SRA chip, equals sgn_b・(exp1_3-1)・exp in the doc, to keep the constraint degree low.
+    #[size = 1]
+    SraDegreeAux,
 
     /// Multiplicity column for Range8Chip. Multiplicity8[row_idx] counts how many times the number row_idx is checked against Range8 in the entire trace.
     #[size = 1]
