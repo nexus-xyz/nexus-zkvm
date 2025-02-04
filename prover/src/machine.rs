@@ -88,10 +88,17 @@ impl<C: MachineChip + Sync> Machine<C> {
         I: IntoIterator<Item = u32>,
     {
         let num_steps = trace.get_num_steps();
+        let program_log_size = view
+            .get_program_info()
+            .program
+            .len()
+            .next_power_of_two()
+            .trailing_zeros();
         let log_size: u32 = num_steps
             .next_power_of_two()
             .trailing_zeros()
-            .max(PreprocessedTraces::MIN_LOG_SIZE);
+            .max(PreprocessedTraces::MIN_LOG_SIZE)
+            .max(program_log_size);
 
         let config = PcsConfig::default();
         // Precompute twiddles.

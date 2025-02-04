@@ -18,3 +18,5 @@ pub use prog_mem_check::ProgramMemCheckChip;
 pub use range_check::RangeCheckChip;
 pub use register_mem_check::RegisterMemCheckChip;
 pub use timestamp::TimestampChip;
+
+mod utils;

@@ -40,7 +40,7 @@ impl MachineChip for TypeJChip {
 
         // Fill auxiliary columns for type J immediate value parsing
         let op_c1_3 = ((op_c_raw >> 1) & 0b111) as u8;
-        let op_c4_7 = ((op_c_raw >> 4) & 0b111) as u8;
+        let op_c4_7 = ((op_c_raw >> 4) & 0b1111) as u8;
         let op_c8_10 = ((op_c_raw >> 8) & 0b111) as u8;
         let op_c11 = ((op_c_raw >> 11) & 0b1) as u8;
         let op_c12_15 = ((op_c_raw >> 12) & 0b1111) as u8;

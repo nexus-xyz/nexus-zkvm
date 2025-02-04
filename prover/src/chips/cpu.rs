@@ -4,6 +4,7 @@ use stwo_prover::{
     core::fields::{m31::BaseField, FieldExpOps},
 };
 
+use super::utils;
 use crate::{
     chips::add_with_carries,
     column::{
@@ -218,7 +219,19 @@ impl MachineChip for CpuChip {
             RType => {
                 traces.fill_columns(row_idx, op_c_raw as u8, OpC);
             }
-            IType | BType | SType | ITypeShamt | JType | UType => {
+            BType | JType => {
+                let (_, op_c_bits) = vm_step.get_value_c();
+                // immediate sign is part of instruction word and is used for decoding constraints.
+                let op_c_sign_extended = utils::sign_extend(op_c_raw, op_c_bits);
+
+                traces.fill_columns(
+                    row_idx,
+                    BaseField::from_u32_unchecked(op_c_sign_extended),
+                    OpC,
+                );
+                traces.fill_columns(row_idx, true, ImmC);
+            }
+            IType | SType | ITypeShamt | UType => {
                 let (op_c_word, op_c_bits) = vm_step.get_value_c();
                 assert_eq!(op_c_raw, u32::from_le_bytes(op_c_word));
                 let op_c_zero_extended = op_c_raw & ((1u32 << op_c_bits) - 1);

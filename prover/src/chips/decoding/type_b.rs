@@ -144,10 +144,11 @@ impl MachineChip for TypeBChip {
 
         let value_instr = trace_eval!(trace_eval, Column::InstrVal);
         // checking format of instructions - limb 1
-        // (is_type_b) ・ (b1100011 + op_c11 - instr_val_1) = 0			// limb 1
+        // (is_type_b) ・ (b1100011 + op_c11・2^7 - instr_val_1) = 0			// limb 1
         eval.add_constraint(
             is_type_b.clone()
-                * (E::F::from(BaseField::from(0b1100011)) + op_c11.clone()
+                * (E::F::from(BaseField::from(0b1100011))
+                    + op_c11.clone() * BaseField::from(1 << 7)
                     - value_instr[0].clone()),
         );
 
