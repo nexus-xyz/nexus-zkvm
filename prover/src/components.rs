@@ -6,7 +6,7 @@ use stwo_prover::constraint_framework::{
 
 use super::{trace::eval::TraceEval, traits::MachineChip};
 
-pub(super) const LOG_CONSTRAINT_DEGREE: u32 = 2;
+pub(super) const LOG_CONSTRAINT_DEGREE: u32 = 3; // enforced by SRA
 /// The number of BaseField's in the biggest tuple we look up
 pub(super) const MAX_LOOKUP_TUPLE_SIZE: usize = 12;
 

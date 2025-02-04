@@ -139,6 +139,16 @@ impl<C: MachineChip + Sync> Machine<C> {
         let finalized_trace = prover_traces.finalize();
         let finalized_program_trace = program_traces.finalize();
 
+        let mut tree_builder = commitment_scheme.tree_builder();
+        let _preprocessed_trace_location =
+            tree_builder.extend_evals(preprocessed_trace.clone().into_circle_evaluation());
+        tree_builder.commit(prover_channel);
+
+        let mut tree_builder = commitment_scheme.tree_builder();
+        let _main_trace_location =
+            tree_builder.extend_evals(finalized_trace.clone().into_circle_evaluation());
+        tree_builder.commit(prover_channel);
+
         let lookup_elements = LookupElements::draw(prover_channel);
         let interaction_trace = C::fill_interaction_trace(
             &finalized_trace,
@@ -146,16 +156,6 @@ impl<C: MachineChip + Sync> Machine<C> {
             &finalized_program_trace,
             &lookup_elements,
         );
-
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_trace.into_circle_evaluation());
-        tree_builder.commit(prover_channel);
-
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _main_trace_location =
-            tree_builder.extend_evals(finalized_trace.into_circle_evaluation());
-        tree_builder.commit(prover_channel);
 
         let mut tree_builder = commitment_scheme.tree_builder();
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
@@ -193,12 +193,6 @@ impl<C: MachineChip + Sync> Machine<C> {
         let verifier_channel = &mut Blake2sChannel::default();
         let commitment_scheme = &mut CommitmentSchemeVerifier::<Blake2sMerkleChannel>::new(config);
 
-        let lookup_elements = LookupElements::draw(verifier_channel);
-        let component = MachineComponent::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(log_size, lookup_elements),
-        );
-
         // simulate the prover and compute expected commitment to preprocessed trace
         {
             let config = PcsConfig::default();
@@ -230,15 +224,32 @@ impl<C: MachineChip + Sync> Machine<C> {
         }
 
         // Retrieve the expected column sizes in each commitment interaction, from the AIR.
-        let sizes = component.trace_log_degree_bounds();
-        for idx in [
-            PREPROCESSED_TRACE_IDX,
-            ORIGINAL_TRACE_IDX,
-            INTERACTION_TRACE_IDX,
-            PROGRAM_TRACE_IDX,
-        ] {
+
+        // This dummy component is needed for evaluating info about the circuit. The verifier needs to commit to traces
+        // and then draw lookup elements, however the component needs a placeholder there that cannot be replaced without
+        // refcell hacks.
+        //
+        // The prover cannot send the component or lookup elements in advance either, because these types have private fields
+        // and don't implement serialize.
+        let dummy_component = MachineComponent::new(
+            &mut TraceLocationAllocator::default(),
+            MachineEval::<C>::new(log_size, LookupElements::dummy()),
+        );
+        let sizes = dummy_component.trace_log_degree_bounds();
+        for idx in [PREPROCESSED_TRACE_IDX, ORIGINAL_TRACE_IDX] {
             commitment_scheme.commit(proof.commitments[idx], &sizes[idx], verifier_channel);
         }
+
+        let lookup_elements = LookupElements::draw(verifier_channel);
+        let component = MachineComponent::new(
+            &mut TraceLocationAllocator::default(),
+            MachineEval::<C>::new(log_size, lookup_elements),
+        );
+        // TODO: prover must commit to the program trace before generating challenges.
+        for idx in [INTERACTION_TRACE_IDX, PROGRAM_TRACE_IDX] {
+            commitment_scheme.commit(proof.commitments[idx], &sizes[idx], verifier_channel);
+        }
+
         verify(&[&component], verifier_channel, commitment_scheme, proof)
     }
 }
