@@ -26,8 +26,9 @@ use nexus_vm::{
     riscv::{
         BuiltinOpcode,
         InstructionType::{BType, IType, ITypeShamt, JType, RType, SType, UType, Unimpl},
+        Register,
     },
-    WORD_SIZE,
+    SyscallCode, WORD_SIZE,
 };
 
 pub struct CpuChip;
@@ -50,8 +51,8 @@ impl MachineChip for CpuChip {
         // Fill ValueAEffectiveFlagAux to the main trace
         // Note op_a is u8 so it is always smaller than M31.
         let value_a_effective_flag_aux = if let Some(vm_step) = vm_step {
-            let op_a = vm_step.step.instruction.op_a as u8;
-            if op_a == 0 {
+            let op_a = vm_step.get_op_a();
+            if op_a == Register::X0 {
                 BaseField::one()
             } else {
                 BaseField::inverse(&BaseField::from(op_a as u32))
@@ -207,11 +208,10 @@ impl MachineChip for CpuChip {
         traces.fill_columns(row_idx, step.raw_instruction, InstrVal);
 
         // Fill OpA to the main trace
-        let op_a = vm_step.step.instruction.op_a as u8;
-        traces.fill_columns(row_idx, op_a, OpA);
+        traces.fill_columns(row_idx, vm_step.get_op_a() as u8, OpA);
 
         // Fill OpB to the main trace
-        let op_b = vm_step.step.instruction.op_b as u8;
+        let op_b = vm_step.get_op_b() as u8;
         traces.fill_columns(row_idx, op_b, OpB);
         // Fill OpC (register index or immediate value) or ImmC (true if immediate) to the main trace
         let op_c_raw = vm_step.step.instruction.op_c;
@@ -263,9 +263,22 @@ impl MachineChip for CpuChip {
             }
             IType | ITypeShamt => {
                 traces.fill_columns(row_idx, true, Reg1Accessed);
-                traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
-                traces.fill_columns(row_idx, true, Reg3Accessed);
-                traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
+                traces.fill_columns(row_idx, vm_step.get_op_b() as u8, Reg1Address);
+                // Special case to handle ECALL, this work, but we must take care memory checking
+                let syscall_code = vm_step.get_syscall_code();
+                if let Some(syscall_value) = syscall_code {
+                    let reg3_accessed = matches!(
+                        SyscallCode::from(syscall_value),
+                        SyscallCode::ReadFromPrivateInput
+                            | SyscallCode::OverwriteHeapPointer
+                            | SyscallCode::OverwriteStackPointer
+                    );
+                    traces.fill_columns(row_idx, reg3_accessed, Reg3Accessed);
+                } else {
+                    // For regular instruction
+                    traces.fill_columns(row_idx, true, Reg3Accessed);
+                }
+                traces.fill_columns(row_idx, vm_step.get_op_a() as u8, Reg3Address);
             }
             UType => {
                 traces.fill_columns(row_idx, true, Reg3Accessed);
@@ -531,6 +544,56 @@ impl MachineChip for CpuChip {
                         + pc_carry[limb_idx].clone() * BaseField::from(1 << 8)
                         - pc[limb_idx].clone()
                         - pc_carry[limb_idx - 1].clone()),
+            );
+        }
+
+        // Enforcing register memory access flags
+        // is_type_sys ・(reg1_accessed - 1) = 0 // reg1_accessed controls op_b and value_b
+        // is_type_sys・reg2_accessed = 0
+        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・reg3_accessed = 0
+        // is_type_sys・(is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset)・(reg3_accessed - 1) = 0 // reg3_accessed controls op_a and value_a
+        let is_type_sys = is_ebreak + is_ecall;
+        let [is_sys_debug] = trace_eval!(trace_eval, Column::IsSysDebug);
+        let [is_sys_halt] = trace_eval!(trace_eval, Column::IsSysHalt);
+        let [is_sys_priv_input] = trace_eval!(trace_eval, Column::IsSysPrivInput);
+        let [is_sys_cycle_count] = trace_eval!(trace_eval, Column::IsSysCycleCount);
+        let [is_sys_stack_reset] = trace_eval!(trace_eval, Column::IsSysStackReset);
+        let [is_sys_heap_reset] = trace_eval!(trace_eval, Column::IsSysHeapReset);
+        eval.add_constraint(is_type_sys.clone() * (reg1_accessed - E::F::one()));
+        eval.add_constraint(is_type_sys.clone() * reg2_accessed);
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (is_sys_debug.clone() + is_sys_halt.clone() + is_sys_cycle_count.clone())
+                * reg3_accessed.clone(),
+        );
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (is_sys_priv_input.clone()
+                    + is_sys_heap_reset.clone()
+                    + is_sys_stack_reset.clone())
+                * (reg3_accessed - E::F::one()),
+        );
+
+        // Setting pc_next = pc when is_sys_halt=1 or pc_next = pc+4 for other flags
+        // pc_carry_{1,2,3,4} used for carry handling
+        // is_type_sys・(4・(1-is_sys_halt) + pc_1 - pc_carry_1·2^8 - pc_next_1) = 0
+        // is_type_sys・(pc_2 + pc_carry_1 - pc_carry_2·2^8 - pc_next_2) = 0
+        // is_type_sys・(pc_3 + pc_carry_2 - pc_carry_3·2^8 - pc_next_3) = 0
+        // is_type_sys・(pc_4 + pc_carry_3 - pc_carry_4·2^8 - pc_next_4) = 0
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (E::F::from(BaseField::from(4)) * (E::F::one() - is_sys_halt.clone())
+                    + pc[0].clone()
+                    - pc_carry[0].clone() * BaseField::from(1 << 8)
+                    - pc_next[0].clone()),
+        );
+
+        for i in 1..WORD_SIZE {
+            eval.add_constraint(
+                is_type_sys.clone()
+                    * (pc[i].clone() + pc_carry[i - 1].clone()
+                        - pc_carry[i].clone() * BaseField::from(1 << 8)
+                        - pc_next[i].clone()),
             );
         }
     }

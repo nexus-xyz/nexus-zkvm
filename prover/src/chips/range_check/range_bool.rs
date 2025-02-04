@@ -10,10 +10,11 @@ use crate::{
             self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmB, ImmC, IsAdd, IsAnd,
             IsAuipc, IsBge, IsBgeu, IsBlt, IsBltu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu,
             IsLh, IsLhu, IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra,
-            IsSrl, IsSub, IsSw, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12, OpC20, OpC4,
-            PcCarry, ProgCtrCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed,
-            RamInitFinalFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
-            ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
+            IsSrl, IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset,
+            IsSysPrivInput, IsSysStackReset, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12,
+            OpC20, OpC4, PcCarry, ProgCtrCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed,
+            Ram4Accessed, RamInitFinalFlag, Reg1Accessed, Reg2Accessed, Reg3Accessed, RemAux, SgnA,
+            SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -35,7 +36,7 @@ use crate::{
 
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 50] = [
+const CHECKED_SINGLE: [Column; 56] = [
     ValueAEffectiveFlag,
     ImmB,
     ImmC,
@@ -67,6 +68,12 @@ const CHECKED_SINGLE: [Column; 50] = [
     IsSra,
     IsEcall,
     IsEbreak,
+    IsSysCycleCount,
+    IsSysDebug,
+    IsSysHalt,
+    IsSysHeapReset,
+    IsSysPrivInput,
+    IsSysStackReset,
     IsPadding,
     LtFlag,
     RemAux,

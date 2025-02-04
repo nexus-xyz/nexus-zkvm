@@ -22,14 +22,14 @@ use super::trace::{
 };
 use nexus_vm::{emulator::View, trace::Trace};
 
-use super::chips::{
+use super::components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
+use super::traits::MachineChip;
+use crate::chips::{
     AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
     DecodingCheckChip, JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip,
     RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip,
-    TimestampChip,
+    SyscallChip, TimestampChip,
 };
-use super::components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
-use super::traits::MachineChip;
 
 /// Base components tuple for constraining virtual machine execution based on RV32I ISA.
 pub type BaseComponents = (
@@ -54,6 +54,7 @@ pub type BaseComponents = (
     SrlChip,
     SraChip,
     LoadStoreChip,
+    SyscallChip,
     ProgramMemCheckChip,
     RegisterMemCheckChip,
     TimestampChip,

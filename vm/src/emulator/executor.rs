@@ -39,7 +39,7 @@
 //! let mut emulator = HarvardEmulator::from_elf(&mut elf_file, &[], &[]);
 //!
 //! // Run the emulator
-//! match emulator.execute() {
+//! match emulator.execute(false) {
 //!     Ok(_) => println!("Program executed successfully"),
 //!     Err(e) => println!("Execution error: {:?}", e),
 //! }
@@ -59,7 +59,7 @@
 //! ]);
 //!
 //! let mut emulator = HarvardEmulator::default();
-//! emulator.execute_basic_block(&BasicBlockEntry{ start: 0, end: 8, block: basic_block }).unwrap();
+//! emulator.execute_basic_block(&BasicBlockEntry{ start: 0, end: 8, block: basic_block }, false).unwrap();
 //!
 //! assert_eq!(emulator.executor.cpu.registers[3.into()], 15); // x3 should be 15
 //! ```
@@ -249,16 +249,18 @@ pub trait Emulator {
         memory: &mut impl MemoryProcessor,
         memory_layout: Option<LinearMemoryLayout>,
         bare_instruction: &Instruction,
+        force_provable_transcript: bool,
     ) -> Result<(InstructionResult, (HashSet<LoadOp>, HashSet<StoreOp>))> {
         let mut syscall_instruction = SyscallInstruction::decode(bare_instruction, &executor.cpu)?;
         let load_ops = syscall_instruction.memory_read(memory)?;
-        syscall_instruction.execute(executor, memory, memory_layout)?;
+        syscall_instruction.execute(executor, memory, memory_layout, force_provable_transcript)?;
+        let result = syscall_instruction.get_result().map(|(_, value)| value);
         let store_ops = syscall_instruction.memory_write(memory)?;
         syscall_instruction.write_back(&mut executor.cpu);
 
         // Safety: during the first pass, the Write and CycleCount syscalls can read from memory
         //         however, during the second pass these are no-ops, so we never need a record
-        Ok((None, (load_ops, store_ops)))
+        Ok((result, (load_ops, store_ops)))
     }
 
     /// Executes a single RISC-V instruction.
@@ -270,6 +272,7 @@ pub trait Emulator {
     fn execute_instruction(
         &mut self,
         bare_instruction: &Instruction,
+        force_provable_transcript: bool,
     ) -> Result<(InstructionResult, MemoryRecords)>;
 
     /// Fetches or decodes a basic block starting from the current PC.
@@ -293,6 +296,7 @@ pub trait Emulator {
     fn execute_basic_block(
         &mut self,
         basic_block_entry: &BasicBlockEntry,
+        force_provable_transcript: bool,
     ) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
         #[cfg(debug_assertions)]
         basic_block_entry
@@ -307,7 +311,7 @@ pub trait Emulator {
 
         // Execute the instructions in the basic block
         for instruction in basic_block_entry.block.0[at..].iter() {
-            let (res, mem) = self.execute_instruction(instruction)?;
+            let (res, mem) = self.execute_instruction(instruction, force_provable_transcript)?;
             results.push(res);
             transcript.push(mem);
         }
@@ -316,13 +320,17 @@ pub trait Emulator {
     }
 
     /// Execute an entire program.
-    fn execute(&mut self) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
+    fn execute(
+        &mut self,
+        force_provable_transcript: bool,
+    ) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
         let mut results: Vec<InstructionResult> = Vec::new();
         let mut transcript: MemoryTranscript = Vec::new();
 
         loop {
             let basic_block_entry = self.fetch_block(self.get_executor().cpu.pc.value)?;
-            let (res, mem) = self.execute_basic_block(&basic_block_entry)?;
+            let (res, mem) =
+                self.execute_basic_block(&basic_block_entry, force_provable_transcript)?;
 
             results.extend(res);
             transcript.extend(mem);
@@ -566,6 +574,7 @@ impl Emulator for HarvardEmulator {
     fn execute_instruction(
         &mut self,
         bare_instruction: &Instruction,
+        force_provable_transcript: bool,
     ) -> Result<(InstructionResult, MemoryRecords)> {
         let ((res, (load_ops, store_ops)), accessed_io_memory) = match (
             self.executor
@@ -584,6 +593,7 @@ impl Emulator for HarvardEmulator {
                     &mut self.data_memory,
                     None,
                     bare_instruction,
+                    force_provable_transcript,
                 )?,
                 false,
             ),
@@ -1040,6 +1050,7 @@ impl Emulator for LinearEmulator {
     fn execute_instruction(
         &mut self,
         bare_instruction: &Instruction,
+        _force_second_pass: bool, // Linear Emulator always does second pass
     ) -> Result<(InstructionResult, MemoryRecords)> {
         let (res, (load_ops, store_ops)) = match (
             self.executor
@@ -1058,6 +1069,7 @@ impl Emulator for LinearEmulator {
                     &mut self.memory,
                     Some(self.memory_layout),
                     bare_instruction,
+                    true,
                 )?
             }
             (Some(read_input), _, _) => {
@@ -1307,7 +1319,7 @@ mod tests {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
         let mut emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 
-        assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
+        assert_eq!(emulator.execute(false), Err(VMError::VMExited(0)));
     }
 
     #[test]
@@ -1317,7 +1329,7 @@ mod tests {
         let mut emulator = HarvardEmulator::default();
         basic_blocks.iter().for_each(|basic_block| {
             emulator
-                .execute_basic_block(&BasicBlockEntry::new(0, basic_block.clone()))
+                .execute_basic_block(&BasicBlockEntry::new(0, basic_block.clone()), false)
                 .unwrap();
         });
 
@@ -1340,7 +1352,7 @@ mod tests {
         let basic_blocks = setup_basic_block_ir();
         let mut emulator = HarvardEmulator::from_basic_blocks(&basic_blocks);
 
-        assert_eq!(emulator.execute(), Err(VMError::VMOutOfInstructions));
+        assert_eq!(emulator.execute(false), Err(VMError::VMOutOfInstructions));
     }
 
     #[test]
@@ -1350,7 +1362,7 @@ mod tests {
         let mut emulator =
             LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], &elf_file, &[], &[]);
 
-        assert_eq!(emulator.execute(), Err(VMError::VMExited(0)));
+        assert_eq!(emulator.execute(false), Err(VMError::VMExited(0)));
     }
 
     #[test]
@@ -1360,7 +1372,7 @@ mod tests {
         let mut emulator = LinearEmulator::default();
         basic_blocks.iter().for_each(|basic_block| {
             emulator
-                .execute_basic_block(&BasicBlockEntry::new(0, basic_block.clone()))
+                .execute_basic_block(&BasicBlockEntry::new(0, basic_block.clone()), false)
                 .unwrap();
         });
 
@@ -1386,12 +1398,12 @@ mod tests {
             BasicBlock::new(vec![Instruction::new_ir(op.clone(), 1, 0, 1)]),
         );
         let mut emulator = HarvardEmulator::default();
-        let res = emulator.execute_basic_block(&basic_block_entry);
+        let res = emulator.execute_basic_block(&basic_block_entry, false);
 
         assert_eq!(res, Err(VMError::UndefinedInstruction(op.clone())));
 
         let mut emulator = LinearEmulator::default();
-        let res = emulator.execute_basic_block(&basic_block_entry);
+        let res = emulator.execute_basic_block(&basic_block_entry, false);
 
         assert_eq!(res, Err(VMError::UndefinedInstruction(op)));
     }

@@ -17,10 +17,12 @@ mod sltu;
 mod sra;
 mod srl;
 mod sub;
+mod syscall;
 
 pub use self::{
     add::add_with_carries, add::AddChip, auipc::AuipcChip, beq::BeqChip, bge::BgeChip,
     bgeu::BgeuChip, bit_op::BitOpChip, blt::BltChip, bltu::BltuChip, bne::BneChip, jal::JalChip,
     jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip, sll::SllChip, slt::SltChip,
     sltu::SltuChip, sra::SraChip, srl::SrlChip, sub::subtract_with_borrow, sub::SubChip,
+    syscall::SyscallChip,
 };

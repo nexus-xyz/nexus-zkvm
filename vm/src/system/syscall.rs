@@ -101,12 +101,10 @@ pub struct SyscallInstruction {
 
     /// The result of the system call, stored as a tuple of (Register, u32).
     ///
-    /// The return register is always Register::X10 ("a0"), as per RISC-V convention.
-    /// The second element is the actual result value:
-    /// - Initially set to u32::MAX
-    /// - 0 indicates success
-    /// - otherwise error
-    result: (Register, u32),
+    /// The return register is sometimes Register::X10 ("a0") and sometimes X2 as per RISC-V convention.
+    /// The second element is the actual result value.
+    /// Some syscalls don't modify registers, for them result is None.
+    result: Option<(Register, u32)>,
 
     /// Vector of up to 7 argument values for the system call.
     ///
@@ -125,7 +123,7 @@ impl SyscallInstruction {
         }
         Ok(Self {
             code: SyscallCode::try_from(cpu.registers[Register::X17], cpu.pc.value)?,
-            result: (Register::X10, u32::MAX),
+            result: Some((Register::X10, u32::MAX)),
             args: vec![
                 cpu.registers[Register::X10],
                 cpu.registers[Register::X11],
@@ -153,10 +151,10 @@ impl SyscallInstruction {
         if fd == 1 {
             let buffer = memory.read_bytes(buf_addr, count as _)?;
             print!("{}", String::from_utf8_lossy(&buffer));
-            self.result.1 = count;
+            self.result = Some((Register::X10, count));
         } else {
             // Return -1
-            self.result.1 = u32::MAX;
+            self.result = Some((Register::X10, u32::MAX));
         }
         Ok(())
     }
@@ -165,7 +163,7 @@ impl SyscallInstruction {
     ///
     /// This function sets the exit code and signals the VM to terminate execution.
     fn execute_exit(&mut self, error_code: u32) -> Result<()> {
-        self.result.1 = error_code;
+        self.result = Some((Register::X10, error_code));
         Err(VMError::VMExited(error_code))
     }
 
@@ -202,7 +200,7 @@ impl SyscallInstruction {
             ("^", hash_map::Entry::Occupied(mut entry)) => {
                 // Start marker for an existing entry: increment occurrence count
                 entry.get_mut().1 += 1;
-                self.result.1 = 0;
+                self.result = None;
             }
             ("$", hash_map::Entry::Occupied(mut entry)) => {
                 // End marker for an existing entry
@@ -212,16 +210,16 @@ impl SyscallInstruction {
                     // If this is the last occurrence, calculate total cycles
                     *total_cycles = executor.global_clock - *total_cycles;
                 }
-                self.result.1 = 0;
+                self.result = None;
             }
             ("^", hash_map::Entry::Vacant(entry)) => {
                 // Start marker for a new entry: initialize with current clock and occurrence of 1
                 entry.insert((executor.global_clock, 1));
-                self.result.1 = 0;
+                self.result = None;
             }
             ("$", hash_map::Entry::Vacant(_)) => {
                 // End marker for a non-existent entry: this is an error
-                self.result.1 = u32::MAX;
+                self.result = Some((Register::X10, u32::MAX));
             }
             _ => unreachable!(),
         }
@@ -233,9 +231,12 @@ impl SyscallInstruction {
         &mut self,
         private_input_tape: &mut VecDeque<u8>,
     ) -> Result<()> {
-        self.result.1 = private_input_tape
-            .pop_front()
-            .map_or(u32::MAX, |v| v as u32);
+        self.result = Some((
+            Register::X10,
+            private_input_tape
+                .pop_front()
+                .map_or(u32::MAX, |v| v as u32),
+        ));
         Ok(())
     }
 
@@ -244,7 +245,7 @@ impl SyscallInstruction {
         memory_layout: Option<LinearMemoryLayout>,
     ) -> Result<()> {
         if let Some(layout) = memory_layout {
-            self.result = (Register::X2, layout.stack_top());
+            self.result = Some((Register::X2, layout.stack_top()));
         }
 
         Ok(())
@@ -255,9 +256,9 @@ impl SyscallInstruction {
         memory_layout: Option<LinearMemoryLayout>,
     ) -> Result<()> {
         if let Some(layout) = memory_layout {
-            self.result.1 = layout.heap_start();
+            self.result = Some((Register::X10, layout.heap_start()));
         } else {
-            self.result.1 = 0; // 0 indicates no overwrite is necessary
+            self.result = Some((Register::X10, 0)); // 0 indicates no overwrite is necessary
         }
 
         Ok(())
@@ -283,12 +284,14 @@ impl SyscallInstruction {
         executor: &mut Executor,
         memory: &impl MemoryProcessor,
         memory_layout: Option<LinearMemoryLayout>,
+        force_second_pass: bool,
     ) -> Result<()> {
+        let second_pass = memory_layout.is_some() || force_second_pass;
         match self.code {
             SyscallCode::Write => {
                 // No-op on second pass.
-                if memory_layout.is_some() {
-                    self.result.1 = 0;
+                if second_pass {
+                    self.result = None;
                     return Ok(());
                 }
 
@@ -300,8 +303,8 @@ impl SyscallInstruction {
 
             SyscallCode::CycleCount => {
                 // no-op on second pass
-                if memory_layout.is_some() {
-                    self.result.1 = 0;
+                if second_pass {
+                    self.result = None;
                     return Ok(());
                 }
 
@@ -311,6 +314,13 @@ impl SyscallInstruction {
             }
 
             SyscallCode::Exit => {
+                // no result written on second pass
+                if second_pass {
+                    self.result = None;
+                    // but we still need to return an error to stop the VM
+                    let error_code = self.args[0];
+                    return Err(VMError::VMExited(error_code));
+                }
                 let error_code = self.args[0];
                 self.execute_exit(error_code)
             }
@@ -336,7 +346,14 @@ impl SyscallInstruction {
 
     // All the write back to registers is done in the write_back function
     pub fn write_back(&self, cpu: &mut Cpu) {
-        cpu.registers.write(self.result.0, self.result.1);
+        if let Some((reg, value)) = self.result {
+            cpu.registers.write(reg, value);
+        }
+    }
+
+    // Read the result
+    pub fn get_result(&self) -> Option<(Register, u32)> {
+        self.result
     }
 }
 
@@ -365,7 +382,7 @@ mod tests {
         let mut emulator = setup_emulator();
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::Write,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![fd, buf_addr, buf_len as _, 0, 0, 0, 0],
         };
 
@@ -393,7 +410,7 @@ mod tests {
         let mut emulator = setup_emulator();
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::Write,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![fd, buf_addr, buf_len as _, 0, 0, 0, 0],
         };
 
@@ -418,7 +435,7 @@ mod tests {
         let mut emulator = setup_emulator();
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::Exit,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![error_code, 0, 0, 0, 0, 0, 0],
         };
 
@@ -434,7 +451,7 @@ mod tests {
         let mut emulator = setup_emulator();
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::OverwriteStackPointer,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![0, 0, 0, 0, 0, 0, 0],
         };
 
@@ -453,7 +470,7 @@ mod tests {
         let mut emulator = setup_emulator();
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::OverwriteStackPointer,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![0, 0, 0, 0, 0, 0, 0],
         };
 
@@ -474,7 +491,7 @@ mod tests {
         let mut emulator = setup_emulator();
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::CycleCount,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![buf_addr, buf_len as _, 0, 0, 0, 0, 0],
         };
 
@@ -541,7 +558,7 @@ mod tests {
         let mut private_input_tape = VecDeque::from(vec![1, 2, 3]);
         let mut syscall_instruction = SyscallInstruction {
             code: SyscallCode::ReadFromPrivateInput,
-            result: (Register::X10, 0),
+            result: Some((Register::X10, 0)),
             args: vec![],
         };
 
@@ -550,13 +567,17 @@ mod tests {
             syscall_instruction
                 .execute_read_from_private_input(&mut private_input_tape)
                 .expect("Failed to execute read from private input");
-            assert_eq!(syscall_instruction.result.1, expected_value);
+            assert!(syscall_instruction
+                .result
+                .is_some_and(|(reg, value)| { reg == Register::X10 && value == expected_value }));
         }
 
         // Test reading when private input is empty
         syscall_instruction
             .execute_read_from_private_input(&mut private_input_tape)
             .expect("Failed to execute read from private input");
-        assert_eq!(syscall_instruction.result.1, u32::MAX);
+        assert!(syscall_instruction
+            .result
+            .is_some_and(|(reg, value)| { reg == Register::X10 && value == u32::MAX }));
     }
 }

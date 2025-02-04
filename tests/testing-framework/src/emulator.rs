@@ -227,7 +227,7 @@ pub fn emulate(
                 // Use elf file to build the harvard emulator.
                 let mut emulator =
                     HarvardEmulator::from_elf(&elf, &public_input_bytes, &private_input_bytes);
-                let _ = emulator.execute();
+                let _ = emulator.execute(false);
                 let mut cur_cycles = emulator.executor.global_clock;
 
                 let view = emulator.finalize();
@@ -246,7 +246,7 @@ pub fn emulate(
                     let mut linear_emulator =
                         LinearEmulator::from_harvard(&emulator, elf, &ad, &private_input_bytes)
                             .unwrap();
-                    let _ = linear_emulator.execute();
+                    let _ = linear_emulator.execute(false);
                     cur_cycles = linear_emulator.executor.global_clock;
 
                     // Get output bytes.
@@ -283,7 +283,7 @@ pub fn emulate(
                     &private_input_bytes,
                 );
                 cycles.push(emulator.executor.global_clock);
-                let _ = emulator.execute();
+                let _ = emulator.execute(false);
 
                 let view = emulator.finalize();
                 exit_code_bytes = view

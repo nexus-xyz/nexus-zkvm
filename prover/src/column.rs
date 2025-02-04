@@ -155,6 +155,24 @@ pub enum Column {
     /// Boolean flag on whether the row is an EBREAK.
     #[size = 1]
     IsEbreak,
+    /// Boolean flag on whether the row is an ECALL_DEBUG (Write).
+    #[size = 1]
+    IsSysDebug,
+    /// Boolean flag on whether the row is an ECALL_HALT (Exit).
+    #[size = 1]
+    IsSysHalt,
+    /// Boolean flag on whether the row is an ECALL_PRIVATE_INPUT (ReadFromPrivateInput).
+    #[size = 1]
+    IsSysPrivInput,
+    /// Boolean flag on whether the row is an ECALL_CYCLECOUNT (CycleCount).
+    #[size = 1]
+    IsSysCycleCount,
+    /// Boolean flag on whether the row is an ECALL_STACK_RESET (OverwriteStackPointer).
+    #[size = 1]
+    IsSysStackReset,
+    /// Boolean flag on whether the row is an ECALL_HEAP_RESET (OverwriteHeapPointer).
+    #[size = 1]
+    IsSysHeapReset,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

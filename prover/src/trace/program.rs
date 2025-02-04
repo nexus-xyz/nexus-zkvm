@@ -1,9 +1,9 @@
 use nexus_common::cpu::Registers;
 use nexus_vm::{
     cpu::RegisterFile,
-    riscv::{InstructionType, Register},
+    riscv::{BuiltinOpcode, InstructionType, Register},
     trace::{Step, Trace},
-    WORD_SIZE,
+    SyscallCode, WORD_SIZE,
 };
 
 /// Program execution step.
@@ -35,7 +35,22 @@ impl ProgramStep {
     /// Returns the value of the second operand (rs1 or rs2) as bytes.
     /// Always a register value in range u32.
     pub(crate) fn get_value_b(&self) -> Word {
-        self.regs.read(self.step.instruction.op_b).to_le_bytes()
+        let value_b = if let Some(syscall_code) = self.get_syscall_code() {
+            syscall_code
+        } else {
+            self.regs.read(self.step.instruction.op_b)
+        };
+
+        value_b.to_le_bytes()
+    }
+
+    /// Returns the first read register if no register gets accessed, zero
+    pub(crate) fn get_op_b(&self) -> Register {
+        if self.get_syscall_code().is_some() {
+            Register::X17
+        } else {
+            self.step.instruction.op_b
+        }
     }
 
     /// Returns the value of the third operand (rs2 or immediate) as bytes.
@@ -60,9 +75,25 @@ impl ProgramStep {
         self.step.result.map(|r| r.to_le_bytes())
     }
 
+    pub(crate) fn get_op_a(&self) -> Register {
+        // Special cases: ECALL and EBREAK OpA depend on syscall number
+        if let Some(syscall_value) = self.get_syscall_code() {
+            let syscall_number = SyscallCode::from(syscall_value);
+            match syscall_number {
+                SyscallCode::ReadFromPrivateInput | SyscallCode::OverwriteHeapPointer => {
+                    Register::X10
+                }
+                SyscallCode::OverwriteStackPointer => Register::X2,
+                _ => Register::X0,
+            }
+        } else {
+            self.step.instruction.op_a
+        }
+    }
+
     /// Returns true if the valueA register is x0 register.
     pub(crate) fn value_a_effectitve_flag(&self) -> bool {
-        self.step.instruction.op_a != Register::X0
+        self.get_op_a() != Register::X0
     }
 
     /// Returns the signed bit of ValueA
@@ -81,6 +112,17 @@ impl ProgramStep {
     pub(crate) fn get_sgn_c(&self) -> bool {
         let c = self.get_value_c().0;
         (c[WORD_SIZE - 1] >> 7) == 1
+    }
+
+    /// Returns the syscall code value at register X17
+    pub(crate) fn get_syscall_code(&self) -> Option<u32> {
+        // Make sure the current instruction is ECALL, otherwise it's None
+        match self.step.instruction.opcode.builtin() {
+            Some(BuiltinOpcode::ECALL) | Some(BuiltinOpcode::EBREAK) => {
+                Some(self.regs.read(Register::X17))
+            }
+            _ => None,
+        }
     }
 }
 

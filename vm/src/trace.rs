@@ -175,8 +175,9 @@ fn step(
     instruction: &Instruction,
     pc: u32,
     timestamp: u32,
+    force_second_pass: bool,
 ) -> Result<Step> {
-    let (result, memory_records) = vm.execute_instruction(instruction)?;
+    let (result, memory_records) = vm.execute_instruction(instruction, force_second_pass)?;
 
     let next_pc = vm.get_executor().cpu.pc.value;
 
@@ -194,7 +195,11 @@ fn step(
 }
 
 // Generate a `Block` by evaluating `k` steps of `vm`.
-fn k_step(vm: &mut impl Emulator, k: usize) -> (Option<Block>, Result<()>) {
+fn k_step(
+    vm: &mut impl Emulator,
+    k: usize,
+    force_second_pass: bool,
+) -> (Option<Block>, Result<()>) {
     let mut block = Block {
         regs: vm.get_executor().cpu.registers,
         steps: Vec::new(),
@@ -246,7 +251,7 @@ fn k_step(vm: &mut impl Emulator, k: usize) -> (Option<Block>, Result<()>) {
                     let pc = vm.get_executor().cpu.pc.value;
                     let timestamp = vm.get_executor().global_clock as u32;
 
-                    match step(vm, instruction, pc, timestamp) {
+                    match step(vm, instruction, pc, timestamp, force_second_pass) {
                         Ok(step) => block.steps.push(step),
                         Err(VMError::VMExited(n)) => {
                             block.steps.push(Step {
@@ -255,7 +260,7 @@ fn k_step(vm: &mut impl Emulator, k: usize) -> (Option<Block>, Result<()>) {
                                 next_pc: pc,
                                 raw_instruction: instruction.encode(),
                                 instruction: instruction.clone(),
-                                result: Some(n),
+                                result: if force_second_pass { None } else { Some(n) },
                                 memory_records: MemoryRecords::default(),
                             });
 
@@ -291,7 +296,7 @@ pub fn k_trace(
     assert!(k > 0);
     let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
 
-    match harvard.execute() {
+    match harvard.execute(false) {
         Err(VMError::VMExited(_)) => {
             // todo: consistency check i/o between harvard and linear?
             let mut linear = LinearEmulator::from_harvard(&harvard, elf, ad, private_input)?;
@@ -304,7 +309,7 @@ pub fn k_trace(
             };
 
             loop {
-                match k_step(&mut linear, k) {
+                match k_step(&mut linear, k, false) {
                     (Some(block), Ok(())) => trace.blocks.push(block),
                     (Some(block), Err(e)) => {
                         if !block.steps.is_empty() {
@@ -338,7 +343,7 @@ pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<(View,
     };
 
     loop {
-        match k_step(&mut harvard, k) {
+        match k_step(&mut harvard, k, true) {
             (Some(block), Ok(())) => trace.blocks.push(block),
             (Some(block), Err(e)) => {
                 if !block.steps.is_empty() {
@@ -375,7 +380,7 @@ fn bb_step(vm: &mut impl Emulator) -> (Option<Block>, Result<()>) {
                 let pc = vm.get_executor().cpu.pc.value;
                 let timestamp = vm.get_executor().global_clock as u32;
 
-                match step(vm, instruction, pc, timestamp) {
+                match step(vm, instruction, pc, timestamp, true) {
                     Ok(step) => block.steps.push(step),
                     Err(VMError::VMExited(n)) => {
                         block.steps.push(Step {
@@ -408,7 +413,7 @@ pub fn bb_trace(
 ) -> Result<(View, BBTrace)> {
     let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
 
-    match harvard.execute() {
+    match harvard.execute(false) {
         Err(VMError::VMExited(_)) => {
             // todo: consistency check i/o between harvard and linear?
             let mut linear = LinearEmulator::from_harvard(&harvard, elf, ad, private_input)?;

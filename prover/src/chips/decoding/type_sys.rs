@@ -40,7 +40,6 @@ impl MachineChip for TypeSysChip {
             MAX_LOOKUP_TUPLE_SIZE,
         >,
     ) {
-        // TODO: implement
         let [is_type_sys] = IsTypeSys::eval(trace_eval);
         // Making sure that op_b=x17
         // (is_type_sys)・ (17 - op_b) = 0
