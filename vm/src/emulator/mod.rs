@@ -4,7 +4,7 @@ mod memory_stats;
 mod registry;
 
 pub use executor::{
-    BasicBlockEntry, Emulator, Executor, HarvardEmulator, LinearEmulator, MemoryTranscript,
-    ProgramInfo, ProgramMemoryEntry, PublicInputEntry, View,
+    BasicBlockEntry, Emulator, Executor, HarvardEmulator, LinearEmulator,
+    MemoryInitializationEntry, MemoryTranscript, ProgramInfo, ProgramMemoryEntry, View,
 };
 pub use layout::LinearMemoryLayout;

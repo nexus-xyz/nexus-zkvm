@@ -3,8 +3,8 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use rangemap::RangeMap;
 use std::{
+    collections::BTreeMap,
     fmt::{Debug, Display, Formatter, Result as FmtResult},
-    ops::Range,
 };
 
 use nexus_common::words_to_bytes;
@@ -170,34 +170,34 @@ impl UnifiedMemory {
     add_fixed!(add_fixed_wo, fwo, fwo_store, WO);
     add_fixed!(add_fixed_na, fna, fna_store, NA);
 
-    pub fn addresses_bytes(&self, uidx: (usize, usize)) -> Result<Range<u32>, MemoryError> {
+    pub fn addr_val_bytes(&self, uidx: (usize, usize)) -> Result<BTreeMap<u32, u8>, MemoryError> {
         let (store, idx) = uidx;
 
         match FromPrimitive::from_usize(store) {
             Some(Modes::RW) => {
                 if idx < self.frw_store.len() {
-                    Ok(self.frw_store[idx].addresses_bytes())
+                    Ok(self.frw_store[idx].addr_val_bytes())
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
-                    Ok(self.fro_store[idx].addresses_bytes())
+                    Ok(self.fro_store[idx].addr_val_bytes())
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::WO) => {
                 if idx < self.fwo_store.len() {
-                    Ok(self.fwo_store[idx].addresses_bytes())
+                    Ok(self.fwo_store[idx].addr_val_bytes())
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
-                    Ok(self.fna_store[idx].addresses_bytes())
+                    Ok(self.fna_store[idx].addr_val_bytes())
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }

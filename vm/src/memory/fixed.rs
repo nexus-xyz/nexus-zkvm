@@ -1,4 +1,5 @@
-use std::ops::Range;
+use std::collections::BTreeMap;
+
 use std::{fmt::Debug, marker::PhantomData};
 
 use nexus_common::constants::WORD_SIZE;
@@ -106,8 +107,17 @@ impl<M: Mode> FixedMemory<M> {
     }
 
     /// addresses in the fixed memory, given bytewise
-    pub fn addresses_bytes(&self) -> Range<u32> {
-        self.base_address..self.base_address + self.vec.len() as u32 * WORD_SIZE as u32
+    pub fn addr_val_bytes(&self) -> BTreeMap<u32, u8> {
+        let mut ret = BTreeMap::new();
+        for addr in self.base_address..self.base_address + self.vec.len() as u32 * WORD_SIZE as u32
+        {
+            let val = self.execute_read(addr, MemAccessSize::Byte);
+            if let Ok(LoadOp::Op(_, _, value)) = val {
+                assert!(value <= 0xFF);
+                ret.insert(addr, value as u8);
+            }
+        }
+        ret
     }
 }
 

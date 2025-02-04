@@ -3,7 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use nexus_vm::{
-    emulator::{PublicInputEntry, View},
+    emulator::{MemoryInitializationEntry, View},
     WORD_SIZE,
 };
 
@@ -33,27 +33,18 @@ impl ReadWriteMemCheckSideNote {
     /// Create a new side note for read write memory checking
     ///
     /// The side note will be used for keeping track of the latest value and access counter for each address, to be put under memory checking.
-    /// * `public_input` an iterator of public input entries given byte-wise.
-    /// * `touched_addresses` an iterator of addresses that are guaranteed to be included in memory checking
-    pub fn new<
-        I: Iterator<Item = PublicInputEntry>,
-        I2: Iterator<Item = u32>,
-        I3: Iterator<Item = u32>,
-    >(
-        public_input: I,
-        touched_addresses: I2,
-        public_output_addresses: I3,
+    /// * `initial_memory` an iterator of public input entries and ELF RAM, ROM entries given byte-wise.
+    /// * `public_output_addresses` an iterator of addresses that are guaranteed to be included in memory checking
+    pub fn new<I: Iterator<Item = MemoryInitializationEntry>, I2: Iterator<Item = u32>>(
+        initial_memory: I,
+        public_output_addresses: I2,
     ) -> Self {
         let mut ret: Self = Default::default();
-        for PublicInputEntry { address, value } in public_input {
+        for MemoryInitializationEntry { address, value } in initial_memory {
             let old = ret.last_access.insert(address, (0, value));
-            assert!(old.is_none(), "Duplicate public input entry");
+            assert!(old.is_none(), "Duplicate memory initialization entry");
             let old = ret.public_input.insert(address, value);
-            assert!(old.is_none(), "Duplicate public input entry");
-        }
-        for touched_address in touched_addresses {
-            let old = ret.last_access.insert(touched_address, (0, 0));
-            assert!(old.is_none(), "Duplicate touched address");
+            assert!(old.is_none(), "Duplicate memory initialization entry");
         }
         for public_output_address in public_output_addresses {
             let old = ret.public_output_addresses.insert(public_output_address);
@@ -105,8 +96,7 @@ impl SideNote {
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
             rw_mem_check: ReadWriteMemCheckSideNote::new(
-                view.get_public_input().copied(),
-                view.get_elf_rom_ram_addresses(),
+                view.get_initial_memory().copied(),
                 public_output_addresses.into_iter(),
             ),
         }

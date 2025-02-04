@@ -32,53 +32,48 @@ impl MemAccessSize {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemoryRecord {
-    // (size, address, value), timestamp, prev_timestamp
-    LoadRecord((MemAccessSize, u32, u32), u32, u32),
-    // (size, address, value, prev_value), timestamp, prev_timestamp
-    StoreRecord((MemAccessSize, u32, u32, u32), u32, u32),
+    // (size, address, value), timestamp
+    // TODO: add byte-wise previous timestamps
+    LoadRecord((MemAccessSize, u32, u32), u32),
+    // (size, address, value, prev_value), timestamp
+    // TODO: add byte-wise previous timestamps
+    StoreRecord((MemAccessSize, u32, u32, u32), u32),
 }
 pub type MemoryRecords = HashSet<MemoryRecord>;
 
 impl MemoryRecord {
     pub fn get_timestamp(&self) -> u32 {
         match self {
-            MemoryRecord::LoadRecord((_, _, _), timestamp, _) => *timestamp,
-            MemoryRecord::StoreRecord((_, _, _, _), timestamp, _) => *timestamp,
-        }
-    }
-
-    pub fn get_prev_timestamp(&self) -> u32 {
-        match self {
-            MemoryRecord::LoadRecord((_, _, _), _, prev_timestamp) => *prev_timestamp,
-            MemoryRecord::StoreRecord((_, _, _, _), _, prev_timestamp) => *prev_timestamp,
+            MemoryRecord::LoadRecord((_, _, _), timestamp) => *timestamp,
+            MemoryRecord::StoreRecord((_, _, _, _), timestamp) => *timestamp,
         }
     }
 
     pub fn get_address(&self) -> u32 {
         match self {
-            MemoryRecord::LoadRecord((_, address, _), _, _) => *address,
-            MemoryRecord::StoreRecord((_, address, _, _), _, _) => *address,
+            MemoryRecord::LoadRecord((_, address, _), _) => *address,
+            MemoryRecord::StoreRecord((_, address, _, _), _) => *address,
         }
     }
 
     pub fn get_value(&self) -> u32 {
         match self {
-            MemoryRecord::LoadRecord((_, _, value), _, _) => *value,
-            MemoryRecord::StoreRecord((_, _, value, _), _, _) => *value,
+            MemoryRecord::LoadRecord((_, _, value), _) => *value,
+            MemoryRecord::StoreRecord((_, _, value, _), _) => *value,
         }
     }
 
     pub fn get_prev_value(&self) -> Option<u32> {
         match self {
-            MemoryRecord::LoadRecord((_, _, _), _, _) => None,
-            MemoryRecord::StoreRecord((_, _, _, prev_value), _, _) => Some(*prev_value),
+            MemoryRecord::LoadRecord((_, _, _), _) => None,
+            MemoryRecord::StoreRecord((_, _, _, prev_value), _) => Some(*prev_value),
         }
     }
 
     pub fn get_size(&self) -> MemAccessSize {
         match self {
-            MemoryRecord::LoadRecord((size, _, _), _, _) => *size,
-            MemoryRecord::StoreRecord((size, _, _, _), _, _) => *size,
+            MemoryRecord::LoadRecord((size, _, _), _) => *size,
+            MemoryRecord::StoreRecord((size, _, _, _), _) => *size,
         }
     }
 }
@@ -99,13 +94,11 @@ impl From<LoadOp> for LoadOps {
 }
 
 impl LoadOp {
-    pub fn as_record(self, timestamp: usize, prev_timestamp: usize) -> MemoryRecord {
+    pub fn as_record(self, timestamp: usize) -> MemoryRecord {
         match self {
-            Self::Op(size, address, value) => MemoryRecord::LoadRecord(
-                (size, address, value),
-                timestamp as u32,
-                prev_timestamp as u32,
-            ),
+            Self::Op(size, address, value) => {
+                MemoryRecord::LoadRecord((size, address, value), timestamp as u32)
+            }
         }
     }
 
@@ -144,13 +137,11 @@ impl From<StoreOp> for StoreOps {
 }
 
 impl StoreOp {
-    pub fn as_record(self, timestamp: usize, prev_timestamp: usize) -> MemoryRecord {
+    pub fn as_record(self, timestamp: usize) -> MemoryRecord {
         match self {
-            Self::Op(size, address, value, prev_value) => MemoryRecord::StoreRecord(
-                (size, address, value, prev_value),
-                timestamp as u32,
-                prev_timestamp as u32,
-            ),
+            Self::Op(size, address, value, prev_value) => {
+                MemoryRecord::StoreRecord((size, address, value, prev_value), timestamp as u32)
+            }
         }
     }
 

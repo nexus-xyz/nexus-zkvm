@@ -522,7 +522,6 @@ mod tests {
             .take(&MemoryRecord::StoreRecord(
                 (MemAccessSize::Word, 0x80403898, 4128, 0),
                 13,
-                0
             ))
             .is_some());
 
@@ -583,7 +582,6 @@ mod tests {
             .take(&MemoryRecord::StoreRecord(
                 (MemAccessSize::Word, 0x80403898, 4128, 0),
                 13,
-                0
             ))
             .is_some());
 
@@ -644,7 +642,6 @@ mod tests {
             .take(&MemoryRecord::StoreRecord(
                 (MemAccessSize::Word, 0x80403898, 4128, 0),
                 13,
-                0
             ))
             .is_some());
 

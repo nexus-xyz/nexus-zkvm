@@ -71,8 +71,8 @@ use crate::{
     elf::ElfFile,
     error::{Result, VMError},
     memory::{
-        FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, MemoryRecords, Modes, StoreOp,
-        UnifiedMemory, VariableMemory, NA, RO, RW, WO,
+        FixedMemory, LoadOp, MemoryProcessor, MemoryRecords, Modes, StoreOp, UnifiedMemory,
+        VariableMemory, NA, RO, RW, WO,
     },
     riscv::{
         decode_instruction, decode_until_end_of_a_block, BasicBlock, BuiltinOpcode, Instruction,
@@ -84,13 +84,13 @@ use crate::{
 use nexus_common::{
     constants::{ELF_TEXT_START, MEMORY_TOP, WORD_SIZE},
     cpu::{InstructionExecutor, Registers},
+    memory::MemAccessSize,
     word_align,
 };
 use rangemap::RangeMap;
 use std::{
     cmp::max,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
-    ops::Range,
 };
 
 pub type MemoryTranscript = Vec<MemoryRecords>;
@@ -104,7 +104,7 @@ pub struct ProgramMemoryEntry {
 
 // One entry per byte because RO memory can be accessed bytewise
 #[derive(Debug, Copy, Clone)]
-pub struct PublicInputEntry {
+pub struct MemoryInitializationEntry {
     pub address: u32,
     pub value: u8,
 }
@@ -153,10 +153,8 @@ impl BasicBlockEntry {
 pub struct View {
     #[allow(dead_code)]
     memory_layout: Option<LinearMemoryLayout>,
-    static_rom_addresses: Range<u32>,
-    static_ram_addresses: Range<u32>,
     program_memory: ProgramInfo,
-    input_memory: Vec<PublicInputEntry>,
+    initial_memory: Vec<MemoryInitializationEntry>,
     exit_code: Vec<PublicOutputEntry>,
     output_memory: Vec<PublicOutputEntry>,
 }
@@ -175,9 +173,9 @@ impl View {
         )
     }
 
-    /// Return information about the public input.
-    pub fn get_public_input(&self) -> impl Iterator<Item = &PublicInputEntry> {
-        self.input_memory.iter()
+    /// Return information about the public input, static ROM, and static RAM.
+    pub fn get_initial_memory(&self) -> impl Iterator<Item = &MemoryInitializationEntry> {
+        self.initial_memory.iter()
     }
 
     /// Return information about the public input.
@@ -188,22 +186,6 @@ impl View {
     /// Return information about the exit code.
     pub fn get_exit_code(&self) -> impl Iterator<Item = &PublicOutputEntry> {
         self.exit_code.iter()
-    }
-
-    /// Returns addresses in elf where LOAD is allowed
-    pub fn get_static_rom_addresses(&self) -> impl Iterator<Item = u32> {
-        self.static_rom_addresses.clone()
-    }
-
-    /// Returns addresses in elf wehre LOAD and STORE are allowed
-    pub fn get_static_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        self.static_ram_addresses.clone()
-    }
-
-    /// Returns union of get_static_{rom,ram}_addresses
-    pub fn get_elf_rom_ram_addresses(&self) -> impl Iterator<Item = u32> {
-        self.get_static_rom_addresses()
-            .chain(self.get_static_ram_addresses())
     }
 }
 
@@ -357,6 +339,8 @@ pub trait Emulator {
         self.get_executor_mut().set_private_input(private_input)
     }
 
+    /// Update and return previous timestamps, but it currently works word-wise, so not used.
+    #[allow(dead_code)]
     fn manage_timestamps(&mut self, size: &MemAccessSize, address: &u32) -> usize {
         let half_aligned_address = address & !(WORD_SIZE / 2 - 1) as u32;
         let full_aligned_address = address & !(WORD_SIZE - 1) as u32;
@@ -425,17 +409,11 @@ pub struct HarvardEmulator {
     // The output memory image
     output_memory: VariableMemory<WO>,
 
-    // The starting address of rom in the elf
-    static_rom_base: u32,
+    // Content of static rom image
+    static_rom_image: BTreeMap<u32, u8>,
 
-    // The size of rom in the elf
-    static_rom_size: u32,
-
-    // The starting address of ram in the elf
-    static_ram_base: u32,
-
-    // The size of ram in the elf
-    static_ram_size: u32,
+    // Initial content of static ram image
+    static_ram_image: BTreeMap<u32, u8>,
 
     // A combined read-only (in part) and read-write (in part) memory image
     pub data_memory: UnifiedMemory,
@@ -450,12 +428,10 @@ impl Default for HarvardEmulator {
         Self {
             executor: Executor::default(),
             instruction_memory: FixedMemory::<RO>::new(0, 0x1000),
-            static_rom_base: 0,
-            static_rom_size: 0,
-            static_ram_base: 0,
-            static_ram_size: 0,
             input_memory: FixedMemory::<RO>::new(0, 0x1000),
             output_memory: VariableMemory::<WO>::default(),
+            static_rom_image: BTreeMap::new(),
+            static_ram_image: BTreeMap::new(),
             data_memory: UnifiedMemory::default(),
             memory_stats: MemoryStats::default(),
         }
@@ -502,8 +478,29 @@ impl HarvardEmulator {
         let len_bytes = (public_input.len()) as u32;
         let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
 
-        let elf_ram_base_address: u32 = *elf.ram_image.first_key_value().unwrap_or((&0, &0)).0;
-        let elf_ram_end = *elf.ram_image.keys().max().unwrap_or(&0);
+        let static_rom_image: BTreeMap<u32, u8> = elf
+            .rom_image
+            .iter()
+            .flat_map(|(addr, &value)| {
+                value
+                    .to_le_bytes()
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(i, byte)| (addr + i as u32, byte))
+            })
+            .collect();
+
+        let static_ram_image: BTreeMap<u32, u8> = elf
+            .ram_image
+            .iter()
+            .flat_map(|(addr, &value)| {
+                value
+                    .to_le_bytes()
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(i, byte)| (addr + i as u32, byte))
+            })
+            .collect();
 
         let mut emulator = Self {
             executor: Executor {
@@ -518,12 +515,10 @@ impl HarvardEmulator {
                 elf.instructions.len() * WORD_SIZE,
                 elf.instructions.clone(),
             ),
-            static_rom_base: ro_data_base_address,
-            static_rom_size: ro_data_end - ro_data_base_address,
-            static_ram_base: elf_ram_base_address,
-            static_ram_size: elf_ram_end - elf_ram_base_address,
             input_memory: FixedMemory::<RO>::from_bytes(0, &public_input_with_len),
             output_memory: VariableMemory::<WO>::default(),
+            static_rom_image,
+            static_ram_image,
             data_memory,
             memory_stats: MemoryStats::new(data_end, MEMORY_TOP),
         };
@@ -622,23 +617,11 @@ impl Emulator for HarvardEmulator {
         let mut memory_records = MemoryRecords::new();
 
         load_ops.clone().iter().for_each(|op| {
-            let size = op.get_size();
-            let address = op.get_address();
-
-            memory_records.insert(op.as_record(
-                self.executor.global_clock,
-                self.manage_timestamps(&size, &address),
-            ));
+            memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
         store_ops.clone().iter().for_each(|op| {
-            let size = op.get_size();
-            let address = op.get_address();
-
-            memory_records.insert(op.as_record(
-                self.executor.global_clock,
-                self.manage_timestamps(&size, &address),
-            ));
+            memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
         // Update the memory size statistics.
@@ -727,12 +710,34 @@ impl Emulator for HarvardEmulator {
             }
         }
 
+        let public_input: Vec<MemoryInitializationEntry> = self
+            .input_memory
+            .segment_bytes(0, None)
+            .iter()
+            .enumerate()
+            .map(|(i, byte)| MemoryInitializationEntry {
+                address: self.input_memory.base_address + i as u32,
+                value: *byte,
+            })
+            .collect();
+        let rom_iter =
+            self.static_rom_image
+                .iter()
+                .map(|(addr, &value)| MemoryInitializationEntry {
+                    address: *addr,
+                    value,
+                });
+        // FIXME: ram_iter should contain the initial memory content, not the final content
+        let ram_iter =
+            self.static_ram_image
+                .iter()
+                .map(|(addr, &value)| MemoryInitializationEntry {
+                    address: *addr,
+                    value,
+                });
+
         View {
             memory_layout: None,
-            static_rom_addresses: self.static_rom_base
-                ..(self.static_rom_base + self.static_rom_size),
-            static_ram_addresses: self.static_ram_base
-                ..(self.static_ram_base + self.static_ram_size),
             program_memory: ProgramInfo {
                 initial_pc: self.executor.entrypoint,
                 program: self
@@ -746,15 +751,10 @@ impl Emulator for HarvardEmulator {
                     })
                     .collect(),
             },
-            input_memory: self
-                .input_memory
-                .segment_bytes(0, None)
-                .iter()
-                .enumerate()
-                .map(|(i, byte)| PublicInputEntry {
-                    address: self.input_memory.base_address + i as u32,
-                    value: *byte,
-                })
+            initial_memory: public_input
+                .into_iter()
+                .chain(rom_iter)
+                .chain(ram_iter)
                 .collect(),
             exit_code,
             output_memory,
@@ -773,11 +773,14 @@ pub struct LinearEmulator {
     // The unified index for the public input memory segment
     public_input_index: (usize, usize),
 
+    // The unified index for the location data for public IO
+    public_io_location_index: (usize, usize),
+
     /// The unified index for the read-only statically allocated region in elf
     static_rom_image_index: Option<(usize, usize)>,
 
-    /// The unified index for the read-write statically allocated region in elf
-    static_ram_image_index: Option<(usize, usize)>,
+    /// Initial snapshot of the static ram image
+    initial_static_ram_image: BTreeMap<u32, u8>,
 
     // The memory layout
     pub memory_layout: LinearMemoryLayout,
@@ -912,7 +915,7 @@ impl LinearEmulator {
             Some(memory.add_fixed_ro(&ro_data_memory).unwrap())
         };
 
-        let elf_ram_image_index = if elf.ram_image.is_empty() {
+        let _elf_ram_image_index = if elf.ram_image.is_empty() {
             None
         } else {
             let data_base_address: u32 = *elf.ram_image.first_key_value().unwrap().0;
@@ -982,7 +985,7 @@ impl LinearEmulator {
         }
 
         // Add the public input and public output start locations.
-        memory
+        let public_io_location_index = memory
             .add_fixed_ro(&FixedMemory::<RO>::from_words(
                 0x80,
                 8,
@@ -992,6 +995,18 @@ impl LinearEmulator {
                 ],
             ))
             .unwrap();
+
+        let initial_static_ram_image: BTreeMap<u32, u8> = elf
+            .ram_image
+            .iter()
+            .flat_map(|(addr, &value)| {
+                value
+                    .to_le_bytes()
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(i, byte)| (addr + i as u32, byte))
+            })
+            .collect();
 
         let mut emulator = Self {
             executor: Executor {
@@ -1003,8 +1018,9 @@ impl LinearEmulator {
             },
             instruction_index,
             public_input_index,
+            public_io_location_index,
             static_rom_image_index: elf_rom_image_index,
-            static_ram_image_index: elf_ram_image_index,
+            initial_static_ram_image,
             memory_layout,
             memory,
             ..Default::default()
@@ -1059,23 +1075,11 @@ impl Emulator for LinearEmulator {
         let mut memory_records = MemoryRecords::new();
 
         load_ops.iter().for_each(|op| {
-            let size = op.get_size();
-            let address = op.get_address();
-
-            memory_records.insert(op.as_record(
-                self.executor.global_clock,
-                self.manage_timestamps(&size, &address),
-            ));
+            memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
         store_ops.iter().for_each(|op| {
-            let size = op.get_size();
-            let address = op.get_address();
-
-            memory_records.insert(op.as_record(
-                self.executor.global_clock,
-                self.manage_timestamps(&size, &address),
-            ));
+            memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
         if !bare_instruction.is_branch_or_jump_instruction() {
@@ -1160,20 +1164,67 @@ impl Emulator for LinearEmulator {
             }
         }
 
+        let public_input_iter = self
+            .memory
+            .segment(
+                self.public_input_index,
+                self.memory_layout.public_input_start(),
+                Some(self.memory_layout.public_input_end()),
+            )
+            .expect("Cannot find public input in LinearEmulator")
+            .iter()
+            .enumerate()
+            .flat_map(|(i, word_content)| {
+                let base_address =
+                    self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
+                let word = word_content.to_le_bytes();
+                word.into_iter()
+                    .enumerate()
+                    .map(move |(j, byte)| MemoryInitializationEntry {
+                        address: base_address + j as u32,
+                        value: byte,
+                    })
+            });
+        let public_io_loc_iter = self
+            .memory
+            .segment(self.public_io_location_index, 0x80, None)
+            .expect("Cannot find public io location in LinearEmulator")
+            .iter()
+            .enumerate()
+            .flat_map(|(i, word_content)| {
+                let base_address = 0x80 + i as u32 * WORD_SIZE as u32;
+                let word = word_content.to_le_bytes();
+                word.into_iter()
+                    .enumerate()
+                    .map(move |(j, byte)| MemoryInitializationEntry {
+                        address: base_address + j as u32,
+                        value: byte,
+                    })
+            });
+        // TODO: avoid creating a BtreeMap and produce an iterator directly
+        let rom_initialization = match self.static_rom_image_index {
+            None => BTreeMap::new(),
+            Some(uidx) => self
+                .memory
+                .addr_val_bytes(uidx)
+                .expect("invalid static_rom_image_index"),
+        };
+        let rom_iter = rom_initialization
+            .iter()
+            .map(|(addr, byte)| MemoryInitializationEntry {
+                address: *addr,
+                value: *byte,
+            });
+        let ram_initialization = &self.initial_static_ram_image;
+        let ram_iter = ram_initialization
+            .iter()
+            .map(|(addr, byte)| MemoryInitializationEntry {
+                address: *addr,
+                value: *byte,
+            });
+
         View {
             memory_layout: Some(self.memory_layout),
-            static_rom_addresses: (|| {
-                let Some(uidx) = self.static_rom_image_index else {
-                    return 0u32..0u32;
-                };
-                self.memory.addresses_bytes(uidx).unwrap()
-            })(),
-            static_ram_addresses: (|| {
-                let Some(uidx) = self.static_ram_image_index else {
-                    return 0u32..0u32;
-                };
-                self.memory.addresses_bytes(uidx).unwrap()
-            })(),
             program_memory: ProgramInfo {
                 initial_pc: self.memory_layout.program_start(),
                 program: self
@@ -1192,27 +1243,10 @@ impl Emulator for LinearEmulator {
                     })
                     .collect(),
             },
-            input_memory: self
-                .memory
-                .segment(
-                    self.public_input_index,
-                    self.memory_layout.public_input_start(),
-                    Some(self.memory_layout.public_input_end()),
-                )
-                .expect("Cannot find public input in LinearEmulator")
-                .iter()
-                .enumerate()
-                .flat_map(|(i, byte)| {
-                    let base_address =
-                        self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
-                    let word = byte.to_le_bytes();
-                    word.into_iter()
-                        .enumerate()
-                        .map(move |(j, byte)| PublicInputEntry {
-                            address: base_address + j as u32,
-                            value: byte,
-                        })
-                })
+            initial_memory: public_input_iter
+                .chain(public_io_loc_iter)
+                .chain(rom_iter)
+                .chain(ram_iter)
                 .collect(),
             exit_code,
             output_memory,

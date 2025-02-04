@@ -558,41 +558,31 @@ impl LoadStoreChip {
             .take(size)
             .enumerate()
             {
-                traces.fill_columns(row_idx, cur_value[i], val_cur);
-                traces.fill_columns(row_idx, prev_value[i], val_prev);
-                traces.fill_columns(row_idx, memory_record.get_prev_timestamp(), ts_prev);
-                traces.fill_columns(row_idx, true, accessed);
-                let (ram_ts_prev_aux_word, helper_word) = decr_subtract_with_borrow(
-                    clk.to_le_bytes(),
-                    memory_record.get_prev_timestamp().to_le_bytes(),
-                );
-                traces.fill_columns(row_idx, ram_ts_prev_aux_word, ram_ts_prev_aux);
-                traces.fill_columns(row_idx, helper_word, helper);
-
                 let prev_access = side_note.rw_mem_check.last_access.insert(
                     byte_address
                         .checked_add(i as u32)
                         .expect("memory access range overflowed back to address zero"),
                     (clk, cur_value[i]),
                 );
-                match prev_access {
-                    Some((prev_clk, prev_val)) => {
-                        assert_eq!(
-                            prev_clk,
-                            memory_record.get_prev_timestamp(),
-                            "memory access timestamp mismatch"
-                        );
-                        assert_eq!(prev_val, prev_value[i], "memory access value mismatch");
-                    }
-                    None => {
-                        assert_eq!(
-                            memory_record.get_prev_timestamp(),
-                            0,
-                            "memory access timestamp mismatch"
-                        );
-                        assert_eq!(prev_value[i], 0, "memory access value mismatch");
-                    }
+                let (prev_timestamp, prev_val) = prev_access.unwrap_or((0, 0));
+                // If it's LOAD, the vm and the prover need to agree on the previous value
+                if is_load {
+                    assert_eq!(
+                        prev_val,
+                        prev_value[i],
+                        "memory access value mismatch at address 0x{:x}, prev_timestamp = {}",
+                        byte_address.checked_add(i as u32).unwrap(),
+                        prev_timestamp,
+                    );
                 }
+                traces.fill_columns(row_idx, cur_value[i], val_cur);
+                traces.fill_columns(row_idx, prev_val, val_prev);
+                traces.fill_columns(row_idx, prev_timestamp, ts_prev);
+                traces.fill_columns(row_idx, true, accessed);
+                let (ram_ts_prev_aux_word, helper_word) =
+                    decr_subtract_with_borrow(clk.to_le_bytes(), prev_timestamp.to_le_bytes());
+                traces.fill_columns(row_idx, ram_ts_prev_aux_word, ram_ts_prev_aux);
+                traces.fill_columns(row_idx, helper_word, helper);
             }
         }
     }
