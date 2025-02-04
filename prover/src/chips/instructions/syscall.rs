@@ -48,7 +48,10 @@ impl MachineChip for SyscallChip {
         let result = vm_step.step.result;
         match (syscall_number, result) {
             (0x200, None) => traces.fill_columns(row_idx, true, Column::IsSysDebug),
-            (0x201, None) => {
+            (0x201, result) => {
+                // the result may be present or not depending on a pass, has no effect
+                let _ = result;
+
                 traces.fill_columns(row_idx, true, Column::IsSysHalt);
                 // PcNext should be the current Pc
                 traces.fill_columns(row_idx, vm_step.step.pc, Column::PcNext);
@@ -67,11 +70,10 @@ impl MachineChip for SyscallChip {
                 traces.fill_columns(row_idx, result, Column::ValueA);
             }
             _ => {
-                println!(
+                panic!(
                     "Unknown syscall number: 0x{:x} and result: {:?}, on row {}",
                     syscall_number, result, row_idx
                 );
-                unreachable!() // Unknown syscall number
             }
         };
     }
