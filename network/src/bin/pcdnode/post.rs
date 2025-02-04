@@ -55,7 +55,20 @@ pub fn manage_proof(
             let mut state = state.clone();
             let hash = hash.clone();
             tokio::spawn(async move {
-                let proof = v.pop_front().unwrap().await.unwrap();
+                let proof = match v.pop_front() {
+                    Some(handle) => match handle.await {
+                        Ok(msg) => msg,
+                        Err(e) => {
+                            tracing::error!(target: LOG_TARGET, error = ?e, "Failed to await proof handle");
+                            return;
+                        }
+                    },
+                    None => {
+                        tracing::error!(target: LOG_TARGET, "No proof handle available");
+                        return;
+                    }
+                };
+                
                 state.db.update_complete(hash.to_string(), 1);
                 tracing::info!(
                     target: LOG_TARGET,
@@ -63,17 +76,29 @@ pub fn manage_proof(
                     "proof complete, verifying",
                 );
 
-                let PCDRes(ref node) = proof else { panic!() };
-                node.verify(&state.pp).unwrap();
+                let node = match proof {
+                    PCDRes(node) => node,
+                    _ => {
+                        tracing::error!(target: LOG_TARGET, "Invalid proof response type");
+                        return;
+                    }
+                };
 
-                tracing::info!(
-                    target: LOG_TARGET,
-                    "proof OK",
-                );
-                // at this point we store the proof so user
-                // can get it later
-                let proof: Vec<u8> = encode(&proof).unwrap();
-                state.db.update_proof(hash.to_string(), proof);
+                match node.verify(&state.pp) {
+                    Ok(_) => {
+                        tracing::info!(target: LOG_TARGET, "proof OK");
+                        // at this point we store the proof so user can get it later
+                        match encode(&proof) {
+                            Ok(proof_bytes) => state.db.update_proof(hash.to_string(), proof_bytes),
+                            Err(e) => {
+                                tracing::error!(target: LOG_TARGET, error = ?e, "Failed to encode proof");
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        tracing::error!(target: LOG_TARGET, error = ?e, "Failed to verify proof");
+                    }
+                }
             });
             break;
         }
