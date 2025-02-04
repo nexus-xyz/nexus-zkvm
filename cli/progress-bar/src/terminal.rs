@@ -129,10 +129,13 @@ impl TerminalContext<'_> {
             return Guard { sender: None };
         };
 
-        self.steps_left = self
-            .steps_left
-            .checked_sub(1)
-            .expect("steps number overflow");
+        self.steps_left = match self.steps_left.checked_sub(1) {
+            Some(n) => n,
+            None => {
+                tracing::warn!("Progress bar steps number overflow, resetting to 0");
+                0
+            }
+        };
         let ctx_sender = &mut term.ctx_sender;
 
         let sender = if let Some(action) = self.action.take() {
