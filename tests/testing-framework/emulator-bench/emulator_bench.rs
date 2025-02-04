@@ -1,8 +1,12 @@
 #![feature(test)]
+#![cfg(test)]
 
 extern crate test;
 
 use libc::{getrusage, rusage, RUSAGE_CHILDREN, RUSAGE_SELF};
+use nexus_common_testing::emulator::{
+    compile_to_elf, create_tmp_dir, emulate, setup_project, EmulatorType,
+};
 use nexus_vm::elf::ElfFile;
 use std::{
     fs::OpenOptions,
@@ -12,9 +16,6 @@ use std::{
     time::{Duration, Instant},
 };
 use test::Bencher;
-use testing_framework::emulator::{
-    compile_to_elf, create_tmp_dir, emulate, setup_project, EmulatorType,
-};
 
 /// Performance metrics collected during benchmarking.
 #[derive(Debug)]

@@ -1,0 +1,20 @@
+[package]
+name = "nexus-common-testing"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
+
+[dependencies]
+nexus-vm = { path = "../vm" }
+nexus-vm-prover = { path = "../prover" }
+nexus-common = { path = "../common" }
+stwo-prover = { workspace = true }
+nexus-rt = { path = "../runtime" }
+postcard = { version = "1.0.10", features = ["alloc"] }
+serde = { workspace = true }
+tempfile = "3.13"
