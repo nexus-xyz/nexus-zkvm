@@ -1169,7 +1169,7 @@ impl Emulator for LinearEmulator {
                     .iter()
                     .enumerate()
                     .map(|(i, byte)| PublicOutputEntry {
-                        address: self.memory_layout.exit_code() + i as u32,
+                        address: self.memory_layout.public_output_start() + i as u32,
                         value: *byte,
                     })
                     .collect();
