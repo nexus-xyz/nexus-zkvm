@@ -20,3 +20,6 @@ nexus-proof
 
 # benchmarks
 benchmark_results.csv
+
+# proof files
+*.proof

@@ -30,7 +30,7 @@ use crate::chips::{
     RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip,
     SyscallChip, TimestampChip,
 };
-
+use serde::{Deserialize, Serialize};
 /// Base components tuple for constraining virtual machine execution based on RV32I ISA.
 pub type BaseComponents = (
     CpuChip,
@@ -62,7 +62,7 @@ pub type BaseComponents = (
     RangeCheckChip,
 );
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Proof {
     pub stark_proof: StarkProof<Blake2sMerkleHasher>,
     pub log_size: u32,
