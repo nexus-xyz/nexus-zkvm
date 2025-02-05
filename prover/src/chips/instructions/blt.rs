@@ -8,7 +8,6 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         BoolWord, ProgramStep, TracesBuilder, Word,
     },
@@ -79,7 +78,6 @@ impl MachineChip for BltChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -219,7 +217,9 @@ mod test {
             RegisterMemCheckChip, SubChip,
         },
         test_utils::assert_chip,
-        trace::{program::iter_program_steps, PreprocessedTraces},
+        trace::{
+            program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
+        },
     };
 
     use super::*;
@@ -298,27 +298,17 @@ mod test {
 
         // Get traces from VM K-Trace interface
         let (view, vm_traces) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
-        let program_info = view.get_program_info();
+        let program_info = view.get_program_memory();
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_info);
-        let mut side_note = SideNote::new(
-            &program_traces,
-            &view,
-            vm_traces.memory_layout.public_output_addresses(),
-        );
+        let program_traces = ProgramTracesBuilder::new_with_empty_memory(LOG_SIZE, program_info);
+        let mut side_note = SideNote::new(&program_traces, &view);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
 
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut program_traces,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
 
         assert_chip::<Chips>(traces, Some(program_traces.finalize()));

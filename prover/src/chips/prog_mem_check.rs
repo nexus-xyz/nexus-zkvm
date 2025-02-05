@@ -23,7 +23,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, program_trace_eval, trace_eval, TraceEval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         utils::FromBaseFields,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
@@ -45,7 +45,6 @@ impl MachineChip for ProgramMemCheckChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         if let Some(_vm_step) = vm_step {
@@ -512,11 +511,9 @@ impl ProgramMemCheckChip {
 mod test {
 
     use crate::{
+        chips::{AddChip, CpuChip},
         test_utils::assert_chip,
-        {
-            chips::{AddChip, CpuChip},
-            trace::utils::IntoBaseFields,
-        },
+        trace::{program_trace::ProgramTracesBuilder, utils::IntoBaseFields},
     };
 
     use super::*;
@@ -577,8 +574,9 @@ mod test {
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_trace = ProgramTracesBuilder::new(LOG_SIZE, view.get_program_info());
-        let mut side_note = SideNote::new(&program_trace, &view, []);
+        let program_trace =
+            ProgramTracesBuilder::new_with_empty_memory(LOG_SIZE, view.get_program_memory());
+        let mut side_note = SideNote::new(&program_trace, &view);
 
         let program_steps = vm_traces.blocks.into_iter().map(|block| {
             let regs = block.regs;
@@ -596,31 +594,18 @@ mod test {
 
         for (row_idx, program_step) in trace_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut program_trace,
-                &mut side_note,
-            );
+            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
 
             // Fill in the main trace of the ProgMemCheckChip
             ProgramMemCheckChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &program_step,
-                &mut program_trace,
                 &mut side_note,
             );
 
             // Fill in the main trace of the AddChip
-            AddChip::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut program_trace,
-                &mut side_note,
-            );
+            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
 
         for i in 0..num_steps {

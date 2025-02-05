@@ -35,7 +35,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, program_trace_eval, trace_eval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
     },
@@ -52,12 +52,11 @@ impl MachineChip for LoadStoreChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
-        Self::fill_main_trace_step(traces, row_idx, vm_step, program_traces, side_note);
+        Self::fill_main_trace_step(traces, row_idx, vm_step, side_note);
         if (row_idx + 1) == traces.num_rows() {
-            Self::fill_main_trace_finish(traces, row_idx, vm_step, program_traces, side_note);
+            Self::fill_main_trace_finish(traces, row_idx, vm_step, side_note);
         }
     }
 
@@ -418,7 +417,6 @@ impl LoadStoreChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -593,7 +591,6 @@ impl LoadStoreChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _vm_step: &Option<ProgramStep>,
-        program_traces: &mut ProgramTracesBuilder,
         side_note: &mut SideNote,
     ) {
         assert_eq!(row_idx + 1, traces.num_rows());
@@ -611,57 +608,11 @@ impl LoadStoreChip {
             traces.fill_columns(row_idx, *last_access, Column::RamFinalCounter);
             traces.fill_columns(row_idx, *last_value, Column::RamFinalValue);
 
-            // remove public input entry if it exists
-            match side_note.rw_mem_check.public_input.remove(address) {
-                None => (),
-                Some(public_input_value) => {
-                    program_traces.fill_program_columns(
-                        row_idx,
-                        public_input_value,
-                        ProgramColumn::PublicInputValue,
-                    );
-                    program_traces.fill_program_columns(
-                        row_idx,
-                        true,
-                        ProgramColumn::PublicInputFlag,
-                    );
-                    program_traces.fill_program_columns(
-                        row_idx,
-                        *address,
-                        ProgramColumn::PublicInputOutputAddr,
-                    );
-                }
-            }
-
             // remove public output entry if it exists
-            if side_note
-                .rw_mem_check
-                .public_output_addresses
-                .remove(address)
-            {
-                program_traces.fill_program_columns(
-                    row_idx,
-                    *last_value,
-                    ProgramColumn::PublicOutputValue,
-                );
-                program_traces.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
-                program_traces.fill_program_columns(
-                    row_idx,
-                    *address,
-                    ProgramColumn::PublicInputOutputAddr,
-                );
+            if let Some(out_value) = side_note.rw_mem_check.public_output.remove(address) {
+                assert_eq!(out_value, *last_value, "program output mismatch, expected {out_value} at addr {address}, got {last_value}");
             }
         }
-        // Assert that the public input entries are all used
-        assert!(
-            side_note.rw_mem_check.public_input.is_empty(),
-            "Public input entries out of the RW memory checking range"
-        );
-        // Assert that the public output entries are all used
-        assert!(
-            side_note.rw_mem_check.public_output_addresses.is_empty(),
-            "Public output entries out of the RW memory checking range"
-        );
     }
 
     /// Fills the interaction trace for adding the initial content of the RW memory.
@@ -1019,7 +970,9 @@ mod test {
         chips::{AddChip, BeqChip, CpuChip, DecodingCheckChip, RegisterMemCheckChip, SllChip},
         machine::Machine,
         test_utils::assert_chip,
-        trace::{program::iter_program_steps, PreprocessedTraces},
+        trace::{
+            program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
+        },
     };
 
     use super::*;
@@ -1105,21 +1058,11 @@ mod test {
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note = SideNote::new(
-            &program_trace,
-            &view,
-            vm_traces.memory_layout.public_output_addresses(),
-        );
+        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_trace, &view);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut program_trace,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
 
         // Assert results of loads
@@ -1154,11 +1097,6 @@ mod test {
         assert_eq!(output, 128);
 
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
-        Machine::<Chips>::prove(
-            &vm_traces,
-            &view,
-            vm_traces.memory_layout.public_output_addresses(),
-        )
-        .unwrap();
+        Machine::<Chips>::prove(&vm_traces, &view).unwrap();
     }
 }

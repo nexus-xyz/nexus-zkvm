@@ -103,7 +103,7 @@ pub struct ProgramMemoryEntry {
 }
 
 // One entry per byte because RO memory can be accessed bytewise
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct MemoryInitializationEntry {
     pub address: u32,
     pub value: u8,
@@ -161,31 +161,23 @@ pub struct View {
 
 impl View {
     /// Return infomation about the program memory.
-    pub fn get_program_info(&self) -> &ProgramInfo {
+    pub fn get_program_memory(&self) -> &ProgramInfo {
         &self.program_memory
     }
 
-    /// Return components of the program memory.
-    pub fn get_program_memory(&self) -> (u32, impl Iterator<Item = &ProgramMemoryEntry>) {
-        (
-            self.program_memory.initial_pc,
-            self.program_memory.program.iter(),
-        )
-    }
-
     /// Return information about the public input, static ROM, and static RAM.
-    pub fn get_initial_memory(&self) -> impl Iterator<Item = &MemoryInitializationEntry> {
-        self.initial_memory.iter()
+    pub fn get_initial_memory(&self) -> &[MemoryInitializationEntry] {
+        &self.initial_memory
     }
 
     /// Return information about the public input.
-    pub fn get_public_output(&self) -> impl Iterator<Item = &PublicOutputEntry> {
-        self.output_memory.iter()
+    pub fn get_public_output(&self) -> &[PublicOutputEntry] {
+        &self.output_memory
     }
 
     /// Return information about the exit code.
-    pub fn get_exit_code(&self) -> impl Iterator<Item = &PublicOutputEntry> {
-        self.exit_code.iter()
+    pub fn get_exit_code(&self) -> &[PublicOutputEntry] {
+        &self.exit_code
     }
 }
 
@@ -761,10 +753,10 @@ impl Emulator for HarvardEmulator {
                     })
                     .collect(),
             },
-            initial_memory: public_input
+            initial_memory: rom_iter
                 .into_iter()
-                .chain(rom_iter)
                 .chain(ram_iter)
+                .chain(public_input)
                 .collect(),
             exit_code,
             output_memory,
@@ -1255,10 +1247,11 @@ impl Emulator for LinearEmulator {
                     })
                     .collect(),
             },
-            initial_memory: public_input_iter
-                .chain(public_io_loc_iter)
+            initial_memory: public_io_loc_iter
+                .into_iter()
                 .chain(rom_iter)
                 .chain(ram_iter)
+                .chain(public_input_iter)
                 .collect(),
             exit_code,
             output_memory,

@@ -14,7 +14,6 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval_next_row, trace_eval, trace_eval_next_row, TraceEval},
-        program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         ProgramStep, TracesBuilder,
     },
@@ -38,7 +37,6 @@ impl MachineChip for CpuChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         // Fill ValueAEffectiveFlag to the main trace

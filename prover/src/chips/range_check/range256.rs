@@ -27,12 +27,11 @@ use crate::{
             Reg2TsPrev, Reg3TsPrev, Rem, RemDiff, ValueA, ValueB, ValueC,
         },
         PreprocessedColumn::{self, IsFirst, Range256},
-        ProgramColumn,
     },
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
@@ -96,18 +95,6 @@ impl Range256Chip {
     ];
 
     const TYPE_U_CHECKED_BYTES: [Column; 2] = [OpC16_23, OpC24_31];
-
-    const CHECKED_PROGRAM_COLUMNS: [ProgramColumn; 4] = [
-        ProgramColumn::PrgMemoryPc,
-        ProgramColumn::PrgMemoryWord,
-        ProgramColumn::PrgInitialPc,
-        ProgramColumn::PublicInputOutputAddr,
-    ];
-
-    const CHECKED_PROGRAM_BYTE_COLUMNS: [ProgramColumn; 2] = [
-        ProgramColumn::PublicInputValue,
-        ProgramColumn::PublicOutputValue,
-    ];
 }
 
 // TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace
@@ -118,7 +105,6 @@ impl MachineChip for Range256Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         // This chip needs to wait till every other chip finishes writing bytes.
@@ -129,14 +115,6 @@ impl MachineChip for Range256Chip {
         for row_idx in 0..traces.num_rows() {
             for col in Self::CHECKED_WORDS.iter() {
                 let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
-                fill_main_cols(value_col, traces);
-            }
-            for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
-                let value_col: [BaseField; WORD_SIZE] = program_traces.column(row_idx, *col);
-                fill_main_cols(value_col, traces);
-            }
-            for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
-                let value_col: [BaseField; 1] = program_traces.column(row_idx, *col);
                 fill_main_cols(value_col, traces);
             }
             for col in Self::CHECKED_BYTES.iter() {
@@ -158,7 +136,7 @@ impl MachineChip for Range256Chip {
     fn fill_interaction_trace(
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
-        program_traces: &ProgramTraces,
+        _program_traces: &ProgramTraces,
         lookup_element: &LookupElements<12>,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
@@ -175,24 +153,6 @@ impl MachineChip for Range256Chip {
         }
         for col in Self::CHECKED_BYTES.iter() {
             let value_basecolumn = original_traces.get_base_column::<1>(*col);
-            check_bytes(
-                value_basecolumn,
-                original_traces.log_size(),
-                &mut logup_trace_gen,
-                lookup_element,
-            );
-        }
-        for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
-            let value_basecolumn: [_; WORD_SIZE] = program_traces.get_base_column(*col);
-            check_bytes(
-                value_basecolumn,
-                original_traces.log_size(),
-                &mut logup_trace_gen,
-                lookup_element,
-            );
-        }
-        for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
-            let value_basecolumn: [_; 1] = program_traces.get_base_column(*col);
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
@@ -264,18 +224,7 @@ impl MachineChip for Range256Chip {
             let denom: E::EF = lookup_elements.combine(&[value.clone()]);
             logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
         }
-        for col in Self::CHECKED_PROGRAM_COLUMNS.iter() {
-            let value = trace_eval.program_column_eval::<WORD_SIZE>(*col);
-            for limb in value.iter().take(WORD_SIZE) {
-                let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
-                logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
-            }
-        }
-        for col in Self::CHECKED_PROGRAM_BYTE_COLUMNS.iter() {
-            let [value] = trace_eval.program_column_eval(*col);
-            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-            logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
-        }
+
         for col in Self::TYPE_U_CHECKED_BYTES.iter() {
             let [value] = trace_eval.column_eval(*col);
             let denom: E::EF = lookup_elements.combine(&[value.clone()]);
@@ -333,6 +282,7 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
@@ -349,9 +299,8 @@ mod test {
     fn test_range256_chip_success() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8);
@@ -364,7 +313,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
-                &mut program_traces,
                 &mut side_note,
             );
         }
@@ -377,9 +325,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {
@@ -393,7 +340,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
-                &mut program_traces,
                 &mut side_note,
             );
         }

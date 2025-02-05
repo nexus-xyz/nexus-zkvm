@@ -1,9 +1,9 @@
 // This file defines the side note structures for main trace filling
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use nexus_vm::{
-    emulator::{MemoryInitializationEntry, View},
+    emulator::{MemoryInitializationEntry, PublicOutputEntry, View},
     WORD_SIZE,
 };
 
@@ -23,33 +23,29 @@ pub struct ProgramMemCheckSideNote {
 pub struct ReadWriteMemCheckSideNote {
     /// u32 is the access counter, u8 is the value of the byte
     pub(crate) last_access: BTreeMap<u32, (u32, u8)>,
-    /// Public input values
-    pub(crate) public_input: BTreeMap<u32, u8>,
-    /// Public output addresses
-    pub(crate) public_output_addresses: BTreeSet<u32>,
+    /// Public output
+    pub(crate) public_output: BTreeMap<u32, u8>,
 }
 
 impl ReadWriteMemCheckSideNote {
     /// Create a new side note for read write memory checking
     ///
     /// The side note will be used for keeping track of the latest value and access counter for each address, to be put under memory checking.
-    /// * `initial_memory` an iterator of public input entries and ELF RAM, ROM entries given byte-wise.
-    /// * `public_output_addresses` an iterator of addresses that are guaranteed to be included in memory checking
-    pub fn new<I: Iterator<Item = MemoryInitializationEntry>, I2: Iterator<Item = u32>>(
-        initial_memory: I,
-        public_output_addresses: I2,
+    /// * `public_output` - addresses and values of public output
+    pub fn new(
+        init_memory: &[MemoryInitializationEntry],
+        public_output: &[PublicOutputEntry],
     ) -> Self {
         let mut ret: Self = Default::default();
-        for MemoryInitializationEntry { address, value } in initial_memory {
-            let old = ret.last_access.insert(address, (0, value));
-            assert!(old.is_none(), "Duplicate memory initialization entry");
-            let old = ret.public_input.insert(address, value);
+        for MemoryInitializationEntry { address, value } in init_memory {
+            let old = ret.last_access.insert(*address, (0, *value));
             assert!(old.is_none(), "Duplicate memory initialization entry");
         }
-        for public_output_address in public_output_addresses {
-            let old = ret.public_output_addresses.insert(public_output_address);
-            assert!(old, "Duplicate public output address");
-        }
+        let public_output = public_output
+            .iter()
+            .map(|PublicOutputEntry { address, value }| (*address, *value))
+            .collect();
+        ret.public_output = public_output;
         ret
     }
 }
@@ -80,14 +76,7 @@ pub struct SideNote {
 }
 
 impl SideNote {
-    pub fn new<I>(
-        program_traces: &ProgramTracesBuilder,
-        view: &View,
-        public_output_addresses: I,
-    ) -> Self
-    where
-        I: IntoIterator<Item = u32>,
-    {
+    pub fn new(program_traces: &ProgramTracesBuilder, view: &View) -> Self {
         Self {
             program_mem_check: ProgramMemCheckSideNote {
                 last_access_counter: BTreeMap::new(),
@@ -96,8 +85,8 @@ impl SideNote {
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
             rw_mem_check: ReadWriteMemCheckSideNote::new(
-                view.get_initial_memory().copied(),
-                public_output_addresses.into_iter(),
+                view.get_initial_memory(),
+                view.get_public_output(),
             ),
         }
     }

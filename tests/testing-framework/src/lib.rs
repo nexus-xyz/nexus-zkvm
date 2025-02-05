@@ -132,20 +132,22 @@ mod test {
         .expect("error generating trace");
 
         let output = view.get_public_output();
-        let output_bytes = output.map(|entry| entry.value).collect::<Vec<_>>();
+        let output_bytes = output.iter().map(|entry| entry.value).collect::<Vec<_>>();
 
         assert_eq!(
             output_bytes, expected_output_bytes,
             "Output bytes don't match expected output"
         );
 
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -169,13 +171,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/fact", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -199,13 +203,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/fib", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -230,13 +236,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/fib1000", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -260,13 +268,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/main", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -290,13 +300,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/palindromes", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -320,13 +332,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/galeshapley", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -350,13 +364,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/lambda_calculus", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -380,13 +396,15 @@ mod test {
         let elfs = compile_multi("../../examples/src/keccak", &["-C opt-level=3"]);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -514,13 +532,15 @@ mod test {
         let log_size = 16;
         let blocks = program_trace(log_size);
         let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
-        let proof = prove(
-            &execution_trace,
-            &view,
-            execution_trace.memory_layout.public_output_addresses(),
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        verify(proof).unwrap();
     }
 
     #[test]
@@ -534,19 +554,28 @@ mod test {
             );
             let (view, execution_trace) =
                 k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
-            let proof = prove(
-                &execution_trace,
-                &view,
-                execution_trace.memory_layout.public_output_addresses(),
-            )
-            .unwrap();
+            let proof = prove(&execution_trace, &view).unwrap();
             let proof_path = format!("{}.proof", example);
             let proof_bytes = postcard::to_allocvec(&proof).expect("Failed to serialize proof");
             std::fs::write(&proof_path, &proof_bytes).expect("Failed to write proof to file");
             let deserialized_proof_bytes =
                 postcard::from_bytes(&proof_bytes).expect("Failed to deserialize proof");
-            verify(deserialized_proof_bytes).unwrap();
-            verify(proof).unwrap();
+            verify(
+                deserialized_proof_bytes,
+                view.get_program_memory(),
+                view.get_initial_memory(),
+                view.get_exit_code(),
+                view.get_public_output(),
+            )
+            .unwrap();
+            verify(
+                proof,
+                view.get_program_memory(),
+                view.get_initial_memory(),
+                view.get_exit_code(),
+                view.get_public_output(),
+            )
+            .unwrap();
         }
     }
 }

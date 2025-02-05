@@ -44,14 +44,7 @@ fn bench_prove(c: &mut Criterion) {
         group.sample_size(20);
 
         group.bench_function("ComputeProof", |b| {
-            b.iter(|| {
-                nexus_vm_prover::prove(
-                    black_box(&program_trace),
-                    black_box(&view),
-                    black_box(program_trace.memory_layout.public_output_addresses()),
-                )
-                .unwrap()
-            })
+            b.iter(|| nexus_vm_prover::prove(black_box(&program_trace), black_box(&view)).unwrap())
         });
 
         group.finish();

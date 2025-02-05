@@ -24,7 +24,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
@@ -46,7 +46,6 @@ impl MachineChip for Range128Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
@@ -218,6 +217,7 @@ mod test {
     use crate::components::{MachineComponent, MachineEval};
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
+    use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
@@ -232,9 +232,8 @@ mod test {
     fn test_range128_chip_success() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_trace, &HarvardEmulator::default().finalize(), []);
+        let program_trace = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_trace, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
             let buf: Word = array::from_fn(|i| (row_idx + i) as u8 % 128);
@@ -256,7 +255,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
-                &mut program_trace,
                 &mut side_note,
             );
         }
@@ -269,9 +267,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
             let buf: Word = array::from_fn(
@@ -284,7 +281,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
-                &mut program_traces,
                 &mut side_note,
             );
         }

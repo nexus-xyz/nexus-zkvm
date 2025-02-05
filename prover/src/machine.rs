@@ -20,7 +20,10 @@ use super::trace::{
     program::iter_program_steps, program_trace::ProgramTracesBuilder, sidenote::SideNote,
     PreprocessedTraces, TracesBuilder,
 };
-use nexus_vm::{emulator::View, trace::Trace};
+use nexus_vm::{
+    emulator::{MemoryInitializationEntry, ProgramInfo, PublicOutputEntry, View},
+    trace::Trace,
+};
 
 use super::components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use super::traits::MachineChip;
@@ -80,26 +83,15 @@ pub struct Machine<C = BaseComponents> {
 }
 
 impl<C: MachineChip + Sync> Machine<C> {
-    pub fn prove<I>(
-        trace: &impl Trace,
-        view: &View,
-        public_output_addresses: I,
-    ) -> Result<Proof, ProvingError>
-    where
-        I: IntoIterator<Item = u32>,
-    {
+    pub fn prove(trace: &impl Trace, view: &View) -> Result<Proof, ProvingError> {
         let num_steps = trace.get_num_steps();
-        let program_log_size = view
-            .get_program_info()
-            .program
-            .len()
-            .next_power_of_two()
-            .trailing_zeros();
-        let log_size: u32 = num_steps
-            .next_power_of_two()
-            .trailing_zeros()
-            .max(PreprocessedTraces::MIN_LOG_SIZE)
-            .max(program_log_size);
+        let program_len = view.get_program_memory().program.len();
+        let memory_len = view.get_initial_memory().len()
+            + view.get_exit_code().len()
+            + view.get_public_output().len();
+
+        let log_size = Self::max_log_size(&[num_steps, program_len, memory_len])
+            .max(PreprocessedTraces::MIN_LOG_SIZE);
 
         let config = PcsConfig::default();
         // Precompute twiddles.
@@ -123,15 +115,20 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
-        let mut program_traces = ProgramTracesBuilder::new(log_size, view.get_program_info());
-        let mut prover_side_note = SideNote::new(&program_traces, view, public_output_addresses);
+        let program_traces = ProgramTracesBuilder::new(
+            log_size,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
+        );
+        let mut prover_side_note = SideNote::new(&program_traces, view);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
             C::fill_main_trace(
                 &mut prover_traces,
                 row_idx,
                 &program_step,
-                &mut program_traces,
                 &mut prover_side_note,
             );
         }
@@ -183,7 +180,13 @@ impl<C: MachineChip + Sync> Machine<C> {
         })
     }
 
-    pub fn verify(proof: Proof) -> Result<(), VerificationError> {
+    pub fn verify(
+        proof: Proof,
+        program_info: &ProgramInfo,
+        init_memory: &[MemoryInitializationEntry],
+        exit_code: &[PublicOutputEntry],
+        output_memory: &[PublicOutputEntry],
+    ) -> Result<(), VerificationError> {
         let Proof {
             stark_proof: proof,
             log_size,
@@ -193,7 +196,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         let verifier_channel = &mut Blake2sChannel::default();
         let commitment_scheme = &mut CommitmentSchemeVerifier::<Blake2sMerkleChannel>::new(config);
 
-        // simulate the prover and compute expected commitment to preprocessed trace
+        // simulate the prover and compute expected commitment to preprocessed and program traces
         {
             let config = PcsConfig::default();
             let verifier_channel = &mut Blake2sChannel::default();
@@ -220,7 +223,24 @@ impl<C: MachineChip + Sync> Machine<C> {
                 return Err(VerificationError::InvalidStructure(format!("invalid commitment to preprocessed trace: \
                                                                         expected {preprocessed_expected}, got {preprocessed}")));
             }
-            // TODO: verify commitment to the program trace
+
+            let program_trace = ProgramTracesBuilder::new(
+                log_size,
+                program_info,
+                init_memory,
+                exit_code,
+                output_memory,
+            )
+            .finalize();
+            let mut tree_builder = commitment_scheme.tree_builder();
+            tree_builder.extend_evals(program_trace.into_circle_evaluation());
+            tree_builder.commit(verifier_channel);
+            let program_expected = commitment_scheme.roots()[1];
+            let program = proof.commitments[PROGRAM_TRACE_IDX];
+            if program_expected != program {
+                return Err(VerificationError::InvalidStructure(format!("invalid commitment to program trace: \
+                                                                        expected {program_expected}, got {program}")));
+            }
         }
 
         // Retrieve the expected column sizes in each commitment interaction, from the AIR.
@@ -252,6 +272,15 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         verify(&[&component], verifier_channel, commitment_scheme, proof)
     }
+
+    /// Computes minimum allowed log_size from a slice of lengths.
+    fn max_log_size(sizes: &[usize]) -> u32 {
+        sizes
+            .iter()
+            .map(|size| size.next_power_of_two().trailing_zeros())
+            .max()
+            .expect("sizes is empty")
+    }
 }
 
 #[cfg(test)]
@@ -275,12 +304,14 @@ mod tests {
         let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        let proof = Machine::<BaseComponents>::prove(
-            &program_trace,
-            &view,
-            program_trace.memory_layout.public_output_addresses(),
+        let proof = Machine::<BaseComponents>::prove(&program_trace, &view).unwrap();
+        Machine::<BaseComponents>::verify(
+            proof,
+            view.get_program_memory(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
         )
         .unwrap();
-        Machine::<BaseComponents>::verify(proof).unwrap();
     }
 }

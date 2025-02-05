@@ -26,7 +26,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
@@ -62,7 +62,6 @@ impl MachineChip for Range8Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let step = match step {

@@ -31,7 +31,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
     },
@@ -151,7 +151,6 @@ impl MachineChip for BitOpChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -424,7 +423,10 @@ mod test {
     use crate::{
         chips::{AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RegisterMemCheckChip},
         test_utils::assert_chip,
-        trace::{preprocessed::PreprocessedBuilder, program::iter_program_steps},
+        trace::{
+            preprocessed::PreprocessedBuilder, program::iter_program_steps,
+            program_trace::ProgramTracesBuilder,
+        },
     };
 
     use super::*;
@@ -472,26 +474,16 @@ mod test {
 
         // Get traces from VM K-Trace interface
         let (view, vm_traces) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
-        let program_info = view.get_program_info();
+        let program_info = view.get_program_memory();
 
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let mut program_trace = ProgramTracesBuilder::new(LOG_SIZE, program_info);
-        let mut side_note = SideNote::new(
-            &program_trace,
-            &view,
-            vm_traces.memory_layout.public_output_addresses(),
-        );
+        let program_trace = ProgramTracesBuilder::new_with_empty_memory(LOG_SIZE, program_info);
+        let mut side_note = SideNote::new(&program_trace, &view);
 
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            Chips::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut program_trace,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
 
         let and_vals = traces

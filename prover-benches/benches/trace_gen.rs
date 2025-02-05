@@ -50,7 +50,7 @@ fn bench_trace_gen(c: &mut Criterion) {
     for &log_size in LOG_SIZES {
         let blocks = program_trace(log_size);
         let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
-        let program_info = view.get_program_info();
+        let program_info = view.get_program_memory();
 
         let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
         group.sample_size(10);
@@ -59,7 +59,13 @@ fn bench_trace_gen(c: &mut Criterion) {
             b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
-        let mut program_traces = ProgramTracesBuilder::new(log_size, program_info);
+        let mut program_traces = ProgramTracesBuilder::new(
+            log_size,
+            program_info,
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
+        );
 
         group.bench_function("MainTrace", |b| {
             b.iter(|| {
@@ -111,18 +117,13 @@ fn fill_main_trace(
     program_memory: &mut ProgramTracesBuilder,
     view: &View,
 ) {
-    let mut prover_side_note = SideNote::new(
-        program_memory,
-        view,
-        execution_trace.memory_layout.public_output_addresses(),
-    );
+    let mut prover_side_note = SideNote::new(program_memory, view);
     let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());
     for (row_idx, program_step) in black_box(program_steps.enumerate()) {
         BaseComponents::fill_main_trace(
             black_box(prover_traces),
             black_box(row_idx),
             black_box(&program_step),
-            black_box(program_memory),
             black_box(&mut prover_side_note),
         )
     }

@@ -22,7 +22,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
@@ -43,7 +43,6 @@ impl MachineChip for Range32Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         for col in CHECKED.into_iter() {
@@ -141,6 +140,7 @@ mod test {
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::preprocessed::PreprocessedBuilder;
+    use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
@@ -154,9 +154,8 @@ mod test {
     fn test_range32_chip_success() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
 
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 32) as u8;
@@ -169,7 +168,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
-                &mut program_traces,
                 &mut side_note,
             );
         }
@@ -182,9 +180,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let b = (row_idx % 32) as u8 + 1; // sometimes out of range
@@ -194,7 +191,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(ProgramStep::default()),
-                &mut program_traces,
                 &mut side_note,
             );
         }

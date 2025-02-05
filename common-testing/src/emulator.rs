@@ -233,10 +233,12 @@ pub fn emulate(
                 let view = emulator.finalize();
                 exit_code_bytes = view
                     .get_exit_code()
+                    .iter()
                     .map(|public_output_entry| public_output_entry.value)
                     .collect();
                 output_bytes = view
                     .get_public_output()
+                    .iter()
                     .map(|public_output_entry| public_output_entry.value)
                     .collect();
 
@@ -253,10 +255,12 @@ pub fn emulate(
                     let view = linear_emulator.finalize();
                     exit_code_bytes = view
                         .get_exit_code()
+                        .iter()
                         .map(|public_output_entry| public_output_entry.value)
                         .collect();
                     output_bytes = view
                         .get_public_output()
+                        .iter()
                         .map(|public_output_entry| public_output_entry.value)
                         .collect();
                 }
@@ -288,10 +292,12 @@ pub fn emulate(
                 let view = emulator.finalize();
                 exit_code_bytes = view
                     .get_exit_code()
+                    .iter()
                     .map(|public_output_entry| public_output_entry.value)
                     .collect();
                 output_bytes = view
                     .get_public_output()
+                    .iter()
                     .map(|public_output_entry| public_output_entry.value)
                     .collect();
             }

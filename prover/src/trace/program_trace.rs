@@ -1,10 +1,7 @@
 use num_traits::Zero;
 
 use stwo_prover::core::{
-    backend::{
-        simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-        Column,
-    },
+    backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
     fields::m31::BaseField,
     poly::{
         circle::{CanonicCoset, CircleEvaluation},
@@ -17,7 +14,7 @@ use super::{utils::finalize_columns, IntoBaseFields, TracesBuilder};
 use crate::column::ProgramColumn;
 
 use nexus_vm::{
-    emulator::{ProgramInfo, ProgramMemoryEntry},
+    emulator::{MemoryInitializationEntry, ProgramInfo, ProgramMemoryEntry, PublicOutputEntry},
     WORD_SIZE,
 };
 
@@ -31,17 +28,20 @@ pub struct ProgramTracesBuilder {
 }
 
 impl ProgramTracesBuilder {
-    pub fn dummy(log_size: u32) -> Self {
-        Self::new(log_size, &ProgramInfo::dummy())
-    }
-
-    /// Returns [`ProgramColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with program content.
-    pub fn new(log_size: u32, program_info: &ProgramInfo) -> Self {
+    pub fn new(
+        log_size: u32,
+        program_memory: &ProgramInfo,
+        init_memory: &[MemoryInitializationEntry],
+        exit_code: &[PublicOutputEntry],
+        output_memory: &[PublicOutputEntry],
+    ) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
-            program_info.program.len() <= 1 << log_size,
+            program_memory.program.len() <= 1 << log_size,
             "Program is longer than program trace size"
         );
+        assert!(init_memory.len() + exit_code.len() + output_memory.len() <= 1 << log_size);
+
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; ProgramColumn::COLUMNS_NUM];
         let builder = TracesBuilder { cols, log_size };
         let mut ret = Self {
@@ -50,14 +50,14 @@ impl ProgramTracesBuilder {
             num_instructions: 0usize,
         };
 
-        ret.fill_program_columns(0, program_info.initial_pc, ProgramColumn::PrgInitialPc);
+        ret.fill_program_columns(0, program_memory.initial_pc, ProgramColumn::PrgInitialPc);
         for (
             row_idx,
             ProgramMemoryEntry {
                 pc,
                 instruction_word,
             },
-        ) in program_info.program.iter().enumerate()
+        ) in program_memory.program.iter().enumerate()
         {
             if row_idx == 0 {
                 ret.pc_offset = *pc;
@@ -72,7 +72,47 @@ impl ProgramTracesBuilder {
             ret.fill_program_columns(row_idx, *instruction_word, ProgramColumn::PrgMemoryWord);
             ret.fill_program_columns(row_idx, true, ProgramColumn::PrgMemoryFlag);
         }
+
+        let init_memory_len = init_memory.len();
+        let exit_code_len = exit_code.len();
+
+        for (row_idx, MemoryInitializationEntry { address, value }) in
+            init_memory.iter().enumerate()
+        {
+            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicInputOutputAddr);
+
+            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicInputFlag);
+            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicInputValue);
+        }
+        let offset = init_memory_len;
+
+        for (_row_idx, PublicOutputEntry { .. }) in exit_code.iter().enumerate() {
+            // TODO: handle exit code as a public output
+            // let row_idx = row_idx + offset;
+            // ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicInputOutputAddr);
+
+            // ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
+            // ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
+        }
+        let offset = offset + exit_code_len;
+        for (row_idx, PublicOutputEntry { address, value }) in output_memory.iter().enumerate() {
+            let row_idx = row_idx + offset;
+            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicInputOutputAddr);
+
+            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
+            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
+        }
         ret
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_empty_memory(log_size: u32, program_memory: &ProgramInfo) -> Self {
+        Self::new(log_size, program_memory, &[], &[], &[])
+    }
+
+    #[cfg(test)]
+    pub(crate) fn dummy(log_size: u32) -> Self {
+        Self::new_with_empty_memory(log_size, &ProgramInfo::dummy())
     }
 
     #[doc(hidden)]
@@ -107,18 +147,6 @@ impl ProgramTracesBuilder {
             cols: finalize_columns(self.traces_builder.cols),
             log_size: self.traces_builder.log_size,
         }
-    }
-
-    pub(crate) fn column<const N: usize>(&self, row: usize, col: ProgramColumn) -> [BaseField; N] {
-        assert_eq!(col.size(), N, "column size mismatch");
-
-        let offset = col.offset();
-        let mut iter = self.traces_builder.cols[offset..].iter();
-        std::array::from_fn(|_idx| {
-            iter.next()
-                .expect("invalid offset; must be unreachable")
-                .at(row)
-        })
     }
 }
 

@@ -26,7 +26,7 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::{ProgramTraces, ProgramTracesBuilder},
+        program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
@@ -56,7 +56,6 @@ impl MachineChip for Range16Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         fill_main_for_type::<IsTypeR>(
@@ -354,6 +353,7 @@ mod test {
 
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
+    use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
@@ -367,9 +367,8 @@ mod test {
     fn test_range16_chip_success() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
 
         let mut program_step = ProgramStep::default();
         let mut i = 0;
@@ -423,7 +422,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(program_step.clone()),
-                &mut program_traces,
                 &mut side_note,
             );
         }
@@ -436,9 +434,8 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let mut program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
-        let mut side_note =
-            SideNote::new(&program_traces, &HarvardEmulator::default().finalize(), []);
+        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         let mut program_step = ProgramStep::default();
         program_step.step.instruction.ins_type = InstructionType::RType;
 
@@ -452,7 +449,6 @@ mod test {
                 &mut traces,
                 row_idx,
                 &Some(program_step.clone()),
-                &mut program_traces,
                 &mut side_note,
             );
         }

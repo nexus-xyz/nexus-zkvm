@@ -4,10 +4,7 @@ use stwo_prover::{constraint_framework::logup::LookupElements, core::fields::m31
 
 use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
-    trace::{
-        eval::TraceEval, program_trace::ProgramTracesBuilder, sidenote::SideNote, ProgramStep,
-        TracesBuilder,
-    },
+    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
 };
@@ -31,7 +28,6 @@ impl MachineChip for TypeINoShiftChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_trace: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -291,7 +287,6 @@ impl MachineChip for TypeIShiftChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {

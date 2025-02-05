@@ -5,6 +5,7 @@ mod registry;
 
 pub use executor::{
     BasicBlockEntry, Emulator, Executor, HarvardEmulator, LinearEmulator,
-    MemoryInitializationEntry, MemoryTranscript, ProgramInfo, ProgramMemoryEntry, View,
+    MemoryInitializationEntry, MemoryTranscript, ProgramInfo, ProgramMemoryEntry,
+    PublicOutputEntry, View,
 };
 pub use layout::LinearMemoryLayout;

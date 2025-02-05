@@ -8,7 +8,6 @@ use crate::{
     components::MAX_LOOKUP_TUPLE_SIZE,
     trace::{
         eval::{trace_eval, TraceEval},
-        program_trace::ProgramTracesBuilder,
         sidenote::SideNote,
         BoolWord, ProgramStep, TracesBuilder, Word,
     },
@@ -64,7 +63,6 @@ impl MachineChip for AddChip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
-        _program_traces: &mut ProgramTracesBuilder,
         _side_note: &mut SideNote,
     ) {
         let vm_step = match vm_step {
@@ -216,26 +214,16 @@ mod test {
 
         // Get traces from VM K-Trace interface
         let (view, vm_traces) = k_trace_direct(&basic_block, k).expect("Failed to create trace");
-        let program_info = view.get_program_info();
+        let program_info = view.get_program_memory();
 
         // Trace circuit
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let mut program_trace = ProgramTracesBuilder::new(LOG_SIZE, program_info);
-        let mut side_note = SideNote::new(
-            &program_trace,
-            &view,
-            vm_traces.memory_layout.public_output_addresses(),
-        );
+        let program_trace = ProgramTracesBuilder::new_with_empty_memory(LOG_SIZE, program_info);
+        let mut side_note = SideNote::new(&program_trace, &view);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(
-                &mut traces,
-                row_idx,
-                &program_step,
-                &mut program_trace,
-                &mut side_note,
-            );
+            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
         }
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
     }
