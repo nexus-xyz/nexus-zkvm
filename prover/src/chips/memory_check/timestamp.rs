@@ -102,7 +102,7 @@ impl MachineChip for TimestampChip {
 /// Performs x - 1 - y, returning the result and the borrow bits
 ///
 /// Note that for - 1 - y, for every limb, just one borrow bit suffices
-pub(crate) fn decr_subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
+pub fn decr_subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
     let (diff, borrow1) = subtract_with_borrow(x, 1u32.to_le_bytes());
     let (diff, borrow2) = subtract_with_borrow(diff, y);
     for i in 0..WORD_SIZE {

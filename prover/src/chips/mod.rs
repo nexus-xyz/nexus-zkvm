@@ -1,10 +1,8 @@
 mod cpu;
 mod decoding;
 mod instructions;
-mod prog_mem_check;
+mod memory_check;
 mod range_check;
-mod register_mem_check;
-mod timestamp;
 
 pub use instructions::{
     add_with_carries, subtract_with_borrow, AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip,
@@ -14,9 +12,7 @@ pub use instructions::{
 
 pub use cpu::CpuChip;
 pub use decoding::DecodingCheckChip;
-pub use prog_mem_check::ProgramMemCheckChip;
+pub use memory_check::{ProgramMemCheckChip, RegisterMemCheckChip, TimestampChip};
 pub use range_check::RangeCheckChip;
-pub use register_mem_check::RegisterMemCheckChip;
-pub use timestamp::TimestampChip;
 
 mod utils;

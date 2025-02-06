@@ -21,7 +21,7 @@ use stwo_prover::{
 };
 
 use crate::{
-    chips::timestamp::decr_subtract_with_borrow,
+    chips::memory_check::decr_subtract_with_borrow,
     column::{
         Column::{
             self, Helper1, Helper2, Helper3, Helper4, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsSb, IsSh,
