@@ -1,5 +1,4 @@
 use num_traits::Zero;
-
 use stwo_prover::core::{
     backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
     fields::m31::BaseField,
@@ -10,7 +9,10 @@ use stwo_prover::core::{
     ColumnVec,
 };
 
-use super::{utils::finalize_columns, IntoBaseFields, TracesBuilder};
+use super::{
+    utils::{finalize_columns, IntoBaseFields},
+    TracesBuilder,
+};
 use crate::column::ProgramColumn;
 
 use nexus_vm::{
