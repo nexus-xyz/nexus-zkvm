@@ -1,12 +1,12 @@
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use stwo_prover::core::{
-    backend::simd::column::BaseColumn,
+    backend::simd::{column::BaseColumn, SimdBackend},
     fields::{m31::BaseField, Field},
 };
 
 use nexus_vm::WORD_SIZE;
 
-pub use stwo_prover::core::utils::bit_reverse;
+pub use stwo_prover::core::backend::ColumnOps;
 
 use super::program::{Word, WordWithEffectiveBits};
 
@@ -105,9 +105,10 @@ pub fn finalize_columns(columns: Vec<Vec<BaseField>>) -> Vec<BaseColumn> {
     columns
         .into_par_iter()
         .map(|col| {
-            let mut eval = coset_order_to_circle_domain_order(col.as_slice());
-            bit_reverse(&mut eval);
-            BaseColumn::from_iter(eval)
+            let eval = coset_order_to_circle_domain_order(col.as_slice());
+            let mut base_column = BaseColumn::from_iter(eval);
+            <SimdBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut base_column);
+            base_column
         })
         .collect_into_vec(&mut ret);
     ret
@@ -118,17 +119,18 @@ mod tests {
     use super::*;
     use stwo_prover::core::{
         fields::m31::M31,
-        utils::{bit_reverse, bit_reverse_index, coset_index_to_circle_domain_index},
+        utils::{bit_reverse_index, coset_index_to_circle_domain_index},
     };
 
     #[test]
     fn test_order() {
         let log_size = 3;
         let vals: Vec<M31> = (0..1 << log_size).map(M31::from).collect();
-        let mut reordered = coset_order_to_circle_domain_order(&vals);
-        bit_reverse(&mut reordered);
+        let reordered = coset_order_to_circle_domain_order(&vals);
+        let mut col = BaseColumn::from_iter(reordered.clone());
+        <SimdBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut col);
 
-        for (i, reordered) in reordered.iter().enumerate().take(1 << log_size) {
+        for (i, reordered) in col.as_slice().iter().enumerate().take(1 << log_size) {
             let idx = bit_reverse_index(coset_index_to_circle_domain_index(i, log_size), log_size);
             assert_eq!(reordered, &vals[idx]);
         }

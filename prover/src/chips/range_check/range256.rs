@@ -1,18 +1,12 @@
 // This file contains range-checking values for 0..=255.
 
-use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
+use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
 use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
-    core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-        fields::{m31::BaseField, qm31::SecureField},
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
-    },
+use stwo_prover::core::{
+    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
+    fields::{m31::BaseField, qm31::SecureField},
 };
 
 use crate::{
@@ -26,9 +20,9 @@ use crate::{
             Ram4ValPrev, RamBaseAddr, RamFinalCounter, RamFinalValue, RamInitFinalAddr, Reg1TsPrev,
             Reg2TsPrev, Reg3TsPrev, Rem, RemDiff, ValueA, ValueB, ValueC,
         },
-        PreprocessedColumn::{self, IsFirst, Range256},
+        PreprocessedColumn::{self, Range256},
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -42,8 +36,10 @@ use crate::{
 /// A Chip for range-checking values for 0..=255
 ///
 /// Range256Chip needs to be located at the end of the chip composition together with the other range check chips
-
 pub struct Range256Chip;
+
+const LOOKUP_TUPLE_SIZE: usize = 1;
+stwo_prover::relation!(Range256LookupElements, LOOKUP_TUPLE_SIZE);
 
 impl Range256Chip {
     const CHECKED_WORDS: [Column; 33] = [
@@ -97,9 +93,14 @@ impl Range256Chip {
     const TYPE_U_CHECKED_BYTES: [Column; 2] = [OpC16_23, OpC24_31];
 }
 
-// TODO: range-check PrgMemoryPc and PrgMemoryWord in program trace
-
 impl MachineChip for Range256Chip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(Range256LookupElements::draw(channel));
+    }
+
     /// Increments Multiplicity256 for every number checked
     fn fill_main_trace(
         traces: &mut TracesBuilder,
@@ -134,12 +135,13 @@ impl MachineChip for Range256Chip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<12>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &Range256LookupElements = lookup_element.as_ref();
 
         // Add checked occurrences to logup sum.
         for col in Self::CHECKED_WORDS.iter() {
@@ -147,7 +149,7 @@ impl MachineChip for Range256Chip {
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
-                &mut logup_trace_gen,
+                logup_trace_gen,
                 lookup_element,
             );
         }
@@ -156,7 +158,7 @@ impl MachineChip for Range256Chip {
             check_bytes(
                 value_basecolumn,
                 original_traces.log_size(),
-                &mut logup_trace_gen,
+                logup_trace_gen,
                 lookup_element,
             );
         }
@@ -164,7 +166,6 @@ impl MachineChip for Range256Chip {
             let value_basecolumn = original_traces.get_base_column::<1>(*col);
             {
                 let log_size = original_traces.log_size();
-                let logup_trace_gen: &mut LogupTraceGenerator = &mut logup_trace_gen;
                 // TODO: we can deal with two limbs at a time.
                 for limb in value_basecolumn.iter() {
                     let mut logup_col_gen = logup_trace_gen.new_col();
@@ -195,49 +196,53 @@ impl MachineChip for Range256Chip {
             logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
         }
         logup_col_gen.finalize_col();
-
-        let (ret, _total_logup_sum) = logup_trace_gen.finalize_last();
-        #[cfg(not(test))] // tests need to be able to go past this assertion and break the constraints
-        assert_eq!(_total_logup_sum, SecureField::zero());
-        ret
     }
+
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
-        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
+        let lookup_elements: &Range256LookupElements = lookup_elements.as_ref();
 
         // Add checked occurrences to logup sum.
         for col in Self::CHECKED_WORDS.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
             let value = trace_eval.column_eval::<WORD_SIZE>(*col);
-            for limb in value.iter().take(WORD_SIZE) {
-                let denom: E::EF = lookup_elements.combine(&[limb.clone()]);
-                logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
+            for limb in value.into_iter().take(WORD_SIZE) {
+                eval.add_to_relation(RelationEntry::new(
+                    lookup_elements,
+                    SecureField::one().into(),
+                    &[limb],
+                ));
             }
         }
         for col in Self::CHECKED_BYTES.iter() {
             let [value] = trace_eval.column_eval(*col);
-            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-            logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
+
+            eval.add_to_relation(RelationEntry::new(
+                lookup_elements,
+                SecureField::one().into(),
+                &[value],
+            ));
         }
 
         for col in Self::TYPE_U_CHECKED_BYTES.iter() {
             let [value] = trace_eval.column_eval(*col);
-            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
             let [numerator] = virtual_column::IsTypeU::eval(trace_eval);
-            logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+
+            eval.add_to_relation(RelationEntry::new(
+                lookup_elements,
+                numerator.into(),
+                &[value],
+            ));
         }
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range256);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity256);
-        let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
-        logup.write_frac(eval, Fraction::new(numerator, denom));
-        logup.finalize(eval);
+
+        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
@@ -258,7 +263,7 @@ fn check_bytes<const N: usize>(
     basecolumn: [&BaseColumn; N],
     log_size: u32,
     logup_trace_gen: &mut LogupTraceGenerator,
-    lookup_element: &LookupElements<12>,
+    lookup_element: &Range256LookupElements,
 ) {
     // TODO: we can deal with two limbs at a time.
     for limb in basecolumn.iter() {
@@ -279,21 +284,14 @@ mod test {
 
     use super::*;
 
-    use crate::components::{MachineComponent, MachineEval};
-
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
-    use stwo_prover::constraint_framework::TraceLocationAllocator;
 
     use stwo_prover::core::fields::m31::BaseField;
-
-    use stwo_prover::core::prover::prove;
-
-    pub type Component = MachineComponent<Range256Chip>;
 
     #[test]
     fn test_range256_chip_success() {
@@ -320,7 +318,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range256_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -343,20 +340,8 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces {
-            mut commitment_scheme,
-            mut prover_channel,
-            lookup_elements,
-            preprocessed_trace: _,
-            interaction_trace: _,
-            program_trace: _,
-        } = commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None);
-
-        let component = Component::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<Range256Chip>::new(LOG_SIZE, lookup_elements),
-        );
-
-        prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
+        let CommittedTraces { claimed_sum, .. } =
+            commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None);
+        assert_ne!(claimed_sum, SecureField::zero());
     }
 }

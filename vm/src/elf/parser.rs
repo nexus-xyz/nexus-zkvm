@@ -328,15 +328,15 @@ fn parse_segment_content(
 
 /// Represents a precompile description as found in the ELF file.
 #[derive(PartialEq, Eq)]
-struct PrecompileDescription<'a>(u16, &'a str);
+pub struct PrecompileDescription<'a>(u16, &'a str);
 
-impl<'a> PartialOrd for PrecompileDescription<'a> {
+impl PartialOrd for PrecompileDescription<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.0.cmp(&other.0))
     }
 }
 
-impl<'a> Ord for PrecompileDescription<'a> {
+impl Ord for PrecompileDescription<'_> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.0.cmp(&other.0)
     }

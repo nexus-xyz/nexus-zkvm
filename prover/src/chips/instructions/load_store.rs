@@ -1,22 +1,10 @@
 use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode, WORD_SIZE};
 use num_traits::{One, Zero};
 use stwo_prover::{
-    constraint_framework::{
-        logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
-        EvalAtRow, INTERACTION_TRACE_IDX,
-    },
+    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
     core::{
-        backend::simd::{
-            m31::{PackedBaseField, LOG_N_LANES},
-            SimdBackend,
-        },
-        fields::{
-            m31::{self, BaseField},
-            qm31::SecureField,
-        },
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
+        backend::simd::m31::{PackedBaseField, LOG_N_LANES},
+        fields::m31::{self, BaseField},
     },
 };
 
@@ -32,7 +20,7 @@ use crate::{
         },
         PreprocessedColumn, ProgramColumn,
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, program_trace_eval, trace_eval},
         program_trace::ProgramTraces,
@@ -47,7 +35,17 @@ use super::add::add_with_carries;
 // Support SB, SH, SW, LB, LH and LW opcodes
 pub struct LoadStoreChip;
 
+const LOOKUP_TUPLE_SIZE: usize = 2 * WORD_SIZE + 1;
+stwo_prover::relation!(LoadStoreLookupElements, LOOKUP_TUPLE_SIZE);
+
 impl MachineChip for LoadStoreChip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(LoadStoreLookupElements::draw(channel));
+    }
+
     fn fill_main_trace(
         traces: &mut TracesBuilder,
         row_idx: usize,
@@ -61,11 +59,13 @@ impl MachineChip for LoadStoreChip {
     }
 
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &LoadStoreLookupElements = lookup_element.as_ref();
         // This function looks at the main trace and the program trace and fills the logup sums.
         // On each row, values written to the RW memory are added, and values read from the RW memory are subtracted.
         // The initial value is considered to be a write. The final value is considered as a read.
@@ -76,14 +76,12 @@ impl MachineChip for LoadStoreChip {
         // - `value` is the one-byte value written to or read from the memory.
         // - `counter{0,1,2,3}` is the timestamp of the memory access. In four-limbs each containing one byte.
 
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
-
         // Add initial values to logup sum
         Self::add_initial_values(
             original_traces,
             program_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
         );
 
         // Subtract and add address1 access components from/to logup sum
@@ -92,7 +90,7 @@ impl MachineChip for LoadStoreChip {
             original_traces,
             preprocessed_trace,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             Ram1ValPrev,
             Ram1TsPrev,
             Ram1ValCur,
@@ -103,7 +101,7 @@ impl MachineChip for LoadStoreChip {
             original_traces,
             preprocessed_trace,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             Ram2ValPrev,
             Ram2TsPrev,
             Ram2ValCur,
@@ -114,7 +112,7 @@ impl MachineChip for LoadStoreChip {
             original_traces,
             preprocessed_trace,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             Ram3ValPrev,
             Ram3TsPrev,
             Ram3ValCur,
@@ -125,7 +123,7 @@ impl MachineChip for LoadStoreChip {
             original_traces,
             preprocessed_trace,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             Ram4ValPrev,
             Ram4TsPrev,
             Ram4ValCur,
@@ -134,20 +132,13 @@ impl MachineChip for LoadStoreChip {
         );
 
         // Subtract final values from logup sum
-        Self::subtract_final_values(original_traces, lookup_element, &mut logup_trace_gen);
-
-        let (ret, _total_sum) = logup_trace_gen.finalize_last();
-        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-        assert_eq!(_total_sum, SecureField::zero());
-        ret
+        Self::subtract_final_values(original_traces, lookup_element, logup_trace_gen);
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        lookup_elements: &AllLookupElements,
     ) {
         let [is_sb] = trace_eval!(trace_eval, IsSb);
         let [is_sh] = trace_eval!(trace_eval, IsSh);
@@ -359,12 +350,10 @@ impl MachineChip for LoadStoreChip {
         }
         eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram4_accessed.clone());
 
-        let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
-        Self::constrain_add_initial_values(&mut logup, eval, trace_eval, lookup_elements);
+        let lookup_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
+
+        Self::constrain_add_initial_values(eval, trace_eval, lookup_elements);
         Self::constrain_subtract_add_access(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -375,7 +364,6 @@ impl MachineChip for LoadStoreChip {
             0,
         );
         Self::constrain_subtract_add_access(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -386,7 +374,6 @@ impl MachineChip for LoadStoreChip {
             1,
         );
         Self::constrain_subtract_add_access(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -397,7 +384,6 @@ impl MachineChip for LoadStoreChip {
             2,
         );
         Self::constrain_subtract_add_access(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -407,8 +393,7 @@ impl MachineChip for LoadStoreChip {
             Ram4Accessed,
             3,
         );
-        Self::constrain_final_values(&mut logup, eval, trace_eval, lookup_elements);
-        logup.finalize(eval);
+        Self::constrain_final_values(eval, trace_eval, lookup_elements);
     }
 }
 
@@ -626,7 +611,7 @@ impl LoadStoreChip {
     fn add_initial_values(
         original_traces: &FinalizedTraces,
         program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_element: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
     ) {
         let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
@@ -653,12 +638,9 @@ impl LoadStoreChip {
     }
 
     fn constrain_add_initial_values<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        lookup_elements: &LoadStoreLookupElements,
     ) {
         let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
         let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
@@ -675,16 +657,18 @@ impl LoadStoreChip {
         }
         assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
         let numerator = ram_init_final_flag;
-        logup.write_frac(
-            eval,
-            Fraction::new(numerator.into(), lookup_elements.combine(tuple.as_slice())),
-        );
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.into(),
+            &tuple,
+        ));
     }
 
     fn subtract_add_access(
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
         val_prev: Column,
         ts_prev: Column,
@@ -713,12 +697,9 @@ impl LoadStoreChip {
     }
 
     fn constrain_subtract_add_access<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        lookup_elements: &LoadStoreLookupElements,
         val_prev: Column,
         ts_prev: Column,
         val_cur: Column,
@@ -726,7 +707,6 @@ impl LoadStoreChip {
         address_offset: u8,
     ) {
         Self::constrain_subtract_address(
-            logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -736,7 +716,6 @@ impl LoadStoreChip {
             address_offset,
         );
         Self::constrain_add_access(
-            logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -748,7 +727,7 @@ impl LoadStoreChip {
 
     fn subtract_access(
         original_traces: &FinalizedTraces,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
         val_prev: Column,
         ts_prev: Column,
@@ -787,12 +766,9 @@ impl LoadStoreChip {
     }
 
     fn constrain_subtract_address<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        lookup_elements: &LoadStoreLookupElements,
         val_prev: Column,
         ts_prev: Column,
         accessed: Column,
@@ -813,19 +789,18 @@ impl LoadStoreChip {
             tuple.push(ts_prev_byte);
         }
         assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-        logup.write_frac(
-            eval,
-            Fraction::new(
-                (-accessed).into(),
-                lookup_elements.combine(tuple.as_slice()),
-            ),
-        );
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            (-accessed).into(),
+            &tuple,
+        ));
     }
 
     fn add_access(
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
         val_cur: Column,
         accessed: Column,
@@ -864,12 +839,9 @@ impl LoadStoreChip {
     }
 
     fn constrain_add_access<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        lookup_elements: &LoadStoreLookupElements,
         val_cur: Column,
         accessed: Column,
         address_offset: u8,
@@ -889,10 +861,8 @@ impl LoadStoreChip {
             tuple.push(clk_byte);
         }
         assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-        logup.write_frac(
-            eval,
-            Fraction::new(accessed.into(), lookup_elements.combine(tuple.as_slice())),
-        );
+
+        eval.add_to_relation(RelationEntry::new(lookup_elements, accessed.into(), &tuple));
     }
 
     /// Fills the interaction trace for subtracting the final content of the RW memory.
@@ -905,7 +875,7 @@ impl LoadStoreChip {
     /// The public output related columns do not appear here because they are constrained to use `RamFinalValue`.
     fn subtract_final_values(
         original_traces: &FinalizedTraces,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
     ) {
         let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
@@ -933,12 +903,9 @@ impl LoadStoreChip {
     }
 
     fn constrain_final_values<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        lookup_elements: &LoadStoreLookupElements,
     ) {
         let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
         let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
@@ -954,13 +921,12 @@ impl LoadStoreChip {
         }
         assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
         let numerator = ram_init_final_flag;
-        logup.write_frac(
-            eval,
-            Fraction::new(
-                (-numerator).into(),
-                lookup_elements.combine(tuple.as_slice()),
-            ),
-        );
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            (-numerator).into(),
+            &tuple,
+        ));
     }
 }
 

@@ -2,19 +2,10 @@ use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
 use stwo_prover::{
-    constraint_framework::{
-        logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
-        EvalAtRow, INTERACTION_TRACE_IDX,
-    },
+    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
     core::{
-        backend::simd::{
-            m31::{PackedM31, LOG_N_LANES},
-            SimdBackend,
-        },
-        fields::{m31::BaseField, qm31::SecureField},
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
+        backend::simd::m31::{PackedM31, LOG_N_LANES},
+        fields::m31::BaseField,
     },
 };
 
@@ -27,7 +18,7 @@ use crate::{
         },
         PreprocessedColumn,
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -42,14 +33,23 @@ use crate::{
 /// A Chip for register memory checking
 ///
 /// RegisterMemCheckChip needs to be located after all chips that access registers.
-
 pub struct RegisterMemCheckChip;
 
+const LOOKUP_TUPLE_SIZE: usize = 1 + WORD_SIZE + WORD_SIZE;
 impl RegisterMemCheckChip {
-    const TUPLE_SIZE: usize = 1 + WORD_SIZE + WORD_SIZE;
+    const TUPLE_SIZE: usize = LOOKUP_TUPLE_SIZE;
 }
 
+stwo_prover::relation!(RegisterCheckLookupElements, LOOKUP_TUPLE_SIZE);
+
 impl MachineChip for RegisterMemCheckChip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(RegisterCheckLookupElements::draw(channel));
+    }
+
     /// Fills `Reg{1,2,3}ValPrev` and `Reg{1,2,3}TsPrev` columns
     ///
     /// Assumes other chips have written to `Reg{1,2,3}Accessed` `Reg{1,2,3}Address` `Reg{1,2,3}Value`
@@ -126,11 +126,13 @@ impl MachineChip for RegisterMemCheckChip {
             }
         }
     }
+
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
+        let lookup_elements: &RegisterCheckLookupElements = lookup_elements.as_ref();
         let [value_a_effective_flag] = trace_eval!(trace_eval, ValueAEffectiveFlag);
 
         // value_a_effective can be constrainted uniquely with value_a_effective_flag and value_a
@@ -152,17 +154,11 @@ impl MachineChip for RegisterMemCheckChip {
             eval.add_constraint((E::F::one() - is_first_32.clone()) * final_reg_ts[i].clone());
         }
 
-        // Logup constraints
-        let [is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
-
         // Add initial register info during the first 32 rows
-        Self::constrain_add_initial_reg(&mut logup, eval, trace_eval, lookup_elements);
+        Self::constrain_add_initial_reg(eval, trace_eval, lookup_elements);
 
         // Subtract previous register info
         Self::constrain_subtract_prev_reg(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -172,7 +168,6 @@ impl MachineChip for RegisterMemCheckChip {
             Reg1ValPrev,
         );
         Self::constrain_subtract_prev_reg(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -182,7 +177,6 @@ impl MachineChip for RegisterMemCheckChip {
             Reg2ValPrev,
         );
         Self::constrain_subtract_prev_reg(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -194,7 +188,6 @@ impl MachineChip for RegisterMemCheckChip {
 
         // Add current register info
         Self::constrain_add_cur_reg(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -204,7 +197,6 @@ impl MachineChip for RegisterMemCheckChip {
             ValueB,
         );
         Self::constrain_add_cur_reg(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -214,7 +206,6 @@ impl MachineChip for RegisterMemCheckChip {
             ValueC,
         );
         Self::constrain_add_cur_reg(
-            &mut logup,
             eval,
             trace_eval,
             lookup_elements,
@@ -225,9 +216,7 @@ impl MachineChip for RegisterMemCheckChip {
         );
 
         // Subtract final register info (stored on the first 32 rows)
-        Self::constrain_subtract_final_reg(&mut logup, eval, trace_eval, lookup_elements);
-
-        logup.finalize(eval);
+        Self::constrain_subtract_final_reg(eval, trace_eval, lookup_elements);
 
         // TODO: constrain prev_ts < cur_ts
 
@@ -265,19 +254,21 @@ impl MachineChip for RegisterMemCheckChip {
 
         // TODO: add constraints so that branch and store operations do not change rs1 and rs2.
     }
+
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         _program_trace: &ProgramTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &RegisterCheckLookupElements = lookup_element.as_ref();
         // Written triples (reg_idx, cur_timestamp, cur_value) gets added.
         // Read triples (reg_idx, prev_timestamp, prev_value) gets subtracted.
 
         // Add initial register info during the first 32 rows
         Self::add_initial_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -285,7 +276,7 @@ impl MachineChip for RegisterMemCheckChip {
 
         // Subtract previous register info
         Self::subtract_prev_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             lookup_element,
             Reg1Accessed,
@@ -294,7 +285,7 @@ impl MachineChip for RegisterMemCheckChip {
             Reg1ValPrev,
         );
         Self::subtract_prev_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             lookup_element,
             Reg2Accessed,
@@ -303,7 +294,7 @@ impl MachineChip for RegisterMemCheckChip {
             Reg2ValPrev,
         );
         Self::subtract_prev_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             lookup_element,
             Reg3Accessed,
@@ -314,7 +305,7 @@ impl MachineChip for RegisterMemCheckChip {
 
         // Add current register info
         Self::add_cur_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -324,7 +315,7 @@ impl MachineChip for RegisterMemCheckChip {
             ValueB,
         );
         Self::add_cur_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -334,7 +325,7 @@ impl MachineChip for RegisterMemCheckChip {
             ValueC,
         );
         Self::add_cur_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -346,15 +337,11 @@ impl MachineChip for RegisterMemCheckChip {
 
         // Subtract final register info (stored on the first 32 rows)
         Self::subtract_final_reg(
-            &mut logup_trace_gen,
+            logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
         );
-
-        let (ret, total_sum) = logup_trace_gen.finalize_last();
-        assert_eq!(total_sum, SecureField::zero());
-        ret
     }
 }
 
@@ -363,7 +350,7 @@ impl RegisterMemCheckChip {
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_element: &RegisterCheckLookupElements,
     ) {
         let [is_first_32] =
             preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::IsFirst32);
@@ -380,26 +367,30 @@ impl RegisterMemCheckChip {
         }
         logup_col_gen.finalize_col();
     }
+
     fn constrain_add_initial_reg<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &RegisterCheckLookupElements,
     ) {
         let [is_first_32] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
         let mut tuple: [E::F; Self::TUPLE_SIZE] = std::array::from_fn(|_| E::F::zero());
         let [row_idx] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::RowIdx);
         tuple[0] = row_idx; // Using row_idx as register index
-        let denom = lookup_elements.combine(tuple.as_slice());
+
         let numerator = is_first_32;
-        logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.into(),
+            tuple.as_slice(),
+        ));
     }
 
     fn subtract_final_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_element: &RegisterCheckLookupElements,
     ) {
         let [is_first_32] =
             preprocessed_trace.get_preprocessed_base_column(PreprocessedColumn::IsFirst32);
@@ -420,11 +411,11 @@ impl RegisterMemCheckChip {
         }
         logup_col_gen.finalize_col();
     }
+
     fn constrain_subtract_final_reg<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &RegisterCheckLookupElements,
     ) {
         let [is_first_32] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsFirst32);
         let [row_idx] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::RowIdx);
@@ -435,14 +426,17 @@ impl RegisterMemCheckChip {
             tuple.push(elm);
         }
         assert_eq!(tuple.len(), Self::TUPLE_SIZE);
-        let denom = lookup_elements.combine(tuple.as_slice());
         let numerator = is_first_32;
-        logup.write_frac(eval, Fraction::new((-numerator).into(), denom));
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            (-numerator).into(),
+            &tuple,
+        ));
     }
     fn subtract_prev_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_element: &RegisterCheckLookupElements,
         accessed: Column,
         reg_address: Column,
         prev_ts: Column,
@@ -465,11 +459,11 @@ impl RegisterMemCheckChip {
         }
         logup_col_gen.finalize_col();
     }
+
     fn constrain_subtract_prev_reg<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &RegisterCheckLookupElements,
         accessed: Column,
         reg_address: Column,
         prev_ts: Column,
@@ -484,16 +478,20 @@ impl RegisterMemCheckChip {
             tuple.push(elm);
         }
         assert_eq!(tuple.len(), Self::TUPLE_SIZE);
-        let denom = lookup_elements.combine(tuple.as_slice());
+
         let numerator = -reg_accessed;
-        logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.into(),
+            &tuple,
+        ));
     }
 
     fn add_cur_reg(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_element: &RegisterCheckLookupElements,
         accessed: Column,
         reg_address: Column,
         cur_ts: PreprocessedColumn,
@@ -516,11 +514,11 @@ impl RegisterMemCheckChip {
         }
         logup_col_gen.finalize_col();
     }
+
     fn constrain_add_cur_reg<E: EvalAtRow>(
-        logup: &mut LogupAtRow<E>,
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &RegisterCheckLookupElements,
         accessed: Column,
         reg_address: Column,
         cur_ts: PreprocessedColumn,
@@ -535,9 +533,13 @@ impl RegisterMemCheckChip {
             tuple.push(elm);
         }
         assert_eq!(tuple.len(), Self::TUPLE_SIZE);
-        let denom = lookup_elements.combine(tuple.as_slice());
+
         let numerator = reg_accessed;
-        logup.write_frac(eval, Fraction::new(numerator.into(), denom));
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.into(),
+            &tuple,
+        ));
     }
 }
 
@@ -572,13 +574,14 @@ fn fill_prev_values(
 
 #[cfg(test)]
 mod test {
+    use super::RegisterMemCheckChip;
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     use crate::{
-        chips::{AddChip, CpuChip, RegisterMemCheckChip},
+        chips::{AddChip, CpuChip},
         test_utils::assert_chip,
         trace::{
             program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,

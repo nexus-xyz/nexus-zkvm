@@ -4,26 +4,20 @@ use nexus_vm::{
     riscv::{BuiltinOpcode, InstructionType},
     WORD_SIZE,
 };
-use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
+use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
-    core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-        fields::{m31::BaseField, qm31::SecureField},
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
-    },
+use stwo_prover::core::{
+    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
+    fields::m31::BaseField,
 };
 
 use crate::{
     column::{
         Column::{self, Multiplicity8, OpC1_3, OpC5_7, OpC8_10},
-        PreprocessedColumn::{self, IsFirst, Range8},
+        PreprocessedColumn::{self, Range8},
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -48,8 +42,10 @@ impl VirtualColumnForSum for Helper1MsbChecked {
 /// A Chip for range-checking values for 0..=7
 ///
 /// Range8Chip needs to be located at the end of the chip composition together with the other range check chips
-
 pub struct Range8Chip;
+
+const LOOKUP_TUPLE_SIZE: usize = 1;
+stwo_prover::relation!(Range8LookupElements, LOOKUP_TUPLE_SIZE);
 
 const TYPE_I_NO_SHIFT_CHECKED: [Column; 1] = [OpC8_10];
 const TYPE_J_CHECKED: [Column; 2] = [OpC1_3, OpC8_10];
@@ -57,6 +53,13 @@ const TYPE_B_CHECKED: [Column; 2] = [OpC5_7, OpC8_10];
 const TYPE_S_CHECKED: [Column; 2] = [OpC5_7, OpC8_10];
 
 impl MachineChip for Range8Chip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(Range8LookupElements::draw(channel));
+    }
+
     /// Increments Multiplicity8 for every number checked
     fn fill_main_trace(
         traces: &mut TracesBuilder,
@@ -116,35 +119,35 @@ impl MachineChip for Range8Chip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
-
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &Range8LookupElements = lookup_element.as_ref();
         fill_interaction_for_type::<IsTypeINoShift>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_I_NO_SHIFT_CHECKED,
         );
         fill_interaction_for_type::<IsTypeJ>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_J_CHECKED,
         );
         fill_interaction_for_type::<IsTypeB>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_B_CHECKED,
         );
         fill_interaction_for_type::<IsTypeS>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_S_CHECKED,
         );
 
@@ -176,64 +179,41 @@ impl MachineChip for Range8Chip {
             logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
         }
         logup_col_gen.finalize_col();
-
-        let (ret, _total_logup_sum) = logup_trace_gen.finalize_last();
-        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-        assert_eq!(_total_logup_sum, SecureField::zero());
-        ret
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
-        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
+        let lookup_elements: &Range8LookupElements = lookup_elements.as_ref();
 
         add_constraints_for_type::<E, IsTypeINoShift>(
             eval,
             trace_eval,
             lookup_elements,
-            &mut logup,
             &TYPE_I_NO_SHIFT_CHECKED,
         );
-        add_constraints_for_type::<E, IsTypeJ>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_J_CHECKED,
-        );
-        add_constraints_for_type::<E, IsTypeB>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_B_CHECKED,
-        );
-        add_constraints_for_type::<E, IsTypeS>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_S_CHECKED,
-        );
+        add_constraints_for_type::<E, IsTypeJ>(eval, trace_eval, lookup_elements, &TYPE_J_CHECKED);
+        add_constraints_for_type::<E, IsTypeB>(eval, trace_eval, lookup_elements, &TYPE_B_CHECKED);
+        add_constraints_for_type::<E, IsTypeS>(eval, trace_eval, lookup_elements, &TYPE_S_CHECKED);
 
         // Add checked multiplicities for Helper1[0] in case of SLL, SRL and SRA
         let [numerator] = Helper1MsbChecked::eval(trace_eval);
         let [value, _, _, _] = trace_eval.column_eval(Column::Helper1);
-        let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-        logup.write_frac(eval, Fraction::new(numerator.clone().into(), denom));
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.into(),
+            &[value],
+        ));
 
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range8);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity8);
-        let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
-        logup.write_frac(eval, Fraction::new(numerator, denom));
-        logup.finalize(eval);
+
+        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
@@ -243,22 +223,25 @@ fn add_constraints_for_type<
 >(
     eval: &mut E,
     trace_eval: &TraceEval<E>,
-    lookup_elements: &LookupElements<12>,
-    logup: &mut LogupAtRow<E>,
+    lookup_elements: &Range8LookupElements,
     cols: &[Column],
 ) {
     let [numerator] = VR::eval(trace_eval);
     for col in cols.iter() {
         // not using trace_eval! macro because it doesn't accept *col as an argument.
         let [value] = trace_eval.column_eval(*col);
-        let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-        logup.write_frac(eval, Fraction::new(numerator.clone().into(), denom));
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.clone().into(),
+            &[value],
+        ));
     }
 }
 
 fn fill_interaction_for_type<VC: VirtualColumn<1>>(
     original_traces: &FinalizedTraces,
-    lookup_element: &LookupElements<12>,
+    lookup_element: &Range8LookupElements,
     logup_trace_gen: &mut LogupTraceGenerator,
     cols: &[Column],
 ) {

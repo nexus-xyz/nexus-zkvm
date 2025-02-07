@@ -26,3 +26,5 @@ stwo-prover = { workspace = true }
 [lints.clippy]
 unused-enumerate-index = { level = "allow", priority = 0 }
 too-many-arguments = { level = "allow", priority = 0 }
+needless-pub-self = { level = "allow", priority = 0 }
+doc-lazy-continuation = { level = "allow", priority = 0 }

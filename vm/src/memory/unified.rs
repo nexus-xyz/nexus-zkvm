@@ -349,20 +349,16 @@ impl MemoryProcessor for UnifiedMemory {
             // Safety: that address is in meta means unwraps and indexing are safe
             match meta {
                 Modes::RW => {
-                    return self.frw_store[*self.frw.get(&address).unwrap()]
-                        .write(address, size, value)
+                    self.frw_store[*self.frw.get(&address).unwrap()].write(address, size, value)
                 }
                 Modes::RO => {
-                    return self.fro_store[*self.fro.get(&address).unwrap()]
-                        .write(address, size, value)
+                    self.fro_store[*self.fro.get(&address).unwrap()].write(address, size, value)
                 }
                 Modes::WO => {
-                    return self.fwo_store[*self.fwo.get(&address).unwrap()]
-                        .write(address, size, value)
+                    self.fwo_store[*self.fwo.get(&address).unwrap()].write(address, size, value)
                 }
                 Modes::NA => {
-                    return self.fna_store[*self.fna.get(&address).unwrap()]
-                        .write(address, size, value)
+                    self.fna_store[*self.fna.get(&address).unwrap()].write(address, size, value)
                 }
             }
         } else if let Some(mut vrw) = self.vrw.take() {
@@ -390,18 +386,10 @@ impl MemoryProcessor for UnifiedMemory {
         if let Some(meta) = self.meta.get(&address) {
             // that address is in meta means unwraps are safe
             match meta {
-                Modes::RW => {
-                    return self.frw_store[*self.frw.get(&address).unwrap()].read(address, size)
-                }
-                Modes::RO => {
-                    return self.fro_store[*self.fro.get(&address).unwrap()].read(address, size)
-                }
-                Modes::WO => {
-                    return self.fwo_store[*self.fwo.get(&address).unwrap()].read(address, size)
-                }
-                Modes::NA => {
-                    return self.fna_store[*self.fna.get(&address).unwrap()].read(address, size)
-                }
+                Modes::RW => self.frw_store[*self.frw.get(&address).unwrap()].read(address, size),
+                Modes::RO => self.fro_store[*self.fro.get(&address).unwrap()].read(address, size),
+                Modes::WO => self.fwo_store[*self.fwo.get(&address).unwrap()].read(address, size),
+                Modes::NA => self.fna_store[*self.fna.get(&address).unwrap()].read(address, size),
             }
         } else if let Some(vrw) = &self.vrw {
             vrw.read(address, size)

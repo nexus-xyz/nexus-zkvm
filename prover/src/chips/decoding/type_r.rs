@@ -1,5 +1,5 @@
 use crate::{
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -11,7 +11,7 @@ use crate::column::Column::{
 use crate::trace::eval::trace_eval;
 use nexus_vm::riscv::InstructionType::RType;
 use num_traits::One;
-use stwo_prover::{constraint_framework::logup::LookupElements, core::fields::m31::BaseField};
+use stwo_prover::core::fields::m31::BaseField;
 
 pub struct TypeRChip;
 
@@ -54,7 +54,7 @@ impl MachineChip for TypeRChip {
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         // (is_type_r)・ (op_c0_3 + op_c4・2^4 – op_c) = 0
         let [is_type_r] = virtual_column::IsTypeR::eval(trace_eval);

@@ -1,8 +1,5 @@
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::{logup::LookupElements, EvalAtRow},
-    core::fields::{m31::BaseField, FieldExpOps},
-};
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use super::utils;
 use crate::{
@@ -11,9 +8,9 @@ use crate::{
         Column::{self, *},
         PreprocessedColumn,
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval_next_row, trace_eval, trace_eval_next_row, TraceEval},
+        eval::{preprocessed_trace_eval, trace_eval, trace_eval_next_row, TraceEval},
         sidenote::SideNote,
         ProgramStep, TracesBuilder,
     },
@@ -309,7 +306,7 @@ impl MachineChip for CpuChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         // TODO: add more constraints for the CPU chip.
 
@@ -325,8 +322,7 @@ impl MachineChip for CpuChip {
 
         // Padding cannot go from 1 to zero, unless the current line is the first
         // TODO: consider forcing IsPadding == 0 on the first row, if we prefer to ban zero-step empty executions.
-        let [next_is_first] =
-            preprocessed_trace_eval_next_row!(trace_eval, PreprocessedColumn::IsFirst);
+        let [next_is_first] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::IsLast);
         eval.add_constraint(
             (E::F::one() - next_is_first.clone())
                 * is_padding.clone()

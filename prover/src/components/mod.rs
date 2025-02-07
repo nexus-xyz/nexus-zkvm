@@ -1,28 +1,24 @@
 use std::marker::PhantomData;
 
-use stwo_prover::constraint_framework::{
-    logup::LookupElements, EvalAtRow, FrameworkComponent, FrameworkEval,
-};
+use stwo_prover::constraint_framework::{EvalAtRow, FrameworkComponent, FrameworkEval};
 
 use super::{trace::eval::TraceEval, traits::MachineChip};
 
+mod lookups;
+pub use lookups::AllLookupElements;
+
 pub(super) const LOG_CONSTRAINT_DEGREE: u32 = 2;
-/// The number of BaseField's in the biggest tuple we look up
-pub(super) const MAX_LOOKUP_TUPLE_SIZE: usize = 12;
 
 pub type MachineComponent<C> = FrameworkComponent<MachineEval<C>>;
 
 pub struct MachineEval<C> {
     log_n_rows: u32,
-    lookup_elements: LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+    lookup_elements: AllLookupElements,
     _phantom_data: PhantomData<C>,
 }
 
 impl<C> MachineEval<C> {
-    pub(crate) fn new(
-        log_n_rows: u32,
-        lookup_elements: LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> Self {
+    pub(crate) fn new(log_n_rows: u32, lookup_elements: AllLookupElements) -> Self {
         Self {
             log_n_rows,
             lookup_elements,
@@ -44,6 +40,9 @@ impl<C: MachineChip> FrameworkEval for MachineEval<C> {
         let trace_eval = TraceEval::new(&mut eval);
         C::add_constraints(&mut eval, &trace_eval, &self.lookup_elements);
 
+        if !self.lookup_elements.is_empty() {
+            eval.finalize_logup();
+        }
         eval
     }
 }

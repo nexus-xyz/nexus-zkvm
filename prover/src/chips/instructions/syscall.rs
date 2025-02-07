@@ -1,14 +1,11 @@
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::{logup::LookupElements, EvalAtRow},
-    core::fields::m31::BaseField,
-};
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use nexus_vm::{riscv::BuiltinOpcode, SyscallCode};
 
 use crate::{
     column::Column::{self},
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -80,7 +77,7 @@ impl MachineChip for SyscallChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let [is_type_sys] = IsTypeSys::eval(trace_eval);
         let [is_sys_debug] = trace_eval!(trace_eval, Column::IsSysDebug);

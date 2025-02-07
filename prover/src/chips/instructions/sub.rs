@@ -1,11 +1,11 @@
 use num_traits::Zero;
-use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::{
     column::Column::{self, *},
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -100,7 +100,7 @@ impl MachineChip for SubChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let is_sub = trace_eval!(trace_eval, IsSub);
         let is_sub = is_sub[0].clone();

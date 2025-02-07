@@ -6,16 +6,17 @@ use nexus_vm::{
     trace::{k_trace_direct, UniformTrace},
 };
 use nexus_vm_prover::{
+    components::AllLookupElements,
     machine::BaseComponents,
     trace::{
         program::iter_program_steps, program_trace::ProgramTracesBuilder, sidenote::SideNote,
         PreprocessedTraces, TracesBuilder,
     },
-    traits::MachineChip,
+    traits::{generate_interaction_trace, MachineChip},
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use stwo_prover::{constraint_framework::logup::LookupElements, core::channel::Blake2sChannel};
+use stwo_prover::core::channel::Blake2sChannel;
 
 const K: usize = 1;
 
@@ -97,9 +98,13 @@ fn bench_trace_gen(c: &mut Criterion) {
         group.bench_function("InteractionTrace", |b| {
             b.iter(|| {
                 let prover_channel = &mut black_box(Blake2sChannel::default());
-                let lookup_elements = black_box(LookupElements::draw(prover_channel));
+                let mut lookup_elements = black_box(AllLookupElements::default());
+                BaseComponents::draw_lookup_elements(
+                    black_box(&mut lookup_elements),
+                    black_box(prover_channel),
+                );
 
-                black_box(BaseComponents::fill_interaction_trace(
+                black_box(generate_interaction_trace::<BaseComponents>(
                     black_box(&finalized_trace),
                     black_box(&preprocessed_trace),
                     black_box(&finalized_program_trace),

@@ -1,21 +1,24 @@
 use impl_trait_for_tuples::impl_for_tuples;
 
+use num_traits::Zero;
 use stwo_prover::{
-    constraint_framework::{logup::LookupElements, EvalAtRow},
+    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow},
     core::{
         backend::simd::SimdBackend,
-        fields::m31::BaseField,
+        channel::Channel,
+        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
 };
 
-use crate::trace::{
-    eval::TraceEval, preprocessed::PreprocessedTraces, program_trace::ProgramTraces,
-    sidenote::SideNote, FinalizedTraces, ProgramStep, TracesBuilder,
+use crate::{
+    components::AllLookupElements,
+    trace::{
+        eval::TraceEval, preprocessed::PreprocessedTraces, program_trace::ProgramTraces,
+        sidenote::SideNote, FinalizedTraces, ProgramStep, TracesBuilder,
+    },
 };
-
-use super::components::MAX_LOOKUP_TUPLE_SIZE;
 
 pub trait ExecuteChip {
     type ExecutionResult;
@@ -35,11 +38,10 @@ pub trait MachineChip {
     /// Called on each row during constraint evaluation.
     ///
     /// This method **should not** read masks from `eval`.
-    /// (except from interaction trace within LogupAtRow implementation in stwo).
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     );
 
     /// Called just once for generating the interaction trace.
@@ -47,13 +49,30 @@ pub trait MachineChip {
     /// The signature of this method is intentionally similar to `gen_interaction_trace()` in stwo examples.
     /// This method isn't called row-by-row because stwo logup library fills 16 rows of the interaction trace at a time.
     fn fill_interaction_trace(
+        _logup_trace_gen: &mut LogupTraceGenerator,
         _original_traces: &FinalizedTraces,
         _preprocessed_trace: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        _lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        vec![]
+        _lookup_elements: &AllLookupElements,
+    ) {
     }
+
+    /// Draw lookup elements required by the component.
+    ///
+    /// A component is allowed to have multiple relations, each one must be inserted into the mapping.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// stwo_prover::relation!(LookupElements, 2);
+    /// stwo_prover::relation!(AdditionalLookupElements, 5);
+    ///
+    /// fn draw_lookup_elements(all_elements: &mut AllLookupElements, channel: &mut impl Channel) {
+    ///     all_elements.insert(LookupElements::draw(channel));
+    ///     all_elements.insert(AdditionalLookupElements::draw(channel));
+    /// }
+    /// ```
+    fn draw_lookup_elements(_: &mut AllLookupElements, _: &mut impl Channel) {}
 }
 
 #[impl_for_tuples(1, 26)]
@@ -70,39 +89,45 @@ impl MachineChip for Tuple {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
         for_tuples!( #( Tuple::add_constraints(eval, trace_eval, lookup_elements); )* );
     }
 
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut cap = 0;
-        for_tuples!( #( cap += 1; )* );
-        let mut ret = Vec::with_capacity(cap);
-
-        let ret_mut = ret.spare_capacity_mut();
-
-        rayon::scope(|s| {
-            for_tuples!( #(
-                let (slice, ret_mut) = ret_mut.split_at_mut(1);
-                s.spawn(move |_| {
-                    let eval = Tuple::fill_interaction_trace(original_traces, preprocessed_traces, program_traces, lookup_element);
-
-                    slice[0].write(eval);
-                });
-            )* );
-        });
-
-        // SAFETY:
-        // all values were initialized within rayon scope.
-        unsafe {
-            ret.set_len(cap);
-        }
-        ret.into_iter().flatten().collect()
+        lookup_elements: &AllLookupElements,
+    ) {
+        for_tuples!( #( Tuple::fill_interaction_trace(logup_trace_gen, original_traces, preprocessed_traces, program_traces, lookup_elements); )* );
     }
+
+    fn draw_lookup_elements(all_elements: &mut AllLookupElements, channel: &mut impl Channel) {
+        for_tuples!( #( Tuple::draw_lookup_elements(all_elements, channel); )* );
+    }
+}
+
+pub fn generate_interaction_trace<C: MachineChip>(
+    original_traces: &FinalizedTraces,
+    preprocessed_trace: &PreprocessedTraces,
+    program_traces: &ProgramTraces,
+    lookup_elements: &AllLookupElements,
+) -> (
+    ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
+    SecureField,
+) {
+    if lookup_elements.is_empty() {
+        return (ColumnVec::new(), SecureField::zero());
+    }
+    let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+    C::fill_interaction_trace(
+        &mut logup_trace_gen,
+        original_traces,
+        preprocessed_trace,
+        program_traces,
+        lookup_elements,
+    );
+    logup_trace_gen.finalize_last()
 }

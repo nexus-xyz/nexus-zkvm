@@ -38,6 +38,7 @@ impl PreprocessedBuilder {
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];
         let mut ret = Self(TracesBuilder { cols, log_size });
         ret.fill_is_first();
+        ret.fill_is_last();
         ret.fill_row_idx();
         ret.fill_is_first32();
         ret.fill_timestamps();
@@ -74,6 +75,12 @@ impl PreprocessedBuilder {
 
     pub(crate) fn fill_is_first(&mut self) {
         self.0.cols[PreprocessedColumn::IsFirst.offset()][0] = BaseField::one();
+    }
+
+    pub(crate) fn fill_is_last(&mut self) {
+        *self.0.cols[PreprocessedColumn::IsLast.offset()]
+            .last_mut()
+            .expect("preprocessed trace must be non-empty") = BaseField::one();
     }
 
     pub(crate) fn fill_row_idx(&mut self) {
@@ -152,7 +159,7 @@ impl PreprocessedBuilder {
         // fill bit-wise lookup table
         for input_b in 0..=15u8 {
             for input_c in 0..=15u8 {
-                let row_idx = (input_b as usize) << 4 | input_c as usize;
+                let row_idx = ((input_b as usize) << 4) | input_c as usize;
                 cols[PreprocessedColumn::BitwiseB.offset()][row_idx] =
                     BaseField::from(input_b as u32);
                 cols[PreprocessedColumn::BitwiseC.offset()][row_idx] =

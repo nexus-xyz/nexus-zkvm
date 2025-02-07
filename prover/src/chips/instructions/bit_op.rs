@@ -1,18 +1,9 @@
 use num_traits::{One, Zero};
 use stwo_prover::{
-    constraint_framework::{
-        logup::{LogupAtRow, LogupTraceGenerator, LookupElements},
-        EvalAtRow, INTERACTION_TRACE_IDX,
-    },
+    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
     core::{
-        backend::simd::{
-            m31::{PackedBaseField, LOG_N_LANES},
-            SimdBackend,
-        },
-        fields::{m31::BaseField, qm31::SecureField},
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
+        backend::simd::m31::{PackedBaseField, LOG_N_LANES},
+        fields::m31::BaseField,
     },
 };
 
@@ -24,11 +15,9 @@ use crate::{
             self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
             ValueA0_3, ValueA4_7, ValueB, ValueB0_3, ValueB4_7, ValueC, ValueC0_3, ValueC4_7,
         },
-        PreprocessedColumn::{
-            self, BitwiseAndA, BitwiseB, BitwiseC, BitwiseOrA, BitwiseXorA, IsFirst,
-        },
+        PreprocessedColumn::{self, BitwiseAndA, BitwiseB, BitwiseC, BitwiseOrA, BitwiseXorA},
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -41,6 +30,9 @@ use crate::{
 
 // Support bitwise operations opcode with lookups.
 pub struct BitOpChip;
+
+const LOOKUP_TUPLE_SIZE: usize = 4; // op_flag, b, c, a
+stwo_prover::relation!(BitOpLookupElements, LOOKUP_TUPLE_SIZE);
 
 /// Unit-enum indicating which bitwise operation is executed by the chip.
 ///
@@ -147,6 +139,13 @@ impl VirtualColumnForSum for IsBitop {
 }
 
 impl MachineChip for BitOpChip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(BitOpLookupElements::draw(channel));
+    }
+
     fn fill_main_trace(
         traces: &mut TracesBuilder,
         row_idx: usize,
@@ -231,13 +230,13 @@ impl MachineChip for BitOpChip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen rows.
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
-
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &BitOpLookupElements = lookup_element.as_ref();
         // Add checked pairs to logup sum
         let [is_and] = original_traces.get_base_column(IsAnd);
         let [is_or] = original_traces.get_base_column(IsOr);
@@ -314,16 +313,15 @@ impl MachineChip for BitOpChip {
             }
             logup_col_gen.finalize_col();
         }
-        let (ret, total_logup_sum) = logup_trace_gen.finalize_last();
-        assert_eq!(total_logup_sum, SecureField::zero());
-        ret
     }
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
+        let lookup_elements: &BitOpLookupElements = lookup_elements.as_ref();
+
         let value_a = trace_eval!(trace_eval, ValueA);
         let value_b = trace_eval!(trace_eval, ValueB);
         let value_c = trace_eval!(trace_eval, ValueC);
@@ -357,9 +355,6 @@ impl MachineChip for BitOpChip {
         }
 
         // Constrain logup
-        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
 
         // Add checked occurrences to logup sum
         let [is_and] = trace_eval!(trace_eval, IsAnd);
@@ -372,22 +367,29 @@ impl MachineChip for BitOpChip {
                 (BitOp::Xor, &is_xor),
             ] {
                 let op_type = E::F::from(op_type.to_base_field());
-                let denom: E::EF = lookup_elements.combine(&[
-                    op_type.clone(),
-                    value_b0_3[limb_idx].clone(),
-                    value_c0_3[limb_idx].clone(),
-                    value_a0_3[limb_idx].clone(),
-                ]);
                 let numerator: E::EF = is_op.clone().into();
-                logup.write_frac(eval, Fraction::new(numerator, denom.clone()));
-                let denom: E::EF = lookup_elements.combine(&[
-                    op_type,
-                    value_b4_7[limb_idx].clone(),
-                    value_c4_7[limb_idx].clone(),
-                    value_a4_7[limb_idx].clone(),
-                ]);
+                eval.add_to_relation(RelationEntry::new(
+                    lookup_elements,
+                    numerator,
+                    &[
+                        op_type.clone(),
+                        value_b0_3[limb_idx].clone(),
+                        value_c0_3[limb_idx].clone(),
+                        value_a0_3[limb_idx].clone(),
+                    ],
+                ));
+
                 let numerator: E::EF = is_op.clone().into();
-                logup.write_frac(eval, Fraction::new(numerator, denom.clone()));
+                eval.add_to_relation(RelationEntry::new(
+                    lookup_elements,
+                    numerator,
+                    &[
+                        op_type,
+                        value_b4_7[limb_idx].clone(),
+                        value_c4_7[limb_idx].clone(),
+                        value_a4_7[limb_idx].clone(),
+                    ],
+                ));
             }
         }
 
@@ -409,12 +411,13 @@ impl MachineChip for BitOpChip {
             (BitOp::Xor, answer_a_xor, mult_xor),
         ] {
             let op_type = E::F::from(op_type.to_base_field());
-            let denom: E::EF =
-                lookup_elements.combine(&[op_type, answer_b.clone(), answer_c.clone(), answer_a]);
             let numerator: E::EF = (-mult).into();
-            logup.write_frac(eval, Fraction::new(numerator, denom));
+            eval.add_to_relation(RelationEntry::new(
+                lookup_elements,
+                numerator,
+                &[op_type, answer_b.clone(), answer_c.clone(), answer_a],
+            ));
         }
-        logup.finalize(eval);
     }
 }
 

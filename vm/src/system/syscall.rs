@@ -284,7 +284,7 @@ impl SyscallInstruction {
     /// Note:
     /// - Any modifications to CPU registers must be done using the `write_back` function.
     /// - Any modifications to memory must be done using the `memory_write` function.
-    /// `Result<()>` - Ok if the syscall executed successfully, or an error if it failed
+    ///   `Result<()>` - Ok if the syscall executed successfully, or an error if it failed
     pub fn execute(
         &mut self,
         executor: &mut Executor,

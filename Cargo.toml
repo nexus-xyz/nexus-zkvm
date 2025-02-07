@@ -28,7 +28,7 @@ clap = { version = "4.3", features = ["derive"] }
 num-traits = "0.2"
 num-derive = "0.4.2"
 serde = { version = "1.0", features = ["derive"] }
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "ba90cee" }
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "a194fad" }
 
 [profile.release]
 codegen-units = 1

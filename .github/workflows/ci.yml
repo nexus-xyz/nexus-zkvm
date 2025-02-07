@@ -17,7 +17,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           components: rustfmt
-          toolchain: nightly-2024-01-04
+          toolchain: nightly-2025-01-02
 
       - name: Run `cargo fmt`
         run: |
@@ -41,7 +41,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           components: clippy
-          toolchain: nightly-2024-01-04
+          toolchain: nightly-2025-01-02
           targets: riscv32i-unknown-none-elf
 
       - name: Add clippy
@@ -75,7 +75,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2024-01-04
+          toolchain: nightly-2025-01-02
           targets: riscv32i-unknown-none-elf
 
       - name: Install cargo-expand

@@ -1,11 +1,13 @@
 use std::marker::PhantomData;
 
+use num_traits::Zero;
 use stwo_prover::{
-    constraint_framework::{logup::LookupElements, TraceLocationAllocator},
+    constraint_framework::TraceLocationAllocator,
     core::{
         air::Component,
         backend::simd::SimdBackend,
         channel::Blake2sChannel,
+        fields::qm31::SecureField,
         pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig},
         poly::circle::{CanonicCoset, PolyOps},
         prover::{prove, verify, ProvingError, StarkProof, VerificationError},
@@ -27,11 +29,15 @@ use nexus_vm::{
 
 use super::components::{MachineComponent, MachineEval, LOG_CONSTRAINT_DEGREE};
 use super::traits::MachineChip;
-use crate::chips::{
-    AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip, CpuChip,
-    DecodingCheckChip, JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip,
-    RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip,
-    SyscallChip, TimestampChip,
+use crate::{
+    chips::{
+        AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip,
+        CpuChip, DecodingCheckChip, JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip,
+        RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip,
+        SubChip, SyscallChip, TimestampChip,
+    },
+    components::AllLookupElements,
+    traits::generate_interaction_trace,
 };
 use serde::{Deserialize, Serialize};
 /// Base components tuple for constraining virtual machine execution based on RV32I ISA.
@@ -65,9 +71,10 @@ pub type BaseComponents = (
     RangeCheckChip,
 );
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof {
     pub stark_proof: StarkProof<Blake2sMerkleHasher>,
+    pub claimed_sum: SecureField,
     pub log_size: u32,
 }
 
@@ -105,10 +112,8 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Setup protocol.
         let prover_channel = &mut Blake2sChannel::default();
-        let commitment_scheme =
-            &mut CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(
-                config, &twiddles,
-            );
+        let mut commitment_scheme =
+            CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(config, &twiddles);
 
         // Fill columns of the preprocessed trace.
         let preprocessed_trace = PreprocessedTraces::new(log_size);
@@ -146,8 +151,10 @@ impl<C: MachineChip + Sync> Machine<C> {
             tree_builder.extend_evals(finalized_trace.clone().into_circle_evaluation());
         tree_builder.commit(prover_channel);
 
-        let lookup_elements = LookupElements::draw(prover_channel);
-        let interaction_trace = C::fill_interaction_trace(
+        let mut lookup_elements = AllLookupElements::default();
+        C::draw_lookup_elements(&mut lookup_elements, prover_channel);
+
+        let (interaction_trace, claimed_sum) = generate_interaction_trace::<C>(
             &finalized_trace,
             &preprocessed_trace,
             &finalized_program_trace,
@@ -167,6 +174,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         let component = MachineComponent::new(
             &mut TraceLocationAllocator::default(),
             MachineEval::<C>::new(log_size, lookup_elements),
+            claimed_sum,
         );
         let proof = prove::<SimdBackend, Blake2sMerkleChannel>(
             &[&component],
@@ -176,6 +184,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         Ok(Proof {
             stark_proof: proof,
+            claimed_sum,
             log_size,
         })
     }
@@ -189,8 +198,15 @@ impl<C: MachineChip + Sync> Machine<C> {
     ) -> Result<(), VerificationError> {
         let Proof {
             stark_proof: proof,
+            claimed_sum,
             log_size,
         } = proof;
+
+        if claimed_sum != SecureField::zero() {
+            return Err(VerificationError::InvalidStructure(
+                "claimed logup sum is not zero".to_string(),
+            ));
+        }
 
         let config = PcsConfig::default();
         let verifier_channel = &mut Blake2sChannel::default();
@@ -251,19 +267,28 @@ impl<C: MachineChip + Sync> Machine<C> {
         //
         // The prover cannot send the component or lookup elements in advance either, because these types have private fields
         // and don't implement serialize.
+        let lookup_elements = {
+            let dummy_channel = &mut Blake2sChannel::default();
+            let mut lookup_elements = AllLookupElements::default();
+            C::draw_lookup_elements(&mut lookup_elements, dummy_channel);
+            lookup_elements
+        };
         let dummy_component = MachineComponent::new(
             &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(log_size, LookupElements::dummy()),
+            MachineEval::<C>::new(log_size, lookup_elements),
+            claimed_sum,
         );
         let sizes = dummy_component.trace_log_degree_bounds();
         for idx in [PREPROCESSED_TRACE_IDX, ORIGINAL_TRACE_IDX] {
             commitment_scheme.commit(proof.commitments[idx], &sizes[idx], verifier_channel);
         }
 
-        let lookup_elements = LookupElements::draw(verifier_channel);
+        let mut lookup_elements = AllLookupElements::default();
+        C::draw_lookup_elements(&mut lookup_elements, verifier_channel);
         let component = MachineComponent::new(
             &mut TraceLocationAllocator::default(),
             MachineEval::<C>::new(log_size, lookup_elements),
+            claimed_sum,
         );
         // TODO: prover must commit to the program trace before generating challenges.
         for idx in [INTERACTION_TRACE_IDX, PROGRAM_TRACE_IDX] {

@@ -2,7 +2,7 @@ use nexus_vm::WORD_SIZE;
 use num_traits::One;
 
 use std::array;
-use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use crate::{
     chips::subtract_with_borrow,
@@ -13,7 +13,7 @@ use crate::{
         },
         PreprocessedColumn,
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         sidenote::SideNote,
@@ -25,7 +25,6 @@ use crate::{
 
 /// This chip adds constraints that the previous timestamp is smaller than the current timestamp
 /// This Chip needs to fill the main trace after RegisterMemCheckChip
-
 pub struct TimestampChip;
 
 impl MachineChip for TimestampChip {
@@ -70,7 +69,7 @@ impl MachineChip for TimestampChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let ch1_minus = trace_eval!(trace_eval, CH1Minus);
         let ch2_minus = trace_eval!(trace_eval, CH2Minus);
@@ -140,14 +139,14 @@ fn constrain_diff_minus_one<E: EvalAtRow>(
 
 #[cfg(test)]
 mod test {
-
+    use super::TimestampChip;
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     use crate::{
-        chips::{AddChip, CpuChip, RegisterMemCheckChip, TimestampChip},
+        chips::{AddChip, CpuChip, RegisterMemCheckChip},
         test_utils::assert_chip,
         trace::{
             program_trace::ProgramTracesBuilder, sidenote::SideNote, PreprocessedTraces,

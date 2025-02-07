@@ -1,8 +1,8 @@
-mod cpu;
-mod decoding;
-mod instructions;
-mod memory_check;
-mod range_check;
+pub(crate) mod cpu;
+pub(crate) mod decoding;
+pub(crate) mod instructions;
+pub(crate) mod memory_check;
+pub(crate) mod range_check;
 
 pub use instructions::{
     add_with_carries, subtract_with_borrow, AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip,

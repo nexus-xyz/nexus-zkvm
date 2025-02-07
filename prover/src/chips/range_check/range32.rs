@@ -1,25 +1,19 @@
 // This file contains range-checking values for 0..=31.
 
-use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
+use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
-    core::{
-        backend::simd::{m31::LOG_N_LANES, SimdBackend},
-        fields::{m31::BaseField, qm31::SecureField},
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
-    },
+use stwo_prover::core::{
+    backend::simd::m31::LOG_N_LANES,
+    fields::{m31::BaseField, qm31::SecureField},
 };
 
 use crate::{
     column::{
         Column::{self, Multiplicity32, OpA, OpB, Reg1Address, Reg2Address, Reg3Address},
-        PreprocessedColumn::{self, IsFirst, Range32},
+        PreprocessedColumn::{self, Range32},
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -32,12 +26,21 @@ use crate::{
 /// A Chip for range-checking values for 0..=31
 ///
 /// Range32Chip needs to be located at the end of the chip composition together with the other range check chips
-
 pub struct Range32Chip;
+
+const LOOKUP_TUPLE_SIZE: usize = 1;
+stwo_prover::relation!(Range32LookupElements, LOOKUP_TUPLE_SIZE);
 
 const CHECKED: [Column; 5] = [OpA, OpB, Reg1Address, Reg2Address, Reg3Address];
 
 impl MachineChip for Range32Chip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(Range32LookupElements::draw(channel));
+    }
+
     /// Increments Multiplicity32 for every number checked
     fn fill_main_trace(
         traces: &mut TracesBuilder,
@@ -54,19 +57,19 @@ impl MachineChip for Range32Chip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<12>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &Range32LookupElements = lookup_element.as_ref();
 
         // Add checked occurrences to logup sum.
         // TODO: range-check other byte-ranged columns.
         for col in CHECKED.iter() {
             let [value_basecolumn]: [_; 1] = original_traces.get_base_column(*col);
             let log_size = original_traces.log_size();
-            let logup_trace_gen: &mut LogupTraceGenerator = &mut logup_trace_gen;
             // TODO: we can deal with two limbs at a time.
             let mut logup_col_gen = logup_trace_gen.new_col();
             // vec_row is row_idx divided by 16. Because SIMD.
@@ -90,35 +93,32 @@ impl MachineChip for Range32Chip {
             logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
         }
         logup_col_gen.finalize_col();
-
-        let (ret, _total_logup_sum) = logup_trace_gen.finalize_last();
-        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-        assert_eq!(_total_logup_sum, SecureField::zero());
-        ret
     }
+
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
-        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
+        let lookup_elements: &Range32LookupElements = lookup_elements.as_ref();
 
         // Add checked occurrences to logup sum.
         for col in CHECKED.iter() {
             // not using trace_eval! macro because it doesn't accept *col as an argument.
             let [value] = trace_eval.column_eval(*col);
-            let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-            logup.write_frac(eval, Fraction::new(SecureField::one().into(), denom));
+
+            eval.add_to_relation(RelationEntry::new(
+                lookup_elements,
+                SecureField::one().into(),
+                &[value],
+            ));
         }
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range32);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity32);
-        let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
-        logup.write_frac(eval, Fraction::new(numerator, denom));
-        logup.finalize(eval);
+
+        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
@@ -136,19 +136,12 @@ fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
 mod test {
     use super::*;
 
-    use crate::components::{MachineComponent, MachineEval};
-
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::preprocessed::PreprocessedBuilder;
     use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
-    use stwo_prover::constraint_framework::TraceLocationAllocator;
-
-    use stwo_prover::core::prover::prove;
-
-    pub type Component = MachineComponent<Range32Chip>;
 
     #[test]
     fn test_range32_chip_success() {
@@ -175,7 +168,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range32_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -194,20 +186,9 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces {
-            mut commitment_scheme,
-            mut prover_channel,
-            lookup_elements,
-            preprocessed_trace: _,
-            interaction_trace: _,
-            program_trace: _,
-        } = commit_traces::<Range32Chip>(config, &twiddles, &traces.finalize(), None);
+        let CommittedTraces { claimed_sum, .. } =
+            commit_traces::<Range32Chip>(config, &twiddles, &traces.finalize(), None);
 
-        let component = Component::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<Range32Chip>::new(LOG_SIZE, lookup_elements),
-        );
-
-        prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
+        assert_ne!(claimed_sum, SecureField::zero());
     }
 }

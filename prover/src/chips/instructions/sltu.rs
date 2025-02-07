@@ -1,12 +1,12 @@
 use num_traits::Zero;
-use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::{
     chips::SubChip,
     column::Column::{self, *},
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -75,7 +75,7 @@ impl MachineChip for SltuChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let is_sltu = trace_eval!(trace_eval, IsSltu);
         let is_sltu = is_sltu[0].clone();

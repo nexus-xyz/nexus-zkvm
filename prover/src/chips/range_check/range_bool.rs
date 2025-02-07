@@ -1,7 +1,5 @@
 // This file contains range-checking for columns containing only {0, 1}
 
-use stwo_prover::constraint_framework::logup::LookupElements;
-
 use num_traits::One;
 
 use crate::{
@@ -18,7 +16,7 @@ use crate::{
         },
         ProgramColumn,
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{program_trace_eval, TraceEval},
         sidenote::SideNote,
@@ -32,7 +30,6 @@ use crate::{
 /// A Chip for range-checking values for {0, 1}
 ///
 /// RangeBoolChip can be located anywhere in the chip composition.
-
 pub struct RangeBoolChip;
 
 const CHECKED_SINGLE: [Column; 55] = [
@@ -119,10 +116,11 @@ impl MachineChip for RangeBoolChip {
     ) {
         // Intentionally empty. Logup isn't used.
     }
+
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         for col in CHECKED_SINGLE.into_iter() {
             let [col] = trace_eval.column_eval(col);
@@ -254,19 +252,21 @@ mod test {
             );
         }
         let CommittedTraces {
-            mut commitment_scheme,
+            commitment_scheme,
             mut prover_channel,
             lookup_elements,
             preprocessed_trace: _,
             interaction_trace: _,
+            claimed_sum,
             program_trace: _,
         } = commit_traces::<RangeBoolChip>(config, &twiddles, &traces.finalize(), None);
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),
             MachineEval::<RangeBoolChip>::new(LOG_SIZE, lookup_elements),
+            claimed_sum,
         );
 
-        prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
+        prove(&[&component], &mut prover_channel, commitment_scheme).unwrap();
     }
 }

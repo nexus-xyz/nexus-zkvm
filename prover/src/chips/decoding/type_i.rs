@@ -1,9 +1,9 @@
 #![allow(clippy::identity_op)]
 
-use stwo_prover::{constraint_framework::logup::LookupElements, core::fields::m31::BaseField};
+use stwo_prover::core::fields::m31::BaseField;
 
 use crate::{
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -68,7 +68,7 @@ impl MachineChip for TypeINoShiftChip {
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let [is_type_i_no_shift] = virtual_column::IsTypeINoShift::eval(trace_eval);
         let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);
@@ -324,7 +324,7 @@ impl MachineChip for TypeIShiftChip {
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let [is_alu_imm_shift] = virtual_column::IsAluImmShift::eval(trace_eval);
         let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);

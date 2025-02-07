@@ -1,18 +1,12 @@
 // This file contains range-checking values for 0..=15.
 
 use nexus_vm::riscv::{BuiltinOpcode, InstructionType};
-use stwo_prover::constraint_framework::logup::{LogupTraceGenerator, LookupElements};
+use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{logup::LogupAtRow, INTERACTION_TRACE_IDX},
-    core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-        fields::{m31::BaseField, qm31::SecureField},
-        lookups::utils::Fraction,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
-    },
+use stwo_prover::core::{
+    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
+    fields::m31::BaseField,
 };
 
 use crate::{
@@ -21,9 +15,9 @@ use crate::{
             self, Multiplicity16, OpA1_4, OpB0_3, OpB1_4, OpC0_3, OpC12_15, OpC16_19, OpC1_4,
             OpC4_7,
         },
-        PreprocessedColumn::{self, IsFirst, Range16},
+        PreprocessedColumn::{self, Range16},
     },
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -39,8 +33,10 @@ use crate::{
 /// A Chip for range-checking values for 0..=15
 ///
 /// Range16Chip needs to be located at the end of the chip composition together with the other range check chips
-
 pub struct Range16Chip;
+
+const LOOKUP_TUPLE_SIZE: usize = 1;
+stwo_prover::relation!(Range16LookupElements, LOOKUP_TUPLE_SIZE);
 
 const TYPE_R_CHECKED: [Column; 3] = [OpC0_3, OpA1_4, OpB1_4];
 const TYPE_U_CHECKED: [Column; 2] = [OpC12_15, OpA1_4];
@@ -51,6 +47,13 @@ const TYPE_B_CHECKED: [Column; 3] = [OpC1_4, OpA1_4, OpB0_3];
 const TYPE_S_CHECKED: [Column; 3] = [OpC1_4, OpA1_4, OpB0_3];
 
 impl MachineChip for Range16Chip {
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl stwo_prover::core::channel::Channel,
+    ) {
+        all_elements.insert(Range16LookupElements::draw(channel));
+    }
+
     /// Increments Multiplicity16 for every number checked
     fn fill_main_trace(
         traces: &mut TracesBuilder,
@@ -113,54 +116,54 @@ impl MachineChip for Range16Chip {
     ///
     /// data[vec_row] contains sixteen rows. A single write_frac() adds sixteen numbers.
     fn fill_interaction_trace(
+        logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
-        lookup_element: &LookupElements<12>,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let mut logup_trace_gen = LogupTraceGenerator::new(original_traces.log_size());
-
+        lookup_element: &AllLookupElements,
+    ) {
+        let lookup_element: &Range16LookupElements = lookup_element.as_ref();
         // Add checked occurrences to logup sum.
         fill_interaction_for_type::<IsTypeR>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_R_CHECKED,
         );
         fill_interaction_for_type::<IsTypeU>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_U_CHECKED,
         );
         fill_interaction_for_type::<IsTypeINoShift>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_I_NO_SHIFT_CHECKED,
         );
         fill_interaction_for_type::<IsAluImmShift>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_I_SHIFT_CHECKED,
         );
         fill_interaction_for_type::<IsTypeJ>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_J_CHECKED,
         );
         fill_interaction_for_type::<IsTypeB>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_B_CHECKED,
         );
         fill_interaction_for_type::<IsTypeS>(
             original_traces,
             lookup_element,
-            &mut logup_trace_gen,
+            logup_trace_gen,
             &TYPE_S_CHECKED,
         );
         // Subtract looked up multiplicites from logup sum.
@@ -176,80 +179,40 @@ impl MachineChip for Range16Chip {
             logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
         }
         logup_col_gen.finalize_col();
-
-        let (ret, _total_logup_sum) = logup_trace_gen.finalize_last();
-        #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-        assert_eq!(_total_logup_sum, SecureField::zero());
-        ret
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        lookup_elements: &AllLookupElements,
     ) {
-        let [is_first] = preprocessed_trace_eval!(trace_eval, IsFirst);
-        let mut logup =
-            LogupAtRow::<E>::new(INTERACTION_TRACE_IDX, SecureField::zero(), None, is_first);
+        let lookup_elements: &Range16LookupElements = lookup_elements.as_ref();
 
         // Add checked occurrences to logup sum.
-        add_constraints_for_type::<E, IsTypeR>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_R_CHECKED,
-        );
-        add_constraints_for_type::<E, IsTypeU>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_U_CHECKED,
-        );
+        add_constraints_for_type::<E, IsTypeR>(eval, trace_eval, lookup_elements, &TYPE_R_CHECKED);
+        add_constraints_for_type::<E, IsTypeU>(eval, trace_eval, lookup_elements, &TYPE_U_CHECKED);
         add_constraints_for_type::<E, IsTypeINoShift>(
             eval,
             trace_eval,
             lookup_elements,
-            &mut logup,
             &TYPE_I_NO_SHIFT_CHECKED,
         );
         add_constraints_for_type::<E, IsAluImmShift>(
             eval,
             trace_eval,
             lookup_elements,
-            &mut logup,
             &TYPE_I_SHIFT_CHECKED,
         );
-        add_constraints_for_type::<E, IsTypeJ>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_J_CHECKED,
-        );
-        add_constraints_for_type::<E, IsTypeB>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_B_CHECKED,
-        );
-        add_constraints_for_type::<E, IsTypeS>(
-            eval,
-            trace_eval,
-            lookup_elements,
-            &mut logup,
-            &TYPE_S_CHECKED,
-        );
+        add_constraints_for_type::<E, IsTypeJ>(eval, trace_eval, lookup_elements, &TYPE_J_CHECKED);
+        add_constraints_for_type::<E, IsTypeB>(eval, trace_eval, lookup_elements, &TYPE_B_CHECKED);
+        add_constraints_for_type::<E, IsTypeS>(eval, trace_eval, lookup_elements, &TYPE_S_CHECKED);
 
         // Subtract looked up multiplicites from logup sum.
         let [range] = preprocessed_trace_eval!(trace_eval, Range16);
         let [multiplicity] = trace_eval!(trace_eval, Multiplicity16);
-        let denom: E::EF = lookup_elements.combine(&[range.clone()]);
         let numerator: E::EF = (-multiplicity.clone()).into();
-        logup.write_frac(eval, Fraction::new(numerator, denom));
-        logup.finalize(eval);
+
+        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
@@ -259,22 +222,25 @@ fn add_constraints_for_type<
 >(
     eval: &mut E,
     trace_eval: &TraceEval<E>,
-    lookup_elements: &LookupElements<12>,
-    logup: &mut LogupAtRow<E>,
+    lookup_elements: &Range16LookupElements,
     cols: &[Column],
 ) {
     let [numerator] = VR::eval(trace_eval);
     for col in cols.iter() {
         // not using trace_eval! macro because it doesn't accept *col as an argument.
         let [value] = trace_eval.column_eval(*col);
-        let denom: E::EF = lookup_elements.combine(&[value.clone()]);
-        logup.write_frac(eval, Fraction::new(numerator.clone().into(), denom));
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.clone().into(),
+            &[value],
+        ));
     }
 }
 
 fn fill_interaction_for_type<VC: VirtualColumn<1>>(
     original_traces: &FinalizedTraces,
-    lookup_element: &LookupElements<12>,
+    lookup_element: &Range16LookupElements,
     logup_trace_gen: &mut LogupTraceGenerator,
     cols: &[Column],
 ) {
@@ -349,19 +315,14 @@ fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
 mod test {
     use super::*;
 
-    use crate::components::{MachineComponent, MachineEval};
-
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
     use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
-    use stwo_prover::constraint_framework::TraceLocationAllocator;
 
-    use stwo_prover::core::prover::prove;
-
-    pub type Component = MachineComponent<Range16Chip>;
+    use stwo_prover::core::fields::qm31::SecureField;
 
     #[test]
     fn test_range16_chip_success() {
@@ -429,7 +390,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "ConstraintsNotSatisfied")]
     fn test_range16_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -452,20 +412,9 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces {
-            mut commitment_scheme,
-            mut prover_channel,
-            lookup_elements,
-            preprocessed_trace: _,
-            interaction_trace: _,
-            program_trace: _,
-        } = commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None);
+        let CommittedTraces { claimed_sum, .. } =
+            commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None);
 
-        let component = Component::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<Range16Chip>::new(LOG_SIZE, lookup_elements),
-        );
-
-        prove(&[&component], &mut prover_channel, &mut commitment_scheme).unwrap();
+        assert_ne!(claimed_sum, SecureField::zero());
     }
 }

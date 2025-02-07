@@ -1,6 +1,6 @@
 use crate::{
     column::Column::{self, IsEbreak, IsEcall, OpB},
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     traits::MachineChip,
     virtual_column::{IsTypeSys, VirtualColumn},
 };
@@ -35,9 +35,7 @@ impl MachineChip for TypeSysChip {
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
-        _lookup_elements: &stwo_prover::constraint_framework::logup::LookupElements<
-            MAX_LOOKUP_TUPLE_SIZE,
-        >,
+        _lookup_elements: &AllLookupElements,
     ) {
         let [is_type_sys] = IsTypeSys::eval(trace_eval);
         // Making sure that op_b=x17
@@ -90,7 +88,6 @@ impl MachineChip for TypeSysChip {
 
 #[cfg(test)]
 mod test {
-
     use crate::{
         chips::{
             AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RangeCheckChip,

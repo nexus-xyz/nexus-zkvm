@@ -581,9 +581,14 @@ pub enum ProgramColumn {
 // }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
+#[column_derive(string_id)]
 pub enum PreprocessedColumn {
+    /// One on the first row, then 0.
     #[size = 1]
     IsFirst,
+    /// Zero everywhere except the last row.
+    #[size = 1]
+    IsLast,
     /// One on the first 32 rows, then 0.
     #[size = 1]
     IsFirst32,
@@ -638,6 +643,7 @@ pub enum PreprocessedColumn {
 //
 // impl PreprocessedColumn {
 //     pub const COLUMNS_NUM: usize = /* ... */;
+//     pub const STRING_IDS: &[&str] = /* ... */
 //     pub const fn size(self) -> usize { /* ... */ }
 //     pub const fn offset(self) -> usize { /* ... */ }
 // }

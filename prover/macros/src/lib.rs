@@ -26,7 +26,7 @@ mod column_enum;
 /// }
 /// assert_eq!(Column::COLUMNS_NUM, 1 + 4 + 5);
 /// ```
-#[proc_macro_derive(ColumnsEnum, attributes(size))]
+#[proc_macro_derive(ColumnsEnum, attributes(size, column_derive))]
 pub fn derive_columns_enum(input: TokenStream) -> TokenStream {
     column_enum::generate_impls(input.into())
         .map(Into::into)

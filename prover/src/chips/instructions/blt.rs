@@ -1,11 +1,11 @@
 use num_traits::One;
-use stwo_prover::constraint_framework::{logup::LookupElements, EvalAtRow};
+use stwo_prover::constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::{
     column::Column::{self, *},
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -120,7 +120,7 @@ impl MachineChip for BltChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let modulus = E::F::from(256u32.into());
         let modulus_7 = E::F::from(128u32.into());

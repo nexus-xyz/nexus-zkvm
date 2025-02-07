@@ -1,10 +1,9 @@
 use stwo_prover::{
-    constraint_framework::{assert_constraints, logup::LookupElements},
+    constraint_framework::{assert_constraints, EvalAtRow},
     core::{
         backend::simd::SimdBackend,
         channel::Blake2sChannel,
-        fields::m31::BaseField,
-        fri::FriConfig,
+        fields::{m31::BaseField, qm31::SecureField},
         pcs::{CommitmentSchemeProver, PcsConfig, TreeVec},
         poly::{
             circle::{CanonicCoset, CircleEvaluation, PolyOps},
@@ -15,8 +14,9 @@ use stwo_prover::{
 };
 
 use crate::{
-    components::LOG_CONSTRAINT_DEGREE,
+    components::{AllLookupElements, LOG_CONSTRAINT_DEGREE},
     trace::{program_trace::ProgramTracesBuilder, FinalizedTraces, PreprocessedTraces},
+    traits::generate_interaction_trace,
 };
 
 use super::{
@@ -30,10 +30,7 @@ pub(crate) fn test_params(
     PcsConfig,
     stwo_prover::core::poly::twiddles::TwiddleTree<SimdBackend>,
 ) {
-    let config = PcsConfig {
-        pow_bits: 10,
-        fri_config: FriConfig::new(5, 4, 64), // should I change this?
-    };
+    let config = PcsConfig::default();
     let twiddles = SimdBackend::precompute_twiddles(
         CanonicCoset::new(log_size + config.fri_config.log_blowup_factor + LOG_CONSTRAINT_DEGREE)
             .circle_domain()
@@ -46,9 +43,10 @@ pub(crate) fn test_params(
 pub(crate) struct CommittedTraces<'a> {
     pub(crate) commitment_scheme: CommitmentSchemeProver<'a, SimdBackend, Blake2sMerkleChannel>,
     pub(crate) prover_channel: Blake2sChannel,
-    pub(crate) lookup_elements: LookupElements<12>,
+    pub(crate) lookup_elements: AllLookupElements,
     pub(crate) preprocessed_trace: PreprocessedTraces,
     pub(crate) interaction_trace: Vec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
+    pub(crate) claimed_sum: SecureField,
     pub(crate) program_trace: ProgramTraces,
 }
 
@@ -73,18 +71,15 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     let mut tree_builder = commitment_scheme.tree_builder();
     let _main_trace_location = tree_builder.extend_evals(traces.clone().into_circle_evaluation());
     tree_builder.commit(&mut prover_channel);
-    let lookup_elements = LookupElements::draw(&mut prover_channel);
+    let mut all_elements = AllLookupElements::default();
+    C::draw_lookup_elements(&mut all_elements, &mut prover_channel);
 
     let program_trace =
         program_traces.unwrap_or_else(|| ProgramTracesBuilder::dummy(traces.log_size()).finalize());
 
     // Interaction Trace
-    let interaction_trace = C::fill_interaction_trace(
-        traces,
-        &preprocessed_trace,
-        &program_trace,
-        &lookup_elements,
-    );
+    let (interaction_trace, claimed_sum) =
+        generate_interaction_trace::<C>(traces, &preprocessed_trace, &program_trace, &all_elements);
     let mut tree_builder = commitment_scheme.tree_builder();
     let _interaction_trace_location = tree_builder.extend_evals(interaction_trace.clone());
     tree_builder.commit(&mut prover_channel);
@@ -99,9 +94,10 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     CommittedTraces {
         commitment_scheme,
         prover_channel,
-        lookup_elements,
+        lookup_elements: all_elements,
         preprocessed_trace,
         interaction_trace,
+        claimed_sum,
         program_trace,
     }
 }
@@ -122,6 +118,7 @@ pub(crate) fn assert_chip<C: MachineChip>(
         lookup_elements,
         preprocessed_trace,
         interaction_trace,
+        claimed_sum,
         program_trace,
     } = commit_traces::<C>(config, &twiddles, &finalized_trace, program_trace);
 
@@ -139,8 +136,17 @@ pub(crate) fn assert_chip<C: MachineChip>(
     });
 
     // Now check the constraints to make sure they're satisfied
-    assert_constraints(&trace_polys, CanonicCoset::new(log_size), |mut eval| {
-        let trace_eval = TraceEval::new(&mut eval);
-        C::add_constraints(&mut eval, &trace_eval, &lookup_elements);
-    });
+    assert_constraints(
+        &trace_polys,
+        CanonicCoset::new(log_size),
+        |mut eval| {
+            let trace_eval = TraceEval::new(&mut eval);
+            C::add_constraints(&mut eval, &trace_eval, &lookup_elements);
+
+            if !lookup_elements.is_empty() {
+                eval.finalize_logup();
+            }
+        },
+        claimed_sum,
+    );
 }

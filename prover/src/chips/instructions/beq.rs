@@ -1,17 +1,14 @@
 use num_traits::One;
 use stwo_prover::{
-    constraint_framework::{logup::LookupElements, EvalAtRow},
-    core::fields::{
-        m31::{BaseField, M31},
-        FieldExpOps,
-    },
+    constraint_framework::EvalAtRow,
+    core::fields::m31::{BaseField, M31},
 };
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
 use crate::{
     column::Column::{self, *},
-    components::MAX_LOOKUP_TUPLE_SIZE,
+    components::AllLookupElements,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -158,7 +155,7 @@ impl MachineChip for BeqChip {
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
-        _lookup_elements: &LookupElements<MAX_LOOKUP_TUPLE_SIZE>,
+        _lookup_elements: &AllLookupElements,
     ) {
         let modulus = E::F::from(256u32.into());
         let neq_flag = trace_eval!(trace_eval, Column::Neq);

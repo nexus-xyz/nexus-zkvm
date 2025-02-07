@@ -1,6 +1,6 @@
 use std::array;
 
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::constraint_framework::{preprocessed_columns::PreProcessedColumnId, EvalAtRow};
 
 use crate::column::{
     Column, {PreprocessedColumn, ProgramColumn},
@@ -14,19 +14,20 @@ pub const PROGRAM_TRACE_IDX: usize = 3; // After INTERACTION_TRACE_IDX; the veri
 // Trace evaluation at the current row and the next row.
 pub struct TraceEval<E: EvalAtRow> {
     evals: Vec<[E::F; 2]>,
-    preprocessed_evals: Vec<[E::F; 2]>,
+    preprocessed_evals: Vec<E::F>,
     program_evals: Vec<[E::F; 1]>, // only the current row
 }
 
 impl<E: EvalAtRow> TraceEval<E> {
     pub(crate) fn new(eval: &mut E) -> Self {
+        let preprocessed_evals = PreprocessedColumn::STRING_IDS
+            .iter()
+            .map(|&id| eval.get_preprocessed_column(PreProcessedColumnId { id: id.to_owned() }))
+            .collect();
+
         let evals =
             std::iter::repeat_with(|| eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1]))
                 .take(Column::COLUMNS_NUM)
-                .collect();
-        let preprocessed_evals =
-            std::iter::repeat_with(|| eval.next_interaction_mask(PREPROCESSED_TRACE_IDX, [0, 1]))
-                .take(PreprocessedColumn::COLUMNS_NUM)
                 .collect();
         let program_evals =
             std::iter::repeat_with(|| eval.next_interaction_mask(PROGRAM_TRACE_IDX, [0]))
@@ -59,19 +60,19 @@ impl<E: EvalAtRow> TraceEval<E> {
     pub fn preprocessed_column_eval<const N: usize>(&self, col: PreprocessedColumn) -> [E::F; N] {
         assert_eq!(col.size(), N, "column size mismatch");
         let offset = col.offset();
-        array::from_fn(|i| self.preprocessed_evals[offset + i][0].clone())
+        array::from_fn(|i| self.preprocessed_evals[offset + i].clone())
     }
 
-    #[doc(hidden)]
-    pub fn preprocessed_column_eval_next_row<const N: usize>(
-        &self,
-        col: PreprocessedColumn,
-    ) -> [E::F; N] {
-        assert_eq!(col.size(), N, "column size mismatch");
-        let offset = col.offset();
+    // #[doc(hidden)]
+    // pub fn preprocessed_column_eval_next_row<const N: usize>(
+    //     &self,
+    //     col: PreprocessedColumn,
+    // ) -> [E::F; N] {
+    //     assert_eq!(col.size(), N, "column size mismatch");
+    //     let offset = col.offset();
 
-        array::from_fn(|i| self.preprocessed_evals[offset + i][1].clone())
-    }
+    //     array::from_fn(|i| self.preprocessed_evals[offset + i][1].clone())
+    // }
 
     #[doc(hidden)]
     pub fn program_column_eval<const N: usize>(&self, col: ProgramColumn) -> [E::F; N] {
@@ -130,24 +131,24 @@ macro_rules! preprocessed_trace_eval {
 
 pub(crate) use preprocessed_trace_eval;
 
-/// Returns evaluations for a given column in preprocessed trace.
-///
-/// ```ignore
-/// let trace_eval = TraceEval::new(&mut eval);
-/// let curr_pc = trace_eval!(trace_eval, Column::Pc);
-/// // When the next row has IsFirst, the current row is the last row.
-/// let is_last = preprocessed_trace_eval_next_row!(trace_eval, PreprocessedColumn::IsFirst);
-/// for i in 0..WORD_SIZE {
-///     eval.add_constraint(curr_pc[i] * is_last[0]);
-/// }
-/// ```
-macro_rules! preprocessed_trace_eval_next_row {
-    ($traces:expr, $col:expr) => {{
-        $traces.preprocessed_column_eval_next_row::<{ PreprocessedColumn::size($col) }>($col)
-    }};
-}
+// /// Returns evaluations for a given column in preprocessed trace.
+// ///
+// /// ```ignore
+// /// let trace_eval = TraceEval::new(&mut eval);
+// /// let curr_pc = trace_eval!(trace_eval, Column::Pc);
+// /// // When the next row has IsFirst, the current row is the last row.
+// /// let is_last = preprocessed_trace_eval_next_row!(trace_eval, PreprocessedColumn::IsFirst);
+// /// for i in 0..WORD_SIZE {
+// ///     eval.add_constraint(curr_pc[i] * is_last[0]);
+// /// }
+// /// ```
+// macro_rules! preprocessed_trace_eval_next_row {
+//     ($traces:expr, $col:expr) => {{
+//         $traces.preprocessed_column_eval_next_row::<{ PreprocessedColumn::size($col) }>($col)
+//     }};
+// }
 
-pub(crate) use preprocessed_trace_eval_next_row;
+// pub(crate) use preprocessed_trace_eval_next_row;
 
 /// Returns evaluations for a given column in program trace.
 ///

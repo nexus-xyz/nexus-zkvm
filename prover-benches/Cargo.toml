@@ -8,7 +8,7 @@ nexus-vm-prover = { path = "../prover" }
 nexus-vm = { path = "../vm" }
 nexus-common = { path = "../common" }
 
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "ba90cee" }
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "a194fad" }
 
 criterion = "0.5"
 

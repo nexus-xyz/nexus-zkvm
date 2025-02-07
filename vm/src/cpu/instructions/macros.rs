@@ -61,7 +61,7 @@ macro_rules! implement_store_instruction {
             ) -> Result<StoreOps, nexus_common::error::MemoryError> {
                 let address = if (self.imm as i32) < 0 {
                     self.rs1
-                        .checked_sub((self.imm as i32).abs() as u32)
+                        .checked_sub((self.imm as i32).unsigned_abs())
                         .ok_or(nexus_common::error::MemoryError::AddressCalculationUnderflow)?
                 } else {
                     self.rs1
@@ -101,7 +101,7 @@ macro_rules! implement_load_instruction {
             ) -> Result<LoadOps, nexus_common::error::MemoryError> {
                 let address = if (self.imm as i32) < 0 {
                     self.rs1
-                        .checked_sub((self.imm as i32).abs() as u32)
+                        .checked_sub((self.imm as i32).unsigned_abs())
                         .ok_or(nexus_common::error::MemoryError::AddressCalculationUnderflow)?
                 } else {
                     self.rs1
