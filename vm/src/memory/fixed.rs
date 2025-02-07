@@ -1,3 +1,46 @@
+//! Fixed Memory Implementation
+//!
+//! This module provides a fixed-size memory implementation with different access modes.
+//! It supports Read-Only (RO), Write-Only (WO), Read-Write (RW), and No-Access (NA) memory types.
+//!
+//! # Key Components
+//!
+//! - `FixedMemory<M>`: A generic struct representing fixed-size memory with a specific access mode.
+//! - `MemoryProcessor`: A trait implemented by `FixedMemory` for different access modes.
+//!
+//! # Features
+//!
+//! - Supports byte, halfword, and word-sized read and write operations.
+//! - Implements alignment checks for memory operations.
+//! - Provides methods for creating memory from vectors or byte slices.
+//! - Includes debug formatting for easy visualization of memory contents.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use nexus_vm::memory::{FixedMemory, MemoryProcessor, MemAccessSize, RW};
+//!
+//! // Create a new RW fixed memory
+//! let mut memory = FixedMemory::<RW>::new(0x1000, 0x100);
+//!
+//! // Write a word to memory
+//! memory.write(0x1000, MemAccessSize::Word, 0xABCD1234).unwrap();
+//!
+//! // Read a byte from memory
+//! let value = memory.read(0x1000, MemAccessSize::Byte).unwrap();
+//! ```
+//!
+//! # Error Handling
+//!
+//! The module uses `Result` types with `MemoryError` for error handling, covering cases such as:
+//! - Unaligned memory access
+//! - Out-of-bounds memory access
+//! - Unauthorized read/write operations
+//!
+//! # Testing
+//!
+//! Comprehensive unit tests are included to verify the correctness of memory operations
+//! across different access modes and sizes.
 use std::collections::BTreeMap;
 
 use std::{fmt::Debug, marker::PhantomData};

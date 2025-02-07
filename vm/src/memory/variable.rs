@@ -1,3 +1,55 @@
+//! Variable Memory Implementation
+//!
+//! This module provides a variable-size memory implementation with different access modes.
+//! It supports Read-Only (RO), Write-Only (WO), and Read-Write (RW) memory types.
+//!
+//! # Key Components
+//!
+//! - `VariableMemory<M>`: A generic struct representing variable-size memory with a specific access mode.
+//! - `MemoryProcessor`: A trait implemented by `VariableMemory` for different access modes.
+//!
+//! # Features
+//!
+//! - Dynamic memory allocation: Only allocates memory for addresses that have been written to.
+//! - Supports byte, halfword, and word-sized read and write operations.
+//! - Implements alignment checks for memory operations.
+//! - Provides methods for creating memory from a `BTreeMap`.
+//! - Includes debug formatting for easy visualization of memory contents.
+//! - Supports reading contiguous memory segments.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use nexus_vm::memory::{VariableMemory, MemoryProcessor, MemAccessSize, RW};
+//!
+//! // Create a new RW variable memory
+//! let mut memory = VariableMemory::<RW>::default();
+//!
+//! // Write a word to memory
+//! memory.write(0x1000, MemAccessSize::Word, 0xABCD1234).unwrap();
+//!
+//! // Read a byte from memory
+//! let value = memory.read(0x1000, MemAccessSize::Byte).unwrap();
+//!
+//! ```
+//!
+//! # Error Handling
+//!
+//! The module uses `Result` types with `MemoryError` for error handling, covering cases such as:
+//! - Unaligned memory access
+//! - Unauthorized read/write operations
+//! - Invalid memory segments
+//!
+//! # Testing
+//!
+//! Comprehensive unit tests are included to verify the correctness of memory operations
+//! across different access modes and sizes, as well as the functionality of memory segments.
+//!
+//! # Performance Considerations
+//!
+//! The use of `BTreeMap` as the underlying storage provides efficient lookups and insertions,
+//! but may have higher memory overhead compared to contiguous memory allocations for densely
+//! populated address spaces.
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::marker::PhantomData;

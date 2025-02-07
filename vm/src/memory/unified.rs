@@ -1,3 +1,73 @@
+//! Unified Memory Interface
+//!
+//! This module provides a unified memory interface that combines fixed and variable memory types
+//! into a single, coherent memory system. It allows for flexible memory configurations with
+//! different access modes and address ranges.
+//!
+//! # Key Components
+//!
+//! - `UnifiedMemory`: A struct that manages multiple memory regions with different characteristics.
+//! - `Modes`: An enum representing different memory access modes (RO, WO, RW, NA).
+//!
+//! # Features
+//!
+//! - Combines fixed and variable memory types into a single interface.
+//! - Supports multiple memory regions with different access modes.
+//! - Provides a unified read/write interface that automatically routes operations to the correct memory type.
+//! - Allows adding fixed memory regions with specific base addresses and sizes.
+//! - Supports a fallback variable memory for addresses not covered by fixed regions.
+//! - Implements display and debug formatting for easy visualization of the memory layout.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use nexus_vm::memory::{UnifiedMemory, FixedMemory, VariableMemory, MemoryProcessor, MemAccessSize, RO, RW};
+//!
+//! // Create a new UnifiedMemory
+//! let mut memory = UnifiedMemory::default();
+//!
+//! // Add a read-only fixed memory region
+//! memory.add_fixed_ro(&FixedMemory::<RO>::new(0x1000, 0x1000)).unwrap();
+//!
+//! // Add a read-write fixed memory region
+//! memory.add_fixed_rw(&FixedMemory::<RW>::new(0x2000, 0x1000)).unwrap();
+//!
+//! // Add a fallback variable memory
+//! memory.add_variable(VariableMemory::<RW>::default()).unwrap();
+//!
+//! // Write to a read-write region
+//! memory.write(0x2000, MemAccessSize::Word, 0xABCD1234).unwrap();
+//!
+//! // Read from a read-only region
+//! let value = memory.read(0x1000, MemAccessSize::Word).unwrap();
+//!
+//! // Access fallback variable memory
+//! memory.write(0x5000, MemAccessSize::Byte, 0xFF).unwrap();
+//! ```
+//!
+//! # Memory Layout
+//!
+//! The unified memory system maintains a layout of different memory regions. This layout
+//! is used to determine which type of memory (fixed or variable) and which access mode
+//! should be used for a given address.
+//!
+//! # Error Handling
+//!
+//! The module uses `Result` types with `MemoryError` for error handling, covering cases such as:
+//! - Memory region overlaps
+//! - Invalid memory accesses
+//! - Unauthorized read/write operations
+//!
+//! # Testing
+//!
+//! Comprehensive unit tests are included to verify the correct routing of memory operations
+//! to different regions, handling of access permissions, and proper fallback to variable memory.
+//!
+//! # Performance Considerations
+//!
+//! The use of `RangeMap` for memory layout allows for efficient lookup of the correct memory
+//! region for a given address. However, the performance may vary depending on the number and
+//! size of fixed memory regions.
 use nexus_common::error::MemoryError;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
