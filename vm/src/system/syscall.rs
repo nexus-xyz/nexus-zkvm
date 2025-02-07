@@ -12,7 +12,13 @@
 //! The module implements the following key functionalities:
 //!
 //! 1. Decoding syscall instructions from CPU state.
-//! 2. Executing various syscalls, such as write, exit, and cycle counting.
+//! 2. Executing various syscalls, such as:
+//!    - Write: Output data to a file descriptor (currently only supports stdout).
+//!    - Exit: Terminate the program with a specified error code.
+//!    - CycleCount: Profile function execution time.
+//!    - ReadFromPrivateInput: Read data from a private input tape.
+//!    - OverwriteStackPointer: Modify the stack pointer based on memory layout.
+//!    - OverwriteHeapPointer: Modify the heap pointer based on memory layout.
 //! 3. Handling memory interactions for syscalls.
 //! 4. Writing back results to CPU registers.
 //!
