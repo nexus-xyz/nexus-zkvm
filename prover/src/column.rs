@@ -39,9 +39,6 @@ pub enum Column {
     /// Subtraction columns for borrow limbs.
     #[size = 4]
     BorrowFlag,
-    /// Is operand op_b an immediate value?
-    #[size = 1]
-    ImmB,
     /// Is operand op_c an immediate value?
     #[size = 1]
     ImmC,
