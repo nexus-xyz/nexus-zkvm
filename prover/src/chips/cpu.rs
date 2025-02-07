@@ -510,6 +510,39 @@ impl MachineChip for CpuChip {
         eval.add_constraint(is_type_j.clone() * reg2_accessed.clone());
         eval.add_constraint((is_type_j.clone()) * (E::F::one() - reg3_accessed.clone()));
 
+        // Enforcing register memory access flags for type U
+        let is_type_u = is_lui + is_auipc;
+        eval.add_constraint(is_type_u.clone() * reg1_accessed.clone());
+        eval.add_constraint(is_type_u.clone() * reg2_accessed.clone());
+        eval.add_constraint(is_type_u.clone() * (E::F::one() - reg3_accessed.clone()));
+
+        // Enforcing register memory access flags
+        // is_type_sys ・(reg1_accessed - 1) = 0 // reg1_accessed controls op_b and value_b
+        // is_type_sys・reg2_accessed = 0
+        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・reg3_accessed = 0
+        // is_type_sys・(is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset)・(reg3_accessed - 1) = 0 // reg3_accessed controls op_a and value_a
+        let is_type_sys = is_ebreak + is_ecall;
+        let [is_sys_debug] = trace_eval!(trace_eval, Column::IsSysDebug);
+        let [is_sys_halt] = trace_eval!(trace_eval, Column::IsSysHalt);
+        let [is_sys_priv_input] = trace_eval!(trace_eval, Column::IsSysPrivInput);
+        let [is_sys_cycle_count] = trace_eval!(trace_eval, Column::IsSysCycleCount);
+        let [is_sys_stack_reset] = trace_eval!(trace_eval, Column::IsSysStackReset);
+        let [is_sys_heap_reset] = trace_eval!(trace_eval, Column::IsSysHeapReset);
+        eval.add_constraint(is_type_sys.clone() * (reg1_accessed - E::F::one()));
+        eval.add_constraint(is_type_sys.clone() * reg2_accessed);
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (is_sys_debug.clone() + is_sys_halt.clone() + is_sys_cycle_count.clone())
+                * reg3_accessed.clone(),
+        );
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (is_sys_priv_input.clone()
+                    + is_sys_heap_reset.clone()
+                    + is_sys_stack_reset.clone())
+                * (reg3_accessed - E::F::one()),
+        );
+
         // PcNext should be Pc on the next row, unless the next row is the first row or padding.
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let pc_on_next_row = trace_eval_next_row!(trace_eval, Column::Pc);
@@ -544,33 +577,6 @@ impl MachineChip for CpuChip {
                         - pc_carry[limb_idx - 1].clone()),
             );
         }
-
-        // Enforcing register memory access flags
-        // is_type_sys ・(reg1_accessed - 1) = 0 // reg1_accessed controls op_b and value_b
-        // is_type_sys・reg2_accessed = 0
-        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・reg3_accessed = 0
-        // is_type_sys・(is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset)・(reg3_accessed - 1) = 0 // reg3_accessed controls op_a and value_a
-        let is_type_sys = is_ebreak + is_ecall;
-        let [is_sys_debug] = trace_eval!(trace_eval, Column::IsSysDebug);
-        let [is_sys_halt] = trace_eval!(trace_eval, Column::IsSysHalt);
-        let [is_sys_priv_input] = trace_eval!(trace_eval, Column::IsSysPrivInput);
-        let [is_sys_cycle_count] = trace_eval!(trace_eval, Column::IsSysCycleCount);
-        let [is_sys_stack_reset] = trace_eval!(trace_eval, Column::IsSysStackReset);
-        let [is_sys_heap_reset] = trace_eval!(trace_eval, Column::IsSysHeapReset);
-        eval.add_constraint(is_type_sys.clone() * (reg1_accessed - E::F::one()));
-        eval.add_constraint(is_type_sys.clone() * reg2_accessed);
-        eval.add_constraint(
-            is_type_sys.clone()
-                * (is_sys_debug.clone() + is_sys_halt.clone() + is_sys_cycle_count.clone())
-                * reg3_accessed.clone(),
-        );
-        eval.add_constraint(
-            is_type_sys.clone()
-                * (is_sys_priv_input.clone()
-                    + is_sys_heap_reset.clone()
-                    + is_sys_stack_reset.clone())
-                * (reg3_accessed - E::F::one()),
-        );
 
         // Setting pc_next = pc when is_sys_halt=1 or pc_next = pc+4 for other flags
         // pc_carry_{1,2,3,4} used for carry handling
