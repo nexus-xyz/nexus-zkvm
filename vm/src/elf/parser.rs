@@ -4,27 +4,58 @@
 //! files specifically for RISC-V 32-bit architecture. It's designed to work with the `elf` crate
 //! and uses custom error types defined in the `error` module.
 //!
-//! Key Features:
+//! # Key Features
+//!
 //! - Validates ELF headers for RISC-V 32-bit executables
 //! - Parses segment information and extracts executable content
 //! - Supports Harvard architecture with separate instruction and data memories
-//! - Handles allowed sections: .text, .data, .sdata, and .rodata
-//! - Supports our custom metadata section: .nexus_precompile_metadata
+//! - Handles allowed sections: .text, .data, .sdata, .rodata, .init, .fini, .bss, .sbss, .got
+//! - Supports custom metadata section: .note.nexus-precompiles
+//! - Parses precompile metadata from ELF symbols
 //!
-//! Main Components:
+//! # Main Components
+//!
 //! - `validate_elf_header`: Ensures the ELF file meets RISC-V 32-bit executable requirements
 //! - `parse_segments`: Extracts instructions and builds memory images from ELF segments
 //! - `create_allowed_section_map`: Builds a map of allowed ELF sections and their address ranges
 //! - `parse_segment_content`: Processes segment content and populates instruction and memory structures
+//! - `parse_precompile_metadata`: Extracts and validates precompile metadata from ELF symbols
+//!
+//! # Memory Types
 //!
 //! The parser distinguishes between different types of memory:
 //! - Instruction memory (read-only)
 //! - Read-only data memory
 //! - Writable data memory
+//! - Metadata (for precompiles)
 //!
-//! Note: This parser assumes a little-endian RISC-V architecture and is specifically designed for 32-bit executables.
+//! # Usage
+//!
+//! ```no_run
+//! use elf::ElfBytes;
+//! use nexus_vm::elf::parser::{validate_elf_header, parse_segments};
+//!
+//! let elf_data = std::fs::read("path/to/your/elf/file").unwrap();
+//! let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_data).unwrap();
+//!
+//! // Validate ELF header
+//! validate_elf_header(&elf.ehdr).unwrap();
+//!
+//! // Parse segments
+//! let parsed_data = parse_segments(&elf, &elf_data).unwrap();
+//!
+//! // Access parsed data
+//! println!("Instructions: {:?}", parsed_data.instructions);
+//! println!("Read-only memory: {:?}", parsed_data.readonly_memory);
+//! println!("Writable memory: {:?}", parsed_data.writable_memory);
+//! println!("Base address: 0x{:x}", parsed_data.base_address);
+//! println!("Metadata: {:?}", parsed_data.nexus_metadata);
+//! ```
+//!
+//! # Note
+//!
+//! This parser assumes a little-endian RISC-V architecture and is specifically designed for 32-bit executables.
 //! It does not make assumptions about the order of sections in the ELF file.
-
 use core::str;
 use elf::{
     abi,
