@@ -1,3 +1,4 @@
+use num_traits::One;
 use stwo_prover::{
     constraint_framework::{logup::LookupElements, EvalAtRow},
     core::fields::m31::BaseField,
@@ -132,6 +133,19 @@ impl MachineChip for SyscallChip {
                 );
             }
         }
+
+        // Enforce that one flag is set
+        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_priv_input + is_sys_cycle_count + is_sys_stack_reset + is_sys_heap_reset - 1) = 0
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (is_sys_debug.clone()
+                    + is_sys_halt.clone()
+                    + is_sys_priv_input.clone()
+                    + is_sys_cycle_count.clone()
+                    + is_sys_stack_reset.clone()
+                    + is_sys_heap_reset.clone()
+                    - E::F::one()),
+        );
 
         // Enforcing values for op_a
         // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(op_a) = 0
