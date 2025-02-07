@@ -18,14 +18,19 @@
 //! - `Instruction`: Abstracts a single RISC-V instruction, encapsulating its opcode, operands, and functionality.
 //! - `InstructionDecoder`: Provides utility methods for decoding raw instruction data into `Instruction` objects.
 //!
+//! ## Main Functions
+//!
+//! - `decode_instruction`: Decodes a single RISC-V instruction from its raw 32-bit representation.
+//! - `decode_instructions`: Decodes a series of RISC-V instructions and organizes them into basic blocks.
+//! - `decode_until_end_of_a_block`: Decodes instructions until the end of a single basic block is reached.
+//!
 //! ## Usage Example
 //!
 //! The following example demonstrates how to use this module to decode instructions from an ELF file:
 //!
 //! ```rust
-//! use nexus_vm::riscv::decode_instructions;;
+//! use nexus_vm::riscv::{decode_instructions, decode_until_end_of_a_block};
 //! use nexus_vm::elf::ElfFile;
-//!
 //!
 //! // Load an ELF file (implementation of load_elf_file is assumed)
 //! let elf: ElfFile = ElfFile::from_path("test/fib_10.elf").expect("Failed to load ELF from path");
@@ -39,6 +44,13 @@
 //!     for instruction in &block.0 {
 //!         println!("  {}", instruction);
 //!     }
+//! }
+//!
+//! // Alternatively, decode until the end of a single basic block
+//! let single_block = decode_until_end_of_a_block(elf.instructions.as_ref());
+//! println!("Single Basic Block:");
+//! for instruction in &single_block.0 {
+//!     println!("  {}", instruction);
 //! }
 //! ```
 //!
