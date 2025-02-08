@@ -1804,16 +1804,28 @@ impl<F: PrimeField> SparsePolynomial<F> {
     chi_i
   }
 
-  // Takes O(n log n). TODO: do this in O(n) where n is the number of entries in Z
+  // Optimized to O(n) from O(n log n)
   pub fn evaluate(&self, r: &[F]) -> F {
     assert_eq!(self.num_vars, r.len());
-
-    (0..self.Z.len())
-      .map(|i| {
-        let bits = self.Z[i].idx.get_bits(r.len());
-        SparsePolynomial::compute_chi(&bits, r) * self.Z[i].val
-      })
-      .sum()
+    
+    // Pre-compute 1-r[i] for each variable to avoid repeated subtraction
+    let one_minus_r: Vec<F> = r.iter().map(|&ri| F::one() - ri).collect();
+    
+    // For each entry in Z, compute its contribution
+    self.Z.iter().map(|entry| {
+      let bits = entry.idx.get_bits(r.len());
+      
+      // Compute chi value directly using pre-computed values
+      let chi = bits.iter().enumerate().fold(F::one(), |acc, (j, &bit)| {
+        if bit {
+          acc * r[j]
+        } else {
+          acc * one_minus_r[j]
+        }
+      });
+      
+      chi * entry.val
+    }).sum()
   }
 }
 
