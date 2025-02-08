@@ -43,7 +43,7 @@ impl TerminalHandle {
 
     pub fn new_enabled() -> Self {
         if superconsole::SuperConsole::compatible() {
-            Self(TerminalHandleInner::new().into())
+            Self(Some(TerminalHandleInner::new().into()))
         } else {
             Self(None)
         }
