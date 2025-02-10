@@ -10,6 +10,15 @@ const _: () = {
     assert!(WORD_SIZE == 4usize);
 };
 
+impl Column {
+    /// Returns `true` if the column requires mask values at the offset [0, 1], or in other words,
+    /// constraints require both values at the current **and** next row, e.g. for constraining next
+    /// pc value.
+    pub(crate) const fn reads_next_row_mask(&self) -> bool {
+        matches!(self, Self::Pc | Self::IsPadding)
+    }
+}
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
 pub enum Column {
     /// The current value of the program counter register.
@@ -537,6 +546,7 @@ pub enum Column {
 //
 // impl Column {
 //     pub const COLUMNS_NUM: usize = /* ... */;
+//     pub const ALL_VARIANTS: &[Column] = /* ... */;
 //     pub const fn size(self) -> usize { /* ... */ }
 //     pub const fn offset(self) -> usize { /* ... */ }
 // }
@@ -576,6 +586,7 @@ pub enum ProgramColumn {
 //
 // impl ProgramColumn {
 //     pub const COLUMNS_NUM: usize = /* ... */;
+//     pub const ALL_VARIANTS: &[Column] = /* ... */;
 //     pub const fn size(self) -> usize { /* ... */ }
 //     pub const fn offset(self) -> usize { /* ... */ }
 // }
@@ -643,6 +654,7 @@ pub enum PreprocessedColumn {
 //
 // impl PreprocessedColumn {
 //     pub const COLUMNS_NUM: usize = /* ... */;
+//     pub const ALL_VARIANTS: &[Column] = /* ... */;
 //     pub const STRING_IDS: &[&str] = /* ... */
 //     pub const fn size(self) -> usize { /* ... */ }
 //     pub const fn offset(self) -> usize { /* ... */ }

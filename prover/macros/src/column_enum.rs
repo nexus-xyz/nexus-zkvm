@@ -5,9 +5,11 @@ use proc_macro2::TokenStream;
 use quote::quote;
 
 const TOTAL_COLS_IDENT: &str = "COLUMNS_NUM";
+const STRING_IDS_IDENT: &str = "STRING_IDS";
+const ALL_VARIANTS_IDENT: &str = "ALL_VARIANTS";
+
 const SIZE_FN_IDENT: &str = "size";
 const OFFSET_FN_IDENT: &str = "offset";
-const STRING_IDS_IDENT: &str = "STRING_IDS";
 
 pub fn generate_impls(input: TokenStream) -> syn::Result<TokenStream> {
     let input: syn::ItemEnum = syn::parse2(input)?;
@@ -21,6 +23,13 @@ pub fn generate_impls(input: TokenStream) -> syn::Result<TokenStream> {
     let ident_iter = _ident_iter.clone();
     let size_iter = variants.iter().map(|v| usize::from(v.1));
 
+    let all_variants_impl = {
+        let ident_iter = ident_iter.clone();
+        let const_ident = quote::format_ident!("{ALL_VARIANTS_IDENT}");
+        quote! {
+            pub const #const_ident: &[#enum_ident] = &[#(Self::#ident_iter,)*];
+        }
+    };
     let string_id_impl = if with_ids {
         let ids: Vec<String> = (ident_iter.clone())
             .zip(size_iter.clone())
@@ -75,6 +84,8 @@ pub fn generate_impls(input: TokenStream) -> syn::Result<TokenStream> {
             #size_impl
 
             #offset_impl
+
+            #all_variants_impl
 
             #string_id_impl
         }

@@ -1,5 +1,6 @@
 use std::array;
 
+use num_traits::Zero;
 use stwo_prover::constraint_framework::{preprocessed_columns::PreProcessedColumnId, EvalAtRow};
 
 use crate::column::{
@@ -24,11 +25,20 @@ impl<E: EvalAtRow> TraceEval<E> {
             .iter()
             .map(|&id| eval.get_preprocessed_column(PreProcessedColumnId { id: id.to_owned() }))
             .collect();
-
-        let evals =
-            std::iter::repeat_with(|| eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1]))
-                .take(Column::COLUMNS_NUM)
-                .collect();
+        let evals = Column::ALL_VARIANTS
+            .iter()
+            .flat_map(|col| std::iter::repeat(col).take(col.size()))
+            .map(|col| {
+                if col.reads_next_row_mask() {
+                    eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1])
+                } else {
+                    [
+                        eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0])[0].clone(),
+                        <E::F as Zero>::zero(), // pad with zero, this value shouldn't be accessed
+                    ]
+                }
+            })
+            .collect();
         let program_evals =
             std::iter::repeat_with(|| eval.next_interaction_mask(PROGRAM_TRACE_IDX, [0]))
                 .take(ProgramColumn::COLUMNS_NUM)
@@ -51,6 +61,10 @@ impl<E: EvalAtRow> TraceEval<E> {
     #[doc(hidden)]
     pub fn column_eval_next_row<const N: usize>(&self, col: Column) -> [E::F; N] {
         assert_eq!(col.size(), N, "column size mismatch");
+        assert!(
+            col.reads_next_row_mask(),
+            "{col:?} isn't allowed to read next row"
+        );
         let offset = col.offset();
 
         array::from_fn(|i| self.evals[offset + i][1].clone())
