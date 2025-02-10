@@ -192,19 +192,19 @@ impl MachineChip for LoadStoreChip {
         eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed.clone()));
 
         // Constraints for RAM vs public I/O consistency
-        let [public_input_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
+        let [initial_memory_flag] =
+            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryFlag);
         let [public_output_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicOutputFlag);
         let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
-        let public_input_output_addr =
-            program_trace_eval!(trace_eval, ProgramColumn::PublicInputOutputAddr);
-        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_1 - public_input_output_addr_1) = 0
-        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_2 - public_input_output_addr_2) = 0
-        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_3 - public_input_output_addr_3) = 0
-        // (public_input_flag + public_output_flag) ・(ram_init_final_addr_4 - public_input_output_addr_4) = 0
+        let public_ram_addr = program_trace_eval!(trace_eval, ProgramColumn::PublicRamAddr);
+        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_1 - public_ram_addr_1) = 0
+        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_2 - public_ram_addr_2) = 0
+        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_3 - public_ram_addr_3) = 0
+        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_4 - public_ram_addr_4) = 0
         for i in 0..WORD_SIZE {
             eval.add_constraint(
-                (public_input_flag.clone() + public_output_flag.clone())
-                    * (ram_init_final_addr[i].clone() - public_input_output_addr[i].clone()),
+                (initial_memory_flag.clone() + public_output_flag.clone())
+                    * (ram_init_final_addr[i].clone() - public_ram_addr[i].clone()),
             );
         }
         // public_output_flag ・(ram_final_value - public_output_value) = 0
@@ -604,8 +604,8 @@ impl LoadStoreChip {
     ///
     /// - `RamInitFinalFlag` indicates whether a row should contain an initial byte of the RW memory.
     /// - `RamInitFinalAddr` contains the address of the RW memory
-    /// - `PublicInputFlag` indicates whether a row should contain a public input byte of the RW memory, zero means the initial value is zero.
-    /// - `PublicInputValue` contains the public input value of the RW memory, used if `PublicInputFlag` is true.
+    /// - `InitialMemoryFlag` indicates whether a row should contain a byte of the publicly known initial RW memory, flag being zero means the initial value is zero.
+    /// - `InitialMemoryValue` contains the initial value of the RW memory, used if `InitialMemoryFlag` is true.
     ///
     /// The counter of the initial value is always zero.
     fn add_initial_values(
@@ -617,8 +617,10 @@ impl LoadStoreChip {
         let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
         let ram_init_final_addr =
             original_traces.get_base_column::<WORD_SIZE>(Column::RamInitFinalAddr);
-        let [public_input_flag] = program_traces.get_base_column(ProgramColumn::PublicInputFlag);
-        let [public_input_value] = program_traces.get_base_column(ProgramColumn::PublicInputValue);
+        let [initial_memory_flag] =
+            program_traces.get_base_column(ProgramColumn::PublicInitialMemoryFlag);
+        let [initial_memory_value] =
+            program_traces.get_base_column(ProgramColumn::PublicInitialMemoryValue);
         let mut logup_col_gen = logup_trace_gen.new_col();
         // Add (address, value, 0)
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
@@ -626,8 +628,8 @@ impl LoadStoreChip {
             for address_byte in ram_init_final_addr.iter() {
                 tuple.push(address_byte.data[vec_row]);
             }
-            tuple.push(public_input_flag.data[vec_row] * public_input_value.data[vec_row]); // Is this too much degree?
-                                                                                            // The counter is zero
+            tuple.push(initial_memory_flag.data[vec_row] * initial_memory_value.data[vec_row]); // Is this too much degree?
+                                                                                                // The counter is zero
             tuple.extend_from_slice(&[PackedBaseField::zero(); WORD_SIZE]);
             assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
             let denom = lookup_element.combine(&tuple);
@@ -644,14 +646,16 @@ impl LoadStoreChip {
     ) {
         let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
         let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
-        let [public_input_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputFlag);
-        let [public_input_value] = program_trace_eval!(trace_eval, ProgramColumn::PublicInputValue);
+        let [initial_memory_flag] =
+            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryFlag);
+        let [initial_memory_value] =
+            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryValue);
         let mut tuple = vec![];
         for address_byte in ram_init_final_addr.iter() {
             tuple.push(address_byte.clone());
         }
-        tuple.push(public_input_flag * public_input_value); // Is this too much degree?
-                                                            // The counter is zero
+        tuple.push(initial_memory_flag * initial_memory_value); // Is this too much degree?
+                                                                // The counter is zero
         for _ in 0..WORD_SIZE {
             tuple.extend_from_slice(&[E::F::zero()]);
         }

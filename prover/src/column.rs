@@ -565,21 +565,21 @@ pub enum ProgramColumn {
     /// The first program counter for finding the first executed instruction
     #[size = 4]
     PrgInitialPc,
-    /// The one-byte content of public input at PublicInputAddr
+    /// The one-byte content of publicly known initial memory at PublicRamAddr
     #[size = 1]
-    PublicInputValue,
-    /// A flag indicating (PublicInputOutputAddr, PublicInputValue) is a byte in the public input
+    PublicInitialMemoryValue,
+    /// A flag indicating (PublicRamAddr, PublicInitialMemoryValue) is a byte in the publicly known initial memory
     #[size = 1]
-    PublicInputFlag,
-    /// The one-byte content of public output at PublicInputOutputAddr
+    PublicInitialMemoryFlag,
+    /// The one-byte content of public output at PublicRamAddr
     #[size = 1]
     PublicOutputValue,
-    /// A flag indicating the row's (PublicInputOutputAddr, PublicOutputValue) is a byte in the public output
+    /// A flag indicating the row's (PublicRamAddr, PublicOutputValue) is a byte in the public output
     #[size = 1]
     PublicOutputFlag,
-    /// The address of public input/output; actually a selective copy of RamInitFinalAddr that the verifier knows
+    /// The address of initial memory or public output; actually a selective copy of RamInitFinalAddr that the verifier knows
     #[size = 4]
-    PublicInputOutputAddr,
+    PublicRamAddr,
 }
 
 // proc macro derived:

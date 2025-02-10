@@ -81,17 +81,17 @@ impl ProgramTracesBuilder {
         for (row_idx, MemoryInitializationEntry { address, value }) in
             init_memory.iter().enumerate()
         {
-            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicInputOutputAddr);
+            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
 
-            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicInputFlag);
-            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicInputValue);
+            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicInitialMemoryFlag);
+            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicInitialMemoryValue);
         }
         let offset = init_memory_len;
 
         for (_row_idx, PublicOutputEntry { .. }) in exit_code.iter().enumerate() {
             // TODO: handle exit code as a public output
             // let row_idx = row_idx + offset;
-            // ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicInputOutputAddr);
+            // ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
 
             // ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
             // ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
@@ -99,7 +99,7 @@ impl ProgramTracesBuilder {
         let offset = offset + exit_code_len;
         for (row_idx, PublicOutputEntry { address, value }) in output_memory.iter().enumerate() {
             let row_idx = row_idx + offset;
-            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicInputOutputAddr);
+            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
 
             ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
             ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
@@ -155,7 +155,7 @@ impl ProgramTracesBuilder {
 /// Program (constant) trace containing [`ProgramColumn`].
 ///
 /// These columns contain the whole program and the first program counter. They don't depend on the runtime information.
-/// Moreover, the public input and output are included in the program trace. These depend on the runtime information.
+/// Moreover, the publicly known initial memory and the public output are included in the program trace. These depend on the runtime information.
 /// The commitment to the program trace will be checked by the verifier.
 #[derive(Debug, Clone)]
 pub struct ProgramTraces {
