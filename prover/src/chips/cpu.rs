@@ -447,7 +447,7 @@ impl MachineChip for CpuChip {
         eval.add_constraint(
             (is_type_r.clone() + is_type_i.clone()) * (op_b.clone() - reg1_address.clone()),
         );
-        eval.add_constraint(is_type_r.clone() * (op_c.clone() - reg2_address));
+        eval.add_constraint(is_type_r.clone() * (op_c.clone() - reg2_address.clone()));
         eval.add_constraint(
             (is_type_r.clone() + is_type_i.clone()) * (op_a.clone() - reg3_address.clone()),
         );
@@ -482,9 +482,9 @@ impl MachineChip for CpuChip {
         eval.add_constraint((is_type_b_s.clone()) * (E::F::one() - reg3_accessed.clone()));
 
         // Constraint reg{1,2,3}_address uniquely for type B and type S instructions
-        eval.add_constraint(is_type_b_s.clone() * (op_b - reg1_address));
+        eval.add_constraint(is_type_b_s.clone() * (op_b.clone() - reg1_address.clone()));
         // Always using reg3 for ValueA and OpA, even when it's not the destination; this simplifies the register memory checking.
-        eval.add_constraint(is_type_b_s.clone() * (op_a - reg3_address));
+        eval.add_constraint(is_type_b_s.clone() * (op_a.clone() - reg3_address.clone()));
 
         let reg3_val_prev = trace_eval!(trace_eval, Column::Reg3ValPrev);
         let value_a = trace_eval!(trace_eval, Column::ValueA);
@@ -538,6 +538,11 @@ impl MachineChip for CpuChip {
                     + is_sys_stack_reset.clone())
                 * (reg3_accessed - E::F::one()),
         );
+
+        // Constraint reg{1,2,3}_address uniquely for type SYS instructions
+        eval.add_constraint(is_type_sys.clone() * (op_b - reg1_address));
+        eval.add_constraint(is_type_sys.clone() * (op_c - reg2_address)); // not currently used; a future syscall might use it
+        eval.add_constraint(is_type_sys.clone() * (op_a - reg3_address));
 
         // PcNext should be Pc on the next row, unless the next row is the first row or padding.
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
