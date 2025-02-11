@@ -1,100 +1,58 @@
-//! # Instruction Executor Module
+//! # Instruction Executor Registry
 //!
 //! This module defines the instruction execution functionality for the RISC-V emulator.
 //! It provides a centralized mapping of opcodes to their corresponding execution functions.
 //!
 //! ## Key Components
 //!
-//! - `InstructionExecutorFn`: A generic type alias for the instruction execution function signature.
-//! - `InstructionExecutorRegistry`: A struct containing `InstructionExecutorFn`s for use during emulation.
+//! - `InstructionExecutorFn`: A type alias for the instruction execution function signature.
+//! - `InstructionExecutorRegistry`: A struct containing mappings of opcodes to their execution functions.
 //!
 //! ## Instruction Categories
 //!
-//! The module organizes instructions into several categories:
+//! The registry includes various RISC-V instruction categories:
 //!
-//! - ALU Instructions: Arithmetic and logical operations
-//! - Memory Instructions: Load and store operations
-//! - Branch Instructions: Conditional and unconditional jumps
-//! - System Instructions: Special system-level operations
+//! - Arithmetic and Logical Operations (ADD, SUB, AND, OR, XOR, etc.)
+//! - Shift Operations (SLL, SRL, SRA)
+//! - Comparison Operations (SLT, SLTU)
+//! - Multiplication and Division Operations (MUL, DIV, REM, etc.)
+//! - Memory Operations (LB, LH, LW, SB, SH, SW, etc.)
+//! - Control Flow Operations (JAL, JALR, BEQ, BNE, etc.)
+//! - Upper Immediate Operations (LUI, AUIPC)
 //!
-//! ## Extensibility
+//! ## Special Instructions
 //!
-//! The emulator supports adding custom opcodes and their corresponding execution functions at runtime.
-//! This feature allows for extending the instruction set without modifying the core emulator code.
+//! The registry includes special handling for read input (`rin`) and write output (`wou`) instructions:
 //!
-//! To add a new opcode:
-//!
-//! 1. Define a new `Opcode`.
-//! 2. Define a struct implementing the `InstructionExecutor` trait for that opcode.
-//! 3. Use the `add_opcode` method of the `Emulator` struct to register the new opcode and its associated execution function.
-//!
-//! Example:
-//!
-//! ```rust
-//! use nexus_vm::{
-//!     cpu::{Cpu, RegisterFile},
-//!     memory::{MemoryProcessor, LoadOps, StoreOps},
-//!     emulator::{Emulator, HarvardEmulator},
-//!     riscv::{Register, Opcode, Instruction, InstructionType},
-//!     error::Result
-//! };
-//! use nexus_common::cpu::{InstructionState, InstructionExecutor, Processor, Registers};
-//! use nexus_common::error::MemoryError;
-//!
-//! pub struct CustomInstruction {
-//!     rd: (Register, u32),
-//!     rs1: u32,
-//!     rs2: u32,
-//! }
-//!
-//! impl InstructionState for CustomInstruction {
-//!
-//!     fn execute(&mut self) {
-//!         self.rd.1 = 2 * self.rs1 + self.rs2;
-//!     }
-//!
-//!     fn memory_read(&mut self, _: &impl MemoryProcessor) -> Result<LoadOps, MemoryError> {
-//!         <CustomInstruction as InstructionState>::readless()
-//!     }
-//!
-//!     fn memory_write(&self, _: &mut impl MemoryProcessor) -> Result<StoreOps, MemoryError> {
-//!         <CustomInstruction as InstructionState>::writeless()
-//!     }
-//!
-//!     fn write_back(&self, cpu: &mut impl Processor) -> Option<u32> {
-//!         cpu.registers_mut().write(self.rd.0, self.rd.1);
-//!         Some(self.rd.1)
-//!     }
-//! }
-//!
-//! impl InstructionExecutor for CustomInstruction {
-//!     type InstructionState = Self;
-//!
-//!     fn decode(ins: &Instruction, registers: &impl Registers) -> Self {
-//!         Self {
-//!             rd: (ins.op_a, registers[ins.op_a]),
-//!             rs1: registers[ins.op_b],
-//!             rs2: match ins.ins_type {
-//!                 InstructionType::RType => registers[Register::from(ins.op_c as u8)],
-//!                 _ => ins.op_c,
-//!             },
-//!         }
-//!     }
-//! }
-//!
-//! let custom_opcode = Opcode::new(0b1111111, None, None, "test");
-//! let mut emulator = HarvardEmulator::default().add_opcode::<CustomInstruction>(&custom_opcode);
-//! ```
-//!
-//! Note:
-//! - The `add_opcode` method checks for duplicate opcodes and returns an error if the opcode already exists.
-//! - The emulator prevents overwriting existing standard RISC-V instructions to maintain compatibility.
+//! - `rin` is interpreted as `lw` (load word)
+//! - `wou` is interpreted as `sw` (store word)
 //!
 //! ## Error Handling
 //!
-//! Execution functions return a `Result<()>`, allowing for proper error propagation throughout the emulator.
-//! The `add_opcode` method also returns a `Result`, indicating success or failure in adding the new opcode.
-
+//! The registry provides error handling for:
+//! - Duplicate instructions
+//! - Unimplemented instructions
+//! - Undefined instructions
+//!
+//! ## Performance Considerations
+//!
+//! - Built-in instructions use a static array for fast lookup.
+//! - Custom instructions use a `HashMap` for flexible extension.
+//! - Special instructions (`rin` and `wou`) have dedicated fast-path checks.
+//!
+//! ## Implementation Details
+//!
+//! - The `InstructionExecutorRegistry` struct contains:
+//!   - A static array `builtins` for built-in RISC-V instructions.
+//!   - A `HashMap` `precompiles` for custom instructions.
+//!   - Special `Opcode`s for read input and write output operations.
+//! - The `add_opcode` method allows adding custom instructions at runtime.
+//! - The `get` method retrieves the execution function for a given opcode.
+//! - Special methods `get_for_read_input` and `get_for_write_output` handle the custom I/O instructions.
+//!
+//! This registry is crucial for the emulator's operation, providing a flexible and
+//! efficient way to map opcodes to their execution functions, including support for
+//! custom and special instructions.
 use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
 
 use crate::memory::MemoryProcessor;

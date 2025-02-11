@@ -1,3 +1,104 @@
+//! Memory Layout for RISC-V Emulator
+//!
+//! This module defines the `LinearMemoryLayout` struct, which represents the memory layout
+//! for a RISC-V emulator. It provides a structured way to manage different memory regions
+//! such as program space, input/output areas, heap, and stack.
+//!
+//! # Key Components
+//!
+//! - `LinearMemoryLayout`: A struct that defines the memory layout with various segments.
+//!
+//! # Memory Segments
+//!
+//! The layout includes the following memory segments:
+//! - Registers
+//! - Program
+//! - Public Input
+//! - Associated Data (AD)
+//! - Exit Code
+//! - Public Output
+//! - Heap
+//! - Memory Gap
+//! - Stack
+//!
+//! # Features
+//!
+//! - Configurable memory layout with customizable sizes for different segments.
+//! - Validation of memory layout to ensure correct ordering and minimum size requirements.
+//! - Methods to access start and end addresses of each memory segment.
+//! - Support for serialization and deserialization of the layout.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use nexus_vm::emulator::LinearMemoryLayout;
+//!
+//! // Create a new memory layout
+//! let layout = LinearMemoryLayout::new(
+//!     0x100000, // max_heap_size
+//!     0x100000, // max_stack_size
+//!     0x1000,   // public_input_size
+//!     0x1000,   // public_output_size
+//!     0x10000,  // program_size
+//!     0x100     // ad_size
+//! ).unwrap();
+//!
+//! // Access memory segment boundaries
+//! let heap_start = layout.heap_start();
+//! let stack_top = layout.stack_top();
+//! ```
+//!
+//! # Memory Layout Visualization
+//!
+//! ```text
+//! +------------------+ 0x00000000
+//! |     Registers    | (32 * 4 bytes)
+//! +------------------+ 0x00000080
+//! | Public Input     |
+//! | Start Location   |
+//! +------------------+ 0x00000084
+//! | Public Output    |
+//! | Start Location   |
+//! +------------------+ 0x00000088
+//! |    (unused)      |
+//! +------------------+ ELF_TEXT_START
+//! |      Program     |
+//! +------------------+
+//! |   Public Input   |
+//! +------------------+
+//! |  Associated Data |
+//! +------------------+
+//! |    Exit Code     |
+//! +------------------+
+//! |  Public Output   |
+//! +------------------+
+//! |       Heap       |
+//! +------------------+
+//! |    Memory Gap    | (>= MEMORY_GAP bytes)
+//! +------------------+
+//! |      Stack       |
+//! +------------------+ stack_top (points to last accessible word)
+//! ```
+//!
+//! # Notes
+//!
+//! - All measurements in this module are in terms of virtual memory addresses.
+//! - WORD_SIZE is 4 bytes.
+//! - NUM_REGISTERS is 32.
+//! - The `*_end()` methods point to one byte past the end of the segment (C++ `.end()` style).
+//! - `stack_top()` points to the last accessible word in the stack segment.
+//! - The memory gap size is at least `MEMORY_GAP` and no more than `MEMORY_GAP + WORD_SIZE`.
+//! - The layout enforces a strict ordering of segments as shown in the visualization.
+//!
+//! # Implementation Details
+//!
+//! - The `LinearMemoryLayout` struct uses `u32` values to represent memory addresses.
+//! - The `new()` method creates a validated layout, while `new_unchecked()` creates a layout without validation.
+//! - The `validate()` method ensures that the memory layout is correct and all segments are in the proper order.
+//! - Various getter methods are provided to access the start and end addresses of each memory segment.
+//!
+//! This module is crucial for managing the memory layout in the RISC-V emulator,
+//! ensuring proper allocation and access to different memory regions during program execution.
 use crate::error::{Result, VMError};
 use nexus_common::constants::{ELF_TEXT_START, MEMORY_GAP, NUM_REGISTERS, WORD_SIZE};
 use nexus_common::word_align;

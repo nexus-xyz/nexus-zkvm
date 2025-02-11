@@ -1,3 +1,38 @@
+//! Memory Statistics and Optimization for RISC-V Emulator
+//!
+//! This module provides functionality to track memory usage statistics and optimize
+//! memory layout based on actual usage patterns during program execution.
+//!
+//! # Key Components
+//!
+//! - `MemoryStats`: A struct that keeps track of memory access statistics.
+//!
+//! # Features
+//!
+//! - Tracks the maximum heap access and minimum stack access addresses.
+//! - Updates statistics based on load and store operations during program execution.
+//! - Creates an optimized `LinearMemoryLayout` based on observed memory usage.
+//!
+//! # Memory Layout Optimization
+//!
+//! The `MemoryStats` struct helps in optimizing memory layout by:
+//! 1. Tracking the highest heap access and lowest stack access during program execution.
+//! 2. Using these statistics to create a more efficient `LinearMemoryLayout`.
+//!
+//! This optimization can lead to more efficient memory usage by:
+//! - Allocating only the necessary amount of heap space based on actual usage.
+//! - Adjusting the stack size to match the maximum observed stack depth.
+//!
+//! # Implementation Details
+//!
+//! - The `update` method processes `LoadOp` and `StoreOp` operations to track memory accesses.
+//! - The `create_optimized_layout` method generates a new `LinearMemoryLayout` based on the observed statistics.
+//! - The stack pointer is used directly to determine the minimum stack access, ensuring that the full reserved stack frame is respected.
+//!
+//! # Note
+//!
+//! - This implementation prioritizes safety over potential further optimizations
+//!   that could be achieved by tracking actual stack accesses.
 use crate::emulator::layout::LinearMemoryLayout;
 use crate::{
     error::Result,

@@ -1,23 +1,48 @@
 //! # RISC-V Emulator Executor
 //!
 //! This module contains the core execution logic for the RISC-V emulator.
-//! It defines the `Emulator` struct and its associated methods for executing
-//! RISC-V instructions and managing the emulator's state.
+//! It defines the `Executor` struct, `HarvardEmulator`, and `LinearEmulator` structs
+//! along with their associated methods for executing RISC-V instructions and managing
+//! the emulator's state.
 //!
 //! ## Key Components
 //!
-//! - `Emulator`: The main struct representing the emulator's state and functionality.
-//! - `execute_instruction`: Method to execute a single RISC-V instruction.
-//! - `fetch_block`: Method to fetch or decode a basic block of instructions.
-//! - `execute_basic_block`: Method to execute a basic block of instructions.
-//! - `execute`: Main execution loop of the emulator.
+//! - `Executor`: The core struct containing CPU state, instruction registry, and other execution-related data.
+//! - `HarvardEmulator`: An emulator implementation using Harvard architecture (separate instruction and data memory).
+//! - `LinearEmulator`: An emulator implementation using Linear architecture (unified memory from Harvard architecture
+//!    with a single memory space, with added read and write protection).
+//! - `Emulator` trait: Defines common methods for both emulator types.
+//! - `View`: A struct representing the final state of the emulator after execution.
+//!
+//! ## Main Features
+//!
+//! - Instruction execution for both Harvard and Linear architectures.
+//! - Basic block fetching and caching for improved performance.
+//! - Support for system calls and custom instructions.
+//! - Memory management for different memory types (RO, WO, RW, NA).
+//! - Cycle counting and profiling capabilities.
+//! - Support for public and private inputs.
+//! - Debug logging functionality.
+//! - Associated data handling in LinearEmulator.
+//! - Precompile metadata support.
 //!
 //! ## Basic Block Execution
 //!
-//! The emulator uses a basic block approach for efficiency:
+//! Both emulator types use a basic block approach for efficiency:
 //! 1. Fetch or decode a basic block starting from the current PC.
 //! 2. Execute all instructions in the block sequentially.
 //! 3. Update the PC and continue with the next block.
+//!
+//! ## Memory Layout
+//!
+//! The `LinearEmulator` uses a `LinearMemoryLayout` to manage different memory regions:
+//! - Program memory
+//! - Public input
+//! - Associated data (AD)
+//! - Exit code
+//! - Public output
+//! - Heap
+//! - Stack
 //!
 //! ## Error Handling
 //!
@@ -26,45 +51,85 @@
 //!
 //! ## Examples
 //!
-//! ### Creating and Running an Emulator
+//! ### Creating and Running a Harvard Emulator
 //!
 //! ```rust
 //! use nexus_vm::elf::ElfFile;
 //! use nexus_vm::emulator::{Emulator, HarvardEmulator};
 //!
-//! // Load an ELF file
-//! let mut elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+//! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+//! let mut emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 //!
-//! // Create an emulator instance
-//! let mut emulator = HarvardEmulator::from_elf(&mut elf_file, &[], &[]);
-//!
-//! // Run the emulator
 //! match emulator.execute(false) {
 //!     Ok(_) => println!("Program executed successfully"),
 //!     Err(e) => println!("Execution error: {:?}", e),
 //! }
 //! ```
 //!
-//! ### Executing a Basic Block
+//! ### Creating and Running a Linear Emulator
 //!
 //! ```rust
-//! use nexus_vm::riscv::{BasicBlock, Instruction, Opcode, BuiltinOpcode, InstructionType};
-//! use nexus_vm::emulator::{BasicBlockEntry, Emulator, HarvardEmulator};
+//! use nexus_vm::elf::ElfFile;
+//! use nexus_vm::emulator::{Emulator, LinearEmulator, LinearMemoryLayout};
 //!
-//! // Create a basic block with some instructions
-//! let basic_block = BasicBlock::new(vec![
-//!     Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 5),  // x1 = x0 + 5
-//!     Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 10), // x2 = x0 + 10
-//!     Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 1, 2),   // x3 = x1 + x2
-//! ]);
+//! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+//! let mut emulator = LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], &elf_file, &[], &[]);
 //!
-//! let mut emulator = HarvardEmulator::default();
-//! emulator.execute_basic_block(&BasicBlockEntry{ start: 0, end: 8, block: basic_block }, false).unwrap();
-//!
-//! assert_eq!(emulator.executor.cpu.registers[3.into()], 15); // x3 should be 15
+//! match emulator.execute(false) {
+//!     Ok(_) => println!("Program executed successfully"),
+//!     Err(e) => println!("Execution error: {:?}", e),
+//! }
 //! ```
 //!
-
+//! ### Creating a Linear Emulator from an ELF file
+//!
+//! ```rust
+//! use nexus_vm::elf::ElfFile;
+//! use nexus_vm::emulator::{LinearEmulator, LinearMemoryLayout};
+//! use nexus_vm::emulator::Emulator;
+//! use nexus_vm::error::VMError;
+//!
+//! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+//! let memory_layout = LinearMemoryLayout::default();
+//!
+//! let mut linear_emulator = LinearEmulator::from_elf(
+//!     memory_layout,
+//!     &[],
+//!     &elf_file,
+//!     &[],
+//!     &[]
+//! );
+//!
+//! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
+//! ```
+//!
+//! ### Creating a Linear Emulator from a Harvard Emulator
+//!
+// ! ```rust
+// ! use nexus_vm::elf::ElfFile;
+// ! use nexus_vm::emulator::{HarvardEmulator, LinearEmulator};
+// ! use nexus_vm::emulator::Emulator;
+// ! use nexus_vm::error::VMError;
+// !
+// ! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+// ! let harvard_emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
+// !
+// ! let associated_data = vec![0u8; 100];
+// ! let private_input = vec![0u8; 100];
+// !
+// ! let mut linear_emulator = LinearEmulator::from_harvard(
+// !     &harvard_emulator,
+// !     elf_file,
+// !     &associated_data,
+// !     &private_input
+// ! ).expect("Failed to create Linear Emulator from Harvard Emulator");
+// !
+// ! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
+// ! ```
+//!
+//! This module provides a flexible and efficient implementation of RISC-V emulation,
+//! supporting both Harvard and Linear architectures, and offering features like
+//! basic block caching, custom instruction support, debug logging, and associated data handling.
 use super::{layout::LinearMemoryLayout, memory_stats::*, registry::InstructionExecutorRegistry};
 use crate::{
     cpu::{instructions::InstructionResult, Cpu},
