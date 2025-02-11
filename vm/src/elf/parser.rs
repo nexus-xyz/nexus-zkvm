@@ -29,29 +29,6 @@
 //! - Writable data memory
 //! - Metadata (for precompiles)
 //!
-//! # Usage
-//!
-//! ```no_run
-//! use elf::ElfBytes;
-//! use nexus_vm::elf::parser::{validate_elf_header, parse_segments};
-//!
-//! let elf_data = std::fs::read("path/to/your/elf/file").unwrap();
-//! let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_data).unwrap();
-//!
-//! // Validate ELF header
-//! validate_elf_header(&elf.ehdr).unwrap();
-//!
-//! // Parse segments
-//! let parsed_data = parse_segments(&elf, &elf_data).unwrap();
-//!
-//! // Access parsed data
-//! println!("Instructions: {:?}", parsed_data.instructions);
-//! println!("Read-only memory: {:?}", parsed_data.readonly_memory);
-//! println!("Writable memory: {:?}", parsed_data.writable_memory);
-//! println!("Base address: 0x{:x}", parsed_data.base_address);
-//! println!("Metadata: {:?}", parsed_data.nexus_metadata);
-//! ```
-//!
 //! # Note
 //!
 //! This parser assumes a little-endian RISC-V architecture and is specifically designed for 32-bit executables.
