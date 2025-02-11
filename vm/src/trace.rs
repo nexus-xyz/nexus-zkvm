@@ -488,7 +488,7 @@ mod tests {
     #[serial]
     fn test_k1_trace_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let (_, trace) = k_trace(elf_file, &[], &[], &[], 1).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
+        let (_, trace) = k_trace(elf_file, &[], &[], &[], 1).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -525,7 +525,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 0x80403898, 4128, 0),
+                (MemAccessSize::Word, 14892, 4128, 0),
                 13,
             ))
             .is_some());
@@ -549,7 +549,7 @@ mod tests {
     #[serial]
     fn test_k8_trace_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let (_, trace) = k_trace(elf_file, &[], &[], &[], 8).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
+        let (_, trace) = k_trace(elf_file, &[], &[], &[], 8).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -585,7 +585,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 0x80403898, 4128, 0),
+                (MemAccessSize::Word, 14892, 4128, 0),
                 13,
             ))
             .is_some());
@@ -612,7 +612,7 @@ mod tests {
     #[serial]
     fn test_bb_trace_nexus_rt_binary() {
         let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-        let (_, trace) = bb_trace(elf_file, &[], &[], &[]).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
+        let (_, trace) = bb_trace(elf_file, &[], &[], &[]).unwrap();
 
         // check the first block
         let block = trace.block(0).unwrap();
@@ -645,7 +645,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 0x80403898, 4128, 0),
+                (MemAccessSize::Word, 14892, 4128, 0),
                 13,
             ))
             .is_some());

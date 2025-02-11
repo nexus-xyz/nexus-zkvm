@@ -464,10 +464,9 @@ mod test {
             );
         }
     }
-
     #[test]
     #[serial]
-    fn test_emulate() {
+    fn test_emulate_u32() {
         let emulators = vec![
             EmulatorType::Harvard,
             EmulatorType::default_linear(),
@@ -475,22 +474,48 @@ mod test {
         ];
         let compile_flags = vec!["-C opt-level=3"];
         let io_u32_elfs = compile_multi("io_u32", &compile_flags);
-        let io_u64_elfs = compile_multi("io_u64", &compile_flags);
-        let io_u128_elfs = compile_multi("io_u128", &compile_flags);
 
         for emulator in emulators {
             emulate_wrapper(
                 io_u32_elfs.clone(),
                 &IOArgs::<u32, (), u32>::new(Some(123u32), None, Some(123u32)),
-                emulator.clone(),
+                emulator,
             );
+        }
+    }
 
+    #[test]
+    #[serial]
+    fn test_emulate_u64() {
+        let emulators = vec![
+            EmulatorType::Harvard,
+            EmulatorType::default_linear(),
+            EmulatorType::TwoPass,
+        ];
+        let compile_flags = vec!["-C opt-level=3"];
+        let io_u64_elfs = compile_multi("io_u64", &compile_flags);
+
+        for emulator in emulators {
             emulate_wrapper(
                 io_u64_elfs.clone(),
                 &IOArgs::<u64, (), u64>::new(Some(1u64 << 32), None, Some(1u64 << 32)),
-                emulator.clone(),
+                emulator,
             );
+        }
+    }
 
+    #[test]
+    #[serial]
+    fn test_emulate_u128() {
+        let emulators = vec![
+            EmulatorType::Harvard,
+            EmulatorType::default_linear(),
+            EmulatorType::TwoPass,
+        ];
+        let compile_flags = vec!["-C opt-level=3"];
+        let io_u128_elfs = compile_multi("io_u128", &compile_flags);
+
+        for emulator in emulators {
             emulate_wrapper(
                 io_u128_elfs.clone(),
                 &IOArgs::<u128, (), u128>::new(
@@ -498,7 +523,37 @@ mod test {
                     None,
                     Some(332306998946228968225970211937533483u128),
                 ),
-                emulator.clone(),
+                emulator,
+            );
+        }
+    }
+
+    #[test]
+    #[serial]
+    fn test_emulate_u256() {
+        let emulators = vec![
+            EmulatorType::Harvard,
+            EmulatorType::default_linear(),
+            EmulatorType::TwoPass,
+        ];
+        let compile_flags = vec!["-C opt-level=3"];
+        let io_u256_elfs = compile_multi("io_u256", &compile_flags);
+
+        for emulator in emulators {
+            emulate_wrapper(
+                io_u256_elfs.clone(),
+                &IOArgs::<(u128, u128), (), (u128, u128)>::new(
+                    Some((
+                        332306998946228968225970211937533483u128,
+                        332306998946228968225970211937533481u128,
+                    )),
+                    None,
+                    Some((
+                        332306998946228968225970211937533483u128,
+                        332306998946228968225970211937533481u128,
+                    )),
+                ),
+                emulator,
             );
         }
     }
