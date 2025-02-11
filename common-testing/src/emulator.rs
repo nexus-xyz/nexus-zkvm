@@ -8,6 +8,7 @@ use nexus_vm::emulator::{HarvardEmulator, LinearEmulator, LinearMemoryLayout};
 use nexus_vm::error::Result;
 use postcard::from_bytes;
 use serde::{de::DeserializeOwned, Serialize};
+
 use std::{path::PathBuf, process::Command};
 use tempfile::{tempdir, TempDir};
 
@@ -95,7 +96,7 @@ pub fn parse_output<T: DeserializeOwned>(
 }
 
 /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
-pub fn create_tmp_dir() -> TempDir {
+pub fn setup_guest_project(runtime_path: &PathBuf) -> TempDir {
     // Create a temporary directory.
     let tmp_dir = tempdir().expect("Failed to create temporary directory");
     let tmp_dir_path = tmp_dir.path().join("integration");
@@ -110,10 +111,8 @@ pub fn create_tmp_dir() -> TempDir {
 
     assert!(output.status.success());
 
-    // Get the current directory.
-    let runtime_dir = std::env::current_dir().unwrap().join("../../runtime");
-
     // Add the nexus_rt dependency to the `Cargo.toml` file.
+    let runtime_dir = std::env::current_dir().unwrap().join(runtime_path);
     output = Command::new("cargo")
         .current_dir(tmp_dir_str)
         .arg("add")
@@ -129,7 +128,7 @@ pub fn create_tmp_dir() -> TempDir {
 }
 
 /// Setup project.
-pub fn setup_project(tmp_project_path: &PathBuf, test_path: &str) {
+pub fn write_guest_source_code(tmp_project_path: &PathBuf, test_path: &str) {
     // Overwrite the main.rs file with the test file.
     let main_file = format!("{}/src/main.rs", tmp_project_path.to_str().unwrap());
 
@@ -144,16 +143,18 @@ pub fn setup_project(tmp_project_path: &PathBuf, test_path: &str) {
 }
 
 /// Compile the test file.
-pub fn compile_to_elf(path: &PathBuf, compile_flags: &str) -> Vec<u8> {
+pub fn compile_guest_project(
+    project_path: &PathBuf,
+    linker_path: &PathBuf,
+    compile_flags: &str,
+) -> Vec<u8> {
     let target = "riscv32i-unknown-none-elf";
 
-    let linker_script = std::env::current_dir()
-        .unwrap()
-        .join("../../runtime/linker-scripts/default.x");
+    let linker_script = std::env::current_dir().unwrap().join(linker_path);
 
     // Compile the test file for riscv target.
     let output = Command::new("cargo")
-        .current_dir(path)
+        .current_dir(project_path)
         .arg("build")
         .arg("--target")
         .arg(target)
@@ -176,35 +177,38 @@ pub fn compile_to_elf(path: &PathBuf, compile_flags: &str) -> Vec<u8> {
     // Read the elf file to bytes.
     let elf_file = format!(
         "{}/target/{target}/debug/integration",
-        path.to_str().unwrap()
+        project_path.to_str().unwrap()
     );
 
     std::fs::read(elf_file).expect("Failed to read elf file")
 }
 
-pub fn compile_multi(test_name: &str, compile_flags: &[&str]) -> Vec<ElfFile> {
-    let mut elfs = Vec::new();
+pub fn compile_multi(
+    test_name: &str,
+    compile_flags: &[&str],
+    home_path_relative: &str,
+) -> Vec<ElfFile> {
+    let mut elves = Vec::new();
     // Set up the temporary directories for intermediate project setup.
-    let tmp_dir = &create_tmp_dir();
+    let tmp_dir = &setup_guest_project(&PathBuf::from(home_path_relative).join("runtime"));
     let tmp_project_path = tmp_dir.path().join("integration");
 
     for flag_set in compile_flags {
         // Check that the tests compile and execute correctly.
         // Compile the test file.
-        let test_dir_path = "../integration-tests";
-        let test_path = format!("{test_dir_path}/{test_name}.rs");
-        setup_project(&tmp_project_path, &test_path);
-        let elf_contents = compile_to_elf(&tmp_project_path, flag_set);
-
-        // Save the elf file for debugging purposes.
-        let elf_path = format!("{test_dir_path}/{test_name}.elf");
-        std::fs::write(&elf_path, &elf_contents).expect("Failed to write file");
+        let test_path = format!("{home_path_relative}/{test_name}.rs");
+        write_guest_source_code(&tmp_project_path, &test_path);
+        let elf_contents = compile_guest_project(
+            &tmp_project_path,
+            &PathBuf::from(home_path_relative).join("runtime/linker-scripts/default.x"),
+            flag_set,
+        );
 
         // Parse the elf file.
         let elf = ElfFile::from_bytes(&elf_contents).expect("Unable to load ELF from bytes");
-        elfs.push(elf);
+        elves.push(elf);
     }
-    elfs
+    elves
 }
 
 /// Helper function to run emulator and return output bytes and cycles.

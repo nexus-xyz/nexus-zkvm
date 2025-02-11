@@ -19,7 +19,10 @@ nexus-proof
 .DS_Store
 
 # benchmarks
-benchmark_results.csv
+benchmarks/results/*
+
+# graphs
+benchmarks/graphs/*
 
 # proof files
 *.proof

@@ -23,8 +23,3 @@ libc = "0.2"
 
 [dev-dependencies]
 serial_test = "3.2.0"
-
-[[bench]]
-name = "emulator-bench"
-path = "emulator-bench/emulator_bench.rs"
-harness = true

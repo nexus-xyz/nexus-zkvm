@@ -10,7 +10,6 @@ mod test {
     use nexus_vm_prover::{prove, verify};
     use postcard::to_allocvec;
     use serial_test::serial;
-
     const K: usize = 1;
 
     const EXAMPLES: &[&str] = &[
@@ -23,6 +22,8 @@ mod test {
         "lambda_calculus",
         "keccak",
     ];
+
+    const HOME_PATH: &str = "../../";
 
     fn emulate_wrapper<T: Input, U: Input, V: Output>(
         elfs: Vec<ElfFile>,
@@ -83,7 +84,7 @@ mod test {
         name: &str,
         io_args: Vec<IOArgs<T, U, V>>,
     ) {
-        let elfs = compile_multi(name, &compile_flags);
+        let elfs = compile_multi(name, &compile_flags, &HOME_PATH);
 
         for emulator in &emulators {
             for io_arg in &io_args {
@@ -98,7 +99,7 @@ mod test {
         test_example_multi(
             vec![EmulatorType::TwoPass],
             vec!["-C opt-level=3"],
-            "../../examples/src/input_output",
+            "examples/src/input_output",
             vec![IOArgs::<u32, u32, u32>::new(
                 Some(3u32),
                 Some(4u32),
@@ -111,8 +112,9 @@ mod test {
     #[serial]
     fn test_prove_io() {
         let elfs = compile_multi(
-            &format!("../../examples/src/input_output"),
+            &format!("examples/src/input_output"),
             &["-C opt-level=3"],
+            &HOME_PATH,
         );
 
         let public_input_bytes = to_allocvec(&512u32).unwrap();
@@ -160,7 +162,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/fact",
+            "examples/src/fact",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -168,7 +170,7 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_fact() {
-        let elfs = compile_multi("../../examples/src/fact", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/fact", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -192,7 +194,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/fib",
+            "examples/src/fib",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -200,7 +202,7 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_fib() {
-        let elfs = compile_multi("../../examples/src/fib", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/fib", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -224,7 +226,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/fib1000",
+            "examples/src/fib1000",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -233,7 +235,7 @@ mod test {
     #[serial]
     #[ignore]
     fn test_prove_fib1000() {
-        let elfs = compile_multi("../../examples/src/fib1000", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/fib1000", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -257,7 +259,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/main",
+            "examples/src/main",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -265,7 +267,7 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_main() {
-        let elfs = compile_multi("../../examples/src/main", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/main", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -289,7 +291,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/palindromes",
+            "examples/src/palindromes",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -297,7 +299,7 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_palindromes() {
-        let elfs = compile_multi("../../examples/src/palindromes", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/palindromes", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -321,7 +323,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/galeshapley",
+            "examples/src/galeshapley",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -329,7 +331,7 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_gale_shapley() {
-        let elfs = compile_multi("../../examples/src/galeshapley", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/galeshapley", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -353,7 +355,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/lambda_calculus",
+            "examples/src/lambda_calculus",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -361,7 +363,11 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_lambda_calculus() {
-        let elfs = compile_multi("../../examples/src/lambda_calculus", &["-C opt-level=3"]);
+        let elfs = compile_multi(
+            "examples/src/lambda_calculus",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -385,7 +391,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/keccak",
+            "examples/src/keccak",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -393,7 +399,7 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_keccak() {
-        let elfs = compile_multi("../../examples/src/keccak", &["-C opt-level=3"]);
+        let elfs = compile_multi("examples/src/keccak", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
@@ -417,7 +423,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "../../examples/src/fail",
+            "examples/src/fail",
             vec![IOArgs::<(), (), ()>::simple_panic()],
         );
     }
@@ -440,8 +446,8 @@ mod test {
 
         // Test simple examples.
         for example in EXAMPLES {
-            let example_path = format!("../../examples/src/{}", example);
-            let elfs = compile_multi(&example_path, &compile_flags);
+            let example_path = format!("examples/src/{}", example);
+            let elfs = compile_multi(&example_path, &compile_flags, &HOME_PATH);
 
             for emulator in &emulators {
                 emulate_wrapper(
@@ -453,8 +459,8 @@ mod test {
         }
 
         // Test fail example.
-        let fail_path = "../../examples/src/fail";
-        let fail_elfs = compile_multi(fail_path, &compile_flags);
+        let fail_path = "examples/src/fail";
+        let fail_elfs = compile_multi(fail_path, &compile_flags, &HOME_PATH);
 
         for emulator in &emulators {
             emulate_wrapper(
@@ -474,9 +480,8 @@ mod test {
             EmulatorType::TwoPass,
         ];
         let compile_flags = vec!["-C opt-level=3"];
-        let io_u32_elfs = compile_multi("io_u32", &compile_flags);
-        let io_u64_elfs = compile_multi("io_u64", &compile_flags);
-        let io_u128_elfs = compile_multi("io_u128", &compile_flags);
+        let io_u32_elfs =
+            compile_multi("tests/integration-tests/io_u32", &compile_flags, &HOME_PATH);
 
         for emulator in emulators {
             emulate_wrapper(
@@ -484,13 +489,46 @@ mod test {
                 &IOArgs::<u32, (), u32>::new(Some(123u32), None, Some(123u32)),
                 emulator.clone(),
             );
+        }
+    }
 
+    #[test]
+    #[serial]
+    fn test_emulate_u64() {
+        let emulators = vec![
+            EmulatorType::Harvard,
+            EmulatorType::default_linear(),
+            EmulatorType::TwoPass,
+        ];
+        let compile_flags = vec!["-C opt-level=3"];
+        let io_u64_elfs =
+            compile_multi("tests/integration-tests/io_u64", &compile_flags, &HOME_PATH);
+
+        for emulator in emulators {
             emulate_wrapper(
                 io_u64_elfs.clone(),
                 &IOArgs::<u64, (), u64>::new(Some(1u64 << 32), None, Some(1u64 << 32)),
                 emulator.clone(),
             );
+        }
+    }
 
+    #[test]
+    #[serial]
+    fn test_emulate_u128() {
+        let emulators = vec![
+            EmulatorType::Harvard,
+            EmulatorType::default_linear(),
+            EmulatorType::TwoPass,
+        ];
+        let compile_flags = vec!["-C opt-level=3"];
+        let io_u128_elfs = compile_multi(
+            "tests/integration-tests/io_u128",
+            &compile_flags,
+            &HOME_PATH,
+        );
+
+        for emulator in emulators {
             emulate_wrapper(
                 io_u128_elfs.clone(),
                 &IOArgs::<u128, (), u128>::new(
@@ -498,7 +536,7 @@ mod test {
                     None,
                     Some(332306998946228968225970211937533483u128),
                 ),
-                emulator.clone(),
+                emulator,
             );
         }
     }
@@ -513,7 +551,11 @@ mod test {
             EmulatorType::default_linear(),
             EmulatorType::TwoPass,
         ];
-        let elfs = compile_multi("fib", &["-C opt-level=3"]);
+        let elfs = compile_multi(
+            "tests/integration-tests/fib",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
 
         for (input, output) in inputs.iter().zip(outputs.iter()) {
             for emulator in emulators.clone() {
@@ -549,8 +591,9 @@ mod test {
         for example in EXAMPLES {
             println!("Testing example: {}", example);
             let elfs = compile_multi(
-                &format!("../../examples/src/{}", example),
+                &format!("examples/src/{}", example),
                 &["-C opt-level=3"],
+                &HOME_PATH,
             );
             let (view, execution_trace) =
                 k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
