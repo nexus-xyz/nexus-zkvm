@@ -522,15 +522,6 @@ pub enum Column {
     #[size = 4]
     RamFinalCounter,
 
-    /// On bit-op rows, the less-significant four bits of each limb of ValueA. On those rows, ValueA0_3[i] contains ValueA[i] & 0xF.
-    #[size = 4]
-    ValueA0_3,
-    /// On bit-op rows, the less-significant four bits of each limb of ValueB. On those rows, ValueB0_3[i] contains ValueB[i] & 0xF.
-    #[size = 4]
-    ValueB0_3,
-    /// On bit-op rows, the less-significant four bits of each limb of ValueC. On those rows, ValueC0_3[i] contains ValueC[i] & 0xF.
-    #[size = 4]
-    ValueC0_3,
     /// On bit-op rows, the more-significant four bits of each limb of ValueA. On those rows, ValueA4_7[i] contains ValueA[i] >> 4.
     #[size = 4]
     ValueA4_7,

@@ -1,3 +1,5 @@
+use std::array;
+
 use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
@@ -13,7 +15,7 @@ use crate::{
     column::{
         Column::{
             self, IsAnd, IsOr, IsXor, MultiplicityAnd, MultiplicityOr, MultiplicityXor, ValueA,
-            ValueA0_3, ValueA4_7, ValueB, ValueB0_3, ValueB4_7, ValueC, ValueC0_3, ValueC4_7,
+            ValueA4_7, ValueB, ValueB4_7, ValueC, ValueC4_7,
         },
         PreprocessedColumn::{self, BitwiseAndA, BitwiseB, BitwiseC, BitwiseOrA, BitwiseXorA},
     },
@@ -59,10 +61,123 @@ impl BitOp {
     }
 }
 
+/// A virtual column containing the lower four bits of each limb of ValueA
+struct ValueA0_3;
+
+impl VirtualColumn<WORD_SIZE> for ValueA0_3 {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; WORD_SIZE] {
+        let value_a: [_; WORD_SIZE] = traces.column(row_idx, ValueA);
+        let value_a_4_7: [_; WORD_SIZE] = traces.column(row_idx, ValueA4_7);
+        let mut result = [BaseField::zero(); WORD_SIZE];
+        for i in 0..WORD_SIZE {
+            result[i] = value_a[i] - value_a_4_7[i] * BaseField::from(1 << 4);
+        }
+        result
+    }
+
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; WORD_SIZE] {
+        let value_a = traces.get_base_column::<WORD_SIZE>(ValueA);
+        let value_a_4_7 = traces.get_base_column::<WORD_SIZE>(ValueA4_7);
+        let mut result = [PackedBaseField::zero(); WORD_SIZE];
+        for i in 0..WORD_SIZE {
+            result[i] = value_a[i].data[vec_idx]
+                - value_a_4_7[i].data[vec_idx]
+                    * PackedBaseField::broadcast(BaseField::from(1 << 4));
+        }
+        result
+    }
+
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; WORD_SIZE] {
+        let value_a = trace_eval!(trace_eval, ValueA);
+        let value_a_4_7 = trace_eval!(trace_eval, ValueA4_7);
+        array::from_fn(|i| {
+            value_a[i].clone() - value_a_4_7[i].clone() * E::F::from(BaseField::from(1 << 4))
+        })
+    }
+}
+
+/// A virtual column containing the lower four bits of each limb of ValueB
+struct ValueB0_3;
+
+impl VirtualColumn<WORD_SIZE> for ValueB0_3 {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; WORD_SIZE] {
+        let value_b: [_; WORD_SIZE] = traces.column(row_idx, ValueB);
+        let value_b_4_7: [_; WORD_SIZE] = traces.column(row_idx, ValueB4_7);
+        let mut result = [BaseField::zero(); WORD_SIZE];
+        for i in 0..WORD_SIZE {
+            result[i] = value_b[i] - value_b_4_7[i] * BaseField::from(1 << 4);
+        }
+        result
+    }
+
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; WORD_SIZE] {
+        let value_b = traces.get_base_column::<WORD_SIZE>(ValueB);
+        let value_b_4_7 = traces.get_base_column::<WORD_SIZE>(ValueB4_7);
+        let mut result = [PackedBaseField::zero(); WORD_SIZE];
+        for i in 0..WORD_SIZE {
+            result[i] = value_b[i].data[vec_idx]
+                - value_b_4_7[i].data[vec_idx]
+                    * PackedBaseField::broadcast(BaseField::from(1 << 4));
+        }
+        result
+    }
+
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; WORD_SIZE] {
+        let value_b = trace_eval!(trace_eval, ValueB);
+        let value_b_4_7 = trace_eval!(trace_eval, ValueB4_7);
+        array::from_fn(|i| {
+            value_b[i].clone() - value_b_4_7[i].clone() * E::F::from(BaseField::from(1 << 4))
+        })
+    }
+}
+
+/// A virtual column containing the lower four bits of each limb of ValueC
+struct ValueC0_3;
+
+impl VirtualColumn<WORD_SIZE> for ValueC0_3 {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; WORD_SIZE] {
+        let value_c: [_; WORD_SIZE] = traces.column(row_idx, ValueC);
+        let value_c_4_7: [_; WORD_SIZE] = traces.column(row_idx, ValueC4_7);
+        let mut result = [BaseField::zero(); WORD_SIZE];
+        for i in 0..WORD_SIZE {
+            result[i] = value_c[i] - value_c_4_7[i] * BaseField::from(1 << 4);
+        }
+        result
+    }
+
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; WORD_SIZE] {
+        let value_c = traces.get_base_column::<WORD_SIZE>(ValueC);
+        let value_c_4_7 = traces.get_base_column::<WORD_SIZE>(ValueC4_7);
+        let mut result = [PackedBaseField::zero(); WORD_SIZE];
+        for i in 0..WORD_SIZE {
+            result[i] = value_c[i].data[vec_idx]
+                - value_c_4_7[i].data[vec_idx]
+                    * PackedBaseField::broadcast(BaseField::from(1 << 4));
+        }
+        result
+    }
+
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; WORD_SIZE] {
+        let value_c = trace_eval!(trace_eval, ValueC);
+        let value_c_4_7 = trace_eval!(trace_eval, ValueC4_7);
+        array::from_fn(|i| {
+            value_c[i].clone() - value_c_4_7[i].clone() * E::F::from(BaseField::from(1 << 4))
+        })
+    }
+}
+
 pub struct ExecutionResult {
     out_bytes: Word,
     bit_op: BitOp,
-    value_a_0_3: Word,
     value_a_4_7: Word,
     value_b_0_3: Word,
     value_b_4_7: Word,
@@ -102,14 +217,13 @@ impl ExecuteChip for BitOpChip {
             };
         }
 
-        let (value_a_0_3, value_a_4_7) = split_limbs(&value_a);
+        let (_value_a_0_3, value_a_4_7) = split_limbs(&value_a);
         let (value_b_0_3, value_b_4_7) = split_limbs(&value_b);
         let (value_c_0_3, value_c_4_7) = split_limbs(&value_c);
 
         ExecutionResult {
             out_bytes: value_a,
             bit_op,
-            value_a_0_3,
             value_a_4_7,
             value_b_0_3,
             value_b_4_7,
@@ -171,7 +285,6 @@ impl MachineChip for BitOpChip {
         let ExecutionResult {
             out_bytes,
             bit_op,
-            value_a_0_3,
             value_a_4_7,
             value_b_0_3,
             value_b_4_7,
@@ -188,11 +301,8 @@ impl MachineChip for BitOpChip {
         );
 
         // Fill 4-bit splittings
-        traces.fill_columns(row_idx, value_a_0_3, ValueA0_3);
         traces.fill_columns(row_idx, value_a_4_7, ValueA4_7);
-        traces.fill_columns(row_idx, value_b_0_3, ValueB0_3);
         traces.fill_columns(row_idx, value_b_4_7, ValueB4_7);
-        traces.fill_columns(row_idx, value_c_0_3, ValueC0_3);
         traces.fill_columns(row_idx, value_c_4_7, ValueC4_7);
 
         let multiplicity = match bit_op {
@@ -241,11 +351,8 @@ impl MachineChip for BitOpChip {
         let [is_and] = original_traces.get_base_column(IsAnd);
         let [is_or] = original_traces.get_base_column(IsOr);
         let [is_xor] = original_traces.get_base_column(IsXor);
-        let value_a_0_3: [_; WORD_SIZE] = original_traces.get_base_column(ValueA0_3);
         let value_a_4_7: [_; WORD_SIZE] = original_traces.get_base_column(ValueA4_7);
-        let value_b_0_3: [_; WORD_SIZE] = original_traces.get_base_column(ValueB0_3);
         let value_b_4_7: [_; WORD_SIZE] = original_traces.get_base_column(ValueB4_7);
-        let value_c_0_3: [_; WORD_SIZE] = original_traces.get_base_column(ValueC0_3);
         let value_c_4_7: [_; WORD_SIZE] = original_traces.get_base_column(ValueC4_7);
         for limb_idx in 0..WORD_SIZE {
             for (op_type, is_op) in [
@@ -257,9 +364,12 @@ impl MachineChip for BitOpChip {
                 // vec_row is row_idx divided by 16. Because SIMD.
                 for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
                     let op_type = op_type.to_packed_base_field();
-                    let checked_a = value_a_0_3[limb_idx].data[vec_row];
-                    let checked_b = value_b_0_3[limb_idx].data[vec_row];
-                    let checked_c = value_c_0_3[limb_idx].data[vec_row];
+                    let checked_a =
+                        ValueA0_3::read_from_finalized_traces(original_traces, vec_row)[limb_idx];
+                    let checked_b =
+                        ValueB0_3::read_from_finalized_traces(original_traces, vec_row)[limb_idx];
+                    let checked_c =
+                        ValueC0_3::read_from_finalized_traces(original_traces, vec_row)[limb_idx];
                     let checked_tuple = vec![op_type, checked_b, checked_c, checked_a];
                     let denom = lookup_element.combine(&checked_tuple);
                     let numerator = is_op.data[vec_row];
@@ -322,37 +432,10 @@ impl MachineChip for BitOpChip {
     ) {
         let lookup_elements: &BitOpLookupElements = lookup_elements.as_ref();
 
-        let value_a = trace_eval!(trace_eval, ValueA);
-        let value_b = trace_eval!(trace_eval, ValueB);
-        let value_c = trace_eval!(trace_eval, ValueC);
         // Constrain four-bit components. Note that the four-bit components do not need separate range-checks because the bit-op lookup tables only contain in-range entries.
-        let value_a0_3 = trace_eval!(trace_eval, ValueA0_3);
         let value_a4_7 = trace_eval!(trace_eval, ValueA4_7);
-        let value_b0_3 = trace_eval!(trace_eval, ValueB0_3);
         let value_b4_7 = trace_eval!(trace_eval, ValueB4_7);
-        let value_c0_3 = trace_eval!(trace_eval, ValueC0_3);
         let value_c4_7 = trace_eval!(trace_eval, ValueC4_7);
-        let [is_bitop] = IsBitop::eval(trace_eval);
-        for i in 0..WORD_SIZE {
-            eval.add_constraint(
-                is_bitop.clone()
-                    * (value_a0_3[i].clone()
-                        + value_a4_7[i].clone() * E::F::from(BaseField::from(16u32))
-                        - value_a[i].clone()),
-            );
-            eval.add_constraint(
-                is_bitop.clone()
-                    * (value_b0_3[i].clone()
-                        + value_b4_7[i].clone() * E::F::from(BaseField::from(16u32))
-                        - value_b[i].clone()),
-            );
-            eval.add_constraint(
-                is_bitop.clone()
-                    * (value_c0_3[i].clone()
-                        + value_c4_7[i].clone() * E::F::from(BaseField::from(16u32))
-                        - value_c[i].clone()),
-            );
-        }
 
         // Constrain logup
 
@@ -373,9 +456,9 @@ impl MachineChip for BitOpChip {
                     numerator,
                     &[
                         op_type.clone(),
-                        value_b0_3[limb_idx].clone(),
-                        value_c0_3[limb_idx].clone(),
-                        value_a0_3[limb_idx].clone(),
+                        ValueB0_3::eval(trace_eval)[limb_idx].clone(),
+                        ValueC0_3::eval(trace_eval)[limb_idx].clone(),
+                        ValueA0_3::eval(trace_eval)[limb_idx].clone(),
                     ],
                 ));
 
