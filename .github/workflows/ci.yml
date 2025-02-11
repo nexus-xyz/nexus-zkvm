@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: Swatinem/rust-cache@v2
         with:
           cache-all-crates: "true"
@@ -55,7 +55,7 @@ jobs:
           cargo check --all-features --all-targets --workspace
           cargo check --all-features --examples --workspace
           cd prover-benches && cargo check --benches --workspace
-      
+
       - name: Run `cargo clippy`
         run: cargo clippy --no-deps --all-targets --all-features
 
@@ -66,7 +66,7 @@ jobs:
         crate: [nexus-common, nexus-vm, nexus-vm-prover, testing-framework, nexus-precompiles]
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: Swatinem/rust-cache@v2
         with:
           cache-all-crates: "true"
@@ -88,9 +88,12 @@ jobs:
 
       - name: Make Warnings Errors
         run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
-      
+
       - name: Build VM Guest Binaries
         run: echo "NEXUS_VM_BUILD_GUEST_TEST_BINARIES=true" >> $GITHUB_ENV
 
       - name: Run tests for ${{ matrix.crate }}
         run: cargo nextest run --package ${{ matrix.crate }} --cargo-profile ci-test --all-features --test-threads num-cpus
+
+      - name: Run doc tests for ${{ matrix.crate }}
+        run: cargo test --package ${{ matrix.crate }} --doc
