@@ -440,35 +440,14 @@ impl Default for HarvardEmulator {
 
 impl HarvardEmulator {
     pub fn from_elf(elf: &ElfFile, public_input: &[u8], private_input: &[u8]) -> Self {
-        // The stack and heap will also be stored in this variable memory segment
-        let mut text_end =
-            (elf.instructions.len() * WORD_SIZE) as u32 + elf.base + WORD_SIZE as u32;
-
-        // The alignment of the end of the text segment is 8 bytes, so we need to round up to the
-        // next multiple of 8.
-        let last_octet = text_end & 0b111;
-        if last_octet != 0 {
-            text_end += 8 - last_octet;
-        }
-
-        // If a data key is present, the section actually ends one word later. Note that word
-        // alignment is guaranteed by the guest's linker script, meaning this can go wrong if guest
-        // programs are linked incorrectly.
-        let mut data_end = if let Some((key, _)) = elf.ram_image.last_key_value() {
-            key + WORD_SIZE as u32
-        } else {
-            text_end
-        };
+        // the stack and heap will also be stored in this variable memory segment
+        let text_end = (elf.instructions.len() * WORD_SIZE) as u32 + elf.base;
+        let mut data_end = *elf.ram_image.last_key_value().unwrap_or((&text_end, &0)).0;
         let mut data_memory =
             UnifiedMemory::from(VariableMemory::<RW>::from(elf.ram_image.clone()));
 
-        // Same as above w/ where the data ends
-        let ro_data_end = if let Some((key, _)) = elf.rom_image.last_key_value() {
-            key + WORD_SIZE as u32
-        } else {
-            0
-        };
         let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap_or((&0, &0)).0;
+        let ro_data_end = *elf.rom_image.keys().max().unwrap_or(&0);
         if !elf.rom_image.is_empty() {
             let mut ro_data: Vec<u32> =
                 vec![0; ro_data_end as usize + 1 - ro_data_base_address as usize];
@@ -528,7 +507,7 @@ impl HarvardEmulator {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
                 base_address: elf.base,
                 entrypoint: elf.entry,
-                global_clock: 1, // global_clock = 0 captures initialization for memory records
+                global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
             instruction_memory: FixedMemory::<RO>::from_vec(
@@ -647,14 +626,13 @@ impl Emulator for HarvardEmulator {
             memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
-        let stack_pointer = self.executor.cpu.registers.read(Register::X2);
-
-        self.memory_stats.update_stack(stack_pointer);
-
         // Update the memory size statistics.
         if !accessed_io_memory {
-            self.memory_stats
-                .update_heap(&load_ops, &store_ops, stack_pointer)?;
+            self.memory_stats.update(
+                load_ops,
+                store_ops,
+                self.executor.cpu.registers.read(Register::X2), // Stack pointer
+            )?;
         }
 
         if !bare_instruction.is_branch_or_jump_instruction() {
@@ -985,7 +963,7 @@ impl LinearEmulator {
                 output_len,
                 vec![0; output_len],
             );
-            memory.add_fixed_wo(&output_memory).unwrap();
+            let _ = memory.add_fixed_wo(&output_memory).unwrap();
         }
 
         let heap_len = (memory_layout.heap_end() - memory_layout.heap_start()) as usize;
@@ -995,7 +973,7 @@ impl LinearEmulator {
                 heap_len,
                 vec![0; heap_len],
             );
-            memory.add_fixed_rw(&heap_memory).unwrap();
+            let _ = memory.add_fixed_rw(&heap_memory).unwrap();
         }
 
         let stack_len = (memory_layout.stack_top() - memory_layout.stack_bottom()) as usize;
@@ -1005,7 +983,7 @@ impl LinearEmulator {
                 stack_len,
                 vec![0; stack_len],
             );
-            memory.add_fixed_rw(&stack_memory).unwrap();
+            let _ = memory.add_fixed_rw(&stack_memory).unwrap();
         }
 
         // Add the public input and public output start locations.

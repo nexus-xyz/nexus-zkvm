@@ -1,11 +1,9 @@
-use nexus_common::constants::WORD_SIZE;
-
 use crate::emulator::layout::LinearMemoryLayout;
 use crate::{
     error::Result,
     memory::{LoadOp, StoreOp},
 };
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::collections::HashSet;
 
 #[derive(Debug)]
@@ -32,36 +30,34 @@ impl MemoryStats {
         }
     }
 
-    /// Update the stack pointer statistics. This check is extremely simple: if the stack pointer is
-    /// less than the current minimum, update it.
-    #[inline(always)]
-    pub fn update_stack(&mut self, stack_pointer: u32) {
-        if 0 < stack_pointer && stack_pointer < self.min_stack_access {
-            self.min_stack_access = stack_pointer;
-        }
-    }
-
-    /// Update the heap statistics based on the given load and store operations.
-    ///
-    /// If the memory operations have touched memory between the heap top and the stack pointer,
-    /// then the heap top is moved up to include the current access.
-    pub fn update_heap(
+    /// Update the memory stats based on load and store operations.
+    pub fn update(
         &mut self,
-        load_ops: &HashSet<LoadOp>,
-        store_ops: &HashSet<StoreOp>,
+        load_ops: HashSet<LoadOp>,
+        store_ops: HashSet<StoreOp>,
         stack_pointer: u32,
     ) -> Result<()> {
         // Collect all memory accesses.
-        let max_heap_access = load_ops
+        let memory_accesses: HashSet<u32> = load_ops
             .iter()
             .map(|op| op.get_address())
             .chain(store_ops.iter().map(|op| op.get_address()))
-            // Memory access above the stack pointer are not heap accesses.
-            .filter(|addr| *addr < stack_pointer)
-            .max();
+            .collect();
 
-        self.max_heap_access = max(self.max_heap_access, max_heap_access.unwrap_or(0));
+        // Find the highest memory access in the heap.
+        self.max_heap_access = max(
+            self.max_heap_access,
+            *memory_accesses
+                .iter()
+                .filter(|&addr| addr < &stack_pointer && addr > &self.heap_bottom)
+                .max()
+                .unwrap_or(&0),
+        );
 
+        // For safety, we just check the stack pointer directly rather than looking for the lowest memory access.
+        // This ensures we respect the full stack frame that was reserved, even if not all of it is used.
+        // We could optimize this in the future by tracking actual stack accesses if needed.
+        self.min_stack_access = min(self.min_stack_access, stack_pointer);
         Ok(())
     }
 
@@ -73,10 +69,9 @@ impl MemoryStats {
         input_size: u32,
         output_size: u32,
     ) -> Result<LinearMemoryLayout> {
-        // The extra words counteract mysterious and subtle off-by-one errors.
         LinearMemoryLayout::new(
-            self.max_heap_access - self.heap_bottom + WORD_SIZE as u32 * 2,
-            self.stack_top - self.min_stack_access + WORD_SIZE as u32 * 2,
+            self.max_heap_access - self.heap_bottom,
+            self.stack_top - self.min_stack_access,
             input_size,
             output_size,
             program_size,
@@ -105,10 +100,7 @@ mod tests {
         load_ops.insert(LoadOp::Op(MemAccessSize::Word, 1100, 0));
         store_ops.insert(StoreOp::Op(MemAccessSize::Word, 1200, 0, 0));
 
-        sizes.update_stack(stack_pointer);
-        sizes
-            .update_heap(&load_ops, &store_ops, stack_pointer)
-            .unwrap();
+        sizes.update(load_ops, store_ops, stack_pointer).unwrap();
         assert_eq!(sizes.max_heap_access, 600);
         assert_eq!(sizes.min_stack_access, 1000);
     }
@@ -129,21 +121,24 @@ mod tests {
         store_ops.insert(StoreOp::Op(MemAccessSize::Word, 3500, 0, 0));
 
         // Update data region (heap and stack).
-        stats.update_stack(stack_pointer);
         stats
-            .update_heap(&load_ops, &store_ops, stack_pointer)
+            .update(
+                load_ops.iter().cloned().collect(),
+                store_ops.iter().cloned().collect(),
+                stack_pointer,
+            )
             .unwrap();
 
         let mut more_load_ops = HashSet::new();
         more_load_ops.insert(LoadOp::Op(MemAccessSize::Word, 500, 0));
         stats
-            .update_heap(&more_load_ops, &HashSet::new(), stack_pointer)
+            .update(more_load_ops, HashSet::new(), stack_pointer)
             .unwrap();
 
         let mut more_store_ops = HashSet::new();
         more_store_ops.insert(StoreOp::Op(MemAccessSize::Word, 800, 0, 0));
         stats
-            .update_heap(&HashSet::new(), &more_store_ops, stack_pointer)
+            .update(HashSet::new(), more_store_ops, stack_pointer)
             .unwrap();
 
         let program_size = 300;
@@ -153,9 +148,9 @@ mod tests {
             .create_optimized_layout(program_size, ad_size, 0, 0)
             .unwrap();
 
-        assert_eq!(layout.heap_end(), 5512);
-        assert_eq!(layout.stack_bottom(), 9608);
-        assert_eq!(layout.stack_top(), 1006612);
+        assert_eq!(layout.heap_end(), 5504);
+        assert_eq!(layout.stack_bottom(), 9600);
+        assert_eq!(layout.stack_top(), 1006596);
         assert_eq!(layout.public_input_end(), 4400);
         assert_eq!(layout.ad_end(), 4500);
         assert_eq!(layout.public_output_end(), 4504);

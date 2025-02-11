@@ -61,7 +61,6 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     strategy:
       matrix:
         crate: [nexus-common, nexus-vm, nexus-vm-prover, testing-framework, nexus-precompiles]

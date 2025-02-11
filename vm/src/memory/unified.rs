@@ -210,7 +210,6 @@ macro_rules! add_fixed {
                 start: mem.base_address,
                 end: mem.base_address + mem.max_len as u32,
             };
-
             if self.meta.overlaps(&rng) {
                 return Err(MemoryError::MemoryOverlap);
             }

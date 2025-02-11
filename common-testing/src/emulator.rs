@@ -183,7 +183,7 @@ pub fn compile_to_elf(path: &PathBuf, compile_flags: &str) -> Vec<u8> {
 }
 
 pub fn compile_multi(test_name: &str, compile_flags: &[&str]) -> Vec<ElfFile> {
-    let mut elves = Vec::new();
+    let mut elfs = Vec::new();
     // Set up the temporary directories for intermediate project setup.
     let tmp_dir = &create_tmp_dir();
     let tmp_project_path = tmp_dir.path().join("integration");
@@ -202,9 +202,9 @@ pub fn compile_multi(test_name: &str, compile_flags: &[&str]) -> Vec<ElfFile> {
 
         // Parse the elf file.
         let elf = ElfFile::from_bytes(&elf_contents).expect("Unable to load ELF from bytes");
-        elves.push(elf);
+        elfs.push(elf);
     }
-    elves
+    elfs
 }
 
 /// Helper function to run emulator and return output bytes and cycles.
