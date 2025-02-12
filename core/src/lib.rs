@@ -4,11 +4,18 @@
 /// RISC-V processing
 pub mod nvm {
     pub use nexus_vm::{
-        elf::ElfFile,
-        emulator::{LinearEmulator, LinearMemoryLayout, View},
+        elf::{ElfError, ElfFile},
+        emulator::View,
         error::VMError,
         trace::{bb_trace, k_trace, BBTrace, UniformTrace},
     };
+    pub mod internals {
+        pub use nexus_vm::emulator::{
+            convert_instruction, elf_into_program_info, io_entries_into_vec, map_into_io_entries,
+            slice_into_io_entries, LinearEmulator, LinearMemoryLayout, MemoryInitializationEntry,
+            ProgramInfo, PublicOutputEntry,
+        };
+    }
 }
 
 /// Stwo proving

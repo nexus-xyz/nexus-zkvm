@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cpu::{instructions::InstructionResult, RegisterFile},
     elf::ElfFile,
-    emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout, View},
+    emulator::{Emulator, HarvardEmulator, InternalView, LinearEmulator, LinearMemoryLayout, View},
     error::{Result, VMError},
     memory::MemoryRecords,
     riscv::{BasicBlock, Instruction},
@@ -295,6 +295,7 @@ pub fn k_trace(
 ) -> Result<(View, UniformTrace)> {
     assert!(k > 0);
     let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
+    harvard.get_executor_mut().capture_logs(true);
 
     match harvard.execute(false) {
         Err(VMError::VMExited(_)) => {
@@ -317,7 +318,11 @@ pub fn k_trace(
                         }
 
                         match e {
-                            VMError::VMExited(_) => return Ok((linear.finalize(), trace)),
+                            VMError::VMExited(_) => {
+                                let mut view = linear.finalize();
+                                view.add_logs(&harvard);
+                                return Ok((view, trace));
+                            }
                             _ => return Err(e),
                         }
                     }
@@ -412,6 +417,7 @@ pub fn bb_trace(
     private_input: &[u8],
 ) -> Result<(View, BBTrace)> {
     let mut harvard = HarvardEmulator::from_elf(&elf, public_input, private_input);
+    harvard.get_executor_mut().capture_logs(true);
 
     match harvard.execute(false) {
         Err(VMError::VMExited(_)) => {
@@ -433,7 +439,11 @@ pub fn bb_trace(
                         }
 
                         match e {
-                            VMError::VMExited(_) => return Ok((linear.finalize(), trace)),
+                            VMError::VMExited(_) => {
+                                let mut view = linear.finalize();
+                                view.add_logs(&harvard);
+                                return Ok((view, trace));
+                            }
                             _ => return Err(e),
                         }
                     }

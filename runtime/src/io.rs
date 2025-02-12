@@ -39,8 +39,8 @@ mod riscv32 {
     ///
     /// exhausts the private input tape, so can only be used once
     pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
-        let bytes: alloc::vec::Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
-        postcard::from_bytes::<T>(bytes.as_slice())
+        let mut bytes: alloc::vec::Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
+        postcard::from_bytes_cobs::<T>(bytes.as_mut_slice())
     }
 
     /// Read a byte from the private input tape
@@ -69,15 +69,17 @@ mod riscv32 {
         }
 
         // Deserialize the input into the target type.
-        postcard::from_bytes::<T>(input.as_slice())
+        postcard::from_bytes_cobs::<T>(input.as_mut_slice())
     }
 
     /// Write an object to the public output segment.
     pub fn write_public_output<T: Serialize + ?Sized>(val: &T) -> Result<(), postcard::Error> {
         // Serialize the value into bytes.
-        let mut bytes = postcard::to_allocvec(&val)?;
+        let mut bytes = postcard::to_allocvec_cobs(&val)?;
+
         let padded_len = (bytes.len() + 3) & !3;
-        bytes.resize(padded_len, 0);
+        assert!(padded_len >= bytes.len());
+        bytes.resize(padded_len, 0x00); // cobs ignores 0x00 padding
 
         // Write bytes in word chunks to output memory.
         bytes.chunks(WORD_SIZE).enumerate().for_each(|(i, chunk)| {

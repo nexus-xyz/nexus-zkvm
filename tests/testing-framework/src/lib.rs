@@ -6,9 +6,10 @@ mod test {
     };
     use nexus_common_testing::program_trace;
     use nexus_vm::elf::ElfFile;
+    use nexus_vm::emulator::InternalView;
     use nexus_vm::trace::{k_trace, k_trace_direct};
     use nexus_vm_prover::{prove, verify};
-    use postcard::to_allocvec;
+    use postcard::to_allocvec_cobs;
     use serial_test::serial;
     const K: usize = 1;
 
@@ -16,7 +17,6 @@ mod test {
         "fact",
         "fib",
         "fib1000",
-        "main",
         "palindromes",
         "galeshapley",
         "lambda_calculus",
@@ -31,24 +31,31 @@ mod test {
         emulator_type: EmulatorType,
     ) {
         // Serialize inputs
-        let public_input_bytes = if let Some(input) = &io_args.public_input {
-            to_allocvec(input).expect("Failed to serialize public input")
+        let mut public_input_bytes = if let Some(mut input) = io_args.public_input.clone() {
+            to_allocvec_cobs(&mut input).expect("Failed to serialize public input")
         } else {
             Vec::new()
         };
+        let padded_len = word_align!(public_input_bytes.len());
+        public_input_bytes.resize(padded_len, 0x00);
 
-        let private_input_bytes = if let Some(input) = &io_args.private_input {
-            to_allocvec(input).expect("Failed to serialize private input")
+        let mut private_input_bytes = if let Some(mut input) = io_args.private_input.clone() {
+            to_allocvec_cobs(&mut input).expect("Failed to serialize private input")
         } else {
             Vec::new()
         };
+        let padded_len = word_align!(private_input_bytes.len());
+        private_input_bytes.resize(padded_len, 0x00);
 
         // Serialize expected output
-        let expected_output_bytes = if let Some(expected) = &io_args.expected_output {
-            to_allocvec(expected).expect("Failed to serialize expected output")
+        let mut expected_output_bytes = if let Some(mut expected) = io_args.expected_output.clone()
+        {
+            to_allocvec_cobs(&mut expected).expect("Failed to serialize expected output")
         } else {
             Vec::new()
         };
+        let padded_len = word_align!(expected_output_bytes.len());
+        expected_output_bytes.resize(padded_len, 0x00);
 
         // Run emulation
         let (_, exit_code_bytes, output_bytes) = emulate(
@@ -99,7 +106,7 @@ mod test {
         test_example_multi(
             vec![EmulatorType::TwoPass],
             vec!["-C opt-level=3"],
-            "examples/src/input_output",
+            "examples/src/bin/input_output",
             vec![IOArgs::<u32, u32, u32>::new(
                 Some(3u32),
                 Some(4u32),
@@ -112,14 +119,20 @@ mod test {
     #[serial]
     fn test_prove_io() {
         let elfs = compile_multi(
-            &format!("examples/src/input_output"),
+            &format!("examples/src/bin/input_output"),
             &["-C opt-level=3"],
             &HOME_PATH,
         );
 
-        let public_input_bytes = to_allocvec(&512u32).unwrap();
-        let private_input_bytes = to_allocvec(&2u32).unwrap();
-        let mut expected_output_bytes = to_allocvec(&1024u32).unwrap();
+        let mut public_input_bytes = to_allocvec_cobs(&mut 512u32).unwrap();
+        let mut private_input_bytes = to_allocvec_cobs(&mut 2u32).unwrap();
+        let mut expected_output_bytes = to_allocvec_cobs(&mut 1024u32).unwrap();
+
+        let padded_len = word_align!(public_input_bytes.len());
+        public_input_bytes.resize(padded_len, 0);
+
+        let padded_len = word_align!(private_input_bytes.len());
+        private_input_bytes.resize(padded_len, 0);
 
         let padded_len = word_align!(expected_output_bytes.len());
         expected_output_bytes.resize(padded_len, 0);
@@ -142,14 +155,7 @@ mod test {
         );
 
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -162,7 +168,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/fact",
+            "examples/src/bin/fact",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -170,18 +176,11 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_fact() {
-        let elfs = compile_multi("examples/src/fact", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi("examples/src/bin/fact", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -194,7 +193,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/fib",
+            "examples/src/bin/fib",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -202,18 +201,11 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_fib() {
-        let elfs = compile_multi("examples/src/fib", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi("examples/src/bin/fib", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -226,7 +218,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/fib1000",
+            "examples/src/bin/fib1000",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -235,18 +227,11 @@ mod test {
     #[serial]
     #[ignore]
     fn test_prove_fib1000() {
-        let elfs = compile_multi("examples/src/fib1000", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi("examples/src/bin/fib1000", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -271,14 +256,7 @@ mod test {
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -291,7 +269,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/palindromes",
+            "examples/src/bin/palindromes",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -299,18 +277,15 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_palindromes() {
-        let elfs = compile_multi("examples/src/palindromes", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi(
+            "examples/src/bin/palindromes",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -323,7 +298,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/galeshapley",
+            "examples/src/bin/galeshapley",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -331,18 +306,15 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_gale_shapley() {
-        let elfs = compile_multi("examples/src/galeshapley", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi(
+            "examples/src/bin/galeshapley",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -355,7 +327,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/lambda_calculus",
+            "examples/src/bin/lambda_calculus",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -364,21 +336,14 @@ mod test {
     #[serial]
     fn test_prove_lambda_calculus() {
         let elfs = compile_multi(
-            "examples/src/lambda_calculus",
+            "examples/src/bin/lambda_calculus",
             &["-C opt-level=3"],
             &HOME_PATH,
         );
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -391,7 +356,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/keccak",
+            "examples/src/bin/keccak",
             IOArgs::<(), (), ()>::default_list(),
         );
     }
@@ -399,18 +364,11 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_keccak() {
-        let elfs = compile_multi("examples/src/keccak", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi("examples/src/bin/keccak", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -423,7 +381,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/fail",
+            "examples/src/bin/fail",
             vec![IOArgs::<(), (), ()>::simple_panic()],
         );
     }
@@ -446,7 +404,7 @@ mod test {
 
         // Test simple examples.
         for example in EXAMPLES {
-            let example_path = format!("examples/src/{}", example);
+            let example_path = format!("examples/src/bin/{}", example);
             let elfs = compile_multi(&example_path, &compile_flags, &HOME_PATH);
 
             for emulator in &emulators {
@@ -458,8 +416,20 @@ mod test {
             }
         }
 
+        // Test main example.
+        let main_path = "examples/src/main";
+        let main_elfs = compile_multi(main_path, &compile_flags, &HOME_PATH);
+
+        for emulator in &emulators {
+            emulate_wrapper(
+                main_elfs.clone(),
+                &IOArgs::<(), (), ()>::default(),
+                emulator.clone(),
+            );
+        }
+
         // Test fail example.
-        let fail_path = "examples/src/fail";
+        let fail_path = "examples/src/bin/fail";
         let fail_elfs = compile_multi(fail_path, &compile_flags, &HOME_PATH);
 
         for emulator in &emulators {
@@ -575,14 +545,7 @@ mod test {
         let blocks = program_trace(log_size);
         let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
-        verify(
-            proof,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        )
-        .unwrap();
+        verify(proof, &view).unwrap();
     }
 
     #[test]
@@ -591,7 +554,7 @@ mod test {
         for example in EXAMPLES {
             println!("Testing example: {}", example);
             let elfs = compile_multi(
-                &format!("examples/src/{}", example),
+                &format!("examples/src/bin/{}", example),
                 &["-C opt-level=3"],
                 &HOME_PATH,
             );
@@ -603,22 +566,8 @@ mod test {
             std::fs::write(&proof_path, &proof_bytes).expect("Failed to write proof to file");
             let deserialized_proof_bytes =
                 postcard::from_bytes(&proof_bytes).expect("Failed to deserialize proof");
-            verify(
-                deserialized_proof_bytes,
-                view.get_program_memory(),
-                view.get_initial_memory(),
-                view.get_exit_code(),
-                view.get_public_output(),
-            )
-            .unwrap();
-            verify(
-                proof,
-                view.get_program_memory(),
-                view.get_initial_memory(),
-                view.get_exit_code(),
-                view.get_public_output(),
-            )
-            .unwrap();
+            verify(deserialized_proof_bytes, &view).unwrap();
+            verify(proof, &view).unwrap();
         }
     }
 }

@@ -1,0 +1,36 @@
+[package]
+name = "cargo-nexus"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+default-run = "cargo-nexus"
+
+[lib]
+name = "nexus_cli"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cargo-nexus"
+path = "src/bin/cargo-nexus.rs"
+
+[dependencies]
+anyhow = "1.0"
+dotenvy = "0.15.7"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "fmt",
+    "ansi",
+    "chrono",
+    "env-filter",
+] }
+
+cargo_metadata = "0.18.1"
+clap.workspace = true
+
+nexus-core = { path = "../core" }
+nexus-progress-bar = { path = "./progress-bar" }

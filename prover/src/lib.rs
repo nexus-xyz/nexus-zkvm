@@ -11,6 +11,7 @@ pub mod machine;
 #[cfg(test)]
 mod test_utils;
 
+use nexus_vm::emulator::InternalView;
 pub(crate) use nexus_vm::WORD_SIZE;
 
 pub use machine::Proof;
@@ -24,18 +25,12 @@ pub fn prove(
     machine::Machine::<machine::BaseComponents>::prove(trace, view)
 }
 
-pub fn verify(
-    proof: Proof,
-    program_info: &nexus_vm::emulator::ProgramInfo,
-    init_memory: &[nexus_vm::emulator::MemoryInitializationEntry],
-    exit_code: &[nexus_vm::emulator::PublicOutputEntry],
-    output_memory: &[nexus_vm::emulator::PublicOutputEntry],
-) -> Result<(), VerificationError> {
+pub fn verify(proof: Proof, view: &nexus_vm::emulator::View) -> Result<(), VerificationError> {
     machine::Machine::<machine::BaseComponents>::verify(
         proof,
-        program_info,
-        init_memory,
-        exit_code,
-        output_memory,
+        view.get_program_memory(),
+        view.get_initial_memory(),
+        view.get_exit_code(),
+        view.get_public_output(),
     )
 }

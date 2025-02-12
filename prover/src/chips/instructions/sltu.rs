@@ -131,6 +131,7 @@ mod test {
 
     use super::*;
     use nexus_vm::{
+        emulator::InternalView,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };

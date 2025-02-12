@@ -211,6 +211,7 @@ mod test {
     use super::*;
     use nexus_common::constants::ELF_TEXT_START;
     use nexus_vm::{
+        emulator::InternalView,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };

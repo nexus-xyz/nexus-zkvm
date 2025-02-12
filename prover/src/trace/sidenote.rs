@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 
 use nexus_vm::{
-    emulator::{MemoryInitializationEntry, PublicOutputEntry, View},
+    emulator::{InternalView, MemoryInitializationEntry, PublicOutputEntry, View},
     WORD_SIZE,
 };
 

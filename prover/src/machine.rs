@@ -23,7 +23,7 @@ use super::trace::{
     PreprocessedTraces, TracesBuilder,
 };
 use nexus_vm::{
-    emulator::{MemoryInitializationEntry, ProgramInfo, PublicOutputEntry, View},
+    emulator::{InternalView, MemoryInitializationEntry, ProgramInfo, PublicOutputEntry, View},
     trace::Trace,
 };
 

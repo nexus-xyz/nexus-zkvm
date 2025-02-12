@@ -115,6 +115,10 @@ pub enum ParserError {
     #[error(transparent)]
     Utf8Error(#[from] std::str::Utf8Error),
 
+    /// An issue occured interacting with the filesystem.
+    #[error(transparent)]
+    IOError(#[from] std::io::Error),
+
     /// The precompile size is invalid.
     #[error("Invalid precompile size: {0}")]
     InvalidPrecompileSize(u64),

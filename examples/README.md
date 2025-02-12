@@ -2,7 +2,7 @@
 
 This repository contains a set of Nexus VM example programs.
 The default binary (`src/main.rs`), is a basic "hello world"
-program. More complex programs can be found in `src/bin`.
+program. More complex programs can also be found within.
 
 ## Using nexus-rt
 

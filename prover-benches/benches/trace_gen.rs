@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use nexus_vm::{
-    emulator::View,
+    emulator::{InternalView, View},
     riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
     trace::{k_trace_direct, UniformTrace},
 };

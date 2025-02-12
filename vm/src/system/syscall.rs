@@ -148,6 +148,7 @@ impl SyscallInstruction {
     /// It reads data from memory and prints it to the console.
     fn execute_write(
         &mut self,
+        logs: &mut Option<Vec<Vec<u8>>>,
         memory: &impl MemoryProcessor,
         fd: u32,
         buf_addr: u32,
@@ -156,7 +157,13 @@ impl SyscallInstruction {
         // Write to STDOUT: (fd == 1)
         if fd == 1 {
             let buffer = memory.read_bytes(buf_addr, count as _)?;
-            print!("{}", String::from_utf8_lossy(&buffer));
+
+            if let Some(logger) = logs {
+                logger.push(buffer.clone());
+            } else {
+                print!("{}", String::from_utf8_lossy(&buffer));
+            }
+
             self.result = Some((Register::X10, count));
         } else {
             // Return -1
@@ -304,7 +311,7 @@ impl SyscallInstruction {
                 let fd = self.args[0];
                 let buf = self.args[1];
                 let count = self.args[2];
-                self.execute_write(memory, fd, buf, count)
+                self.execute_write(&mut executor.logs, memory, fd, buf, count)
             }
 
             SyscallCode::CycleCount => {
@@ -397,7 +404,7 @@ mod tests {
             .write_bytes(buf_addr, buf)
             .expect("Failed to write to memory");
         syscall_instruction
-            .execute_write(&emulator.data_memory, fd, buf_addr, buf_len as _)
+            .execute_write(&mut None, &emulator.data_memory, fd, buf_addr, buf_len as _)
             .expect("Failed to execute write syscall");
         syscall_instruction.write_back(&mut emulator.executor.cpu);
 
@@ -425,7 +432,7 @@ mod tests {
             .write_bytes(buf_addr, buf)
             .expect("Failed to write to memory");
         syscall_instruction
-            .execute_write(&emulator.data_memory, fd, buf_addr, buf_len as _)
+            .execute_write(&mut None, &emulator.data_memory, fd, buf_addr, buf_len as _)
             .expect("Failed to execute write syscall");
         syscall_instruction.write_back(&mut emulator.executor.cpu);
 

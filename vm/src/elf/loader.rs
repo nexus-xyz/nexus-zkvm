@@ -119,14 +119,12 @@ impl ElfFile {
         })
     }
 
-    pub fn from_path(file_path: &str) -> Result<Self, ParserError> {
-        let path = Path::new(file_path);
-        let file =
-            File::open(path).unwrap_or_else(|_| panic!("Failed to open file: {}", file_path));
+    pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, ParserError> {
+        let file = File::open(path)?;
         let data: Vec<u8> = std::io::Read::bytes(file)
             .map(|b| b.expect("Failed to read byte"))
             .collect();
-        ElfFile::from_bytes(data.as_slice())
+        Self::from_bytes(data.as_slice())
     }
 }
 

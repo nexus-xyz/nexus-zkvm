@@ -105,32 +105,35 @@
 //!
 //! ### Creating a Linear Emulator from a Harvard Emulator
 //!
-// ! ```rust
-// ! use nexus_vm::elf::ElfFile;
-// ! use nexus_vm::emulator::{HarvardEmulator, LinearEmulator};
-// ! use nexus_vm::emulator::Emulator;
-// ! use nexus_vm::error::VMError;
-// !
-// ! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
-// ! let harvard_emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
-// !
-// ! let associated_data = vec![0u8; 100];
-// ! let private_input = vec![0u8; 100];
-// !
-// ! let mut linear_emulator = LinearEmulator::from_harvard(
-// !     &harvard_emulator,
-// !     elf_file,
-// !     &associated_data,
-// !     &private_input
-// ! ).expect("Failed to create Linear Emulator from Harvard Emulator");
-// !
-// ! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
-// ! ```
+//! ```no_run
+//! use nexus_vm::elf::ElfFile;
+//! use nexus_vm::emulator::{HarvardEmulator, LinearEmulator};
+//! use nexus_vm::emulator::Emulator;
+//! use nexus_vm::error::VMError;
+//!
+//! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+//! let harvard_emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
+//!
+//! let associated_data = vec![0u8; 100];
+//! let private_input = vec![0u8; 100];
+//!
+//! let mut linear_emulator = LinearEmulator::from_harvard(
+//!     &harvard_emulator,
+//!     elf_file,
+//!     &associated_data,
+//!     &private_input
+//! ).expect("Failed to create Linear Emulator from Harvard Emulator");
+//!
+//! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
+//! ```
 //!
 //! This module provides a flexible and efficient implementation of RISC-V emulation,
 //! supporting both Harvard and Linear architectures, and offering features like
 //! basic block caching, custom instruction support, debug logging, and associated data handling.
-use super::{layout::LinearMemoryLayout, memory_stats::*, registry::InstructionExecutorRegistry};
+
+use super::{
+    layout::LinearMemoryLayout, memory_stats::*, registry::InstructionExecutorRegistry, *,
+};
 use crate::{
     cpu::{instructions::InstructionResult, Cpu},
     elf::ElfFile,
@@ -139,10 +142,7 @@ use crate::{
         FixedMemory, LoadOp, MemoryProcessor, MemoryRecords, Modes, StoreOp, UnifiedMemory,
         VariableMemory, NA, RO, RW, WO,
     },
-    riscv::{
-        decode_instruction, decode_until_end_of_a_block, BasicBlock, BuiltinOpcode, Instruction,
-        Opcode, Register,
-    },
+    riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode, Register},
     system::SyscallInstruction,
 };
 
@@ -158,101 +158,13 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
 };
 
-pub type MemoryTranscript = Vec<MemoryRecords>;
-
-// One entry per instruction because program memory is always accessed instruction-wise
-#[derive(Debug, Copy, Clone)]
-pub struct ProgramMemoryEntry {
-    pub pc: u32,
-    pub instruction_word: u32,
-}
-
-// One entry per byte because RO memory can be accessed bytewise
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct MemoryInitializationEntry {
-    pub address: u32,
-    pub value: u8,
-}
-
-// One entry per byte because WO memory can be accessed bytewise
-#[derive(Debug, Copy, Clone)]
-pub struct PublicOutputEntry {
-    pub address: u32,
-    pub value: u8,
-}
-
-#[derive(Debug, Clone)]
-pub struct ProgramInfo {
-    // The program counter where the execution starts
-    pub initial_pc: u32,
-    pub program: Vec<ProgramMemoryEntry>,
-}
-
-impl ProgramInfo {
-    pub fn dummy() -> Self {
-        Self {
-            initial_pc: 0,
-            program: vec![],
-        }
-    }
-}
-
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
-pub struct BasicBlockEntry {
-    pub start: u32,
-    pub end: u32,
-    pub block: BasicBlock,
-}
-
-impl BasicBlockEntry {
-    fn new(start: u32, block: BasicBlock) -> Self {
-        BasicBlockEntry {
-            start,
-            end: start + (block.len() * WORD_SIZE) as u32,
-            block,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct View {
-    #[allow(dead_code)]
-    memory_layout: Option<LinearMemoryLayout>,
-    program_memory: ProgramInfo,
-    initial_memory: Vec<MemoryInitializationEntry>,
-    exit_code: Vec<PublicOutputEntry>,
-    output_memory: Vec<PublicOutputEntry>,
-}
-
-impl View {
-    /// Return infomation about the program memory.
-    pub fn get_program_memory(&self) -> &ProgramInfo {
-        &self.program_memory
-    }
-
-    /// Return information about the public input, static ROM, and static RAM.
-    pub fn get_initial_memory(&self) -> &[MemoryInitializationEntry] {
-        &self.initial_memory
-    }
-
-    /// Return information about the public input.
-    pub fn get_public_output(&self) -> &[PublicOutputEntry] {
-        &self.output_memory
-    }
-
-    /// Return information about the exit code.
-    pub fn get_exit_code(&self) -> &[PublicOutputEntry] {
-        &self.exit_code
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct Executor {
     // The CPU
     pub cpu: Cpu,
 
     // Instruction Executor
-    instruction_executor: InstructionExecutorRegistry,
+    pub instruction_executor: InstructionExecutorRegistry,
 
     // The private input tape as a FIFO queue.
     pub private_input_tape: VecDeque<u8>,
@@ -276,6 +188,9 @@ pub struct Executor {
     // The cycles tracker: (name, (cycle_count, occurrence))
     pub cycle_tracker: HashMap<String, (usize, usize)>,
 
+    // Debug logs written by the guest program
+    pub logs: Option<Vec<Vec<u8>>>,
+
     // A map of memory addresses to the last timestamp when they were accessed
     pub access_timestamps: HashMap<u32, usize>,
 }
@@ -289,6 +204,17 @@ impl Executor {
     /// Set or overwrite private input into the private input tape
     fn set_private_input(&mut self, private_input: &[u8]) {
         self.private_input_tape = VecDeque::<u8>::from(private_input.to_vec());
+    }
+
+    /// Set whether to capture logs or print out.
+    pub(crate) fn capture_logs(&mut self, capture: bool) {
+        if capture && self.logs.is_none() {
+            self.logs = Some(Vec::new());
+        }
+
+        if !capture && self.logs.is_some() {
+            self.logs = None;
+        }
     }
 }
 
@@ -803,8 +729,15 @@ impl Emulator for HarvardEmulator {
                     value,
                 });
 
+        let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
+            self.get_executor().logs.clone().unwrap()
+        } else {
+            Vec::new()
+        };
+
         View {
             memory_layout: None,
+            debug_logs,
             program_memory: ProgramInfo {
                 initial_pc: self.executor.entrypoint,
                 program: self
@@ -825,6 +758,7 @@ impl Emulator for HarvardEmulator {
                 .collect(),
             exit_code,
             output_memory,
+            associated_data: Vec::new(),
         }
     }
 }
@@ -878,25 +812,7 @@ impl LinearEmulator {
             .instructions
             .iter()
             .map(|instr| {
-                let mut decoded_ins = decode_instruction(*instr);
-
-                if emulator_harvard
-                    .executor
-                    .instruction_executor
-                    .is_read_input(&decoded_ins.opcode)
-                {
-                    decoded_ins.opcode = Opcode::from(BuiltinOpcode::LW);
-                    decoded_ins.encode()
-                } else if emulator_harvard
-                    .executor
-                    .instruction_executor
-                    .is_write_output(&decoded_ins.opcode)
-                {
-                    decoded_ins.opcode = Opcode::from(BuiltinOpcode::SW);
-                    decoded_ins.encode()
-                } else {
-                    *instr
-                }
+                super::convert_instruction(&emulator_harvard.executor.instruction_executor, instr)
             })
             .collect();
 
@@ -1058,7 +974,7 @@ impl LinearEmulator {
                 8,
                 &[
                     memory_layout.public_input_start(),
-                    memory_layout.exit_code(), // The exit code is the first word of the output
+                    memory_layout.exit_code(), // the exit code is the first word of the output
                 ],
             ))
             .unwrap();
@@ -1292,9 +1208,27 @@ impl Emulator for LinearEmulator {
                 value: *byte,
             });
 
+        let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
+            self.get_executor().logs.clone().unwrap()
+        } else {
+            Vec::new()
+        };
+
+        let associated_data: Vec<u8> = self
+            .memory
+            .segment_bytes(
+                (Modes::NA as usize, 0),
+                self.memory_layout.ad_start(),
+                Some(self.memory_layout.ad_end()),
+            )
+            .unwrap_or_default();
+
         View {
             memory_layout: Some(self.memory_layout),
+            debug_logs,
             program_memory: ProgramInfo {
+                // todo: this likely isn't robust, we need to rely on elf.entry,
+                //       but it seems to be working with the current runtime
                 initial_pc: self.memory_layout.program_start(),
                 program: self
                     .memory
@@ -1320,6 +1254,7 @@ impl Emulator for LinearEmulator {
                 .collect(),
             exit_code,
             output_memory,
+            associated_data,
         }
     }
 }

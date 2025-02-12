@@ -1,0 +1,21 @@
+[package]
+name = "example_legacy"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+nexus-rt = { package = "nexus-rt", git = "https://github.com/nexus-xyz/nexus-zkvm", branch = "releases/0.2.4" }
+
+[lints.clippy]
+print_with_newline = { level = "allow", priority = 0 }
+needless_range_loop = { level = "allow", priority = 0 }
+manual_memcpy = { level = "allow", priority = 0 }
+
+[features]
+cycles = []

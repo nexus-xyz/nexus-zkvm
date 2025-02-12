@@ -57,9 +57,8 @@ mod layout;
 mod memory_stats;
 mod registry;
 
-pub use executor::{
-    BasicBlockEntry, Emulator, Executor, HarvardEmulator, LinearEmulator,
-    MemoryInitializationEntry, MemoryTranscript, ProgramInfo, ProgramMemoryEntry,
-    PublicOutputEntry, View,
-};
+pub use executor::{Emulator, Executor, HarvardEmulator, LinearEmulator};
 pub use layout::LinearMemoryLayout;
+
+mod utils;
+pub use utils::*;

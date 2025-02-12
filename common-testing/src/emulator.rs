@@ -2,11 +2,11 @@ use nexus_common::constants::WORD_SIZE;
 use nexus_common::cpu::InstructionResult;
 
 use nexus_vm::elf::ElfFile;
-use nexus_vm::emulator::Emulator;
 use nexus_vm::emulator::MemoryTranscript;
+use nexus_vm::emulator::{Emulator, InternalView};
 use nexus_vm::emulator::{HarvardEmulator, LinearEmulator, LinearMemoryLayout};
 use nexus_vm::error::Result;
-use postcard::from_bytes;
+use postcard::from_bytes_cobs;
 use serde::{de::DeserializeOwned, Serialize};
 
 use std::{path::PathBuf, process::Command};
@@ -76,7 +76,7 @@ impl<T: Input, U: Input, V: Output> IOArgs<T, U, V> {
 /// Parse the output bytes as exit code and output.
 pub fn parse_output<T: DeserializeOwned>(
     exit_code: Vec<u8>,
-    output: Vec<u8>,
+    mut output: Vec<u8>,
 ) -> Result<(u32, Option<T>), postcard::Error> {
     // The first 4 bytes store the exit code.
     assert_eq!(exit_code.len(), WORD_SIZE);
@@ -90,7 +90,7 @@ pub fn parse_output<T: DeserializeOwned>(
         Ok((exit_code, None))
     } else {
         // Deserialize the rest as the output.
-        let output: T = from_bytes(&output).expect("Deserialization failed");
+        let output: T = from_bytes_cobs(&mut output).expect("Deserialization failed");
         Ok((exit_code, Some(output)))
     }
 }

@@ -142,14 +142,7 @@ pub fn run_benchmark<T>(
 
     // Measure verification.
     let (start_time, initial_self, initial_children) = phase_start();
-    verify(
-        proof,
-        view.get_program_memory(),
-        view.get_initial_memory(),
-        view.get_exit_code(),
-        view.get_public_output(),
-    )
-    .unwrap();
+    verify(proof, &view).unwrap();
     let (
         verification_duration,
         verification_user_time,

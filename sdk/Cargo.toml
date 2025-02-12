@@ -1,0 +1,37 @@
+[package]
+name = "nexus-sdk"
+authors = { workspace = true }
+version = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+publish = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+serde.workspace = true
+
+nexus-core = { path = "../core" }
+nexus-sdk-macros = { path = "./macros" }
+
+nexus-core-legacy = { package = "nexus-core", git = "https://github.com/nexus-xyz/nexus-zkvm", branch = "releases/0.2.4", features = ["prover_nova", "prover_hypernova", "prover_jolt"], optional = true }
+ark-serialize = { version = "0.5.0", optional = true }
+
+postcard = { version = "1.0.10", features = ["alloc", "use-std"], default-features = false }
+uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
+thiserror = "1.0.61"
+crypto = { version = "0.5.1", features = ["digest"] }
+crypto-common = "0.1.6"
+
+[dev-dependencies]
+nexus-profiler = { path = "./macros/profiler" }
+
+[features]
+legacy = ["dep:ark-serialize", "dep:nexus-core-legacy"]
+legacy-nova = ["legacy"]
+legacy-hypernova = ["legacy"]
+legacy-jolt = ["legacy"]
+
+[lib]
+doctest = false

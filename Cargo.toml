@@ -7,9 +7,12 @@ members = [
     "precompiles",
     "common",
     "core",
+    "sdk",
     "examples",
+    "examples/legacy",
     "tests/testing-framework",
     "benchmarks",
+    "cli",
 ]
 default-members = ["runtime", "prover", "vm", "precompiles", "common", "core"]
 exclude = ["prover-benches"]

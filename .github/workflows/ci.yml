@@ -52,8 +52,9 @@ jobs:
 
       - name: Run `cargo check`
         run: |
-          cargo check --all-features --all-targets --workspace
-          cargo check --all-features --examples --workspace
+          cargo check --all-features --all-targets --workspace --exclude example
+          cargo check --all-features --all-targets --examples --workspace --exclude example
+          cargo check --package example --target riscv32i-unknown-none-elf
           cd prover-benches && cargo check --benches --workspace
 
       - name: Run `cargo clippy`
