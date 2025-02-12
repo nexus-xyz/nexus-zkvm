@@ -157,18 +157,23 @@ fn public_input_native() -> Result<u32, String> {
     use std::io::{self, BufRead};
     let stdin = io::stdin();
     let mut lines = stdin.lock().lines();
-    
-    let line = lines.next()
+
+    let line = lines
+        .next()
         .ok_or("No input provided")?
         .map_err(|e| format!("Failed to read line: {}", e))?;
-    
-    line.trim().parse()
+
+    line.trim()
+        .parse()
         .map_err(|e| format!("Failed to parse input as u32: {}", e))
 }
 
 #[nexus_rt::main]
 #[cfg_attr(target_arch = "riscv32", nexus_rt::public_input(x))]
-#[cfg_attr(not(target_arch = "riscv32"), nexus_rt::custom_input(x,public_input_native))]
+#[cfg_attr(
+    not(target_arch = "riscv32"),
+    nexus_rt::custom_input(x, public_input_native)
+)]
 fn main(x: u32) {
     let mut input: &[u8] = b"Hello, World!";
     let mut result: Vec<u8> = Vec::new();

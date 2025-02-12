@@ -13,7 +13,7 @@ use test::Bencher;
 fn test_benchmark_fib_simple() {
     let results_file = get_timestamped_filename("benchmark_results");
     run_benchmark::<u32>(
-        "../examples/src/fib",
+        "../examples/src/bin/fib",
         "-C opt-level=3",
         EmulatorType::TwoPass,
         Vec::new(),
@@ -31,7 +31,7 @@ fn test_benchmark_fib_powers() {
     for input in inputs {
         let public_input_bytes = to_allocvec(&input).unwrap();
         run_benchmark::<u32>(
-            "../examples/src/fib_input",
+            "../examples/src/bin/fib_input",
             "-C opt-level=3",
             EmulatorType::TwoPass,
             public_input_bytes,
@@ -50,7 +50,7 @@ fn test_benchmark_keccak_powers() {
     for input in inputs {
         let public_input_bytes = to_allocvec(&input).unwrap();
         run_benchmark::<u32>(
-            "../examples/src/keccak_input",
+            "../examples/src/bin/keccak_input",
             "-C opt-level=3",
             EmulatorType::TwoPass,
             public_input_bytes,
@@ -66,7 +66,7 @@ fn bench_harvard_fib1000(b: &mut Bencher) {
     let results_file = get_timestamped_filename("benchmark_results");
     b.iter(|| {
         run_benchmark::<u32>(
-            "../../examples/src/fib1000",
+            "../examples/src/bin/fib1000",
             "-C opt-level=3",
             EmulatorType::Harvard,
             Vec::new(),
@@ -82,7 +82,7 @@ fn bench_linear_fib1000(b: &mut Bencher) {
     let results_file = get_timestamped_filename("benchmark_results");
     b.iter(|| {
         run_benchmark::<u32>(
-            "../../examples/src/fib1000",
+            "../examples/src/bin/fib1000",
             "-C opt-level=3",
             EmulatorType::default_linear(),
             Vec::new(),
@@ -98,7 +98,7 @@ fn bench_twopass_fib1000(b: &mut Bencher) {
     let results_file = get_timestamped_filename("benchmark_results");
     b.iter(|| {
         run_benchmark::<u32>(
-            "../../examples/src/fib1000",
+            "../examples/src/bin/fib1000",
             "-C opt-level=3",
             EmulatorType::TwoPass,
             Vec::new(),
