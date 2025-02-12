@@ -69,3 +69,22 @@ function directly. The fourth line brings the nexux-rt
 
 To see more, such as how to introduce program i/o, precompiles,
 and native compilation support, check out our [documentation](docs.nexus.xyz).
+
+## Crate Overview
+#### Execution flow
+- When a guest program is connected to the nexus runtime (by using the `#[nexus_rt::main]` macro), `asm.S` serves as the entry point, and will be the first instructions executed before moving on to the main rust function (via `start_rust` in `runtime.rs`).
+
+#### Guest I/O
+- All guest program I/O is handled at the RISC-V level with custom instructions. To see the definitions, refer to the associated macros in `src/lib.rs`.
+- The addresses 0x80 and 0x84 will be prefilled with the start locations of input and output memory. From the runtime's perspective, reading an input only requires the index within the input to fetch from, without needing knowledge of where the input is located relative to the rest of the memory space. The same is true for outputs.
+- When a program terminates, it will write the exit code to the end of the public output.
+
+#### Memory
+- The memory starting memory layout is specified by the linker script at `linker-scripts/default.x`.
+- All memory allocations are handled by `alloc.rs`. In the future there may be a deallocator if the extra instructions required to implement it are outweighed by the space saved in terms of impact on prover performance.
+
+#### Runtime macros
+- `#[nexus_rt::main]` transforms the main body of a rust function to make the development process simpler and more intuitive. In this way, at surface level the main function will take inputs and return outputs as defined in the function signature (Ex: `fn main(x: u32) -> u32`). Under the hood, the guest program I/O memory interactions will happen via `read_public_input`, `read_private_input`, and `write_public_output` in `src/io.rs`.
+- By default all I/O will be treated as public I/O. To create a private input `x`, define the variable in the main function signature, and use the macro `[nexus_rt::private_input(x)]`.
+- The guest program development workflow allows for simultaneous multi-target compatibility. In order for this to work, every input and output variable must have a corresponding native handler (since native running has no concept of guest program memory). The macros for this are `[nexus_rt::custom_input]` and `[nexus_rt::custom_output]`.
+- All of these definitions can be found in `macros/`. For additional examples and understanding, refer to `macros/macro_expansion_tests/tests`. Note that macros expand differently depending on the target (native vs RISC-V).
