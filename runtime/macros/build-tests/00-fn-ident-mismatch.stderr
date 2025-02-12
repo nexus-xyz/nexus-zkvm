@@ -1,5 +1,0 @@
-error: function name must be `main`
- --> build-tests/00-fn-ident-mismatch.rs:5:8
-  |
-5 |     fn foo() {}
-  |        ^^^
