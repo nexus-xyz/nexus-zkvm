@@ -388,6 +388,18 @@ mod test {
 
     #[test]
     #[serial]
+    // Test that even if a program panics during the execution, the proof still verifies.
+    // In this way, it is possible to prove that a program panics.
+    fn test_prove_fail() {
+        let elfs = compile_multi("examples/src/bin/fail", &["-C opt-level=3"], &HOME_PATH);
+        let (view, execution_trace) =
+            k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(proof, &view).unwrap();
+    }
+
+    #[test]
+    #[serial]
     #[ignore]
     fn test_examples_all_opt_levels() {
         let emulators = vec![
