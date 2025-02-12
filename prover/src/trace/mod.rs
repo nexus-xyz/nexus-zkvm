@@ -6,6 +6,7 @@ pub mod regs;
 pub mod sidenote;
 pub mod trace_builder;
 pub mod utils;
+pub mod utils_external;
 
 pub use preprocessed::PreprocessedTraces;
 pub use program::{BoolWord, ProgramStep, Word, WordWithEffectiveBits};

@@ -1,14 +1,17 @@
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use stwo_prover::core::{
     backend::simd::{column::BaseColumn, SimdBackend},
-    fields::{m31::BaseField, Field},
+    fields::m31::BaseField,
 };
 
 use nexus_vm::WORD_SIZE;
 
 pub use stwo_prover::core::backend::ColumnOps;
 
-use super::program::{Word, WordWithEffectiveBits};
+use super::{
+    program::{Word, WordWithEffectiveBits},
+    utils_external::coset_order_to_circle_domain_order,
+};
 
 /// Trait for BaseField representation
 pub(crate) trait IntoBaseFields<const N: usize> {
@@ -80,24 +83,6 @@ impl FromBaseFields<WORD_SIZE> for u32 {
         let bytes = Word::from_base_fields(elms);
         u32::from_le_bytes(bytes)
     }
-}
-
-// TODO: patch upstream to make it public and remove / or use pub methods from tests.
-pub fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {
-    let mut ret = Vec::with_capacity(values.len());
-    let n = values.len();
-    let half_len = n / 2;
-
-    (0..half_len)
-        .into_par_iter()
-        .map(|i| values[i << 1])
-        .chain(
-            (0..half_len)
-                .into_par_iter()
-                .map(|i| values[n - 1 - (i << 1)]),
-        )
-        .collect_into_vec(&mut ret);
-    ret
 }
 
 pub fn finalize_columns(columns: Vec<Vec<BaseField>>) -> Vec<BaseColumn> {
