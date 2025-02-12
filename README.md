@@ -15,6 +15,6 @@
   </p>
 </p>
 
-Built with [Stwo](https://github.com/starkware-libs/stwo) by [StarkWare](https://starkware.co/blog/starkware-new-proving-record/).
+Built with [Stwo](https://github.com/starkware-libs/stwo) by [StarkWare](https://starkware.co/blog/starkware-new-proving-record/). Review the specification [here](./specification/zkvm-spec-3.0-draft.pdf).
 
 *The Nexus zkVM is in an experimental stage and is not currently recommended for production use.*
