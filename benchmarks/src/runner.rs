@@ -63,8 +63,8 @@ where
             .expect("Failed to spawn process");
 
         // Pipe in input as stdin.
-        let input: T =
-            postcard::from_bytes(public_input_bytes).expect("Failed to deserialize input");
+        let input: T = postcard::from_bytes_cobs(&mut public_input_bytes.to_owned())
+            .expect("Failed to deserialize input");
         let input_str = format!("{}\n", input);
         if let Some(mut stdin) = child.stdin.take() {
             use std::io::Write;

@@ -5,7 +5,7 @@ extern crate test;
 
 use nexus_benchmarks::{runner::run_benchmark, utils::get_timestamped_filename};
 use nexus_common_testing::emulator::EmulatorType;
-use postcard::to_allocvec;
+use postcard::to_allocvec_cobs;
 use test::Bencher;
 
 #[test]
@@ -28,8 +28,8 @@ fn test_benchmark_fib_powers() {
     // Inputs corresponding to step count powers of 2 from 2^12 to 2^19.
     let inputs = vec![6, 16, 37, 77, 121, 262, 489, 999];
     let results_file = get_timestamped_filename("fib_powers");
-    for input in inputs {
-        let public_input_bytes = to_allocvec(&input).unwrap();
+    for mut input in inputs {
+        let public_input_bytes = to_allocvec_cobs(&mut input).unwrap();
         run_benchmark::<u32>(
             "../examples/src/bin/fib_input",
             "-C opt-level=3",
@@ -47,8 +47,8 @@ fn test_benchmark_keccak_powers() {
     // Inputs corresponding to step count powers of 2 from 2^15 to 2^19.
     let inputs = vec![0, 1, 3, 7, 15];
     let results_file = get_timestamped_filename("keccak_powers");
-    for input in inputs {
-        let public_input_bytes = to_allocvec(&input).unwrap();
+    for mut input in inputs {
+        let public_input_bytes = to_allocvec_cobs(&mut input).unwrap();
         run_benchmark::<u32>(
             "../examples/src/bin/keccak_input",
             "-C opt-level=3",
