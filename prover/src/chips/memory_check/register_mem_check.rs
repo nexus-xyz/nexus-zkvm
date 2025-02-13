@@ -12,9 +12,9 @@ use stwo_prover::{
 use crate::{
     column::{
         Column::{
-            self, FinalRegTs, FinalRegValue, Reg1Accessed, Reg1Address, Reg1TsPrev, Reg1ValPrev,
-            Reg2Accessed, Reg2Address, Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address,
-            Reg3TsPrev, Reg3ValPrev, ValueA, ValueAEffective, ValueAEffectiveFlag, ValueB, ValueC,
+            self, FinalRegTs, FinalRegValue, Reg1Address, Reg1TsPrev, Reg1ValPrev, Reg2Address,
+            Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address, Reg3TsPrev, Reg3ValPrev, ValueA,
+            ValueAEffective, ValueAEffectiveFlag, ValueB, ValueC,
         },
         PreprocessedColumn,
     },
@@ -28,6 +28,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
+    virtual_column::{self, IsTypeR, OpBFlag, Reg3AccessedVirtual, VirtualColumn},
 };
 
 /// A Chip for register memory checking
@@ -70,8 +71,8 @@ impl MachineChip for RegisterMemCheckChip {
         let reg3_cur_ts = clk * 3 + 3;
 
         // Read inputs to the chip
-        let reg1_accessed: [BaseField; 1] = traces.column(row_idx, Reg1Accessed);
-        let reg2_accessed: [BaseField; 1] = traces.column(row_idx, Reg2Accessed);
+        let reg1_accessed = virtual_column::OpBFlag::read_from_traces_builder(traces, row_idx);
+        let reg2_accessed = virtual_column::IsTypeR::read_from_traces_builder(traces, row_idx);
         let reg3_accessed: [BaseField; 1] = traces.column(row_idx, Reg3Accessed);
         let reg1_address: [BaseField; 1] = traces.column(row_idx, Reg1Address);
         let reg2_address: [BaseField; 1] = traces.column(row_idx, Reg2Address);
@@ -158,29 +159,32 @@ impl MachineChip for RegisterMemCheckChip {
         Self::constrain_add_initial_reg(eval, trace_eval, lookup_elements);
 
         // Subtract previous register info
+        let [reg1_accessed] = virtual_column::OpBFlag::eval(trace_eval);
         Self::constrain_subtract_prev_reg(
             eval,
             trace_eval,
             lookup_elements,
-            Reg1Accessed,
+            reg1_accessed.clone(),
             Reg1Address,
             Reg1TsPrev,
             Reg1ValPrev,
         );
+        let [reg2_accessed] = virtual_column::IsTypeR::eval(trace_eval);
         Self::constrain_subtract_prev_reg(
             eval,
             trace_eval,
             lookup_elements,
-            Reg2Accessed,
+            reg2_accessed.clone(),
             Reg2Address,
             Reg2TsPrev,
             Reg2ValPrev,
         );
+        let [reg3_accessed] = trace_eval!(trace_eval, Column::Reg3Accessed);
         Self::constrain_subtract_prev_reg(
             eval,
             trace_eval,
             lookup_elements,
-            Reg3Accessed,
+            reg3_accessed.clone(),
             Reg3Address,
             Reg3TsPrev,
             Reg3ValPrev,
@@ -191,7 +195,7 @@ impl MachineChip for RegisterMemCheckChip {
             eval,
             trace_eval,
             lookup_elements,
-            Reg1Accessed,
+            reg1_accessed,
             Reg1Address,
             PreprocessedColumn::Reg1TsCur,
             ValueB,
@@ -200,7 +204,7 @@ impl MachineChip for RegisterMemCheckChip {
             eval,
             trace_eval,
             lookup_elements,
-            Reg2Accessed,
+            reg2_accessed,
             Reg2Address,
             PreprocessedColumn::Reg2TsCur,
             ValueC,
@@ -209,7 +213,7 @@ impl MachineChip for RegisterMemCheckChip {
             eval,
             trace_eval,
             lookup_elements,
-            Reg3Accessed,
+            reg3_accessed,
             Reg3Address,
             PreprocessedColumn::Reg3TsCur,
             ValueAEffective,
@@ -224,8 +228,8 @@ impl MachineChip for RegisterMemCheckChip {
         // ValueB and ValueC are only used for reading from the registers, so they should not change the previous values.
         let reg1_val_prev = trace_eval!(trace_eval, Column::Reg1ValPrev);
         let reg2_val_prev = trace_eval!(trace_eval, Column::Reg2ValPrev);
-        let [reg1_accessed] = trace_eval!(trace_eval, Column::Reg1Accessed);
-        let [reg2_accessed] = trace_eval!(trace_eval, Column::Reg2Accessed);
+        let [reg1_accessed] = virtual_column::OpBFlag::eval(trace_eval);
+        let [reg2_accessed] = virtual_column::IsTypeR::eval(trace_eval);
         let value_b = trace_eval!(trace_eval, Column::ValueB);
         let value_c = trace_eval!(trace_eval, Column::ValueC);
         let [is_add] = trace_eval!(trace_eval, Column::IsAdd);
@@ -275,61 +279,55 @@ impl MachineChip for RegisterMemCheckChip {
         );
 
         // Subtract previous register info
-        Self::subtract_prev_reg(
+        Self::subtract_prev_reg::<OpBFlag>(
             logup_trace_gen,
             original_traces,
             lookup_element,
-            Reg1Accessed,
             Reg1Address,
             Reg1TsPrev,
             Reg1ValPrev,
         );
-        Self::subtract_prev_reg(
+        Self::subtract_prev_reg::<IsTypeR>(
             logup_trace_gen,
             original_traces,
             lookup_element,
-            Reg2Accessed,
             Reg2Address,
             Reg2TsPrev,
             Reg2ValPrev,
         );
-        Self::subtract_prev_reg(
+        Self::subtract_prev_reg::<Reg3AccessedVirtual>(
             logup_trace_gen,
             original_traces,
             lookup_element,
-            Reg3Accessed,
             Reg3Address,
             Reg3TsPrev,
             Reg3ValPrev,
         );
 
         // Add current register info
-        Self::add_cur_reg(
+        Self::add_cur_reg::<OpBFlag>(
             logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
-            Reg1Accessed,
             Reg1Address,
             PreprocessedColumn::Reg1TsCur,
             ValueB,
         );
-        Self::add_cur_reg(
+        Self::add_cur_reg::<IsTypeR>(
             logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
-            Reg2Accessed,
             Reg2Address,
             PreprocessedColumn::Reg2TsCur,
             ValueC,
         );
-        Self::add_cur_reg(
+        Self::add_cur_reg::<Reg3AccessedVirtual>(
             logup_trace_gen,
             original_traces,
             preprocessed_trace,
             lookup_element,
-            Reg3Accessed,
             Reg3Address,
             PreprocessedColumn::Reg3TsCur,
             ValueAEffective,
@@ -433,17 +431,15 @@ impl RegisterMemCheckChip {
             &tuple,
         ));
     }
-    fn subtract_prev_reg(
+    fn subtract_prev_reg<AccessFlag: VirtualColumn<1>>(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         lookup_element: &RegisterCheckLookupElements,
-        accessed: Column,
         reg_address: Column,
         prev_ts: Column,
         prev_value: Column,
     ) {
         let mut logup_col_gen = logup_trace_gen.new_col();
-        let [reg_accessed] = original_traces.get_base_column(accessed);
         let [reg_idx] = original_traces.get_base_column(reg_address);
         let reg_prev_ts: [_; WORD_SIZE] = original_traces.get_base_column(prev_ts);
         let reg_prev_value: [_; WORD_SIZE] = original_traces.get_base_column(prev_value);
@@ -454,7 +450,7 @@ impl RegisterMemCheckChip {
             }
             assert_eq!(tuple.len(), Self::TUPLE_SIZE);
             let denom = lookup_element.combine(tuple.as_slice());
-            let numerator = -reg_accessed.data[vec_row];
+            let numerator = -(AccessFlag::read_from_finalized_traces(original_traces, vec_row)[0]);
             logup_col_gen.write_frac(vec_row, numerator.into(), denom);
         }
         logup_col_gen.finalize_col();
@@ -464,12 +460,11 @@ impl RegisterMemCheckChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &RegisterCheckLookupElements,
-        accessed: Column,
+        reg_accessed: E::F,
         reg_address: Column,
         prev_ts: Column,
         prev_value: Column,
     ) {
-        let [reg_accessed] = trace_eval.column_eval(accessed);
         let [reg_idx] = trace_eval.column_eval(reg_address);
         let reg_prev_ts = trace_eval.column_eval::<WORD_SIZE>(prev_ts);
         let reg_prev_value = trace_eval.column_eval::<WORD_SIZE>(prev_value);
@@ -487,18 +482,16 @@ impl RegisterMemCheckChip {
         ));
     }
 
-    fn add_cur_reg(
+    fn add_cur_reg<AccessFlag: VirtualColumn<1>>(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
         lookup_element: &RegisterCheckLookupElements,
-        accessed: Column,
         reg_address: Column,
         cur_ts: PreprocessedColumn,
         cur_value: Column,
     ) {
         let mut logup_col_gen = logup_trace_gen.new_col();
-        let [reg_accessed] = original_traces.get_base_column(accessed);
         let [reg_idx] = original_traces.get_base_column(reg_address);
         let reg_cur_ts: [_; WORD_SIZE] = preprocessed_trace.get_preprocessed_base_column(cur_ts);
         let reg_cur_value: [_; WORD_SIZE] = original_traces.get_base_column(cur_value);
@@ -509,7 +502,7 @@ impl RegisterMemCheckChip {
             }
             assert_eq!(tuple.len(), Self::TUPLE_SIZE);
             let denom = lookup_element.combine(tuple.as_slice());
-            let numerator = reg_accessed.data[vec_row];
+            let [numerator] = AccessFlag::read_from_finalized_traces(original_traces, vec_row);
             logup_col_gen.write_frac(vec_row, numerator.into(), denom);
         }
         logup_col_gen.finalize_col();
@@ -519,12 +512,11 @@ impl RegisterMemCheckChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &RegisterCheckLookupElements,
-        accessed: Column,
+        reg_accessed: E::F,
         reg_address: Column,
         cur_ts: PreprocessedColumn,
         cur_value: Column,
     ) {
-        let [reg_accessed] = trace_eval.column_eval(accessed);
         let [reg_idx] = trace_eval.column_eval(reg_address);
         let reg_cur_ts = trace_eval.preprocessed_column_eval::<WORD_SIZE>(cur_ts);
         let reg_cur_value = trace_eval.column_eval::<WORD_SIZE>(cur_value);

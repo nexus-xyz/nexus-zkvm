@@ -10,7 +10,7 @@ use crate::{
     column::Column::{
         self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsEbreak,
         IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh, IsSll,
-        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
+        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor, Reg3Accessed,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -325,5 +325,33 @@ impl VirtualColumn<1> for IsPcIncremented {
         let [is_type_u] = IsTypeU::eval(trace_eval);
         let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
         [ret]
+    }
+}
+
+/// op-b-flag indicates whether or not the instruction's second operand (op-b) is a register index.
+///
+/// The definition of op-b-flag follows:
+/// (is-sb + is-sh + is-sw + is-lb + is-lh + is-lw + is-lbu + is-lhu + is-jalr + is-add + is-sub + is-slt + is-sltu
+/// + is-xor + is-or + is-and + is-sll + is-srl + is-sra+ is-beq + is-bne + is-blt + is-bge + is-bltu
+/// + is-bgeu + is-ecall + is-ebreak − op-b-flag) = 0
+///
+/// op-b-flag controls whether Reg1Address is used.
+pub(crate) struct OpBFlag;
+
+impl VirtualColumnForSum for OpBFlag {
+    fn columns() -> &'static [Column] {
+        &[
+            IsSb, IsSh, IsSw, IsLb, IsLh, IsLw, IsLbu, IsLhu, IsJalr, IsAdd, IsSub, IsSlt, IsSltu,
+            IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsBeq, IsBne, IsBlt, IsBge, IsBltu, IsBgeu,
+            IsEcall, IsEbreak,
+        ]
+    }
+}
+
+pub(crate) struct Reg3AccessedVirtual;
+
+impl VirtualColumnForSum for Reg3AccessedVirtual {
+    fn columns() -> &'static [Column] {
+        &[Reg3Accessed]
     }
 }

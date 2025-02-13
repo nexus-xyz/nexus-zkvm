@@ -249,15 +249,15 @@ impl MachineChip for CpuChip {
         // We use Reg3 for the destination because Reg{1,2,3} have to be accessed in this order.
         match vm_step.step.instruction.ins_type {
             RType => {
-                traces.fill_columns(row_idx, true, Reg1Accessed);
+                // Reg1Accessed has been replaced with virtual column OpBFlag
                 traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
-                traces.fill_columns(row_idx, true, Reg2Accessed);
+                // Reg2Accessed has been replaced with virtual column IsTypeR
                 traces.fill_columns(row_idx, vm_step.step.instruction.op_c as u8, Reg2Address);
                 traces.fill_columns(row_idx, true, Reg3Accessed);
                 traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
             }
             IType | ITypeShamt => {
-                traces.fill_columns(row_idx, true, Reg1Accessed);
+                // Reg1Accessed has been replaced with virtual column OpBFlag
                 traces.fill_columns(row_idx, vm_step.get_op_b() as u8, Reg1Address);
                 // Special case to handle ECALL, this work, but we must take care memory checking
                 let syscall_code = vm_step.get_syscall_code();
@@ -280,7 +280,7 @@ impl MachineChip for CpuChip {
                 traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
             }
             BType | SType => {
-                traces.fill_columns(row_idx, true, Reg1Accessed);
+                // Reg1Accessed has been replaced with virtual column OpBFlag
                 traces.fill_columns(row_idx, vm_step.step.instruction.op_b as u8, Reg1Address);
                 traces.fill_columns(row_idx, true, Reg3Accessed);
                 traces.fill_columns(row_idx, vm_step.step.instruction.op_a as u8, Reg3Address);
@@ -313,11 +313,8 @@ impl MachineChip for CpuChip {
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         // Padding rows should not access registers
         let [next_is_padding] = trace_eval_next_row!(trace_eval, Column::IsPadding);
-        let [reg1_accessed] = trace_eval!(trace_eval, Column::Reg1Accessed);
-        let [reg2_accessed] = trace_eval!(trace_eval, Column::Reg2Accessed);
+        let [reg1_accessed] = virtual_column::OpBFlag::eval(trace_eval);
         let [reg3_accessed] = trace_eval!(trace_eval, Column::Reg3Accessed);
-        eval.add_constraint(is_padding.clone() * reg1_accessed.clone());
-        eval.add_constraint(is_padding.clone() * reg2_accessed.clone());
         eval.add_constraint(is_padding.clone() * reg3_accessed.clone());
 
         // Padding cannot go from 1 to zero, unless the current line is the first
@@ -426,14 +423,7 @@ impl MachineChip for CpuChip {
         let is_type_i = is_load + is_alu_imm_no_shift + is_jalr; // TODO: Add more flags when they are available
 
         // Constrain Reg{1,2,3}Accessed for type R and type I instructions
-        let [reg1_accessed] = trace_eval!(trace_eval, Reg1Accessed);
-        let [reg2_accessed] = trace_eval!(trace_eval, Reg2Accessed);
         let [reg3_accessed] = trace_eval!(trace_eval, Reg3Accessed);
-        eval.add_constraint(
-            (is_type_r.clone() + is_type_i.clone()) * (E::F::one() - reg1_accessed.clone()),
-        );
-        eval.add_constraint(is_type_i.clone() * reg2_accessed.clone());
-        eval.add_constraint(is_type_r.clone() * (E::F::one() - reg2_accessed.clone()));
         eval.add_constraint(
             (is_type_r.clone() + is_type_i.clone()) * (E::F::one() - reg3_accessed.clone()),
         );
@@ -478,7 +468,6 @@ impl MachineChip for CpuChip {
 
         // Constrain reg{1,2,3}_accessed for type B and type S instructions
         eval.add_constraint((is_type_b_s.clone()) * (E::F::one() - reg1_accessed.clone()));
-        eval.add_constraint(is_type_b_s.clone() * reg2_accessed.clone());
         eval.add_constraint((is_type_b_s.clone()) * (E::F::one() - reg3_accessed.clone()));
 
         // Constraint reg{1,2,3}_address uniquely for type B and type S instructions
@@ -503,13 +492,11 @@ impl MachineChip for CpuChip {
 
         // Constrain only reg{3} is accessed for type J
         eval.add_constraint(is_type_j.clone() * reg1_accessed.clone());
-        eval.add_constraint(is_type_j.clone() * reg2_accessed.clone());
         eval.add_constraint((is_type_j.clone()) * (E::F::one() - reg3_accessed.clone()));
 
         // Enforcing register memory access flags for type U
         let is_type_u = is_lui + is_auipc;
         eval.add_constraint(is_type_u.clone() * reg1_accessed.clone());
-        eval.add_constraint(is_type_u.clone() * reg2_accessed.clone());
         eval.add_constraint(is_type_u.clone() * (E::F::one() - reg3_accessed.clone()));
 
         // Enforcing register memory access flags
@@ -525,7 +512,6 @@ impl MachineChip for CpuChip {
         let [is_sys_stack_reset] = trace_eval!(trace_eval, Column::IsSysStackReset);
         let [is_sys_heap_reset] = trace_eval!(trace_eval, Column::IsSysHeapReset);
         eval.add_constraint(is_type_sys.clone() * (reg1_accessed - E::F::one()));
-        eval.add_constraint(is_type_sys.clone() * reg2_accessed);
         eval.add_constraint(
             is_type_sys.clone()
                 * (is_sys_debug.clone() + is_sys_halt.clone() + is_sys_cycle_count.clone())
