@@ -23,7 +23,7 @@ pub struct ProgramMemCheckSideNote {
 pub struct ReadWriteMemCheckSideNote {
     /// u32 is the access counter, u8 is the value of the byte
     pub(crate) last_access: BTreeMap<u32, (u32, u8)>,
-    /// Public output
+    /// Public output with the exit code.
     pub(crate) public_output: BTreeMap<u32, u8>,
 }
 
@@ -35,16 +35,22 @@ impl ReadWriteMemCheckSideNote {
     pub fn new(
         init_memory: &[MemoryInitializationEntry],
         public_output: &[PublicOutputEntry],
+        exit_code: &[PublicOutputEntry],
     ) -> Self {
         let mut ret: Self = Default::default();
         for MemoryInitializationEntry { address, value } in init_memory {
             let old = ret.last_access.insert(*address, (0, *value));
             assert!(old.is_none(), "Duplicate memory initialization entry");
         }
-        let public_output = public_output
+        let mut public_output: BTreeMap<u32, u8> = public_output
             .iter()
             .map(|PublicOutputEntry { address, value }| (*address, *value))
             .collect();
+        for PublicOutputEntry { address, value } in exit_code {
+            if let Some(val) = public_output.insert(*address, *value) {
+                panic!("exit code overlaps with public output at address={address} value={val}")
+            }
+        }
         ret.public_output = public_output;
         ret
     }
@@ -87,6 +93,7 @@ impl SideNote {
             rw_mem_check: ReadWriteMemCheckSideNote::new(
                 view.get_initial_memory(),
                 view.get_public_output(),
+                view.get_exit_code(),
             ),
         }
     }

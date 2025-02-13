@@ -598,6 +598,12 @@ impl LoadStoreChip {
                 assert_eq!(out_value, *last_value, "program output mismatch, expected {out_value} at addr {address}, got {last_value}");
             }
         }
+        if !side_note.rw_mem_check.public_output.is_empty() {
+            panic!(
+                "public output memory wasn't written by the prover {:?}",
+                side_note.rw_mem_check.public_output
+            )
+        }
     }
 
     /// Fills the interaction trace for adding the initial content of the RW memory.

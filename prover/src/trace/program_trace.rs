@@ -88,13 +88,12 @@ impl ProgramTracesBuilder {
         }
         let offset = init_memory_len;
 
-        for (_row_idx, PublicOutputEntry { .. }) in exit_code.iter().enumerate() {
-            // TODO: handle exit code as a public output
-            // let row_idx = row_idx + offset;
-            // ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
+        for (row_idx, PublicOutputEntry { address, value }) in exit_code.iter().enumerate() {
+            let row_idx = row_idx + offset;
+            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
 
-            // ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
-            // ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
+            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
+            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
         }
         let offset = offset + exit_code_len;
         for (row_idx, PublicOutputEntry { address, value }) in output_memory.iter().enumerate() {
