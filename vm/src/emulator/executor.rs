@@ -448,7 +448,17 @@ impl HarvardEmulator {
             }
 
             // Linker places data after rodata, but need to guard against edge case of empty data.
-            data_end = max(data_end, ro_data_end);
+            // We also advance the `data_end` past the end of the last address in the data segment
+            // because that address is used to set the base address of the heap, which needs to be
+            // aligned to `WORD_SIZE` and not overlap the final word of the data segment.
+            data_end = match max(data_end, ro_data_end) {
+                0 => 0,
+                x => {
+                    x.checked_add(WORD_SIZE as u32)
+                        .expect("Heap base should not overflow")
+                        & (!0b11u32)
+                }
+            };
 
             let ro_data_memory = FixedMemory::<RO>::from_vec(
                 ro_data_base_address,
