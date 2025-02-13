@@ -51,8 +51,9 @@ use std::fs::File;
 use std::path::Path;
 
 use super::error::ParserError;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ElfFile {
     /// The instructions of the program encoded as 32-bits.
     pub instructions: Vec<u32>,
