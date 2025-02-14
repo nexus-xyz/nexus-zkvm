@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use stwo_prover::constraint_framework::{EvalAtRow, FrameworkComponent, FrameworkEval};
+use stwo_prover::constraint_framework::{
+    EvalAtRow, FrameworkComponent, FrameworkEval, InfoEvaluator,
+};
 
 use super::{trace::eval::TraceEval, traits::MachineChip};
 
@@ -45,4 +47,13 @@ impl<C: MachineChip> FrameworkEval for MachineEval<C> {
         }
         eval
     }
+}
+
+pub(crate) fn machine_component_info<C: MachineChip>() -> InfoEvaluator {
+    let eval = MachineEval::<C> {
+        log_n_rows: 1,
+        lookup_elements: AllLookupElements::dummy(),
+        _phantom_data: PhantomData,
+    };
+    eval.evaluate(InfoEvaluator::empty())
 }

@@ -42,7 +42,7 @@ register_relation! {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct AllLookupElements(HashMap<TypeId, RelationVariant>);
 
 impl AllLookupElements {
@@ -50,6 +50,10 @@ impl AllLookupElements {
         if self.0.insert(TypeId::of::<T>(), relation.into()).is_some() {
             panic!("attempt to insert duplicate relation")
         }
+    }
+
+    pub fn dummy() -> Self {
+        Self(HashMap::from_iter(RelationVariant::dummy_array()))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -96,6 +100,29 @@ macro_rules! register_relation {
                 }
             }
         )*
+
+        impl $_enum {
+            #![allow(unused)]
+
+            const NUM_VARIANTS: usize = {
+                <[()]>::len(&[$($crate::components::lookups::replace_expr!($name ())),*])
+            };
+
+            fn dummy_array() -> [(std::any::TypeId, Self); Self::NUM_VARIANTS] {
+                [
+                    $(
+                        (std::any::TypeId::of::<$name>(), Self::$name($name::dummy())),
+                    )*
+                ]
+            }
+        }
     };
 }
 pub(self) use register_relation;
+
+macro_rules! replace_expr {
+    ($_t:ident $sub:expr) => {
+        $sub
+    };
+}
+pub(self) use replace_expr;

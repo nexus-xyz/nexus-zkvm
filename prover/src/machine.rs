@@ -4,7 +4,6 @@ use num_traits::Zero;
 use stwo_prover::{
     constraint_framework::TraceLocationAllocator,
     core::{
-        air::Component,
         backend::simd::SimdBackend,
         channel::Blake2sChannel,
         fields::qm31::SecureField,
@@ -36,7 +35,8 @@ use crate::{
         RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip,
         SubChip, SyscallChip, TimestampChip,
     },
-    components::AllLookupElements,
+    column::PreprocessedColumn,
+    components::{self, AllLookupElements},
     traits::generate_interaction_trace,
 };
 use serde::{Deserialize, Serialize};
@@ -261,24 +261,18 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Retrieve the expected column sizes in each commitment interaction, from the AIR.
 
-        // This dummy component is needed for evaluating info about the circuit. The verifier needs to commit to traces
-        // and then draw lookup elements, however the component needs a placeholder there that cannot be replaced without
-        // refcell hacks.
-        //
-        // The prover cannot send the component or lookup elements in advance either, because these types have private fields
-        // and don't implement serialize.
-        let lookup_elements = {
-            let dummy_channel = &mut Blake2sChannel::default();
-            let mut lookup_elements = AllLookupElements::default();
-            C::draw_lookup_elements(&mut lookup_elements, dummy_channel);
-            lookup_elements
-        };
-        let dummy_component = MachineComponent::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(log_size, lookup_elements),
-            claimed_sum,
-        );
-        let sizes = dummy_component.trace_log_degree_bounds();
+        // Info evaluation can be avoided if the prover sends lookup elements along with the proof, this requires
+        // implementing  [`serde::Serialize`] for all relations and [`AllLookupElements`]. Note that the verifier
+        // should still independently draw elements and match it against received ones.
+        let mut sizes = components::machine_component_info::<C>()
+            .mask_offsets
+            .as_cols_ref()
+            .map_cols(|_| log_size);
+        // use the fact that preprocessed columns are only allowed to have [0] mask
+        sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(log_size)
+            .take(PreprocessedColumn::COLUMNS_NUM)
+            .collect();
+
         for idx in [PREPROCESSED_TRACE_IDX, ORIGINAL_TRACE_IDX] {
             commitment_scheme.commit(proof.commitments[idx], &sizes[idx], verifier_channel);
         }
