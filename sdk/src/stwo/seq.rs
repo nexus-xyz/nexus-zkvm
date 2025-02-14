@@ -109,10 +109,10 @@ impl Prover for Stwo<Local> {
         public_input: &T,
     ) -> Result<Self::View, <Self as Prover>::Error> {
         let mut private_encoded = postcard::to_stdvec(&private_input).map_err(IOError::from)?;
-        if private_encoded.len() > 0 {
-            let mut private = private_input.to_owned();
+        if !private_encoded.is_empty() {
+            let private = private_input.to_owned();
 
-            private_encoded = postcard::to_stdvec_cobs(&mut private).map_err(IOError::from)?;
+            private_encoded = postcard::to_stdvec_cobs(&private).map_err(IOError::from)?;
             let private_padded_len = (private_encoded.len() + 3) & !3;
 
             assert!(private_padded_len >= private_encoded.len());
@@ -120,10 +120,10 @@ impl Prover for Stwo<Local> {
         }
 
         let mut public_encoded = postcard::to_stdvec(&public_input).map_err(IOError::from)?;
-        if public_encoded.len() > 0 {
-            let mut public = public_input.to_owned();
+        if !public_encoded.is_empty() {
+            let public = public_input.to_owned();
 
-            public_encoded = postcard::to_stdvec_cobs(&mut public).map_err(IOError::from)?;
+            public_encoded = postcard::to_stdvec_cobs(&public).map_err(IOError::from)?;
             let public_padded_len = (public_encoded.len() + 3) & !3;
 
             assert!(public_padded_len >= public_encoded.len());
@@ -148,10 +148,10 @@ impl Prover for Stwo<Local> {
         public_input: &T,
     ) -> Result<(Self::View, Self::Proof), <Self as Prover>::Error> {
         let mut private_encoded = postcard::to_stdvec(&private_input).map_err(IOError::from)?;
-        if private_encoded.len() > 0 {
-            let mut private = private_input.to_owned();
+        if !private_encoded.is_empty() {
+            let private = private_input.to_owned();
 
-            private_encoded = postcard::to_stdvec_cobs(&mut private).map_err(IOError::from)?;
+            private_encoded = postcard::to_stdvec_cobs(&private).map_err(IOError::from)?;
             let private_padded_len = (private_encoded.len() + 3) & !3;
 
             assert!(private_padded_len >= private_encoded.len());
@@ -159,10 +159,10 @@ impl Prover for Stwo<Local> {
         }
 
         let mut public_encoded = postcard::to_stdvec(&public_input).map_err(IOError::from)?;
-        if public_encoded.len() > 0 {
-            let mut public = public_input.to_owned();
+        if !public_encoded.is_empty() {
+            let public = public_input.to_owned();
 
-            public_encoded = postcard::to_stdvec_cobs(&mut public).map_err(IOError::from)?;
+            public_encoded = postcard::to_stdvec_cobs(&public).map_err(IOError::from)?;
             let public_padded_len = (public_encoded.len() + 3) & !3;
 
             assert!(public_padded_len >= public_encoded.len());
