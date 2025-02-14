@@ -45,16 +45,18 @@ impl MachineChip for CpuChip {
 
         // Fill ValueAEffectiveFlagAux to the main trace
         // Note op_a is u8 so it is always smaller than M31.
-        let value_a_effective_flag_aux = if let Some(vm_step) = vm_step {
-            let op_a = vm_step.get_op_a();
-            if op_a == Register::X0 {
-                BaseField::one()
+        let (value_a_effective_flag_aux, value_a_effective_flag_aux_inv) =
+            if let Some(vm_step) = vm_step {
+                let op_a = vm_step.get_op_a();
+                if op_a == Register::X0 {
+                    (BaseField::one(), BaseField::one())
+                } else {
+                    let op_a_element = BaseField::from(op_a as u32);
+                    (BaseField::inverse(&op_a_element), op_a_element)
+                }
             } else {
-                BaseField::inverse(&BaseField::from(op_a as u32))
-            }
-        } else {
-            BaseField::one()
-        };
+                (BaseField::one(), BaseField::one())
+            };
 
         traces.fill_columns_base_field(
             row_idx,
@@ -63,7 +65,6 @@ impl MachineChip for CpuChip {
         );
 
         // Fill ValueAEffectiveFlagAuxInv to the main trace
-        let value_a_effective_flag_aux_inv = BaseField::inverse(&value_a_effective_flag_aux);
         traces.fill_columns_base_field(
             row_idx,
             &[value_a_effective_flag_aux_inv],
