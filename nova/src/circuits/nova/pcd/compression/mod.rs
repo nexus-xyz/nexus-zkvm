@@ -79,7 +79,7 @@ pub struct SNARKKey<G: CurveGroup, PC: PolyCommitmentScheme<G>> {
 
 impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> SNARKKey<G, PC> {
     /// convenience function to derive the minimum log size of the SRS
-    /// needed to support compession for a given `shape`.
+    /// needed to support compassion for a given `shape`.
     pub fn get_min_srs_size(shape: &R1CSShape<G>) -> usize {
         let R1CSShape {
             num_constraints,
