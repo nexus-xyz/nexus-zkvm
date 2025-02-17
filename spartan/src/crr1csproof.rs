@@ -80,7 +80,7 @@ impl<F: PrimeField> SumcheckInstanceProof<F> {
         <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_nextround");
 
       r.push(r_j);
-      // bound all tables to the verifier's challenege
+      // bound all tables to the verifier's challenge
       poly_A.bound_poly_var_top(&r_j);
       poly_B.bound_poly_var_top(&r_j);
       e = poly.evaluate(&r_j);
@@ -163,7 +163,7 @@ impl<F: PrimeField> SumcheckInstanceProof<F> {
         <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_nextround");
 
       r.push(r_j);
-      // bound all tables to the verifier's challenege
+      // bound all tables to the verifier's challenge
       poly_A.bound_poly_var_top(&r_j);
       poly_B.bound_poly_var_top(&r_j);
       poly_C.bound_poly_var_top(&r_j);
@@ -343,9 +343,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
 
     let timer_sc_proof_phase2 = Timer::new("prove_sc_phase_two");
     // combine the three claims into a single claim
-    let r_A = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenege_Az");
-    let r_B = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenege_Bz");
-    let r_C = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenege_Cz");
+    let r_A = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_Az");
+    let r_B = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_Bz");
+    let r_C = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_Cz");
     let claim_phase2 = r_A * Az_claim + r_B * Bz_claim + r_C * Cz_claim;
 
     let evals_ABC = {
@@ -482,9 +482,9 @@ impl<G: CurveGroup, PC: PolyCommitmentScheme<G>> CRR1CSProof<G, PC> {
     assert_eq!(expected_claim_post_phase1, claim_post_phase1);
 
     // derive three public challenges and then derive a joint claim
-    let r_A = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenege_Az");
-    let r_B = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenege_Bz");
-    let r_C = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenege_Cz");
+    let r_A = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_Az");
+    let r_B = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_Bz");
+    let r_C = <Transcript as ProofTranscript<G>>::challenge_scalar(transcript, b"challenge_Cz");
 
     // r_A * Az_claim + r_B * Bz_claim + r_C * Cz_claim;
     let claim_phase2 = r_A * Az_claim + r_B * Bz_claim + r_C * Cz_claim;
