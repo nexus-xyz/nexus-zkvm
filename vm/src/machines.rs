@@ -8,7 +8,7 @@ use crate::{NexusVM, Regs};
 
 type TestMachine<'a> = (&'a str, fn() -> Vec<u32>, fn() -> Regs, fn() -> Vec<u8>);
 
-/// An array of test machines, useful for debugging and developemnt.
+/// An array of test machines, useful for debugging and development.
 #[allow(clippy::type_complexity)]
 pub const MACHINES: &[TestMachine] = &[
     ("nop10", || nop_code(10), || nop_result(10), Vec::new),
