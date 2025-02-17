@@ -187,7 +187,7 @@ pub struct Witness<P: MemoryProof> {
     pub X: u32,
     /// Second argument value.
     pub Y: u32,
-    /// Result of instuction.
+    /// Result of instruction.
     pub Z: u32,
     /// Program counter.
     pub PC: u32,
