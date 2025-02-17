@@ -348,7 +348,7 @@ pub fn member(cs: &mut R1CS, name: &str, k: u32, set: &[u32]) {
     debug_assert!(set.contains(&k));
     debug_assert!(unique_values(set));
 
-    // Compute constant that comes from evaulating
+    // Compute constant that comes from evaluating
     // (x - s0)(x - s1)...(x - s{n - 1}) / (x - sk)
     // at the point sk
     let C = |k: u32| -> F {
