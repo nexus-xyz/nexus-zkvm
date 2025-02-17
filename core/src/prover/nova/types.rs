@@ -40,7 +40,7 @@ pub use nexus_nova::poseidon_config as ro_config;
 pub type C1 = PedersenCommitment<P1>;
 pub type C2 = PedersenCommitment<P2>;
 
-// polynomial commitment scheme and corresponding vector commmitment scheme
+// polynomial commitment scheme and corresponding vector commitment scheme
 pub type PC = Zeromorph<E>;
 pub type PVC1 = com::PolyVectorCommitment<P1, PC>;
 
