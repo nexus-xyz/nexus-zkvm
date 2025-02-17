@@ -307,7 +307,7 @@ impl<F: PrimeField> ProductCircuitEvalProofBatched<F> {
       .collect::<Vec<F>>();
     let mut rand = Vec::new();
     for layer_id in (0..num_layers).rev() {
-      // prepare paralell instance that share poly_C first
+      // prepare parallel instance that share poly_C first
       let len = prod_circuit_vec[0].left_vec[layer_id].len()
         + prod_circuit_vec[0].right_vec[layer_id].len();
 
