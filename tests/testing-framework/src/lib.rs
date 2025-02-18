@@ -203,7 +203,7 @@ mod test {
     fn test_prove_fib() {
         let elfs = compile_multi("examples/src/bin/fib", &["-C opt-level=3"], &HOME_PATH);
         let (view, execution_trace) =
-            k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
+            k_trace(elfs[0].clone(), &[1, 2, 3], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
         verify(proof, &view).unwrap();
     }

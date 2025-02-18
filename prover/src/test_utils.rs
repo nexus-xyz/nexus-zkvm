@@ -60,11 +60,19 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     let mut commitment_scheme =
         CommitmentSchemeProver::<_, Blake2sMerkleChannel>::new(config, twiddles);
     let mut prover_channel = Blake2sChannel::default();
+
+    let program_trace =
+        program_traces.unwrap_or_else(|| ProgramTracesBuilder::dummy(traces.log_size()).finalize());
     // Preprocessed trace
     let preprocessed_trace = PreprocessedTraces::new(traces.log_size());
     let mut tree_builder = commitment_scheme.tree_builder();
-    let _preprocessed_trace_location =
-        tree_builder.extend_evals(preprocessed_trace.clone().into_circle_evaluation());
+    let _preprocessed_trace_location = tree_builder.extend_evals(
+        preprocessed_trace
+            .clone()
+            .into_circle_evaluation()
+            .into_iter()
+            .chain(program_trace.clone().into_circle_evaluation()),
+    );
     tree_builder.commit(&mut prover_channel);
 
     // Original trace
@@ -74,22 +82,12 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     let mut all_elements = AllLookupElements::default();
     C::draw_lookup_elements(&mut all_elements, &mut prover_channel);
 
-    let program_trace =
-        program_traces.unwrap_or_else(|| ProgramTracesBuilder::dummy(traces.log_size()).finalize());
-
     // Interaction Trace
     let (interaction_trace, claimed_sum) =
         generate_interaction_trace::<C>(traces, &preprocessed_trace, &program_trace, &all_elements);
     let mut tree_builder = commitment_scheme.tree_builder();
     let _interaction_trace_location = tree_builder.extend_evals(interaction_trace.clone());
     tree_builder.commit(&mut prover_channel);
-
-    // Program Trace
-    let mut tree_builder = commitment_scheme.tree_builder();
-    let _program_trace_location =
-        tree_builder.extend_evals(program_trace.clone().into_circle_evaluation());
-    tree_builder.commit(&mut prover_channel);
-    // TODO: make the verifier check the program trace commitment against the expected value
 
     CommittedTraces {
         commitment_scheme,
@@ -123,10 +121,13 @@ pub(crate) fn assert_chip<C: MachineChip>(
     } = commit_traces::<C>(config, &twiddles, &finalized_trace, program_trace);
 
     let trace_evals = TreeVec::new(vec![
-        preprocessed_trace.into_circle_evaluation(),
+        [
+            preprocessed_trace.into_circle_evaluation(),
+            program_trace.into_circle_evaluation(),
+        ]
+        .concat(),
         finalized_trace.into_circle_evaluation(),
         interaction_trace,
-        program_trace.into_circle_evaluation(),
     ]);
     let trace_polys = trace_evals.map(|trace| {
         trace

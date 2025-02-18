@@ -10,18 +10,21 @@ use crate::column::{
 pub use stwo_prover::constraint_framework::{
     INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
 };
-pub const PROGRAM_TRACE_IDX: usize = 3; // After INTERACTION_TRACE_IDX; the verifier is supposed to know the commitment of the program trace
 
 // Trace evaluation at the current row and the next row.
 pub struct TraceEval<E: EvalAtRow> {
     evals: Vec<[E::F; 2]>,
     preprocessed_evals: Vec<E::F>,
-    program_evals: Vec<[E::F; 1]>, // only the current row
+    program_evals: Vec<E::F>, // only the current row
 }
 
 impl<E: EvalAtRow> TraceEval<E> {
     pub(crate) fn new(eval: &mut E) -> Self {
         let preprocessed_evals = PreprocessedColumn::STRING_IDS
+            .iter()
+            .map(|&id| eval.get_preprocessed_column(PreProcessedColumnId { id: id.to_owned() }))
+            .collect();
+        let program_evals = ProgramColumn::STRING_IDS
             .iter()
             .map(|&id| eval.get_preprocessed_column(PreProcessedColumnId { id: id.to_owned() }))
             .collect();
@@ -39,10 +42,6 @@ impl<E: EvalAtRow> TraceEval<E> {
                 }
             })
             .collect();
-        let program_evals =
-            std::iter::repeat_with(|| eval.next_interaction_mask(PROGRAM_TRACE_IDX, [0]))
-                .take(ProgramColumn::COLUMNS_NUM)
-                .collect();
         Self {
             evals,
             preprocessed_evals,
@@ -93,7 +92,7 @@ impl<E: EvalAtRow> TraceEval<E> {
         assert_eq!(col.size(), N, "column size mismatch");
         let offset = col.offset();
 
-        array::from_fn(|i| self.program_evals[offset + i][0].clone())
+        array::from_fn(|i| self.program_evals[offset + i].clone())
     }
 }
 

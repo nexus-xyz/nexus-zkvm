@@ -537,6 +537,7 @@ pub enum Column {
 // }
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
+#[column_derive(string_id)]
 pub enum ProgramColumn {
     /// Program memory content: every Pc in the program memory
     #[size = 4]

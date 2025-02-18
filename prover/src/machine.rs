@@ -5,7 +5,7 @@ use stwo_prover::{
     constraint_framework::TraceLocationAllocator,
     core::{
         backend::simd::SimdBackend,
-        channel::Blake2sChannel,
+        channel::{Blake2sChannel, Channel},
         fields::qm31::SecureField,
         pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig},
         poly::circle::{CanonicCoset, PolyOps},
@@ -14,9 +14,7 @@ use stwo_prover::{
     },
 };
 
-use super::trace::eval::{
-    INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX, PROGRAM_TRACE_IDX,
-};
+use super::trace::eval::{INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 use super::trace::{
     program::iter_program_steps, program_trace::ProgramTracesBuilder, sidenote::SideNote,
     PreprocessedTraces, TracesBuilder,
@@ -35,7 +33,7 @@ use crate::{
         RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip,
         SubChip, SyscallChip, TimestampChip,
     },
-    column::PreprocessedColumn,
+    column::{PreprocessedColumn, ProgramColumn},
     components::{self, AllLookupElements},
     traits::generate_interaction_trace,
 };
@@ -112,6 +110,10 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Setup protocol.
         let prover_channel = &mut Blake2sChannel::default();
+        for byte in view.view_associated_data().unwrap_or_default() {
+            prover_channel.mix_u64(byte.into());
+        }
+
         let mut commitment_scheme =
             CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(config, &twiddles);
 
@@ -142,8 +144,13 @@ impl<C: MachineChip + Sync> Machine<C> {
         let finalized_program_trace = program_traces.finalize();
 
         let mut tree_builder = commitment_scheme.tree_builder();
-        let _preprocessed_trace_location =
-            tree_builder.extend_evals(preprocessed_trace.clone().into_circle_evaluation());
+        let _preprocessed_trace_location = tree_builder.extend_evals(
+            preprocessed_trace
+                .clone()
+                .into_circle_evaluation()
+                .into_iter()
+                .chain(finalized_program_trace.clone().into_circle_evaluation()),
+        );
         tree_builder.commit(prover_channel);
 
         let mut tree_builder = commitment_scheme.tree_builder();
@@ -163,12 +170,6 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let mut tree_builder = commitment_scheme.tree_builder();
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
-        tree_builder.commit(prover_channel);
-
-        // Fill columns of the program trace.
-        let mut tree_builder = commitment_scheme.tree_builder();
-        let _program_trace_location =
-            tree_builder.extend_evals(finalized_program_trace.into_circle_evaluation());
         tree_builder.commit(prover_channel);
 
         let component = MachineComponent::new(
@@ -192,6 +193,7 @@ impl<C: MachineChip + Sync> Machine<C> {
     pub fn verify(
         proof: Proof,
         program_info: &ProgramInfo,
+        ad: &[u8],
         init_memory: &[MemoryInitializationEntry],
         exit_code: &[PublicOutputEntry],
         output_memory: &[PublicOutputEntry],
@@ -210,12 +212,16 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let config = PcsConfig::default();
         let verifier_channel = &mut Blake2sChannel::default();
+        for &byte in ad {
+            verifier_channel.mix_u64(byte.into());
+        }
+
         let commitment_scheme = &mut CommitmentSchemeVerifier::<Blake2sMerkleChannel>::new(config);
 
-        // simulate the prover and compute expected commitment to preprocessed and program traces
+        // simulate the prover and compute expected commitment to preprocessed trace
         {
             let config = PcsConfig::default();
-            let verifier_channel = &mut Blake2sChannel::default();
+            let verifier_channel = &mut verifier_channel.clone();
             let twiddles = SimdBackend::precompute_twiddles(
                 CanonicCoset::new(
                     log_size + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
@@ -228,18 +234,6 @@ impl<C: MachineChip + Sync> Machine<C> {
                     config, &twiddles,
                 );
             let preprocessed_trace = PreprocessedTraces::new(log_size);
-            let mut tree_builder = commitment_scheme.tree_builder();
-            let _preprocessed_trace_location =
-                tree_builder.extend_evals(preprocessed_trace.into_circle_evaluation());
-            tree_builder.commit(verifier_channel);
-
-            let preprocessed_expected = commitment_scheme.roots()[PREPROCESSED_TRACE_IDX];
-            let preprocessed = proof.commitments[PREPROCESSED_TRACE_IDX];
-            if preprocessed_expected != preprocessed {
-                return Err(VerificationError::InvalidStructure(format!("invalid commitment to preprocessed trace: \
-                                                                        expected {preprocessed_expected}, got {preprocessed}")));
-            }
-
             let program_trace = ProgramTracesBuilder::new(
                 log_size,
                 program_info,
@@ -248,14 +242,21 @@ impl<C: MachineChip + Sync> Machine<C> {
                 output_memory,
             )
             .finalize();
+
             let mut tree_builder = commitment_scheme.tree_builder();
-            tree_builder.extend_evals(program_trace.into_circle_evaluation());
+            let _preprocessed_trace_location = tree_builder.extend_evals(
+                preprocessed_trace
+                    .into_circle_evaluation()
+                    .into_iter()
+                    .chain(program_trace.into_circle_evaluation()),
+            );
             tree_builder.commit(verifier_channel);
-            let program_expected = commitment_scheme.roots()[1];
-            let program = proof.commitments[PROGRAM_TRACE_IDX];
-            if program_expected != program {
-                return Err(VerificationError::InvalidStructure(format!("invalid commitment to program trace: \
-                                                                        expected {program_expected}, got {program}")));
+
+            let preprocessed_expected = commitment_scheme.roots()[PREPROCESSED_TRACE_IDX];
+            let preprocessed = proof.commitments[PREPROCESSED_TRACE_IDX];
+            if preprocessed_expected != preprocessed {
+                return Err(VerificationError::InvalidStructure(format!("invalid commitment to preprocessed trace: \
+                                                                        expected {preprocessed_expected}, got {preprocessed}")));
             }
         }
 
@@ -270,7 +271,7 @@ impl<C: MachineChip + Sync> Machine<C> {
             .map_cols(|_| log_size);
         // use the fact that preprocessed columns are only allowed to have [0] mask
         sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(log_size)
-            .take(PreprocessedColumn::COLUMNS_NUM)
+            .take(PreprocessedColumn::COLUMNS_NUM + ProgramColumn::COLUMNS_NUM)
             .collect();
 
         for idx in [PREPROCESSED_TRACE_IDX, ORIGINAL_TRACE_IDX] {
@@ -284,10 +285,12 @@ impl<C: MachineChip + Sync> Machine<C> {
             MachineEval::<C>::new(log_size, lookup_elements),
             claimed_sum,
         );
-        // TODO: prover must commit to the program trace before generating challenges.
-        for idx in [INTERACTION_TRACE_IDX, PROGRAM_TRACE_IDX] {
-            commitment_scheme.commit(proof.commitments[idx], &sizes[idx], verifier_channel);
-        }
+
+        commitment_scheme.commit(
+            proof.commitments[INTERACTION_TRACE_IDX],
+            &sizes[INTERACTION_TRACE_IDX],
+            verifier_channel,
+        );
 
         verify(&[&component], verifier_channel, commitment_scheme, proof)
     }
@@ -327,6 +330,7 @@ mod tests {
         Machine::<BaseComponents>::verify(
             proof,
             view.get_program_memory(),
+            &[],
             view.get_initial_memory(),
             view.get_exit_code(),
             view.get_public_output(),

@@ -29,6 +29,7 @@ pub fn verify(proof: Proof, view: &nexus_vm::emulator::View) -> Result<(), Verif
     machine::Machine::<machine::BaseComponents>::verify(
         proof,
         view.get_program_memory(),
+        view.view_associated_data().as_deref().unwrap_or_default(),
         view.get_initial_memory(),
         view.get_exit_code(),
         view.get_public_output(),
