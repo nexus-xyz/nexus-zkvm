@@ -140,11 +140,11 @@ fn set_duration() -> Criterion {
   Criterion::default().sample_size(10)
 }
 
-criterion_group! {
-name = benches_snark;
-config = set_duration();
-targets = snark_encode_benchmark::<G1Projective, Hyrax<G1Projective>>,
-snark_prove_benchmark::<G1Projective, Hyrax<G1Projective>>, snark_verify_benchmark::<G1Projective, Hyrax<G1Projective>>
-}
+criterion_group!(
+    benches_snark,
+    snark_encode_benchmark::<G1Projective, Hyrax<G1Projective>>,
+    snark_prove_benchmark::<G1Projective, Hyrax<G1Projective>>,
+    snark_verify_benchmark::<G1Projective, Hyrax<G1Projective>>
+);
 
 criterion_main!(benches_snark);
