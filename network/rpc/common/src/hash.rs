@@ -11,7 +11,7 @@ use sha3::{
 /// Prefixes the program bytes when computing hash.
 pub const PKG_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-type HashBytes = [u8; <Sha3_256Core as OutputSizeUser>::OutputSize::INT];
+type HashBytes = [u8; <Sha3_256Core as OutputSizeUser>::OutputSize::USIZE];
 /// Hash type.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Hash(#[serde(with = "hex::serde")] pub HashBytes);
