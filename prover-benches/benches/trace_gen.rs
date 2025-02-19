@@ -54,7 +54,7 @@ fn bench_trace_gen(c: &mut Criterion) {
         let program_info = view.get_program_memory();
 
         let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
-        group.sample_size(10);
+        group.sample_size(20);
 
         group.bench_function("PreprocessedTraces", |b| {
             b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))

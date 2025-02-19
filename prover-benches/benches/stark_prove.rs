@@ -16,6 +16,7 @@ const LOG_SIZES: &[u32] = &[
     PreprocessedTraces::MIN_LOG_SIZE + 2,
     PreprocessedTraces::MIN_LOG_SIZE + 4,
     PreprocessedTraces::MIN_LOG_SIZE + 6,
+    PreprocessedTraces::MIN_LOG_SIZE + 8,
 ];
 
 const _: () = {

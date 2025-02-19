@@ -33,7 +33,3 @@ serial_test = "3.2.0"
 name = "benches"
 path = "benches/integration_bench.rs"
 harness = true
-
-[[bin]]
-name = "generate_graph"
-path = "src/bin/generate_graph.rs"

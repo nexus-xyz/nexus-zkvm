@@ -17,7 +17,7 @@ pub fn record_benchmark_results(result: &BenchmarkResult, filename: &str) {
         .create(true)
         .append(true)
         .open(&file_path)
-        .expect(&format!("Failed to open {}", file_path.display()));
+        .unwrap_or_else(|_| panic!("Failed to open {}", file_path.display()));
 
     // Write header if file is empty.
     if file.metadata().unwrap().len() == 0 {
@@ -69,9 +69,98 @@ pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (Duratio
 }
 
 /// Helper struct to track resource usage during a phase.
+#[derive(Debug, Default, Clone, Copy)]
 pub struct PhaseMetrics {
     pub peak_cpu: f64,
     pub peak_memory_gb: f64,
+}
+
+// Helper structs to iteratively track stats across repeated phases.
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct DurationTracker {
+    pub ct: usize,
+    pub min: Duration,
+    pub avg: Duration,
+    pub max: Duration,
+}
+
+impl DurationTracker {
+    pub fn update(&mut self, next: &Duration) {
+        let prev = self.ct as f64;
+        self.ct += 1;
+
+        if self.ct == 1 {
+            self.min = *next;
+            self.avg = *next;
+            self.max = *next;
+
+            return;
+        }
+
+        let curr = self.ct as f64;
+
+        self.min = std::cmp::min(self.min, *next);
+        self.avg = (self.avg.mul_f64(prev) + *next).div_f64(curr);
+        self.max = std::cmp::max(self.min, *next);
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PhaseMetricsTracker {
+    pub ct: usize,
+    pub min: PhaseMetrics,
+    pub avg: PhaseMetrics,
+    pub max: PhaseMetrics,
+}
+
+impl PhaseMetricsTracker {
+    pub fn update(&mut self, next: &PhaseMetrics) {
+        let prev = self.ct as f64;
+        self.ct += 1;
+
+        if self.ct == 1 {
+            self.min = *next;
+            self.avg = *next;
+            self.max = *next;
+
+            return;
+        }
+
+        let curr = self.ct as f64;
+
+        self.min.peak_cpu = self.min.peak_cpu.min(next.peak_cpu);
+        self.min.peak_memory_gb = self.min.peak_memory_gb.min(next.peak_memory_gb);
+
+        self.avg.peak_cpu = ((self.avg.peak_cpu * prev) + next.peak_cpu) / curr;
+        self.avg.peak_memory_gb = ((self.avg.peak_memory_gb * prev) + next.peak_memory_gb) / curr;
+
+        self.max.peak_cpu = self.max.peak_cpu.max(next.peak_cpu);
+        self.max.peak_memory_gb = self.max.peak_memory_gb.max(next.peak_memory_gb);
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy)]
+pub struct PhasesTracker {
+    pub duration: DurationTracker,
+    pub user: DurationTracker,
+    pub sys: DurationTracker,
+    pub metrics: PhaseMetricsTracker,
+}
+
+impl PhasesTracker {
+    pub fn update(
+        &mut self,
+        next_duration: &Duration,
+        next_user: &Duration,
+        next_sys: &Duration,
+        next_metrics: &PhaseMetrics,
+    ) {
+        self.duration.update(next_duration);
+        self.user.update(next_user);
+        self.sys.update(next_sys);
+        self.metrics.update(next_metrics);
+    }
 }
 
 /// Start measuring a phase and return initial state.

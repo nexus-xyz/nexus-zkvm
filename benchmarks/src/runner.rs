@@ -15,7 +15,7 @@ use sysinfo::System;
 
 use crate::{
     models::{BenchmarkResult, StageStats},
-    utils::{phase_end, phase_start, record_benchmark_results},
+    utils::{phase_end, phase_start, record_benchmark_results, PhasesTracker},
 };
 
 const K: usize = 1;
@@ -92,6 +92,7 @@ pub fn run_benchmark<T>(
     public_input: Vec<u8>,
     private_input: Vec<u8>,
     results_file: &str,
+    iters: u32,
 ) where
     T: DeserializeOwned + Serialize + std::fmt::Display,
 {
@@ -119,52 +120,142 @@ pub fn run_benchmark<T>(
     );
 
     // Measure native execution.
-    let (start_time, initial_self, initial_children) = phase_start();
-    let native_duration = measure_native_execution::<T>(&tmp_project_path, &public_input).0;
-    let (_, native_user_time, native_sys_time, native_metrics) =
-        phase_end(start_time, initial_self, initial_children);
+    let mut native_tracker = PhasesTracker::default();
+    for _ in 0..iters {
+        let (start_time, initial_self, initial_children) = phase_start();
+        let native_duration = measure_native_execution::<T>(&tmp_project_path, &public_input).0;
+        let (_, native_user_time, native_sys_time, native_metrics) =
+            phase_end(start_time, initial_self, initial_children);
+
+        native_tracker.update(
+            &native_duration,
+            &native_user_time,
+            &native_sys_time,
+            &native_metrics,
+        );
+    }
 
     // Parse and prepare ELF for emulation.
     let elf = ElfFile::from_bytes(&elf_contents).expect("Failed to parse ELF file");
 
     // Measure emulation.
-    let (start_time, initial_self, initial_children) = phase_start();
-    let (view, execution_trace) =
-        k_trace(elf, &[], &public_input, &private_input, K).expect("error generating trace");
-    let (emulation_duration, emulation_user_time, emulation_sys_time, emulation_metrics) =
-        phase_end(start_time, initial_self, initial_children);
+    let (mut view, mut execution_trace) =
+        k_trace(elf.clone(), &[], &public_input, &private_input, K)
+            .expect("error generating trace"); // warm up and make sure we work
+
+    let mut emulation_tracker = PhasesTracker::default();
+    for _ in 0..iters {
+        let iter_elf = elf.clone();
+
+        let (start_time, initial_self, initial_children) = phase_start();
+        (view, execution_trace) = k_trace(iter_elf, &[], &public_input, &private_input, K)
+            .expect("error generating trace");
+        let (emulation_duration, emulation_user_time, emulation_sys_time, emulation_metrics) =
+            phase_end(start_time, initial_self, initial_children);
+
+        emulation_tracker.update(
+            &emulation_duration,
+            &emulation_user_time,
+            &emulation_sys_time,
+            &emulation_metrics,
+        );
+    }
 
     // Measure proving.
-    let (start_time, initial_self, initial_children) = phase_start();
-    let proof = prove(&execution_trace, &view).unwrap();
-    let (proving_duration, proving_user_time, proving_sys_time, proving_metrics) =
-        phase_end(start_time, initial_self, initial_children);
+    let mut proof = prove(&execution_trace, &view).unwrap(); // warm up and make sure we work
+
+    let mut proving_tracker = PhasesTracker::default();
+    for _ in 0..iters {
+        let (start_time, initial_self, initial_children) = phase_start();
+        proof = prove(&execution_trace, &view).unwrap();
+        let (proving_duration, proving_user_time, proving_sys_time, proving_metrics) =
+            phase_end(start_time, initial_self, initial_children);
+
+        proving_tracker.update(
+            &proving_duration,
+            &proving_user_time,
+            &proving_sys_time,
+            &proving_metrics,
+        );
+    }
 
     // Measure verification.
-    let (start_time, initial_self, initial_children) = phase_start();
-    verify(proof, &view).unwrap();
-    let (
-        verification_duration,
-        verification_user_time,
-        verification_sys_time,
-        verification_metrics,
-    ) = phase_end(start_time, initial_self, initial_children);
+    let mut verification_tracker = PhasesTracker::default();
+    for _ in 0..iters {
+        let iter_proof = proof.clone();
+
+        let (start_time, initial_self, initial_children) = phase_start();
+        verify(iter_proof, &view).unwrap();
+        let (
+            verification_duration,
+            verification_user_time,
+            verification_sys_time,
+            verification_metrics,
+        ) = phase_end(start_time, initial_self, initial_children);
+
+        verification_tracker.update(
+            &verification_duration,
+            &verification_user_time,
+            &verification_sys_time,
+            &verification_metrics,
+        );
+    }
 
     let total_steps = execution_trace.get_num_steps();
-    let total_duration = emulation_duration + proving_duration + verification_duration;
-    let total_peak_cpu_percentage = f64::max(
-        f64::max(native_metrics.peak_cpu, emulation_metrics.peak_cpu),
-        f64::max(proving_metrics.peak_cpu, verification_metrics.peak_cpu),
+
+    let piecewise_min_total_duration =
+        emulation_tracker.duration.min + proving_tracker.duration.min;
+    let piecewise_min_total_overhead =
+        piecewise_min_total_duration.div_duration_f32(native_tracker.duration.max); // min over max for min overhead
+    let piecewise_min_total_peak_cpu_percentage = f64::max(
+        f64::max(
+            native_tracker.metrics.min.peak_cpu,
+            emulation_tracker.metrics.min.peak_cpu,
+        ),
+        proving_tracker.metrics.min.peak_cpu,
     );
-    let total_peak_memory_gb = f64::max(
+    let piecewise_min_total_peak_memory_gb = f64::max(
         f64::max(
-            native_metrics.peak_memory_gb,
-            emulation_metrics.peak_memory_gb,
+            native_tracker.metrics.min.peak_memory_gb,
+            emulation_tracker.metrics.min.peak_memory_gb,
         ),
+        proving_tracker.metrics.min.peak_memory_gb,
+    );
+
+    let avg_total_duration = emulation_tracker.duration.avg + proving_tracker.duration.avg;
+    let avg_total_overhead = avg_total_duration.div_duration_f32(native_tracker.duration.avg);
+    let avg_total_peak_cpu_percentage = f64::max(
         f64::max(
-            proving_metrics.peak_memory_gb,
-            verification_metrics.peak_memory_gb,
+            native_tracker.metrics.avg.peak_cpu,
+            emulation_tracker.metrics.avg.peak_cpu,
         ),
+        proving_tracker.metrics.avg.peak_cpu,
+    );
+    let avg_total_peak_memory_gb = f64::max(
+        f64::max(
+            native_tracker.metrics.avg.peak_memory_gb,
+            emulation_tracker.metrics.avg.peak_memory_gb,
+        ),
+        proving_tracker.metrics.avg.peak_memory_gb,
+    );
+
+    let piecewise_max_total_duration =
+        emulation_tracker.duration.max + proving_tracker.duration.max;
+    let piecewise_max_total_overhead =
+        piecewise_max_total_duration.div_duration_f32(native_tracker.duration.min); // max over min for max overhead
+    let piecewise_max_total_peak_cpu_percentage = f64::max(
+        f64::max(
+            native_tracker.metrics.max.peak_cpu,
+            emulation_tracker.metrics.max.peak_cpu,
+        ),
+        proving_tracker.metrics.max.peak_cpu,
+    );
+    let piecewise_max_total_peak_memory_gb = f64::max(
+        f64::max(
+            native_tracker.metrics.max.peak_memory_gb,
+            emulation_tracker.metrics.max.peak_memory_gb,
+        ),
+        proving_tracker.metrics.max.peak_memory_gb,
     );
 
     // Count loads and stores.
@@ -176,8 +267,8 @@ pub fn run_benchmark<T>(
             step.memory_records
                 .iter()
                 .fold((loads, stores), |(loads, stores), record| match record {
-                    MemoryRecord::LoadRecord(.., _) => (loads + 1, stores),
-                    MemoryRecord::StoreRecord(.., _) => (loads, stores + 1),
+                    MemoryRecord::LoadRecord(..) => (loads + 1, stores),
+                    MemoryRecord::StoreRecord(..) => (loads, stores + 1),
                 })
         });
 
@@ -198,52 +289,148 @@ pub fn run_benchmark<T>(
         timestamp: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
         test: test.to_string(),
         emulator_type: emulator_name.to_string(),
-        total_speed_khz: (total_steps as f32 / total_duration.as_secs_f32()) / 1_000.0,
-        total_duration,
+        piecewise_min_total_speed_khz: (total_steps as f32
+            / piecewise_min_total_duration.as_secs_f32())
+            / 1_000.0,
+        piecewise_min_total_duration,
+        piecewise_min_total_overhead,
+        avg_total_speed_khz: (total_steps as f32 / avg_total_duration.as_secs_f32()) / 1_000.0,
+        avg_total_duration,
+        avg_total_overhead,
+        piecewise_max_total_speed_khz: (total_steps as f32
+            / piecewise_max_total_duration.as_secs_f32())
+            / 1_000.0,
+        piecewise_max_total_duration,
+        piecewise_max_total_overhead,
         total_steps: total_steps as u32,
         cpu_cores,
         total_ram_gb,
-        total_peak_cpu_percentage,
-        total_peak_memory_gb,
+        piecewise_min_total_peak_cpu_percentage,
+        piecewise_min_total_peak_memory_gb,
+        avg_total_peak_cpu_percentage,
+        avg_total_peak_memory_gb,
+        piecewise_max_total_peak_cpu_percentage,
+        piecewise_max_total_peak_memory_gb,
         num_loads,
         num_stores,
         stack_size,
         heap_size,
-        native: StageStats {
-            duration: native_duration,
-            sys_time: native_sys_time,
-            user_time: native_user_time,
-            peak_cpu_percentage: native_metrics.peak_cpu,
-            peak_memory_gb: native_metrics.peak_memory_gb,
-            speed_khz: (total_steps as f32 / native_duration.as_secs_f32()) / 1_000.0,
+        native_mins: StageStats {
+            duration: native_tracker.duration.min,
+            sys_time: native_tracker.sys.min,
+            user_time: native_tracker.user.min,
+            peak_cpu_percentage: native_tracker.metrics.min.peak_cpu,
+            peak_memory_gb: native_tracker.metrics.min.peak_memory_gb,
+            speed_khz: (total_steps as f32 / native_tracker.duration.min.as_secs_f32()) / 1_000.0,
             overhead: 1.0,
         },
-        emulation: StageStats {
-            duration: emulation_duration,
-            sys_time: emulation_sys_time,
-            user_time: emulation_user_time,
-            peak_cpu_percentage: emulation_metrics.peak_cpu,
-            peak_memory_gb: emulation_metrics.peak_memory_gb,
-            speed_khz: (total_steps as f32 / emulation_duration.as_secs_f32()) / 1_000.0,
-            overhead: emulation_duration.as_secs_f32() / native_duration.as_secs_f32(),
+        native_avgs: StageStats {
+            duration: native_tracker.duration.avg,
+            sys_time: native_tracker.sys.avg,
+            user_time: native_tracker.user.avg,
+            peak_cpu_percentage: native_tracker.metrics.avg.peak_cpu,
+            peak_memory_gb: native_tracker.metrics.avg.peak_memory_gb,
+            speed_khz: (total_steps as f32 / native_tracker.duration.avg.as_secs_f32()) / 1_000.0,
+            overhead: 1.0,
         },
-        proving: StageStats {
-            duration: proving_duration,
-            sys_time: proving_sys_time,
-            user_time: proving_user_time,
-            peak_cpu_percentage: proving_metrics.peak_cpu,
-            peak_memory_gb: proving_metrics.peak_memory_gb,
-            speed_khz: (total_steps as f32 / proving_duration.as_secs_f32()) / 1_000.0,
-            overhead: proving_duration.as_secs_f32() / native_duration.as_secs_f32(),
+        native_maxs: StageStats {
+            duration: native_tracker.duration.max,
+            sys_time: native_tracker.sys.max,
+            user_time: native_tracker.user.max,
+            peak_cpu_percentage: native_tracker.metrics.max.peak_cpu,
+            peak_memory_gb: native_tracker.metrics.max.peak_memory_gb,
+            speed_khz: (total_steps as f32 / native_tracker.duration.max.as_secs_f32()) / 1_000.0,
+            overhead: 1.0,
         },
-        verification: StageStats {
-            duration: verification_duration,
-            sys_time: verification_sys_time,
-            user_time: verification_user_time,
-            peak_cpu_percentage: verification_metrics.peak_cpu,
-            peak_memory_gb: verification_metrics.peak_memory_gb,
-            speed_khz: (total_steps as f32 / verification_duration.as_secs_f32()) / 1_000.0,
-            overhead: verification_duration.as_secs_f32() / native_duration.as_secs_f32(),
+        emulation_mins: StageStats {
+            duration: emulation_tracker.duration.min,
+            sys_time: emulation_tracker.sys.min,
+            user_time: emulation_tracker.user.min,
+            peak_cpu_percentage: emulation_tracker.metrics.min.peak_cpu,
+            peak_memory_gb: emulation_tracker.metrics.min.peak_memory_gb,
+            speed_khz: (total_steps as f32 / emulation_tracker.duration.min.as_secs_f32())
+                / 1_000.0,
+            overhead: emulation_tracker.duration.min.as_secs_f32()
+                / native_tracker.duration.max.as_secs_f32(), // min over max for min overhead
+        },
+        emulation_avgs: StageStats {
+            duration: emulation_tracker.duration.avg,
+            sys_time: emulation_tracker.sys.avg,
+            user_time: emulation_tracker.user.avg,
+            peak_cpu_percentage: emulation_tracker.metrics.avg.peak_cpu,
+            peak_memory_gb: emulation_tracker.metrics.avg.peak_memory_gb,
+            speed_khz: (total_steps as f32 / emulation_tracker.duration.avg.as_secs_f32())
+                / 1_000.0,
+            overhead: emulation_tracker.duration.avg.as_secs_f32()
+                / native_tracker.duration.avg.as_secs_f32(),
+        },
+        emulation_maxs: StageStats {
+            duration: emulation_tracker.duration.max,
+            sys_time: emulation_tracker.sys.max,
+            user_time: emulation_tracker.user.max,
+            peak_cpu_percentage: emulation_tracker.metrics.max.peak_cpu,
+            peak_memory_gb: emulation_tracker.metrics.max.peak_memory_gb,
+            speed_khz: (total_steps as f32 / emulation_tracker.duration.max.as_secs_f32())
+                / 1_000.0,
+            overhead: emulation_tracker.duration.max.as_secs_f32()
+                / native_tracker.duration.min.as_secs_f32(), // max over min for max overhead
+        },
+        proving_mins: StageStats {
+            duration: proving_tracker.duration.min,
+            sys_time: proving_tracker.sys.min,
+            user_time: proving_tracker.user.min,
+            peak_cpu_percentage: proving_tracker.metrics.min.peak_cpu,
+            peak_memory_gb: proving_tracker.metrics.min.peak_memory_gb,
+            speed_khz: (total_steps as f32 / proving_tracker.duration.min.as_secs_f32()) / 1_000.0,
+            overhead: f32::NAN,
+        },
+        proving_avgs: StageStats {
+            duration: proving_tracker.duration.avg,
+            sys_time: proving_tracker.sys.avg,
+            user_time: proving_tracker.user.avg,
+            peak_cpu_percentage: proving_tracker.metrics.avg.peak_cpu,
+            peak_memory_gb: proving_tracker.metrics.avg.peak_memory_gb,
+            speed_khz: (total_steps as f32 / proving_tracker.duration.avg.as_secs_f32()) / 1_000.0,
+            overhead: f32::NAN,
+        },
+        proving_maxs: StageStats {
+            duration: proving_tracker.duration.max,
+            sys_time: proving_tracker.sys.max,
+            user_time: proving_tracker.user.max,
+            peak_cpu_percentage: proving_tracker.metrics.max.peak_cpu,
+            peak_memory_gb: proving_tracker.metrics.max.peak_memory_gb,
+            speed_khz: (total_steps as f32 / proving_tracker.duration.max.as_secs_f32()) / 1_000.0,
+            overhead: f32::NAN,
+        },
+        verification_mins: StageStats {
+            duration: verification_tracker.duration.min,
+            sys_time: verification_tracker.sys.min,
+            user_time: verification_tracker.user.min,
+            peak_cpu_percentage: verification_tracker.metrics.min.peak_cpu,
+            peak_memory_gb: verification_tracker.metrics.min.peak_memory_gb,
+            speed_khz: (total_steps as f32 / verification_tracker.duration.min.as_secs_f32())
+                / 1_000.0,
+            overhead: f32::NAN,
+        },
+        verification_avgs: StageStats {
+            duration: verification_tracker.duration.avg,
+            sys_time: verification_tracker.sys.avg,
+            user_time: verification_tracker.user.avg,
+            peak_cpu_percentage: verification_tracker.metrics.avg.peak_cpu,
+            peak_memory_gb: verification_tracker.metrics.avg.peak_memory_gb,
+            speed_khz: (total_steps as f32 / verification_tracker.duration.avg.as_secs_f32())
+                / 1_000.0,
+            overhead: f32::NAN,
+        },
+        verification_maxs: StageStats {
+            duration: verification_tracker.duration.max,
+            sys_time: verification_tracker.sys.max,
+            user_time: verification_tracker.user.max,
+            peak_cpu_percentage: verification_tracker.metrics.max.peak_cpu,
+            peak_memory_gb: verification_tracker.metrics.max.peak_memory_gb,
+            speed_khz: (total_steps as f32 / verification_tracker.duration.max.as_secs_f32())
+                / 1_000.0,
+            overhead: f32::NAN,
         },
     };
 

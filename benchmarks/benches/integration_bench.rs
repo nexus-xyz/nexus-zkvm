@@ -19,6 +19,7 @@ fn test_benchmark_fib_simple() {
         Vec::new(),
         Vec::new(),
         &results_file,
+        20,
     );
 }
 
@@ -37,6 +38,7 @@ fn test_benchmark_fib_powers() {
             public_input_bytes,
             Vec::new(),
             &results_file,
+            20,
         );
     }
 }
@@ -56,6 +58,7 @@ fn test_benchmark_keccak_powers() {
             public_input_bytes,
             Vec::new(),
             &results_file,
+            20,
         );
     }
 }
@@ -72,6 +75,7 @@ fn bench_harvard_fib1000(b: &mut Bencher) {
             Vec::new(),
             Vec::new(),
             &results_file,
+            20,
         );
     });
 }
@@ -88,6 +92,7 @@ fn bench_linear_fib1000(b: &mut Bencher) {
             Vec::new(),
             Vec::new(),
             &results_file,
+            20,
         );
     });
 }
@@ -104,6 +109,7 @@ fn bench_twopass_fib1000(b: &mut Bencher) {
             Vec::new(),
             Vec::new(),
             &results_file,
+            20,
         );
     });
 }

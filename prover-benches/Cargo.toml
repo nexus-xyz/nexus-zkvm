@@ -10,7 +10,8 @@ nexus-common = { path = "../common" }
 
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "a194fad" }
 
-criterion = "0.5"
+criterion = { version = "0.5", features = ["csv", "csv_output"] }
+crc = "3.2.1"
 
 [[bench]]
 name = "trace_gen"
