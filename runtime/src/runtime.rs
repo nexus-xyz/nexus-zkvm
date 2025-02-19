@@ -37,21 +37,6 @@ unsafe impl GlobalAlloc for Heap {
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {}
 }
 
-/// Ecall to potentially overwrite stack pointer for second pass.
-#[doc(hidden)]
-#[link_section = ".init.rust"]
-#[export_name = "_overwrite_sp"]
-pub unsafe extern "C" fn overwrite_sp() {
-    // Safety: We do not use the ecall! macro, since we need this ecall to not
-    //         be inside of a Rust function. If it is, then that function will
-    //         be setup on the stack, causing the stack pointer overwriting to
-    //         orphan it and otherwise not comply with the memory layout.
-    #[cfg(target_arch = "riscv32")]
-    unsafe {
-        core::arch::asm!("ecall", in("a7") 1026);
-    }
-}
-
 /// Rust entry point (_start_rust).
 #[doc(hidden)]
 #[link_section = ".init.rust"]
@@ -70,6 +55,37 @@ pub unsafe extern "C" fn start_rust() -> u32 {
     // Finish with exit syscall.
     ecall!(SYS_EXIT, EXIT_SUCCESS)
 }
+
+// This globally emitted assembly ensure that we have an easy-to-work-with entrypoint for the guest
+// program.
+//
+// The first linker directives ensure that the entrypoint (`_start`) is located at the beginning of
+// the program's text section (which starts with the `.init` section due to our linker script).
+core::arch::global_asm!(
+    r#"
+    .option nopic
+    .section .init
+    .global _start
+    .extern __memory_top
+    _start:
+        .option push
+        .option norelax // this option is necessary to ensure correctness
+        la gp, __global_pointer$ // set in the linker script
+        .option pop
+
+        la sp, __memory_top // default to growing the stack (down) from here
+
+        // but make an ecall to potentially overwrite it
+        // we embed an ecall instruction to avoid any possibility of updating `sp` by the compiler
+        // generating a function call
+        li a7, 0x402 // SYS_OVERWRITE_SP
+        ecall
+
+        mv fp, sp
+
+        jal ra, _start_rust
+"#
+);
 
 #[no_mangle]
 pub static __memory_top: u32 = 0x80400000;
