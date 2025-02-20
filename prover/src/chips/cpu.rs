@@ -409,19 +409,18 @@ impl MachineChip for CpuChip {
                 - E::F::one(),
         );
 
-        let [imm_c] = trace_eval!(trace_eval, Column::ImmC);
-
         // is_type_r = (1-imm_c) ・(is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra)
         let [is_type_r] = virtual_column::IsTypeR::eval(trace_eval);
 
         // is_alu_imm_no_shift = imm_c・(is_add + is_slt + is_sltu + is_xor + is_or + is_and)
-        let is_alu_imm_no_shift =
-            imm_c.clone() * (is_add + is_slt + is_sltu + is_xor + is_or + is_and);
+        let [is_alu_imm_no_shift] = virtual_column::IsAluImmNoShift::eval(trace_eval);
+
+        let [is_alu_imm_shift] = virtual_column::IsAluImmShift::eval(trace_eval);
 
         let [is_load] = virtual_column::IsLoad::eval(trace_eval);
 
         // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
-        let is_type_i = is_load + is_alu_imm_no_shift + is_jalr; // TODO: Add more flags when they are available
+        let is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift;
 
         // Constrain Reg{1,2,3}Accessed for type R and type I instructions
         let [reg3_accessed] = trace_eval!(trace_eval, Reg3Accessed);
