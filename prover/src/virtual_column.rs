@@ -10,7 +10,7 @@ use crate::{
     column::Column::{
         self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsEbreak,
         IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh, IsSll,
-        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor, Reg3Accessed,
+        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -348,10 +348,121 @@ impl VirtualColumnForSum for OpBFlag {
     }
 }
 
-pub(crate) struct Reg3AccessedVirtual;
+/// A virtual column that regulates the third register access
+///
+/// The third register access is done using ValueAEffective and Reg3Address.
+/// The third access is mainly used for writing into rd (destination register).
+/// The third register access is also used for reading from rs1 (first register argument) of type S and type B instructions.
+pub(crate) struct Reg3Accessed;
 
-impl VirtualColumnForSum for Reg3AccessedVirtual {
-    fn columns() -> &'static [Column] {
-        &[Reg3Accessed]
+// reg3_accessed =
+// (is_type_s + is_type_b) +   // When reading from rs1
+// (is_type_r + is_type_i + is_type_u + is_type_j)  + // For instructions with rd
+// (is_type_sys)·(is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset) // For some syscalls
+impl VirtualColumn<1> for Reg3Accessed {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
+        let [is_type_s] = IsTypeS::read_from_traces_builder(traces, row_idx);
+        let [is_type_b] = IsTypeB::read_from_traces_builder(traces, row_idx);
+        let [is_type_r] = IsTypeR::read_from_traces_builder(traces, row_idx);
+        let [is_type_i] = IsTypeI::read_from_traces_builder(traces, row_idx);
+        let [is_type_u] = IsTypeU::read_from_traces_builder(traces, row_idx);
+        let [is_type_j] = IsTypeJ::read_from_traces_builder(traces, row_idx);
+        let [is_type_sys] = IsTypeSys::read_from_traces_builder(traces, row_idx);
+        let [is_sys_priv_input] = traces.column(row_idx, Column::IsSysPrivInput);
+        let [is_sys_heap_reset] = traces.column(row_idx, Column::IsSysHeapReset);
+        let [is_sys_stack_reset] = traces.column(row_idx, Column::IsSysStackReset);
+
+        let ret = is_type_s
+            + is_type_b
+            + is_type_r
+            + is_type_i
+            + is_type_u
+            + is_type_j
+            + is_type_sys * (is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset);
+        [ret]
+    }
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; 1] {
+        let is_type_s = IsTypeS::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_b = IsTypeB::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_r = IsTypeR::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_i = IsTypeI::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_u = IsTypeU::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_j = IsTypeJ::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_type_sys = IsTypeSys::read_from_finalized_traces(traces, vec_idx)[0];
+        let is_sys_priv_input =
+            traces.get_base_column::<1>(Column::IsSysPrivInput)[0].data[vec_idx];
+        let is_sys_heap_reset =
+            traces.get_base_column::<1>(Column::IsSysHeapReset)[0].data[vec_idx];
+        let is_sys_stack_reset =
+            traces.get_base_column::<1>(Column::IsSysStackReset)[0].data[vec_idx];
+        let ret = is_type_s
+            + is_type_b
+            + is_type_r
+            + is_type_i
+            + is_type_u
+            + is_type_j
+            + is_type_sys * (is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset);
+        [ret]
+    }
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
+        let [is_type_s] = IsTypeS::eval(trace_eval);
+        let [is_type_b] = IsTypeB::eval(trace_eval);
+        let [is_type_r] = IsTypeR::eval(trace_eval);
+        let [is_type_i] = IsTypeI::eval(trace_eval);
+        let [is_type_u] = IsTypeU::eval(trace_eval);
+        let [is_type_j] = IsTypeJ::eval(trace_eval);
+        let [is_type_sys] = IsTypeSys::eval(trace_eval);
+        let [is_sys_priv_input] = trace_eval!(trace_eval, Column::IsSysPrivInput);
+        let [is_sys_heap_reset] = trace_eval!(trace_eval, Column::IsSysHeapReset);
+        let [is_sys_stack_reset] = trace_eval!(trace_eval, Column::IsSysStackReset);
+        let ret = is_type_s
+            + is_type_b
+            + is_type_r
+            + is_type_i
+            + is_type_u
+            + is_type_j
+            + is_type_sys * (is_sys_priv_input + is_sys_heap_reset + is_sys_stack_reset);
+        [ret]
+    }
+}
+/// One on rows for type I instructions. Zero otherwise.
+pub(crate) struct IsTypeI;
+
+// is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift
+impl VirtualColumn<1> for IsTypeI {
+    fn read_from_traces_builder(traces: &TracesBuilder, row_idx: usize) -> [BaseField; 1] {
+        let [is_load] = IsLoad::read_from_traces_builder(traces, row_idx);
+        let [is_jalr] = traces.column(row_idx, IsJalr);
+        let [is_alu_imm_no_shift] = IsAluImmNoShift::read_from_traces_builder(traces, row_idx);
+        let [is_alu_imm_shift] = IsAluImmShift::read_from_traces_builder(traces, row_idx);
+
+        let ret = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift;
+        [ret]
+    }
+
+    fn read_from_finalized_traces(
+        traces: &FinalizedTraces,
+        vec_idx: usize,
+    ) -> [PackedBaseField; 1] {
+        let [is_load] = IsLoad::read_from_finalized_traces(traces, vec_idx);
+        let is_jalr = traces.get_base_column::<1>(IsJalr)[0].data[vec_idx];
+        let [is_alu_imm_no_shift] = IsAluImmNoShift::read_from_finalized_traces(traces, vec_idx);
+        let [is_alu_imm_shift] = IsAluImmShift::read_from_finalized_traces(traces, vec_idx);
+
+        let ret = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift;
+        [ret]
+    }
+
+    fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
+        let [is_load] = IsLoad::eval(trace_eval);
+        let [is_jalr] = trace_eval!(trace_eval, IsJalr);
+        let [is_alu_imm_no_shift] = IsAluImmNoShift::eval(trace_eval);
+        let [is_alu_imm_shift] = IsAluImmShift::eval(trace_eval);
+
+        let ret = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift;
+        [ret]
     }
 }

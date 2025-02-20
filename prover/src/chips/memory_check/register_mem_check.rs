@@ -13,8 +13,8 @@ use crate::{
     column::{
         Column::{
             self, FinalRegTs, FinalRegValue, Reg1Address, Reg1TsPrev, Reg1ValPrev, Reg2Address,
-            Reg2TsPrev, Reg2ValPrev, Reg3Accessed, Reg3Address, Reg3TsPrev, Reg3ValPrev, ValueA,
-            ValueAEffective, ValueAEffectiveFlag, ValueB, ValueC,
+            Reg2TsPrev, Reg2ValPrev, Reg3Address, Reg3TsPrev, Reg3ValPrev, ValueA, ValueAEffective,
+            ValueAEffectiveFlag, ValueB, ValueC,
         },
         PreprocessedColumn,
     },
@@ -28,7 +28,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
-    virtual_column::{self, IsTypeR, OpBFlag, Reg3AccessedVirtual, VirtualColumn},
+    virtual_column::{self, IsTypeR, OpBFlag, Reg3Accessed, VirtualColumn},
 };
 
 /// A Chip for register memory checking
@@ -73,7 +73,8 @@ impl MachineChip for RegisterMemCheckChip {
         // Read inputs to the chip
         let reg1_accessed = virtual_column::OpBFlag::read_from_traces_builder(traces, row_idx);
         let reg2_accessed = virtual_column::IsTypeR::read_from_traces_builder(traces, row_idx);
-        let reg3_accessed: [BaseField; 1] = traces.column(row_idx, Reg3Accessed);
+        let reg3_accessed: [BaseField; 1] =
+            virtual_column::Reg3Accessed::read_from_traces_builder(traces, row_idx);
         let reg1_address: [BaseField; 1] = traces.column(row_idx, Reg1Address);
         let reg2_address: [BaseField; 1] = traces.column(row_idx, Reg2Address);
         let reg3_address: [BaseField; 1] = traces.column(row_idx, Reg3Address);
@@ -179,7 +180,7 @@ impl MachineChip for RegisterMemCheckChip {
             Reg2TsPrev,
             Reg2ValPrev,
         );
-        let [reg3_accessed] = trace_eval!(trace_eval, Column::Reg3Accessed);
+        let [reg3_accessed] = virtual_column::Reg3Accessed::eval(trace_eval);
         Self::constrain_subtract_prev_reg(
             eval,
             trace_eval,
@@ -295,7 +296,7 @@ impl MachineChip for RegisterMemCheckChip {
             Reg2TsPrev,
             Reg2ValPrev,
         );
-        Self::subtract_prev_reg::<Reg3AccessedVirtual>(
+        Self::subtract_prev_reg::<Reg3Accessed>(
             logup_trace_gen,
             original_traces,
             lookup_element,
@@ -323,7 +324,7 @@ impl MachineChip for RegisterMemCheckChip {
             PreprocessedColumn::Reg2TsCur,
             ValueC,
         );
-        Self::add_cur_reg::<Reg3AccessedVirtual>(
+        Self::add_cur_reg::<Reg3Accessed>(
             logup_trace_gen,
             original_traces,
             preprocessed_trace,

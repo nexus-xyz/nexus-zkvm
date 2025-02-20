@@ -303,9 +303,6 @@ pub enum Column {
     #[size = 1]
     ValueAEffectiveFlagAuxInv,
 
-    /// Flag indicating register access slot 3 is used
-    #[size = 1]
-    Reg3Accessed,
     /// Register index of register access slot 1
     #[size = 1]
     Reg1Address,
