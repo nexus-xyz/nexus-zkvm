@@ -949,31 +949,25 @@ impl LinearEmulator {
 
         let output_len = (memory_layout.public_output_end() - memory_layout.exit_code()) as usize; // we include the exit code in the output segment
         if output_len > 0 {
-            let output_memory = FixedMemory::<WO>::from_vec(
-                memory_layout.exit_code(),
-                output_len,
-                vec![0; output_len],
-            );
+            let init = vec![0; output_len / WORD_SIZE];
+            let output_memory =
+                FixedMemory::<WO>::from_vec(memory_layout.exit_code(), output_len, init);
             let _ = memory.add_fixed_wo(&output_memory).unwrap();
         }
 
         let heap_len = (memory_layout.heap_end() - memory_layout.heap_start()) as usize;
         if heap_len > 0 {
-            let heap_memory = FixedMemory::<RW>::from_vec(
-                memory_layout.heap_start(),
-                heap_len,
-                vec![0; heap_len],
-            );
+            let init = vec![0; heap_len / WORD_SIZE];
+            let heap_memory =
+                FixedMemory::<RW>::from_vec(memory_layout.heap_start(), heap_len, init);
             let _ = memory.add_fixed_rw(&heap_memory).unwrap();
         }
 
         let stack_len = (memory_layout.stack_top() - memory_layout.stack_bottom()) as usize;
         if stack_len > 0 {
-            let stack_memory = FixedMemory::<RW>::from_vec(
-                memory_layout.stack_bottom(),
-                stack_len,
-                vec![0; stack_len],
-            );
+            let init = vec![0; stack_len / WORD_SIZE];
+            let stack_memory =
+                FixedMemory::<RW>::from_vec(memory_layout.stack_bottom(), stack_len, init);
             let _ = memory.add_fixed_rw(&stack_memory).unwrap();
         }
 

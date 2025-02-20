@@ -99,8 +99,9 @@ impl<M: Mode> FixedMemory<M> {
         }
     }
 
-    pub fn from_vec(base_address: u32, max_len: usize, vec: Vec<u32>) -> Self {
-        vec.to_owned().truncate(max_len / WORD_SIZE);
+    pub fn from_vec(base_address: u32, max_len: usize, mut vec: Vec<u32>) -> Self {
+        vec.truncate(max_len / WORD_SIZE);
+        vec.shrink_to_fit();
 
         FixedMemory::<M> {
             base_address,
