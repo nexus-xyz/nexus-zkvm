@@ -10,9 +10,8 @@ use crate::{
             IsLhu, IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl,
             IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset, IsSysPrivInput,
             IsSysStackReset, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12, OpC20, OpC4,
-            PcCarry, ProgCtrCarry, Ram1Accessed, Ram2Accessed, Ram3Accessed, Ram4Accessed,
-            RamInitFinalFlag, Reg3Accessed, RemAux, SgnA, SgnB, SgnC, ShiftBit1, ShiftBit2,
-            ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
+            PcCarry, ProgCtrCarry, RamInitFinalFlag, Reg3Accessed, RemAux, SgnA, SgnB, SgnC,
+            ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
         },
         ProgramColumn,
     },
@@ -32,7 +31,7 @@ use crate::{
 /// RangeBoolChip can be located anywhere in the chip composition.
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 53] = [
+const CHECKED_SINGLE: [Column; 49] = [
     ValueAEffectiveFlag,
     ImmC,
     IsAdd,
@@ -76,10 +75,6 @@ const CHECKED_SINGLE: [Column; 53] = [
     SgnB,
     SgnC,
     Reg3Accessed,
-    Ram1Accessed,
-    Ram2Accessed,
-    Ram3Accessed,
-    Ram4Accessed,
     ShiftBit1,
     ShiftBit2,
     ShiftBit3,

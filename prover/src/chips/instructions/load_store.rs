@@ -13,10 +13,9 @@ use crate::{
     column::{
         Column::{
             self, Helper1, Helper2, Helper3, Helper4, IsLb, IsLbu, IsLh, IsLhu, IsLw, IsSb, IsSh,
-            IsSw, Ram1Accessed, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2Accessed,
-            Ram2TsPrev, Ram2TsPrevAux, Ram2ValCur, Ram2ValPrev, Ram3Accessed, Ram3TsPrev,
-            Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev, Ram4Accessed, Ram4TsPrev, Ram4TsPrevAux,
-            Ram4ValCur, Ram4ValPrev,
+            IsSw, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2TsPrevAux,
+            Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev,
+            Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur, Ram4ValPrev,
         },
         PreprocessedColumn, ProgramColumn,
     },
@@ -28,9 +27,37 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
     },
     traits::MachineChip,
+    virtual_column::{VirtualColumn, VirtualColumnForSum},
 };
 
 use super::add::add_with_carries;
+
+/// A virtual column that indicates the first byte RAM access
+struct Ram1Accessed;
+
+impl VirtualColumnForSum for Ram1Accessed {
+    fn columns() -> &'static [Column] {
+        &[IsSb, IsSh, IsSw, IsLb, IsLh, IsLbu, IsLhu, IsLw]
+    }
+}
+
+/// A virtual column that indicates the second byte RAM access
+struct Ram2Accessed;
+
+impl VirtualColumnForSum for Ram2Accessed {
+    fn columns() -> &'static [Column] {
+        &[IsSh, IsSw, IsLh, IsLhu, IsLw]
+    }
+}
+
+/// A virtual column that indicates the third and the fourth byte RAM access
+struct Ram3_4Accessed;
+
+impl VirtualColumnForSum for Ram3_4Accessed {
+    fn columns() -> &'static [Column] {
+        &[IsSw, IsLw]
+    }
+}
 
 // Support SB, SH, SW, LB, LH and LW opcodes
 pub struct LoadStoreChip;
@@ -86,7 +113,7 @@ impl MachineChip for LoadStoreChip {
 
         // Subtract and add address1 access components from/to logup sum
         // TODO: make it a loop or four calls
-        Self::subtract_add_access(
+        Self::subtract_add_access::<Ram1Accessed>(
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -94,10 +121,9 @@ impl MachineChip for LoadStoreChip {
             Ram1ValPrev,
             Ram1TsPrev,
             Ram1ValCur,
-            Ram1Accessed,
             0,
         );
-        Self::subtract_add_access(
+        Self::subtract_add_access::<Ram2Accessed>(
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -105,10 +131,9 @@ impl MachineChip for LoadStoreChip {
             Ram2ValPrev,
             Ram2TsPrev,
             Ram2ValCur,
-            Ram2Accessed,
             1,
         );
-        Self::subtract_add_access(
+        Self::subtract_add_access::<Ram3_4Accessed>(
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -116,10 +141,9 @@ impl MachineChip for LoadStoreChip {
             Ram3ValPrev,
             Ram3TsPrev,
             Ram3ValCur,
-            Ram3Accessed,
             2,
         );
-        Self::subtract_add_access(
+        Self::subtract_add_access::<Ram3_4Accessed>(
             original_traces,
             preprocessed_trace,
             lookup_element,
@@ -127,7 +151,6 @@ impl MachineChip for LoadStoreChip {
             Ram4ValPrev,
             Ram4TsPrev,
             Ram4ValCur,
-            Ram4Accessed,
             3,
         );
 
@@ -140,57 +163,6 @@ impl MachineChip for LoadStoreChip {
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &AllLookupElements,
     ) {
-        let [is_sb] = trace_eval!(trace_eval, IsSb);
-        let [is_sh] = trace_eval!(trace_eval, IsSh);
-        let [is_sw] = trace_eval!(trace_eval, IsSw);
-        let [is_lb] = trace_eval!(trace_eval, IsLb);
-        let [is_lh] = trace_eval!(trace_eval, IsLh);
-        let [is_lbu] = trace_eval!(trace_eval, IsLbu);
-        let [is_lhu] = trace_eval!(trace_eval, IsLhu);
-        let [is_lw] = trace_eval!(trace_eval, IsLw);
-        // Constrain the value of Ram1Accessed to be true when load or store happens. All of them access at least one byte of RAM.
-        let [ram1_accessed] = trace_eval!(trace_eval, Ram1Accessed);
-        eval.add_constraint(
-            (is_sb.clone()
-                + is_sh.clone()
-                + is_sw.clone()
-                + is_lb.clone()
-                + is_lh.clone()
-                + is_lbu.clone()
-                + is_lhu.clone()
-                + is_lw.clone())
-                * (E::F::one() - ram1_accessed.clone()),
-        );
-        // Constrain the value of Ram2Accessed to be true for multi-byte memory access; false for single-byte memory access.
-        let [ram2_accessed] = trace_eval!(trace_eval, Ram2Accessed);
-        eval.add_constraint(
-            (is_sb.clone() + is_lb.clone() + is_lbu.clone()) * ram2_accessed.clone(),
-        );
-        eval.add_constraint(
-            (is_sh.clone() + is_sw.clone() + is_lh.clone() + is_lhu.clone() + is_lw.clone())
-                * (E::F::one() - ram2_accessed.clone()),
-        );
-        // Constrain the value of Ram3Accessed to be true for word memory access; false for half-word and single-byte memory access.
-        let [ram3_accessed] = trace_eval!(trace_eval, Ram3Accessed);
-        eval.add_constraint(
-            (is_sb.clone()
-                + is_sh.clone()
-                + is_lb.clone()
-                + is_lh.clone()
-                + is_lhu.clone()
-                + is_lbu.clone())
-                * ram3_accessed.clone(),
-        );
-        eval.add_constraint(
-            (is_sw.clone() + is_lw.clone()) * (E::F::one() - ram3_accessed.clone()),
-        );
-        // Constrain the value of Ram4Accessed to be true for word memory access; false for half-word and single-byte memory access.
-        let [ram4_accessed] = trace_eval!(trace_eval, Ram4Accessed);
-        eval.add_constraint(
-            (is_sb + is_sh + is_lb + is_lbu + is_lh + is_lhu) * ram4_accessed.clone(),
-        );
-        eval.add_constraint((is_sw + is_lw) * (E::F::one() - ram4_accessed.clone()));
-
         // Constraints for RAM vs public I/O consistency
         let [initial_memory_flag] =
             program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryFlag);
@@ -221,6 +193,7 @@ impl MachineChip for LoadStoreChip {
         let ram1_ts_prev = trace_eval!(trace_eval, Ram1TsPrev);
         let ram1_ts_prev_aux = trace_eval!(trace_eval, Ram1TsPrevAux);
         let helper1 = trace_eval!(trace_eval, Column::Helper1);
+        let [ram1_accessed] = Ram1Accessed::eval(trace_eval);
         // ram1_ts_prev_aux_1 + 1    + ram1_ts_prev_1 = clk_1 + h1_1・2^8 (conditioned on ram1_accessed != 0)
         eval.add_constraint(
             ram1_accessed.clone()
@@ -255,6 +228,7 @@ impl MachineChip for LoadStoreChip {
         let ram2_ts_prev = trace_eval!(trace_eval, Ram2TsPrev);
         let ram2_ts_prev_aux = trace_eval!(trace_eval, Ram2TsPrevAux);
         let helper2 = trace_eval!(trace_eval, Column::Helper2);
+        let [ram2_accessed] = Ram2Accessed::eval(trace_eval);
         // ram2_ts_prev_aux_1 + 1    + ram2_ts_prev_1 = clk_1 + h2_1・2^8 (conditioned on ram2_accessed != 0)
         eval.add_constraint(
             ram2_accessed.clone()
@@ -289,9 +263,10 @@ impl MachineChip for LoadStoreChip {
         let ram3_ts_prev = trace_eval!(trace_eval, Ram3TsPrev);
         let ram3_ts_prev_aux = trace_eval!(trace_eval, Ram3TsPrevAux);
         let helper3 = trace_eval!(trace_eval, Column::Helper3);
+        let [ram3_4_accessed] = Ram3_4Accessed::eval(trace_eval);
         // ram3_ts_prev_aux_1 + 1    + ram3_ts_prev_1 = clk_1 + h3_1・2^8 (conditioned on ram3_accessed != 0)
         eval.add_constraint(
-            ram3_accessed.clone()
+            ram3_4_accessed.clone()
                 * (ram3_ts_prev_aux[0].clone() + E::F::one() + ram3_ts_prev[0].clone()
                     - clk[0].clone()
                     - helper3[0].clone() * BaseField::from(1 << 8)),
@@ -301,7 +276,7 @@ impl MachineChip for LoadStoreChip {
         // ram3_ts_prev_aux_4 + h3_3 + ram3_ts_prev_4 = clk_4 + h3_4・2^8 (conditioned on ram3_accessed != 0)
         for i in 1..WORD_SIZE {
             eval.add_constraint(
-                ram3_accessed.clone()
+                ram3_4_accessed.clone()
                     * (ram3_ts_prev_aux[i].clone()
                         + helper3[i - 1].clone()
                         + ram3_ts_prev[i].clone()
@@ -313,10 +288,12 @@ impl MachineChip for LoadStoreChip {
         // h3_3・(h3_3 - 1) = 0; h3_4 = 0 (conditioned on ram3_accessed != 0)
         for helper3_limb in helper3.iter().take(WORD_SIZE - 1) {
             eval.add_constraint(
-                helper3_limb.clone() * (helper3_limb.clone() - E::F::one()) * ram3_accessed.clone(),
+                helper3_limb.clone()
+                    * (helper3_limb.clone() - E::F::one())
+                    * ram3_4_accessed.clone(),
             );
         }
-        eval.add_constraint(helper3[WORD_SIZE - 1].clone() * ram3_accessed.clone());
+        eval.add_constraint(helper3[WORD_SIZE - 1].clone() * ram3_4_accessed.clone());
 
         // Computing ram4_ts_prev_aux = clk - 1 - ram4_ts_prev
         // Helper4 used for borrow handling
@@ -324,14 +301,14 @@ impl MachineChip for LoadStoreChip {
         let ram4_ts_prev_aux = trace_eval!(trace_eval, Ram4TsPrevAux);
         let helper4 = trace_eval!(trace_eval, Column::Helper4);
         eval.add_constraint(
-            ram4_accessed.clone()
+            ram3_4_accessed.clone()
                 * (ram4_ts_prev_aux[0].clone() + E::F::one() + ram4_ts_prev[0].clone()
                     - clk[0].clone()
                     - helper4[0].clone() * BaseField::from(1 << 8)),
         );
         for i in 1..WORD_SIZE {
             eval.add_constraint(
-                ram4_accessed.clone()
+                ram3_4_accessed.clone()
                     * (ram4_ts_prev_aux[i].clone()
                         + helper4[i - 1].clone()
                         + ram4_ts_prev[i].clone()
@@ -345,52 +322,48 @@ impl MachineChip for LoadStoreChip {
             eval.add_constraint(
                 helper_4_limb.clone()
                     * (helper_4_limb.clone() - E::F::one())
-                    * ram4_accessed.clone(),
+                    * ram3_4_accessed.clone(),
             );
         }
-        eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram4_accessed.clone());
+        eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram3_4_accessed.clone());
 
         let lookup_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
 
         Self::constrain_add_initial_values(eval, trace_eval, lookup_elements);
-        Self::constrain_subtract_add_access(
+        Self::constrain_subtract_add_access::<E, Ram1Accessed>(
             eval,
             trace_eval,
             lookup_elements,
             Ram1ValPrev,
             Ram1TsPrev,
             Ram1ValCur,
-            Ram1Accessed,
             0,
         );
-        Self::constrain_subtract_add_access(
+        Self::constrain_subtract_add_access::<E, Ram2Accessed>(
             eval,
             trace_eval,
             lookup_elements,
             Ram2ValPrev,
             Ram2TsPrev,
             Ram2ValCur,
-            Ram2Accessed,
             1,
         );
-        Self::constrain_subtract_add_access(
+        Self::constrain_subtract_add_access::<E, Ram3_4Accessed>(
             eval,
             trace_eval,
             lookup_elements,
             Ram3ValPrev,
             Ram3TsPrev,
             Ram3ValCur,
-            Ram3Accessed,
             2,
         );
-        Self::constrain_subtract_add_access(
+        Self::constrain_subtract_add_access::<E, Ram3_4Accessed>(
             eval,
             trace_eval,
             lookup_elements,
             Ram4ValPrev,
             Ram4TsPrev,
             Ram4ValCur,
-            Ram4Accessed,
             3,
         );
         Self::constrain_final_values(eval, trace_eval, lookup_elements);
@@ -503,39 +476,11 @@ impl LoadStoreChip {
                     .to_le_bytes()
             };
 
-            for (i, (val_cur, val_prev, ts_prev, accessed, ram_ts_prev_aux, helper)) in [
-                (
-                    Ram1ValCur,
-                    Ram1ValPrev,
-                    Ram1TsPrev,
-                    Ram1Accessed,
-                    Ram1TsPrevAux,
-                    Helper1,
-                ),
-                (
-                    Ram2ValCur,
-                    Ram2ValPrev,
-                    Ram2TsPrev,
-                    Ram2Accessed,
-                    Ram2TsPrevAux,
-                    Helper2,
-                ),
-                (
-                    Ram3ValCur,
-                    Ram3ValPrev,
-                    Ram3TsPrev,
-                    Ram3Accessed,
-                    Ram3TsPrevAux,
-                    Helper3,
-                ),
-                (
-                    Ram4ValCur,
-                    Ram4ValPrev,
-                    Ram4TsPrev,
-                    Ram4Accessed,
-                    Ram4TsPrevAux,
-                    Helper4,
-                ),
+            for (i, (val_cur, val_prev, ts_prev, ram_ts_prev_aux, helper)) in [
+                (Ram1ValCur, Ram1ValPrev, Ram1TsPrev, Ram1TsPrevAux, Helper1),
+                (Ram2ValCur, Ram2ValPrev, Ram2TsPrev, Ram2TsPrevAux, Helper2),
+                (Ram3ValCur, Ram3ValPrev, Ram3TsPrev, Ram3TsPrevAux, Helper3),
+                (Ram4ValCur, Ram4ValPrev, Ram4TsPrev, Ram4TsPrevAux, Helper4),
             ]
             .into_iter()
             .take(size)
@@ -561,7 +506,6 @@ impl LoadStoreChip {
                 traces.fill_columns(row_idx, cur_value[i], val_cur);
                 traces.fill_columns(row_idx, prev_val, val_prev);
                 traces.fill_columns(row_idx, prev_timestamp, ts_prev);
-                traces.fill_columns(row_idx, true, accessed);
                 let (ram_ts_prev_aux_word, helper_word) =
                     decr_subtract_with_borrow(clk.to_le_bytes(), prev_timestamp.to_le_bytes());
                 traces.fill_columns(row_idx, ram_ts_prev_aux_word, ram_ts_prev_aux);
@@ -675,7 +619,7 @@ impl LoadStoreChip {
         ));
     }
 
-    fn subtract_add_access(
+    fn subtract_add_access<Accessed: VirtualColumn<1>>(
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         lookup_elements: &LoadStoreLookupElements,
@@ -683,70 +627,62 @@ impl LoadStoreChip {
         val_prev: Column,
         ts_prev: Column,
         val_cur: Column,
-        accessed: Column,
         address_offset: u8,
     ) {
-        Self::subtract_access(
+        Self::subtract_access::<Accessed>(
             original_traces,
             lookup_elements,
             logup_trace_gen,
             val_prev,
             ts_prev,
-            accessed,
             address_offset,
         );
-        Self::add_access(
+        Self::add_access::<Accessed>(
             original_traces,
             preprocessed_traces,
             lookup_elements,
             logup_trace_gen,
             val_cur,
-            accessed,
             address_offset,
         );
     }
 
-    fn constrain_subtract_add_access<E: EvalAtRow>(
+    fn constrain_subtract_add_access<E: EvalAtRow, Accessed: VirtualColumn<1>>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &LoadStoreLookupElements,
         val_prev: Column,
         ts_prev: Column,
         val_cur: Column,
-        accessed: Column,
         address_offset: u8,
     ) {
-        Self::constrain_subtract_address(
+        Self::constrain_subtract_address::<E, Accessed>(
             eval,
             trace_eval,
             lookup_elements,
             val_prev,
             ts_prev,
-            accessed,
             address_offset,
         );
-        Self::constrain_add_access(
+        Self::constrain_add_access::<E, Accessed>(
             eval,
             trace_eval,
             lookup_elements,
             val_cur,
-            accessed,
             address_offset,
         );
     }
 
-    fn subtract_access(
+    fn subtract_access<Accessed: VirtualColumn<1>>(
         original_traces: &FinalizedTraces,
         lookup_elements: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
         val_prev: Column,
         ts_prev: Column,
-        accessed: Column,
         address_offset: u8,
     ) {
         let [val_prev] = original_traces.get_base_column(val_prev);
         let ts_prev = original_traces.get_base_column::<WORD_SIZE>(ts_prev);
-        let [accessed] = original_traces.get_base_column(accessed);
         let base_address = original_traces.get_base_column::<WORD_SIZE>(Column::RamBaseAddr);
         // Subtract previous tuple
         let mut logup_col_gen = logup_trace_gen.new_col();
@@ -765,7 +701,7 @@ impl LoadStoreChip {
                 tuple.push(ts_prev_byte.data[vec_row]);
             }
             assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-            let accessed = accessed.data[vec_row];
+            let [accessed] = Accessed::read_from_finalized_traces(original_traces, vec_row);
             logup_col_gen.write_frac(
                 vec_row,
                 (-accessed).into(),
@@ -775,18 +711,17 @@ impl LoadStoreChip {
         logup_col_gen.finalize_col();
     }
 
-    fn constrain_subtract_address<E: EvalAtRow>(
+    fn constrain_subtract_address<E: EvalAtRow, Accessed: VirtualColumn<1>>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &LoadStoreLookupElements,
         val_prev: Column,
         ts_prev: Column,
-        accessed: Column,
         address_offset: u8,
     ) {
         let [val_prev] = trace_eval.column_eval(val_prev);
         let ts_prev = trace_eval.column_eval::<WORD_SIZE>(ts_prev);
-        let [accessed] = trace_eval.column_eval(accessed);
+        let [accessed] = Accessed::eval(trace_eval);
         let base_address = trace_eval!(trace_eval, Column::RamBaseAddr);
         let mut tuple = vec![];
         // The least significant byte of the address is base_address[0] + address_offset
@@ -807,17 +742,15 @@ impl LoadStoreChip {
         ));
     }
 
-    fn add_access(
+    fn add_access<Accessed: VirtualColumn<1>>(
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
         lookup_elements: &LoadStoreLookupElements,
         logup_trace_gen: &mut LogupTraceGenerator,
         val_cur: Column,
-        accessed: Column,
         address_offset: u8,
     ) {
         let [val_cur] = original_traces.get_base_column(val_cur);
-        let [accessed] = original_traces.get_base_column(accessed);
         let base_address = original_traces.get_base_column::<WORD_SIZE>(Column::RamBaseAddr);
         // Add current tuple
         let clk =
@@ -838,7 +771,7 @@ impl LoadStoreChip {
                 tuple.push(clk_byte.data[vec_row]);
             }
             assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-            let accessed = accessed.data[vec_row];
+            let [accessed] = Accessed::read_from_finalized_traces(original_traces, vec_row);
             logup_col_gen.write_frac(
                 vec_row,
                 accessed.into(),
@@ -848,16 +781,15 @@ impl LoadStoreChip {
         logup_col_gen.finalize_col();
     }
 
-    fn constrain_add_access<E: EvalAtRow>(
+    fn constrain_add_access<E: EvalAtRow, Accessed: VirtualColumn<1>>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &LoadStoreLookupElements,
         val_cur: Column,
-        accessed: Column,
         address_offset: u8,
     ) {
         let [val_cur] = trace_eval.column_eval(val_cur);
-        let [accessed] = trace_eval.column_eval(accessed);
+        let [accessed] = Accessed::eval(trace_eval);
         let base_address = trace_eval!(trace_eval, Column::RamBaseAddr);
         let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
         let mut tuple = vec![];

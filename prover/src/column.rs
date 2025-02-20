@@ -421,18 +421,6 @@ pub enum Column {
     /// Auxiliary columns for comparing Ram4TsPrev and Clk
     #[size = 4]
     Ram4TsPrevAux,
-    /// The flag indicating whether the read-write memory at RamBaseAddr is accessed
-    #[size = 1]
-    Ram1Accessed,
-    /// The flag indicating whether the read-write memory at RamBaseAddr + 1 is accessed
-    #[size = 1]
-    Ram2Accessed,
-    /// The flag indicating whether the read-write memory at RamBaseAddr + 2 is accessed
-    #[size = 1]
-    Ram3Accessed,
-    /// The flag indicating whether the read-write memory at RamBaseAddr + 3 is accessed
-    #[size = 1]
-    Ram4Accessed,
 
     /// Auxiliary variable for decoding instruction: bits[0..=3] of OpC argument
     #[size = 1]
