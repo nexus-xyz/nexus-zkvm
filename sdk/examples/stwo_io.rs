@@ -26,7 +26,10 @@ fn main() {
         .prove_with_input::<u32, u32>(&3, &5)
         .expect("failed to prove program"); // x = 5, y = 3
 
-    assert_eq!(view.exit_code().expect("failed to retrieve exit code"), 0);
+    assert_eq!(
+        view.exit_code().expect("failed to retrieve exit code"),
+        nexus_sdk::KnownErrorCodes::ExitSuccess as u32
+    );
 
     let output: u32 = view
         .public_output::<u32>()
@@ -55,17 +58,19 @@ fn main() {
     // print!("Verifying execution...");
     // proof.verify_expected_from_program_path::<&str, u32, u32>(
     //    &5,    // x = 5
-    //    0,     // exit code = 0
+    //    nexus_sdk::KnownErrorCodes::ExitSuccess as u32,
     //    &15,   // z = 15
     //    &path, // path to expected program binary
     //    &[]    // no associated data,
     // ).expect("failed to verify proof");
 
     print!("Verifying execution...");
+
+    #[rustfmt::skip]
     proof
         .verify_expected::<u32, u32>(
             &5,   // x = 5
-            0,    // exit code = 0
+            nexus_sdk::KnownErrorCodes::ExitSuccess as u32,
             &15,  // z = 15
             &elf, // expected elf (program binary)
             &[],  // no associated data,
