@@ -92,11 +92,12 @@ fn update_row_post_eval<M: Memory>(
     }
     if let Some((lop, store_addr)) = store_addr {
         let new_value = vm.mem.load(lop, store_addr).expect("invalid store").0 as u64;
-        let Some(jolt_rv::MemoryState::Write { post_value, .. }) = &mut rv_trace_row.memory_state
-        else {
+
+        if let Some(jolt_rv::MemoryState::Write { post_value, .. }) = &mut rv_trace_row.memory_state {
+            *post_value = new_value;
+        } else {
             panic!("invalid memory state for store instruction");
-        };
-        *post_value = new_value;
+        }
     }
 }
 
