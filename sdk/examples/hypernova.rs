@@ -16,7 +16,7 @@ fn main() {
         panic!(
             "{}{} was not found, make sure to compile the program \
              with `cd examples && cargo build --release --bin {}`",
-            "target/riscv32i-unknown-none-elf/release/", EXAMPLE_NAME, EXAMPLE_NAME,
+            path.display(), EXAMPLE_NAME,
         );
     }
 
