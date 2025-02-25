@@ -223,8 +223,6 @@ impl MachineChip for RegisterMemCheckChip {
         // Subtract final register info (stored on the first 32 rows)
         Self::constrain_subtract_final_reg(eval, trace_eval, lookup_elements);
 
-        // TODO: constrain prev_ts < cur_ts
-
         // Constrain ValueB and ValueC using Reg1ValPrev and Reg2ValPrev, when these registers are accessed
         // ValueB and ValueC are only used for reading from the registers, so they should not change the previous values.
         let reg1_val_prev = trace_eval!(trace_eval, Column::Reg1ValPrev);

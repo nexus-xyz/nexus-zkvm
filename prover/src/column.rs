@@ -243,10 +243,10 @@ pub enum Column {
     /// ShiftBit flag. Called sh5 in document.
     #[size = 1]
     ShiftBit5,
-    /// Exp1_3 flag. Called exp1_3 in document.
+    /// Exp1_3. Called exp1_3 in document.
     #[size = 1]
     Exp1_3,
-    /// Exp flag. Called exp in document.
+    /// Exp. Called exp in document.
     #[size = 1]
     Exp,
     /// RemDiff. Called rem{1,2,3,4}_diff in document.
