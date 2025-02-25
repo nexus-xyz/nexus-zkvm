@@ -87,7 +87,7 @@ impl MachineChip for CpuChip {
         traces.fill_columns(row_idx, pc, Pc);
 
         // Add opcode to the main trace
-        // TODO: We should also set ImmC or ImmB flags here.
+
         // Set is_opcode to 1, e.g If this is ADD opcode, set IsAdd to 1.
         match step.instruction.opcode.builtin() {
             Some(BuiltinOpcode::ADD) | Some(BuiltinOpcode::ADDI) => {
@@ -292,8 +292,6 @@ impl MachineChip for CpuChip {
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
     ) {
-        // TODO: add more constraints for the CPU chip.
-
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         // Padding rows should not access registers
         let [next_is_padding] = trace_eval_next_row!(trace_eval, Column::IsPadding);

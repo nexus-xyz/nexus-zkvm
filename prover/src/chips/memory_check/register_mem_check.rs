@@ -59,7 +59,7 @@ impl MachineChip for RegisterMemCheckChip {
         // Fill ValueAEffective
         // This cannot be done in CPUChip because ValueA isn't available there yet.
         traces.fill_effective_columns(row_idx, ValueA, ValueAEffective, ValueAEffectiveFlag);
-        // TODO: consider looking up clk, reg{1,2,3}_cur_ts in the preprocessed trace
+
         assert!(row_idx < (u32::MAX - 3) as usize / 3);
         let clk = row_idx as u32 + 1;
         let reg1_cur_ts = clk * 3 + 1;
@@ -202,16 +202,9 @@ impl MachineChip for RegisterMemCheckChip {
         let [reg2_accessed] = virtual_column::IsTypeR::eval(trace_eval);
         let value_b = trace_eval!(trace_eval, Column::ValueB);
         let value_c = trace_eval!(trace_eval, Column::ValueC);
-        let [is_add] = trace_eval!(trace_eval, Column::IsAdd);
-        let [is_sub] = trace_eval!(trace_eval, Column::IsSub);
-        let [is_and] = trace_eval!(trace_eval, Column::IsAnd);
-        let [is_or] = trace_eval!(trace_eval, Column::IsOr);
-        let [is_xor] = trace_eval!(trace_eval, Column::IsXor);
-        let [is_slt] = trace_eval!(trace_eval, Column::IsSlt);
-        let [is_sltu] = trace_eval!(trace_eval, Column::IsSltu);
 
         // is_alu = is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra
-        let is_alu = is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and;
+        let [is_alu] = virtual_column::IsAlu::eval(trace_eval);
 
         for i in 0..WORD_SIZE {
             eval.add_constraint(

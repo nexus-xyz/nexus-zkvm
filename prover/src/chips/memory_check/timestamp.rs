@@ -34,7 +34,6 @@ impl MachineChip for TimestampChip {
         _step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
     ) {
-        // TODO: fetch these values from the preprocessed trace
         let clk: u32 = row_idx as u32 + 1;
         let reg1_ts_cur = clk * 3 + 1;
         let reg2_ts_cur = clk * 3 + 2;

@@ -304,7 +304,14 @@ impl VirtualColumn<1> for IsPcIncremented {
         let [is_load] = IsLoad::read_from_traces_builder(traces, row_idx);
         let [is_type_s] = IsTypeS::read_from_traces_builder(traces, row_idx);
         let [is_type_u] = IsTypeU::read_from_traces_builder(traces, row_idx);
-        let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
+        let [is_type_sys] = IsTypeSys::read_from_traces_builder(traces, row_idx);
+
+        let [is_sys_halt] = traces.column(row_idx, Column::IsSysHalt);
+        let ret = is_alu
+            + is_load
+            + is_type_s
+            + is_type_sys * (BaseField::one() - is_sys_halt)
+            + is_type_u;
         [ret]
     }
     fn read_from_finalized_traces(
@@ -315,7 +322,14 @@ impl VirtualColumn<1> for IsPcIncremented {
         let is_load = IsLoad::read_from_finalized_traces(traces, vec_idx)[0];
         let is_type_s = IsTypeS::read_from_finalized_traces(traces, vec_idx)[0];
         let is_type_u = IsTypeU::read_from_finalized_traces(traces, vec_idx)[0];
-        let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
+        let is_type_sys = IsTypeSys::read_from_finalized_traces(traces, vec_idx)[0];
+
+        let is_sys_halt = traces.get_base_column::<1>(Column::IsSysHalt)[0].data[vec_idx];
+        let ret = is_alu
+            + is_load
+            + is_type_s
+            + is_type_sys * (PackedBaseField::one() - is_sys_halt)
+            + is_type_u;
         [ret]
     }
     fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
@@ -323,7 +337,11 @@ impl VirtualColumn<1> for IsPcIncremented {
         let [is_load] = IsLoad::eval(trace_eval);
         let [is_type_s] = IsTypeS::eval(trace_eval);
         let [is_type_u] = IsTypeU::eval(trace_eval);
-        let ret = is_alu + is_load + is_type_s + is_type_u; // TODO: add is_type_sys when it's available
+        let [is_type_sys] = IsTypeSys::eval(trace_eval);
+
+        let [is_sys_halt] = trace_eval!(trace_eval, Column::IsSysHalt);
+        let ret =
+            is_alu + is_load + is_type_s + is_type_sys * (E::F::one() - is_sys_halt) + is_type_u;
         [ret]
     }
 }

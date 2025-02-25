@@ -3,24 +3,17 @@
 use num_traits::One;
 
 use crate::{
-    column::{
-        Column::{
-            self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmC, IsAdd, IsAnd, IsAuipc,
-            IsBge, IsBgeu, IsBlt, IsBltu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh,
-            IsLhu, IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl,
-            IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset, IsSysPrivInput,
-            IsSysStackReset, IsXor, LtFlag, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12, OpC20, OpC4,
-            PcCarry, ProgCtrCarry, RamInitFinalFlag, RemAux, SgnA, SgnB, SgnC, ShiftBit1,
-            ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
-        },
-        ProgramColumn,
+    column::Column::{
+        self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmC, IsAdd, IsAnd, IsAuipc,
+        IsBge, IsBgeu, IsBlt, IsBltu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu,
+        IsLui, IsLw, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw,
+        IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset, IsSysPrivInput, IsSysStackReset,
+        IsXor, LtFlag, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12, OpC20, OpC4, PcCarry, ProgCtrCarry,
+        RamInitFinalFlag, RemAux, SgnA, SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4,
+        ShiftBit5, ValueAEffectiveFlag,
     },
     components::AllLookupElements,
-    trace::{
-        eval::{program_trace_eval, TraceEval},
-        sidenote::SideNote,
-        ProgramStep, TracesBuilder,
-    },
+    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
     WORD_SIZE,
@@ -97,8 +90,6 @@ const TYPE_J_CHECKED_SINGLE: [Column; 3] = [OpC11, OpC20, OpA0];
 const TYPE_B_CHECKED_SINGLE: [Column; 4] = [OpC11, OpC12, OpA0, OpB4];
 const TYPE_S_CHECKED_SINGLE: [Column; 4] = [OpC0, OpC11, OpA0, OpB4];
 
-// TODO: also range-check PrgMemoryFlag in program trace
-
 impl MachineChip for RangeBoolChip {
     fn fill_main_trace(
         _traces: &mut TracesBuilder,
@@ -161,13 +152,6 @@ impl MachineChip for RangeBoolChip {
                 eval.add_constraint(limb.clone() * (limb - E::F::one()));
             }
         }
-        let [prg_memory_flg] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
-        eval.add_constraint(prg_memory_flg.clone() * (prg_memory_flg - E::F::one()));
-        let [pub_input_flg] =
-            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryFlag);
-        eval.add_constraint(pub_input_flg.clone() * (pub_input_flg - E::F::one()));
-        let [pub_output_flg] = program_trace_eval!(trace_eval, ProgramColumn::PublicOutputFlag);
-        eval.add_constraint(pub_output_flg.clone() * (pub_output_flg - E::F::one()));
     }
 }
 

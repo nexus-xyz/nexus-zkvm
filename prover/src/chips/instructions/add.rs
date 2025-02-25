@@ -121,8 +121,6 @@ impl MachineChip for AddChip {
                         - (value_b[i].clone() + value_c[i].clone() + carry)),
             );
         }
-
-        // TODO: special range check rs2_val[i] for ADDI case, because immediate values have a smaller range.
     }
 }
 
