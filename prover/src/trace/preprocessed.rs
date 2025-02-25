@@ -9,7 +9,6 @@ use stwo_prover::core::{
     ColumnVec,
 };
 
-use nexus_common::riscv::register::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;
 
 use super::{utils::finalize_columns, TracesBuilder};
@@ -39,8 +38,6 @@ impl PreprocessedBuilder {
         let mut ret = Self(TracesBuilder { cols, log_size });
         ret.fill_is_first();
         ret.fill_is_last();
-        ret.fill_row_idx();
-        ret.fill_is_first32();
         ret.fill_timestamps();
         ret.fill_range256();
         ret.fill_range128();
@@ -81,20 +78,6 @@ impl PreprocessedBuilder {
         *self.0.cols[PreprocessedColumn::IsLast.offset()]
             .last_mut()
             .expect("preprocessed trace must be non-empty") = BaseField::one();
-    }
-
-    pub(crate) fn fill_row_idx(&mut self) {
-        assert!(self.log_size() < 31);
-        for row_idx in 0..self.num_rows() {
-            self.0.cols[PreprocessedColumn::RowIdx.offset()][row_idx] = BaseField::from(row_idx);
-        }
-    }
-
-    pub(crate) fn fill_is_first32(&mut self) {
-        assert_eq!(NUM_REGISTERS, 32);
-        for row_idx in 0..32 {
-            self.0.cols[PreprocessedColumn::IsFirst32.offset()][row_idx] = BaseField::one();
-        }
     }
 
     pub(crate) fn fill_range256(&mut self) {

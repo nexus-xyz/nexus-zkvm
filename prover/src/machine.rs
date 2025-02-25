@@ -4,10 +4,11 @@ use num_traits::Zero;
 use stwo_prover::{
     constraint_framework::TraceLocationAllocator,
     core::{
+        air::{Component, ComponentProver},
         backend::simd::SimdBackend,
         channel::{Blake2sChannel, Channel},
         fields::qm31::SecureField,
-        pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig},
+        pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeVec},
         poly::circle::{CanonicCoset, PolyOps},
         prover::{prove, verify, ProvingError, StarkProof, VerificationError},
         vcs::blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
@@ -35,6 +36,7 @@ use crate::{
     },
     column::{PreprocessedColumn, ProgramColumn},
     components::{self, AllLookupElements},
+    extensions::ExtensionComponent,
     traits::generate_interaction_trace,
 };
 use serde::{Deserialize, Serialize};
@@ -68,11 +70,14 @@ pub type BaseComponents = (
     // Range checks must be positioned at the end. They use values filled by instruction chips.
     RangeCheckChip,
 );
+/// Base extensions used in conjunction with [`BaseComponents`]. This components are always enabled and are not accessible
+/// to downstream crates.
+const BASE_EXTENSIONS: &[ExtensionComponent] = &[ExtensionComponent::final_reg()];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof {
     pub stark_proof: StarkProof<Blake2sMerkleHasher>,
-    pub claimed_sum: SecureField,
+    pub claimed_sum: Vec<SecureField>,
     pub log_size: u32,
 }
 
@@ -89,6 +94,14 @@ pub struct Machine<C = BaseComponents> {
 
 impl<C: MachineChip + Sync> Machine<C> {
     pub fn prove(trace: &impl Trace, view: &View) -> Result<Proof, ProvingError> {
+        Self::prove_with_extensions(&[], trace, view)
+    }
+
+    pub fn prove_with_extensions(
+        extensions: &[ExtensionComponent],
+        trace: &impl Trace,
+        view: &View,
+    ) -> Result<Proof, ProvingError> {
         let num_steps = trace.get_num_steps();
         let program_len = view.get_program_memory().program.len();
         let memory_len = view.get_initial_memory().len()
@@ -97,6 +110,8 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let log_size = Self::max_log_size(&[num_steps, program_len, memory_len])
             .max(PreprocessedTraces::MIN_LOG_SIZE);
+
+        let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);
 
         let config = PcsConfig::default();
         // Precompute twiddles.
@@ -151,11 +166,19 @@ impl<C: MachineChip + Sync> Machine<C> {
                 .into_iter()
                 .chain(finalized_program_trace.clone().into_circle_evaluation()),
         );
+        // Handle extensions for the preprocessed trace
+        for ext in extensions_iter.clone() {
+            tree_builder.extend_evals(ext.generate_preprocessed_trace());
+        }
         tree_builder.commit(prover_channel);
 
         let mut tree_builder = commitment_scheme.tree_builder();
         let _main_trace_location =
             tree_builder.extend_evals(finalized_trace.clone().into_circle_evaluation());
+        // Handle extensions for the main trace
+        for ext in extensions_iter.clone() {
+            tree_builder.extend_evals(ext.generate_original_trace(&prover_side_note));
+        }
         tree_builder.commit(prover_channel);
 
         let mut lookup_elements = AllLookupElements::default();
@@ -170,27 +193,65 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let mut tree_builder = commitment_scheme.tree_builder();
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
+        // Handle extensions for the interaction trace
+        let mut all_claimed_sum = vec![claimed_sum];
+        for ext in extensions_iter.clone() {
+            let (interaction_trace, claimed_sum) =
+                ext.generate_interaction_trace(&prover_side_note, &lookup_elements);
+            all_claimed_sum.push(claimed_sum);
+            tree_builder.extend_evals(interaction_trace);
+        }
         tree_builder.commit(prover_channel);
 
-        let component = MachineComponent::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(log_size, lookup_elements),
+        let tree_span_provider = &mut TraceLocationAllocator::default();
+        let main_component = MachineComponent::new(
+            tree_span_provider,
+            MachineEval::<C>::new(log_size, lookup_elements.clone()),
             claimed_sum,
         );
+        let ext_components: Vec<Box<dyn ComponentProver<SimdBackend>>> = extensions_iter
+            .zip(all_claimed_sum.get(1..).unwrap_or_default())
+            .map(|(ext, claimed_sum)| {
+                ext.to_component_prover(tree_span_provider, &lookup_elements, *claimed_sum)
+            })
+            .collect();
+        let mut components_ref: Vec<&dyn ComponentProver<SimdBackend>> =
+            ext_components.iter().map(|c| &**c).collect();
+        components_ref.insert(0, &main_component);
         let proof = prove::<SimdBackend, Blake2sMerkleChannel>(
-            &[&component],
+            &components_ref,
             prover_channel,
             commitment_scheme,
         )?;
 
         Ok(Proof {
             stark_proof: proof,
-            claimed_sum,
+            claimed_sum: all_claimed_sum,
             log_size,
         })
     }
 
     pub fn verify(
+        proof: Proof,
+        program_info: &ProgramInfo,
+        ad: &[u8],
+        init_memory: &[MemoryInitializationEntry],
+        exit_code: &[PublicOutputEntry],
+        output_memory: &[PublicOutputEntry],
+    ) -> Result<(), VerificationError> {
+        Self::verify_with_extensions(
+            &[],
+            proof,
+            program_info,
+            ad,
+            init_memory,
+            exit_code,
+            output_memory,
+        )
+    }
+
+    pub fn verify_with_extensions(
+        extensions: &[ExtensionComponent],
         proof: Proof,
         program_info: &ProgramInfo,
         ad: &[u8],
@@ -204,11 +265,17 @@ impl<C: MachineChip + Sync> Machine<C> {
             log_size,
         } = proof;
 
-        if claimed_sum != SecureField::zero() {
+        if claimed_sum.len() != extensions.len() + BASE_EXTENSIONS.len() + 1 {
+            return Err(VerificationError::InvalidStructure(
+                "claimed sum len mismatch".to_string(),
+            ));
+        }
+        if claimed_sum.iter().sum::<SecureField>() != SecureField::zero() {
             return Err(VerificationError::InvalidStructure(
                 "claimed logup sum is not zero".to_string(),
             ));
         }
+        let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);
 
         let config = PcsConfig::default();
         let verifier_channel = &mut Blake2sChannel::default();
@@ -250,6 +317,10 @@ impl<C: MachineChip + Sync> Machine<C> {
                     .into_iter()
                     .chain(program_trace.into_circle_evaluation()),
             );
+            // Handle extensions for the preprocessed trace
+            for ext in extensions_iter.clone() {
+                tree_builder.extend_evals(ext.generate_preprocessed_trace());
+            }
             tree_builder.commit(verifier_channel);
 
             let preprocessed_expected = commitment_scheme.roots()[PREPROCESSED_TRACE_IDX];
@@ -265,34 +336,53 @@ impl<C: MachineChip + Sync> Machine<C> {
         // Info evaluation can be avoided if the prover sends lookup elements along with the proof, this requires
         // implementing  [`serde::Serialize`] for all relations and [`AllLookupElements`]. Note that the verifier
         // should still independently draw elements and match it against received ones.
-        let mut sizes = components::machine_component_info::<C>()
+        let mut sizes = vec![components::machine_component_info::<C>()
             .mask_offsets
             .as_cols_ref()
-            .map_cols(|_| log_size);
+            .map_cols(|_| log_size)];
+        for ext in extensions_iter.clone() {
+            sizes.push(ext.trace_sizes());
+        }
+        let mut log_sizes = TreeVec::concat_cols(sizes.into_iter());
         // use the fact that preprocessed columns are only allowed to have [0] mask
-        sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(log_size)
+        log_sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(log_size)
             .take(PreprocessedColumn::COLUMNS_NUM + ProgramColumn::COLUMNS_NUM)
             .collect();
+        for ext in extensions_iter.clone() {
+            // extending log_sizes[PREPROCESSED_TRACE_IDX] with the dimension of the preprocessed columns
+            log_sizes[PREPROCESSED_TRACE_IDX].extend(ext.preprocessed_trace_sizes());
+        }
 
         for idx in [PREPROCESSED_TRACE_IDX, ORIGINAL_TRACE_IDX] {
-            commitment_scheme.commit(proof.commitments[idx], &sizes[idx], verifier_channel);
+            commitment_scheme.commit(proof.commitments[idx], &log_sizes[idx], verifier_channel);
         }
 
         let mut lookup_elements = AllLookupElements::default();
         C::draw_lookup_elements(&mut lookup_elements, verifier_channel);
-        let component = MachineComponent::new(
-            &mut TraceLocationAllocator::default(),
-            MachineEval::<C>::new(log_size, lookup_elements),
-            claimed_sum,
+
+        let tree_span_provider = &mut TraceLocationAllocator::default();
+        let main_component = MachineComponent::new(
+            tree_span_provider,
+            MachineEval::<C>::new(log_size, lookup_elements.clone()),
+            claimed_sum[0],
         );
+
+        let ext_components: Vec<Box<dyn Component>> = extensions_iter
+            .zip(claimed_sum.get(1..).unwrap_or_default())
+            .map(|(ext, claimed_sum)| {
+                ext.to_component(tree_span_provider, &lookup_elements, *claimed_sum)
+            })
+            .collect();
+        let mut components_ref: Vec<&dyn Component> = ext_components.iter().map(|c| &**c).collect();
+        components_ref.insert(0, &main_component);
 
         commitment_scheme.commit(
             proof.commitments[INTERACTION_TRACE_IDX],
-            &sizes[INTERACTION_TRACE_IDX],
+            &log_sizes[INTERACTION_TRACE_IDX],
             verifier_channel,
         );
 
-        verify(&[&component], verifier_channel, commitment_scheme, proof)
+        verify(&components_ref, verifier_channel, commitment_scheme, proof)
     }
 
     /// Computes minimum allowed log_size from a slice of lengths.

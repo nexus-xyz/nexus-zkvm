@@ -104,7 +104,7 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
 pub(crate) fn assert_chip<C: MachineChip>(
     traces: TracesBuilder,
     program_trace: Option<ProgramTraces>,
-) {
+) -> (AllLookupElements, SecureField) {
     let (config, twiddles) = test_params(traces.log_size());
 
     let finalized_trace = traces.finalize();
@@ -150,4 +150,5 @@ pub(crate) fn assert_chip<C: MachineChip>(
         },
         claimed_sum,
     );
+    (lookup_elements, claimed_sum)
 }

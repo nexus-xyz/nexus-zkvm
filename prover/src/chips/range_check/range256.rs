@@ -12,13 +12,13 @@ use stwo_prover::core::{
 use crate::{
     column::{
         Column::{
-            self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, FinalRegTs,
-            FinalRegValue, Helper1, InstrVal, Multiplicity256, OpC16_23, OpC24_31, Pc, PcNextAux,
-            PrevCtr, ProgCtrCur, ProgCtrPrev, Qt, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur,
-            Ram1ValPrev, Ram2TsPrev, Ram2TsPrevAux, Ram2ValCur, Ram2ValPrev, Ram3TsPrev,
-            Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur,
-            Ram4ValPrev, RamBaseAddr, RamFinalCounter, RamFinalValue, RamInitFinalAddr, Reg1TsPrev,
-            Reg2TsPrev, Reg3TsPrev, Rem, RemDiff, ValueA, ValueB, ValueC,
+            self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, Helper1, InstrVal,
+            Multiplicity256, OpC16_23, OpC24_31, Pc, PcNextAux, PrevCtr, ProgCtrCur, ProgCtrPrev,
+            Qt, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2TsPrevAux,
+            Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev,
+            Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur, Ram4ValPrev, RamBaseAddr, RamFinalCounter,
+            RamFinalValue, RamInitFinalAddr, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Rem, RemDiff,
+            ValueA, ValueB, ValueC,
         },
         PreprocessedColumn::{self, Range256},
     },
@@ -42,7 +42,7 @@ const LOOKUP_TUPLE_SIZE: usize = 1;
 stwo_prover::relation!(Range256LookupElements, LOOKUP_TUPLE_SIZE);
 
 impl Range256Chip {
-    const CHECKED_WORDS: [Column; 33] = [
+    const CHECKED_WORDS: [Column; 31] = [
         Pc,
         PcNextAux,
         InstrVal,
@@ -56,8 +56,6 @@ impl Range256Chip {
         Helper1,
         ProgCtrCur,
         ProgCtrPrev,
-        FinalRegTs,
-        FinalRegValue,
         FinalPrgMemoryCtr,
         CReg1TsPrev,
         CReg2TsPrev,

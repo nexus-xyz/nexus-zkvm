@@ -1,5 +1,6 @@
 pub mod chips;
 pub mod components;
+pub mod extensions;
 pub mod trace;
 
 pub mod column;

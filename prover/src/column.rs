@@ -330,12 +330,6 @@ pub enum Column {
     /// Previous timestamp from the most recent access in Reg3Address
     #[size = 4]
     Reg3TsPrev,
-    /// On rows 0..32, contains the final value of 32 registers
-    #[size = 4]
-    FinalRegValue,
-    /// On rows 0..32, contains the final timestamp of 32 registers
-    #[size = 4]
-    FinalRegTs,
     /// The last access counter of the program memory at Pc
     #[size = 4]
     ProgCtrPrev,
@@ -571,12 +565,6 @@ pub enum PreprocessedColumn {
     /// Zero everywhere except the last row.
     #[size = 1]
     IsLast,
-    /// One on the first 32 rows, then 0.
-    #[size = 1]
-    IsFirst32,
-    /// Zero on the first row, then incremented by one per row
-    #[size = 1]
-    RowIdx,
     /// One on the first row, then incremented by one per row.
     #[size = 4]
     Clk,
