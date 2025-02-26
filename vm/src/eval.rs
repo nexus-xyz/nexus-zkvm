@@ -239,8 +239,7 @@ fn end_profile(vm: &mut NexusVM<impl Memory>, fn_name: String) -> Result<()> {
 /// evaluate next instruction
 pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
     if vm
-        .max_trace_len
-        .map_or(false, |max_trace_len| max_trace_len <= vm.trace_len)
+        .max_trace_len.is_some_and(|max_trace_len| max_trace_len <= vm.trace_len)
     {
         return Err(NexusVMError::MaxTraceLengthExceeded(vm.trace_len));
     }
