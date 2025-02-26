@@ -84,6 +84,20 @@ pub struct Proof {
     pub log_size: u32,
 }
 
+impl Proof {
+    /// Similarly to [`StarkProof::size_estimate`] returns the proof size estimate in bytes.
+    pub fn size_estimate(&self) -> usize {
+        let Self {
+            stark_proof,
+            claimed_sum,
+            log_size,
+        } = self;
+        stark_proof.size_estimate()
+            + std::mem::size_of_val(claimed_sum)
+            + std::mem::size_of_val(log_size)
+    }
+}
+
 /// Main (empty) struct implementing proving functionality of zkVM.
 ///
 /// The generic parameter determines which components are enabled. The default is [`BaseComponents`] for RV32I ISA.
