@@ -43,7 +43,6 @@ impl PreprocessedBuilder {
         ret.fill_range128();
         ret.fill_range32();
         ret.fill_range8();
-        ret.fill_range16();
         ret.fill_bitwise();
         ret
     }
@@ -101,12 +100,6 @@ impl PreprocessedBuilder {
     fn fill_range8(&mut self) {
         for row_idx in 0..8 {
             self.0.cols[PreprocessedColumn::Range8.offset()][row_idx] = BaseField::from(row_idx);
-        }
-    }
-
-    pub(crate) fn fill_range16(&mut self) {
-        for row_idx in 0..16 {
-            self.0.cols[PreprocessedColumn::Range16.offset()][row_idx] = BaseField::from(row_idx);
         }
     }
 
