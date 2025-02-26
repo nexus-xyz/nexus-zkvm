@@ -72,7 +72,10 @@ pub type BaseComponents = (
 );
 /// Base extensions used in conjunction with [`BaseComponents`]. This components are always enabled and are not accessible
 /// to downstream crates.
-const BASE_EXTENSIONS: &[ExtensionComponent] = &[ExtensionComponent::final_reg()];
+const BASE_EXTENSIONS: &[ExtensionComponent] = &[
+    ExtensionComponent::final_reg(),
+    ExtensionComponent::multiplicity16(),
+];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof {

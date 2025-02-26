@@ -3,26 +3,18 @@
 use nexus_vm::riscv::{BuiltinOpcode, InstructionType};
 use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use stwo_prover::core::{
     backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
     fields::m31::BaseField,
 };
 
 use crate::{
-    column::{
-        Column::{
-            self, Multiplicity16, OpA1_4, OpB0_3, OpB1_4, OpC0_3, OpC12_15, OpC16_19, OpC1_4,
-            OpC4_7,
-        },
-        PreprocessedColumn::{self, Range16},
-    },
+    column::Column::{self, OpA1_4, OpB0_3, OpB1_4, OpC0_3, OpC12_15, OpC16_19, OpC1_4, OpC4_7},
     components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
-        sidenote::SideNote,
-        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
+        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
+        PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
     virtual_column::{
@@ -59,7 +51,7 @@ impl MachineChip for Range16Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         step: &Option<ProgramStep>,
-        _side_note: &mut SideNote,
+        side_note: &mut SideNote,
     ) {
         fill_main_for_type::<IsTypeR>(
             traces,
@@ -67,6 +59,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::RType,
             &TYPE_R_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeU>(
             traces,
@@ -74,6 +67,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::UType,
             &TYPE_U_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeINoShift>(
             traces,
@@ -81,6 +75,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::IType,
             &TYPE_I_NO_SHIFT_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsAluImmShift>(
             traces,
@@ -88,6 +83,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::ITypeShamt,
             &TYPE_I_SHIFT_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeJ>(
             traces,
@@ -95,6 +91,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::JType,
             &TYPE_J_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeB>(
             traces,
@@ -102,6 +99,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::BType,
             &TYPE_B_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeS>(
             traces,
@@ -109,6 +107,7 @@ impl MachineChip for Range16Chip {
             step,
             InstructionType::SType,
             &TYPE_S_CHECKED,
+            side_note,
         );
     }
 
@@ -118,7 +117,7 @@ impl MachineChip for Range16Chip {
     fn fill_interaction_trace(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
-        preprocessed_traces: &PreprocessedTraces,
+        _preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &AllLookupElements,
     ) {
@@ -166,19 +165,6 @@ impl MachineChip for Range16Chip {
             logup_trace_gen,
             &TYPE_S_CHECKED,
         );
-        // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [&BaseColumn; Range16.size()] =
-            preprocessed_traces.get_preprocessed_base_column(Range16);
-        let multiplicity_basecolumn: [&BaseColumn; Multiplicity16.size()] =
-            original_traces.get_base_column(Multiplicity16);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let reference_tuple = vec![range_basecolumn[0].data[vec_row]];
-            let denom = lookup_element.combine(&reference_tuple);
-            let numerator = multiplicity_basecolumn[0].data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
-        }
-        logup_col_gen.finalize_col();
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -206,13 +192,6 @@ impl MachineChip for Range16Chip {
         add_constraints_for_type::<E, IsTypeJ>(eval, trace_eval, lookup_elements, &TYPE_J_CHECKED);
         add_constraints_for_type::<E, IsTypeB>(eval, trace_eval, lookup_elements, &TYPE_B_CHECKED);
         add_constraints_for_type::<E, IsTypeS>(eval, trace_eval, lookup_elements, &TYPE_S_CHECKED);
-
-        // Subtract looked up multiplicites from logup sum.
-        let [range] = preprocessed_trace_eval!(trace_eval, Range16);
-        let [multiplicity] = trace_eval!(trace_eval, Multiplicity16);
-        let numerator: E::EF = (-multiplicity.clone()).into();
-
-        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
@@ -267,6 +246,7 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     step: &Option<ProgramStep>,
     instruction_type: InstructionType,
     columns: &[Column],
+    side_note: &mut SideNote,
 ) {
     let step_is_of_type = step
         .as_ref()
@@ -296,19 +276,16 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     if step_is_of_type {
         for col in columns.iter() {
             let [val] = traces.column(row_idx, *col);
-            fill_main_elm(val, traces);
+            fill_main_elm(val, side_note);
         }
     }
 }
 
-fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
+fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
     assert!(checked < 16, "value is out of range {}", checked);
-    let multiplicity_col: [&mut BaseField; 1] = traces.column_mut(checked as usize, Multiplicity16);
-    *multiplicity_col[0] += BaseField::one();
-    // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-    assert_ne!(*multiplicity_col[0], BaseField::zero());
+    side_note.range16.multiplicity[checked as usize] += 1;
 }
 
 #[cfg(test)]
@@ -390,6 +367,7 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "index out of bounds")]
     fn test_range16_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);

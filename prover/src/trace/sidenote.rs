@@ -75,10 +75,18 @@ impl ProgramMemCheckSideNote {
     }
 }
 
+/// Side note for Range check {0,.., 15}
+#[derive(Default)]
+pub struct Range16SideNote {
+    /// `multiplicity[i]` is the number how many times value `i` is checked
+    pub(crate) multiplicity: [u32; 16],
+}
+
 pub struct SideNote {
     pub program_mem_check: ProgramMemCheckSideNote,
     pub(crate) register_mem_check: RegisterMemCheckSideNote,
     pub(crate) rw_mem_check: ReadWriteMemCheckSideNote,
+    pub(crate) range16: Range16SideNote,
 }
 
 impl SideNote {
@@ -95,6 +103,7 @@ impl SideNote {
                 view.get_public_output(),
                 view.get_exit_code(),
             ),
+            range16: Range16SideNote::default(),
         }
     }
 }

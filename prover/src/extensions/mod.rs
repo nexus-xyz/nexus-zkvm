@@ -32,6 +32,8 @@ use crate::{components::AllLookupElements, trace::sidenote::SideNote};
 
 mod final_reg;
 use final_reg::FinalReg;
+mod multiplicity16;
+use multiplicity16::Multiplicity16;
 
 trait FrameworkEvalExt: FrameworkEval + Default + Sync + 'static {
     // TODO: make it variable, e.g. derived by the component implementation from
@@ -100,12 +102,16 @@ trait BuiltInExtension {
 extension_dispatch! {
     pub enum ExtensionComponent {
         FinalReg,
+        Multiplicity16,
     }
 }
 
 impl ExtensionComponent {
     pub(super) const fn final_reg() -> Self {
         Self::FinalReg(FinalReg::new())
+    }
+    pub(super) const fn multiplicity16() -> Self {
+        Self::Multiplicity16(Multiplicity16::new())
     }
 }
 

@@ -272,9 +272,6 @@ pub enum Column {
     /// Multiplicity column for Range8Chip. Multiplicity8[row_idx] counts how many times the number row_idx is checked against Range8 in the entire trace.
     #[size = 1]
     Multiplicity8,
-    /// Multiplicity column for Range16Chip. Multiplicity16[row_idx] counts how many times the number row_idx is checked against Range16 in the entire trace.
-    #[size = 1]
-    Multiplicity16,
     /// Multiplicity column for Range32Chip. Multiplicity32[row_idx] counts how many times the number row_idx is checked against Range32 in the entire trace.
     #[size = 1]
     Multiplicity32,
