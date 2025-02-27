@@ -93,7 +93,7 @@ impl Proof {
             log_size,
         } = self;
         stark_proof.size_estimate()
-            + std::mem::size_of_val(claimed_sum)
+            + claimed_sum.iter().map(std::mem::size_of_val).sum::<usize>()
             + std::mem::size_of_val(log_size)
     }
 }
