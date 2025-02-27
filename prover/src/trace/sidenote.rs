@@ -75,11 +75,18 @@ impl ProgramMemCheckSideNote {
     }
 }
 
-/// Side note for Range check {0,.., 15}
-#[derive(Default)]
-pub struct Range16SideNote {
+/// Side note for Range check {0,.., LEN - 1}
+pub struct RangeCheckSideNote<const LEN: usize> {
     /// `multiplicity[i]` is the number how many times value `i` is checked
-    pub(crate) multiplicity: [u32; 16],
+    pub(crate) multiplicity: [u32; LEN],
+}
+
+impl<const LEN: usize> Default for RangeCheckSideNote<LEN> {
+    fn default() -> Self {
+        Self {
+            multiplicity: [0; LEN],
+        }
+    }
 }
 
 /// Side note for bitwise operations. Each multiplicity counter stores (b * 16 + c) as a key.
@@ -94,8 +101,11 @@ pub struct SideNote {
     pub program_mem_check: ProgramMemCheckSideNote,
     pub(crate) register_mem_check: RegisterMemCheckSideNote,
     pub(crate) rw_mem_check: ReadWriteMemCheckSideNote,
-    pub(crate) range16: Range16SideNote,
     pub(crate) bit_op: BitOpSideNote,
+    pub(crate) range16: RangeCheckSideNote<{ 1 << 4 }>,
+    pub(crate) range32: RangeCheckSideNote<{ 1 << 5 }>,
+    pub(crate) range128: RangeCheckSideNote<{ 1 << 7 }>,
+    pub(crate) range256: RangeCheckSideNote<{ 1 << 8 }>,
 }
 
 impl SideNote {
@@ -112,8 +122,39 @@ impl SideNote {
                 view.get_public_output(),
                 view.get_exit_code(),
             ),
-            range16: Range16SideNote::default(),
             bit_op: BitOpSideNote::default(),
+            range16: RangeCheckSideNote::<{ 1 << 4 }>::default(),
+            range32: RangeCheckSideNote::<{ 1 << 5 }>::default(),
+            range128: RangeCheckSideNote::<{ 1 << 7 }>::default(),
+            range256: RangeCheckSideNote::<{ 1 << 8 }>::default(),
         }
+    }
+}
+
+pub(crate) trait RangeCheckSideNoteGetter<const LEN: usize> {
+    fn get_range_check_side_note(&self) -> &RangeCheckSideNote<LEN>;
+}
+
+impl RangeCheckSideNoteGetter<{ 1 << 4 }> for SideNote {
+    fn get_range_check_side_note(&self) -> &RangeCheckSideNote<{ 1 << 4 }> {
+        &self.range16
+    }
+}
+
+impl RangeCheckSideNoteGetter<{ 1 << 5 }> for SideNote {
+    fn get_range_check_side_note(&self) -> &RangeCheckSideNote<{ 1 << 5 }> {
+        &self.range32
+    }
+}
+
+impl RangeCheckSideNoteGetter<{ 1 << 7 }> for SideNote {
+    fn get_range_check_side_note(&self) -> &RangeCheckSideNote<{ 1 << 7 }> {
+        &self.range128
+    }
+}
+
+impl RangeCheckSideNoteGetter<{ 1 << 8 }> for SideNote {
+    fn get_range_check_side_note(&self) -> &RangeCheckSideNote<{ 1 << 8 }> {
+        &self.range256
     }
 }

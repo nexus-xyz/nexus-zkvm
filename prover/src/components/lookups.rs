@@ -39,7 +39,8 @@ register_relation! {
         Range32LookupElements,
         Range128LookupElements,
         Range256LookupElements,
-    }
+    };
+    pub(crate) trait RegisteredLookupBound {}
 }
 
 #[derive(Default, Debug, Clone)]
@@ -61,8 +62,7 @@ impl AllLookupElements {
     }
 }
 
-// bound trait is borrowed from the macro to bypass orphan rule
-impl<T: __UnwrapRef> AsRef<T> for AllLookupElements {
+impl<T: RegisteredLookupBound> AsRef<T> for AllLookupElements {
     fn as_ref(&self) -> &T {
         let variant = self
             .0
@@ -73,15 +73,29 @@ impl<T: __UnwrapRef> AsRef<T> for AllLookupElements {
 }
 
 macro_rules! register_relation {
-    (enum $_enum:ident { $( $name:ident ),* $(,)? }) => {
+    (enum $_enum:ident { $( $name:ident ),* $(,)? }; $_vis:vis trait $_trait:ident {}) => {
         #[allow(clippy::enum_variant_names)]
         #[derive(Debug, Clone)]
         pub enum $_enum {
             $($name($name),)*
         }
 
-        trait __UnwrapRef: 'static {
+        $_vis trait $_trait: Sync + Clone + 'static {
+            type Relation<
+                F: Clone,
+                EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>
+            >: stwo_prover::constraint_framework::Relation<F, EF>;
+
+            fn as_relation_ref<
+                F: Clone,
+                EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>,
+            >(
+                &self,
+            ) -> &Self::Relation<F, EF>;
+
             fn unwrap_ref(it: &$_enum) -> &Self;
+
+            fn dummy() -> Self;
         }
 
         $(
@@ -91,12 +105,30 @@ macro_rules! register_relation {
                 }
             }
 
-            impl __UnwrapRef for $name {
+            impl $_trait for $name {
+                type Relation<
+                    F: Clone,
+                    EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>
+                > = Self;
+
+                fn as_relation_ref<
+                    F: Clone,
+                    EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>,
+                >(
+                    &self,
+                ) -> &Self::Relation<F, EF> {
+                    self
+                }
+
                 fn unwrap_ref(it: &$_enum) -> &Self {
                     match it {
                         $_enum::$name(inner) => inner,
                         _ => panic!("called `unwrap` on {it:?}"),
                     }
+                }
+
+                fn dummy() -> Self {
+                    Self::dummy()
                 }
             }
         )*

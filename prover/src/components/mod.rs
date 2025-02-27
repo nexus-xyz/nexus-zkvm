@@ -8,6 +8,7 @@ use super::{trace::eval::TraceEval, traits::MachineChip};
 
 mod lookups;
 pub use lookups::AllLookupElements;
+pub(crate) use lookups::RegisteredLookupBound;
 
 pub(super) const LOG_CONSTRAINT_DEGREE: u32 = 2;
 

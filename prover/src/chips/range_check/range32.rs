@@ -2,23 +2,18 @@
 
 use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
-use num_traits::{One, Zero};
+use num_traits::One;
 use stwo_prover::core::{
     backend::simd::m31::LOG_N_LANES,
     fields::{m31::BaseField, qm31::SecureField},
 };
 
 use crate::{
-    column::{
-        Column::{self, Multiplicity32, OpA, OpB, Reg1Address, Reg2Address, Reg3Address},
-        PreprocessedColumn::{self, Range32},
-    },
+    column::Column::{self, OpA, OpB, Reg1Address, Reg2Address, Reg3Address},
     components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
-        sidenote::SideNote,
-        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
+        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
+        PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
@@ -46,11 +41,11 @@ impl MachineChip for Range32Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _side_note: &mut SideNote,
+        side_note: &mut SideNote,
     ) {
         for col in CHECKED.into_iter() {
             let [val] = traces.column(row_idx, col);
-            fill_main_elm(val, traces);
+            fill_main_elm(val, side_note);
         }
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -59,7 +54,7 @@ impl MachineChip for Range32Chip {
     fn fill_interaction_trace(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
-        preprocessed_traces: &PreprocessedTraces,
+        _preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &AllLookupElements,
     ) {
@@ -80,19 +75,6 @@ impl MachineChip for Range32Chip {
             }
             logup_col_gen.finalize_col();
         }
-        // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [_; Range32.size()] =
-            preprocessed_traces.get_preprocessed_base_column(Range32);
-        let multiplicity_basecolumn: [_; Multiplicity32.size()] =
-            original_traces.get_base_column(Multiplicity32);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let reference_tuple = vec![range_basecolumn[0].data[vec_row]];
-            let denom = lookup_element.combine(&reference_tuple);
-            let numerator = multiplicity_basecolumn[0].data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
-        }
-        logup_col_gen.finalize_col();
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -113,23 +95,14 @@ impl MachineChip for Range32Chip {
                 &[value],
             ));
         }
-        // Subtract looked up multiplicites from logup sum.
-        let [range] = preprocessed_trace_eval!(trace_eval, Range32);
-        let [multiplicity] = trace_eval!(trace_eval, Multiplicity32);
-        let numerator: E::EF = (-multiplicity.clone()).into();
-
-        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
-fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
+fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
     assert!(checked < 32, "value is out of range {}", checked);
-    let multiplicity_col: [&mut BaseField; 1] = traces.column_mut(checked as usize, Multiplicity32);
-    *multiplicity_col[0] += BaseField::one();
-    // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-    assert_ne!(*multiplicity_col[0], BaseField::zero());
+    side_note.range32.multiplicity[checked as usize] += 1;
 }
 
 #[cfg(test)]
@@ -142,6 +115,7 @@ mod test {
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
+    use num_traits::Zero;
 
     #[test]
     fn test_range32_chip_success() {
@@ -168,6 +142,7 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "index out of bounds")]
     fn test_range32_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);

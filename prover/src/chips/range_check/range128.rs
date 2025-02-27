@@ -8,7 +8,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::WORD_SIZE;
-use num_traits::{One as _, Zero as _};
+use num_traits::Zero as _;
 use stwo_prover::core::{
     backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
     fields::m31::BaseField,
@@ -17,16 +17,13 @@ use stwo_prover::core::{
 use crate::{
     components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval},
-        program_trace::ProgramTraces,
-        sidenote::SideNote,
-        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
+        program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces, PreprocessedTraces,
+        ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
 };
 
-use crate::column::Column::{self, Helper2, Helper3, IsBge, IsBlt, IsSlt, Multiplicity128};
-use crate::column::PreprocessedColumn::{self, Range128};
+use crate::column::Column::{self, Helper2, Helper3, IsBge, IsBlt, IsSlt};
 
 /// A Chip for range-checking values for 0..=127
 ///
@@ -49,7 +46,7 @@ impl MachineChip for Range128Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _side_note: &mut SideNote,
+        side_note: &mut SideNote,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
         let [is_bge] = traces.column(row_idx, IsBge);
@@ -58,15 +55,15 @@ impl MachineChip for Range128Chip {
         for col in last_limb_checked.into_iter() {
             let word: [_; WORD_SIZE] = traces.column(row_idx, col);
             let last_limb = word[3];
-            fill_main_col(last_limb, is_slt + is_bge + is_blt, traces);
+            fill_main_col(last_limb, is_slt + is_bge + is_blt, side_note);
         }
         let [is_jalr] = traces.column(row_idx, Column::IsJalr);
         let [qt_aux] = traces.column(row_idx, Column::QtAux);
-        fill_main_col(qt_aux, is_jalr, traces);
+        fill_main_col(qt_aux, is_jalr, side_note);
         // Check the first limb in Helper2 when SRA chip is used
         let [is_sra] = traces.column(row_idx, Column::IsSra);
         let [h2_sra, _, _, _] = traces.column(row_idx, Helper2);
-        fill_main_col(h2_sra, is_sra, traces);
+        fill_main_col(h2_sra, is_sra, side_note);
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -74,7 +71,7 @@ impl MachineChip for Range128Chip {
     fn fill_interaction_trace(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
-        preprocessed_traces: &PreprocessedTraces,
+        _preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &AllLookupElements,
     ) {
@@ -112,20 +109,6 @@ impl MachineChip for Range128Chip {
             logup_trace_gen,
             lookup_element,
         );
-
-        // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [_; Range128.size()] =
-            preprocessed_traces.get_preprocessed_base_column(Range128);
-        let multiplicity_basecolumn: [_; Multiplicity128.size()] =
-            original_traces.get_base_column(Multiplicity128);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let reference_tuple = vec![range_basecolumn[0].data[vec_row]];
-            let denom = lookup_element.combine(&reference_tuple);
-            let numerator = multiplicity_basecolumn[0].data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
-        }
-        logup_col_gen.finalize_col();
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -170,28 +153,17 @@ impl MachineChip for Range128Chip {
             numerator.into(),
             &[h2_sra],
         ));
-
-        // Subtract looked up multiplicites from logup sum.
-        let [range] = preprocessed_trace_eval!(trace_eval, Range128);
-        let [multiplicity] = trace_eval!(trace_eval, Multiplicity128);
-        let numerator: E::EF = (-multiplicity.clone()).into();
-
-        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
-fn fill_main_col(value_col: BaseField, selector_col: BaseField, traces: &mut TracesBuilder) {
+fn fill_main_col(value_col: BaseField, selector_col: BaseField, side_note: &mut SideNote) {
     if selector_col.is_zero() {
         return;
     }
     let checked = value_col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
     assert!(checked < 128, "value is out of range {}", checked);
-    let multiplicity_col: [&mut BaseField; 1] =
-        traces.column_mut(checked as usize, Multiplicity128);
-    *multiplicity_col[0] += BaseField::one();
-    // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-    assert_ne!(*multiplicity_col[0], BaseField::zero());
+    side_note.range128.multiplicity[checked as usize] += 1;
 }
 
 fn check_col(
@@ -265,6 +237,7 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "index out of bounds")]
     fn test_range128_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);

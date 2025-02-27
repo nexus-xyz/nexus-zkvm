@@ -10,24 +10,18 @@ use stwo_prover::core::{
 };
 
 use crate::{
-    column::{
-        Column::{
-            self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, Helper1, InstrVal,
-            Multiplicity256, OpC16_23, OpC24_31, Pc, PcNextAux, PrevCtr, ProgCtrCur, ProgCtrPrev,
-            Qt, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2TsPrevAux,
-            Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev,
-            Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur, Ram4ValPrev, RamBaseAddr, RamFinalCounter,
-            RamFinalValue, RamInitFinalAddr, Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Rem, RemDiff,
-            ValueA, ValueB, ValueC,
-        },
-        PreprocessedColumn::{self, Range256},
+    column::Column::{
+        self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, Helper1, InstrVal,
+        OpC16_23, OpC24_31, Pc, PcNextAux, PrevCtr, ProgCtrCur, ProgCtrPrev, Qt, Ram1TsPrev,
+        Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2TsPrev, Ram2TsPrevAux, Ram2ValCur, Ram2ValPrev,
+        Ram3TsPrev, Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur,
+        Ram4ValPrev, RamBaseAddr, RamFinalCounter, RamFinalValue, RamInitFinalAddr, Reg1TsPrev,
+        Reg2TsPrev, Reg3TsPrev, Rem, RemDiff, ValueA, ValueB, ValueC,
     },
     components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
-        sidenote::SideNote,
-        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
+        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
+        PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -104,7 +98,7 @@ impl MachineChip for Range256Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         _step: &Option<ProgramStep>,
-        _side_note: &mut SideNote,
+        side_note: &mut SideNote,
     ) {
         // This chip needs to wait till every other chip finishes writing bytes.
         // Since some other chips write bytes above the current row, we need to wait till other chips finished filling for the last row.
@@ -114,17 +108,17 @@ impl MachineChip for Range256Chip {
         for row_idx in 0..traces.num_rows() {
             for col in Self::CHECKED_WORDS.iter() {
                 let value_col: [BaseField; WORD_SIZE] = traces.column(row_idx, *col);
-                fill_main_cols(value_col, traces);
+                fill_main_cols(value_col, side_note);
             }
             for col in Self::CHECKED_BYTES.iter() {
                 let value_col = traces.column::<1>(row_idx, *col);
-                fill_main_cols(value_col, traces);
+                fill_main_cols(value_col, side_note);
             }
             let [type_u] = virtual_column::IsTypeU::read_from_traces_builder(traces, row_idx);
             if !type_u.is_zero() {
                 for col in Self::TYPE_U_CHECKED_BYTES.iter() {
                     let value_col = traces.column::<1>(row_idx, *col);
-                    fill_main_cols(value_col, traces);
+                    fill_main_cols(value_col, side_note);
                 }
             }
         }
@@ -135,7 +129,7 @@ impl MachineChip for Range256Chip {
     fn fill_interaction_trace(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
-        preprocessed_traces: &PreprocessedTraces,
+        _preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &AllLookupElements,
     ) {
@@ -181,19 +175,6 @@ impl MachineChip for Range256Chip {
                 }
             };
         }
-        // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [_; Range256.size()] =
-            preprocessed_traces.get_preprocessed_base_column(Range256);
-        let multiplicity_basecolumn: [_; Multiplicity256.size()] =
-            original_traces.get_base_column(Multiplicity256);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let reference_tuple = vec![range_basecolumn[0].data[vec_row]];
-            let denom = lookup_element.combine(&reference_tuple);
-            let numerator = multiplicity_basecolumn[0].data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
-        }
-        logup_col_gen.finalize_col();
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -235,25 +216,15 @@ impl MachineChip for Range256Chip {
                 &[value],
             ));
         }
-        // Subtract looked up multiplicites from logup sum.
-        let [range] = preprocessed_trace_eval!(trace_eval, Range256);
-        let [multiplicity] = trace_eval!(trace_eval, Multiplicity256);
-        let numerator: E::EF = (-multiplicity.clone()).into();
-
-        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
-fn fill_main_cols<const N: usize>(value_col: [BaseField; N], traces: &mut TracesBuilder) {
+fn fill_main_cols<const N: usize>(value_col: [BaseField; N], side_note: &mut SideNote) {
     for (_limb_index, limb) in value_col.iter().enumerate() {
         let checked = limb.0;
         #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
         assert!(checked < 256, "value[{}] is out of range", _limb_index);
-        let multiplicity_col: [&mut BaseField; 1] =
-            traces.column_mut(checked as usize % traces.num_rows(), Multiplicity256);
-        *multiplicity_col[0] += BaseField::one();
-        // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-        assert_ne!(*multiplicity_col[0], BaseField::zero());
+        side_note.range256.multiplicity[checked as usize] += 1;
     }
 }
 
@@ -316,6 +287,7 @@ mod test {
     }
 
     #[test]
+    #[should_panic(expected = "index out of bounds")]
     fn test_range256_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);

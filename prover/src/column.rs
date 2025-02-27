@@ -272,15 +272,6 @@ pub enum Column {
     /// Multiplicity column for Range8Chip. Multiplicity8[row_idx] counts how many times the number row_idx is checked against Range8 in the entire trace.
     #[size = 1]
     Multiplicity8,
-    /// Multiplicity column for Range32Chip. Multiplicity32[row_idx] counts how many times the number row_idx is checked against Range32 in the entire trace.
-    #[size = 1]
-    Multiplicity32,
-    /// Multiplicity column for checking 0..=127. Multiplicity128[row_idx] counts how many times the number row_idx is checked in the entire trace.
-    #[size = 1]
-    Multiplicity128,
-    /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
-    #[size = 1]
-    Multiplicity256,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,
@@ -565,18 +556,9 @@ pub enum PreprocessedColumn {
     /// Timestamp for the third register access
     #[size = 4]
     Reg3TsCur,
-    /// Contains numbers from 0 to 127, and 0 afterwards.
-    #[size = 1]
-    Range128,
     /// Contains numbers from 0 to 7, and 0 afterwards
     #[size = 1]
     Range8,
-    /// Contains numbers from 0 to 255, and 0 afterwards.
-    #[size = 1]
-    Range256,
-    /// Contains numbers from 0 to 31, and 0 after wards
-    #[size = 1]
-    Range32,
 }
 
 // proc macro derived:

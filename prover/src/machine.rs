@@ -74,8 +74,11 @@ pub type BaseComponents = (
 /// to downstream crates.
 const BASE_EXTENSIONS: &[ExtensionComponent] = &[
     ExtensionComponent::final_reg(),
-    ExtensionComponent::multiplicity16(),
     ExtensionComponent::bit_op_multiplicity(),
+    ExtensionComponent::multiplicity16(),
+    ExtensionComponent::multiplicity32(),
+    ExtensionComponent::multiplicity128(),
+    ExtensionComponent::multiplicity256(),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
