@@ -82,11 +82,20 @@ pub struct Range16SideNote {
     pub(crate) multiplicity: [u32; 16],
 }
 
+/// Side note for bitwise operations. Each multiplicity counter stores (b * 16 + c) as a key.
+#[derive(Default)]
+pub struct BitOpSideNote {
+    pub(crate) multiplicity_and: BTreeMap<u8, u32>,
+    pub(crate) multiplicity_or: BTreeMap<u8, u32>,
+    pub(crate) multiplicity_xor: BTreeMap<u8, u32>,
+}
+
 pub struct SideNote {
     pub program_mem_check: ProgramMemCheckSideNote,
     pub(crate) register_mem_check: RegisterMemCheckSideNote,
     pub(crate) rw_mem_check: ReadWriteMemCheckSideNote,
     pub(crate) range16: Range16SideNote,
+    pub(crate) bit_op: BitOpSideNote,
 }
 
 impl SideNote {
@@ -104,6 +113,7 @@ impl SideNote {
                 view.get_exit_code(),
             ),
             range16: Range16SideNote::default(),
+            bit_op: BitOpSideNote::default(),
         }
     }
 }

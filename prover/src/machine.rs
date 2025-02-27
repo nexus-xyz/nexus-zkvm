@@ -75,6 +75,7 @@ pub type BaseComponents = (
 const BASE_EXTENSIONS: &[ExtensionComponent] = &[
     ExtensionComponent::final_reg(),
     ExtensionComponent::multiplicity16(),
+    ExtensionComponent::bit_op_multiplicity(),
 ];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

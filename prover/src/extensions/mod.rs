@@ -30,9 +30,12 @@ use stwo_prover::{
 
 use crate::{components::AllLookupElements, trace::sidenote::SideNote};
 
+mod bit_op;
 mod final_reg;
-use final_reg::FinalReg;
 mod multiplicity16;
+
+use bit_op::BitOpMultiplicity;
+use final_reg::FinalReg;
 use multiplicity16::Multiplicity16;
 
 trait FrameworkEvalExt: FrameworkEval + Default + Sync + 'static {
@@ -103,6 +106,7 @@ extension_dispatch! {
     pub enum ExtensionComponent {
         FinalReg,
         Multiplicity16,
+        BitOpMultiplicity,
     }
 }
 
@@ -110,8 +114,13 @@ impl ExtensionComponent {
     pub(super) const fn final_reg() -> Self {
         Self::FinalReg(FinalReg::new())
     }
+
     pub(super) const fn multiplicity16() -> Self {
         Self::Multiplicity16(Multiplicity16::new())
+    }
+
+    pub(super) const fn bit_op_multiplicity() -> Self {
+        Self::BitOpMultiplicity(BitOpMultiplicity::new())
     }
 }
 

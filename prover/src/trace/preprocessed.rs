@@ -23,7 +23,7 @@ pub(crate) struct PreprocessedBuilder(TracesBuilder);
 impl PreprocessedBuilder {
     /// 2^MIN_LOG_SIZE is the smallest number of rows supported
     ///
-    /// 2^8 rows are needed to accommodate lookup table for byte-rangecheck and bitops.
+    /// 2^8 rows are needed to accommodate lookup table for byte-rangecheck.
     pub const MIN_LOG_SIZE: u32 = 8;
 
     /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
@@ -43,7 +43,6 @@ impl PreprocessedBuilder {
         ret.fill_range128();
         ret.fill_range32();
         ret.fill_range8();
-        ret.fill_bitwise();
         ret
     }
 
@@ -128,27 +127,6 @@ impl PreprocessedBuilder {
                 reg3_ts_cur.to_le_bytes(),
             );
         }
-    }
-
-    fn fill_bitwise(&mut self) {
-        let cols = &mut self.0.cols;
-        // fill bit-wise lookup table
-        for input_b in 0..=15u8 {
-            for input_c in 0..=15u8 {
-                let row_idx = ((input_b as usize) << 4) | input_c as usize;
-                cols[PreprocessedColumn::BitwiseB.offset()][row_idx] =
-                    BaseField::from(input_b as u32);
-                cols[PreprocessedColumn::BitwiseC.offset()][row_idx] =
-                    BaseField::from(input_c as u32);
-                cols[PreprocessedColumn::BitwiseAndA.offset()][row_idx] =
-                    BaseField::from((input_b & input_c) as u32);
-                cols[PreprocessedColumn::BitwiseOrA.offset()][row_idx] =
-                    BaseField::from((input_b | input_c) as u32);
-                cols[PreprocessedColumn::BitwiseXorA.offset()][row_idx] =
-                    BaseField::from((input_b ^ input_c) as u32);
-            }
-        }
-        // Notice, (0, 0, 0) is a valid entry for XOR, AND and OR. A malicious prover can use these entries; that's fine.
     }
 
     pub(crate) fn finalize(self) -> PreprocessedTraces {

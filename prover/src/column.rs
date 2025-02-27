@@ -281,15 +281,6 @@ pub enum Column {
     /// Multiplicity column for byte range check. Multipllicity256[row_idx] counts how many times the number Range256[row_idx] is used in the entire trace.
     #[size = 1]
     Multiplicity256,
-    /// Multiplicity column for bitwise-AND check. MultiplicityAnd[b * 256 + c] counts how many times (b & c) is looked up in the entire trace.
-    #[size = 1]
-    MultiplicityAnd,
-    /// Multiplicity column for bitwise-OR check. MultiplicityOr[b * 256 + c] counts how many times (b | c) is looked up in the entire trace.
-    #[size = 1]
-    MultiplicityOr,
-    /// Multiplicity column for bitwise-XOR check. MultiplicityXor[b * 256 + c] counts how many times (b ^ c) is looked up in the entire trace.
-    #[size = 1]
-    MultiplicityXor,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,
@@ -586,21 +577,6 @@ pub enum PreprocessedColumn {
     /// Contains numbers from 0 to 31, and 0 after wards
     #[size = 1]
     Range32,
-    /// Contains four-bit output of bit-wise AND
-    #[size = 1]
-    BitwiseAndA,
-    /// Contains four-bit output of bit-wise OR
-    #[size = 1]
-    BitwiseOrA,
-    /// Contains four-bit output of bit-wise XOR
-    #[size = 1]
-    BitwiseXorA,
-    /// Contains four-bit first input of bit-wise lookup table
-    #[size = 1]
-    BitwiseB,
-    /// Contains four-bit second input of bit-wise lookup table
-    #[size = 1]
-    BitwiseC,
 }
 
 // proc macro derived:

@@ -876,8 +876,8 @@ impl LoadStoreChip {
 mod test {
     use crate::{
         chips::{
-            range_check::range16::Range16Chip, AddChip, BeqChip, CpuChip, DecodingCheckChip,
-            RegisterMemCheckChip, SllChip,
+            range_check::range16::Range16Chip, AddChip, BeqChip, BitOpChip, CpuChip,
+            DecodingCheckChip, RegisterMemCheckChip, SllChip,
         },
         machine::Machine,
         test_utils::assert_chip,
@@ -960,6 +960,7 @@ mod test {
             LoadStoreChip,
             RegisterMemCheckChip,
             Range16Chip,
+            BitOpChip,
         );
         let basic_block = setup_basic_block_ir();
         let k = 1;
