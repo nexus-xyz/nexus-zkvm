@@ -37,6 +37,8 @@ use bit_op::BitOpMultiplicity;
 use final_reg::FinalReg;
 mod multiplicity;
 use multiplicity::{Multiplicity128, Multiplicity16, Multiplicity256, Multiplicity32};
+mod multiplicity8;
+use multiplicity8::Multiplicity8;
 
 trait FrameworkEvalExt: FrameworkEval + Default + Sync + 'static {
     // TODO: make it variable, e.g. derived by the component implementation from
@@ -105,6 +107,7 @@ trait BuiltInExtension {
 extension_dispatch! {
     pub enum ExtensionComponent {
         FinalReg,
+        Multiplicity8,
         Multiplicity16,
         Multiplicity32,
         Multiplicity128,
@@ -117,7 +120,9 @@ impl ExtensionComponent {
     pub(super) const fn final_reg() -> Self {
         Self::FinalReg(FinalReg::new())
     }
-
+    pub(super) const fn multiplicity8() -> Self {
+        Self::Multiplicity8(Multiplicity8::new())
+    }
     pub(super) const fn multiplicity16() -> Self {
         Self::Multiplicity16(Multiplicity16::new())
     }

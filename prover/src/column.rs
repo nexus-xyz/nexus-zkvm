@@ -269,9 +269,6 @@ pub enum Column {
     #[size = 1]
     SraDegreeAux,
 
-    /// Multiplicity column for Range8Chip. Multiplicity8[row_idx] counts how many times the number row_idx is checked against Range8 in the entire trace.
-    #[size = 1]
-    Multiplicity8,
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,
@@ -556,9 +553,6 @@ pub enum PreprocessedColumn {
     /// Timestamp for the third register access
     #[size = 4]
     Reg3TsCur,
-    /// Contains numbers from 0 to 7, and 0 afterwards
-    #[size = 1]
-    Range8,
 }
 
 // proc macro derived:

@@ -878,7 +878,7 @@ mod test {
         chips::{
             range_check::{
                 range128::Range128Chip, range16::Range16Chip, range256::Range256Chip,
-                range32::Range32Chip,
+                range32::Range32Chip, range8::Range8Chip,
             },
             AddChip, BeqChip, BitOpChip, CpuChip, DecodingCheckChip, RegisterMemCheckChip, SllChip,
         },
@@ -962,6 +962,7 @@ mod test {
             SllChip,
             LoadStoreChip,
             RegisterMemCheckChip,
+            Range8Chip,
             Range16Chip,
             Range32Chip,
             Range128Chip,

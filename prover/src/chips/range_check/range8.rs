@@ -6,23 +6,18 @@ use nexus_vm::{
 };
 use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
 
-use num_traits::{One, Zero};
+use num_traits::Zero;
 use stwo_prover::core::{
     backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
     fields::m31::BaseField,
 };
 
 use crate::{
-    column::{
-        Column::{self, Multiplicity8, OpC1_3, OpC5_7, OpC8_10},
-        PreprocessedColumn::{self, Range8},
-    },
+    column::Column::{self, OpC1_3, OpC5_7, OpC8_10},
     components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval, trace_eval, TraceEval},
-        program_trace::ProgramTraces,
-        sidenote::SideNote,
-        FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder,
+        eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
+        PreprocessedTraces, ProgramStep, TracesBuilder,
     },
     traits::MachineChip,
     virtual_column::{
@@ -65,7 +60,7 @@ impl MachineChip for Range8Chip {
         traces: &mut TracesBuilder,
         row_idx: usize,
         step: &Option<ProgramStep>,
-        _side_note: &mut SideNote,
+        side_note: &mut SideNote,
     ) {
         let step = match step {
             None => return, // Nothing to check in padding rows
@@ -82,7 +77,7 @@ impl MachineChip for Range8Chip {
                 | Some(BuiltinOpcode::SRAI)
         ) {
             let [helper1_0, _, _, _] = traces.column(row_idx, Column::Helper1);
-            fill_main_elm(helper1_0, traces);
+            fill_main_elm(helper1_0, side_note);
         }
 
         fill_main_for_type::<IsTypeINoShift>(
@@ -91,6 +86,7 @@ impl MachineChip for Range8Chip {
             step,
             InstructionType::IType,
             &TYPE_I_NO_SHIFT_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeJ>(
             traces,
@@ -98,6 +94,7 @@ impl MachineChip for Range8Chip {
             step,
             InstructionType::JType,
             &TYPE_J_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeB>(
             traces,
@@ -105,6 +102,7 @@ impl MachineChip for Range8Chip {
             step,
             InstructionType::BType,
             &TYPE_B_CHECKED,
+            side_note,
         );
         fill_main_for_type::<IsTypeS>(
             traces,
@@ -112,6 +110,7 @@ impl MachineChip for Range8Chip {
             step,
             InstructionType::SType,
             &TYPE_S_CHECKED,
+            side_note,
         );
     }
 
@@ -121,7 +120,7 @@ impl MachineChip for Range8Chip {
     fn fill_interaction_trace(
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
-        preprocessed_traces: &PreprocessedTraces,
+        _preprocessed_traces: &PreprocessedTraces,
         _program_traces: &ProgramTraces,
         lookup_element: &AllLookupElements,
     ) {
@@ -165,20 +164,6 @@ impl MachineChip for Range8Chip {
             logup_col_gen.write_frac(vec_row, is_type.into(), denom);
         }
         logup_col_gen.finalize_col();
-
-        // Subtract looked up multiplicites from logup sum.
-        let range_basecolumn: [&BaseColumn; Range8.size()] =
-            preprocessed_traces.get_preprocessed_base_column(Range8);
-        let multiplicity_basecolumn: [&BaseColumn; Multiplicity8.size()] =
-            original_traces.get_base_column(Multiplicity8);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let reference_tuple = vec![range_basecolumn[0].data[vec_row]];
-            let denom = lookup_element.combine(&reference_tuple);
-            let numerator = multiplicity_basecolumn[0].data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
-        }
-        logup_col_gen.finalize_col();
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -207,13 +192,6 @@ impl MachineChip for Range8Chip {
             numerator.into(),
             &[value],
         ));
-
-        // Subtract looked up multiplicites from logup sum.
-        let [range] = preprocessed_trace_eval!(trace_eval, Range8);
-        let [multiplicity] = trace_eval!(trace_eval, Multiplicity8);
-        let numerator: E::EF = (-multiplicity.clone()).into();
-
-        eval.add_to_relation(RelationEntry::new(lookup_elements, numerator, &[range]));
     }
 }
 
@@ -268,6 +246,7 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     step: &ProgramStep,
     instruction_type: InstructionType,
     columns: &[Column],
+    side_note: &mut SideNote,
 ) {
     let step_is_of_type = step.step.instruction.ins_type == instruction_type;
 
@@ -293,17 +272,14 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     if step_is_of_type {
         for col in columns.iter() {
             let [val] = traces.column(row_idx, *col);
-            fill_main_elm(val, traces);
+            fill_main_elm(val, side_note);
         }
     }
 }
 
-fn fill_main_elm(col: BaseField, traces: &mut TracesBuilder) {
+fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
     assert!(checked < 8, "value is out of range {}", checked);
-    let multiplicity_col: [&mut BaseField; 1] = traces.column_mut(checked as usize, Multiplicity8);
-    *multiplicity_col[0] += BaseField::one();
-    // Detect overflow: there's a soundness problem if this chip is used to check 2^31-1 numbers or more.
-    assert_ne!(*multiplicity_col[0], BaseField::zero());
+    side_note.range8.multiplicity[checked as usize] += 1;
 }

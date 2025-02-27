@@ -39,7 +39,6 @@ impl PreprocessedBuilder {
         ret.fill_is_first();
         ret.fill_is_last();
         ret.fill_timestamps();
-        ret.fill_range8();
         ret
     }
 
@@ -73,12 +72,6 @@ impl PreprocessedBuilder {
         *self.0.cols[PreprocessedColumn::IsLast.offset()]
             .last_mut()
             .expect("preprocessed trace must be non-empty") = BaseField::one();
-    }
-
-    fn fill_range8(&mut self) {
-        for row_idx in 0..8 {
-            self.0.cols[PreprocessedColumn::Range8.offset()][row_idx] = BaseField::from(row_idx);
-        }
     }
 
     pub(crate) fn fill_timestamps(&mut self) {

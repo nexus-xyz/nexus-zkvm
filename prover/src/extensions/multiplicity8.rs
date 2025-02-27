@@ -1,15 +1,13 @@
+// Multiplicity8 extension is a special case because it requires eight pading rows in order to fit the SIMD usage
+
+use num_traits::{CheckedSub, Zero};
 use stwo_prover::{
     constraint_framework::{
         logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, FrameworkEval,
         Relation, RelationEntry,
     },
     core::{
-        backend::simd::{
-            column::BaseColumn,
-            m31::{PackedBaseField, LOG_N_LANES},
-            qm31::PackedSecureField,
-            SimdBackend,
-        },
+        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
         poly::{
             circle::{CanonicCoset, CircleEvaluation},
@@ -20,70 +18,57 @@ use stwo_prover::{
 };
 
 use crate::{
-    chips::range_check::{
-        range128::Range128LookupElements, range16::Range16LookupElements,
-        range256::Range256LookupElements, range32::Range32LookupElements,
-    },
-    components::{AllLookupElements, RegisteredLookupBound},
-    trace::sidenote::{RangeCheckSideNote, RangeCheckSideNoteGetter, SideNote},
+    chips::range_check::range8::Range8LookupElements, components::AllLookupElements,
+    trace::sidenote::SideNote,
 };
 
 use super::{BuiltInExtension, FrameworkEvalExt};
 
 /// A component for range check multiplicity
-///
-/// LEN is the size of the multiplicity table
-/// L is the lookup challenge type for a Relation
 #[derive(Debug, Clone)]
-pub struct Multiplicity<const LEN: usize, L> {
-    _phantom: std::marker::PhantomData<L>,
+pub struct Multiplicity8 {
+    _private: (),
 }
 
-impl<const LEN: usize, L> Multiplicity<LEN, L> {
+impl Multiplicity8 {
     pub(super) const fn new() -> Self {
-        Self {
-            _phantom: std::marker::PhantomData,
-        }
+        Self { _private: () }
     }
 }
 
-pub(crate) struct MultiplicityEval<const LEN: usize, L> {
-    lookup_elements: L,
+pub(crate) struct MultiplicityEval8 {
+    lookup_elements: Range8LookupElements,
 }
 
-impl<const LEN: usize, L> MultiplicityEval<LEN, L> {
-    const LOG_SIZE: u32 = {
-        let log_size = LEN.ilog2();
-        assert!(1 << log_size == LEN, "LEN must be a power of 2");
-        log_size
-    };
+impl MultiplicityEval8 {
+    const LOG_SIZE: u32 = LOG_N_LANES; // SIMD needs 16 rows to operate
 }
 
-impl<L: RegisteredLookupBound, const LEN: usize> Default for MultiplicityEval<LEN, L> {
+impl Default for MultiplicityEval8 {
     fn default() -> Self {
         Self {
-            lookup_elements: L::dummy(),
+            lookup_elements: Range8LookupElements::dummy(),
         }
     }
 }
 
-/// A column with {0, ..., LEN - 1} when LEN is a power of 2
+/// A column with {0, ..., 7} and eight zero's
 #[derive(Debug, Clone)]
-pub struct RangeValues<const LEN: usize>;
+pub struct RangeValues8;
 
-impl<const LEN: usize> RangeValues<LEN> {
+impl RangeValues8 {
     pub const fn new(_log_size: u32) -> Self {
         Self {}
     }
 
     pub fn id(&self) -> PreProcessedColumnId {
         PreProcessedColumnId {
-            id: format!("preprocessed_range_values_{}", LEN),
+            id: "preprocessed_range_values_8".to_owned(),
         }
     }
 }
 
-impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEval for MultiplicityEval<LEN, L> {
+impl FrameworkEval for MultiplicityEval8 {
     fn log_size(&self) -> u32 {
         Self::LOG_SIZE
     }
@@ -92,13 +77,15 @@ impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEval for MultiplicityE
         Self::LOG_SIZE + 1
     }
 
+    // We don't need anything special about the eight additional zero's in the preprocessed column because
+    // whatever the malicious prover can do with the additional padding rows, the malicious prover can do the
+    // same using the non-padding row with zero.
     fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
-        let lookup_elements = <L as RegisteredLookupBound>::as_relation_ref(&self.lookup_elements);
-        let checked_value = RangeValues::<LEN>::new(Self::LOG_SIZE);
+        let checked_value = RangeValues8::new(Self::LOG_SIZE);
         let checked_value = eval.get_preprocessed_column(checked_value.id());
         let multiplicity = eval.next_trace_mask();
         eval.add_to_relation(RelationEntry::new(
-            lookup_elements,
+            &self.lookup_elements,
             (-multiplicity).into(),
             &[checked_value],
         ));
@@ -107,25 +94,19 @@ impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEval for MultiplicityE
     }
 }
 
-impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEvalExt for MultiplicityEval<LEN, L> {
+impl FrameworkEvalExt for MultiplicityEval8 {
     const LOG_SIZE: u32 = Self::LOG_SIZE;
 
     fn new(lookup_elements: &AllLookupElements) -> Self {
-        let lookup: &L = lookup_elements.as_ref();
+        let lookup: &Range8LookupElements = lookup_elements.as_ref();
         Self {
             lookup_elements: lookup.clone(),
         }
     }
 }
 
-impl<const LEN: usize, L: RegisteredLookupBound> BuiltInExtension for Multiplicity<LEN, L>
-where
-    MultiplicityEval<LEN, L>: FrameworkEvalExt,
-    SideNote: RangeCheckSideNoteGetter<LEN>,
-    AllLookupElements: AsRef<L>,
-    L: Relation<PackedBaseField, PackedSecureField>,
-{
-    type Eval = MultiplicityEval<LEN, L>;
+impl BuiltInExtension for Multiplicity8 {
+    type Eval = MultiplicityEval8;
 
     fn generate_preprocessed_trace(
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
@@ -162,14 +143,18 @@ where
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let lookup_element: &L = lookup_elements.as_ref();
+        let lookup_element: &Range8LookupElements = lookup_elements.as_ref();
         let values = &Self::preprocessed_base_columns()[0];
         let base_cols = Self::base_columns(side_note);
         let mut logup_trace_gen = LogupTraceGenerator::new(Self::Eval::LOG_SIZE);
 
         // Subtract looked up values with the multiplicity
         let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (Self::Eval::LOG_SIZE - LOG_N_LANES)) {
+        for vec_row in 0..(1
+            << (Self::Eval::LOG_SIZE
+                .checked_sub(LOG_N_LANES)
+                .expect("LOG_SIZE should be big enough for SIMD")))
+        {
             let value = values.data[vec_row];
             let denom = lookup_element.combine(&[value]);
             let numerator = -base_cols[0].data[vec_row];
@@ -180,27 +165,29 @@ where
     }
 }
 
-impl<const LEN: usize, L> Multiplicity<LEN, L> {
+impl Multiplicity8 {
+    fn num_padding() -> usize {
+        (1 << LOG_N_LANES)
+            .checked_sub(&8)
+            .expect("Code assumes SIMD lanes should be at least 8")
+    }
     fn preprocessed_base_columns() -> Vec<BaseColumn> {
-        let range_values = BaseColumn::from_iter((0..LEN).map(BaseField::from));
+        let range_values = BaseColumn::from_iter(
+            (0..8)
+                .map(BaseField::from)
+                .chain(std::iter::repeat(BaseField::zero()).take(Self::num_padding())),
+        );
         vec![range_values]
     }
-    fn base_columns(side_note: &SideNote) -> Vec<BaseColumn>
-    where
-        SideNote: RangeCheckSideNoteGetter<LEN>,
-    {
-        let range_check_side_note: &RangeCheckSideNote<LEN> = side_note.get_range_check_side_note();
+    fn base_columns(side_note: &SideNote) -> Vec<BaseColumn> {
         let multiplicities = BaseColumn::from_iter(
-            range_check_side_note
+            side_note
+                .range8
                 .multiplicity
                 .into_iter()
-                .map(BaseField::from),
+                .map(BaseField::from)
+                .chain(std::iter::repeat(BaseField::zero()).take(Self::num_padding())),
         );
         vec![multiplicities]
     }
 }
-
-pub(crate) type Multiplicity16 = Multiplicity<16, Range16LookupElements>;
-pub(crate) type Multiplicity32 = Multiplicity<32, Range32LookupElements>;
-pub(crate) type Multiplicity128 = Multiplicity<128, Range128LookupElements>;
-pub(crate) type Multiplicity256 = Multiplicity<256, Range256LookupElements>;
