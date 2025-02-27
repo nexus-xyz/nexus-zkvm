@@ -200,4 +200,8 @@ impl Verifiable for Proof {
         nexus_core::stwo::verify(self.proof.clone(), view)?;
         Ok(())
     }
+
+    fn size_estimate(&self) -> usize {
+        self.proof.size_estimate()
+    }
 }

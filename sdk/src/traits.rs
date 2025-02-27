@@ -518,4 +518,7 @@ pub trait Verifiable: Serialize + DeserializeOwned {
             expected_ad,
         )
     }
+
+    /// Returns the size estimate of the proof in bytes.
+    fn size_estimate(&self) -> usize;
 }
