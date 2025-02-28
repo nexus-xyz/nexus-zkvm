@@ -167,16 +167,14 @@ impl MachineChip for SyscallChip {
         );
 
         // Enforcing ranges for a_val
-        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(a_val_1) = 0
-        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(a_val_2) = 0
-        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(a_val_3) = 0
-        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(a_val_4) = 0
+        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(a_val_1 + a_val_2 * 256) = 0
+        // is_type_sys・(is_sys_debug + is_sys_halt + is_sys_cycle_count)・(a_val_3 + a_val_3 * 256) = 0
         let value_a = trace_eval!(trace_eval, Column::ValueA);
-        for a in value_a {
+        for a in value_a.chunks(2) {
             eval.add_constraint(
                 is_type_sys.clone()
                     * (is_sys_debug.clone() + is_sys_halt.clone() + is_sys_cycle_count.clone())
-                    * a,
+                    * (a[0].clone() + a[1].clone() * E::F::from(BaseField::from(256))),
             );
         }
     }

@@ -409,17 +409,25 @@ impl MachineChip for CpuChip {
         );
 
         // Constrain read access doesn't change register values for type R and type I instructions
+        // The comparison is batched by two limbs at a time
         let reg1_val_prev = trace_eval!(trace_eval, Column::Reg1ValPrev);
         let reg2_val_prev = trace_eval!(trace_eval, Column::Reg2ValPrev);
         let value_b = trace_eval!(trace_eval, Column::ValueB);
         let value_c = trace_eval!(trace_eval, Column::ValueC);
-        for limb_idx in 0..WORD_SIZE {
+        for limb_idx in (0..WORD_SIZE).step_by(2) {
             eval.add_constraint(
                 (is_type_r.clone() + is_type_i.clone())
-                    * (reg1_val_prev[limb_idx].clone() - value_b[limb_idx].clone()),
+                    * (reg1_val_prev[limb_idx].clone()
+                        + reg1_val_prev[limb_idx + 1].clone() * BaseField::from(1 << 8)
+                        - (value_b[limb_idx].clone()
+                            + value_b[limb_idx + 1].clone() * BaseField::from(1 << 8))),
             );
             eval.add_constraint(
-                is_type_r.clone() * (reg2_val_prev[limb_idx].clone() - value_c[limb_idx].clone()),
+                is_type_r.clone()
+                    * (reg2_val_prev[limb_idx].clone()
+                        + reg2_val_prev[limb_idx + 1].clone() * BaseField::from(1 << 8)
+                        - (value_c[limb_idx].clone()
+                            + value_c[limb_idx + 1].clone() * BaseField::from(1 << 8))),
             );
         }
 
@@ -459,13 +467,17 @@ impl MachineChip for CpuChip {
         eval.add_constraint(is_type_sys.clone() * (op_a - reg3_address));
 
         // PcNext should be Pc on the next row, unless the next row is the first row or padding.
+        // The comparison is batched by two limbs.
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let pc_on_next_row = trace_eval_next_row!(trace_eval, Column::Pc);
-        for limb_idx in 0..WORD_SIZE {
+        for limb_idx in (0..WORD_SIZE).step_by(2) {
             eval.add_constraint(
                 (E::F::one() - next_is_first.clone())
                     * (E::F::one() - next_is_padding.clone())
-                    * (pc_next[limb_idx].clone() - pc_on_next_row[limb_idx].clone()),
+                    * (pc_next[limb_idx].clone()
+                        + pc_next[limb_idx + 1].clone() * BaseField::from(1 << 8)
+                        - (pc_on_next_row[limb_idx].clone()
+                            + pc_on_next_row[limb_idx + 1].clone() * BaseField::from(1 << 8))),
             );
         }
 
