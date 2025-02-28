@@ -725,17 +725,18 @@ pub(crate) mod tests {
         let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W[..]);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
-        let witness = R1CSWitness::<G>::new(&shape, &W)?;
+        let instance =
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
+        let witness = R1CSWitness::<G>::new(&shape, &W[..])?;
 
         shape.is_satisfied(&instance, &witness, &pp)?;
 
         // Change commitment.
         let invalid_commitment = commitment_W.double();
         let instance =
-            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &invalid_commitment, &X)?;
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &invalid_commitment, &X[..])?;
         assert_eq!(
             shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
@@ -743,10 +744,10 @@ pub(crate) mod tests {
 
         // Provide invalid witness.
         let invalid_W = to_field_elements::<G>(&[4, 9, 27, 30]);
-        let commitment_invalid_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_invalid_W = PedersenCommitment::<G>::commit(&pp, &W[..]);
         let instance =
-            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_invalid_W, &X)?;
-        let invalid_witness = R1CSWitness::<G>::new(&shape, &invalid_W)?;
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_invalid_W, &X[..])?;
+        let invalid_witness = R1CSWitness::<G>::new(&shape, &invalid_W[..])?;
         assert_eq!(
             shape.is_satisfied(&instance, &invalid_witness, &pp),
             Err(Error::NotSatisfied)
@@ -755,7 +756,7 @@ pub(crate) mod tests {
         // Provide invalid public input.
         let invalid_X = to_field_elements::<G>(&[1, 36]);
         let instance =
-            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &invalid_X)?;
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &invalid_X[..])?;
         assert_eq!(
             shape.is_satisfied(&instance, &witness, &pp),
             Err(Error::NotSatisfied)
@@ -784,10 +785,11 @@ pub(crate) mod tests {
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W[..]);
 
-        let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
-        let witness = R1CSWitness::<G>::new(&shape, &W)?;
+        let instance =
+            R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
+        let witness = R1CSWitness::<G>::new(&shape, &W[..])?;
 
         let relaxed_instance = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&instance);
         let relaxed_witness = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &witness);
@@ -818,10 +820,10 @@ pub(crate) mod tests {
 
         let X = to_field_elements::<G>(&[1, 35]);
         let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W[..]);
 
-        let U2 = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
-        let W2 = R1CSWitness::<G>::new(&shape, &W)?;
+        let U2 = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X[..])?;
+        let W2 = R1CSWitness::<G>::new(&shape, &W[..])?;
 
         let U1 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&U2);
         let W1 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &W2);
@@ -845,7 +847,7 @@ pub(crate) mod tests {
 
     #[test]
     fn folded_with_relaxed_instance_is_satisfied() -> Result<(), Error> {
-        let (a, b, c) = {
+        let (matrix_a, matrix_b, matrix_c) = {
             (
                 to_field_sparse::<G>(A),
                 to_field_sparse::<G>(B),
@@ -856,35 +858,95 @@ pub(crate) mod tests {
         const NUM_CONSTRAINTS: usize = 4;
         const NUM_WITNESS: usize = 4;
         const NUM_PUBLIC: usize = 2;
-        const r: Scalar = Scalar::ONE;
+        let folding_scalar = Scalar::from(2u64);
 
         let pp = PedersenCommitment::<G>::setup(NUM_WITNESS, b"test", &());
-        let shape = R1CSShape::<G>::new(NUM_CONSTRAINTS, NUM_WITNESS, NUM_PUBLIC, &a, &b, &c)?;
+        let shape = R1CSShape::<G>::new(
+            NUM_CONSTRAINTS,
+            NUM_WITNESS,
+            NUM_PUBLIC,
+            &matrix_a,
+            &matrix_b,
+            &matrix_c,
+        )?;
 
-        let X = to_field_elements::<G>(&[1, 35]);
-        let W = to_field_elements::<G>(&[3, 9, 27, 30]);
-        let commitment_W = PedersenCommitment::<G>::commit(&pp, &W);
+        // Create two different R1CS instances for the equation x³ + x + 5 = output
+        let create_instance = |input: i64| -> Result<
+            (R1CSInstance<G, PedersenCommitment<G>>, R1CSWitness<G>),
+            Error,
+        > {
+            let output = input * input * input + input + 5;
+            let witness_square = input * input;
+            let witness_cube = witness_square * input;
+            let witness_sum = witness_cube + input;
 
-        let u = R1CSInstance::<G, PedersenCommitment<G>>::new(&shape, &commitment_W, &X)?;
-        let w = R1CSWitness::<G>::new(&shape, &W)?;
+            let public_inputs = to_field_elements::<G>(&[1, output]);
+            let witness_values =
+                to_field_elements::<G>(&[input, witness_square, witness_cube, witness_sum]);
+            let commitment = PedersenCommitment::<G>::commit(&pp, &witness_values[..]);
 
-        let mut U1 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&u);
-        let mut W1 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &w);
+            let instance = R1CSInstance::<G, PedersenCommitment<G>>::new(
+                &shape,
+                &commitment,
+                &public_inputs[..],
+            )?;
+            let witness = R1CSWitness::<G>::new(&shape, &witness_values[..])?;
+            Ok((instance, witness))
+        };
 
-        for _ in 0..3 {
-            let (T, comm_T) = commit_T(&shape, &pp, &U1, &W1, &u, &w)?;
-            U1 = U1.fold(&u, &comm_T, &r)?;
-            W1 = W1.fold(&w, &T, &r)?;
+        let (instance_1, witness_1) = create_instance(3)?;
+        let (instance_2, witness_2) = create_instance(-2)?;
+
+        let relaxed_1 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&instance_1);
+        let relaxed_witness_1 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &witness_1);
+        let relaxed_2 = RelaxedR1CSInstance::<G, PedersenCommitment<G>>::from(&instance_2);
+        let relaxed_witness_2 = RelaxedR1CSWitness::<G>::from_r1cs_witness(&shape, &witness_2);
+
+        let (cross_terms, commitment_t) = commit_T_with_relaxed(
+            &shape,
+            &pp,
+            &relaxed_1,
+            &relaxed_witness_1,
+            &relaxed_2,
+            &relaxed_witness_2,
+        )?;
+
+        let inputs_1: Vec<Scalar> =
+            [relaxed_1.X.as_slice(), relaxed_witness_1.W.as_slice()].concat();
+        let inputs_2: Vec<Scalar> =
+            [relaxed_2.X.as_slice(), relaxed_witness_2.W.as_slice()].concat();
+
+        let multiply_matrices = |inputs: &[Scalar]| {
+            (
+                shape.A.multiply_vec(inputs),
+                shape.B.multiply_vec(inputs),
+                shape.C.multiply_vec(inputs),
+            )
+        };
+
+        let (az1, bz1, cz1) = multiply_matrices(&inputs_1);
+        let (az2, bz2, cz2) = multiply_matrices(&inputs_2);
+
+        for i in 0..shape.num_constraints {
+            let expected = az1[i] * bz2[i] + az2[i] * bz1[i]
+                - relaxed_1.X[0] * cz2[i]
+                - relaxed_2.X[0] * cz1[i];
+            assert_eq!(
+                cross_terms[i], expected,
+                "Cross-term computation incorrect at index {}",
+                i
+            );
         }
 
-        let U2 = U1.clone();
-        let W2 = W1.clone();
+        let folded_instance =
+            relaxed_1.fold_with_relaxed(&relaxed_2, &commitment_t, &folding_scalar)?;
+        let folded_witness = relaxed_witness_1.fold_with_relaxed(
+            &relaxed_witness_2,
+            &cross_terms[..],
+            &folding_scalar,
+        )?;
+        shape.is_relaxed_satisfied(&folded_instance, &folded_witness, &pp)?;
 
-        let (T, comm_T) = commit_T_with_relaxed(&shape, &pp, &U1, &W1, &U2, &W2)?;
-        let folded_U = U1.fold_with_relaxed(&U2, &comm_T, &r)?;
-        let folded_W = W1.fold_with_relaxed(&W2, &T, &r)?;
-
-        shape.is_relaxed_satisfied(&folded_U, &folded_W, &pp)?;
         Ok(())
     }
 }
