@@ -8,11 +8,11 @@ use crate::error::IOError;
 use crate::legacy::compile::*;
 use crate::traits::*;
 
-/// An unchecked view.
+/// An unchecked view, the correctness of which is _not_ guaranteed by the proving or checked by the verification.
 pub trait UncheckedView {}
 impl UncheckedView for View {}
 
-/// A prover (and runner) for the zkVM.
+/// A prover for the zkVM.
 pub trait LegacyProver<'a>: Setup<'a> {
     type Proof: LegacyVerifiable<'a>;
     type View: LegacyViewable;

@@ -30,7 +30,7 @@ fn main() {
     );
     assert_eq!(
         view.exit_code().expect("failed to retrieve exit code"),
-        nexus_sdk::KnownErrorCodes::ExitSuccess as u32
+        nexus_sdk::KnownExitCodes::ExitSuccess as u32
     );
 
     // Normally the prover communicates the seralized proof to the verifier who deserializes it.
@@ -49,7 +49,7 @@ fn main() {
     // print!("Verifying execution...");
     // proof.verify_expected_from_program_path::<&str, (), ()>(
     //    &(),   // no public input
-    //    nexus_sdk::KnownErrorCodes::ExitSuccess as u32,
+    //    nexus_sdk::KnownExitCodes::ExitSuccess as u32,
     //    &(),   // no public output
     //    &path, // path to expected program binary
     //    &[]    // no associated data,
@@ -61,7 +61,7 @@ fn main() {
     proof
         .verify_expected::<(), ()>(
             &(),  // no public input
-            nexus_sdk::KnownErrorCodes::ExitSuccess as u32,
+            nexus_sdk::KnownExitCodes::ExitSuccess as u32,
             &(),  // no public output
             &elf, // expected elf (program binary)
             &[],  // no associated data,

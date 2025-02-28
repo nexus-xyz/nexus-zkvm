@@ -11,14 +11,13 @@ use crate::error::*;
 /// A compute resource.
 pub trait Compute {}
 
-/// Indicator type that local compute will be used for proving the zkVM.
+/// Use local compute to prove the zkVM.
 pub enum Local {}
 impl Compute for Local {}
 
-/// A view of an execution, the correctness of is guaranteed by the proving and checked by the verification.
-///
-/// Can be reconstructed from its expected constitutent parts by the verifier for use during verification.
+/// A view of an execution, the correctness of which is guaranteed by the proving and checked by the verification.
 pub trait CheckedView {
+    /// Rebuild from constitutent parts, for use by the verifier during verification.
     fn new_from_expected(
         memory_layout: &LinearMemoryLayout,
         expected_public_input: &[u8],
@@ -101,7 +100,7 @@ impl CheckedView for nexus_core::nvm::View {
     }
 }
 
-/// An object capturing the metadata needed for proof distribution and verification.
+/// A view of an execution capturing the context needed for proof distribution and verification.
 pub trait Viewable {
     /// Deserialize the public input used for the execution.
     fn public_input<T: Serialize + DeserializeOwned + Sized>(&self) -> Result<T, IOError>;
@@ -219,7 +218,7 @@ pub trait ByGuestCompilation: Prover {
     fn compile(compiler: &mut impl Compile) -> Result<Self, Self::Error>;
 }
 
-/// A prover (and runner) for the zkVM.
+/// A prover for the zkVM.
 pub trait Prover: Sized {
     type Proof: Verifiable;
     type View: CheckedView;
@@ -273,11 +272,11 @@ pub trait Prover: Sized {
 ///
 /// Currently only used by the legacy prover integrations.
 pub trait Setup<'a> {
-    /// Global parameters with trust assumptions
+    /// Global parameters with trust assumptions.
     type Reference;
-    /// Global parameters without trust assumptions
+    /// Global parameters without trust assumptions.
     type Parameters;
-    /// Program-specific parameters
+    /// Program-specific parameters.
     type Preprocessing;
     type Error;
 
@@ -293,7 +292,7 @@ pub trait Setup<'a> {
         parameters: &'b Self::Parameters,
     ) -> Result<(), Self::Error>;
 
-    /// Detach proof from setup to make it easier to pass around without needing to manage lifetimes.
+    /// Detach prover or proof from setup to make it easier to pass around without needing to manage lifetimes.
     fn detach(&mut self);
 
     /// Access reference through borrow.
@@ -312,7 +311,7 @@ pub trait Setup<'a> {
     // todo: add support for preprocessing digest
 }
 
-/// A global, trust assumption reliant parameter set used for proving and verifying, such as a common or structured reference string (CRS/SRS)
+/// A global, trust-assumption-reliant parameter set used for proving and verifying, such as a common or structured reference string (CRS/SRS).
 ///
 /// Currently only used by the legacy prover integrations.
 pub trait Reference {
@@ -348,7 +347,7 @@ impl Reference for () {
     }
 }
 
-/// A global, no trust assumption parameter set used for proving and verifying.
+/// A global, no-trust-assumption parameter set used for proving and verifying.
 ///
 /// Currently only used by the legacy prover integrations.
 pub trait Parameters {
@@ -417,7 +416,7 @@ impl Preprocessing for () {
     }
 }
 
-/// A verifiable proof of a zkVM execution. Also relates to a view capturing the output of the machine.
+/// A verifiable proof of a zkVM execution.
 pub trait Verifiable: Serialize + DeserializeOwned {
     type View: CheckedView;
     type Error: From<nexus_core::nvm::ElfError> + From<IOError>;
@@ -425,7 +424,7 @@ pub trait Verifiable: Serialize + DeserializeOwned {
     /// Get the memory layout configuration used for proving.
     fn get_memory_layout(&self) -> &LinearMemoryLayout;
 
-    /// Verify the proof of an execution.
+    /// Verify the proof of an execution for a constructed [`CheckedView`](crate::traits::CheckedView).
     fn verify(&self, expected_view: &Self::View) -> Result<(), <Self as Verifiable>::Error>;
 
     /// Verify the proof of an execution.
@@ -476,7 +475,7 @@ pub trait Verifiable: Serialize + DeserializeOwned {
         self.verify(&view)
     }
 
-    /// Verify the proof of an execution.
+    /// Verify the proof of an execution, with the elf provided as raw bytes.
     fn verify_expected_from_program_bytes<
         T: Serialize + DeserializeOwned + Sized,
         U: Serialize + DeserializeOwned + Sized,
@@ -497,7 +496,7 @@ pub trait Verifiable: Serialize + DeserializeOwned {
         )
     }
 
-    /// Verify the proof of an execution.
+    /// Verify the proof of an execution, sourcing the program elf from a path.
     fn verify_expected_from_program_path<
         P: AsRef<Path> + ?Sized,
         T: Serialize + DeserializeOwned + Sized,
@@ -519,6 +518,6 @@ pub trait Verifiable: Serialize + DeserializeOwned {
         )
     }
 
-    /// Returns the size estimate of the proof in bytes.
+    /// Return a size estimate for the proof, in bytes.
     fn size_estimate(&self) -> usize;
 }

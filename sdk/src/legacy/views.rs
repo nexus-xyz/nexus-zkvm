@@ -6,8 +6,6 @@ use serde::de::DeserializeOwned;
 ///
 /// By _unchecked_, it is meant that although the zkVM proves that the guest program correctly wrote to the output tape, there is no cryptographic
 /// guarantee that the return of `output()` as accessed by the host program contains the same values that were written.
-///
-/// Support for checked views is under active development.
 #[derive(Debug, Default)]
 pub struct UncheckedView {
     pub(crate) out: Vec<u8>,

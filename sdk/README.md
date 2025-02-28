@@ -1,39 +1,39 @@
 # Nexus SDK
 
-A simple, misuse-resistant SDK for programmatic use of the Nexus zkVM.
+The Nexus SDK provides simple, misuse-resistant programmatic use of the Nexus zkVM.
 
 ## Quick Start
 
 ### 1. Install the Nexus zkVM
 
-First, install Rust: https://www.rust-lang.org/tools/install.
+First, install Rust: [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install).
 
 Next, install the RISC-V target:
 
 ```shell
-rustup target add riscv32i-unknown-none-elf
+$ rustup target add riscv32i-unknown-none-elf
 ```
 
 Then, install the Nexus zkVM:
 
 ```shell
-cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus -- tag 'v0.3.0'
+$ cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus -- tag 'v0.3.0'
 ```
 
-Verify the installation:
+And verify the installation:
 
 ```shell
-cargo nexus --help
+$ cargo nexus --help
 ```
 
-This should print the available CLI commands.
+This should print the available CLI commands. At present, the `cargo nexus` CLI is minimal, providing just a `cargo nexus host` command to setup an SDK based project.
 
 ### 2. Create a new Nexus host project
 
-To use the zkVM programmatically, we need two programs: a _guest_ program that runs on the zkVM, and a _host_ program that operates the zkVM itself.
+To use the zkVM programmatically, we need two programs: a _guest_ program that runs on the zkVM, and a _host_ program that operates the zkVM itself. Run:
 
 ```shell
-cargo nexus host nexus-host
+$ cargo nexus host nexus-host
 ```
 
 This will create a new Rust project directory with the following structure:
@@ -44,17 +44,17 @@ This will create a new Rust project directory with the following structure:
 ├── Cargo.tom
 ├── rust-toolchain.toml
 └── src
-    └── main.rs
+    ├── main.rs
     └── guest
-        └── Cargo.toml
-        └── rust-toolchain.toml
+        ├── Cargo.toml
+        ├── rust-toolchain.toml
         └── src
             └── main.rs
 ```
 
 Here, `./src/main.rs` is our host program, while `./src/guest/src/main.rs` is our guest program.
 
-As an example, you can change the content of `./src/guest/src/main.rs` to:
+As a slightly more interesting example than the default Hello, World! program, you can change the content of `./src/guest/src/main.rs` to:
 
 ```rust
 #![cfg_attr(target_arch = "riscv32", no_std, no_main)]
@@ -68,6 +68,7 @@ fn main(x: u32, y: u32) -> u32 {
     println!("Read private input: {}", y);
 
     x * y
+}
 ```
 
 This guest program takes as input two integers, one public and one private, logs their values, and then returns their product.
@@ -124,7 +125,7 @@ fn main() {
 }
 ```
 
-This host program compiles the guest program and then invokes the resultant binary with `x = 3, y = 5` as the input.
+This host program compiles the guest program and then invokes the resultant binary with public input `x = 5` and private input `y = 3`.
 
 The zkVM will then run the guest program, return a view containing the output (`z = 15`) and logs, and produce a proof of its correct execution.
 
@@ -132,8 +133,10 @@ After the proving completes, the host program then reads the output out of the v
 
 ### 3. Run your program
 
+Next, we can run the host program (including executing and proving the guest program) with:
+
 ```bash
-cargo run -r
+$ cargo run -r
 ```
 
 You should see the host program print:
@@ -159,4 +162,4 @@ To review the code used in the legacy mode, it corresponds to the [Nexus zkVM v0
 
 ## Learn More
 
-See our documentation at [docs.nexus.xyz](https://docs.nexus.xyz).
+See our zkVM documentation, including guides and walkthroughs, at [docs.nexus.xyz](https://docs.nexus.xyz/zkvm/index). Our SDK package documentation can be viewed at [sdk-docs.nexus.xyz](https://sdk-docs.nexus.xyz).

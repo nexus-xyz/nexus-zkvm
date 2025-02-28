@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::error::{BuildError, ConfigurationError, IOError, PathError};
 
-/// Errors that occur while proving using Nova.
+/// Errors that occur while proving using Stwo.
 #[derive(Debug, Error)]
 pub enum Error {
     /// An error occurred during proving a zkVM execution.
@@ -47,14 +47,16 @@ pub enum Error {
     ConfigurationError(#[from] ConfigurationError),
 }
 
-/// Prover for the Nexus zkVM using Stwo.
+/// Prover for the Nexus zkVM, when using Stwo.
 pub struct Stwo<C: Compute = Local> {
+    /// The program to be proven.
     pub elf: nexus_core::nvm::ElfFile,
+    /// The associated data to prove with.
     pub ad: Vec<u8>,
     _compute: PhantomData<C>,
 }
 
-/// The proof, alongside machine configuration information needed for verification.
+/// The Stwo proof, alongside machine configuration information needed for verification.
 #[derive(Serialize, Deserialize)]
 pub struct Proof {
     proof: nexus_core::stwo::Proof,
@@ -69,14 +71,6 @@ where
     /// Construct a new proving instance through dynamic compilation (see [`compile`](crate::compile)).
     fn compile(compiler: &mut impl Compile) -> Result<Self, <Self as Prover>::Error> {
         let elf_path = compiler.build()?;
-
-        /*
-        if compiler.use_package_hash {
-            self.associated_data = compiler
-                .get_package_hash()
-                .map_err(BuildError::from)?;
-        }
-        */
 
         Self::new_from_file(&elf_path.to_string_lossy().to_string())
     }

@@ -11,7 +11,7 @@ pub use crate::error::BuildError;
 
 use super::{Compile, Compiler, Packager};
 
-/// The Cargo guest program packager (for Rust).
+/// The Cargo guest program packager, used for Rust.
 pub enum CargoPackager {}
 impl Packager for CargoPackager {
     type DigestSize = U32;

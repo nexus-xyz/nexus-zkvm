@@ -7,16 +7,18 @@ use std::str::FromStr;
 
 use crate::error::BuildError;
 
+/// Compilation and packaging for Rust guests via Cargo.
 pub mod cargo;
 
 /// A guest program packager.
 pub trait Packager {
     type DigestSize: ArrayLength<u8>;
 
+    /// Return the digest length the packager uses.
     fn digest_len() -> usize;
 }
 
-/// Options for dynamic compilation of guest programs using Cargo.
+/// Dynamic compilation of guest programs.
 ///
 /// By default, compilation occurs within `/tmp`. However, the implementation does respect the [`OUT_DIR`](https://doc.rust-lang.org/cargo/reference/environment-variables.html) environment variable.
 #[derive(Clone)]
@@ -31,11 +33,12 @@ pub struct Compiler<P: Packager> {
     _packager: PhantomData<P>,
 }
 
+/// An interface for dynamic compilation of guest programs.
 pub trait Compile {
-    /// Configure dynamic compilation.
+    /// Setup dynamic compilation.
     fn new(package: &str) -> Self;
 
-    /// Configure dynamic compilation, using non-default binary name.
+    /// Setup dynamic compilation, using non-default binary name.
     fn new_with_custom_binary(package: &str, binary: &str) -> Self;
 
     /// Set dynamic compilation to build the guest program in a debug profile.
@@ -49,6 +52,7 @@ pub trait Compile {
     /// Note: the SDK does not automatically clean or otherwise manage the resultant builds in the output directory.
     fn set_unique_build(&mut self, unique: bool);
 
+    /// Set the linker script to use when building the guest binary.
     fn set_linker() -> Result<PathBuf, BuildError> {
         let linker_script = include_str!("./linker-scripts/default.x");
 

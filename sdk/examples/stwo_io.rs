@@ -28,7 +28,7 @@ fn main() {
 
     assert_eq!(
         view.exit_code().expect("failed to retrieve exit code"),
-        nexus_sdk::KnownErrorCodes::ExitSuccess as u32
+        nexus_sdk::KnownExitCodes::ExitSuccess as u32
     );
 
     let output: u32 = view
@@ -58,7 +58,7 @@ fn main() {
     // print!("Verifying execution...");
     // proof.verify_expected_from_program_path::<&str, u32, u32>(
     //    &5,    // x = 5
-    //    nexus_sdk::KnownErrorCodes::ExitSuccess as u32,
+    //    nexus_sdk::KnownExitCodes::ExitSuccess as u32,
     //    &15,   // z = 15
     //    &path, // path to expected program binary
     //    &[]    // no associated data,
@@ -70,7 +70,7 @@ fn main() {
     proof
         .verify_expected::<u32, u32>(
             &5,   // x = 5
-            nexus_sdk::KnownErrorCodes::ExitSuccess as u32,
+            nexus_sdk::KnownExitCodes::ExitSuccess as u32,
             &15,  // z = 15
             &elf, // expected elf (program binary)
             &[],  // no associated data,

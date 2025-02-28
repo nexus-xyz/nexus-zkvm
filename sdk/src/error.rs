@@ -15,7 +15,7 @@ pub enum ConfigurationError {
 /// Errors that occur during dynamic compilation of guest programs.
 #[derive(Debug, Error)]
 pub enum BuildError {
-    /// The compile options are invalid for the memory limit.
+    /// The compile options are invalid for the memory limit (only relevant for [`legacy`](crate::legacy) provers).
     #[error("invalid memory configuration for selected prover")]
     InvalidMemoryConfiguration,
 
@@ -24,7 +24,7 @@ pub enum BuildError {
     IOError(#[from] std::io::Error),
 
     /// The compilation process failed.
-    #[error("unable to compile using rustc")]
+    #[error("unable to compile using the configured compiler (e.g., rustc via Cargo)")]
     CompilerError,
 }
 
@@ -35,15 +35,16 @@ pub enum IOError {
     #[error("serialization error: {0}")]
     SerializationError(#[from] postcard::Error),
 
-    /// Error accessing not yet available input/output entries.
+    /// Error accessing not yet available input/output entries from a [`CheckedView`](crate::traits::CheckedView).
     #[error("Unable to access input/output information: did you forget to execute the zkVM?")]
     NotYetAvailableError,
 
-    /// Error parsing logging tape.
+    /// Error parsing the logging tape due to an encoding issue.
     #[error("encoding  error: {0}")]
     EncodingError(#[from] std::string::FromUtf8Error),
 }
 
+/// Errors that occur while manipulating host system file paths.
 #[derive(Debug, Error)]
 pub enum PathError {
     /// Invalid encoding used for path.
