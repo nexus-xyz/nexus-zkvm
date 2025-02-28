@@ -1,8 +1,9 @@
+use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::WORD_SIZE;
 use num_traits::One;
 
 use std::array;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use crate::{
     chips::subtract_with_borrow,
@@ -60,9 +61,9 @@ impl MachineChip for TimestampChip {
         traces.fill_columns(row_idx, c_reg1_ts_prev, CReg1TsPrev);
         traces.fill_columns(row_idx, c_reg2_ts_prev, CReg2TsPrev);
         traces.fill_columns(row_idx, c_reg3_ts_prev, CReg3TsPrev);
-        traces.fill_columns(row_idx, ch1_minus, CH1Minus);
-        traces.fill_columns(row_idx, ch2_minus, CH2Minus);
-        traces.fill_columns(row_idx, ch3_minus, CH3Minus);
+        traces.fill_columns(row_idx, [ch1_minus[1], ch1_minus[3]], CH1Minus);
+        traces.fill_columns(row_idx, [ch2_minus[1], ch2_minus[3]], CH2Minus);
+        traces.fill_columns(row_idx, [ch3_minus[1], ch3_minus[3]], CH3Minus);
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -77,9 +78,9 @@ impl MachineChip for TimestampChip {
         // Range of CH{1,2,3}Minus are constrained in RangeBoolChip.
 
         // The most significant borrow should be zero; this enforces the desired inequality.
-        eval.add_constraint(ch1_minus[WORD_SIZE - 1].clone());
-        eval.add_constraint(ch2_minus[WORD_SIZE - 1].clone());
-        eval.add_constraint(ch3_minus[WORD_SIZE - 1].clone());
+        eval.add_constraint(ch1_minus[WORD_SIZE_HALVED - 1].clone());
+        eval.add_constraint(ch2_minus[WORD_SIZE_HALVED - 1].clone());
+        eval.add_constraint(ch3_minus[WORD_SIZE_HALVED - 1].clone());
 
         let reg1_ts_prev = trace_eval!(trace_eval, Reg1TsPrev);
         let reg2_ts_prev = trace_eval!(trace_eval, Reg2TsPrev);
@@ -112,28 +113,35 @@ pub fn decr_subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
 
 fn constrain_diff_minus_one<E: EvalAtRow>(
     eval: &mut E,
-    ch1_minus: [<E as EvalAtRow>::F; WORD_SIZE],
+    ch1_minus: [<E as EvalAtRow>::F; WORD_SIZE_HALVED],
     c_reg_ts_prev: [<E as EvalAtRow>::F; WORD_SIZE],
     reg_ts_cur: [<E as EvalAtRow>::F; WORD_SIZE],
     reg_ts_prev: [<E as EvalAtRow>::F; WORD_SIZE],
 ) {
     let modulus = E::F::from(256u32.into());
     // Constrain CH{1,2,3} and CReg{1,2,3}TsPrev using subtraction
-    // c_reg_ts_prev_1 + reg_ts_prev_1 + 1 = reg_ts_cur_1 + c_h1-_1・2^8
+    // (c_reg_ts_prev_1 + 256 * c_reg_ts_prev_2) + (reg_ts_prev_1 + 256 * reg_ts_prev_2) + 1 = (reg_ts_cur_1 + 256 * reg_ts_cur_2) + c_h1-_1・2^16
     eval.add_constraint(
-        c_reg_ts_prev[0].clone() + reg_ts_prev[0].clone() + E::F::one()
-            - (ch1_minus[0].clone() * modulus.clone() + reg_ts_cur[0].clone()),
+        c_reg_ts_prev[0].clone()
+            + c_reg_ts_prev[1].clone() * modulus.clone()
+            + reg_ts_prev[0].clone()
+            + reg_ts_prev[1].clone() * modulus.clone()
+            + E::F::one()
+            - (ch1_minus[0].clone() * E::F::from(BaseField::from(1 << 16))
+                + reg_ts_cur[0].clone()
+                + reg_ts_cur[1].clone() * modulus.clone()),
     );
-    // c_reg_ts_prev_2 + reg_ts_prev_2 + c_h1-_1 = reg_ts_cur_2 + c_h1-_2・2^8
-    // c_reg_ts_prev_3 + reg_ts_prev_3 + c_h1-_2 = reg_ts_cur_2 + c_h1-_3・2^8
-    // c_reg_ts_prev_4 + reg_ts_prev_4 + c_h1-_3 = reg_ts_cur_2 + c_h1-_4・2^8
-    for i in 1..WORD_SIZE {
-        let borrow = ch1_minus[i - 1].clone();
-        eval.add_constraint(
-            c_reg_ts_prev[i].clone() + reg_ts_prev[i].clone() + borrow
-                - (ch1_minus[i].clone() * modulus.clone() + reg_ts_cur[i].clone()),
-        );
-    }
+    // (c_reg_ts_prev_3 + 256 * c_reg_ts_prev_4) + (reg_ts_prev_3 + 256 * reg_ts_prev_4) + c_h1-_1 = (reg_ts_cur_3 + 256 * reg_ts_cur_4) + c_h1-_2・2^16
+    eval.add_constraint(
+        c_reg_ts_prev[2].clone()
+            + c_reg_ts_prev[3].clone() * modulus.clone()
+            + reg_ts_prev[2].clone()
+            + reg_ts_prev[3].clone() * modulus.clone()
+            + ch1_minus[0].clone()
+            - (ch1_minus[1].clone() * E::F::from(BaseField::from(1 << 16))
+                + reg_ts_cur[2].clone()
+                + reg_ts_cur[3].clone() * modulus.clone()),
+    );
 }
 
 #[cfg(test)]

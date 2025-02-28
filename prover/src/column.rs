@@ -328,13 +328,13 @@ pub enum Column {
     CReg3TsPrev,
     /// Aux borrow variables for comparing previous and current timestamps
     /// c_h1^-_1 in the design document
-    #[size = 4]
+    #[size = 2]
     CH1Minus,
     /// c_h1^-_1 in the design document
-    #[size = 4]
+    #[size = 2]
     CH2Minus,
     /// c_h1^-_1 in the design document
-    #[size = 4]
+    #[size = 2]
     CH3Minus,
 
     /// The starting address of the read-write memory access
