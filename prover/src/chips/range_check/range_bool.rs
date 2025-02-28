@@ -74,15 +74,15 @@ const CHECKED_SINGLE: [Column; 48] = [
     ShiftBit5,
     RamInitFinalFlag,
 ];
-const CHECKED_WORD: [Column; 7] = [
+const CHECKED_WORD: [Column; 6] = [
     CarryFlag,
     BorrowFlag,
     CH1Minus,
     CH2Minus,
     CH3Minus,
-    PcCarry,
     ProgCtrCarry,
 ];
+const CHECKED_HALF_WORD: [Column; 1] = [PcCarry];
 const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
@@ -108,6 +108,13 @@ impl MachineChip for RangeBoolChip {
         for col in CHECKED_SINGLE.into_iter() {
             let [col] = trace_eval.column_eval(col);
             eval.add_constraint(col.clone() * (col - E::F::one()));
+        }
+
+        for col in CHECKED_HALF_WORD.into_iter() {
+            let col_limbs = trace_eval.column_eval::<2>(col);
+            for limb in col_limbs.into_iter() {
+                eval.add_constraint(limb.clone() * (limb - E::F::one()));
+            }
         }
 
         let [type_r] = virtual_column::IsTypeR::eval(trace_eval);

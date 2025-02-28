@@ -30,8 +30,8 @@ impl IntoBaseFields<1> for u8 {
     }
 }
 
-impl IntoBaseFields<{ WORD_SIZE }> for [bool; WORD_SIZE] {
-    fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
+impl<const N: usize> IntoBaseFields<{ N }> for [bool; N] {
+    fn into_base_fields(self) -> [BaseField; N] {
         std::array::from_fn(|i| BaseField::from(self[i] as u32))
     }
 }

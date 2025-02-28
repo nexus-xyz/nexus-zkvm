@@ -284,7 +284,8 @@ impl MachineChip for CpuChip {
         // Fill PcCarry
         // PcCarry isn't used in jump or branch instructions, but we fill it anyway.
         let (_, pc_carry) = add_with_carries(pc.to_le_bytes(), 4u32.to_le_bytes());
-        traces.fill_columns(row_idx, pc_carry, PcCarry);
+        // PcCarry only needs two flags for carries for 16-bit chunks because the constraints treat the addition 16 bits at a time.
+        traces.fill_columns(row_idx, [pc_carry[1], pc_carry[3]], PcCarry);
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -469,50 +470,45 @@ impl MachineChip for CpuChip {
         }
 
         // Increment PC by four
-        // (is_pc_incremented)・(pc_next_1 + pc_carry_1·2^8 - pc_1 - 4) = 0
+        // (is_pc_incremented)・(pc_next_1 + pc_next_2·2^8 + pc_carry_1·2^16 - (pc_1 + pc_2·2^8) - 4) = 0
         let [is_pc_incremented] = virtual_column::IsPcIncremented::eval(trace_eval);
         let pc_carry = trace_eval!(trace_eval, Column::PcCarry);
         let pc = trace_eval!(trace_eval, Column::Pc);
         eval.add_constraint(
             is_pc_incremented.clone()
-                * (pc_next[0].clone() + pc_carry[0].clone() * BaseField::from(1 << 8)
-                    - pc[0].clone()
+                * (pc_next[0].clone()
+                    + pc_next[1].clone() * BaseField::from(1 << 8)
+                    + pc_carry[0].clone() * BaseField::from(1 << 16)
+                    - (pc[0].clone() + pc[1].clone() * BaseField::from(1 << 8))
                     - BaseField::from(4).into()),
         );
-        // (is_pc_incremented)・(pc_next_2 + pc_carry_2·2^8 - pc_2 - pc_carry_1) = 0
-        // (is_pc_incremented)・(pc_next_3 + pc_carry_3·2^8 - pc_3 - pc_carry_2) = 0
-        // (is_pc_incremented)・(pc_next_4 + pc_carry_4·2^8 - pc_4 - pc_carry_3) = 0
-        for limb_idx in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_pc_incremented.clone()
-                    * (pc_next[limb_idx].clone()
-                        + pc_carry[limb_idx].clone() * BaseField::from(1 << 8)
-                        - pc[limb_idx].clone()
-                        - pc_carry[limb_idx - 1].clone()),
-            );
-        }
+        // (is_pc_incremented)・(pc_next_3 + pc_next_4·2^8 + pc_carry_2·2^16 - (pc_3 + pc_4·2^8) - pc_carry_1) = 0
+        eval.add_constraint(
+            is_pc_incremented.clone()
+                * (pc_next[2].clone()
+                    + pc_next[3].clone() * BaseField::from(1 << 8)
+                    + pc_carry[1].clone() * BaseField::from(1 << 16)
+                    - (pc[2].clone() + pc[3].clone() * BaseField::from(1 << 8))
+                    - pc_carry[0].clone()),
+        );
 
         // Setting pc_next = pc when is_sys_halt=1 or pc_next = pc+4 for other flags
-        // pc_carry_{1,2,3,4} used for carry handling
-        // is_type_sys・(4・(1-is_sys_halt) + pc_1 - pc_carry_1·2^8 - pc_next_1) = 0
-        // is_type_sys・(pc_2 + pc_carry_1 - pc_carry_2·2^8 - pc_next_2) = 0
-        // is_type_sys・(pc_3 + pc_carry_2 - pc_carry_3·2^8 - pc_next_3) = 0
-        // is_type_sys・(pc_4 + pc_carry_3 - pc_carry_4·2^8 - pc_next_4) = 0
+        // pc_carry_{2,4} used for carry handling
+        // is_type_sys・(4・(1-is_sys_halt) + pc_1 + pc_2·2^8 - pc_carry_1·2^16 - (pc_next_1 + pc_next_2·2^8) = 0
         eval.add_constraint(
             is_type_sys.clone()
                 * (E::F::from(BaseField::from(4)) * (E::F::one() - is_sys_halt.clone())
                     + pc[0].clone()
-                    - pc_carry[0].clone() * BaseField::from(1 << 8)
-                    - pc_next[0].clone()),
+                    + pc[1].clone() * BaseField::from(1 << 8)
+                    - pc_carry[0].clone() * BaseField::from(1 << 16)
+                    - (pc_next[0].clone() + pc_next[1].clone() * BaseField::from(1 << 8))),
         );
-
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_type_sys.clone()
-                    * (pc[i].clone() + pc_carry[i - 1].clone()
-                        - pc_carry[i].clone() * BaseField::from(1 << 8)
-                        - pc_next[i].clone()),
-            );
-        }
+        // is_type_sys・(pc_3 + pc_4·2^8 + pc_carry_1 - pc_carry_2·2^16 - (pc_next_3 + pc_next_1·2^8)) = 0
+        eval.add_constraint(
+            is_type_sys.clone()
+                * (pc[2].clone() + pc[3].clone() * BaseField::from(1 << 8) + pc_carry[0].clone()
+                    - pc_carry[1].clone() * BaseField::from(1 << 16)
+                    - (pc_next[2].clone() + pc_next[3].clone() * BaseField::from(1 << 8))),
+        );
     }
 }

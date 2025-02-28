@@ -454,8 +454,8 @@ pub enum Column {
     #[size = 1]
     OpC24_31,
 
-    /// Auxiliary variable for incrementing program counter by four
-    #[size = 4]
+    /// Auxiliary variable for incrementing program counter by four, assumes 16-bit limbs
+    #[size = 2]
     PcCarry,
 
     /// The byte-address of RAM initial & final states. Each row contains information about one byte of initial & final RAM states.
