@@ -32,8 +32,6 @@ impl<R: Display> Display for Term<R> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             Term::Var(v) => write!(f, "{v}"),
-            // The following cases may be simplified when
-            // https://github.com/nexus-xyz/nexus-zkvm/issues/153 is resolved.
             Term::Lambda(t) => {
                 write!(f, "(\\")?;
                 write!(f, "{t}")?;
