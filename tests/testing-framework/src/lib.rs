@@ -373,6 +373,69 @@ mod test {
 
     #[test]
     #[serial]
+    fn test_emulate_long_io() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "examples/src/bin/long_io",
+            vec![IOArgs::<
+                (bool, u8, u16, u32, u64),
+                (bool, u8, u16, u32, u64),
+                (bool, u8, u16, u32, u64),
+            >::new(
+                Some((true, 1u8, 2u16, 3u32, 4u64)),
+                Some((true, 1u8, 2u16, 3u32, 4u64)),
+                Some((true, 2u8, 4u16, 6u32, 8u64)),
+            )],
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_prove_long_io() {
+        let elfs = compile_multi("examples/src/bin/long_io", &["-C opt-level=3"], &HOME_PATH);
+
+        let mut public_input_bytes = to_allocvec_cobs(&mut (true, 1u8, 2u16, 3u32, 4u64)).unwrap();
+        let mut private_input_bytes = to_allocvec_cobs(&mut (true, 1u8, 2u16, 3u32, 4u64)).unwrap();
+        let mut expected_output_bytes =
+            to_allocvec_cobs(&mut (true, 2u8, 4u16, 6u32, 8u64)).unwrap();
+
+        let padded_len = word_align!(public_input_bytes.len());
+        public_input_bytes.resize(padded_len, 0);
+
+        let padded_len = word_align!(private_input_bytes.len());
+        private_input_bytes.resize(padded_len, 0);
+
+        let padded_len = word_align!(expected_output_bytes.len());
+        expected_output_bytes.resize(padded_len, 0);
+
+        let (view, execution_trace) = k_trace(
+            elfs[0].clone(),
+            &[],
+            &public_input_bytes,
+            &private_input_bytes,
+            K,
+        )
+        .expect("error generating trace");
+
+        let output = view.get_public_output();
+        let output_bytes = output.iter().map(|entry| entry.value).collect::<Vec<_>>();
+
+        assert_eq!(
+            output_bytes, expected_output_bytes,
+            "Output bytes don't match expected output"
+        );
+
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(proof, &view).unwrap();
+    }
+
+    #[test]
+    #[serial]
     fn test_emulate_fail() {
         test_example_multi(
             vec![

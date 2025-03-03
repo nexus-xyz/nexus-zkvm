@@ -2,7 +2,7 @@
 #![no_std]
 #![no_main]
 #[prelude_import]
-use core::prelude::rust_2021::*;
+use core::prelude::rust_2024::*;
 #[macro_use]
 extern crate core;
 extern crate compiler_builtins as _;
@@ -12,7 +12,7 @@ const _: fn() = main;
 fn main() {
     let out = (|| {
         {
-            let (x, y): (u32, u32) = nexus_rt::read_private_input::<u32, u32>()
+            let (x, y): (u32, u32) = nexus_rt::read_private_input::<(u32, u32)>()
                 .expect("Failed to read public input");
             { { x * y } }
         }

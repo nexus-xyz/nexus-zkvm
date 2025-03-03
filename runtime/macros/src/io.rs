@@ -250,10 +250,10 @@ pub(crate) fn handle_input(
     let nexus_rt = get_nexus_rt_ident();
     let input_handler = match input_type {
         InputType::Public => quote! {
-            #nexus_rt::read_public_input::<#(#types),*>
+            #nexus_rt::read_public_input::<(#(#types),*)>
         },
         InputType::Private => quote! {
-            #nexus_rt::read_private_input::<#(#types),*>
+            #nexus_rt::read_private_input::<(#(#types),*)>
         },
         InputType::Custom => quote! {
             #custom_fn_name
