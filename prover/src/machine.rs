@@ -40,8 +40,8 @@ use crate::{
     traits::generate_interaction_trace,
 };
 use serde::{Deserialize, Serialize};
-/// Base components tuple for constraining virtual machine execution based on RV32I ISA.
-pub type BaseComponents = (
+/// Base component tuple for constraining virtual machine execution based on RV32I ISA.
+pub type BaseComponent = (
     CpuChip,
     DecodingCheckChip,
     AddChip,
@@ -70,7 +70,7 @@ pub type BaseComponents = (
     // Range checks must be positioned at the end. They use values filled by instruction chips.
     RangeCheckChip,
 );
-/// Base extensions used in conjunction with [`BaseComponents`]. This components are always enabled and are not accessible
+/// Base extensions used in conjunction with [`BaseComponent`]. These components are always enabled and are not accessible
 /// to downstream crates.
 const BASE_EXTENSIONS: &[ExtensionComponent] = &[
     ExtensionComponent::final_reg(),
@@ -105,12 +105,12 @@ impl Proof {
 
 /// Main (empty) struct implementing proving functionality of zkVM.
 ///
-/// The generic parameter determines which components are enabled. The default is [`BaseComponents`] for RV32I ISA.
+/// The generic parameter determines which chips are enabled. The default is [`BaseComponent`] for RV32I ISA.
 /// This functionality mainly exists for testing and removing a component **does not** remove columns it uses in the AIR.
 ///
-/// Note that the order of components affects correctness, e.g. if columns used by a component require additional lookups,
+/// Note that the order of chips affects correctness, e.g. if columns used by a component require additional lookups,
 /// then it should be positioned in the front.
-pub struct Machine<C = BaseComponents> {
+pub struct Machine<C = BaseComponent> {
     _phantom_data: PhantomData<C>,
 }
 
@@ -438,8 +438,8 @@ mod tests {
         let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        let proof = Machine::<BaseComponents>::prove(&program_trace, &view).unwrap();
-        Machine::<BaseComponents>::verify(
+        let proof = Machine::<BaseComponent>::prove(&program_trace, &view).unwrap();
+        Machine::<BaseComponent>::verify(
             proof,
             view.get_program_memory(),
             &[],

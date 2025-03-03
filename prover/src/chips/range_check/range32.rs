@@ -109,6 +109,7 @@ fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
 mod test {
     use super::*;
 
+    use crate::extensions::ExtensionComponent;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::preprocessed::PreprocessedBuilder;
     use crate::trace::program_trace::ProgramTracesBuilder;
@@ -142,7 +143,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds")]
     fn test_range32_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -151,7 +151,7 @@ mod test {
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
-            let b = (row_idx % 32) as u8 + 1; // sometimes out of range
+            let b = (row_idx % 32) as u8;
             traces.fill_columns(row_idx, b, Column::OpB);
 
             Range32Chip::fill_main_trace(
@@ -161,9 +161,18 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces { claimed_sum, .. } =
-            commit_traces::<Range32Chip>(config, &twiddles, &traces.finalize(), None);
+        // modify looked up value
+        *traces.column_mut::<{ OpA.size() }>(11, OpA)[0] = BaseField::from(32u32);
 
-        assert_ne!(claimed_sum, SecureField::zero());
+        let CommittedTraces {
+            claimed_sum,
+            lookup_elements,
+            ..
+        } = commit_traces::<Range32Chip>(config, &twiddles, &traces.finalize(), None);
+
+        // verify that logup sums don't match
+        let ext = ExtensionComponent::multiplicity32();
+        let (_, claimed_sum_2) = ext.generate_interaction_trace(&side_note, &lookup_elements);
+        assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
     }
 }

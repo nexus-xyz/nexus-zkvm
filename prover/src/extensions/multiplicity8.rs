@@ -1,4 +1,4 @@
-// Multiplicity8 extension is a special case because it requires eight pading rows in order to fit the SIMD usage
+// Multiplicity8 extension is a special case because it requires eight padding rows in order to fit the SIMD usage
 
 use num_traits::{CheckedSub, Zero};
 use stwo_prover::{

@@ -21,9 +21,9 @@ use crate::column::PreprocessedColumn;
 pub(crate) struct PreprocessedBuilder(TracesBuilder);
 
 impl PreprocessedBuilder {
-    /// 2^MIN_LOG_SIZE is the smallest number of rows supported
+    /// Min supported log size of the trace. This constant determines the size of the main component's trace.
     ///
-    /// 2^8 rows are needed to accommodate lookup table for byte-rangecheck.
+    /// `LOG_N_LANES` trace size is not supported in the current prover configuration.
     pub const MIN_LOG_SIZE: u32 = 8;
 
     /// Returns [`PreprocessedColumn::COLUMNS_NUM`] columns, each one `2.pow(log_size)` in length, filled with preprocessed trace content.
@@ -31,7 +31,7 @@ impl PreprocessedBuilder {
         assert!(log_size >= LOG_N_LANES);
         assert!(
             log_size >= Self::MIN_LOG_SIZE,
-            "log_size must be at least {}, to accomodate (byte, byte) lookup tables",
+            "log_size must be at least {}",
             Self::MIN_LOG_SIZE,
         );
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; PreprocessedColumn::COLUMNS_NUM];

@@ -292,6 +292,7 @@ fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
 mod test {
     use super::*;
 
+    use crate::extensions::ExtensionComponent;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
     use crate::trace::program_trace::ProgramTracesBuilder;
@@ -367,7 +368,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds")]
     fn test_range16_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -379,7 +379,7 @@ mod test {
 
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
-            let b = (row_idx % 16) as u8 + 1; // sometimes out of range
+            let b = (row_idx % 16) as u8;
             traces.fill_columns(row_idx, b, Column::OpB1_4);
             traces.fill_columns(row_idx, true, Column::IsAdd);
 
@@ -390,9 +390,18 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces { claimed_sum, .. } =
-            commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None);
+        // modify looked up value
+        *traces.column_mut::<{ OpB1_4.size() }>(11, OpB1_4)[0] = BaseField::from(16u32);
 
-        assert_ne!(claimed_sum, SecureField::zero());
+        let CommittedTraces {
+            claimed_sum,
+            lookup_elements,
+            ..
+        } = commit_traces::<Range16Chip>(config, &twiddles, &traces.finalize(), None);
+
+        // verify that logup sums don't match
+        let ext = ExtensionComponent::multiplicity16();
+        let (_, claimed_sum_2) = ext.generate_interaction_trace(&side_note, &lookup_elements);
+        assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
     }
 }

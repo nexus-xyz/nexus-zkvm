@@ -23,11 +23,11 @@ pub fn prove(
     trace: &impl nexus_vm::trace::Trace,
     view: &nexus_vm::emulator::View,
 ) -> Result<Proof, ProvingError> {
-    machine::Machine::<machine::BaseComponents>::prove(trace, view)
+    machine::Machine::<machine::BaseComponent>::prove(trace, view)
 }
 
 pub fn verify(proof: Proof, view: &nexus_vm::emulator::View) -> Result<(), VerificationError> {
-    machine::Machine::<machine::BaseComponents>::verify(
+    machine::Machine::<machine::BaseComponent>::verify(
         proof,
         view.get_program_memory(),
         view.view_associated_data().as_deref().unwrap_or_default(),

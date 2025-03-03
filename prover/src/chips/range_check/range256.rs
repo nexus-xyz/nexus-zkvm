@@ -253,6 +253,7 @@ mod test {
 
     use super::*;
 
+    use crate::extensions::ExtensionComponent;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
@@ -287,7 +288,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds")]
     fn test_range256_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -297,8 +297,7 @@ mod test {
         // Write in-range values to ValueA columns.
         for row_idx in 0..traces.num_rows() {
             let buf: [BaseField; WORD_SIZE] = array::from_fn(|i| {
-                // sometimes out of range
-                let t = ((row_idx + i) as u8) as u32 + 1u32;
+                let t = ((row_idx + i) as u8) as u32;
                 BaseField::from(t)
             });
             traces.fill_columns_base_field(row_idx, &buf, ValueB);
@@ -310,8 +309,18 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces { claimed_sum, .. } =
-            commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None);
-        assert_ne!(claimed_sum, SecureField::zero());
+        // modify looked up value
+        *traces.column_mut::<{ ValueB.size() }>(12, ValueB)[0] = BaseField::from(256u32);
+
+        let CommittedTraces {
+            claimed_sum,
+            lookup_elements,
+            ..
+        } = commit_traces::<Range256Chip>(config, &twiddles, &traces.finalize(), None);
+
+        // verify that logup sums don't match
+        let ext = ExtensionComponent::multiplicity256();
+        let (_, claimed_sum_2) = ext.generate_interaction_trace(&side_note, &lookup_elements);
+        assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
     }
 }

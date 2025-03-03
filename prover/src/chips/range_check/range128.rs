@@ -194,6 +194,7 @@ mod test {
 
     use super::*;
 
+    use crate::extensions::ExtensionComponent;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
     use crate::trace::program_trace::ProgramTracesBuilder;
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
@@ -237,7 +238,6 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "index out of bounds")]
     fn test_range128_chip_fail_out_of_range_release() {
         const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
@@ -246,9 +246,7 @@ mod test {
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
-            let buf: Word = array::from_fn(
-                |i| (row_idx + i) as u8 % 128 + 1, /* sometimes out of range */
-            );
+            let buf: Word = array::from_fn(|i| (row_idx + i) as u8 % 128);
             traces.fill_columns(row_idx, buf, Helper3);
             traces.fill_columns(row_idx, true, IsSlt);
 
@@ -259,9 +257,18 @@ mod test {
                 &mut side_note,
             );
         }
-        let CommittedTraces { claimed_sum, .. } =
-            commit_traces::<Range128Chip>(config, &twiddles, &traces.finalize(), None);
+        // modify looked up value
+        *traces.column_mut::<{ Helper2.size() }>(11, Helper2)[3] = BaseField::from(128u32);
 
-        assert_ne!(claimed_sum, SecureField::zero());
+        let CommittedTraces {
+            claimed_sum,
+            lookup_elements,
+            ..
+        } = commit_traces::<Range128Chip>(config, &twiddles, &traces.finalize(), None);
+
+        // verify that logup sums don't match
+        let ext = ExtensionComponent::multiplicity128();
+        let (_, claimed_sum_2) = ext.generate_interaction_trace(&side_note, &lookup_elements);
+        assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
     }
 }
