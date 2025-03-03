@@ -1,9 +1,13 @@
+use nexus_common::constants::WORD_SIZE_HALVED;
 use num_traits::{One, Zero};
 
 use nexus_vm::WORD_SIZE;
 use stwo_prover::{
     constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
-    core::backend::simd::m31::{PackedBaseField, LOG_N_LANES},
+    core::{
+        backend::simd::m31::{PackedBaseField, LOG_N_LANES},
+        fields::m31::BaseField,
+    },
 };
 
 use crate::{
@@ -70,7 +74,11 @@ impl MachineChip for ProgramMemCheckChip {
             }
             assert!(!carry_bits[WORD_SIZE - 1]); // Check against overflow
             assert_eq!(u32::from_le_bytes(incremented_bytes), new_access_counter);
-            traces.fill_columns(row_idx, carry_bits, Column::ProgCtrCarry);
+            traces.fill_columns(
+                row_idx,
+                [carry_bits[1], carry_bits[3]],
+                Column::ProgCtrCarry,
+            );
             side_note
                 .program_mem_check
                 .last_access_counter
@@ -160,23 +168,33 @@ impl MachineChip for ProgramMemCheckChip {
         let [is_padding] = trace_eval.column_eval(Column::IsPadding);
         let prg_prev_ctr = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrPrev);
         let prg_cur_ctr = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrCur);
-        let prg_ctr_carry = trace_eval.column_eval::<WORD_SIZE>(Column::ProgCtrCarry);
+        let prg_ctr_carry = trace_eval.column_eval::<WORD_SIZE_HALVED>(Column::ProgCtrCarry);
         let modulus = E::F::from((1u32 << 8).into());
-        for i in 0..WORD_SIZE {
-            let carry = i
-                .checked_sub(1)
-                .map(|j| prg_ctr_carry[j].clone())
-                .unwrap_or(E::F::one());
 
-            // prg_cur_ctr[i] + prg_ctr_carry[i] * 2^8 = prg_prev_ctr[i] + h1[i - 1] (or 1 if i == 0)
-            eval.add_constraint(
-                (E::F::one() - is_padding.clone())
-                    * (prg_cur_ctr[i].clone() + prg_ctr_carry[i].clone() * modulus.clone()
-                        - (prg_prev_ctr[i].clone() + carry)),
-            );
-        }
+        // prg_cur_ctr[0] + prg_cur_ctr[1] * 256 + prg_ctr_carry[0] * 2^{16} = (prg_prev_ctr[0] + prg_prev_ctr[1] * 256) + 1
+        eval.add_constraint(
+            (E::F::one() - is_padding.clone())
+                * (prg_cur_ctr[0].clone()
+                    + prg_cur_ctr[1].clone() * modulus.clone()
+                    + prg_ctr_carry[0].clone() * E::F::from(BaseField::from(1 << 16))
+                    - (prg_prev_ctr[0].clone()
+                        + prg_prev_ctr[1].clone() * modulus.clone()
+                        + E::F::one())),
+        );
+
+        // prg_cur_ctr[2] + prg_cur_ctr[3] * 256 + prg_ctr_carry[1] * 2^{16} = prg_prev_ctr[2] + prg_prev_ctr[3] * 256 + prg_ctr_carry[1]
+        eval.add_constraint(
+            (E::F::one() - is_padding.clone())
+                * (prg_cur_ctr[2].clone()
+                    + prg_cur_ctr[3].clone() * modulus.clone()
+                    + prg_ctr_carry[1].clone() * E::F::from(BaseField::from(1 << 16))
+                    - (prg_prev_ctr[2].clone()
+                        + prg_prev_ctr[3].clone() * modulus.clone()
+                        + prg_ctr_carry[0].clone())),
+        );
+
         // Don't allow overflow
-        eval.add_constraint(prg_ctr_carry[WORD_SIZE - 1].clone());
+        eval.add_constraint(prg_ctr_carry[WORD_SIZE_HALVED - 1].clone());
         // Logup constraints
 
         // add initial digest
@@ -608,7 +626,7 @@ mod test {
             );
             assert_eq!(
                 traces.column(i, Column::ProgCtrCarry),
-                [0u8; WORD_SIZE].into_base_fields()
+                [0u8; WORD_SIZE_HALVED].into_base_fields()
             );
         }
         for item in side_note.program_mem_check.last_access_counter.iter() {

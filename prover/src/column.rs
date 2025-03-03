@@ -312,8 +312,8 @@ pub enum Column {
     /// The current access counter of the program memory at Pc, PrgPrevCtr + 1
     #[size = 4]
     ProgCtrCur,
-    /// Carry flags for incrementing PrgPrevCtr into PrgCurCtr
-    #[size = 4]
+    /// Carry flags for incrementing PrgPrevCtr into PrgCurCtr, only kept at 16 bit and 32 bit boundaries
+    #[size = 2]
     ProgCtrCarry,
     /// Program memory content: final counter at PrgMemoryPc, filled after the execution
     #[size = 4]
