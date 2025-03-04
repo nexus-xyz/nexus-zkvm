@@ -92,7 +92,9 @@ impl MemoryStats {
         // For safety, we just check the stack pointer directly rather than looking for the lowest memory access.
         // This ensures we respect the full stack frame that was reserved, even if not all of it is used.
         // We could optimize this in the future by tracking actual stack accesses if needed.
-        self.min_stack_access = min(self.min_stack_access, stack_pointer);
+        if stack_pointer > 0 {
+            self.min_stack_access = min(self.min_stack_access, stack_pointer);
+        }
         Ok(())
     }
 
@@ -105,8 +107,8 @@ impl MemoryStats {
         output_size: u32,
     ) -> Result<LinearMemoryLayout> {
         LinearMemoryLayout::new(
-            self.max_heap_access - self.heap_bottom,
-            self.stack_top - self.min_stack_access,
+            self.max_heap_access - self.heap_bottom + 0x100,
+            self.stack_top - self.min_stack_access + 0x100,
             input_size,
             output_size,
             program_size,
@@ -183,9 +185,9 @@ mod tests {
             .create_optimized_layout(program_size, ad_size, 0, 0)
             .unwrap();
 
-        assert_eq!(layout.heap_end(), 5504);
-        assert_eq!(layout.stack_bottom(), 9600);
-        assert_eq!(layout.stack_top(), 1006596);
+        assert_eq!(layout.heap_end(), 5760);
+        assert_eq!(layout.stack_bottom(), 9856);
+        assert_eq!(layout.stack_top(), 1007108);
         assert_eq!(layout.public_input_end(), 4400);
         assert_eq!(layout.ad_end(), 4500);
         assert_eq!(layout.public_output_end(), 4504);

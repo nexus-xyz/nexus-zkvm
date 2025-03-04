@@ -535,7 +535,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 0x80403898, 4128, 0),
+                (MemAccessSize::Word, 0x3C1C, 4128, 0),
                 13,
             ))
             .is_some());
@@ -595,7 +595,7 @@ mod tests {
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 0x80403898, 4128, 0),
+                (MemAccessSize::Word, 0x3C1C, 4128, 0),
                 13,
             ))
             .is_some());
@@ -652,10 +652,12 @@ mod tests {
         assert_eq!(step.result, None);
         assert_eq!(step.memory_records.len(), 1);
 
+        println!("{:?}", step.memory_records);
+
         assert!(step
             .memory_records
             .take(&MemoryRecord::StoreRecord(
-                (MemAccessSize::Word, 0x80403898, 4128, 0),
+                (MemAccessSize::Word, 0x3C1C, 4128, 0),
                 13,
             ))
             .is_some());
