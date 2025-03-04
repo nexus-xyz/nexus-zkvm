@@ -494,11 +494,11 @@ pub enum Column {
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, ColumnsEnum)]
 #[column_derive(string_id)]
 pub enum ProgramColumn {
-    /// Program memory content: every Pc in the program memory
-    #[size = 4]
+    /// Program memory content: every Pc in the program memory, stored in two 16-bit limbs
+    #[size = 2]
     PrgMemoryPc,
-    /// Program memory content: Instruction word at PrgMemoryPc
-    #[size = 4]
+    /// Program memory content: Instruction word at PrgMemoryPc, stored in two 16-bit limbs
+    #[size = 2]
     PrgMemoryWord,
     /// Program memory content: 1 means the row contains real PrgMemory*. 0 otherwise.
     #[size = 1]

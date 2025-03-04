@@ -219,6 +219,7 @@ impl ProgramMemCheckChip {
     /// Fills the interaction trace columns for adding the initial content of the program memory:
     /// * 1 / lookup_element.combine(tuple) is added for each instruction
     /// where tuples contain (the address, the whole word of the instruction, 0u32).
+    /// The address and the instruction word are stored in two halfwords in little endian.
     ///
     /// The initial content of the memory is located on rows where PrgMemoryFlag is 1.
     fn add_initial_digest(
@@ -228,24 +229,27 @@ impl ProgramMemCheckChip {
         lookup_element: &ProgramCheckLookupElements,
     ) {
         let [prg_memory_flag] = program_traces.get_base_column(ProgramColumn::PrgMemoryFlag);
-        let prg_memory_pc = program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryPc);
+        // Two limbs of 16 bits each
+        let prg_memory_pc =
+            program_traces.get_base_column::<WORD_SIZE_HALVED>(ProgramColumn::PrgMemoryPc);
+        // Two limbs of 16 bits each
         let prg_memory_word =
-            program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryWord);
+            program_traces.get_base_column::<WORD_SIZE_HALVED>(ProgramColumn::PrgMemoryWord);
         // The counter is not used because initially the counters are zero.
         let mut logup_col_gen = logup_trace_gen.new_col();
         // Add (Pc, prg_memory_word, 0u32)
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![];
-            for prg_memory_pc_byte in prg_memory_pc.iter() {
-                tuple.push(prg_memory_pc_byte.data[vec_row]);
+            for prg_memory_pc_halfword in prg_memory_pc.iter() {
+                tuple.push(prg_memory_pc_halfword.data[vec_row]);
             }
-            assert_eq!(tuple.len(), WORD_SIZE);
-            for prg_memory_byte in prg_memory_word.iter() {
-                tuple.push(prg_memory_byte.data[vec_row]);
+            assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+            for prg_memory_halfword in prg_memory_word.iter() {
+                tuple.push(prg_memory_halfword.data[vec_row]);
             }
             // Initial counter is zero
             tuple.extend_from_slice(&[PackedBaseField::zero(); WORD_SIZE]);
-            assert_eq!(tuple.len(), WORD_SIZE + WORD_SIZE + WORD_SIZE);
+            assert_eq!(tuple.len(), WORD_SIZE_HALVED + WORD_SIZE_HALVED + WORD_SIZE);
             let numerator = prg_memory_flag.data[vec_row];
             logup_col_gen.write_frac(
                 vec_row,
@@ -265,21 +269,23 @@ impl ProgramMemCheckChip {
         lookup_elements: &ProgramCheckLookupElements,
     ) {
         let [prg_memory_flag] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
+        // Two limbs of 16 bits each
         let prg_memory_pc = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryPc);
+        // Two limbs of 16 bits each
         let prg_memory_word = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryWord);
         // Add (Pc, prg_memory_word, 0u32)
         let mut tuple = vec![];
-        for prg_memory_pc_byte in prg_memory_pc.into_iter() {
-            tuple.push(prg_memory_pc_byte);
+        for prg_memory_pc_halfword in prg_memory_pc.into_iter() {
+            tuple.push(prg_memory_pc_halfword);
         }
-        assert_eq!(tuple.len(), WORD_SIZE);
-        for prg_memory_byte in prg_memory_word.into_iter() {
-            tuple.push(prg_memory_byte);
+        assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+        for prg_memory_halfword in prg_memory_word.into_iter() {
+            tuple.push(prg_memory_halfword);
         }
         for _ in 0..WORD_SIZE {
             tuple.extend_from_slice(&[E::F::zero()]);
         }
-        assert_eq!(tuple.len(), 3 * WORD_SIZE);
+        assert_eq!(tuple.len(), WORD_SIZE_HALVED + WORD_SIZE_HALVED + WORD_SIZE);
         let numerator = prg_memory_flag;
 
         eval.add_to_relation(RelationEntry::new(
@@ -292,6 +298,7 @@ impl ProgramMemCheckChip {
     /// For the final content of the program memory, subtract in the interaction trace:
     /// * 1 / lookup_element.combine(tuple) for each instruction
     /// where tuples contain (the address, the whole word of the instruction, final counter value).
+    /// The address and the instruction word are stored in two halfwords in little endian.
     ///
     /// The information about the final content of the program memory is located on rows with PrgMemoryFlag set to 1.
     /// Most columns are the same as the initial program memory content.
@@ -303,27 +310,30 @@ impl ProgramMemCheckChip {
         lookup_element: &ProgramCheckLookupElements,
     ) {
         let [prg_memory_flag] = program_traces.get_base_column(ProgramColumn::PrgMemoryFlag);
-        let prg_memory_pc = program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryPc);
+        // Two limbs of 16 bits each
+        let prg_memory_pc =
+            program_traces.get_base_column::<WORD_SIZE_HALVED>(ProgramColumn::PrgMemoryPc);
+        // Two limbs of 16 bits each
         let prg_memory_word =
-            program_traces.get_base_column::<WORD_SIZE>(ProgramColumn::PrgMemoryWord);
+            program_traces.get_base_column::<WORD_SIZE_HALVED>(ProgramColumn::PrgMemoryWord);
         let prg_memory_ctr =
             original_traces.get_base_column::<WORD_SIZE>(Column::FinalPrgMemoryCtr);
         let mut logup_col_gen = logup_trace_gen.new_col();
         // Subtract (Pc, prg_memory_word, 0u32)
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![];
-            for prg_memory_pc_byte in prg_memory_pc.iter() {
-                tuple.push(prg_memory_pc_byte.data[vec_row]);
+            for prg_memory_pc_halfword in prg_memory_pc.into_iter() {
+                tuple.push(prg_memory_pc_halfword.data[vec_row]);
             }
-            assert_eq!(tuple.len(), WORD_SIZE);
-            for prg_memory_byte in prg_memory_word.iter() {
-                tuple.push(prg_memory_byte.data[vec_row]);
+            assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+            for prg_memory_halfword in prg_memory_word.into_iter() {
+                tuple.push(prg_memory_halfword.data[vec_row]);
             }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED);
             for prg_memory_ctr_byte in prg_memory_ctr.iter() {
                 tuple.push(prg_memory_ctr_byte.data[vec_row]);
             }
-            assert_eq!(tuple.len(), 3 * WORD_SIZE);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + WORD_SIZE);
             let numerator = prg_memory_flag.data[vec_row];
             logup_col_gen.write_frac(
                 vec_row,
@@ -343,22 +353,24 @@ impl ProgramMemCheckChip {
         lookup_elements: &ProgramCheckLookupElements,
     ) {
         let [prg_memory_flag] = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryFlag);
+        // Two limbs of 16 bits each
         let prg_memory_pc = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryPc);
+        // Two limbs of 16 bits each
         let prg_memory_word = program_trace_eval!(trace_eval, ProgramColumn::PrgMemoryWord);
         let prg_memory_ctr = trace_eval!(trace_eval, Column::FinalPrgMemoryCtr);
         let mut tuple = vec![];
-        for prg_memory_pc_byte in prg_memory_pc.into_iter() {
-            tuple.push(prg_memory_pc_byte);
+        for prg_memory_pc_halfword in prg_memory_pc.into_iter() {
+            tuple.push(prg_memory_pc_halfword);
         }
-        assert_eq!(tuple.len(), WORD_SIZE);
-        for prg_memory_byte in prg_memory_word.into_iter() {
-            tuple.push(prg_memory_byte);
+        assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+        for prg_memory_halfword in prg_memory_word.into_iter() {
+            tuple.push(prg_memory_halfword)
         }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED);
         for prg_memory_ctr_byte in prg_memory_ctr.into_iter() {
             tuple.push(prg_memory_ctr_byte);
         }
-        assert_eq!(tuple.len(), 3 * WORD_SIZE);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + WORD_SIZE);
         let numerator = prg_memory_flag;
         eval.add_to_relation(RelationEntry::new(
             lookup_elements,
@@ -370,6 +382,7 @@ impl ProgramMemCheckChip {
     /// On each program memory access:
     /// * 1 / lookup_element.combine(tuple_old) is subtracted
     /// where tuples contain (the address, the whole word of the instruction, previous counter value).
+    /// The address and the instruction word are stored in two halfwords in little endian.
     ///
     /// The numerator is zero on the padding rows, so that the row doesn't contribute to the logup sum.
     fn subtract_access(
@@ -382,20 +395,23 @@ impl ProgramMemCheckChip {
         let pc = original_traces.get_base_column::<WORD_SIZE>(Column::Pc);
         let instruction_word = original_traces.get_base_column::<WORD_SIZE>(Column::InstrVal);
         let mut logup_col_gen = logup_trace_gen.new_col();
+        let modulo = PackedBaseField::from(BaseField::from(1u32 << 8));
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![];
-            for pc_byte in pc.iter() {
-                tuple.push(pc_byte.data[vec_row]);
+            for pc_byte in pc.chunks(2) {
+                tuple.push(pc_byte[0].data[vec_row] + pc_byte[1].data[vec_row] * modulo);
             }
-            assert_eq!(tuple.len(), WORD_SIZE);
-            for instruction_byte in instruction_word.iter() {
-                tuple.push(instruction_byte.data[vec_row]);
+            assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+            for instruction_byte in instruction_word.chunks(2) {
+                tuple.push(
+                    instruction_byte[0].data[vec_row] + instruction_byte[1].data[vec_row] * modulo,
+                );
             }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED);
             for prg_prev_ctr_byte in prg_prev_ctr.iter() {
                 tuple.push(prg_prev_ctr_byte.data[vec_row]);
             }
-            assert_eq!(tuple.len(), 3 * WORD_SIZE);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + WORD_SIZE);
             let numerator = PackedBaseField::one() - is_padding.data[vec_row];
             logup_col_gen.write_frac(
                 vec_row,
@@ -419,18 +435,19 @@ impl ProgramMemCheckChip {
         let pc = trace_eval!(trace_eval, Column::Pc);
         let instruction_word = trace_eval!(trace_eval, Column::InstrVal);
         let mut tuple = vec![];
-        for pc_byte in pc.into_iter() {
-            tuple.push(pc_byte);
+        let modulo = E::F::from((1u32 << 8).into());
+        for pc_byte in pc.chunks(2) {
+            tuple.push(pc_byte[0].clone() + pc_byte[1].clone() * modulo.clone());
         }
-        assert_eq!(tuple.len(), WORD_SIZE);
-        for instruction_byte in instruction_word.into_iter() {
-            tuple.push(instruction_byte);
+        assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+        for instruction_byte in instruction_word.chunks(2) {
+            tuple.push(instruction_byte[0].clone() + instruction_byte[1].clone() * modulo.clone());
         }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED);
         for prg_prev_ctr_byte in prg_prev_ctr.into_iter() {
             tuple.push(prg_prev_ctr_byte);
         }
-        assert_eq!(tuple.len(), 3 * WORD_SIZE);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + WORD_SIZE);
         let numerator = E::F::one() - is_padding;
 
         eval.add_to_relation(RelationEntry::new(
@@ -456,20 +473,23 @@ impl ProgramMemCheckChip {
         let pc = original_traces.get_base_column::<WORD_SIZE>(Column::Pc);
         let instruction_word = original_traces.get_base_column::<WORD_SIZE>(Column::InstrVal);
         let mut logup_col_gen = logup_trace_gen.new_col();
+        let modulo = PackedBaseField::from(BaseField::from(1u32 << 8));
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![];
-            for pc_byte in pc.iter() {
-                tuple.push(pc_byte.data[vec_row]);
+            for pc_byte in pc.chunks(2) {
+                tuple.push(pc_byte[0].data[vec_row] + pc_byte[1].data[vec_row] * modulo);
             }
-            assert_eq!(tuple.len(), WORD_SIZE);
-            for instruction_byte in instruction_word.iter() {
-                tuple.push(instruction_byte.data[vec_row]);
+            assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+            for instruction_byte in instruction_word.chunks(2) {
+                tuple.push(
+                    instruction_byte[0].data[vec_row] + instruction_byte[1].data[vec_row] * modulo,
+                );
             }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED);
             for prg_prev_ctr_byte in prg_cur_ctr.iter() {
                 tuple.push(prg_prev_ctr_byte.data[vec_row]);
             }
-            assert_eq!(tuple.len(), 3 * WORD_SIZE);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + WORD_SIZE);
             let numerator = PackedBaseField::one() - is_padding.data[vec_row];
             logup_col_gen.write_frac(
                 vec_row,
@@ -492,19 +512,20 @@ impl ProgramMemCheckChip {
         let prg_cur_ctr = trace_eval!(trace_eval, Column::ProgCtrCur);
         let pc = trace_eval!(trace_eval, Column::Pc);
         let instruction_word = trace_eval!(trace_eval, Column::InstrVal);
+        let modulo = E::F::from((1u32 << 8).into());
         let mut tuple = vec![];
-        for pc_byte in pc.into_iter() {
-            tuple.push(pc_byte);
+        for pc_byte in pc.chunks(2) {
+            tuple.push(pc_byte[0].clone() + pc_byte[1].clone() * modulo.clone());
         }
-        assert_eq!(tuple.len(), WORD_SIZE);
-        for instruction_byte in instruction_word.into_iter() {
-            tuple.push(instruction_byte);
+        assert_eq!(tuple.len(), WORD_SIZE_HALVED);
+        for instruction_byte in instruction_word.chunks(2) {
+            tuple.push(instruction_byte[0].clone() + instruction_byte[1].clone() * modulo.clone());
         }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED);
         for prg_prev_ctr_byte in prg_cur_ctr.into_iter() {
             tuple.push(prg_prev_ctr_byte);
         }
-        assert_eq!(tuple.len(), 3 * WORD_SIZE);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + WORD_SIZE);
         let numerator = E::F::one() - is_padding;
         eval.add_to_relation(RelationEntry::new(
             lookup_elements,

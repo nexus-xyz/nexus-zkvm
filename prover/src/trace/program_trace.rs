@@ -70,8 +70,19 @@ impl ProgramTracesBuilder {
                 *pc as usize,
                 "The program is assumed to be in contiguous memory."
             );
-            ret.fill_program_columns(row_idx, *pc, ProgramColumn::PrgMemoryPc);
-            ret.fill_program_columns(row_idx, *instruction_word, ProgramColumn::PrgMemoryWord);
+            let (pc_low, pc_high) = (*pc & 0xFFFF, *pc >> 16);
+            ret.fill_program_columns(
+                row_idx,
+                [pc_low, pc_high].map(BaseField::from),
+                ProgramColumn::PrgMemoryPc,
+            );
+            let (instruction_low, instruction_high) =
+                (*instruction_word & 0xFFFF, *instruction_word >> 16);
+            ret.fill_program_columns(
+                row_idx,
+                [instruction_low, instruction_high].map(BaseField::from),
+                ProgramColumn::PrgMemoryWord,
+            );
             ret.fill_program_columns(row_idx, true, ProgramColumn::PrgMemoryFlag);
         }
 
