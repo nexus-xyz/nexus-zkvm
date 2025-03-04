@@ -450,9 +450,14 @@ impl MachineChip for CpuChip {
         let value_a = trace_eval!(trace_eval, Column::ValueA);
 
         // Constrain read access doesn't change register values for type B and type S instructions
-        for limb_idx in 0..WORD_SIZE {
+        // The comparison is batched by two limbs at a time
+        for limb_idx in (0..WORD_SIZE).step_by(2) {
             eval.add_constraint(
-                is_type_b_s.clone() * (reg3_val_prev[limb_idx].clone() - value_a[limb_idx].clone()),
+                is_type_b_s.clone()
+                    * (reg3_val_prev[limb_idx].clone()
+                        + reg3_val_prev[limb_idx + 1].clone() * BaseField::from(1 << 8)
+                        - value_a[limb_idx].clone()
+                        - value_a[limb_idx + 1].clone() * BaseField::from(1 << 8)),
             );
         }
 
