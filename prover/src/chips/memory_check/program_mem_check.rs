@@ -87,11 +87,11 @@ impl MachineChip for ProgramMemCheckChip {
         // Use accessed_program_memory sidenote to fill in the final program memory contents
         if row_idx == traces.num_rows() - 1 {
             for (pc, counter) in side_note.program_mem_check.last_access_counter.iter() {
-                let traget_row_idx = side_note
+                let target_row_idx = side_note
                     .program_mem_check
                     .find_row_idx(*pc)
                     .expect("Pc not found in program trace");
-                traces.fill_columns(traget_row_idx, *counter, Column::FinalPrgMemoryCtr);
+                traces.fill_columns(target_row_idx, *counter, Column::FinalPrgMemoryCtr);
             }
         }
     }
@@ -140,7 +140,7 @@ impl MachineChip for ProgramMemCheckChip {
         );
 
         // subtract program memory access, previous counter reads
-        // For each access, a tuple of the form (address, instruction_as_word, previous_couter) is subtracted.
+        // For each access, a tuple of the form (address, instruction_as_word, previous_counter) is subtracted.
         Self::subtract_access(logup_trace_gen, original_traces, lookup_element);
 
         // add program memory access, new counter write backs
@@ -182,7 +182,7 @@ impl MachineChip for ProgramMemCheckChip {
                         + E::F::one())),
         );
 
-        // prg_cur_ctr[2] + prg_cur_ctr[3] * 256 + prg_ctr_carry[1] * 2^{16} = prg_prev_ctr[2] + prg_prev_ctr[3] * 256 + prg_ctr_carry[1]
+        // prg_cur_ctr[2] + prg_cur_ctr[3] * 256 + prg_ctr_carry[1] * 2^{16} = prg_prev_ctr[2] + prg_prev_ctr[3] * 256 + prg_ctr_carry[0]
         eval.add_constraint(
             (E::F::one() - is_padding.clone())
                 * (prg_cur_ctr[2].clone()
@@ -198,7 +198,7 @@ impl MachineChip for ProgramMemCheckChip {
         // Logup constraints
 
         // add initial digest
-        // For each used Pc, oen tuple (address, instruction_as_word, 0u32) is added.
+        // For each used Pc, one tuple (address, instruction_as_word, 0u32) is added.
         Self::constrain_add_initial_digest(eval, trace_eval, lookup_elements);
 
         // subtract final digest
@@ -206,7 +206,7 @@ impl MachineChip for ProgramMemCheckChip {
         Self::constrain_subtract_final_digest(eval, trace_eval, lookup_elements);
 
         // subtract program memory access, previous counter reads
-        // For each access, one tuple (address, instruction_as_word, previous_couter) is subtracted.
+        // For each access, one tuple (address, instruction_as_word, previous_counter) is subtracted.
         Self::constrain_subtract_access(eval, trace_eval, lookup_elements);
 
         // add program memory access, new counter write backs
