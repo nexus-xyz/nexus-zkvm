@@ -42,6 +42,12 @@ impl<const N: usize> IntoBaseFields<{ N }> for [u8; N] {
     }
 }
 
+impl<const N: usize> IntoBaseFields<N> for [BaseField; N] {
+    fn into_base_fields(self) -> [BaseField; N] {
+        self
+    }
+}
+
 impl IntoBaseFields<{ WORD_SIZE }> for WordWithEffectiveBits {
     fn into_base_fields(self) -> [BaseField; WORD_SIZE] {
         self.0.into_base_fields()
