@@ -194,33 +194,38 @@ impl MachineChip for LoadStoreChip {
         let ram1_ts_prev_aux = trace_eval!(trace_eval, Ram1TsPrevAux);
         let helper1 = trace_eval!(trace_eval, Column::Helper1);
         let [ram1_accessed] = Ram1Accessed::eval(trace_eval);
-        // ram1_ts_prev_aux_1 + 1    + ram1_ts_prev_1 = clk_1 + h1_1・2^8 (conditioned on ram1_accessed != 0)
+        // ram1_ts_prev_aux_1 + ram1_ts_prev_aux_2 * 256 + 1    + ram1_ts_prev_1 + ram1_ts_prev_2 * 256 = clk_1 + clk_2 * 256 + h1_2・2^16
+        // (conditioned on ram1_accessed != 0)
         eval.add_constraint(
             ram1_accessed.clone()
-                * (ram1_ts_prev_aux[0].clone() + E::F::one() + ram1_ts_prev[0].clone()
+                * (ram1_ts_prev_aux[0].clone()
+                    + ram1_ts_prev_aux[1].clone() * BaseField::from(1 << 8)
+                    + E::F::one()
+                    + ram1_ts_prev[0].clone()
+                    + ram1_ts_prev[1].clone() * BaseField::from(1 << 8)
                     - clk[0].clone()
-                    - helper1[0].clone() * BaseField::from(1 << 8)),
+                    - clk[1].clone() * BaseField::from(1 << 8)
+                    - helper1[1].clone() * BaseField::from(1 << 16)),
         );
-        // ram1_ts_prev_aux_2 + h1_1 + ram1_ts_prev_2 = clk_2 + h1_2・2^8 (conditioned on ram1_accessed != 0)
-        // ram1_ts_prev_aux_3 + h1_2 + ram1_ts_prev_3 = clk_3 + h1_3・2^8 (conditioned on ram1_accessed != 0)
-        // ram1_ts_prev_aux_4 + h1_3 + ram1_ts_prev_4 = clk_4 + h1_4・2^8 (conditioned on ram1_accessed != 0)
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                ram1_accessed.clone()
-                    * (ram1_ts_prev_aux[i].clone()
-                        + helper1[i - 1].clone()
-                        + ram1_ts_prev[i].clone()
-                        - clk[i].clone()
-                        - helper1[i].clone() * BaseField::from(1 << 8)),
-            );
-        }
-        // h1_1・(h1_1 - 1) = 0; h1_2・(h1_2 - 1) = 0 (conditioned on ram1_accessed != 0)
-        // h1_3・(h1_3 - 1) = 0; h1_4 = 0 (conditioned on ram1_accessed != 0)
-        for helper_limb in helper1.iter().take(WORD_SIZE - 1) {
-            eval.add_constraint(
-                helper_limb.clone() * (helper_limb.clone() - E::F::one()) * ram1_accessed.clone(),
-            );
-        }
+        // ram1_ts_prev_aux_3 + ram1_ts_prev_aux_4 * 256 + h1_2 + ram1_ts_prev_3 + ram1_ts_prev_4 * 256 = clk_3 + clk_4 * 256 + h1_4・2^16
+        // (conditioned on ram1_accessed != 0)
+        eval.add_constraint(
+            ram1_accessed.clone()
+                * (ram1_ts_prev_aux[2].clone()
+                    + ram1_ts_prev_aux[3].clone() * BaseField::from(1 << 8)
+                    + helper1[1].clone()
+                    + ram1_ts_prev[2].clone()
+                    + ram1_ts_prev[3].clone() * BaseField::from(1 << 8)
+                    - clk[2].clone()
+                    - clk[3].clone() * BaseField::from(1 << 8)
+                    - helper1[3].clone() * BaseField::from(1 << 16)),
+        );
+
+        // h1_2・(h1_2 - 1) = 0 (conditioned on ram1_accessed != 0)
+        eval.add_constraint(
+            helper1[1].clone() * (helper1[1].clone() - E::F::one()) * ram1_accessed.clone(),
+        );
+        // h1_4 = 0 (conditioned on ram1_accessed != 0)
         eval.add_constraint(helper1[WORD_SIZE - 1].clone() * ram1_accessed.clone());
 
         // Computing ram2_ts_prev_aux = clk - 1 - ram2_ts_prev
@@ -229,33 +234,38 @@ impl MachineChip for LoadStoreChip {
         let ram2_ts_prev_aux = trace_eval!(trace_eval, Ram2TsPrevAux);
         let helper2 = trace_eval!(trace_eval, Column::Helper2);
         let [ram2_accessed] = Ram2Accessed::eval(trace_eval);
-        // ram2_ts_prev_aux_1 + 1    + ram2_ts_prev_1 = clk_1 + h2_1・2^8 (conditioned on ram2_accessed != 0)
+        // ram2_ts_prev_aux_1 + ram2_ts_prev_aux_2 * 256 + 1    + ram2_ts_prev_1 + ram2_ts_prev_2 * 256 = clk_1 + clk_2 * 256 + h2_2・2^{16}
+        // (conditioned on ram2_accessed != 0)
         eval.add_constraint(
             ram2_accessed.clone()
-                * (ram2_ts_prev_aux[0].clone() + E::F::one() + ram2_ts_prev[0].clone()
+                * (ram2_ts_prev_aux[0].clone()
+                    + ram2_ts_prev_aux[1].clone() * BaseField::from(1 << 8)
+                    + E::F::one()
+                    + ram2_ts_prev[0].clone()
+                    + ram2_ts_prev[1].clone() * BaseField::from(1 << 8)
                     - clk[0].clone()
-                    - helper2[0].clone() * BaseField::from(1 << 8)),
+                    - clk[1].clone() * BaseField::from(1 << 8)
+                    - helper2[1].clone() * BaseField::from(1 << 16)),
         );
-        // ram2_ts_prev_aux_2 + h2_1 + ram2_ts_prev_2 = clk_2 + h2_2・2^8 (conditioned on ram2_accessed != 0)
-        // ram2_ts_prev_aux_3 + h2_2 + ram2_ts_prev_3 = clk_3 + h2_3・2^8 (conditioned on ram2_accessed != 0)
-        // ram2_ts_prev_aux_4 + h2_3 + ram2_ts_prev_4 = clk_4 + h2_4・2^8 (conditioned on ram2_accessed != 0)
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                ram2_accessed.clone()
-                    * (ram2_ts_prev_aux[i].clone()
-                        + helper2[i - 1].clone()
-                        + ram2_ts_prev[i].clone()
-                        - clk[i].clone()
-                        - helper2[i].clone() * BaseField::from(1 << 8)),
-            );
-        }
-        // h2_1・(h2_1 - 1) = 0; h2_2・(h2_2 - 1) = 0 (conditioned on ram2_accessed != 0)
-        // h2_3・(h2_3 - 1) = 0; h2_4 = 0 (conditioned on ram2_accessed != 0)
-        for helper2_limb in helper2.iter().take(WORD_SIZE - 1) {
-            eval.add_constraint(
-                helper2_limb.clone() * (helper2_limb.clone() - E::F::one()) * ram2_accessed.clone(),
-            );
-        }
+        // ram2_ts_prev_aux_3 + ram2_ts_prev_aux_4 * 256 + h2_2 + ram2_ts_prev_3 + ram2_ts_prev_4 * 256 = clk_3 + clk_4 * 256 + h2_4・2^{16}
+        // (conditioned on ram2_accessed != 0)
+        eval.add_constraint(
+            ram2_accessed.clone()
+                * (ram2_ts_prev_aux[2].clone()
+                    + ram2_ts_prev_aux[3].clone() * BaseField::from(1 << 8)
+                    + helper2[1].clone()
+                    + ram2_ts_prev[2].clone()
+                    + ram2_ts_prev[3].clone() * BaseField::from(1 << 8)
+                    - clk[2].clone()
+                    - clk[3].clone() * BaseField::from(1 << 8)
+                    - helper2[3].clone() * BaseField::from(1 << 16)),
+        );
+
+        // h2_2・(h2_2 - 1) = 0 (conditioned on ram2_accessed != 0)
+        eval.add_constraint(
+            helper2[1].clone() * (helper2[1].clone() - E::F::one()) * ram2_accessed.clone(),
+        );
+        // h2_4 = 0 (conditioned on ram2_accessed != 0)
         eval.add_constraint(helper2[WORD_SIZE - 1].clone() * ram2_accessed.clone());
 
         // Computing ram3_ts_prev_aux = clk - 1 - ram3_ts_prev
@@ -264,35 +274,37 @@ impl MachineChip for LoadStoreChip {
         let ram3_ts_prev_aux = trace_eval!(trace_eval, Ram3TsPrevAux);
         let helper3 = trace_eval!(trace_eval, Column::Helper3);
         let [ram3_4_accessed] = Ram3_4Accessed::eval(trace_eval);
-        // ram3_ts_prev_aux_1 + 1    + ram3_ts_prev_1 = clk_1 + h3_1・2^8 (conditioned on ram3_accessed != 0)
+        // ram3_ts_prev_aux_1 + ram3_ts_prev_aux_2 * 256 + 1    + ram3_ts_prev_1 + ram3_ts_prev_2 * 256 = clk_1 + clk_2 * 256 + h3_2・2^{16}
+        // (conditioned on ram3_accessed != 0)
         eval.add_constraint(
             ram3_4_accessed.clone()
-                * (ram3_ts_prev_aux[0].clone() + E::F::one() + ram3_ts_prev[0].clone()
+                * (ram3_ts_prev_aux[0].clone()
+                    + ram3_ts_prev_aux[1].clone() * BaseField::from(1 << 8)
+                    + E::F::one()
+                    + ram3_ts_prev[0].clone()
+                    + ram3_ts_prev[1].clone() * BaseField::from(1 << 8)
                     - clk[0].clone()
-                    - helper3[0].clone() * BaseField::from(1 << 8)),
+                    - clk[1].clone() * BaseField::from(1 << 8)
+                    - helper3[1].clone() * BaseField::from(1 << 16)),
         );
-        // ram3_ts_prev_aux_2 + h3_1 + ram3_ts_prev_2 = clk_2 + h3_2・2^8 (conditioned on ram3_accessed != 0)
-        // ram3_ts_prev_aux_3 + h3_2 + ram3_ts_prev_3 = clk_3 + h3_3・2^8 (conditioned on ram3_accessed != 0)
-        // ram3_ts_prev_aux_4 + h3_3 + ram3_ts_prev_4 = clk_4 + h3_4・2^8 (conditioned on ram3_accessed != 0)
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                ram3_4_accessed.clone()
-                    * (ram3_ts_prev_aux[i].clone()
-                        + helper3[i - 1].clone()
-                        + ram3_ts_prev[i].clone()
-                        - clk[i].clone()
-                        - helper3[i].clone() * BaseField::from(1 << 8)),
-            );
-        }
-        // h3_1・(h3_1 - 1) = 0; h3_2・(h3_2 - 1) = 0 (conditioned on ram3_accessed != 0)
-        // h3_3・(h3_3 - 1) = 0; h3_4 = 0 (conditioned on ram3_accessed != 0)
-        for helper3_limb in helper3.iter().take(WORD_SIZE - 1) {
-            eval.add_constraint(
-                helper3_limb.clone()
-                    * (helper3_limb.clone() - E::F::one())
-                    * ram3_4_accessed.clone(),
-            );
-        }
+        // ram3_ts_prev_aux_3 + ram3_ts_prev_aux_4 * 256 + h3_2 + ram3_ts_prev_3 + ram3_ts_prev_4 * 256 = clk_3 + clk_4 * 256 + h3_4・2^{16}
+        // (conditioned on ram3_accessed != 0)
+        eval.add_constraint(
+            ram3_4_accessed.clone()
+                * (ram3_ts_prev_aux[2].clone()
+                    + ram3_ts_prev_aux[3].clone() * BaseField::from(1 << 8)
+                    + helper3[1].clone()
+                    + ram3_ts_prev[2].clone()
+                    + ram3_ts_prev[3].clone() * BaseField::from(1 << 8)
+                    - clk[2].clone()
+                    - clk[3].clone() * BaseField::from(1 << 8)
+                    - helper3[3].clone() * BaseField::from(1 << 16)),
+        );
+        // h3_2・(h3_2 - 1) = 0 (conditioned on ram3_accessed != 0)
+        eval.add_constraint(
+            helper3[1].clone() * (helper3[1].clone() - E::F::one()) * ram3_4_accessed.clone(),
+        );
+        // h3_4 = 0 (conditioned on ram3_accessed != 0)
         eval.add_constraint(helper3[WORD_SIZE - 1].clone() * ram3_4_accessed.clone());
 
         // Computing ram4_ts_prev_aux = clk - 1 - ram4_ts_prev
@@ -302,29 +314,31 @@ impl MachineChip for LoadStoreChip {
         let helper4 = trace_eval!(trace_eval, Column::Helper4);
         eval.add_constraint(
             ram3_4_accessed.clone()
-                * (ram4_ts_prev_aux[0].clone() + E::F::one() + ram4_ts_prev[0].clone()
+                * (ram4_ts_prev_aux[0].clone()
+                    + ram4_ts_prev_aux[1].clone() * BaseField::from(1 << 8)
+                    + E::F::one()
+                    + ram4_ts_prev[0].clone()
+                    + ram4_ts_prev[1].clone() * BaseField::from(1 << 8)
                     - clk[0].clone()
-                    - helper4[0].clone() * BaseField::from(1 << 8)),
+                    - clk[1].clone() * BaseField::from(1 << 8)
+                    - helper4[1].clone() * BaseField::from(1 << 16)),
         );
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                ram3_4_accessed.clone()
-                    * (ram4_ts_prev_aux[i].clone()
-                        + helper4[i - 1].clone()
-                        + ram4_ts_prev[i].clone()
-                        - clk[i].clone()
-                        - helper4[i].clone() * BaseField::from(1 << 8)),
-            );
-        }
-        // h4_1・(h4_1 - 1) = 0; h4_2・(h4_2 - 1) = 0 (conditioned on ram4_accessed != 0)
-        // h4_3・(h4_3 - 1) = 0; h4_4 = 0 (conditioned on ram4_accessed != 0)
-        for helper_4_limb in helper4.iter().take(WORD_SIZE - 1) {
-            eval.add_constraint(
-                helper_4_limb.clone()
-                    * (helper_4_limb.clone() - E::F::one())
-                    * ram3_4_accessed.clone(),
-            );
-        }
+        eval.add_constraint(
+            ram3_4_accessed.clone()
+                * (ram4_ts_prev_aux[2].clone()
+                    + ram4_ts_prev_aux[3].clone() * BaseField::from(1 << 8)
+                    + helper4[1].clone()
+                    + ram4_ts_prev[2].clone()
+                    + ram4_ts_prev[3].clone() * BaseField::from(1 << 8)
+                    - clk[2].clone()
+                    - clk[3].clone() * BaseField::from(1 << 8)
+                    - helper4[3].clone() * BaseField::from(1 << 16)),
+        );
+        // h4_2・(h4_2 - 1) = 0 (conditioned on ram4_accessed != 0)
+        eval.add_constraint(
+            helper4[1].clone() * (helper4[1].clone() - E::F::one()) * ram3_4_accessed.clone(),
+        );
+        // h4_4 = 0 (conditioned on ram4_accessed != 0)
         eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram3_4_accessed.clone());
 
         let lookup_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
