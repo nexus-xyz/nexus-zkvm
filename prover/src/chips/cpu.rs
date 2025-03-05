@@ -507,23 +507,16 @@ impl MachineChip for CpuChip {
                     - pc_carry[0].clone()),
         );
 
-        // Setting pc_next = pc when is_sys_halt=1 or pc_next = pc+4 for other flags
-        // pc_carry_{2,4} used for carry handling
-        // is_type_sys・(4・(1-is_sys_halt) + pc_1 + pc_2·2^8 - pc_carry_1·2^16 - (pc_next_1 + pc_next_2·2^8) = 0
-        eval.add_constraint(
-            is_type_sys.clone()
-                * (E::F::from(BaseField::from(4)) * (E::F::one() - is_sys_halt.clone())
-                    + pc[0].clone()
-                    + pc[1].clone() * BaseField::from(1 << 8)
-                    - pc_carry[0].clone() * BaseField::from(1 << 16)
-                    - (pc_next[0].clone() + pc_next[1].clone() * BaseField::from(1 << 8))),
-        );
-        // is_type_sys・(pc_3 + pc_4·2^8 + pc_carry_1 - pc_carry_2·2^16 - (pc_next_3 + pc_next_1·2^8)) = 0
-        eval.add_constraint(
-            is_type_sys.clone()
-                * (pc[2].clone() + pc[3].clone() * BaseField::from(1 << 8) + pc_carry[0].clone()
-                    - pc_carry[1].clone() * BaseField::from(1 << 16)
-                    - (pc_next[2].clone() + pc_next[3].clone() * BaseField::from(1 << 8))),
-        );
+        // Setting pc_next = pc when is_sys_halt=1 and is_type_sys=1
+        // All the other syscalls except halt are handled in the constraints with is_pc_incremented flag.
+        for limb_idx in (0..WORD_SIZE).step_by(2) {
+            eval.add_constraint(
+                is_type_sys.clone()
+                    * is_sys_halt.clone()
+                    * (pc[limb_idx].clone() + pc[limb_idx + 1].clone() * BaseField::from(1 << 8)
+                        - (pc_next[limb_idx].clone()
+                            + pc_next[limb_idx + 1].clone() * BaseField::from(1 << 8))),
+            );
+        }
     }
 }
