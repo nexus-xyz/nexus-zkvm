@@ -27,7 +27,7 @@ use crate::{
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
     },
     traits::MachineChip,
-    virtual_column::{VirtualColumn, VirtualColumnForSum},
+    virtual_column::{IsLoad, IsTypeS, VirtualColumn, VirtualColumnForSum},
 };
 
 use super::add::add_with_carries;
@@ -341,6 +341,173 @@ impl MachineChip for LoadStoreChip {
         // h4_4 = 0 (conditioned on ram4_accessed != 0)
         eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram3_4_accessed.clone());
 
+        let ram_base_addr = trace_eval!(trace_eval, Column::RamBaseAddr);
+        let carry_flag = trace_eval!(trace_eval, Column::CarryFlag);
+        let value_b = trace_eval!(trace_eval, Column::ValueB);
+        let value_c = trace_eval!(trace_eval, Column::ValueC);
+        let value_a = trace_eval!(trace_eval, Column::ValueA);
+        let [is_load] = IsLoad::eval(trace_eval);
+        // Constrain the value of RamBaseAddr in case of load operations
+        // is_load * (ram_base_addr_1 + ram_base_addr_2 * 256 - value_b_1 - value_b_2 * 256 - value_c_1 - value_c_2 * 256 + carry_1 * 2^{16}) = 0
+        eval.add_constraint(
+            is_load.clone()
+                * (ram_base_addr[0].clone() + ram_base_addr[1].clone() * BaseField::from(1 << 8)
+                    - value_b[0].clone()
+                    - value_b[1].clone() * BaseField::from(1 << 8)
+                    - value_c[0].clone()
+                    - value_c[1].clone() * BaseField::from(1 << 8)
+                    + carry_flag[1].clone() * BaseField::from(1 << 16)),
+        );
+        // is_load * (ram_base_addr_3 + ram_base_addr_4 * 256 - carry_1 - value_b_3 - value_b_4 * 256 - value_c_3 - value_c_4 * 256 + carry_3 * 2^{16}) = 0
+        eval.add_constraint(
+            is_load.clone()
+                * (ram_base_addr[2].clone() + ram_base_addr[3].clone() * BaseField::from(1 << 8)
+                    - carry_flag[1].clone()
+                    - value_b[2].clone()
+                    - value_b[3].clone() * BaseField::from(1 << 8)
+                    - value_c[2].clone()
+                    - value_c[3].clone() * BaseField::from(1 << 8)
+                    + carry_flag[3].clone() * BaseField::from(1 << 16)),
+        );
+
+        // Constrain the value of RamBaseAddr in case of store operations
+        let [is_store] = IsTypeS::eval(trace_eval);
+        // is_store * (ram_base_addr_1 + ram_base_addr_2 * 256 - value_a_1 - value_a_2 * 256 - value_c_1 - value_c_2 * 256 + carry_1 * 2^{16}) = 0
+        eval.add_constraint(
+            is_store.clone()
+                * (ram_base_addr[0].clone() + ram_base_addr[1].clone() * BaseField::from(1 << 8)
+                    - value_a[0].clone()
+                    - value_a[1].clone() * BaseField::from(1 << 8)
+                    - value_c[0].clone()
+                    - value_c[1].clone() * BaseField::from(1 << 8)
+                    + carry_flag[1].clone() * BaseField::from(1 << 16)),
+        );
+        // is_store * (ram_base_addr_3 + ram_base_addr_4 * 256 - carry_1 - value_a_3 - value_a_4 * 256 - value_c_3 - value_c_4 * 256 + carry_3 * 2^{16}) = 0
+        eval.add_constraint(
+            is_store.clone()
+                * (ram_base_addr[2].clone() + ram_base_addr[3].clone() * BaseField::from(1 << 8)
+                    - carry_flag[1].clone()
+                    - value_a[2].clone()
+                    - value_a[3].clone() * BaseField::from(1 << 8)
+                    - value_c[2].clone()
+                    - value_c[3].clone() * BaseField::from(1 << 8)
+                    + carry_flag[3].clone() * BaseField::from(1 << 16)),
+        );
+
+        let [ram1_val_prev] = trace_eval!(trace_eval, Ram1ValPrev);
+        let [ram2_val_prev] = trace_eval!(trace_eval, Ram2ValPrev);
+        let [ram1_val_cur] = trace_eval!(trace_eval, Ram1ValCur);
+        let [ram2_val_cur] = trace_eval!(trace_eval, Ram2ValCur);
+        // In case of load instruction, the previous and the current values should be the same
+        // is_load * (ram1_val_prev + ram2_val_prev * 256 - ram1_val_cur - ram2_val_cur * 256) = 0
+        eval.add_constraint(
+            is_load.clone()
+                * (ram1_val_prev.clone() + ram2_val_prev.clone() * BaseField::from(1 << 8)
+                    - ram1_val_cur.clone()
+                    - ram2_val_cur.clone() * BaseField::from(1 << 8)),
+        );
+        let [ram3_val_prev] = trace_eval!(trace_eval, Ram3ValPrev);
+        let [ram4_val_prev] = trace_eval!(trace_eval, Ram4ValPrev);
+        let [ram3_val_cur] = trace_eval!(trace_eval, Ram3ValCur);
+        let [ram4_val_cur] = trace_eval!(trace_eval, Ram4ValCur);
+        // is_load * (ram3_val_prev + ram4_val_prev * 256 - ram3_val_cur - ram4_val_cur * 256) = 0
+        eval.add_constraint(
+            is_load.clone()
+                * (ram3_val_prev.clone() + ram4_val_prev.clone() * BaseField::from(1 << 8)
+                    - ram3_val_cur.clone()
+                    - ram4_val_cur.clone() * BaseField::from(1 << 8)),
+        );
+
+        // In case of LW instruction, ValueA should be equal to the loaded values in Ram{1,2,3,4}ValPrev
+        let [is_lw] = trace_eval!(trace_eval, IsLw);
+        // is_lw * (value_a_1 + value_a_2 * 256 - ram1_val_prev + ram2_val_prev * 256) = 0
+        eval.add_constraint(
+            is_lw.clone()
+                * (value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_prev.clone()
+                    - ram2_val_prev.clone() * BaseField::from(1 << 8)),
+        );
+        // is_lw * (value_a_3 + value_a_4 * 256 - ram3_val_prev + ram4_val_prev * 256) = 0
+        eval.add_constraint(
+            is_lw.clone()
+                * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)
+                    - ram3_val_prev
+                    - ram4_val_prev * BaseField::from(1 << 8)),
+        );
+
+        // In case of LHU instruction, ValueA[0..=1] should be equal to the loaded values in Ram{1,2}ValPrev
+        let [is_lhu] = trace_eval!(trace_eval, IsLhu);
+        // is_lhu * (value_a_1 + value_a_2 * 256 - ram1_val_prev + ram2_val_prev * 256) = 0
+        eval.add_constraint(
+            is_lhu.clone()
+                * (value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_prev.clone()
+                    - ram2_val_prev.clone() * BaseField::from(1 << 8)),
+        );
+        // is_lhu * (value_a_3 + value_a_4 * 256) = 0
+        eval.add_constraint(
+            is_lhu.clone() * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)),
+        );
+
+        // In case of LH instruction, Ram2ValPrev & 0x7f should be stored in QtAux
+        // The sign bit of Ram2ValPrev should be (Ram2ValPrev - QtAux) / 128
+        let inv_128 = BaseField::from(128).inverse();
+        let [is_lh] = trace_eval!(trace_eval, IsLh);
+        let [sign_removed] = trace_eval!(trace_eval, Column::QtAux);
+        let sign_bit = (ram2_val_prev.clone() - sign_removed.clone()) * inv_128;
+        // The sign bit should be zero or one.
+        // is_lh * sign_bit * (sign_bit - 1) = 0
+        eval.add_constraint(is_lh.clone() * sign_bit.clone() * (sign_bit.clone() - E::F::one()));
+        // is_lh * (value_a_1 + value_a_2 * 256 - ram1_val_prev + ram2_val_prev * 256) = 0
+        eval.add_constraint(
+            is_lh.clone()
+                * (value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_prev.clone()
+                    - ram2_val_prev.clone() * BaseField::from(1 << 8)),
+        );
+        // is_lh * (value_a_3 + value_a_4 * 256 - sign_bit * (2^16 - 1)) = 0
+        eval.add_constraint(
+            is_lh.clone()
+                * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)
+                    - sign_bit.clone() * (E::F::from(BaseField::from(1 << 16)) - E::F::one())),
+        );
+
+        // In case of LBU instruction ValueA[0] should be equal to the loaded values in Ram1ValPrev
+        let [is_lbu] = trace_eval!(trace_eval, IsLbu);
+        // is_lbu * (value_a_1 + value_a_2 * 256 - ram1_val_prev) = 0 // No ram2_val_prev
+        eval.add_constraint(
+            is_lbu.clone()
+                * (value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_prev.clone()),
+        );
+        // is_lbu * (value_a_3 + value_a_4 * 256) = 0
+        eval.add_constraint(
+            is_lbu.clone() * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)),
+        );
+
+        // In case of LB instruction, Ram1ValPrev & 0x7f should be stored in QtAux
+        // The sign bit of Ram1ValPrev should be (Ram1ValPrev - QtAux) / 128
+        let [is_lb] = trace_eval!(trace_eval, IsLb);
+        let [sign_removed] = trace_eval!(trace_eval, Column::QtAux);
+        let sign_bit = (ram1_val_prev.clone() - sign_removed.clone()) * inv_128;
+        // The sign bit should be zero or one.
+        // is_lb * sign_bit * (sign_bit - 1) = 0
+        eval.add_constraint(is_lb.clone() * sign_bit.clone() * (sign_bit.clone() - E::F::one()));
+        // is_lb * (value_a_1 + value_a_2 * 256 - ram1_val_prev - sign_bit * 127 * 128) = 0
+        eval.add_constraint(
+            is_lb.clone()
+                * (value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_prev.clone()
+                    - sign_bit.clone()
+                        * E::F::from(BaseField::from(255) * BaseField::from(1 << 8))),
+        );
+        // is_lb * (value_a_3 + value_a_4 * 256 - sign_bit * (2^16 - 1)) = 0
+        eval.add_constraint(
+            is_lb.clone()
+                * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)
+                    - sign_bit.clone() * (E::F::from(BaseField::from(1 << 16)) - E::F::one())),
+        );
+
         let lookup_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
 
         Self::constrain_add_initial_values(eval, trace_eval, lookup_elements);
@@ -467,11 +634,21 @@ impl LoadStoreChip {
                 match memory_record.get_size() {
                     MemAccessSize::Byte => {
                         assert_eq!(cur_value_extended & 0xff, memory_record.get_value() & 0xff);
+                        traces.fill_columns(
+                            row_idx,
+                            (cur_value_extended & 0x7f) as u8,
+                            Column::QtAux,
+                        );
                     }
                     MemAccessSize::HalfWord => {
                         assert_eq!(
                             cur_value_extended & 0xffff,
                             memory_record.get_value() & 0xffff
+                        );
+                        traces.fill_columns(
+                            row_idx,
+                            ((cur_value_extended >> 8) & 0x7f) as u8,
+                            Column::QtAux,
                         );
                     }
                     MemAccessSize::Word => {
