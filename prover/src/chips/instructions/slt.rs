@@ -1,5 +1,5 @@
-use num_traits::{One, Zero};
-use stwo_prover::constraint_framework::EvalAtRow;
+use num_traits::One;
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::FieldExpOps};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -123,21 +123,26 @@ impl MachineChip for SltChip {
         let helper2_val = trace_eval!(trace_eval, Helper2);
         let helper3_val = trace_eval!(trace_eval, Helper3);
 
-        for i in 0..WORD_SIZE {
-            let prev_borrow = i
-                .checked_sub(1)
-                .map(|j| borrow_flag[j].clone())
-                .unwrap_or(E::F::zero());
+        // h_1[0] + h_1[1] * 256 - borrow[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[i] - rs2val[1] * 256
+        eval.add_constraint(
+            is_slt.clone()
+                * (helper1_val[0].clone() + helper1_val[1].clone() * modulus.clone()
+                    - borrow_flag[1].clone() * modulus.clone().pow(2)
+                    - (value_b[0].clone() + value_b[1].clone() * modulus.clone()
+                        - value_c[0].clone()
+                        - value_c[1].clone() * modulus.clone())),
+        );
 
-            // SLT a, b, c
-            // h_1[i] - borrow[i] * 2^8 = rs1val[i] - rs2val[i] - borrow[i - 1]
-            eval.add_constraint(
-                is_slt.clone()
-                    * (helper1_val[i].clone()
-                        - borrow_flag[i].clone() * modulus.clone()
-                        - (value_b[i].clone() - value_c[i].clone() - prev_borrow)),
-            );
-        }
+        // h_1[2] + h_1[3] * 256 - borrow[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[3] * 256 - borrow[1]
+        eval.add_constraint(
+            is_slt.clone()
+                * (helper1_val[2].clone() + helper1_val[3].clone() * modulus.clone()
+                    - borrow_flag[3].clone() * modulus.clone().pow(2)
+                    - (value_b[2].clone() + value_b[3].clone() * modulus.clone()
+                        - value_c[2].clone()
+                        - value_c[3].clone() * modulus.clone()
+                        - borrow_flag[1].clone())),
+        );
 
         // Computing a_val from sltu_flag (borrow_flag[3]) and sign bits sgnb and sgnc
         // is_slt・ (sgnb・(1-sgnc) + ltu_flag・(sgnb・sgnc+(1-sgnb)・(1-sgnc)) - a_val_1) =0
