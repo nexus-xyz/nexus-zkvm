@@ -1,7 +1,6 @@
-use num_traits::Zero;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::FieldExpOps};
 
-use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+use nexus_vm::riscv::BuiltinOpcode;
 
 use crate::{
     chips::SubChip,
@@ -94,25 +93,31 @@ impl MachineChip for SltuChip {
         // is_sltu・(b_val_4 - c_val_4 - h1_4 + a_val_1・2^8 - borrow_3) = 0
         eval.add_constraint(is_sltu.clone() * (borrow_flag[3].clone() - value_a[0].clone()));
 
-        for i in 0..WORD_SIZE {
-            let borrow = i
-                .checked_sub(1)
-                .map(|j| borrow_flag[j].clone())
-                .unwrap_or(E::F::zero());
+        // h_1[0] + h_1[1] * 256 - borrow[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[0] - rs2val[1] * 256
+        eval.add_constraint(
+            is_sltu.clone()
+                * (helper1_val[0].clone() + helper1_val[1].clone() * modulus.clone()
+                    - borrow_flag[1].clone() * modulus.clone().pow(2)
+                    - (value_b[0].clone() + value_b[1].clone() * modulus.clone()
+                        - value_c[0].clone()
+                        - value_c[1].clone() * modulus.clone())),
+        );
+        // h_1[2] + h_1[3] * 256 - borrow[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[3] * 256 - borrow[1]
+        eval.add_constraint(
+            is_sltu.clone()
+                * (helper1_val[2].clone() + helper1_val[3].clone() * modulus.clone()
+                    - borrow_flag[3].clone() * modulus.clone().pow(2)
+                    - (value_b[2].clone() + value_b[3].clone() * modulus.clone()
+                        - value_c[2].clone()
+                        - value_c[3].clone() * modulus.clone()
+                        - borrow_flag[1].clone())),
+        );
 
-            // SLTU a, b, c
-            // h_1[i] - h1[i] * 2^8 = rs1val[i] - rs2val[i] - borrow[i - 1]
-            eval.add_constraint(
-                is_sltu.clone()
-                    * (helper1_val[i].clone()
-                        - borrow_flag[i].clone() * modulus.clone()
-                        - (value_b[i].clone() - value_c[i].clone() - borrow)),
-            );
-
+        for (i, value_a_byte) in value_a.iter().enumerate() {
             // value_a[0] is constrained to be equal to the borrow flag, which is in {0, 1}.
             // Constraint value_a[1..=3] to equal 0.
             if i != 0 {
-                eval.add_constraint(is_sltu.clone() * value_a[i].clone());
+                eval.add_constraint(is_sltu.clone() * value_a_byte.clone());
             }
         }
     }

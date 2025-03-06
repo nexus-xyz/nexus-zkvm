@@ -1,5 +1,5 @@
 use num_traits::One;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::FieldExpOps};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -141,23 +141,28 @@ impl MachineChip for BgeChip {
         let [sgn_a] = trace_eval!(trace_eval, Column::SgnA);
         let [sgn_b] = trace_eval!(trace_eval, Column::SgnB);
 
-        // is_bge・(a_val_1 - b_val_1 - h1_1 + borrow_1・2^8) = 0
-        // is_bge・(a_val_2 - b_val_2 - h1_2 + borrow_2・2^8 - borrow_1) = 0
-        // is_bge・(a_val_3 - b_val_3 - h1_3 + borrow_3・2^8 - borrow_2) = 0
-        // is_bge・(a_val_4 - b_val_4 - h1_4 + ltu_flag・2^8 - borrow_3) = 0
+        // is_bge・(a_val_1 + a_val_2 * 256 - b_val_1 - b_val_2 * 256 - h1_1 - h1_2 * 256 + borrow_2・2^{16}) = 0
         eval.add_constraint(
             is_bge.clone()
-                * (value_a[0].clone() - value_b[0].clone() - diff_bytes[0].clone()
-                    + borrow_bits[0].clone() * modulus.clone()),
+                * (value_a[0].clone() + value_a[1].clone() * modulus.clone()
+                    - value_b[0].clone()
+                    - value_b[1].clone() * modulus.clone()
+                    - diff_bytes[0].clone()
+                    - diff_bytes[1].clone() * modulus.clone()
+                    + borrow_bits[1].clone() * modulus.clone().pow(2)),
         );
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_bge.clone()
-                    * (value_a[i].clone() - value_b[i].clone() - diff_bytes[i].clone()
-                        + borrow_bits[i].clone() * modulus.clone()
-                        - borrow_bits[i - 1].clone()),
-            );
-        }
+
+        // is_bge・(a_val_3 + a_val_4 * 256 - b_val_3 - b_val_4 * 256 - h1_3 - h1_4 * 256 + borrow_4・2^{16} - borrow_2) = 0
+        eval.add_constraint(
+            is_bge.clone()
+                * (value_a[2].clone() + value_a[3].clone() * modulus.clone()
+                    - value_b[2].clone()
+                    - value_b[3].clone() * modulus.clone()
+                    - diff_bytes[2].clone()
+                    - diff_bytes[3].clone() * modulus.clone()
+                    + borrow_bits[3].clone() * modulus.clone().pow(2)
+                    - borrow_bits[1].clone()),
+        );
 
         // is_bge・ (h2 + sgna・2^7 - a_val_4) = 0
         // is_bge・ (h3 + sgnb・2^7 - b_val_4) = 0
@@ -185,28 +190,31 @@ impl MachineChip for BgeChip {
         // Setting pc_next based on comparison result
         // pc_next=pc+c_val if lt_flag = 0
         // pc_next=pc+4 	if lt_flag = 1
-        // is_bge・((1 - lt_flag)・c_val_1 + lt_flag・4 + pc_1 - carry_1·2^8 - pc_next_1) =0
-        // is_bge・((1 - lt_flag)・c_val_2 + pc_2 + carry_1 - carry_2·2^8 - pc_next_2) = 0
-        // is_bge・((1 - lt_flag)・c_val_3 + pc_3 + carry_2 - carry_3·2^8 - pc_next_3) = 0
-        // is_bge・((1 - lt_flag)・c_val_4 + pc_4 + carry_3 - carry_4·2^8 - pc_next_4) = 0
+        // is_bge・((1 - lt_flag)・(c_val_1 + c_val_2 * 256) + lt_flag・4 + pc_1 + pc_2 * 256 - carry_2·2^{16} - pc_next_1 - pc_next_2 * 256) = 0
         eval.add_constraint(
             is_bge.clone()
-                * ((E::F::one() - lt_flag.clone()) * value_c[0].clone()
+                * ((E::F::one() - lt_flag.clone())
+                    * (value_c[0].clone() + value_c[1].clone() * modulus.clone())
                     + lt_flag.clone() * E::F::from(4u32.into())
                     + pc[0].clone()
-                    - carry_bits[0].clone() * modulus.clone()
-                    - pc_next[0].clone()),
+                    + pc[1].clone() * modulus.clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - pc_next[0].clone()
+                    - pc_next[1].clone() * modulus.clone()),
         );
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_bge.clone()
-                    * ((E::F::one() - lt_flag.clone()) * value_c[i].clone()
-                        + pc[i].clone()
-                        + carry_bits[i - 1].clone()
-                        - carry_bits[i].clone() * modulus.clone()
-                        - pc_next[i].clone()),
-            );
-        }
+
+        // is_bge・((1 - lt_flag)・(c_val_3 + c_val_4 * 256) + pc_3 + pc_4 * 256 + carry_2 - carry_4·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
+        eval.add_constraint(
+            is_bge.clone()
+                * ((E::F::one() - lt_flag.clone())
+                    * (value_c[2].clone() + value_c[3].clone() * modulus.clone())
+                    + pc[2].clone()
+                    + pc[3].clone() * modulus.clone()
+                    + carry_bits[1].clone()
+                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                    - pc_next[2].clone()
+                    - pc_next[3].clone() * modulus.clone()),
+        );
     }
 }
 
