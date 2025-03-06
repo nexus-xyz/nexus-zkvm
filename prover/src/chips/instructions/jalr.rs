@@ -20,7 +20,7 @@ pub struct ExecutionResult {
     pub pc_next_aux: Word,
     pub qt_aux: u8,
     pub rem_aux: bool,
-    pub pc_carry_bits: BoolWord,
+    pub pc_carry_bits: [bool; 2], // At 16-bit boundaries
     pub value_a: Word,
     pub carry_bits: BoolWord,
 }
@@ -52,6 +52,8 @@ impl ExecuteChip for JalrChip {
         let qt_aux = pc_next[0] >> 1;
 
         let (value_a, carry_bits) = add::add_with_carries(pc, 4u32.to_le_bytes());
+
+        let pc_carry_bits = [pc_carry_bits[1], pc_carry_bits[3]];
 
         ExecutionResult {
             pc_next,
@@ -149,15 +151,15 @@ impl MachineChip for JalrChip {
         // Setting pc_next
         // pc_next_aux = b_val + c_val
         // pc_carry_{1,2,3,4} used for carry handling
-        // is_jalr・(c_val_1 + c_val_2 * 256 + b_val_1 + b_val_2 * 256 - pc_carry_2·2^{16} - pc_next_aux_1 - pc_next_aux_2 * 256) = 0
-        // is_jalr・(c_val_3 + c_val_4 * 256 + b_val_3 + b_val_4 * 256 + pc_carry_2 - pc_carry_4·2^{16} - pc_next_aux_3 - pc_next_aux_4 * 256) = 0
+        // is_jalr・(c_val_1 + c_val_2 * 256 + b_val_1 + b_val_2 * 256 - pc_carry_1·2^{16} - pc_next_aux_1 - pc_next_aux_2 * 256) = 0
+        // is_jalr・(c_val_3 + c_val_4 * 256 + b_val_3 + b_val_4 * 256 + pc_carry_1 - pc_carry_2·2^{16} - pc_next_aux_3 - pc_next_aux_4 * 256) = 0
         eval.add_constraint(
             is_jalr.clone()
                 * (value_c[0].clone()
                     + value_c[1].clone() * modulus.clone()
                     + value_b[0].clone()
                     + value_b[1].clone() * modulus.clone()
-                    - pc_carry_bits[1].clone() * modulus.clone().pow(2)
+                    - pc_carry_bits[0].clone() * modulus.clone().pow(2)
                     - pc_next_aux[0].clone()
                     - pc_next_aux[1].clone() * modulus.clone()),
         );
@@ -167,8 +169,8 @@ impl MachineChip for JalrChip {
                     + value_c[3].clone() * modulus.clone()
                     + value_b[2].clone()
                     + value_b[3].clone() * modulus.clone()
-                    + pc_carry_bits[1].clone()
-                    - pc_carry_bits[3].clone() * modulus.clone().pow(2)
+                    + pc_carry_bits[0].clone()
+                    - pc_carry_bits[1].clone() * modulus.clone().pow(2)
                     - pc_next_aux[2].clone()
                     - pc_next_aux[3].clone() * modulus.clone()),
         );

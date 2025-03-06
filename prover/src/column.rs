@@ -45,8 +45,8 @@ pub enum Column {
     /// Additional columns for carrying limbs.
     #[size = 4]
     CarryFlag,
-    /// Subtraction columns for borrow limbs.
-    #[size = 4]
+    /// Columns for borrow flags at 16-bit boundaries.
+    #[size = 2]
     BorrowFlag,
     /// Is operand op_c an immediate value?
     #[size = 1]

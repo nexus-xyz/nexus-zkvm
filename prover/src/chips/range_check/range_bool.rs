@@ -74,8 +74,15 @@ const CHECKED_SINGLE: [Column; 48] = [
     ShiftBit5,
     RamInitFinalFlag,
 ];
-const CHECKED_WORD: [Column; 2] = [CarryFlag, BorrowFlag];
-const CHECKED_HALF_WORD: [Column; 5] = [PcCarry, CH1Minus, CH2Minus, CH3Minus, ProgCtrCarry];
+const CHECKED_WORD: [Column; 1] = [CarryFlag];
+const CHECKED_HALF_WORD: [Column; 6] = [
+    PcCarry,
+    CH1Minus,
+    CH2Minus,
+    CH3Minus,
+    ProgCtrCarry,
+    BorrowFlag,
+];
 const TYPE_R_CHECKED_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];
