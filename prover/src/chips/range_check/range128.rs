@@ -64,6 +64,10 @@ impl MachineChip for Range128Chip {
         let [is_sra] = traces.column(row_idx, Column::IsSra);
         let [h2_sra, _, _, _] = traces.column(row_idx, Helper2);
         fill_main_col(h2_sra, is_sra, side_note);
+        let [is_lh] = traces.column(row_idx, Column::IsLh);
+        fill_main_col(qt_aux, is_lh, side_note);
+        let [is_lb] = traces.column(row_idx, Column::IsLb);
+        fill_main_col(qt_aux, is_lb, side_note);
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -109,6 +113,15 @@ impl MachineChip for Range128Chip {
             logup_trace_gen,
             lookup_element,
         );
+        let [is_lh] = original_traces.get_base_column(Column::IsLh);
+        let [is_lb] = original_traces.get_base_column(Column::IsLb);
+        check_col(
+            qt_aux,
+            &[is_lh, is_lb],
+            original_traces.log_size(),
+            logup_trace_gen,
+            lookup_element,
+        );
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -141,7 +154,7 @@ impl MachineChip for Range128Chip {
         eval.add_to_relation(RelationEntry::new(
             lookup_elements,
             numerator.into(),
-            &[qt_aux],
+            &[qt_aux.clone()],
         ));
 
         let [is_sra] = trace_eval.column_eval(Column::IsSra);
@@ -152,6 +165,16 @@ impl MachineChip for Range128Chip {
             lookup_elements,
             numerator.into(),
             &[h2_sra],
+        ));
+
+        let [is_lh] = trace_eval.column_eval(Column::IsLh);
+        let [is_lb] = trace_eval.column_eval(Column::IsLb);
+        let numerator = is_lh.clone() + is_lb.clone();
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            numerator.into(),
+            &[qt_aux],
         ));
     }
 }
