@@ -17,13 +17,13 @@ $ rustup target add riscv32i-unknown-none-elf
 Then, install the Nexus zkVM:
 
 ```shell
-$ cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus --tag 'v0.3.0'
+$ rustup run nightly-2025-01-02 cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus --tag 'v0.3.0'
 ```
 
 And verify the installation:
 
 ```shell
-$ cargo nexus --help
+$ rustup run nightly-2025-01-02 cargo nexus --help
 ```
 
 This should print the available CLI commands. At present, the `cargo nexus` CLI is minimal, providing just a `cargo nexus host` command to setup an SDK based project.
@@ -33,7 +33,7 @@ This should print the available CLI commands. At present, the `cargo nexus` CLI 
 To use the zkVM programmatically, we need two programs: a _guest_ program that runs on the zkVM, and a _host_ program that operates the zkVM itself. Run:
 
 ```shell
-$ cargo nexus host nexus-host
+$ rustup run nightly-2025-01-02 cargo nexus host nexus-host
 ```
 
 This will create a new Rust project directory with the following structure:

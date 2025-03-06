@@ -15,7 +15,7 @@
   </p>
 </p>
 
-The Nexus zero-knowledge virtual machine is a modular, extensible, prover-optimized, fully-specified zkVM written in Rust, focused on performance and security. Built with [Stwo](https://github.com/starkware-libs/stwo) by [StarkWare](https://starkware.co/blog/starkware-new-proving-record/). Review the specification [here](./specification/zkvm-spec-3.0-draft.pdf).
+The Nexus zero-knowledge virtual machine is a modular, extensible, prover-optimized, fully-specified zkVM written in Rust, focused on performance and security. Built with [Stwo](https://github.com/starkware-libs/stwo) by [StarkWare](https://starkware.co/blog/starkware-new-proving-record/). Review the specification [here](./specification/zkvm-spec-3.0.pdf).
 
 To get started with the Nexus zkVM, check out the [Getting Started](https://docs.nexus.xyz/zkvm/proving/index) page.
 
