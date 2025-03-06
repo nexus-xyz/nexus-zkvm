@@ -18,7 +18,7 @@ use super::add::{self};
 
 pub struct ExecutionResult {
     pub diff_bytes: Word,
-    pub borrow_bits: BoolWord,
+    pub borrow_bits: [bool; 2], // At 16-bit boudaries.
     pub pc_next: Word,
     pub carry_bits: BoolWord,
     pub lt_flag: bool,
@@ -60,6 +60,8 @@ impl ExecuteChip for BltChip {
         // h2 and h3 are value_a and value_b with the sign bit cleared
         h2[WORD_SIZE - 1] &= 0x7f;
         h3[WORD_SIZE - 1] &= 0x7f;
+
+        let borrow_bits = [borrow_bits[1], borrow_bits[3]];
 
         ExecutionResult {
             diff_bytes,
@@ -133,14 +135,14 @@ impl MachineChip for BltChip {
         let diff_bytes = trace_eval!(trace_eval, Column::Helper1);
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let [is_blt] = trace_eval!(trace_eval, Column::IsBlt);
-        let ltu_flag = borrow_bits[3].clone();
+        let ltu_flag = borrow_bits[1].clone();
         let [lt_flag] = trace_eval!(trace_eval, Column::LtFlag);
         let h2 = trace_eval!(trace_eval, Column::Helper2);
         let h3 = trace_eval!(trace_eval, Column::Helper3);
         let [sgn_a] = trace_eval!(trace_eval, Column::SgnA);
         let [sgn_b] = trace_eval!(trace_eval, Column::SgnB);
 
-        // is_blt・(a_val_1 + a_val_2 * 256 - b_val_1 - b_val_2 * 256 - h1_1 - h1_2 * 256 + borrow_2・2^{16}) = 0
+        // is_blt・(a_val_1 + a_val_2 * 256 - b_val_1 - b_val_2 * 256 - h1_1 - h1_2 * 256 + borrow_1・2^{16}) = 0
         eval.add_constraint(
             is_blt.clone()
                 * (value_a[0].clone() + value_a[1].clone() * modulus.clone()
@@ -148,9 +150,9 @@ impl MachineChip for BltChip {
                     - value_b[1].clone() * modulus.clone()
                     - diff_bytes[0].clone()
                     - diff_bytes[1].clone() * modulus.clone()
-                    + borrow_bits[1].clone() * modulus.clone().pow(2)),
+                    + borrow_bits[0].clone() * modulus.clone().pow(2)),
         );
-        // is_blt・(a_val_3 + a_val_4 * 256 - b_val_3 - b_val_4 * 256 - h1_3 - h1_4 * 256 + borrow_4・2^{16} - borrow_2) = 0
+        // is_blt・(a_val_3 + a_val_4 * 256 - b_val_3 - b_val_4 * 256 - h1_3 - h1_4 * 256 + borrow_2・2^{16} - borrow_1) = 0
         eval.add_constraint(
             is_blt.clone()
                 * (value_a[2].clone() + value_a[3].clone() * modulus.clone()
@@ -158,8 +160,8 @@ impl MachineChip for BltChip {
                     - value_b[3].clone() * modulus.clone()
                     - diff_bytes[2].clone()
                     - diff_bytes[3].clone() * modulus.clone()
-                    + borrow_bits[3].clone() * modulus.clone().pow(2)
-                    - borrow_bits[1].clone()),
+                    + borrow_bits[1].clone() * modulus.clone().pow(2)
+                    - borrow_bits[0].clone()),
         );
 
         // is_blt・ (h2 + sgna・2^7 - a_val_4) = 0
