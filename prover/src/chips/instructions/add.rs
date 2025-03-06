@@ -1,5 +1,4 @@
-use num_traits::Zero;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::FieldExpOps};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -107,20 +106,30 @@ impl MachineChip for AddChip {
         let value_c = trace_eval!(trace_eval, ValueC);
         let value_a = trace_eval!(trace_eval, ValueA);
 
-        for i in 0..WORD_SIZE {
-            let carry = i
-                .checked_sub(1)
-                .map(|j| carry_flag[j].clone())
-                .unwrap_or(E::F::zero());
+        // rdval[0] + rdval[1] * 256 + h1[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 + rs2val[0] + rs2val[1] * 256
+        eval.add_constraint(
+            is_add.clone()
+                * (value_a[0].clone()
+                    + value_a[1].clone() * modulus.clone()
+                    + carry_flag[1].clone() * modulus.clone().pow(2)
+                    - (value_b[0].clone()
+                        + value_b[1].clone() * modulus.clone()
+                        + value_c[0].clone()
+                        + value_c[1].clone() * modulus.clone())),
+        );
 
-            // ADD a, b, c
-            // rdval[i] + h1[i] * 2^8 = rs1val[i] + rs2val[i] + h1[i - 1]
-            eval.add_constraint(
-                is_add.clone()
-                    * (value_a[i].clone() + carry_flag[i].clone() * modulus.clone()
-                        - (value_b[i].clone() + value_c[i].clone() + carry)),
-            );
-        }
+        // rdval[2] + rdval[3] * 256 + h1[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 + rs2val[2] + rs2val[3] * 256 + h1[1]
+        eval.add_constraint(
+            is_add.clone()
+                * (value_a[2].clone()
+                    + value_a[3].clone() * modulus.clone()
+                    + carry_flag[3].clone() * modulus.clone().pow(2)
+                    - (value_b[2].clone()
+                        + value_b[3].clone() * modulus.clone()
+                        + value_c[2].clone()
+                        + value_c[3].clone() * modulus.clone()
+                        + carry_flag[1].clone())),
+        );
     }
 }
 

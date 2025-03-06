@@ -1,6 +1,6 @@
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_prover::{constraint_framework::EvalAtRow, core::fields::FieldExpOps};
 
-use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+use nexus_vm::riscv::BuiltinOpcode;
 
 use crate::{
     column::Column::{self, *},
@@ -94,49 +94,50 @@ impl MachineChip for JalChip {
         let [is_jal] = trace_eval!(trace_eval, Column::IsJal);
 
         // a_val=pc+4
-        // carry1_{1,2,3,4} used for carry handling
-        // is_jal・(4 + pc_1 - carry1_1·2^8 - a_val_1) = 0
-        // is_jal・(pc_2 + carry1_1 - carry1_2·2^8 - a_val_2) = 0
-        // is_jal・(pc_3 + carry1_2 - carry1_3·2^8 - a_val_3) = 0
-        // is_jal・(pc_4 + carry1_3 - carry1_4·2^8 - a_val_4) = 0
-
+        // carry1_{2,4} used for carry handling
+        // is_jal・(4 + pc_1 + pc_2 * 256 - carry1_2·2^{16} - a_val_1 - a_val_2 * 256) = 0
         eval.add_constraint(
             is_jal.clone()
-                * (E::F::from(4.into()) + pc[0].clone()
-                    - carry_bits[0].clone() * modulus.clone()
-                    - value_a[0].clone()),
+                * (E::F::from(4.into()) + pc[0].clone() + pc[1].clone() * modulus.clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - value_a[0].clone()
+                    - value_a[1].clone() * modulus.clone()),
         );
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_jal.clone()
-                    * (pc[i].clone() + carry_bits[i - 1].clone()
-                        - carry_bits[i].clone() * modulus.clone()
-                        - value_a[i].clone()),
-            );
-        }
+        // is_jal・(pc_3 + pc_4 * 256 + carry1_2 - carry1_4·2^{16} - a_val_3 - a_val_4 * 256) = 0
+        eval.add_constraint(
+            is_jal.clone()
+                * (pc[2].clone() + pc[3].clone() * modulus.clone() + carry_bits[1].clone()
+                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                    - value_a[2].clone()
+                    - value_a[3].clone() * modulus.clone()),
+        );
 
         // Setting pc_next based on comparison result
         // pc_next=pc+c_val
-        // pc_carry_{1,2,3,4} used for carry handling
-        // is_jal・(c_val_1 + pc_1 - pc_carry_1·2^8 - pc_next_1) = 0
-        // is_jal・(c_val_2 + pc_2 + pc_carry_1 - pc_carry_2·2^8 - pc_next_2) = 0
-        // is_jal・(c_val_3 + pc_3 + pc_carry_2 - pc_carry_3·2^8 - pc_next_3) = 0
-        // is_jal・(c_val_4 + pc_4 + pc_carry_3 - pc_carry_4·2^8 - pc_next_4) = 0
+        // pc_carry_{2,4} used for carry handling
+        // is_jal・(c_val_1 + c_val_2 * 256 + pc_1 + pc_2 * 256 - pc_carry_2·2^{16} - pc_next_1 - pc_next_2 * 256) = 0
         eval.add_constraint(
             is_jal.clone()
-                * (value_c[0].clone() + pc[0].clone()
-                    - pc_carry_bits[0].clone() * modulus.clone()
-                    - pc_next[0].clone()),
+                * (value_c[0].clone()
+                    + value_c[1].clone() * modulus.clone()
+                    + pc[0].clone()
+                    + pc[1].clone() * modulus.clone()
+                    - pc_carry_bits[1].clone() * modulus.clone().pow(2)
+                    - pc_next[0].clone()
+                    - pc_next[1].clone() * modulus.clone()),
         );
-
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_jal.clone()
-                    * (value_c[i].clone() + pc[i].clone() + pc_carry_bits[i - 1].clone()
-                        - pc_carry_bits[i].clone() * modulus.clone()
-                        - pc_next[i].clone()),
-            );
-        }
+        // is_jal・(c_val_3 + c_val_4 * 256 + pc_3 + pc_4 * 256 + pc_carry_2 - pc_carry_4·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
+        eval.add_constraint(
+            is_jal.clone()
+                * (value_c[2].clone()
+                    + value_c[3].clone() * modulus.clone()
+                    + pc[2].clone()
+                    + pc[3].clone() * modulus.clone()
+                    + pc_carry_bits[1].clone()
+                    - pc_carry_bits[3].clone() * modulus.clone().pow(2)
+                    - pc_next[2].clone()
+                    - pc_next[3].clone() * modulus.clone()),
+        );
     }
 }
 

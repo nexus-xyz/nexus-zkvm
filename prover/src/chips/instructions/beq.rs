@@ -1,10 +1,13 @@
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::EvalAtRow,
-    core::fields::m31::{BaseField, M31},
+    core::fields::{
+        m31::{BaseField, M31},
+        FieldExpOps,
+    },
 };
 
-use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+use nexus_vm::riscv::BuiltinOpcode;
 
 use crate::{
     column::Column::{self, *},
@@ -227,29 +230,31 @@ impl MachineChip for BeqChip {
         // pc_next=pc+c_val if neq_flag = 0
         // pc_next=pc+4 	if neq_flag = 1
         // carry_{1,2,3,4} used for carry handling
-        // is_beq・((1 - neq_flag)・c_val_1 + neq_flag・4 + pc_1 - carry_1·2^8 - pc_next_1) = 0
+        // is_beq・((1 - neq_flag)・(c_val_1 + c_val_2 * 256) + neq_flag・4 + pc_1 + pc_2 * 256 - carry_2·2^{16} - pc_next_1 - pc_next_2 * 256) = 0
         eval.add_constraint(
             is_beq.clone()
-                * ((E::F::one() - neq_flag[0].clone()) * value_c[0].clone()
+                * ((E::F::one() - neq_flag[0].clone())
+                    * (value_c[0].clone() + value_c[1].clone() * modulus.clone())
                     + neq_flag[0].clone() * E::F::from(4u32.into())
                     + pc[0].clone()
-                    - carry_bits[0].clone() * modulus.clone()
-                    - pc_next[0].clone()),
+                    + pc[1].clone() * modulus.clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - pc_next[0].clone()
+                    - pc_next[1].clone() * modulus.clone()),
         );
 
-        // is_beq・((1 - neq_flag)・c_val_2 + pc_2 + carry_1 - carry_2·2^8 - pc_next_2) = 0
-        // is_beq・((1 - neq_flag)・c_val_3 + pc_3 + carry_2 - carry_3·2^8 - pc_next_3) = 0
-        // is_beq・((1 - neq_flag)・c_val_4 + pc_4 + carry_3 - carry_4·2^8 - pc_next_4) = 0
-        for i in 1..WORD_SIZE {
-            eval.add_constraint(
-                is_beq.clone()
-                    * ((E::F::one() - neq_flag[0].clone()) * value_c[i].clone()
-                        + pc[i].clone()
-                        + carry_bits[i - 1].clone()
-                        - carry_bits[i].clone() * modulus.clone()
-                        - pc_next[i].clone()),
-            );
-        }
+        // is_beq・((1 - neq_flag)・(c_val_3 + c_val_4 * 256) + pc_3 + pc_4 * 256 + carry_2 - carry_4·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
+        eval.add_constraint(
+            is_beq.clone()
+                * ((E::F::one() - neq_flag[0].clone())
+                    * (value_c[2].clone() + value_c[3].clone() * modulus.clone())
+                    + pc[2].clone()
+                    + pc[3].clone() * modulus.clone()
+                    + carry_bits[1].clone()
+                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                    - pc_next[2].clone()
+                    - pc_next[3].clone() * modulus.clone()),
+        );
 
         // carry_{1,2,3,4} ∈ {0,1} is enforced in RangeBoolChip
     }
