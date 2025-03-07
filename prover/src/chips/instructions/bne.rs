@@ -15,7 +15,7 @@ use crate::{
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
-        BoolWord, ProgramStep, TracesBuilder, Word,
+        ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -27,7 +27,7 @@ pub struct ExecutionResult {
     pub neq_12_flag: bool,     // Flag indicating if (a_val_1, a_val_2) != (b_val_1, b_val_2)
     pub neq_34_flag: bool,     // Flag indicating if (a_val_3, a_val_4) != (b_val_3, b_val_4)
     pub result: Word,          // Next program counter (pc_next)
-    pub carry_bits: BoolWord,  // Carry bits for addition
+    pub carry_bits: [bool; 2], // Carry bits for addition
     pub neq_aux: [M31; 2],     // Difference between a_val and b_val
     pub neq_aux_inv: [M31; 2], // Inverse of the difference
 }
@@ -54,6 +54,7 @@ impl ExecuteChip for BneChip {
         } else {
             add::add_with_carries(pc, imm)
         };
+        let carry_bits = [carry_bits[1], carry_bits[3]];
 
         let neq_flag = value_a != value_b;
         let neq_12_flag = value_a_l != value_b_l;
@@ -230,7 +231,7 @@ impl MachineChip for BneChip {
         // pc_next=pc+c_val if neq_flag = 1
         // pc_next=pc+4 	if neq_flag = 0
         // carry_{2,4} used for carry handling
-        // is_bne・(neq_flag・(c_val_1 + c_val_2 * 256) + (1-neq_flag)・4 + pc_1 + pc_2 * 256 - carry_2·2^{16} - pc_next_1 - pc_next_2 * 256) = 0
+        // is_bne・(neq_flag・(c_val_1 + c_val_2 * 256) + (1-neq_flag)・4 + pc_1 + pc_2 * 256 - carry_1·2^{16} - pc_next_1 - pc_next_2 * 256) = 0
         eval.add_constraint(
             is_bne.clone()
                 * (neq_flag[0].clone()
@@ -238,20 +239,20 @@ impl MachineChip for BneChip {
                     + (E::F::one() - neq_flag[0].clone()) * E::F::from(BaseField::from(4u32))
                     + pc[0].clone()
                     + pc[1].clone() * modulus.clone()
-                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - carry_bits[0].clone() * modulus.clone().pow(2)
                     - pc_next[0].clone()
                     - pc_next[1].clone() * modulus.clone()),
         );
 
-        // is_bne・(neq_flag・(c_val_3 + c_val_4 * 256) + pc_3 + pc_4 * 256 + carry_2 - carry_4·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
+        // is_bne・(neq_flag・(c_val_3 + c_val_4 * 256) + pc_3 + pc_4 * 256 + carry_1 - carry_2·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
         eval.add_constraint(
             is_bne.clone()
                 * (neq_flag[0].clone()
                     * (value_c[2].clone() + value_c[3].clone() * modulus.clone())
                     + pc[2].clone()
                     + pc[3].clone() * modulus.clone()
-                    + carry_bits[1].clone()
-                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                    + carry_bits[0].clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
                     - pc_next[2].clone()
                     - pc_next[3].clone() * modulus.clone()),
         );

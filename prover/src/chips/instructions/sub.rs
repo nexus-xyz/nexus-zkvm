@@ -17,7 +17,7 @@ use crate::{
 pub struct SubChip;
 
 pub struct ExecutionResult {
-    pub borrow_bits: BoolWord,
+    pub borrow_bits: [bool; 2], // for 16-bit boundaries
     pub diff_bytes: Word,
 }
 
@@ -53,6 +53,8 @@ impl ExecuteChip for SubChip {
         let (value_c, _) = program_step.get_value_c();
 
         let (diff_bytes, borrow_bits) = subtract_with_borrow(value_b, value_c);
+
+        let borrow_bits = [borrow_bits[1], borrow_bits[3]];
 
         ExecutionResult {
             borrow_bits,
@@ -112,25 +114,25 @@ impl MachineChip for SubChip {
         let value_c = trace_eval!(trace_eval, ValueC);
         let value_a = trace_eval!(trace_eval, ValueA);
 
-        // rdval[0] + rdval[1] * 256 - h1[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[0] - rs2val[1] * 256
+        // rdval[0] + rdval[1] * 256 - h1[0] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[0] - rs2val[1] * 256
         eval.add_constraint(
             is_sub.clone()
                 * (value_a[0].clone() + value_a[1].clone() * modulus.clone()
-                    - borrow_flag[1].clone() * modulus.clone().pow(2)
+                    - borrow_flag[0].clone() * modulus.clone().pow(2)
                     - (value_b[0].clone() + value_b[1].clone() * modulus.clone()
                         - value_c[0].clone()
                         - value_c[1].clone() * modulus.clone())),
         );
 
-        // rdval[2] + rdval[3] * 256 - h1[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[2] * 256 - h1[1]
+        // rdval[2] + rdval[3] * 256 - h1[1] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[2] * 256 - h1[0]
         eval.add_constraint(
             is_sub.clone()
                 * (value_a[2].clone() + value_a[3].clone() * modulus.clone()
-                    - borrow_flag[3].clone() * modulus.clone().pow(2)
+                    - borrow_flag[1].clone() * modulus.clone().pow(2)
                     - (value_b[2].clone() + value_b[3].clone() * modulus.clone()
                         - value_c[2].clone()
                         - value_c[3].clone() * modulus.clone()
-                        - borrow_flag[1].clone())),
+                        - borrow_flag[0].clone())),
         );
     }
 }

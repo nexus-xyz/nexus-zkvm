@@ -16,7 +16,6 @@ use crate::{
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
-    WORD_SIZE,
 };
 
 /// A Chip for range-checking values for {0, 1}
@@ -74,8 +73,8 @@ const CHECKED_SINGLE: [Column; 48] = [
     ShiftBit5,
     RamInitFinalFlag,
 ];
-const CHECKED_WORD: [Column; 1] = [CarryFlag];
-const CHECKED_HALF_WORD: [Column; 6] = [
+const CHECKED_HALF_WORD: [Column; 7] = [
+    CarryFlag,
     PcCarry,
     CH1Minus,
     CH2Minus,
@@ -152,13 +151,6 @@ impl MachineChip for RangeBoolChip {
             let [col] = trace_eval.column_eval(col);
             eval.add_constraint(is_type_s.clone() * col.clone() * (col - E::F::one()));
         }
-
-        for col_word in CHECKED_WORD.into_iter() {
-            let col_word = trace_eval.column_eval::<WORD_SIZE>(col_word);
-            for limb in col_word.into_iter() {
-                eval.add_constraint(limb.clone() * (limb - E::F::one()));
-            }
-        }
     }
 }
 
@@ -175,7 +167,7 @@ mod test {
     use crate::traits::MachineChip;
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator};
-    use nexus_vm::WORD_SIZE;
+
     use stwo_prover::constraint_framework::TraceLocationAllocator;
 
     use stwo_prover::core::prover::prove;
@@ -193,10 +185,6 @@ mod test {
             let b = row_idx % 2 == 0;
             for col in CHECKED_SINGLE.into_iter() {
                 traces.fill_columns(row_idx, b, col);
-            }
-            for word in CHECKED_WORD.into_iter() {
-                let b_word = [b; WORD_SIZE];
-                traces.fill_columns(row_idx, b_word, word);
             }
 
             RangeBoolChip::fill_main_trace(
@@ -222,10 +210,6 @@ mod test {
             let b = (row_idx % 2 == 0) as u8 + 1; // sometimes out of range
             for col in CHECKED_SINGLE.into_iter() {
                 traces.fill_columns(row_idx, b, col);
-            }
-            for word in CHECKED_WORD.into_iter() {
-                let b_word = [b; WORD_SIZE];
-                traces.fill_columns(row_idx, b_word, word);
             }
 
             RangeBoolChip::fill_main_trace(

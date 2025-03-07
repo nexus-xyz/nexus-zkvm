@@ -9,7 +9,7 @@ use crate::{
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
-        BoolWord, ProgramStep, TracesBuilder, Word,
+        ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -20,7 +20,7 @@ pub struct ExecutionResult {
     pub diff_bytes: Word,
     pub borrow_bits: [bool; 2], // at 16-bit boundaries
     pub pc_next: Word,
-    pub carry_bits: BoolWord,
+    pub carry_bits: [bool; 2],
     pub lt_flag: bool,
     pub h2: Word,
     pub h3: Word,
@@ -63,6 +63,8 @@ impl ExecuteChip for BgeChip {
         // h2 and h3 are value_a and value_b with the sign bit cleared
         h2[WORD_SIZE - 1] &= 0x7f;
         h3[WORD_SIZE - 1] &= 0x7f;
+
+        let carry_bits = [carry_bits[1], carry_bits[3]];
 
         ExecutionResult {
             diff_bytes,
@@ -200,7 +202,7 @@ impl MachineChip for BgeChip {
                     + lt_flag.clone() * E::F::from(4u32.into())
                     + pc[0].clone()
                     + pc[1].clone() * modulus.clone()
-                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - carry_bits[0].clone() * modulus.clone().pow(2)
                     - pc_next[0].clone()
                     - pc_next[1].clone() * modulus.clone()),
         );
@@ -212,8 +214,8 @@ impl MachineChip for BgeChip {
                     * (value_c[2].clone() + value_c[3].clone() * modulus.clone())
                     + pc[2].clone()
                     + pc[3].clone() * modulus.clone()
-                    + carry_bits[1].clone()
-                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                    + carry_bits[0].clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
                     - pc_next[2].clone()
                     - pc_next[3].clone() * modulus.clone()),
         );

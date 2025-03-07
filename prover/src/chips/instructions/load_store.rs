@@ -356,18 +356,18 @@ impl MachineChip for LoadStoreChip {
                     - value_b[1].clone() * BaseField::from(1 << 8)
                     - value_c[0].clone()
                     - value_c[1].clone() * BaseField::from(1 << 8)
-                    + carry_flag[1].clone() * BaseField::from(1 << 16)),
+                    + carry_flag[0].clone() * BaseField::from(1 << 16)),
         );
-        // is_load * (ram_base_addr_3 + ram_base_addr_4 * 256 - carry_1 - value_b_3 - value_b_4 * 256 - value_c_3 - value_c_4 * 256 + carry_3 * 2^{16}) = 0
+        // is_load * (ram_base_addr_3 + ram_base_addr_4 * 256 - carry_1 - value_b_3 - value_b_4 * 256 - value_c_3 - value_c_4 * 256 + carry_2 * 2^{16}) = 0
         eval.add_constraint(
             is_load.clone()
                 * (ram_base_addr[2].clone() + ram_base_addr[3].clone() * BaseField::from(1 << 8)
-                    - carry_flag[1].clone()
+                    - carry_flag[0].clone()
                     - value_b[2].clone()
                     - value_b[3].clone() * BaseField::from(1 << 8)
                     - value_c[2].clone()
                     - value_c[3].clone() * BaseField::from(1 << 8)
-                    + carry_flag[3].clone() * BaseField::from(1 << 16)),
+                    + carry_flag[1].clone() * BaseField::from(1 << 16)),
         );
 
         // Constrain the value of RamBaseAddr in case of store operations
@@ -380,18 +380,18 @@ impl MachineChip for LoadStoreChip {
                     - value_a[1].clone() * BaseField::from(1 << 8)
                     - value_c[0].clone()
                     - value_c[1].clone() * BaseField::from(1 << 8)
-                    + carry_flag[1].clone() * BaseField::from(1 << 16)),
+                    + carry_flag[0].clone() * BaseField::from(1 << 16)),
         );
-        // is_store * (ram_base_addr_3 + ram_base_addr_4 * 256 - carry_1 - value_a_3 - value_a_4 * 256 - value_c_3 - value_c_4 * 256 + carry_3 * 2^{16}) = 0
+        // is_store * (ram_base_addr_3 + ram_base_addr_4 * 256 - carry_1 - value_a_3 - value_a_4 * 256 - value_c_3 - value_c_4 * 256 + carry_2 * 2^{16}) = 0
         eval.add_constraint(
             is_store.clone()
                 * (ram_base_addr[2].clone() + ram_base_addr[3].clone() * BaseField::from(1 << 8)
-                    - carry_flag[1].clone()
+                    - carry_flag[0].clone()
                     - value_a[2].clone()
                     - value_a[3].clone() * BaseField::from(1 << 8)
                     - value_c[2].clone()
                     - value_c[3].clone() * BaseField::from(1 << 8)
-                    + carry_flag[3].clone() * BaseField::from(1 << 16)),
+                    + carry_flag[1].clone() * BaseField::from(1 << 16)),
         );
 
         let [ram1_val_prev] = trace_eval!(trace_eval, Ram1ValPrev);
@@ -597,6 +597,7 @@ impl LoadStoreChip {
             add_with_carries(value_a, offset)
         };
         traces.fill_columns(row_idx, ram_base_address, Column::RamBaseAddr);
+        let carry_bits = [carry_bits[1], carry_bits[3]];
         traces.fill_columns(row_idx, carry_bits, Column::CarryFlag);
         let clk = row_idx as u32 + 1;
         for memory_record in vm_step.step.memory_records.iter() {

@@ -8,7 +8,7 @@ use crate::{
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
-        BoolWord, ProgramStep, TracesBuilder, Word,
+        ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -22,7 +22,7 @@ pub struct ExecutionResult {
     pub rem_aux: bool,
     pub pc_carry_bits: [bool; 2], // At 16-bit boundaries
     pub value_a: Word,
-    pub carry_bits: BoolWord,
+    pub carry_bits: [bool; 2], // At 16-bit boundaries
 }
 
 pub struct JalrChip;
@@ -54,6 +54,7 @@ impl ExecuteChip for JalrChip {
         let (value_a, carry_bits) = add::add_with_carries(pc, 4u32.to_le_bytes());
 
         let pc_carry_bits = [pc_carry_bits[1], pc_carry_bits[3]];
+        let carry_bits = [carry_bits[1], carry_bits[3]];
 
         ExecutionResult {
             pc_next,
@@ -130,20 +131,20 @@ impl MachineChip for JalrChip {
 
         // a_val=pc+4
         // carry1_{1,2,3,4} used for carry handling
-        // is_jalr・(4 + pc_1 + pc_2 * 256 - carry1_2·2^{16} - a_val_1 - a_val_2 * 256) = 0
-        // is_jalr・(pc_3 + pc_3 * 256 + carry1_2 - carry1_4·2^{16} - a_val_3 - a_val_4 * 256) = 0
+        // is_jalr・(4 + pc_1 + pc_2 * 256 - carry1_1·2^{16} - a_val_1 - a_val_2 * 256) = 0
+        // is_jalr・(pc_3 + pc_3 * 256 + carry1_1 - carry1_2·2^{16} - a_val_3 - a_val_4 * 256) = 0
 
         eval.add_constraint(
             is_jalr.clone()
                 * (E::F::from(4.into()) + pc[0].clone() + pc[1].clone() * modulus.clone()
-                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - carry_bits[0].clone() * modulus.clone().pow(2)
                     - value_a[0].clone()
                     - value_a[1].clone() * modulus.clone()),
         );
         eval.add_constraint(
             is_jalr.clone()
-                * (pc[2].clone() + pc[3].clone() * modulus.clone() + carry_bits[1].clone()
-                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                * (pc[2].clone() + pc[3].clone() * modulus.clone() + carry_bits[0].clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
                     - value_a[2].clone()
                     - value_a[3].clone() * modulus.clone()),
         );

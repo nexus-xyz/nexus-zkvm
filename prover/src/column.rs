@@ -41,9 +41,8 @@ pub enum Column {
     /// The register-index or the immediate value of the third operand of the instruction. Immediate values are zero-extended out of the effective bits.
     #[size = 1]
     OpC,
-
-    /// Additional columns for carrying limbs.
-    #[size = 4]
+    /// Columns for carry flags at 16-bit boundaries.
+    #[size = 2]
     CarryFlag,
     /// Columns for borrow flags at 16-bit boundaries.
     #[size = 2]
