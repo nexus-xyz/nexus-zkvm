@@ -17,7 +17,7 @@ use crate::{
 pub struct AddChip;
 
 pub struct ExecutionResult {
-    carry_bits: BoolWord,
+    carry_bits: [bool; 2], // carry bits for 16-bit boundaries
     sum_bytes: Word,
 }
 
@@ -49,6 +49,7 @@ impl ExecuteChip for AddChip {
 
         // Recompute 32-bit result from 8-bit limbs.
         let (sum_bytes, carry_bits) = add_with_carries(value_b, value_c);
+        let carry_bits = [carry_bits[1], carry_bits[3]];
 
         ExecutionResult {
             carry_bits,
@@ -106,29 +107,29 @@ impl MachineChip for AddChip {
         let value_c = trace_eval!(trace_eval, ValueC);
         let value_a = trace_eval!(trace_eval, ValueA);
 
-        // rdval[0] + rdval[1] * 256 + h1[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 + rs2val[0] + rs2val[1] * 256
+        // rdval[0] + rdval[1] * 256 + h1[0] * 2^{16} = rs1val[0] + rs1val[1] * 256 + rs2val[0] + rs2val[1] * 256
         eval.add_constraint(
             is_add.clone()
                 * (value_a[0].clone()
                     + value_a[1].clone() * modulus.clone()
-                    + carry_flag[1].clone() * modulus.clone().pow(2)
+                    + carry_flag[0].clone() * modulus.clone().pow(2)
                     - (value_b[0].clone()
                         + value_b[1].clone() * modulus.clone()
                         + value_c[0].clone()
                         + value_c[1].clone() * modulus.clone())),
         );
 
-        // rdval[2] + rdval[3] * 256 + h1[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 + rs2val[2] + rs2val[3] * 256 + h1[1]
+        // rdval[2] + rdval[3] * 256 + h1[1] * 2^{16} = rs1val[2] + rs1val[3] * 256 + rs2val[2] + rs2val[3] * 256 + h1[0]
         eval.add_constraint(
             is_add.clone()
                 * (value_a[2].clone()
                     + value_a[3].clone() * modulus.clone()
-                    + carry_flag[3].clone() * modulus.clone().pow(2)
+                    + carry_flag[1].clone() * modulus.clone().pow(2)
                     - (value_b[2].clone()
                         + value_b[3].clone() * modulus.clone()
                         + value_c[2].clone()
                         + value_c[3].clone() * modulus.clone()
-                        + carry_flag[1].clone())),
+                        + carry_flag[0].clone())),
         );
     }
 }

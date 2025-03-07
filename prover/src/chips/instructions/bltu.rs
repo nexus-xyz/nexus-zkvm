@@ -9,7 +9,7 @@ use crate::{
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
-        BoolWord, ProgramStep, TracesBuilder, Word,
+        ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
@@ -20,7 +20,7 @@ pub struct ExecutionResult {
     pub diff_bytes: Word,
     pub borrow_bits: [bool; 2], // At 16-bit boundaries
     pub pc_next: Word,
-    pub carry_bits: BoolWord,
+    pub carry_bits: [bool; 2], // At 16-bit boundaries
 }
 
 pub struct BltuChip;
@@ -46,6 +46,7 @@ impl ExecuteChip for BltuChip {
         };
 
         let borrow_bits = [borrow_bits[1], borrow_bits[3]];
+        let carry_bits = [carry_bits[1], carry_bits[3]];
 
         ExecutionResult {
             diff_bytes,
@@ -131,25 +132,25 @@ impl MachineChip for BltuChip {
                     - borrow_bits[0].clone()),
         );
 
-        // is_bltu・(ltu_flag・(c_val_1 + c_val_2 * 256) + (1-ltu_flag)・4 + pc_1 + pc_2 * 256 - carry_2·2^{16} - pc_next_1 - pc_next_2 * 256) =0
+        // is_bltu・(ltu_flag・(c_val_1 + c_val_2 * 256) + (1-ltu_flag)・4 + pc_1 + pc_2 * 256 - carry_1·2^{16} - pc_next_1 - pc_next_2 * 256) =0
         eval.add_constraint(
             is_bltu.clone()
                 * (ltu_flag.clone() * (value_c[0].clone() + value_c[1].clone() * modulus.clone())
                     + (E::F::one() - ltu_flag.clone()) * E::F::from(4u32.into())
                     + pc[0].clone()
                     + pc[1].clone() * modulus.clone()
-                    - carry_bits[1].clone() * modulus.clone().pow(2)
+                    - carry_bits[0].clone() * modulus.clone().pow(2)
                     - pc_next[0].clone()
                     - pc_next[1].clone() * modulus.clone()),
         );
-        // is_bltu・(ltu_flag・(c_val_3 + c_val_4 * 256) + pc_3 + pc_4 * 256 + carry_2 - carry_4·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
+        // is_bltu・(ltu_flag・(c_val_3 + c_val_4 * 256) + pc_3 + pc_4 * 256 + carry_1 - carry_2·2^{16} - pc_next_3 - pc_next_4 * 256) = 0
         eval.add_constraint(
             is_bltu.clone()
                 * (ltu_flag.clone() * (value_c[2].clone() + value_c[3].clone() * modulus.clone())
                     + pc[2].clone()
                     + pc[3].clone() * modulus.clone()
-                    + carry_bits[1].clone()
-                    - carry_bits[3].clone() * modulus.clone().pow(2)
+                    + carry_bits[0].clone()
+                    - carry_bits[1].clone() * modulus.clone().pow(2)
                     - pc_next[2].clone()
                     - pc_next[3].clone() * modulus.clone()),
         );

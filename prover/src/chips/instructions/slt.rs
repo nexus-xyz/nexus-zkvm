@@ -10,13 +10,13 @@ use crate::{
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
-        BoolWord, ProgramStep, TracesBuilder, Word,
+        ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
 
 pub struct ExecutionResult {
-    pub borrow_bits: BoolWord,
+    pub borrow_bits: [bool; 2], // for 16-bit boundaries
     pub diff_bytes: Word,
     pub result: Word,
 }
@@ -37,7 +37,7 @@ impl ExecuteChip for SltChip {
         let sgn_c = program_step.get_sgn_c();
 
         let result = match (sgn_b, sgn_c) {
-            (false, false) | (true, true) => [borrow_bits[3] as u8, 0, 0, 0],
+            (false, false) | (true, true) => [borrow_bits[1] as u8, 0, 0, 0],
             (false, true) => [0, 0, 0, 0],
             (true, false) => [1, 0, 0, 0],
         };
@@ -123,25 +123,25 @@ impl MachineChip for SltChip {
         let helper2_val = trace_eval!(trace_eval, Helper2);
         let helper3_val = trace_eval!(trace_eval, Helper3);
 
-        // h_1[0] + h_1[1] * 256 - borrow[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[i] - rs2val[1] * 256
+        // h_1[0] + h_1[1] * 256 - borrow[0] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[i] - rs2val[1] * 256
         eval.add_constraint(
             is_slt.clone()
                 * (helper1_val[0].clone() + helper1_val[1].clone() * modulus.clone()
-                    - borrow_flag[1].clone() * modulus.clone().pow(2)
+                    - borrow_flag[0].clone() * modulus.clone().pow(2)
                     - (value_b[0].clone() + value_b[1].clone() * modulus.clone()
                         - value_c[0].clone()
                         - value_c[1].clone() * modulus.clone())),
         );
 
-        // h_1[2] + h_1[3] * 256 - borrow[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[3] * 256 - borrow[1]
+        // h_1[2] + h_1[3] * 256 - borrow[1] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[3] * 256 - borrow[0]
         eval.add_constraint(
             is_slt.clone()
                 * (helper1_val[2].clone() + helper1_val[3].clone() * modulus.clone()
-                    - borrow_flag[3].clone() * modulus.clone().pow(2)
+                    - borrow_flag[1].clone() * modulus.clone().pow(2)
                     - (value_b[2].clone() + value_b[3].clone() * modulus.clone()
                         - value_c[2].clone()
                         - value_c[3].clone() * modulus.clone()
-                        - borrow_flag[1].clone())),
+                        - borrow_flag[0].clone())),
         );
 
         // Computing a_val from sltu_flag (borrow_flag[3]) and sign bits sgnb and sgnc
@@ -154,7 +154,7 @@ impl MachineChip for SltChip {
                 eval.add_constraint(
                     is_slt.clone()
                         * (sgn_b[0].clone() * (E::F::one() - sgn_c[0].clone())
-                            + borrow_flag[3].clone()
+                            + borrow_flag[1].clone()
                                 * (sgn_b[0].clone() * sgn_c[0].clone()
                                     + (E::F::one() - sgn_b[0].clone())
                                         * (E::F::one() - sgn_c[0].clone()))

@@ -9,13 +9,13 @@ use crate::{
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
-        BoolWord, ProgramStep, TracesBuilder, Word,
+        ProgramStep, TracesBuilder, Word,
     },
     traits::{ExecuteChip, MachineChip},
 };
 
 pub struct ExecutionResult {
-    pub borrow_bits: BoolWord,
+    pub borrow_bits: [bool; 2], // for 16-bit boundaries
     pub diff_bytes: Word,
     pub result: Word,
 }
@@ -30,7 +30,7 @@ impl ExecuteChip for SltuChip {
             borrow_bits,
             diff_bytes,
         } = SubChip::execute(program_step);
-        let result = [borrow_bits[3] as u8, 0, 0, 0];
+        let result = [borrow_bits[1] as u8, 0, 0, 0];
         ExecutionResult {
             borrow_bits,
             diff_bytes,
@@ -88,29 +88,29 @@ impl MachineChip for SltuChip {
         let value_a = trace_eval!(trace_eval, ValueA);
         let helper1_val = trace_eval!(trace_eval, Helper1);
 
-        // Assert boorrow_flag[3] is equal to value_a[0].
+        // Assert boorrow_flag[1] is equal to value_a[0].
         // So the last iteration of the loop below match
-        // is_sltu・(b_val_4 - c_val_4 - h1_4 + a_val_1・2^8 - borrow_3) = 0
-        eval.add_constraint(is_sltu.clone() * (borrow_flag[3].clone() - value_a[0].clone()));
+        // is_sltu・(b_val_4 - c_val_4 - h1_4 + a_val_1・2^8 - borrow_1) = 0
+        eval.add_constraint(is_sltu.clone() * (borrow_flag[1].clone() - value_a[0].clone()));
 
-        // h_1[0] + h_1[1] * 256 - borrow[1] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[0] - rs2val[1] * 256
+        // h_1[0] + h_1[1] * 256 - borrow[0] * 2^{16} = rs1val[0] + rs1val[1] * 256 - rs2val[0] - rs2val[1] * 256
         eval.add_constraint(
             is_sltu.clone()
                 * (helper1_val[0].clone() + helper1_val[1].clone() * modulus.clone()
-                    - borrow_flag[1].clone() * modulus.clone().pow(2)
+                    - borrow_flag[0].clone() * modulus.clone().pow(2)
                     - (value_b[0].clone() + value_b[1].clone() * modulus.clone()
                         - value_c[0].clone()
                         - value_c[1].clone() * modulus.clone())),
         );
-        // h_1[2] + h_1[3] * 256 - borrow[3] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[3] * 256 - borrow[1]
+        // h_1[2] + h_1[3] * 256 - borrow[1] * 2^{16} = rs1val[2] + rs1val[3] * 256 - rs2val[2] - rs2val[3] * 256 - borrow[0]
         eval.add_constraint(
             is_sltu.clone()
                 * (helper1_val[2].clone() + helper1_val[3].clone() * modulus.clone()
-                    - borrow_flag[3].clone() * modulus.clone().pow(2)
+                    - borrow_flag[1].clone() * modulus.clone().pow(2)
                     - (value_b[2].clone() + value_b[3].clone() * modulus.clone()
                         - value_c[2].clone()
                         - value_c[3].clone() * modulus.clone()
-                        - borrow_flag[1].clone())),
+                        - borrow_flag[0].clone())),
         );
 
         for (i, value_a_byte) in value_a.iter().enumerate() {
