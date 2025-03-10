@@ -1,5 +1,8 @@
 use num_traits::One;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::FieldExpOps};
+use stwo_prover::{
+    constraint_framework::EvalAtRow,
+    core::fields::{m31::BaseField, FieldExpOps},
+};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -106,8 +109,6 @@ impl MachineChip for BltChip {
 
         traces.fill_columns(row_idx, diff_bytes, Column::Helper1);
         traces.fill_columns(row_idx, borrow_bits, Column::BorrowFlag);
-        traces.fill_columns(row_idx, vm_step.get_sgn_a(), Column::SgnA);
-        traces.fill_columns(row_idx, vm_step.get_sgn_b(), Column::SgnB);
         traces.fill_columns(row_idx, h2, Column::Helper2);
         traces.fill_columns(row_idx, h3, Column::Helper3);
         traces.fill_columns(row_idx, lt_flag, Column::LtFlag);
@@ -126,7 +127,7 @@ impl MachineChip for BltChip {
         _lookup_elements: &AllLookupElements,
     ) {
         let modulus = E::F::from(256u32.into());
-        let modulus_7 = E::F::from(128u32.into());
+        let modulus_7_inv = E::F::from(BaseField::from(128u32).inverse());
         let value_a = trace_eval!(trace_eval, ValueA);
         let value_b = trace_eval!(trace_eval, ValueB);
         let value_c = trace_eval!(trace_eval, ValueC);
@@ -140,8 +141,12 @@ impl MachineChip for BltChip {
         let [lt_flag] = trace_eval!(trace_eval, Column::LtFlag);
         let h2 = trace_eval!(trace_eval, Column::Helper2);
         let h3 = trace_eval!(trace_eval, Column::Helper3);
-        let [sgn_a] = trace_eval!(trace_eval, Column::SgnA);
-        let [sgn_b] = trace_eval!(trace_eval, Column::SgnB);
+        // sgn_a is taken to be abbreviation of (a_val_4 - h2) / 2^7
+        let sgn_a =
+            (value_a[WORD_SIZE - 1].clone() - h2[WORD_SIZE - 1].clone()) * modulus_7_inv.clone();
+        // sgn_b is taken to be abbreviation of (b_val_4 - h3) / 2^7
+        let sgn_b =
+            (value_b[WORD_SIZE - 1].clone() - h3[WORD_SIZE - 1].clone()) * modulus_7_inv.clone();
 
         // is_blt・(a_val_1 + a_val_2 * 256 - b_val_1 - b_val_2 * 256 - h1_1 - h1_2 * 256 + borrow_1・2^{16}) = 0
         eval.add_constraint(
@@ -163,19 +168,6 @@ impl MachineChip for BltChip {
                     - diff_bytes[3].clone() * modulus.clone()
                     + borrow_bits[1].clone() * modulus.clone().pow(2)
                     - borrow_bits[0].clone()),
-        );
-
-        // is_blt・ (h2 + sgna・2^7 - a_val_4) = 0
-        // is_blt・ (h3 + sgnb・2^7 - b_val_4) = 0
-        eval.add_constraint(
-            is_blt.clone()
-                * (h2[WORD_SIZE - 1].clone() + sgn_a.clone() * modulus_7.clone()
-                    - value_a[WORD_SIZE - 1].clone()),
-        );
-        eval.add_constraint(
-            is_blt.clone()
-                * (h3[WORD_SIZE - 1].clone() + sgn_b.clone() * modulus_7.clone()
-                    - value_b[WORD_SIZE - 1].clone()),
         );
 
         // is_blt・ (sgna・(1-sgnb) + ltu_flag・(sgna・sgnb+(1-sgna)・(1-sgnb)) - lt_flag) =0
@@ -213,6 +205,11 @@ impl MachineChip for BltChip {
                     - pc_next[2].clone()
                     - pc_next[3].clone() * modulus.clone()),
         );
+
+        // sgn_a is 0 or 1
+        eval.add_constraint(is_blt.clone() * (sgn_a.clone() * (E::F::one() - sgn_a.clone())));
+        // sgn_b is 0 or 1
+        eval.add_constraint(is_blt * (sgn_b.clone() * (E::F::one() - sgn_b.clone())));
     }
 }
 
