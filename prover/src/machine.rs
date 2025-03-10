@@ -130,7 +130,9 @@ impl<C: MachineChip + Sync> Machine<C> {
             + view.get_exit_code().len()
             + view.get_public_output().len();
 
-        let log_size = Self::max_log_size(&[num_steps, program_len, memory_len])
+        // [memory_len + 4 * num_steps] is the union bound for the size of touched-or-initialized memory
+        // The STARK trace needs to contain [num_steps], too, but it is never bigger than the above.
+        let log_size = Self::max_log_size(&[program_len, memory_len + 4 * num_steps])
             .max(PreprocessedTraces::MIN_LOG_SIZE);
 
         let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);
