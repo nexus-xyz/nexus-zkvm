@@ -126,13 +126,9 @@ impl<C: MachineChip + Sync> Machine<C> {
     ) -> Result<Proof, ProvingError> {
         let num_steps = trace.get_num_steps();
         let program_len = view.get_program_memory().program.len();
-        let memory_len = view.get_initial_memory().len()
-            + view.get_exit_code().len()
-            + view.get_public_output().len();
+        let tracked_ram_size = view.view_tracked_ram_size();
 
-        // [memory_len + 4 * num_steps] is the union bound for the size of touched-or-initialized memory
-        // The STARK trace needs to contain [num_steps], too, but it is never bigger than the above.
-        let log_size = Self::max_log_size(&[program_len, memory_len + 4 * num_steps])
+        let log_size = Self::max_log_size(&[num_steps, program_len, tracked_ram_size])
             .max(PreprocessedTraces::MIN_LOG_SIZE);
 
         let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);

@@ -294,4 +294,38 @@ impl LinearMemoryLayout {
     pub fn stack_top(&self) -> u32 {
         self.stack_top - WORD_SIZE as u32
     }
+
+    pub fn tracked_ram_size(&self, static_memory_size: usize) -> usize {
+        let stack_size: usize =
+            self.stack_top
+                .checked_sub(self.stack_bottom)
+                .expect("stack top should be above stack bottom") as usize;
+        let heap_size = self
+            .heap
+            .checked_sub(self.heap_start())
+            .expect("heap should be above heap start") as usize;
+        let public_input_size =
+            self.public_input_end()
+                .checked_sub(self.public_input_start())
+                .expect("public input end should be above public input start") as usize;
+        let public_output_size = self
+            .public_output_end()
+            .checked_sub(self.public_output_start())
+            .expect("public output end should be above public output start")
+            as usize;
+        let exit_code_size = WORD_SIZE;
+        // program, registers, and ad are not under RAM checking. omitted.
+        let total = [
+            static_memory_size,
+            stack_size,
+            heap_size,
+            public_input_size,
+            public_output_size,
+            exit_code_size,
+        ]
+        .iter()
+        .try_fold(0usize, |acc, &val| acc.checked_add(val))
+        .expect("overflow");
+        total
+    }
 }

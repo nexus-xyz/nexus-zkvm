@@ -12,6 +12,7 @@ categories = { workspace = true }
 [dependencies]
 serde.workspace = true
 
+nexus-common = { path = "../common" }
 nexus-core = { path = "../core" }
 nexus-sdk-macros = { path = "./macros" }
 
