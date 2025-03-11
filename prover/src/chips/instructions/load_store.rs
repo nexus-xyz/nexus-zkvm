@@ -587,7 +587,6 @@ impl LoadStoreChip {
 
         let value_a = vm_step.get_value_a();
         traces.fill_columns(row_idx, value_a, Column::ValueA);
-        traces.fill_columns(row_idx, value_a, Column::ValueAEffective);
         let value_b = vm_step.get_value_b();
         let (offset, effective_bits) = vm_step.get_value_c();
         assert_eq!(effective_bits, 12);
