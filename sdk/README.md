@@ -17,7 +17,7 @@ $ rustup target add riscv32i-unknown-none-elf
 Then, install the Nexus zkVM:
 
 ```shell
-$ rustup run nightly-2025-01-02 cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus --tag 'v0.3.0'
+$ rustup run nightly-2025-01-02 cargo install --git https://github.com/nexus-xyz/nexus-zkvm cargo-nexus --tag 'v0.3.1'
 ```
 
 And verify the installation:
