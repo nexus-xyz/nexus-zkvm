@@ -189,6 +189,8 @@ pub struct View {
     pub(crate) debug_logs: Vec<Vec<u8>>,
     pub(crate) program_memory: ProgramInfo,
     pub(crate) initial_memory: Vec<MemoryInitializationEntry>,
+    /// The number of all addresses under RAM memory checking
+    pub(crate) tracked_ram_size: usize,
     pub(crate) exit_code: Vec<PublicOutputEntry>,
     pub(crate) output_memory: Vec<PublicOutputEntry>,
     // todo: incorporate into initial memory
@@ -197,11 +199,13 @@ pub struct View {
 
 impl View {
     /// Construct a view out of its raw parts.
+    #[allow(clippy::too_many_arguments)] // extra thought needed what's the best approach to reduce args
     pub fn new(
         memory_layout: &Option<LinearMemoryLayout>,
         debug_logs: &Vec<Vec<u8>>,
         program_memory: &ProgramInfo,
         initial_memory: &Vec<MemoryInitializationEntry>,
+        tracked_ram_size: usize,
         exit_code: &Vec<PublicOutputEntry>,
         output_memory: &Vec<PublicOutputEntry>,
         associated_data: &Vec<u8>,
@@ -211,6 +215,7 @@ impl View {
             debug_logs: debug_logs.to_owned(),
             program_memory: program_memory.to_owned(),
             initial_memory: initial_memory.to_owned(),
+            tracked_ram_size,
             exit_code: exit_code.to_owned(),
             output_memory: output_memory.to_owned(),
             associated_data: associated_data.to_owned(),
@@ -245,6 +250,11 @@ impl View {
     pub fn view_public_output(&self) -> Option<Vec<u8>> {
         self.memory_layout
             .map(|layout| io_entries_into_vec(layout.public_output_start(), &self.output_memory))
+    }
+
+    /// Return the number of all addresses under RAM memory checking.
+    pub fn view_tracked_ram_size(&self) -> usize {
+        self.tracked_ram_size
     }
 
     /// Return the raw bytes of the associated data, if any.

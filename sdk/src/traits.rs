@@ -1,5 +1,6 @@
 use crypto::digest::{Digest, OutputSizeUser};
 use crypto_common::generic_array::{ArrayLength, GenericArray};
+use nexus_common::constants::WORD_SIZE;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 
@@ -88,11 +89,15 @@ impl CheckedView for nexus_core::nvm::View {
             expected_public_output,
         );
 
+        let static_memory_size =
+            (&expected_elf.rom_image.len() + &expected_elf.ram_image.len()) * WORD_SIZE;
+
         Self::new(
             &Some(*memory_layout),
             &Vec::new(),
             &program_memory,
             &initial_memory,
+            memory_layout.tracked_ram_size(static_memory_size),
             &exit_code,
             &output_memory,
             &expected_ad.to_vec(),

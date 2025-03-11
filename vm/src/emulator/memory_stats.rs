@@ -115,6 +115,17 @@ impl MemoryStats {
             ad_size,
         )
     }
+
+    /// Returns the total number of addresses under RAM memory checking.
+    pub fn get_tracked_ram_size(&self, input_size: u32, output_size: u32) -> u32 {
+        let heap_size = self.max_heap_access - self.heap_bottom;
+        let stack_size = self.stack_top - self.min_stack_access;
+        let total = [heap_size, stack_size, input_size, output_size]
+            .iter()
+            .try_fold(0u32, |acc, &val| acc.checked_add(val))
+            .expect("overflow");
+        total
+    }
 }
 
 #[cfg(test)]

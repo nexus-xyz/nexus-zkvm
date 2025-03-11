@@ -745,6 +745,12 @@ impl Emulator for HarvardEmulator {
             Vec::new()
         };
 
+        let input_size = rom_iter.len() + self.static_ram_image.len() + public_input.len();
+        let tracked_ram_size = self
+            .memory_stats
+            .get_tracked_ram_size(input_size as u32, output_memory.len() as u32)
+            as usize;
+
         View {
             memory_layout: None,
             debug_logs,
@@ -766,6 +772,7 @@ impl Emulator for HarvardEmulator {
                 .chain(ram_iter)
                 .chain(public_input)
                 .collect(),
+            tracked_ram_size,
             exit_code,
             output_memory,
             associated_data: Vec::new(),
@@ -1227,6 +1234,10 @@ impl Emulator for LinearEmulator {
             )
             .unwrap_or_default();
 
+        let tracked_ram_size = self
+            .memory_layout
+            .tracked_ram_size(self.initial_static_ram_image.len() + rom_initialization.len());
+
         View {
             memory_layout: Some(self.memory_layout),
             debug_logs,
@@ -1256,6 +1267,7 @@ impl Emulator for LinearEmulator {
                 .chain(ram_iter)
                 .chain(public_input_iter)
                 .collect(),
+            tracked_ram_size,
             exit_code,
             output_memory,
             associated_data,
