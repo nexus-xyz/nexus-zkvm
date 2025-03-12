@@ -1,4 +1,4 @@
-use std::array;
+use core::array; 
 
 use num_traits::Zero;
 use stwo_prover::{
