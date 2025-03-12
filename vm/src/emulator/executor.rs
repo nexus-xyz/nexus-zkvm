@@ -730,14 +730,17 @@ impl Emulator for HarvardEmulator {
                     address: *addr,
                     value,
                 });
-        // FIXME: ram_iter should contain the initial memory content, not the final content
-        let ram_iter =
-            self.static_ram_image
-                .iter()
-                .map(|(addr, &value)| MemoryInitializationEntry {
-                    address: *addr,
-                    value,
-                });
+        // HarvardEmulator doesn't remember the initial content of the static RAM image.
+        // When the static RAM image is empty, we know the initial content was also empty, so [Some([])].
+        // Otherwise we don't know the initial content so saying [None] instead.
+        // This is awkward but it works because HarvardEmulator::finalize() is only used in tests, and the
+        // tests are never interested in the non-empty initial static RAM content.
+        // Perhaps we'll stop using HarvardEmulator::finalize() and always use LinearEmulator::finalize().
+        let ram_iter = if self.static_ram_image.is_empty() {
+            Some([].into_iter())
+        } else {
+            None
+        };
 
         let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
             self.get_executor().logs.clone().unwrap()
@@ -767,11 +770,14 @@ impl Emulator for HarvardEmulator {
                     })
                     .collect(),
             },
-            initial_memory: rom_iter
-                .into_iter()
-                .chain(ram_iter)
-                .chain(public_input)
-                .collect(),
+            // Only if ram_iter = Some(...) we know the initial memory for sure. Otherwise returning None.
+            initial_memory: ram_iter.map(|ram_iter| {
+                rom_iter
+                    .into_iter()
+                    .chain(ram_iter)
+                    .chain(public_input)
+                    .collect()
+            }),
             tracked_ram_size,
             exit_code,
             output_memory,
@@ -1261,12 +1267,14 @@ impl Emulator for LinearEmulator {
                     })
                     .collect(),
             },
-            initial_memory: public_io_loc_iter
-                .into_iter()
-                .chain(rom_iter)
-                .chain(ram_iter)
-                .chain(public_input_iter)
-                .collect(),
+            initial_memory: Some(
+                public_io_loc_iter
+                    .into_iter()
+                    .chain(rom_iter)
+                    .chain(ram_iter)
+                    .chain(public_input_iter)
+                    .collect(),
+            ),
             tracked_ram_size,
             exit_code,
             output_memory,
