@@ -3,17 +3,26 @@
 #[nexus_rt::main]
 #[nexus_rt::public_input(n)]
 fn main(n: u32) -> u32 {
-    let mut a = 0;
-    let mut b = 1;
-
+    // Handle edge cases
     if n == 0 {
-        return a;
+        return 0;
+    }
+    if n == 1 {
+        return 1;
     }
 
-    for _ in 2..n {
-        let c = a + b;
+    let mut a = 0u32;
+    let mut b = 1u32;
+
+    for _ in 2..=n {
+        // Check for potential overflow before addition
+        if let Some(c) = a.checked_add(b) {
             a = b;
-        b = c;
+            b = c;
+        } else {
+            // In case of overflow, return max value
+            return u32::MAX;
+        }
     }
 
     b
