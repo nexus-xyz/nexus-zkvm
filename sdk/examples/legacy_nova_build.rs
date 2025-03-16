@@ -32,7 +32,7 @@ mod legacy_nova_build {
 
         println!(">>>>> Logging\n{}<<<<<", proof.logs().join(""));
 
-        // Normally the prover communicates the seralized proof to the verifier who deserializes it.
+        // Normally the prover communicates the serialized proof to the verifier who deserializes it.
         //
         // For minimality serialization scrubs the public parameters, so the verifier must load them.
         // We can simulate this by detatching.
