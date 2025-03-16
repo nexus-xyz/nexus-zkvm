@@ -17,7 +17,7 @@ mod legacy_jolt {
         println!("Proving execution of vm...");
         let proof = prover.prove().expect("failed to prove program");
 
-        // Normally the prover communicates the seralized proof to the verifier who deserializes it.
+        // Normally the prover communicates the serialized proof to the verifier who deserializes it.
 
         print!("Verifying execution...");
         proof.verify().expect("failed to verify proof");
