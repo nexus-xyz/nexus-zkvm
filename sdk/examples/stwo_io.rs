@@ -42,7 +42,7 @@ fn main() {
         view.logs().expect("failed to retrieve debug logs").join("")
     );
 
-    // Normally the prover communicates the seralized proof to the verifier who deserializes it.
+    // Normally the prover communicates the serialized proof to the verifier who deserializes it.
     //
     // The verifier must also possess the program binary and the public i/o. Usually, either
     // the verifier will rebuild the elf in a reproducible way (e.g., within a container) or
