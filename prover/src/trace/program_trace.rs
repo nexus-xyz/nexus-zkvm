@@ -29,20 +29,41 @@ pub struct ProgramTracesBuilder {
     pub(crate) num_instructions: usize,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct ProgramTraceParams<'a> {
+    /// Reference to the program memory.
+    pub program_memory: &'a ProgramInfo,
+    /// Slice of initial memory entries.
+    pub init_memory: &'a [MemoryInitializationEntry],
+    /// Slice of exit code output entries.
+    pub exit_code: &'a [PublicOutputEntry],
+    /// Slice of public output entries.
+    pub public_output: &'a [PublicOutputEntry],
+}
+
+#[cfg(test)]
+impl<'a> ProgramTraceParams<'a> {
+    pub(crate) fn new_with_empty_memory(program_memory: &'a ProgramInfo) -> Self {
+        Self {
+            program_memory,
+            init_memory: &[],
+            exit_code: &[],
+            public_output: &[],
+        }
+    }
+}
+
 impl ProgramTracesBuilder {
-    pub fn new(
-        log_size: u32,
-        program_memory: &ProgramInfo,
-        init_memory: &[MemoryInitializationEntry],
-        exit_code: &[PublicOutputEntry],
-        output_memory: &[PublicOutputEntry],
-    ) -> Self {
+    pub fn new(log_size: u32, params: ProgramTraceParams) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
-            program_memory.program.len() <= 1 << log_size,
+            params.program_memory.program.len() <= 1 << log_size,
             "Program is longer than program trace size"
         );
-        assert!(init_memory.len() + exit_code.len() + output_memory.len() <= 1 << log_size);
+        assert!(
+            params.init_memory.len() + params.exit_code.len() + params.public_output.len()
+                <= 1 << log_size
+        );
 
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; ProgramColumn::COLUMNS_NUM];
         let builder = TracesBuilder { cols, log_size };
@@ -52,14 +73,18 @@ impl ProgramTracesBuilder {
             num_instructions: 0usize,
         };
 
-        ret.fill_program_columns(0, program_memory.initial_pc, ProgramColumn::PrgInitialPc);
+        ret.fill_program_columns(
+            0,
+            params.program_memory.initial_pc,
+            ProgramColumn::PrgInitialPc,
+        );
         for (
             row_idx,
             ProgramMemoryEntry {
                 pc,
                 instruction_word,
             },
-        ) in program_memory.program.iter().enumerate()
+        ) in params.program_memory.program.iter().enumerate()
         {
             if row_idx == 0 {
                 ret.pc_offset = *pc;
@@ -85,41 +110,13 @@ impl ProgramTracesBuilder {
             );
             ret.fill_program_columns(row_idx, true, ProgramColumn::PrgMemoryFlag);
         }
-
-        let init_memory_len = init_memory.len();
-        let exit_code_len = exit_code.len();
-
-        for (row_idx, MemoryInitializationEntry { address, value }) in
-            init_memory.iter().enumerate()
-        {
-            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
-
-            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicInitialMemoryFlag);
-            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicInitialMemoryValue);
-        }
-        let offset = init_memory_len;
-
-        for (row_idx, PublicOutputEntry { address, value }) in exit_code.iter().enumerate() {
-            let row_idx = row_idx + offset;
-            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
-
-            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
-            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
-        }
-        let offset = offset + exit_code_len;
-        for (row_idx, PublicOutputEntry { address, value }) in output_memory.iter().enumerate() {
-            let row_idx = row_idx + offset;
-            ret.fill_program_columns(row_idx, *address, ProgramColumn::PublicRamAddr);
-
-            ret.fill_program_columns(row_idx, true, ProgramColumn::PublicOutputFlag);
-            ret.fill_program_columns(row_idx, *value, ProgramColumn::PublicOutputValue);
-        }
         ret
     }
 
     #[cfg(test)]
     pub(crate) fn new_with_empty_memory(log_size: u32, program_memory: &ProgramInfo) -> Self {
-        Self::new(log_size, program_memory, &[], &[], &[])
+        let params = ProgramTraceParams::new_with_empty_memory(program_memory);
+        Self::new(log_size, params)
     }
 
     #[cfg(test)]

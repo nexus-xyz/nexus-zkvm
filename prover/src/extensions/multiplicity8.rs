@@ -18,8 +18,9 @@ use stwo_prover::{
 };
 
 use crate::{
-    chips::range_check::range8::Range8LookupElements, components::AllLookupElements,
-    trace::sidenote::SideNote,
+    chips::range_check::range8::Range8LookupElements,
+    components::AllLookupElements,
+    trace::{program_trace::ProgramTraceParams, sidenote::SideNote},
 };
 
 use super::{BuiltInExtension, FrameworkEvalExt};
@@ -42,14 +43,6 @@ pub(crate) struct MultiplicityEval8 {
 
 impl MultiplicityEval8 {
     const LOG_SIZE: u32 = LOG_N_LANES; // SIMD needs 16 rows to operate
-}
-
-impl Default for MultiplicityEval8 {
-    fn default() -> Self {
-        Self {
-            lookup_elements: Range8LookupElements::dummy(),
-        }
-    }
 }
 
 /// A column with {0, ..., 7} and eight zero's
@@ -95,12 +88,17 @@ impl FrameworkEval for MultiplicityEval8 {
 }
 
 impl FrameworkEvalExt for MultiplicityEval8 {
-    const LOG_SIZE: u32 = Self::LOG_SIZE;
-
-    fn new(lookup_elements: &AllLookupElements) -> Self {
+    fn new(log_size: u32, lookup_elements: &AllLookupElements) -> Self {
+        assert_eq!(log_size, Self::LOG_SIZE);
         let lookup: &Range8LookupElements = lookup_elements.as_ref();
         Self {
             lookup_elements: lookup.clone(),
+        }
+    }
+    fn dummy(log_size: u32) -> Self {
+        assert_eq!(log_size, Self::LOG_SIZE);
+        Self {
+            lookup_elements: Range8LookupElements::dummy(),
         }
     }
 }
@@ -108,7 +106,13 @@ impl FrameworkEvalExt for MultiplicityEval8 {
 impl BuiltInExtension for Multiplicity8 {
     type Eval = MultiplicityEval8;
 
+    fn compute_log_size(_side_note: &SideNote) -> u32 {
+        Self::Eval::LOG_SIZE
+    }
+
     fn generate_preprocessed_trace(
+        _log_size: u32,
+        _program_trace_params: ProgramTraceParams,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let base_cols = Self::preprocessed_base_columns();
         let domain = CanonicCoset::new(Self::Eval::LOG_SIZE).circle_domain();
@@ -118,7 +122,7 @@ impl BuiltInExtension for Multiplicity8 {
             .collect()
     }
 
-    fn preprocessed_trace_sizes() -> Vec<u32> {
+    fn preprocessed_trace_sizes(_log_size: u32) -> Vec<u32> {
         vec![Self::Eval::LOG_SIZE]
     }
 
@@ -126,7 +130,8 @@ impl BuiltInExtension for Multiplicity8 {
     ///
     /// The ordering of rows is the same as the ordering of the preprocessed value column.
     fn generate_original_trace(
-        side_note: &SideNote,
+        _log_size: u32,
+        side_note: &mut SideNote,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let base_cols = Self::base_columns(side_note);
         let domain = CanonicCoset::new(Self::Eval::LOG_SIZE).circle_domain();
@@ -137,6 +142,8 @@ impl BuiltInExtension for Multiplicity8 {
     }
 
     fn generate_interaction_trace(
+        _log_size: u32,
+        _program_trace_params: ProgramTraceParams,
         side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (

@@ -25,7 +25,10 @@ use crate::{
         range256::Range256LookupElements, range32::Range32LookupElements,
     },
     components::{AllLookupElements, RegisteredLookupBound},
-    trace::sidenote::{RangeCheckSideNote, RangeCheckSideNoteGetter, SideNote},
+    trace::{
+        program_trace::ProgramTraceParams,
+        sidenote::{RangeCheckSideNote, RangeCheckSideNoteGetter, SideNote},
+    },
 };
 
 use super::{BuiltInExtension, FrameworkEvalExt};
@@ -108,12 +111,17 @@ impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEval for MultiplicityE
 }
 
 impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEvalExt for MultiplicityEval<LEN, L> {
-    const LOG_SIZE: u32 = Self::LOG_SIZE;
-
-    fn new(lookup_elements: &AllLookupElements) -> Self {
+    fn new(log_size: u32, lookup_elements: &AllLookupElements) -> Self {
+        assert_eq!(log_size, Self::LOG_SIZE,);
         let lookup: &L = lookup_elements.as_ref();
         Self {
             lookup_elements: lookup.clone(),
+        }
+    }
+    fn dummy(log_size: u32) -> Self {
+        assert_eq!(log_size, Self::LOG_SIZE);
+        Self {
+            lookup_elements: L::dummy(),
         }
     }
 }
@@ -127,7 +135,13 @@ where
 {
     type Eval = MultiplicityEval<LEN, L>;
 
+    fn compute_log_size(_side_note: &SideNote) -> u32 {
+        MultiplicityEval::<LEN, L>::LOG_SIZE
+    }
+
     fn generate_preprocessed_trace(
+        _log_size: u32,
+        _program_trace_params: ProgramTraceParams,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let base_cols = Self::preprocessed_base_columns();
         let domain = CanonicCoset::new(Self::Eval::LOG_SIZE).circle_domain();
@@ -137,7 +151,7 @@ where
             .collect()
     }
 
-    fn preprocessed_trace_sizes() -> Vec<u32> {
+    fn preprocessed_trace_sizes(_log_size: u32) -> Vec<u32> {
         vec![Self::Eval::LOG_SIZE]
     }
 
@@ -145,7 +159,8 @@ where
     ///
     /// The ordering of rows is the same as the ordering of the preprocessed value column.
     fn generate_original_trace(
-        side_note: &SideNote,
+        _log_size: u32,
+        side_note: &mut SideNote,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let base_cols = Self::base_columns(side_note);
         let domain = CanonicCoset::new(Self::Eval::LOG_SIZE).circle_domain();
@@ -156,6 +171,8 @@ where
     }
 
     fn generate_interaction_trace(
+        _log_size: u32,
+        _program_trace_params: ProgramTraceParams,
         side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (

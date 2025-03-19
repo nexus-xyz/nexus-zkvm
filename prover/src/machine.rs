@@ -37,6 +37,7 @@ use crate::{
     column::{PreprocessedColumn, ProgramColumn},
     components::{self, AllLookupElements},
     extensions::ExtensionComponent,
+    trace::program_trace::ProgramTraceParams,
     traits::generate_interaction_trace,
 };
 use serde::{Deserialize, Serialize};
@@ -71,10 +72,11 @@ pub type BaseComponent = (
     RangeCheckChip,
 );
 /// Base extensions used in conjunction with [`BaseComponent`]. These components are always enabled and are not accessible
-/// to downstream crates.
+/// to downstream crates. ram_init_final() modifies multiplicities for multiplicity256(), so the ordering between these is important.
 const BASE_EXTENSIONS: &[ExtensionComponent] = &[
     ExtensionComponent::final_reg(),
     ExtensionComponent::bit_op_multiplicity(),
+    ExtensionComponent::ram_init_final(),
     ExtensionComponent::multiplicity8(),
     ExtensionComponent::multiplicity16(),
     ExtensionComponent::multiplicity32(),
@@ -85,8 +87,8 @@ const BASE_EXTENSIONS: &[ExtensionComponent] = &[
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Proof {
     pub stark_proof: StarkProof<Blake2sMerkleHasher>,
-    pub claimed_sum: Vec<SecureField>,
-    pub log_size: u32,
+    pub claimed_sum: Vec<SecureField>, // one per component
+    pub log_size: Vec<u32>,            // one per component
 }
 
 impl Proof {
@@ -98,8 +100,8 @@ impl Proof {
             log_size,
         } = self;
         stark_proof.size_estimate()
-            + claimed_sum.iter().map(std::mem::size_of_val).sum::<usize>()
-            + std::mem::size_of_val(log_size)
+            + claimed_sum.len() * std::mem::size_of::<SecureField>()
+            + log_size.len() * std::mem::size_of::<u32>()
     }
 }
 
@@ -126,10 +128,8 @@ impl<C: MachineChip + Sync> Machine<C> {
     ) -> Result<Proof, ProvingError> {
         let num_steps = trace.get_num_steps();
         let program_len = view.get_program_memory().program.len();
-        let tracked_ram_size = view.view_tracked_ram_size();
-
-        let log_size = Self::max_log_size(&[num_steps, program_len, tracked_ram_size])
-            .max(PreprocessedTraces::MIN_LOG_SIZE);
+        let log_size =
+            Self::max_log_size(&[num_steps, program_len]).max(PreprocessedTraces::MIN_LOG_SIZE);
 
         let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);
 
@@ -157,13 +157,13 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
-        let program_traces = ProgramTracesBuilder::new(
-            log_size,
-            view.get_program_memory(),
-            view.get_initial_memory(),
-            view.get_exit_code(),
-            view.get_public_output(),
-        );
+        let program_trace_params = ProgramTraceParams {
+            program_memory: view.get_program_memory(),
+            init_memory: view.get_initial_memory(),
+            exit_code: view.get_exit_code(),
+            public_output: view.get_public_output(),
+        };
+        let program_traces = ProgramTracesBuilder::new(log_size, program_trace_params);
         let mut prover_side_note = SideNote::new(&program_traces, view);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -178,6 +178,18 @@ impl<C: MachineChip + Sync> Machine<C> {
         let finalized_trace = prover_traces.finalize();
         let finalized_program_trace = program_traces.finalize();
 
+        let all_log_size: Vec<u32> = std::iter::once(log_size)
+            .chain(
+                extensions_iter
+                    .clone()
+                    .map(|ext| ext.compute_log_size(&prover_side_note)),
+            )
+            .collect();
+
+        all_log_size.iter().for_each(|log_size| {
+            prover_channel.mix_u64(*log_size as u64);
+        });
+
         let mut tree_builder = commitment_scheme.tree_builder();
         let _preprocessed_trace_location = tree_builder.extend_evals(
             preprocessed_trace
@@ -187,8 +199,12 @@ impl<C: MachineChip + Sync> Machine<C> {
                 .chain(finalized_program_trace.clone().into_circle_evaluation()),
         );
         // Handle extensions for the preprocessed trace
-        for ext in extensions_iter.clone() {
-            tree_builder.extend_evals(ext.generate_preprocessed_trace());
+        for (ext, log_size) in extensions_iter
+            .clone()
+            .zip(all_log_size.get(1..).unwrap_or_default())
+        {
+            tree_builder
+                .extend_evals(ext.generate_preprocessed_trace(*log_size, program_trace_params));
         }
         tree_builder.commit(prover_channel);
 
@@ -196,8 +212,12 @@ impl<C: MachineChip + Sync> Machine<C> {
         let _main_trace_location =
             tree_builder.extend_evals(finalized_trace.clone().into_circle_evaluation());
         // Handle extensions for the main trace
-        for ext in extensions_iter.clone() {
-            tree_builder.extend_evals(ext.generate_original_trace(&prover_side_note));
+        for (ext, log_size) in extensions_iter
+            .clone()
+            .zip(all_log_size.get(1..).unwrap_or_default())
+        {
+            tree_builder
+                .extend_evals(ext.generate_original_trace(*log_size, &mut prover_side_note));
         }
         tree_builder.commit(prover_channel);
 
@@ -215,9 +235,16 @@ impl<C: MachineChip + Sync> Machine<C> {
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
         // Handle extensions for the interaction trace
         let mut all_claimed_sum = vec![claimed_sum];
-        for ext in extensions_iter.clone() {
-            let (interaction_trace, claimed_sum) =
-                ext.generate_interaction_trace(&prover_side_note, &lookup_elements);
+        for (ext, log_size) in extensions_iter
+            .clone()
+            .zip(all_log_size.get(1..).unwrap_or_default())
+        {
+            let (interaction_trace, claimed_sum) = ext.generate_interaction_trace(
+                *log_size,
+                program_trace_params,
+                &prover_side_note,
+                &lookup_elements,
+            );
             all_claimed_sum.push(claimed_sum);
             tree_builder.extend_evals(interaction_trace);
         }
@@ -231,8 +258,14 @@ impl<C: MachineChip + Sync> Machine<C> {
         );
         let ext_components: Vec<Box<dyn ComponentProver<SimdBackend>>> = extensions_iter
             .zip(all_claimed_sum.get(1..).unwrap_or_default())
-            .map(|(ext, claimed_sum)| {
-                ext.to_component_prover(tree_span_provider, &lookup_elements, *claimed_sum)
+            .zip(all_log_size.get(1..).unwrap_or_default())
+            .map(|((ext, claimed_sum), log_size)| {
+                ext.to_component_prover(
+                    tree_span_provider,
+                    &lookup_elements,
+                    *log_size,
+                    *claimed_sum,
+                )
             })
             .collect();
         let mut components_ref: Vec<&dyn ComponentProver<SimdBackend>> =
@@ -247,7 +280,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         Ok(Proof {
             stark_proof: proof,
             claimed_sum: all_claimed_sum,
-            log_size,
+            log_size: all_log_size,
         })
     }
 
@@ -282,12 +315,17 @@ impl<C: MachineChip + Sync> Machine<C> {
         let Proof {
             stark_proof: proof,
             claimed_sum,
-            log_size,
+            log_size: all_log_sizes,
         } = proof;
 
         if claimed_sum.len() != extensions.len() + BASE_EXTENSIONS.len() + 1 {
             return Err(VerificationError::InvalidStructure(
                 "claimed sum len mismatch".to_string(),
+            ));
+        }
+        if all_log_sizes.len() != extensions.len() + BASE_EXTENSIONS.len() + 1 {
+            return Err(VerificationError::InvalidStructure(
+                "log size len mismatch".to_string(),
             ));
         }
         if claimed_sum.iter().sum::<SecureField>() != SecureField::zero() {
@@ -302,6 +340,9 @@ impl<C: MachineChip + Sync> Machine<C> {
         for &byte in ad {
             verifier_channel.mix_u64(byte.into());
         }
+        all_log_sizes.iter().for_each(|log_size| {
+            verifier_channel.mix_u64(*log_size as u64);
+        });
 
         let commitment_scheme = &mut CommitmentSchemeVerifier::<Blake2sMerkleChannel>::new(config);
 
@@ -311,7 +352,7 @@ impl<C: MachineChip + Sync> Machine<C> {
             let verifier_channel = &mut verifier_channel.clone();
             let twiddles = SimdBackend::precompute_twiddles(
                 CanonicCoset::new(
-                    log_size + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
+                    all_log_sizes[0] + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
                 )
                 .circle_domain()
                 .half_coset,
@@ -320,15 +361,15 @@ impl<C: MachineChip + Sync> Machine<C> {
                 &mut CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(
                     config, &twiddles,
                 );
-            let preprocessed_trace = PreprocessedTraces::new(log_size);
-            let program_trace = ProgramTracesBuilder::new(
-                log_size,
-                program_info,
+            let preprocessed_trace = PreprocessedTraces::new(all_log_sizes[0]);
+            let program_trace_params = ProgramTraceParams {
+                program_memory: program_info,
                 init_memory,
                 exit_code,
-                output_memory,
-            )
-            .finalize();
+                public_output: output_memory,
+            };
+            let program_trace =
+                ProgramTracesBuilder::new(all_log_sizes[0], program_trace_params).finalize();
 
             let mut tree_builder = commitment_scheme.tree_builder();
             let _preprocessed_trace_location = tree_builder.extend_evals(
@@ -338,8 +379,12 @@ impl<C: MachineChip + Sync> Machine<C> {
                     .chain(program_trace.into_circle_evaluation()),
             );
             // Handle extensions for the preprocessed trace
-            for ext in extensions_iter.clone() {
-                tree_builder.extend_evals(ext.generate_preprocessed_trace());
+            for (ext, log_size) in extensions_iter
+                .clone()
+                .zip(all_log_sizes.get(1..).unwrap_or_default())
+            {
+                tree_builder
+                    .extend_evals(ext.generate_preprocessed_trace(*log_size, program_trace_params));
             }
             tree_builder.commit(verifier_channel);
 
@@ -359,18 +404,24 @@ impl<C: MachineChip + Sync> Machine<C> {
         let mut sizes = vec![components::machine_component_info::<C>()
             .mask_offsets
             .as_cols_ref()
-            .map_cols(|_| log_size)];
-        for ext in extensions_iter.clone() {
-            sizes.push(ext.trace_sizes());
+            .map_cols(|_| all_log_sizes[0])];
+        for (ext, log_size) in extensions_iter
+            .clone()
+            .zip(all_log_sizes.get(1..).unwrap_or_default())
+        {
+            sizes.push(ext.trace_sizes(*log_size));
         }
         let mut log_sizes = TreeVec::concat_cols(sizes.into_iter());
         // use the fact that preprocessed columns are only allowed to have [0] mask
-        log_sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(log_size)
+        log_sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(all_log_sizes[0])
             .take(PreprocessedColumn::COLUMNS_NUM + ProgramColumn::COLUMNS_NUM)
             .collect();
-        for ext in extensions_iter.clone() {
+        for (ext, log_size) in extensions_iter
+            .clone()
+            .zip(all_log_sizes.get(1..).unwrap_or_default())
+        {
             // extending log_sizes[PREPROCESSED_TRACE_IDX] with the dimension of the preprocessed columns
-            log_sizes[PREPROCESSED_TRACE_IDX].extend(ext.preprocessed_trace_sizes());
+            log_sizes[PREPROCESSED_TRACE_IDX].extend(ext.preprocessed_trace_sizes(*log_size));
         }
 
         for idx in [PREPROCESSED_TRACE_IDX, ORIGINAL_TRACE_IDX] {
@@ -383,14 +434,20 @@ impl<C: MachineChip + Sync> Machine<C> {
         let tree_span_provider = &mut TraceLocationAllocator::default();
         let main_component = MachineComponent::new(
             tree_span_provider,
-            MachineEval::<C>::new(log_size, lookup_elements.clone()),
+            MachineEval::<C>::new(all_log_sizes[0], lookup_elements.clone()),
             claimed_sum[0],
         );
 
         let ext_components: Vec<Box<dyn Component>> = extensions_iter
             .zip(claimed_sum.get(1..).unwrap_or_default())
-            .map(|(ext, claimed_sum)| {
-                ext.to_component(tree_span_provider, &lookup_elements, *claimed_sum)
+            .zip(all_log_sizes.get(1..).unwrap_or_default())
+            .map(|((ext, claimed_sum), log_size)| {
+                ext.to_component(
+                    tree_span_provider,
+                    &lookup_elements,
+                    *log_size,
+                    *claimed_sum,
+                )
             })
             .collect();
         let mut components_ref: Vec<&dyn Component> = ext_components.iter().map(|c| &**c).collect();
