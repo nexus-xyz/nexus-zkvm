@@ -457,19 +457,6 @@ pub enum Column {
     #[size = 2]
     PcCarry,
 
-    /// The byte-address of RAM initial & final states. Each row contains information about one byte of initial & final RAM states.
-    #[size = 4]
-    RamInitFinalAddr,
-    /// The flag indicating whether (RamInitFinalAddr, RamFinalValue, RamFinalCounter) represents a byte in the final RAM state.
-    #[size = 1]
-    RamInitFinalFlag,
-    /// The final value of the RAM at address RamInitFinalAddr
-    #[size = 1]
-    RamFinalValue,
-    /// The final access counter value of the RAM at address RamInitFinalAddr
-    #[size = 4]
-    RamFinalCounter,
-
     /// On bit-op rows, the more-significant four bits of each limb of ValueA. On those rows, ValueA4_7[i] contains ValueA[i] >> 4.
     #[size = 4]
     ValueA4_7,
@@ -505,21 +492,6 @@ pub enum ProgramColumn {
     /// The first program counter for finding the first executed instruction
     #[size = 4]
     PrgInitialPc,
-    /// The one-byte content of publicly known initial memory at PublicRamAddr
-    #[size = 1]
-    PublicInitialMemoryValue,
-    /// A flag indicating (PublicRamAddr, PublicInitialMemoryValue) is a byte in the publicly known initial memory
-    #[size = 1]
-    PublicInitialMemoryFlag,
-    /// The one-byte content of public output at PublicRamAddr
-    #[size = 1]
-    PublicOutputValue,
-    /// A flag indicating the row's (PublicRamAddr, PublicOutputValue) is a byte in the public output
-    #[size = 1]
-    PublicOutputFlag,
-    /// The address of initial memory or public output; actually a selective copy of RamInitFinalAddr that the verifier knows
-    #[size = 4]
-    PublicRamAddr,
 }
 
 // proc macro derived:

@@ -1,10 +1,10 @@
 use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode, WORD_SIZE};
-use num_traits::{One, Zero};
+use num_traits::One;
 use stwo_prover::{
     constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
     core::{
         backend::simd::m31::{PackedBaseField, LOG_N_LANES},
-        fields::m31::{self, BaseField},
+        fields::m31::BaseField,
     },
 };
 
@@ -17,11 +17,11 @@ use crate::{
             Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev,
             Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur, Ram4ValPrev,
         },
-        PreprocessedColumn, ProgramColumn,
+        PreprocessedColumn,
     },
     components::AllLookupElements,
     trace::{
-        eval::{preprocessed_trace_eval, program_trace_eval, trace_eval},
+        eval::{preprocessed_trace_eval, trace_eval},
         program_trace::ProgramTraces,
         sidenote::SideNote,
         FinalizedTraces, PreprocessedTraces, ProgramStep, TracesBuilder, Word,
@@ -79,9 +79,150 @@ impl MachineChip for LoadStoreChip {
         vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
     ) {
-        Self::fill_main_trace_step(traces, row_idx, vm_step, side_note);
-        if (row_idx + 1) == traces.num_rows() {
-            Self::fill_main_trace_finish(traces, row_idx, vm_step, side_note);
+        let vm_step = match vm_step {
+            Some(vm_step) => vm_step,
+            None => return,
+        };
+        if !matches!(
+            vm_step.step.instruction.opcode.builtin(),
+            Some(BuiltinOpcode::SB)
+                | Some(BuiltinOpcode::SH)
+                | Some(BuiltinOpcode::SW)
+                | Some(BuiltinOpcode::LB)
+                | Some(BuiltinOpcode::LH)
+                | Some(BuiltinOpcode::LBU)
+                | Some(BuiltinOpcode::LHU)
+                | Some(BuiltinOpcode::LW)
+        ) {
+            return;
+        }
+
+        let is_load = matches!(
+            vm_step.step.instruction.opcode.builtin(),
+            Some(BuiltinOpcode::LB)
+                | Some(BuiltinOpcode::LH)
+                | Some(BuiltinOpcode::LW)
+                | Some(BuiltinOpcode::LBU)
+                | Some(BuiltinOpcode::LHU)
+        );
+
+        let value_a = vm_step.get_value_a();
+        traces.fill_columns(row_idx, value_a, Column::ValueA);
+        let value_b = vm_step.get_value_b();
+        let (offset, effective_bits) = vm_step.get_value_c();
+        assert_eq!(effective_bits, 12);
+        let (ram_base_address, carry_bits) = if is_load {
+            add_with_carries(value_b, offset)
+        } else {
+            add_with_carries(value_a, offset)
+        };
+        traces.fill_columns(row_idx, ram_base_address, Column::RamBaseAddr);
+        let carry_bits = [carry_bits[1], carry_bits[3]];
+        traces.fill_columns(row_idx, carry_bits, Column::CarryFlag);
+        let clk = row_idx as u32 + 1;
+        for memory_record in vm_step.step.memory_records.iter() {
+            assert_eq!(
+                memory_record.get_timestamp(),
+                (row_idx as u32 + 1),
+                "timestamp mismatch"
+            );
+            assert_eq!(memory_record.get_timestamp(), clk, "timestamp mismatch");
+            let byte_address = memory_record.get_address();
+            assert_eq!(
+                byte_address,
+                u32::from_le_bytes(ram_base_address),
+                "address mismatch"
+            );
+
+            let size = memory_record.get_size() as usize;
+
+            if !is_load {
+                assert!(
+                    (memory_record.get_prev_value().unwrap() as usize) < { 1usize } << (size * 8),
+                    "a memory operation contains a too big prev value"
+                );
+            }
+            assert!(
+                (memory_record.get_value() as usize) < { 1usize } << (size * 8),
+                "a memory operation contains a too big value"
+            );
+
+            if is_load {
+                let cur_value_extended = vm_step
+                    .step
+                    .result
+                    .expect("load operation should have a result");
+                match memory_record.get_size() {
+                    MemAccessSize::Byte => {
+                        assert_eq!(cur_value_extended & 0xff, memory_record.get_value() & 0xff);
+                        traces.fill_columns(
+                            row_idx,
+                            (cur_value_extended & 0x7f) as u8,
+                            Column::QtAux,
+                        );
+                    }
+                    MemAccessSize::HalfWord => {
+                        assert_eq!(
+                            cur_value_extended & 0xffff,
+                            memory_record.get_value() & 0xffff
+                        );
+                        traces.fill_columns(
+                            row_idx,
+                            ((cur_value_extended >> 8) & 0x7f) as u8,
+                            Column::QtAux,
+                        );
+                    }
+                    MemAccessSize::Word => {
+                        assert_eq!(cur_value_extended, memory_record.get_value());
+                    }
+                }
+                traces.fill_columns(row_idx, cur_value_extended, Column::ValueA);
+            }
+            let cur_value: Word = memory_record.get_value().to_le_bytes();
+            let prev_value: Word = if is_load {
+                cur_value
+            } else {
+                memory_record
+                    .get_prev_value()
+                    .expect("Store operation should carry a previous value")
+                    .to_le_bytes()
+            };
+
+            for (i, (val_cur, val_prev, ts_prev, ram_ts_prev_aux, helper)) in [
+                (Ram1ValCur, Ram1ValPrev, Ram1TsPrev, Ram1TsPrevAux, Helper1),
+                (Ram2ValCur, Ram2ValPrev, Ram2TsPrev, Ram2TsPrevAux, Helper2),
+                (Ram3ValCur, Ram3ValPrev, Ram3TsPrev, Ram3TsPrevAux, Helper3),
+                (Ram4ValCur, Ram4ValPrev, Ram4TsPrev, Ram4TsPrevAux, Helper4),
+            ]
+            .into_iter()
+            .take(size)
+            .enumerate()
+            {
+                let prev_access = side_note.rw_mem_check.last_access.insert(
+                    byte_address
+                        .checked_add(i as u32)
+                        .expect("memory access range overflowed back to address zero"),
+                    (clk, cur_value[i]),
+                );
+                let (prev_timestamp, prev_val) = prev_access.unwrap_or((0, 0));
+                // If it's LOAD, the vm and the prover need to agree on the previous value
+                if is_load {
+                    assert_eq!(
+                        prev_val,
+                        prev_value[i],
+                        "memory access value mismatch at address 0x{:x}, prev_timestamp = {}",
+                        byte_address.checked_add(i as u32).unwrap(),
+                        prev_timestamp,
+                    );
+                }
+                traces.fill_columns(row_idx, cur_value[i], val_cur);
+                traces.fill_columns(row_idx, prev_val, val_prev);
+                traces.fill_columns(row_idx, prev_timestamp, ts_prev);
+                let (ram_ts_prev_aux_word, helper_word) =
+                    decr_subtract_with_borrow(clk.to_le_bytes(), prev_timestamp.to_le_bytes());
+                traces.fill_columns(row_idx, ram_ts_prev_aux_word, ram_ts_prev_aux);
+                traces.fill_columns(row_idx, helper_word, helper);
+            }
         }
     }
 
@@ -89,7 +230,7 @@ impl MachineChip for LoadStoreChip {
         logup_trace_gen: &mut LogupTraceGenerator,
         original_traces: &FinalizedTraces,
         preprocessed_trace: &PreprocessedTraces,
-        program_traces: &ProgramTraces,
+        _program_traces: &ProgramTraces,
         lookup_element: &AllLookupElements,
     ) {
         let lookup_element: &LoadStoreLookupElements = lookup_element.as_ref();
@@ -102,14 +243,6 @@ impl MachineChip for LoadStoreChip {
         // - `address{0,1,2,3}` is the accessed memory address in four-limbs each containing one byte
         // - `value` is the one-byte value written to or read from the memory.
         // - `counter{0,1,2,3}` is the timestamp of the memory access. In four-limbs each containing one byte.
-
-        // Add initial values to logup sum
-        Self::add_initial_values(
-            original_traces,
-            program_traces,
-            lookup_element,
-            logup_trace_gen,
-        );
 
         // Subtract and add address1 access components from/to logup sum
         // TODO: make it a loop or four calls
@@ -153,9 +286,6 @@ impl MachineChip for LoadStoreChip {
             Ram4ValCur,
             3,
         );
-
-        // Subtract final values from logup sum
-        Self::subtract_final_values(original_traces, lookup_element, logup_trace_gen);
     }
 
     fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
@@ -163,30 +293,6 @@ impl MachineChip for LoadStoreChip {
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &AllLookupElements,
     ) {
-        // Constraints for RAM vs public I/O consistency
-        let [initial_memory_flag] =
-            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryFlag);
-        let [public_output_flag] = program_trace_eval!(trace_eval, ProgramColumn::PublicOutputFlag);
-        let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
-        let public_ram_addr = program_trace_eval!(trace_eval, ProgramColumn::PublicRamAddr);
-        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_1 - public_ram_addr_1) = 0
-        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_2 - public_ram_addr_2) = 0
-        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_3 - public_ram_addr_3) = 0
-        // (initial_memory_flag + public_output_flag) ・(ram_init_final_addr_4 - public_ram_addr_4) = 0
-        for i in 0..WORD_SIZE {
-            eval.add_constraint(
-                (initial_memory_flag.clone() + public_output_flag.clone())
-                    * (ram_init_final_addr[i].clone() - public_ram_addr[i].clone()),
-            );
-        }
-        // public_output_flag ・(ram_final_value - public_output_value) = 0
-        let [ram_final_value] = trace_eval!(trace_eval, Column::RamFinalValue);
-        let [public_output_value] =
-            program_trace_eval!(trace_eval, ProgramColumn::PublicOutputValue);
-        eval.add_constraint(
-            public_output_flag.clone() * (ram_final_value.clone() - public_output_value.clone()),
-        );
-
         // Computing ram1_ts_prev_aux = clk - 1 - ram1_ts_prev
         // Helper1 used for borrow handling
         let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
@@ -510,7 +616,6 @@ impl MachineChip for LoadStoreChip {
 
         let lookup_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
 
-        Self::constrain_add_initial_values(eval, trace_eval, lookup_elements);
         Self::constrain_subtract_add_access::<E, Ram1Accessed>(
             eval,
             trace_eval,
@@ -547,269 +652,10 @@ impl MachineChip for LoadStoreChip {
             Ram4ValCur,
             3,
         );
-        Self::constrain_final_values(eval, trace_eval, lookup_elements);
     }
 }
 
 impl LoadStoreChip {
-    fn fill_main_trace_step(
-        traces: &mut TracesBuilder,
-        row_idx: usize,
-        vm_step: &Option<ProgramStep>,
-        side_note: &mut SideNote,
-    ) {
-        let vm_step = match vm_step {
-            Some(vm_step) => vm_step,
-            None => return,
-        };
-        if !matches!(
-            vm_step.step.instruction.opcode.builtin(),
-            Some(BuiltinOpcode::SB)
-                | Some(BuiltinOpcode::SH)
-                | Some(BuiltinOpcode::SW)
-                | Some(BuiltinOpcode::LB)
-                | Some(BuiltinOpcode::LH)
-                | Some(BuiltinOpcode::LBU)
-                | Some(BuiltinOpcode::LHU)
-                | Some(BuiltinOpcode::LW)
-        ) {
-            return;
-        }
-
-        let is_load = matches!(
-            vm_step.step.instruction.opcode.builtin(),
-            Some(BuiltinOpcode::LB)
-                | Some(BuiltinOpcode::LH)
-                | Some(BuiltinOpcode::LW)
-                | Some(BuiltinOpcode::LBU)
-                | Some(BuiltinOpcode::LHU)
-        );
-
-        let value_a = vm_step.get_value_a();
-        traces.fill_columns(row_idx, value_a, Column::ValueA);
-        let value_b = vm_step.get_value_b();
-        let (offset, effective_bits) = vm_step.get_value_c();
-        assert_eq!(effective_bits, 12);
-        let (ram_base_address, carry_bits) = if is_load {
-            add_with_carries(value_b, offset)
-        } else {
-            add_with_carries(value_a, offset)
-        };
-        traces.fill_columns(row_idx, ram_base_address, Column::RamBaseAddr);
-        let carry_bits = [carry_bits[1], carry_bits[3]];
-        traces.fill_columns(row_idx, carry_bits, Column::CarryFlag);
-        let clk = row_idx as u32 + 1;
-        for memory_record in vm_step.step.memory_records.iter() {
-            assert_eq!(
-                memory_record.get_timestamp(),
-                (row_idx as u32 + 1),
-                "timestamp mismatch"
-            );
-            assert_eq!(memory_record.get_timestamp(), clk, "timestamp mismatch");
-            let byte_address = memory_record.get_address();
-            assert_eq!(
-                byte_address,
-                u32::from_le_bytes(ram_base_address),
-                "address mismatch"
-            );
-
-            let size = memory_record.get_size() as usize;
-
-            if !is_load {
-                assert!(
-                    (memory_record.get_prev_value().unwrap() as usize) < { 1usize } << (size * 8),
-                    "a memory operation contains a too big prev value"
-                );
-            }
-            assert!(
-                (memory_record.get_value() as usize) < { 1usize } << (size * 8),
-                "a memory operation contains a too big value"
-            );
-
-            if is_load {
-                let cur_value_extended = vm_step
-                    .step
-                    .result
-                    .expect("load operation should have a result");
-                match memory_record.get_size() {
-                    MemAccessSize::Byte => {
-                        assert_eq!(cur_value_extended & 0xff, memory_record.get_value() & 0xff);
-                        traces.fill_columns(
-                            row_idx,
-                            (cur_value_extended & 0x7f) as u8,
-                            Column::QtAux,
-                        );
-                    }
-                    MemAccessSize::HalfWord => {
-                        assert_eq!(
-                            cur_value_extended & 0xffff,
-                            memory_record.get_value() & 0xffff
-                        );
-                        traces.fill_columns(
-                            row_idx,
-                            ((cur_value_extended >> 8) & 0x7f) as u8,
-                            Column::QtAux,
-                        );
-                    }
-                    MemAccessSize::Word => {
-                        assert_eq!(cur_value_extended, memory_record.get_value());
-                    }
-                }
-                traces.fill_columns(row_idx, cur_value_extended, Column::ValueA);
-            }
-            let cur_value: Word = memory_record.get_value().to_le_bytes();
-            let prev_value: Word = if is_load {
-                cur_value
-            } else {
-                memory_record
-                    .get_prev_value()
-                    .expect("Store operation should carry a previous value")
-                    .to_le_bytes()
-            };
-
-            for (i, (val_cur, val_prev, ts_prev, ram_ts_prev_aux, helper)) in [
-                (Ram1ValCur, Ram1ValPrev, Ram1TsPrev, Ram1TsPrevAux, Helper1),
-                (Ram2ValCur, Ram2ValPrev, Ram2TsPrev, Ram2TsPrevAux, Helper2),
-                (Ram3ValCur, Ram3ValPrev, Ram3TsPrev, Ram3TsPrevAux, Helper3),
-                (Ram4ValCur, Ram4ValPrev, Ram4TsPrev, Ram4TsPrevAux, Helper4),
-            ]
-            .into_iter()
-            .take(size)
-            .enumerate()
-            {
-                let prev_access = side_note.rw_mem_check.last_access.insert(
-                    byte_address
-                        .checked_add(i as u32)
-                        .expect("memory access range overflowed back to address zero"),
-                    (clk, cur_value[i]),
-                );
-                let (prev_timestamp, prev_val) = prev_access.unwrap_or((0, 0));
-                // If it's LOAD, the vm and the prover need to agree on the previous value
-                if is_load {
-                    assert_eq!(
-                        prev_val,
-                        prev_value[i],
-                        "memory access value mismatch at address 0x{:x}, prev_timestamp = {}",
-                        byte_address.checked_add(i as u32).unwrap(),
-                        prev_timestamp,
-                    );
-                }
-                traces.fill_columns(row_idx, cur_value[i], val_cur);
-                traces.fill_columns(row_idx, prev_val, val_prev);
-                traces.fill_columns(row_idx, prev_timestamp, ts_prev);
-                let (ram_ts_prev_aux_word, helper_word) =
-                    decr_subtract_with_borrow(clk.to_le_bytes(), prev_timestamp.to_le_bytes());
-                traces.fill_columns(row_idx, ram_ts_prev_aux_word, ram_ts_prev_aux);
-                traces.fill_columns(row_idx, helper_word, helper);
-            }
-        }
-    }
-    /// fill in trace elements for initial and final states of the touched addresses
-    ///
-    /// Only to be called on the last row after the usual trace filling.
-    fn fill_main_trace_finish(
-        traces: &mut TracesBuilder,
-        row_idx: usize,
-        _vm_step: &Option<ProgramStep>,
-        side_note: &mut SideNote,
-    ) {
-        assert_eq!(row_idx + 1, traces.num_rows());
-
-        // side_note.rw_mem_check.last_access contains the last access time and value for every address under RW memory checking
-        for (row_idx, (address, (last_access, last_value))) in
-            side_note.rw_mem_check.last_access.iter().enumerate()
-        {
-            traces.fill_columns(row_idx, *address, Column::RamInitFinalAddr);
-            traces.fill_columns(row_idx, true, Column::RamInitFinalFlag);
-            assert!(
-                *last_access < m31::P,
-                "Access counter overflowed BaseField, redesign needed"
-            );
-            traces.fill_columns(row_idx, *last_access, Column::RamFinalCounter);
-            traces.fill_columns(row_idx, *last_value, Column::RamFinalValue);
-
-            // remove public output entry if it exists
-            if let Some(out_value) = side_note.rw_mem_check.public_output.remove(address) {
-                assert_eq!(out_value, *last_value, "program output mismatch, expected {out_value} at addr {address}, got {last_value}");
-            }
-        }
-        if !side_note.rw_mem_check.public_output.is_empty() {
-            panic!(
-                "public output memory wasn't written by the prover {:?}",
-                side_note.rw_mem_check.public_output
-            )
-        }
-    }
-
-    /// Fills the interaction trace for adding the initial content of the RW memory.
-    ///
-    /// - `RamInitFinalFlag` indicates whether a row should contain an initial byte of the RW memory.
-    /// - `RamInitFinalAddr` contains the address of the RW memory
-    /// - `InitialMemoryFlag` indicates whether a row should contain a byte of the publicly known initial RW memory, flag being zero means the initial value is zero.
-    /// - `InitialMemoryValue` contains the initial value of the RW memory, used if `InitialMemoryFlag` is true.
-    ///
-    /// The counter of the initial value is always zero.
-    fn add_initial_values(
-        original_traces: &FinalizedTraces,
-        program_traces: &ProgramTraces,
-        lookup_element: &LoadStoreLookupElements,
-        logup_trace_gen: &mut LogupTraceGenerator,
-    ) {
-        let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
-        let ram_init_final_addr =
-            original_traces.get_base_column::<WORD_SIZE>(Column::RamInitFinalAddr);
-        let [initial_memory_flag] =
-            program_traces.get_base_column(ProgramColumn::PublicInitialMemoryFlag);
-        let [initial_memory_value] =
-            program_traces.get_base_column(ProgramColumn::PublicInitialMemoryValue);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        // Add (address, value, 0)
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let mut tuple = vec![];
-            for address_byte in ram_init_final_addr.iter() {
-                tuple.push(address_byte.data[vec_row]);
-            }
-            tuple.push(initial_memory_flag.data[vec_row] * initial_memory_value.data[vec_row]); // Is this too much degree?
-                                                                                                // The counter is zero
-            tuple.extend_from_slice(&[PackedBaseField::zero(); WORD_SIZE]);
-            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-            let denom = lookup_element.combine(&tuple);
-            let numerator = ram_init_final_flag.data[vec_row];
-            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
-        }
-        logup_col_gen.finalize_col();
-    }
-
-    fn constrain_add_initial_values<E: EvalAtRow>(
-        eval: &mut E,
-        trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &LoadStoreLookupElements,
-    ) {
-        let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
-        let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
-        let [initial_memory_flag] =
-            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryFlag);
-        let [initial_memory_value] =
-            program_trace_eval!(trace_eval, ProgramColumn::PublicInitialMemoryValue);
-        let mut tuple = vec![];
-        for address_byte in ram_init_final_addr.iter() {
-            tuple.push(address_byte.clone());
-        }
-        tuple.push(initial_memory_flag * initial_memory_value); // Is this too much degree?
-                                                                // The counter is zero
-        for _ in 0..WORD_SIZE {
-            tuple.extend_from_slice(&[E::F::zero()]);
-        }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-        let numerator = ram_init_final_flag;
-
-        eval.add_to_relation(RelationEntry::new(
-            lookup_elements,
-            numerator.into(),
-            &tuple,
-        ));
-    }
-
     fn subtract_add_access<Accessed: VirtualColumn<1>>(
         original_traces: &FinalizedTraces,
         preprocessed_traces: &PreprocessedTraces,
@@ -996,70 +842,6 @@ impl LoadStoreChip {
         assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
 
         eval.add_to_relation(RelationEntry::new(lookup_elements, accessed.into(), &tuple));
-    }
-
-    /// Fills the interaction trace for subtracting the final content of the RW memory.
-    ///
-    /// - `RamInitFinalFlag` indicates whether a row should contain an final byte of the RW memory.
-    /// - `RamInitFinalAddr` contains the address of the RW memory
-    /// - `RamFinalValue` contains the final value of the RW memory, used if `RamInitFinalFlag` is true.
-    /// - `RamFinalCounter` contains the final counter value of the RW memory at `RamInitFinalAddr`.
-    ///
-    /// The public output related columns do not appear here because they are constrained to use `RamFinalValue`.
-    fn subtract_final_values(
-        original_traces: &FinalizedTraces,
-        lookup_elements: &LoadStoreLookupElements,
-        logup_trace_gen: &mut LogupTraceGenerator,
-    ) {
-        let [ram_init_final_flag] = original_traces.get_base_column(Column::RamInitFinalFlag);
-        let ram_init_final_addr =
-            original_traces.get_base_column::<WORD_SIZE>(Column::RamInitFinalAddr);
-        let [ram_final_value] = original_traces.get_base_column(Column::RamFinalValue);
-        let ram_final_counter =
-            original_traces.get_base_column::<WORD_SIZE>(Column::RamFinalCounter);
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
-            let mut tuple = vec![];
-            for address_byte in ram_init_final_addr.iter() {
-                tuple.push(address_byte.data[vec_row]);
-            }
-            tuple.push(ram_final_value.data[vec_row]);
-            for counter_byte in ram_final_counter.iter() {
-                tuple.push(counter_byte.data[vec_row]);
-            }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-            let denom = lookup_elements.combine(&tuple);
-            let numerator = ram_init_final_flag.data[vec_row];
-            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
-        }
-        logup_col_gen.finalize_col();
-    }
-
-    fn constrain_final_values<E: EvalAtRow>(
-        eval: &mut E,
-        trace_eval: &crate::trace::eval::TraceEval<E>,
-        lookup_elements: &LoadStoreLookupElements,
-    ) {
-        let [ram_init_final_flag] = trace_eval!(trace_eval, Column::RamInitFinalFlag);
-        let ram_init_final_addr = trace_eval!(trace_eval, Column::RamInitFinalAddr);
-        let [ram_final_value] = trace_eval!(trace_eval, Column::RamFinalValue);
-        let ram_final_counter = trace_eval!(trace_eval, Column::RamFinalCounter);
-        let mut tuple = vec![];
-        for address_byte in ram_init_final_addr.iter() {
-            tuple.push(address_byte.clone());
-        }
-        tuple.push(ram_final_value);
-        for counter_byte in ram_final_counter.iter() {
-            tuple.push(counter_byte.clone());
-        }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
-        let numerator = ram_init_final_flag;
-
-        eval.add_to_relation(RelationEntry::new(
-            lookup_elements,
-            (-numerator).into(),
-            &tuple,
-        ));
     }
 }
 

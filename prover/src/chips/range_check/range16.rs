@@ -295,10 +295,10 @@ mod test {
     use crate::extensions::ExtensionComponent;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
 
-    use crate::trace::program_trace::ProgramTracesBuilder;
+    use crate::trace::program_trace::{ProgramTraceParams, ProgramTracesBuilder};
     use crate::traits::MachineChip;
 
-    use nexus_vm::emulator::{Emulator, HarvardEmulator};
+    use nexus_vm::emulator::{Emulator, HarvardEmulator, ProgramInfo};
 
     use stwo_prover::core::fields::qm31::SecureField;
 
@@ -372,7 +372,14 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
-        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let program_info = ProgramInfo::dummy();
+        let program_trace_params = ProgramTraceParams {
+            program_memory: &program_info,
+            init_memory: Default::default(),
+            exit_code: Default::default(),
+            public_output: Default::default(),
+        };
+        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_params);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         let mut program_step = ProgramStep::default();
         program_step.step.instruction.ins_type = InstructionType::RType;
@@ -401,7 +408,12 @@ mod test {
 
         // verify that logup sums don't match
         let ext = ExtensionComponent::multiplicity16();
-        let (_, claimed_sum_2) = ext.generate_interaction_trace(&side_note, &lookup_elements);
+        let (_, claimed_sum_2) = ext.generate_interaction_trace(
+            16u32.trailing_zeros(),
+            program_trace_params,
+            &side_note,
+            &lookup_elements,
+        );
         assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
     }
 }

@@ -428,6 +428,7 @@ fn fill_prev_values(
 mod test {
     use super::RegisterMemCheckChip;
     use nexus_vm::{
+        emulator::ProgramInfo,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
@@ -436,11 +437,12 @@ mod test {
 
     use crate::{
         chips::{AddChip, CpuChip},
-        extensions::ExtensionComponent,
+        extensions::{final_reg::FinalRegEval, ExtensionComponent},
         test_utils::assert_chip,
         trace::{
-            program::iter_program_steps, program_trace::ProgramTracesBuilder, PreprocessedTraces,
-            TracesBuilder,
+            program::iter_program_steps,
+            program_trace::{ProgramTraceParams, ProgramTracesBuilder},
+            PreprocessedTraces, TracesBuilder,
         },
         traits::MachineChip,
     };
@@ -496,7 +498,14 @@ mod test {
         const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_traces = ProgramTracesBuilder::dummy(LOG_SIZE);
+        let program_info = ProgramInfo::dummy();
+        let program_trace_params = ProgramTraceParams {
+            program_memory: &program_info,
+            init_memory: Default::default(),
+            exit_code: Default::default(),
+            public_output: Default::default(),
+        };
+        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_params);
         let mut side_note = super::SideNote::new(&program_traces, &view);
 
         // We iterate each block in the trace for each instruction
@@ -517,7 +526,12 @@ mod test {
 
         // verify that logup sums match
         let ext = ExtensionComponent::final_reg();
-        let (_, claimed_sum_2) = ext.generate_interaction_trace(&side_note, &lookup_elements);
+        let (_, claimed_sum_2) = ext.generate_interaction_trace(
+            FinalRegEval::LOG_SIZE,
+            program_trace_params,
+            &side_note,
+            &lookup_elements,
+        );
         assert_eq!(claimed_sum_1 + claimed_sum_2, SecureField::zero());
     }
 }
