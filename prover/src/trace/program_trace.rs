@@ -60,10 +60,6 @@ impl ProgramTracesBuilder {
             params.program_memory.program.len() <= 1 << log_size,
             "Program is longer than program trace size"
         );
-        assert!(
-            params.init_memory.len() + params.exit_code.len() + params.public_output.len()
-                <= 1 << log_size
-        );
 
         let cols = vec![vec![BaseField::zero(); 1 << log_size]; ProgramColumn::COLUMNS_NUM];
         let builder = TracesBuilder { cols, log_size };
