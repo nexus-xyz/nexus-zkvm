@@ -10,6 +10,7 @@ use stwo_prover::{
         backend::simd::{
             column::BaseColumn,
             m31::{PackedBaseField, PackedM31, LOG_N_LANES},
+            qm31::PackedSecureField,
             SimdBackend,
         },
         fields::{m31::BaseField, qm31::SecureField},
@@ -108,7 +109,7 @@ impl FrameworkEval for FinalRegEval {
             &tuple,
         ));
 
-        eval.finalize_logup();
+        eval.finalize_logup_in_pairs();
 
         eval
     }
@@ -183,34 +184,32 @@ impl BuiltInExtension for FinalReg {
         let row_idx = &Self::preprocessed_base_columns()[0];
         let base_cols = Self::base_columns(side_note);
 
-        // Adding the initial register memory state
+        // Adding the initial register memory state and subtracting the final register memory state
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (FinalRegEval::LOG_SIZE - LOG_N_LANES)) {
             let row_idx = row_idx.data[vec_row];
             let mut tuple: [PackedM31; FinalRegEval::TUPLE_SIZE] =
                 [BaseField::zero().into(); FinalRegEval::TUPLE_SIZE]; // reg_idx, cur_timestamp, cur_value
             tuple[0] = row_idx; // Use row_idx as register index
-            let denom = lookup_element.combine(tuple.as_slice());
-            let numerator = PackedBaseField::broadcast(BaseField::one());
-            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
-        }
-        logup_col_gen.finalize_col();
+            let denom_a: PackedSecureField = lookup_element.combine(tuple.as_slice());
+            let numerator_a: PackedSecureField =
+                PackedBaseField::broadcast(BaseField::one()).into();
 
-        // Subtracting the final register memory state
-        let mut logup_col_gen = logup_trace_gen.new_col();
-        for vec_row in 0..(1 << (FinalRegEval::LOG_SIZE - LOG_N_LANES)) {
-            let row_idx = row_idx.data[vec_row];
             let mut tuple = vec![row_idx];
             for col in base_cols.iter() {
                 tuple.push(col.data[vec_row]);
             }
             assert_eq!(tuple.len(), FinalRegEval::TUPLE_SIZE);
-            let denom = lookup_element.combine(tuple.as_slice());
-            let numerator = PackedBaseField::broadcast(-BaseField::one());
-            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+            let denom_b: PackedSecureField = lookup_element.combine(tuple.as_slice());
+            let numerator_b: PackedSecureField =
+                PackedBaseField::broadcast(-BaseField::one()).into();
+            logup_col_gen.write_frac(
+                vec_row,
+                numerator_a * denom_b + numerator_b * denom_a,
+                denom_a * denom_b,
+            );
         }
         logup_col_gen.finalize_col();
-
         logup_trace_gen.finalize_last()
     }
 }
