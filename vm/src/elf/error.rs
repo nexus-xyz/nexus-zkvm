@@ -132,5 +132,6 @@ pub enum ParserError {
     InvalidOffsetInFile,
 }
 
-/// Result type for VM functions that can produce errors
-pub type Result<T, E = ParserError> = std::result::Result<T, E>;
+/// Result type for ELF parsing and loading operations that can produce errors.
+/// This is a specialized version of `std::result::Result` for ELF-related operations.
+pub type ElfResult<T, E = ParserError> = std::result::Result<T, E>;

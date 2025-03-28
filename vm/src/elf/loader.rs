@@ -26,10 +26,10 @@
 //! # Usage
 //!
 //! ```rust
-//! use nexus_vm::elf::ElfFile;
+//! use nexus_vm::elf::{ElfFile, error::ElfResult};
 //!
 //! // Load from raw bytes
-//! fn load_elf(elf_data: &[u8]) -> Result<ElfFile, Box<dyn std::error::Error>> {
+//! fn load_elf(elf_data: &[u8]) -> ElfResult<ElfFile> {
 //!     let elf_file = ElfFile::from_bytes(elf_data)?;
 //!     Ok(elf_file)
 //! }
@@ -50,7 +50,7 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::Path;
 
-use super::error::ParserError;
+use super::error::{ParserError, ElfResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -97,7 +97,7 @@ impl ElfFile {
         &self.instructions[address..address + n]
     }
 
-    pub fn from_bytes(data: &[u8]) -> Result<Self, ParserError> {
+    pub fn from_bytes(data: &[u8]) -> ElfResult<Self> {
         let elf = ElfBytes::<LittleEndian>::minimal_parse(data).map_err(ParserError::ELFError)?;
 
         parser::validate_elf_header(&elf.ehdr)?;
@@ -120,7 +120,7 @@ impl ElfFile {
         })
     }
 
-    pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, ParserError> {
+    pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> ElfResult<Self> {
         let file = File::open(path)?;
         let data: Vec<u8> = std::io::Read::bytes(file)
             .map(|b| b.expect("Failed to read byte"))
