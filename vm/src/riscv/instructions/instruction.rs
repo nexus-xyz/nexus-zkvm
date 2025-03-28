@@ -5,9 +5,9 @@
 //! various RISC-V instruction formats.
 //!
 //! References:
-//! - <https://github.com/riscv/riscv-opcodes/blob/master/rv32_i>
-//! - <https://github.com/riscv/riscv-opcodes/blob/master/rv_i>
-//! - <https://github.com/riscv/riscv-opcodes/blob/master/rv_m>
+//! - <https://github.com/riscv/riscv-opcodes/blob/master/extensions/rv32_i>
+//! - <https://github.com/riscv/riscv-opcodes/blob/master/extensions/rv_i>
+//! - <https://github.com/riscv/riscv-opcodes/blob/master/extensions/rv_m>
 
 use crate::riscv::instructions::macros::{
     impl_b_type_instructions, impl_i_type_instructions, impl_i_type_shamt_instructions,

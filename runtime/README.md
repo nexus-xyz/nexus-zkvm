@@ -68,7 +68,7 @@ function directly. The fourth line brings the nexux-rt
 `main` function as the starting point of the program.
 
 To see more, such as how to introduce program i/o, precompiles,
-and native compilation support, check out our [documentation](docs.nexus.xyz).
+and native compilation support, check out our [documentation](https://docs.nexus.xyz/zkvm/index).
 
 ## Crate Overview
 #### Execution flow
