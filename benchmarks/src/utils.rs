@@ -178,6 +178,14 @@ pub fn phase_start() -> (std::time::Instant, rusage, rusage) {
     )
 }
 
+/// Calculate total CPU time (user + system) from a rusage struct
+fn calculate_cpu_time(usage: &rusage) -> f64 {
+    usage.ru_utime.tv_sec as f64
+        + usage.ru_utime.tv_usec as f64 / 1_000_000.0
+        + usage.ru_stime.tv_sec as f64
+        + usage.ru_stime.tv_usec as f64 / 1_000_000.0
+}
+
 /// End measuring a phase and return duration and metrics.
 pub fn phase_end(
     start_time: std::time::Instant,
@@ -191,29 +199,8 @@ pub fn phase_end(
         getrusage(RUSAGE_CHILDREN, &mut final_children_usage);
     };
 
-    let initial_cpu_time = {
-        let self_time = initial_self_usage.ru_utime.tv_sec as f64
-            + initial_self_usage.ru_utime.tv_usec as f64 / 1_000_000.0
-            + initial_self_usage.ru_stime.tv_sec as f64
-            + initial_self_usage.ru_stime.tv_usec as f64 / 1_000_000.0;
-        let children_time = initial_children_usage.ru_utime.tv_sec as f64
-            + initial_children_usage.ru_utime.tv_usec as f64 / 1_000_000.0
-            + initial_children_usage.ru_stime.tv_sec as f64
-            + initial_children_usage.ru_stime.tv_usec as f64 / 1_000_000.0;
-        self_time + children_time
-    };
-
-    let final_cpu_time = {
-        let self_time = final_self_usage.ru_utime.tv_sec as f64
-            + final_self_usage.ru_utime.tv_usec as f64 / 1_000_000.0
-            + final_self_usage.ru_stime.tv_sec as f64
-            + final_self_usage.ru_stime.tv_usec as f64 / 1_000_000.0;
-        let children_time = final_children_usage.ru_utime.tv_sec as f64
-            + final_children_usage.ru_utime.tv_usec as f64 / 1_000_000.0
-            + final_children_usage.ru_stime.tv_sec as f64
-            + final_children_usage.ru_stime.tv_usec as f64 / 1_000_000.0;
-        self_time + children_time
-    };
+    let initial_cpu_time = calculate_cpu_time(&initial_self_usage) + calculate_cpu_time(&initial_children_usage);
+    let final_cpu_time = calculate_cpu_time(&final_self_usage) + calculate_cpu_time(&final_children_usage);
 
     let total_cpu_time = final_cpu_time - initial_cpu_time;
     let duration = start_time.elapsed();
