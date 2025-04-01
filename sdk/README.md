@@ -162,4 +162,4 @@ To review the code used in the legacy mode, it corresponds to the [Nexus zkVM v0
 
 ## Learn More
 
-See our zkVM documentation, including guides and walkthroughs, at [docs.nexus.xyz](https://docs.nexus.xyz/zkvm/index). Our SDK package documentation can be viewed at [sdk-docs.nexus.xyz](https://sdk-docs.nexus.xyz).
+See our zkVM documentation, including guides and walkthroughs, at [docs.nexus.xyz](https://docs.nexus.xyz/zkvm/index). Our SDK package documentation can be viewed at [sdk-docs.nexus.xyz](https://sdk-docs.nexus.xyz/doc/nexus_sdk/index.html).
