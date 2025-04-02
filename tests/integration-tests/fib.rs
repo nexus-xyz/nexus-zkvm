@@ -14,7 +14,7 @@ fn main(n: u32) -> u32 {
     let mut a = 0u32;
     let mut b = 1u32;
 
-    for _ in 2..=n {
+    for _ in 2..n {
         // Check for potential overflow before addition
         if let Some(c) = a.checked_add(b) {
             a = b;
