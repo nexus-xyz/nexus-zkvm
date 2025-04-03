@@ -90,7 +90,7 @@ impl CheckedView for nexus_core::nvm::View {
         );
 
         let static_memory_size =
-            (&expected_elf.rom_image.len() + &expected_elf.ram_image.len()) * WORD_SIZE;
+            (expected_elf.rom_image.len() + expected_elf.ram_image.len()) * WORD_SIZE;
 
         Self::new(
             &Some(*memory_layout),
