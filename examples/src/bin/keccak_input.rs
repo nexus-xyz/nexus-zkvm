@@ -148,8 +148,7 @@ fn ethash_final(c: &mut Sha3) -> Vec<u8> {
 fn ethash(bytes: &[u8]) -> Vec<u8> {
     let mut c = sha3_init(32);
     sha3_update(&mut c, bytes);
-    let v = ethash_final(&mut c);
-    v
+    ethash_final(&mut c)
 }
 
 #[cfg(not(target_arch = "riscv32"))]
