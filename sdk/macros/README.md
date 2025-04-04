@@ -32,7 +32,7 @@ To use `#[profile]` macro in SDK, one must import the profiler dependency:
 
 ```toml
 [dependencies]
-nexus-profiler = { git = "https://github.com/nexus-xyz/nexus-zkvm/macro/profiler" }
+nexus-profiler = { git = "https://github.com/nexus-xyz/nexus-zkvm/tree/main/sdk/macros/profiler" }
 ```
 
 ```rust
