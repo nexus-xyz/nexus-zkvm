@@ -31,7 +31,7 @@ pub fn main(_args: TokenStream, input: TokenStream) -> Result<TokenStream, Error
     }
     if !func.sig.inputs.is_empty() {
         return Err(Error::new_spanned(
-            &fn_sig.inputs,
+            &func.sig.inputs,
             "`main` function arguments must each have an associated input handler",
         ));
     }
@@ -43,7 +43,7 @@ pub fn main(_args: TokenStream, input: TokenStream) -> Result<TokenStream, Error
     }
 
     Ok(quote! {
-        const _: fn() = main;
+        const _: fn() = ::std::main;
 
         #[cfg_attr(target_arch = "riscv32", no_mangle)]
         #[allow(unused)]
