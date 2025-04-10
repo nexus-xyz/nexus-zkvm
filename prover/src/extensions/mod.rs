@@ -31,19 +31,23 @@ use stwo_prover::{
 
 use crate::{
     components::AllLookupElements,
-    trace::{program_trace::ProgramTraceParams, sidenote::SideNote},
+    trace::{program_trace::ProgramTraceRef, sidenote::SideNote},
 };
 
 pub(crate) mod bit_op;
 pub(crate) mod final_reg;
 
+mod multiplicity;
+mod multiplicity8;
+mod ram_init_final;
+mod trace;
+
+pub(crate) use trace::ComponentTrace;
+
 use bit_op::BitOpMultiplicity;
 use final_reg::FinalReg;
-mod multiplicity;
 use multiplicity::{Multiplicity128, Multiplicity16, Multiplicity256, Multiplicity32};
-mod multiplicity8;
 use multiplicity8::Multiplicity8;
-mod ram_init_final;
 
 trait FrameworkEvalExt: FrameworkEval + Sync + 'static {
     fn new(log_size: u32, lookup_elements: &AllLookupElements) -> Self;
@@ -55,17 +59,17 @@ trait BuiltInExtension {
 
     fn generate_preprocessed_trace(
         log_size: u32,
-        program_trace_params: ProgramTraceParams,
+        program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>;
 
-    fn generate_original_trace(
+    fn generate_component_trace(
         log_size: u32,
+        program_trace_ref: ProgramTraceRef,
         side_note: &mut SideNote,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>;
+    ) -> ComponentTrace;
 
     fn generate_interaction_trace(
-        log_size: u32,
-        program_trace_params: ProgramTraceParams,
+        component_trace: ComponentTrace,
         side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
@@ -182,27 +186,27 @@ macro_rules! extension_dispatch {
             pub(crate) fn generate_preprocessed_trace(
                 &self,
                 log_size: u32,
-                program_trace_params: ProgramTraceParams,
+                program_trace_ref: ProgramTraceRef,
             ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_preprocessed_trace(log_size, program_trace_params), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_preprocessed_trace(log_size, program_trace_ref), )*
                 }
             }
 
-            pub(crate) fn generate_original_trace(
+            pub(crate) fn generate_component_trace(
                 &self,
                 log_size: u32,
+                program_trace_ref: ProgramTraceRef,
                 side_note: &mut SideNote,
-            ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
+            ) -> ComponentTrace {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_original_trace(log_size, side_note), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_component_trace(log_size, program_trace_ref, side_note), )*
                 }
             }
 
             pub(crate) fn generate_interaction_trace(
                 &self,
-                log_size: u32,
-                program_trace_params: ProgramTraceParams,
+                component_trace: ComponentTrace,
                 side_note: &SideNote,
                 lookup_elements: &AllLookupElements,
             ) -> (
@@ -210,7 +214,7 @@ macro_rules! extension_dispatch {
                 SecureField,
             ) {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_interaction_trace(log_size, program_trace_params, side_note, lookup_elements), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_interaction_trace(component_trace, side_note, lookup_elements), )*
                 }
             }
 

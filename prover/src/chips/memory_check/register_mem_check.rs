@@ -441,7 +441,7 @@ mod test {
         test_utils::assert_chip,
         trace::{
             program::iter_program_steps,
-            program_trace::{ProgramTraceParams, ProgramTracesBuilder},
+            program_trace::{ProgramTraceRef, ProgramTracesBuilder},
             PreprocessedTraces, TracesBuilder,
         },
         traits::MachineChip,
@@ -499,13 +499,13 @@ mod test {
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
         let program_info = ProgramInfo::dummy();
-        let program_trace_params = ProgramTraceParams {
+        let program_trace_ref = ProgramTraceRef {
             program_memory: &program_info,
             init_memory: Default::default(),
             exit_code: Default::default(),
             public_output: Default::default(),
         };
-        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_params);
+        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_ref);
         let mut side_note = super::SideNote::new(&program_traces, &view);
 
         // We iterate each block in the trace for each instruction
@@ -526,12 +526,10 @@ mod test {
 
         // verify that logup sums match
         let ext = ExtensionComponent::final_reg();
-        let (_, claimed_sum_2) = ext.generate_interaction_trace(
-            FinalRegEval::LOG_SIZE,
-            program_trace_params,
-            &side_note,
-            &lookup_elements,
-        );
+        let component_trace =
+            ext.generate_component_trace(FinalRegEval::LOG_SIZE, program_trace_ref, &mut side_note);
+        let (_, claimed_sum_2) =
+            ext.generate_interaction_trace(component_trace, &side_note, &lookup_elements);
         assert_eq!(claimed_sum_1 + claimed_sum_2, SecureField::zero());
     }
 }

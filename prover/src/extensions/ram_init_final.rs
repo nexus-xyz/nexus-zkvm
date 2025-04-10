@@ -27,10 +27,10 @@ use crate::{
         range_check::range256::Range256LookupElements,
     },
     components::AllLookupElements,
-    trace::{program_trace::ProgramTraceParams, sidenote::SideNote, utils::IntoBaseFields},
+    trace::{program_trace::ProgramTraceRef, sidenote::SideNote, utils::IntoBaseFields},
 };
 
-use super::{BuiltInExtension, FrameworkEvalExt};
+use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// An extension component for initial write set and final read set of the RAM memory checking
 #[derive(Debug, Clone)]
@@ -239,12 +239,38 @@ impl RamInitFinalEval {
 impl BuiltInExtension for RamInitFinal {
     type Eval = RamInitFinalEval;
 
+    fn generate_component_trace(
+        log_size: u32,
+        program_trace_ref: ProgramTraceRef,
+        side_note: &mut SideNote,
+    ) -> ComponentTrace {
+        let preprocessed_cols = Self::preprocessed_columns(log_size, program_trace_ref);
+        let original_cols = Self::original_columns(log_size, side_note);
+        // update multiplicity for init_final_addr
+        for col in &original_cols[0..WORD_SIZE] {
+            Self::update_range256_multiplicities(col, side_note);
+        }
+        // update multiplicity for final_value
+        let final_value_col = &original_cols[WORD_SIZE + 1];
+        Self::update_range256_multiplicities(final_value_col, side_note);
+        // update multiplicity for final_counter
+        for col in &original_cols[WORD_SIZE + 2..WORD_SIZE + 2 + WORD_SIZE] {
+            Self::update_range256_multiplicities(col, side_note);
+        }
+
+        ComponentTrace {
+            log_size,
+            preprocessed_trace: preprocessed_cols,
+            original_trace: original_cols,
+        }
+    }
+
     fn generate_preprocessed_trace(
         log_size: u32,
-        program_trace_params: ProgramTraceParams,
+        program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let domain = CanonicCoset::new(log_size).circle_domain();
-        let preprocessed_cols = Self::preprocessed_columns(log_size, program_trace_params);
+        let preprocessed_cols = Self::preprocessed_columns(log_size, program_trace_ref);
         preprocessed_cols
             .into_iter()
             .map(|col| CircleEvaluation::new(domain, col))
@@ -255,33 +281,9 @@ impl BuiltInExtension for RamInitFinal {
         vec![log_size; Self::NUM_PREPROCESSED_TRACE_COLS]
     }
 
-    fn generate_original_trace(
-        log_size: u32,
-        side_note: &mut SideNote,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let original_cols = Self::original_columns(log_size, side_note);
-        // update multiplicity for init_final_addr
-        for col in &original_cols[0..WORD_SIZE] {
-            Self::update_range256_multiplicities(col, side_note);
-        }
-        // udpate multiplicity for final_value
-        let final_value_col = &original_cols[WORD_SIZE + 1];
-        Self::update_range256_multiplicities(final_value_col, side_note);
-        // update multiplicity for final_counter
-        for col in &original_cols[WORD_SIZE + 2..WORD_SIZE + 2 + WORD_SIZE] {
-            Self::update_range256_multiplicities(col, side_note);
-        }
-        let domain = CanonicCoset::new(log_size).circle_domain();
-        original_cols
-            .into_iter()
-            .map(|col| CircleEvaluation::new(domain, col))
-            .collect()
-    }
-
     fn generate_interaction_trace(
-        log_size: u32,
-        program_trace_params: ProgramTraceParams,
-        side_note: &SideNote,
+        component_trace: ComponentTrace,
+        _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
@@ -289,29 +291,30 @@ impl BuiltInExtension for RamInitFinal {
     ) {
         let load_store_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
         let range256_elements: &Range256LookupElements = lookup_elements.as_ref();
-        let preprocessed_cols = Self::preprocessed_columns(log_size, program_trace_params);
-        let original_cols = Self::original_columns(log_size, side_note);
+        let preprocessed_cols = &component_trace.preprocessed_trace;
+        let original_cols = &component_trace.original_trace;
+        let log_size = component_trace.log_size;
 
         let mut logup_trace_gen = LogupTraceGenerator::new(log_size);
 
         Self::add_initial_values(
             log_size,
-            &preprocessed_cols,
-            &original_cols,
+            preprocessed_cols,
+            original_cols,
             load_store_elements,
             &mut logup_trace_gen,
         );
 
         Self::subtract_final_values(
             log_size,
-            &original_cols,
+            original_cols,
             load_store_elements,
             &mut logup_trace_gen,
         );
 
         Self::add_range256_occurrences(
             log_size,
-            &original_cols,
+            original_cols,
             range256_elements,
             &mut logup_trace_gen,
         );
@@ -326,31 +329,28 @@ impl BuiltInExtension for RamInitFinal {
 }
 
 impl RamInitFinal {
-    fn preprocessed_columns(
-        log_size: u32,
-        program_trace_params: ProgramTraceParams,
-    ) -> Vec<BaseColumn> {
-        let total_len = program_trace_params.init_memory.len()
-            + program_trace_params.exit_code.len()
-            + program_trace_params.public_output.len();
+    fn preprocessed_columns(log_size: u32, program_trace_ref: ProgramTraceRef) -> Vec<BaseColumn> {
+        let total_len = program_trace_ref.init_memory.len()
+            + program_trace_ref.exit_code.len()
+            + program_trace_ref.public_output.len();
         let padding_length = (1usize << log_size)
             .checked_sub(total_len)
             .expect("log_size too small");
         let mut preprocessed_cols = vec![];
 
         // Iterator for PublicRamAddr: take the address from each group.
-        let public_ram_addr_iter = program_trace_params
+        let public_ram_addr_iter = program_trace_ref
             .init_memory
             .iter()
             .map(|entry| entry.address)
             .chain(
-                program_trace_params
+                program_trace_ref
                     .exit_code
                     .iter()
                     .map(|entry| entry.address),
             )
             .chain(
-                program_trace_params
+                program_trace_ref
                     .public_output
                     .iter()
                     .map(|entry| entry.address),
@@ -366,12 +366,12 @@ impl RamInitFinal {
         });
 
         // Iterator for PublicInitialMemoryFlag: true for init_memory rows, false for others.
-        let public_initial_memory_flag_iter = program_trace_params
+        let public_initial_memory_flag_iter = program_trace_ref
             .init_memory
             .iter()
             .map(|_| true)
-            .chain(std::iter::repeat(false).take(program_trace_params.exit_code.len()))
-            .chain(std::iter::repeat(false).take(program_trace_params.public_output.len()))
+            .chain(std::iter::repeat(false).take(program_trace_ref.exit_code.len()))
+            .chain(std::iter::repeat(false).take(program_trace_ref.public_output.len()))
             .chain(std::iter::repeat(false).take(padding_length));
         assert_eq!(
             public_initial_memory_flag_iter.clone().count(),
@@ -384,12 +384,12 @@ impl RamInitFinal {
         preprocessed_cols.push(public_initial_memory_flag_column);
 
         // Iterator for PublicInitialMemoryValue: use the init_memory value, zero otherwise.
-        let public_initial_memory_value_iter = program_trace_params
+        let public_initial_memory_value_iter = program_trace_ref
             .init_memory
             .iter()
             .map(|entry| entry.value)
-            .chain(std::iter::repeat(0).take(program_trace_params.exit_code.len()))
-            .chain(std::iter::repeat(0).take(program_trace_params.public_output.len()))
+            .chain(std::iter::repeat(0).take(program_trace_ref.exit_code.len()))
+            .chain(std::iter::repeat(0).take(program_trace_ref.public_output.len()))
             .chain(std::iter::repeat(0).take(padding_length));
         assert_eq!(
             public_initial_memory_value_iter.clone().count(),
@@ -403,9 +403,9 @@ impl RamInitFinal {
 
         // Iterator for PublicOutputFlag: false for init_memory rows, true for exit_code and public_output.
         let public_output_flag_iter = std::iter::repeat(false)
-            .take(program_trace_params.init_memory.len())
-            .chain(program_trace_params.exit_code.iter().map(|_| true))
-            .chain(program_trace_params.public_output.iter().map(|_| true))
+            .take(program_trace_ref.init_memory.len())
+            .chain(program_trace_ref.exit_code.iter().map(|_| true))
+            .chain(program_trace_ref.public_output.iter().map(|_| true))
             .chain(std::iter::repeat(false).take(padding_length));
         assert_eq!(public_output_flag_iter.clone().count(), 1 << log_size);
         let public_output_flag_iter =
@@ -415,15 +415,10 @@ impl RamInitFinal {
 
         // Iterator for PublicOutputValue: zero for init_memory rows, use the provided value for the others.
         let public_output_value_iter = std::iter::repeat(0)
-            .take(program_trace_params.init_memory.len())
+            .take(program_trace_ref.init_memory.len())
+            .chain(program_trace_ref.exit_code.iter().map(|entry| entry.value))
             .chain(
-                program_trace_params
-                    .exit_code
-                    .iter()
-                    .map(|entry| entry.value),
-            )
-            .chain(
-                program_trace_params
+                program_trace_ref
                     .public_output
                     .iter()
                     .map(|entry| entry.value),

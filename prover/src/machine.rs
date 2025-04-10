@@ -36,8 +36,8 @@ use crate::{
     },
     column::{PreprocessedColumn, ProgramColumn},
     components::{self, AllLookupElements},
-    extensions::ExtensionComponent,
-    trace::program_trace::ProgramTraceParams,
+    extensions::{ComponentTrace, ExtensionComponent},
+    trace::program_trace::ProgramTraceRef,
     traits::generate_interaction_trace,
 };
 use serde::{Deserialize, Serialize};
@@ -157,13 +157,13 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         // Fill columns of the original trace.
         let mut prover_traces = TracesBuilder::new(log_size);
-        let program_trace_params = ProgramTraceParams {
+        let program_trace_ref = ProgramTraceRef {
             program_memory: view.get_program_memory(),
             init_memory: view.get_initial_memory(),
             exit_code: view.get_exit_code(),
             public_output: view.get_public_output(),
         };
-        let program_traces = ProgramTracesBuilder::new(log_size, program_trace_params);
+        let program_traces = ProgramTracesBuilder::new(log_size, program_trace_ref);
         let mut prover_side_note = SideNote::new(&program_traces, view);
         let program_steps = iter_program_steps(trace, prover_traces.num_rows());
         for (row_idx, program_step) in program_steps.enumerate() {
@@ -198,13 +198,17 @@ impl<C: MachineChip + Sync> Machine<C> {
                 .into_iter()
                 .chain(finalized_program_trace.clone().into_circle_evaluation()),
         );
-        // Handle extensions for the preprocessed trace
-        for (ext, log_size) in extensions_iter
+
+        let extension_traces: Vec<ComponentTrace> = extensions_iter
             .clone()
             .zip(all_log_size.get(1..).unwrap_or_default())
-        {
-            tree_builder
-                .extend_evals(ext.generate_preprocessed_trace(*log_size, program_trace_params));
+            .map(|(ext, log_size)| {
+                ext.generate_component_trace(*log_size, program_trace_ref, &mut prover_side_note)
+            })
+            .collect();
+        // Handle extensions for the preprocessed trace
+        for extension_trace in &extension_traces {
+            tree_builder.extend_evals(extension_trace.to_circle_evaluation(PREPROCESSED_TRACE_IDX));
         }
         tree_builder.commit(prover_channel);
 
@@ -212,12 +216,8 @@ impl<C: MachineChip + Sync> Machine<C> {
         let _main_trace_location =
             tree_builder.extend_evals(finalized_trace.clone().into_circle_evaluation());
         // Handle extensions for the main trace
-        for (ext, log_size) in extensions_iter
-            .clone()
-            .zip(all_log_size.get(1..).unwrap_or_default())
-        {
-            tree_builder
-                .extend_evals(ext.generate_original_trace(*log_size, &mut prover_side_note));
+        for extension_trace in &extension_traces {
+            tree_builder.extend_evals(extension_trace.to_circle_evaluation(ORIGINAL_TRACE_IDX));
         }
         tree_builder.commit(prover_channel);
 
@@ -235,13 +235,9 @@ impl<C: MachineChip + Sync> Machine<C> {
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
         // Handle extensions for the interaction trace
         let mut all_claimed_sum = vec![claimed_sum];
-        for (ext, log_size) in extensions_iter
-            .clone()
-            .zip(all_log_size.get(1..).unwrap_or_default())
-        {
+        for (ext, extension_trace) in extensions_iter.clone().zip(extension_traces) {
             let (interaction_trace, claimed_sum) = ext.generate_interaction_trace(
-                *log_size,
-                program_trace_params,
+                extension_trace,
                 &prover_side_note,
                 &lookup_elements,
             );
@@ -362,14 +358,14 @@ impl<C: MachineChip + Sync> Machine<C> {
                     config, &twiddles,
                 );
             let preprocessed_trace = PreprocessedTraces::new(all_log_sizes[0]);
-            let program_trace_params = ProgramTraceParams {
+            let program_trace_ref = ProgramTraceRef {
                 program_memory: program_info,
                 init_memory,
                 exit_code,
                 public_output: output_memory,
             };
             let program_trace =
-                ProgramTracesBuilder::new(all_log_sizes[0], program_trace_params).finalize();
+                ProgramTracesBuilder::new(all_log_sizes[0], program_trace_ref).finalize();
 
             let mut tree_builder = commitment_scheme.tree_builder();
             let _preprocessed_trace_location = tree_builder.extend_evals(
@@ -384,7 +380,7 @@ impl<C: MachineChip + Sync> Machine<C> {
                 .zip(all_log_sizes.get(1..).unwrap_or_default())
             {
                 tree_builder
-                    .extend_evals(ext.generate_preprocessed_trace(*log_size, program_trace_params));
+                    .extend_evals(ext.generate_preprocessed_trace(*log_size, program_trace_ref));
             }
             tree_builder.commit(verifier_channel);
 

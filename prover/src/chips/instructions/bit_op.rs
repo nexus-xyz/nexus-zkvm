@@ -438,7 +438,7 @@ mod test {
         trace::{
             preprocessed::PreprocessedBuilder,
             program::iter_program_steps,
-            program_trace::{ProgramTraceParams, ProgramTracesBuilder},
+            program_trace::{ProgramTraceRef, ProgramTracesBuilder},
         },
     };
 
@@ -493,7 +493,7 @@ mod test {
 
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_steps = iter_program_steps(&vm_traces, traces.num_rows());
-        let program_trace_params = ProgramTraceParams::new_with_empty_memory(program_info);
+        let program_trace_ref = ProgramTraceRef::new_with_empty_memory(program_info);
         let program_trace = ProgramTracesBuilder::new_with_empty_memory(LOG_SIZE, program_info);
         let mut side_note = SideNote::new(&program_trace, &view);
 
@@ -528,20 +528,20 @@ mod test {
 
         // verify that logup sums match
         let ext = ExtensionComponent::bit_op_multiplicity();
-        let (_, claimed_sum_2) = ext.generate_interaction_trace(
+
+        let component_trace = ext.generate_component_trace(
             BitOpMultiplicityEval::LOG_SIZE,
-            program_trace_params,
-            &side_note,
-            &lookup_elements,
+            program_trace_ref,
+            &mut side_note,
         );
+        let (_, claimed_sum_2) =
+            ext.generate_interaction_trace(component_trace, &side_note, &lookup_elements);
 
         let ext = ExtensionComponent::final_reg();
-        let (_, claimed_sum_3) = ext.generate_interaction_trace(
-            FinalRegEval::LOG_SIZE,
-            program_trace_params,
-            &side_note,
-            &lookup_elements,
-        );
+        let component_trace =
+            ext.generate_component_trace(FinalRegEval::LOG_SIZE, program_trace_ref, &mut side_note);
+        let (_, claimed_sum_3) =
+            ext.generate_interaction_trace(component_trace, &side_note, &lookup_elements);
         assert_eq!(
             claimed_sum_1 + claimed_sum_2 + claimed_sum_3,
             SecureField::zero()

@@ -26,12 +26,12 @@ use crate::{
     },
     components::{AllLookupElements, RegisteredLookupBound},
     trace::{
-        program_trace::ProgramTraceParams,
+        program_trace::ProgramTraceRef,
         sidenote::{RangeCheckSideNote, RangeCheckSideNoteGetter, SideNote},
     },
 };
 
-use super::{BuiltInExtension, FrameworkEvalExt};
+use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// A component for range check multiplicity
 ///
@@ -139,9 +139,27 @@ where
         MultiplicityEval::<LEN, L>::LOG_SIZE
     }
 
+    /// Contains only one column, representing the multiplicity
+    ///
+    /// The ordering of rows is the same as the ordering of the preprocessed value column.
+    fn generate_component_trace(
+        log_size: u32,
+        _: ProgramTraceRef,
+        side_note: &mut SideNote,
+    ) -> ComponentTrace {
+        let preprocessed_trace = Self::preprocessed_base_columns();
+        let original_trace = Self::base_columns(side_note);
+
+        ComponentTrace {
+            log_size,
+            preprocessed_trace,
+            original_trace,
+        }
+    }
+
     fn generate_preprocessed_trace(
         _log_size: u32,
-        _program_trace_params: ProgramTraceParams,
+        _program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let base_cols = Self::preprocessed_base_columns();
         let domain = CanonicCoset::new(Self::Eval::LOG_SIZE).circle_domain();
@@ -155,33 +173,17 @@ where
         vec![Self::Eval::LOG_SIZE]
     }
 
-    /// Contains only one column, representing the multiplicity
-    ///
-    /// The ordering of rows is the same as the ordering of the preprocessed value column.
-    fn generate_original_trace(
-        _log_size: u32,
-        side_note: &mut SideNote,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let base_cols = Self::base_columns(side_note);
-        let domain = CanonicCoset::new(Self::Eval::LOG_SIZE).circle_domain();
-        base_cols
-            .into_iter()
-            .map(|col| CircleEvaluation::new(domain, col))
-            .collect()
-    }
-
     fn generate_interaction_trace(
-        _log_size: u32,
-        _program_trace_params: ProgramTraceParams,
-        side_note: &SideNote,
+        component_trace: ComponentTrace,
+        _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
         let lookup_element: &L = lookup_elements.as_ref();
-        let values = &Self::preprocessed_base_columns()[0];
-        let base_cols = Self::base_columns(side_note);
+        let values = &component_trace.preprocessed_trace[0];
+        let base_cols = &component_trace.original_trace;
         let mut logup_trace_gen = LogupTraceGenerator::new(Self::Eval::LOG_SIZE);
 
         // Subtract looked up values with the multiplicity
