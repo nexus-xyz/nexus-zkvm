@@ -25,10 +25,10 @@ use stwo_prover::{
 use crate::{
     chips::memory_check::register_mem_check::RegisterCheckLookupElements,
     components::AllLookupElements,
-    trace::{program_trace::ProgramTraceParams, sidenote::SideNote, utils::IntoBaseFields},
+    trace::{program_trace::ProgramTraceRef, sidenote::SideNote, utils::IntoBaseFields},
 };
 
-use super::{BuiltInExtension, FrameworkEvalExt};
+use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// A column with {0, ..., 31}
 #[derive(Debug, Clone)]
@@ -140,7 +140,7 @@ impl BuiltInExtension for FinalReg {
 
     fn generate_preprocessed_trace(
         _log_size: u32,
-        _program_trace_params: ProgramTraceParams,
+        _program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let base_cols = Self::preprocessed_base_columns();
         let domain = CanonicCoset::new(FinalRegEval::LOG_SIZE).circle_domain();
@@ -150,29 +150,31 @@ impl BuiltInExtension for FinalReg {
             .collect()
     }
 
+    /// The first four columns represent the final values, the following four columns represent the final timestamps.
+    ///
+    /// The ordering of rows corresponds to the register index in the preprocessed trace.
+    fn generate_component_trace(
+        log_size: u32,
+        _: ProgramTraceRef,
+        side_note: &mut SideNote,
+    ) -> ComponentTrace {
+        let preprocessed_trace = Self::preprocessed_base_columns();
+        let original_trace = Self::base_columns(side_note);
+
+        ComponentTrace {
+            log_size,
+            preprocessed_trace,
+            original_trace,
+        }
+    }
+
     fn preprocessed_trace_sizes(_log_size: u32) -> Vec<u32> {
         vec![FinalRegEval::LOG_SIZE]
     }
 
-    /// The first four columns represent the final values, the following four columns represent the final timestamps.
-    ///
-    /// The ordering of rows corresponds to the register index in the preprocessed trace.
-    fn generate_original_trace(
-        _log_size: u32,
-        side_note: &mut SideNote,
-    ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let base_cols = Self::base_columns(side_note);
-        let domain = CanonicCoset::new(FinalRegEval::LOG_SIZE).circle_domain();
-        base_cols
-            .into_iter()
-            .map(|col| CircleEvaluation::new(domain, col))
-            .collect()
-    }
-
     fn generate_interaction_trace(
-        _log_size: u32,
-        _program_trace_params: ProgramTraceParams,
-        side_note: &SideNote,
+        component_trace: ComponentTrace,
+        _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
@@ -181,8 +183,8 @@ impl BuiltInExtension for FinalReg {
         let lookup_element: &RegisterCheckLookupElements = lookup_elements.as_ref();
 
         let mut logup_trace_gen = LogupTraceGenerator::new(FinalRegEval::LOG_SIZE);
-        let row_idx = &Self::preprocessed_base_columns()[0];
-        let base_cols = Self::base_columns(side_note);
+        let row_idx = &component_trace.preprocessed_trace[0];
+        let base_cols = &component_trace.original_trace;
 
         // Adding the initial register memory state and subtracting the final register memory state
         let mut logup_col_gen = logup_trace_gen.new_col();

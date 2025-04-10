@@ -30,7 +30,7 @@ pub struct ProgramTracesBuilder {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ProgramTraceParams<'a> {
+pub struct ProgramTraceRef<'a> {
     /// Reference to the program memory.
     pub program_memory: &'a ProgramInfo,
     /// Slice of initial memory entries.
@@ -42,7 +42,7 @@ pub struct ProgramTraceParams<'a> {
 }
 
 #[cfg(test)]
-impl<'a> ProgramTraceParams<'a> {
+impl<'a> ProgramTraceRef<'a> {
     pub(crate) fn new_with_empty_memory(program_memory: &'a ProgramInfo) -> Self {
         Self {
             program_memory,
@@ -54,7 +54,7 @@ impl<'a> ProgramTraceParams<'a> {
 }
 
 impl ProgramTracesBuilder {
-    pub fn new(log_size: u32, params: ProgramTraceParams) -> Self {
+    pub fn new(log_size: u32, params: ProgramTraceRef) -> Self {
         assert!(log_size >= LOG_N_LANES);
         assert!(
             params.program_memory.program.len() <= 1 << log_size,
@@ -111,7 +111,7 @@ impl ProgramTracesBuilder {
 
     #[cfg(test)]
     pub(crate) fn new_with_empty_memory(log_size: u32, program_memory: &ProgramInfo) -> Self {
-        let params = ProgramTraceParams::new_with_empty_memory(program_memory);
+        let params = ProgramTraceRef::new_with_empty_memory(program_memory);
         Self::new(log_size, params)
     }
 

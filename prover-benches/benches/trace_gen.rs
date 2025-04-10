@@ -9,7 +9,7 @@ use nexus_vm_prover::{
     components::AllLookupElements,
     machine::BaseComponent,
     trace::{
-        program::iter_program_steps, program_trace::ProgramTraceParams,
+        program::iter_program_steps, program_trace::ProgramTraceRef,
         program_trace::ProgramTracesBuilder, sidenote::SideNote, PreprocessedTraces, TracesBuilder,
     },
     traits::{generate_interaction_trace, MachineChip},
@@ -60,7 +60,7 @@ fn bench_trace_gen(c: &mut Criterion) {
             b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
-        let program_trace_params = ProgramTraceParams {
+        let program_trace_params = ProgramTraceRef {
             program_memory: program_info,
             init_memory: view.get_initial_memory(),
             exit_code: view.get_exit_code(),

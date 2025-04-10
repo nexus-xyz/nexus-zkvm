@@ -219,7 +219,7 @@ mod test {
 
     use crate::extensions::ExtensionComponent;
     use crate::test_utils::{assert_chip, commit_traces, test_params, CommittedTraces};
-    use crate::trace::program_trace::{ProgramTraceParams, ProgramTracesBuilder};
+    use crate::trace::program_trace::{ProgramTraceRef, ProgramTracesBuilder};
     use crate::trace::{preprocessed::PreprocessedBuilder, Word};
     use crate::traits::MachineChip;
 
@@ -266,13 +266,13 @@ mod test {
         let (config, twiddles) = test_params(LOG_SIZE);
         let mut traces = TracesBuilder::new(LOG_SIZE);
         let program_info = ProgramInfo::dummy();
-        let program_trace_params = ProgramTraceParams {
+        let program_trace_ref = ProgramTraceRef {
             program_memory: &program_info,
             init_memory: Default::default(),
             exit_code: Default::default(),
             public_output: Default::default(),
         };
-        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_params);
+        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_ref);
         let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
         // Write in-range values to ValueA columns.
         for row_idx in 0..(1 << LOG_SIZE) {
@@ -298,12 +298,13 @@ mod test {
 
         // verify that logup sums don't match
         let ext = ExtensionComponent::multiplicity128();
-        let (_, claimed_sum_2) = ext.generate_interaction_trace(
+        let component_trace = ext.generate_component_trace(
             128u32.trailing_zeros(),
-            program_trace_params,
-            &side_note,
-            &lookup_elements,
+            program_trace_ref,
+            &mut side_note,
         );
+        let (_, claimed_sum_2) =
+            ext.generate_interaction_trace(component_trace, &side_note, &lookup_elements);
         assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
     }
 }
