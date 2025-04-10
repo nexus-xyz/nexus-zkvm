@@ -27,7 +27,7 @@ fn test_benchmark_fib_simple() {
 #[ignore]
 fn test_benchmark_fib_powers() {
     // Inputs corresponding to step count powers of 2 from 2^12 to 2^19.
-    let inputs = vec![6, 16, 37, 77, 121, 262, 489, 999];
+    let inputs = vec![1, 8, 21, 38, 67, 146, 271, 546];
     let results_file = get_timestamped_filename("fib_powers");
     for mut input in inputs {
         let public_input_bytes = to_allocvec_cobs(&mut input).unwrap();
