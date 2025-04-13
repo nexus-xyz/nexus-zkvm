@@ -89,8 +89,8 @@ impl Compile for Compiler<CargoPackager> {
         let prog = self.binary.as_str();
 
         let mut dest = match std::env::var_os("OUT_DIR") {
-            Some(path) => path.into_string().unwrap(),
-            None => "/tmp/nexus-target".into(),
+            Some(path) => path.into_string().unwrap_or_else(|_| "/tmp/nexus-target".to_string()),
+            None => "/tmp/nexus-target".to_string(),
         };
 
         if self.unique {
