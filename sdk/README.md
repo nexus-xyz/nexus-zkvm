@@ -52,7 +52,7 @@ This will create a new Rust project directory with the following structure:
             └── main.rs
 ```
 
-Here, `./src/main.rs` is our host program, while `./src/guest/src/main.rs` is our guest program.
+Here, `./src/main.rs` is our host program, while `./examples/src/main.rs` is our guest program.
 
 As a slightly more interesting example than the default Hello, World! program, you can change the content of `./src/guest/src/main.rs` to:
 
