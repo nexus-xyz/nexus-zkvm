@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
 use stwo_prover::{
@@ -163,16 +164,19 @@ impl RamInitFinalEval {
     ) {
         let mut tuple = vec![];
         // Build the tuple from the RAM address bytes.
-        for address in ram_init_final_addr.iter() {
-            tuple.push(address.clone());
-        }
+        let addr_low = ram_init_final_addr[0].clone()
+            + ram_init_final_addr[1].clone() * E::F::from((1 << 8).into());
+        let addr_high = ram_init_final_addr[2].clone()
+            + ram_init_final_addr[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(addr_low);
+        tuple.push(addr_high);
         // Add the product of preprocessed init flag and value.
         tuple.push(preprocessed_init_flag * preprocessed_init_value);
         // Append WORD_SIZE zeros as the counter.
-        for _ in 0..WORD_SIZE {
+        for _ in 0..WORD_SIZE_HALVED {
             tuple.push(E::F::zero());
         }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
         let numerator = ram_init_final_flag;
         eval.add_to_relation(RelationEntry::new(
             &self.load_store_elements,
@@ -189,14 +193,23 @@ impl RamInitFinalEval {
         ram_init_final_flag: E::F,
     ) {
         let mut tuple = vec![];
-        for address in ram_init_final_addr.iter() {
-            tuple.push(address.clone());
-        }
+        let addr_low = ram_init_final_addr[0].clone()
+            + ram_init_final_addr[1].clone() * E::F::from((1 << 8).into());
+        let addr_high = ram_init_final_addr[2].clone()
+            + ram_init_final_addr[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(addr_low);
+        tuple.push(addr_high);
+
         tuple.push(ram_final_value);
-        for counter in ram_final_counter.iter() {
-            tuple.push(counter.clone());
-        }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+
+        let counter_low = ram_final_counter[0].clone()
+            + ram_final_counter[1].clone() * E::F::from((1 << 8).into());
+        let counter_high = ram_final_counter[2].clone()
+            + ram_final_counter[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(counter_low);
+        tuple.push(counter_high);
+
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
         let numerator = ram_init_final_flag;
         eval.add_to_relation(RelationEntry::new(
             &self.load_store_elements,
@@ -519,13 +532,19 @@ impl RamInitFinal {
         // Add (address, value, 0)
         for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
             let mut tuple = vec![];
-            for address_byte in ram_init_final_addr.iter() {
-                tuple.push(address_byte.data[vec_row]);
-            }
+            let addr_low = ram_init_final_addr[0].data[vec_row]
+                + ram_init_final_addr[1].data[vec_row]
+                    * PackedBaseField::broadcast((1 << 8).into());
+            let addr_high = ram_init_final_addr[2].data[vec_row]
+                + ram_init_final_addr[3].data[vec_row]
+                    * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(addr_low);
+            tuple.push(addr_high);
+
             tuple.push(initial_memory_flag.data[vec_row] * initial_memory_value.data[vec_row]);
             // The counter is zero
-            tuple.extend_from_slice(&[PackedBaseField::zero(); WORD_SIZE]);
-            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+            tuple.extend_from_slice(&[PackedBaseField::zero(); WORD_SIZE_HALVED]);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
             let denom = lookup_element.combine(&tuple);
             let numerator = ram_init_final_flag.data[vec_row];
             logup_col_gen.write_frac(vec_row, numerator.into(), denom);
@@ -556,14 +575,26 @@ impl RamInitFinal {
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
             let mut tuple = vec![];
-            for address_byte in ram_init_final_addr.iter() {
-                tuple.push(address_byte.data[vec_row]);
-            }
+
+            let addr_low = ram_init_final_addr[0].data[vec_row]
+                + ram_init_final_addr[1].data[vec_row]
+                    * PackedBaseField::broadcast((1 << 8).into());
+            let addr_high = ram_init_final_addr[2].data[vec_row]
+                + ram_init_final_addr[3].data[vec_row]
+                    * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(addr_low);
+            tuple.push(addr_high);
+
             tuple.push(ram_final_value.data[vec_row]);
-            for counter_byte in ram_final_counter.iter() {
-                tuple.push(counter_byte.data[vec_row]);
-            }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+
+            let counter_low = ram_final_counter[0].data[vec_row]
+                + ram_final_counter[1].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            let counter_high = ram_final_counter[2].data[vec_row]
+                + ram_final_counter[3].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(counter_low);
+            tuple.push(counter_high);
+
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
             let denom = lookup_element.combine(&tuple);
             let numerator = ram_init_final_flag.data[vec_row];
             logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);

@@ -1,3 +1,4 @@
+use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{memory::MemAccessSize, riscv::BuiltinOpcode, WORD_SIZE};
 use num_traits::One;
 use stwo_prover::{
@@ -62,7 +63,7 @@ impl VirtualColumnForSum for Ram3_4Accessed {
 // Support SB, SH, SW, LB, LH and LW opcodes
 pub struct LoadStoreChip;
 
-const LOOKUP_TUPLE_SIZE: usize = 2 * WORD_SIZE + 1;
+const LOOKUP_TUPLE_SIZE: usize = 2 * WORD_SIZE_HALVED + 1;
 stwo_prover::relation!(LoadStoreLookupElements, LOOKUP_TUPLE_SIZE);
 
 impl MachineChip for LoadStoreChip {
@@ -725,19 +726,25 @@ impl LoadStoreChip {
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![];
-            // The least significant byte of the address is base_address[0] + address_offset
-            tuple.push(
-                base_address[0].data[vec_row]
-                    + PackedBaseField::broadcast(BaseField::from(address_offset as u32)),
-            );
-            for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
-                tuple.push(base_address_limb.data[vec_row]);
-            }
+            // The least significant byte of the address is base_address[0] + address_offset.
+            // Adding an offset without carry is correct because of memory alignment.
+            let addr_low = base_address[0].data[vec_row]
+                + PackedBaseField::broadcast(BaseField::from(address_offset as u32))
+                + base_address[1].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            let addr_high = base_address[2].data[vec_row]
+                + base_address[3].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(addr_low);
+            tuple.push(addr_high);
+
             tuple.push(val_prev.data[vec_row]);
-            for ts_prev_byte in ts_prev.into_iter() {
-                tuple.push(ts_prev_byte.data[vec_row]);
-            }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+
+            let ts_low = ts_prev[0].data[vec_row]
+                + ts_prev[1].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            let ts_high = ts_prev[2].data[vec_row]
+                + ts_prev[3].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(ts_low);
+            tuple.push(ts_high);
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
             let [accessed] = Accessed::read_from_finalized_traces(original_traces, vec_row);
             logup_col_gen.write_frac(
                 vec_row,
@@ -762,15 +769,23 @@ impl LoadStoreChip {
         let base_address = trace_eval!(trace_eval, Column::RamBaseAddr);
         let mut tuple = vec![];
         // The least significant byte of the address is base_address[0] + address_offset
-        tuple.push(base_address[0].clone() + E::F::from(BaseField::from(address_offset as u32)));
-        for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
-            tuple.push(base_address_limb.clone());
-        }
+        // Adding an offset without carry is correct because of memory alignment.
+        let addr_low = base_address[0].clone()
+            + E::F::from(BaseField::from(address_offset as u32))
+            + base_address[1].clone() * E::F::from((1 << 8).into());
+        let addr_high =
+            base_address[2].clone() + base_address[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(addr_low);
+        tuple.push(addr_high);
+
         tuple.push(val_prev);
-        for ts_prev_byte in ts_prev.into_iter() {
-            tuple.push(ts_prev_byte);
-        }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+
+        let ts_low = ts_prev[0].clone() + ts_prev[1].clone() * E::F::from((1 << 8).into());
+        let ts_high = ts_prev[2].clone() + ts_prev[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(ts_low);
+        tuple.push(ts_high);
+
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
 
         eval.add_to_relation(RelationEntry::new(
             lookup_elements,
@@ -796,18 +811,25 @@ impl LoadStoreChip {
         for vec_row in 0..(1 << (original_traces.log_size() - LOG_N_LANES)) {
             let mut tuple = vec![];
             // The least significant byte of the address is base_address[0] + address_offset
-            tuple.push(
-                base_address[0].data[vec_row]
-                    + PackedBaseField::broadcast(BaseField::from(address_offset as u32)),
-            );
-            for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
-                tuple.push(base_address_limb.data[vec_row]);
-            }
+            // Adding an offset without carry is correct because of memory alignment.
+            let addr_low = base_address[0].data[vec_row]
+                + PackedBaseField::broadcast(BaseField::from(address_offset as u32))
+                + base_address[1].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            let addr_high = base_address[2].data[vec_row]
+                + base_address[3].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(addr_low);
+            tuple.push(addr_high);
+
             tuple.push(val_cur.data[vec_row]);
-            for clk_byte in clk.into_iter() {
-                tuple.push(clk_byte.data[vec_row]);
-            }
-            assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+
+            let clk_low = clk[0].data[vec_row]
+                + clk[1].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            let clk_high = clk[2].data[vec_row]
+                + clk[3].data[vec_row] * PackedBaseField::broadcast((1 << 8).into());
+            tuple.push(clk_low);
+            tuple.push(clk_high);
+
+            assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
             let [accessed] = Accessed::read_from_finalized_traces(original_traces, vec_row);
             logup_col_gen.write_frac(
                 vec_row,
@@ -831,15 +853,22 @@ impl LoadStoreChip {
         let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
         let mut tuple = vec![];
         // The least significant byte of the address is base_address[0] + address_offset
-        tuple.push(base_address[0].clone() + E::F::from(BaseField::from(address_offset as u32)));
-        for base_address_limb in base_address.iter().take(WORD_SIZE).skip(1) {
-            tuple.push(base_address_limb.clone());
-        }
+        // Adding an offset without carry is correct because of memory alignment.
+        let addr_low = base_address[0].clone()
+            + E::F::from(BaseField::from(address_offset as u32))
+            + base_address[1].clone() * E::F::from((1 << 8).into());
+        let addr_high =
+            base_address[2].clone() + base_address[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(addr_low);
+        tuple.push(addr_high);
+
         tuple.push(val_cur);
-        for clk_byte in clk.into_iter() {
-            tuple.push(clk_byte);
-        }
-        assert_eq!(tuple.len(), 2 * WORD_SIZE + 1);
+
+        let clk_low = clk[0].clone() + clk[1].clone() * E::F::from((1 << 8).into());
+        let clk_high = clk[2].clone() + clk[3].clone() * E::F::from((1 << 8).into());
+        tuple.push(clk_low);
+        tuple.push(clk_high);
+        assert_eq!(tuple.len(), 2 * WORD_SIZE_HALVED + 1);
 
         eval.add_to_relation(RelationEntry::new(lookup_elements, accessed.into(), &tuple));
     }
@@ -864,6 +893,7 @@ mod test {
 
     use super::*;
     use nexus_vm::{
+        emulator::InternalView,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
@@ -934,6 +964,7 @@ mod test {
             BeqChip,
             SllChip,
             LoadStoreChip,
+            // `prove` call includes default extensions that require lookup elements.
             RegisterMemCheckChip,
             Range8Chip,
             Range16Chip,
@@ -990,6 +1021,16 @@ mod test {
         assert_eq!(output, 128);
 
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
-        Machine::<Chips>::prove(&vm_traces, &view).unwrap();
+        let proof = Machine::<Chips>::prove(&vm_traces, &view).unwrap();
+        // verify to enforce logup sum being zero
+        Machine::<Chips>::verify(
+            proof,
+            view.get_program_memory(),
+            view.view_associated_data().as_deref().unwrap_or_default(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
+        )
+        .unwrap();
     }
 }
