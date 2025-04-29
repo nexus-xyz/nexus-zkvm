@@ -14,6 +14,7 @@ use stwo_prover::{
 
 use crate::{
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::TraceEval, preprocessed::PreprocessedTraces, program_trace::ProgramTraces,
         sidenote::SideNote, FinalizedTraces, ProgramStep, TracesBuilder,
@@ -33,6 +34,7 @@ pub trait MachineChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>, // None for padding
         side_note: &mut SideNote,
+        config: &ExtensionsConfig,
     );
 
     /// Called on each row during constraint evaluation.
@@ -42,6 +44,7 @@ pub trait MachineChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        config: &ExtensionsConfig,
     );
 
     /// Called just once for generating the interaction trace.
@@ -67,31 +70,34 @@ pub trait MachineChip {
     /// stwo_prover::relation!(LookupElements, 2);
     /// stwo_prover::relation!(AdditionalLookupElements, 5);
     ///
-    /// fn draw_lookup_elements(all_elements: &mut AllLookupElements, channel: &mut impl Channel) {
+    /// fn draw_lookup_elements(all_elements: &mut AllLookupElements, channel: &mut impl Channel, config: &ExtensionsConfig) {
     ///     all_elements.insert(LookupElements::draw(channel));
     ///     all_elements.insert(AdditionalLookupElements::draw(channel));
     /// }
     /// ```
-    fn draw_lookup_elements(_: &mut AllLookupElements, _: &mut impl Channel) {}
+    fn draw_lookup_elements(_: &mut AllLookupElements, _: &mut impl Channel, _: &ExtensionsConfig) {
+    }
 }
 
-#[impl_for_tuples(1, 26)]
+#[impl_for_tuples(1, 27)]
 impl MachineChip for Tuple {
     fn fill_main_trace(
         traces: &mut TracesBuilder,
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        config: &ExtensionsConfig,
     ) {
-        for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step, side_note); )* );
+        for_tuples!( #( Tuple::fill_main_trace(traces, row_idx, vm_step, side_note, config); )* );
     }
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        config: &ExtensionsConfig,
     ) {
-        for_tuples!( #( Tuple::add_constraints(eval, trace_eval, lookup_elements); )* );
+        for_tuples!( #( Tuple::add_constraints(eval, trace_eval, lookup_elements, config); )* );
     }
 
     fn fill_interaction_trace(
@@ -104,8 +110,12 @@ impl MachineChip for Tuple {
         for_tuples!( #( Tuple::fill_interaction_trace(logup_trace_gen, original_traces, preprocessed_traces, program_traces, lookup_elements); )* );
     }
 
-    fn draw_lookup_elements(all_elements: &mut AllLookupElements, channel: &mut impl Channel) {
-        for_tuples!( #( Tuple::draw_lookup_elements(all_elements, channel); )* );
+    fn draw_lookup_elements(
+        all_elements: &mut AllLookupElements,
+        channel: &mut impl Channel,
+        config: &ExtensionsConfig,
+    ) {
+        for_tuples!( #( Tuple::draw_lookup_elements(all_elements, channel, config); )* );
     }
 }
 

@@ -28,6 +28,7 @@ rangemap = "1.5.1"
 serde.workspace = true
 num-derive.workspace = true
 num-traits.workspace = true
+tiny-keccak.workspace = true
 
 [dev-dependencies]
 serial_test = "3.2.0"

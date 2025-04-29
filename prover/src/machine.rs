@@ -30,13 +30,13 @@ use super::traits::MachineChip;
 use crate::{
     chips::{
         AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip,
-        CpuChip, DecodingCheckChip, JalChip, JalrChip, LoadStoreChip, LuiChip, ProgramMemCheckChip,
-        RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip,
-        SubChip, SyscallChip, TimestampChip,
+        CpuChip, CustomInstructionChip, DecodingCheckChip, JalChip, JalrChip, LoadStoreChip,
+        LuiChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip, SllChip, SltChip,
+        SltuChip, SraChip, SrlChip, SubChip, SyscallChip, TimestampChip,
     },
     column::{PreprocessedColumn, ProgramColumn},
     components::{self, AllLookupElements},
-    extensions::{ComponentTrace, ExtensionComponent},
+    extensions::{ComponentTrace, ExtensionComponent, ExtensionsConfig},
     trace::program_trace::ProgramTraceRef,
     traits::generate_interaction_trace,
 };
@@ -65,6 +65,7 @@ pub type BaseComponent = (
     SraChip,
     LoadStoreChip,
     SyscallChip,
+    CustomInstructionChip,
     ProgramMemCheckChip,
     RegisterMemCheckChip,
     TimestampChip,
@@ -131,26 +132,8 @@ impl<C: MachineChip + Sync> Machine<C> {
         let log_size =
             Self::max_log_size(&[num_steps, program_len]).max(PreprocessedTraces::MIN_LOG_SIZE);
 
+        let extensions_config = ExtensionsConfig::from(extensions);
         let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);
-
-        let config = PcsConfig::default();
-        // Precompute twiddles.
-        let twiddles = SimdBackend::precompute_twiddles(
-            CanonicCoset::new(
-                log_size + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
-            )
-            .circle_domain()
-            .half_coset,
-        );
-
-        // Setup protocol.
-        let prover_channel = &mut Blake2sChannel::default();
-        for byte in view.view_associated_data().unwrap_or_default() {
-            prover_channel.mix_u64(byte.into());
-        }
-
-        let mut commitment_scheme =
-            CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(config, &twiddles);
 
         // Fill columns of the preprocessed trace.
         let preprocessed_trace = PreprocessedTraces::new(log_size);
@@ -172,13 +155,14 @@ impl<C: MachineChip + Sync> Machine<C> {
                 row_idx,
                 &program_step,
                 &mut prover_side_note,
+                &extensions_config,
             );
         }
 
         let finalized_trace = prover_traces.finalize();
         let finalized_program_trace = program_traces.finalize();
 
-        let all_log_size: Vec<u32> = std::iter::once(log_size)
+        let all_log_sizes: Vec<u32> = std::iter::once(log_size)
             .chain(
                 extensions_iter
                     .clone()
@@ -186,7 +170,27 @@ impl<C: MachineChip + Sync> Machine<C> {
             )
             .collect();
 
-        all_log_size.iter().for_each(|log_size| {
+        let config = PcsConfig::default();
+        // Precompute twiddles.
+        let twiddles = SimdBackend::precompute_twiddles(
+            CanonicCoset::new(
+                log_size.max(all_log_sizes.iter().copied().max().unwrap_or(0))
+                    + LOG_CONSTRAINT_DEGREE
+                    + config.fri_config.log_blowup_factor,
+            )
+            .circle_domain()
+            .half_coset,
+        );
+
+        // Setup protocol.
+        let prover_channel = &mut Blake2sChannel::default();
+        for byte in view.view_associated_data().unwrap_or_default() {
+            prover_channel.mix_u64(byte.into());
+        }
+
+        let mut commitment_scheme =
+            CommitmentSchemeProver::<SimdBackend, Blake2sMerkleChannel>::new(config, &twiddles);
+        all_log_sizes.iter().for_each(|log_size| {
             prover_channel.mix_u64(*log_size as u64);
         });
 
@@ -201,7 +205,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         let extension_traces: Vec<ComponentTrace> = extensions_iter
             .clone()
-            .zip(all_log_size.get(1..).unwrap_or_default())
+            .zip(all_log_sizes.get(1..).unwrap_or_default())
             .map(|(ext, log_size)| {
                 ext.generate_component_trace(*log_size, program_trace_ref, &mut prover_side_note)
             })
@@ -222,7 +226,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         tree_builder.commit(prover_channel);
 
         let mut lookup_elements = AllLookupElements::default();
-        C::draw_lookup_elements(&mut lookup_elements, prover_channel);
+        C::draw_lookup_elements(&mut lookup_elements, prover_channel, &extensions_config);
 
         let (interaction_trace, claimed_sum) = generate_interaction_trace::<C>(
             &finalized_trace,
@@ -249,12 +253,12 @@ impl<C: MachineChip + Sync> Machine<C> {
         let tree_span_provider = &mut TraceLocationAllocator::default();
         let main_component = MachineComponent::new(
             tree_span_provider,
-            MachineEval::<C>::new(log_size, lookup_elements.clone()),
+            MachineEval::<C>::new(log_size, lookup_elements.clone(), extensions_config.clone()),
             claimed_sum,
         );
         let ext_components: Vec<Box<dyn ComponentProver<SimdBackend>>> = extensions_iter
             .zip(all_claimed_sum.get(1..).unwrap_or_default())
-            .zip(all_log_size.get(1..).unwrap_or_default())
+            .zip(all_log_sizes.get(1..).unwrap_or_default())
             .map(|((ext, claimed_sum), log_size)| {
                 ext.to_component_prover(
                     tree_span_provider,
@@ -276,7 +280,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         Ok(Proof {
             stark_proof: proof,
             claimed_sum: all_claimed_sum,
-            log_size: all_log_size,
+            log_size: all_log_sizes,
         })
     }
 
@@ -329,6 +333,8 @@ impl<C: MachineChip + Sync> Machine<C> {
                 "claimed logup sum is not zero".to_string(),
             ));
         }
+
+        let extensions_config = ExtensionsConfig::from(extensions);
         let extensions_iter = BASE_EXTENSIONS.iter().chain(extensions);
 
         let config = PcsConfig::default();
@@ -348,7 +354,13 @@ impl<C: MachineChip + Sync> Machine<C> {
             let verifier_channel = &mut verifier_channel.clone();
             let twiddles = SimdBackend::precompute_twiddles(
                 CanonicCoset::new(
-                    all_log_sizes[0] + LOG_CONSTRAINT_DEGREE + config.fri_config.log_blowup_factor,
+                    all_log_sizes
+                        .iter()
+                        .copied()
+                        .max()
+                        .expect("log sizes is empty")
+                        + LOG_CONSTRAINT_DEGREE
+                        + config.fri_config.log_blowup_factor,
                 )
                 .circle_domain()
                 .half_coset,
@@ -397,10 +409,12 @@ impl<C: MachineChip + Sync> Machine<C> {
         // Info evaluation can be avoided if the prover sends lookup elements along with the proof, this requires
         // implementing  [`serde::Serialize`] for all relations and [`AllLookupElements`]. Note that the verifier
         // should still independently draw elements and match it against received ones.
-        let mut sizes = vec![components::machine_component_info::<C>()
-            .mask_offsets
-            .as_cols_ref()
-            .map_cols(|_| all_log_sizes[0])];
+        let mut sizes = vec![
+            components::machine_component_info::<C>(extensions_config.clone())
+                .mask_offsets
+                .as_cols_ref()
+                .map_cols(|_| all_log_sizes[0]),
+        ];
         for (ext, log_size) in extensions_iter
             .clone()
             .zip(all_log_sizes.get(1..).unwrap_or_default())
@@ -425,12 +439,12 @@ impl<C: MachineChip + Sync> Machine<C> {
         }
 
         let mut lookup_elements = AllLookupElements::default();
-        C::draw_lookup_elements(&mut lookup_elements, verifier_channel);
+        C::draw_lookup_elements(&mut lookup_elements, verifier_channel, &extensions_config);
 
         let tree_span_provider = &mut TraceLocationAllocator::default();
         let main_component = MachineComponent::new(
             tree_span_provider,
-            MachineEval::<C>::new(all_log_sizes[0], lookup_elements.clone()),
+            MachineEval::<C>::new(all_log_sizes[0], lookup_elements.clone(), extensions_config),
             claimed_sum[0],
         );
 

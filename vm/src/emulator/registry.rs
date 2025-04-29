@@ -53,7 +53,7 @@
 //! This registry is crucial for the emulator's operation, providing a flexible and
 //! efficient way to map opcodes to their execution functions, including support for
 //! custom and special instructions.
-use nexus_common::{cpu::InstructionExecutor, error::MemoryError};
+use nexus_common::{constants::KECCAKF_OPCODE, cpu::InstructionExecutor, error::MemoryError};
 
 use crate::memory::MemoryProcessor;
 use crate::{
@@ -79,6 +79,7 @@ pub struct InstructionExecutorRegistry {
     precompiles: HashMap<Opcode, InstructionExecutorFn<UnifiedMemory>>,
     read_input: Opcode,
     write_output: Opcode,
+    keccakf: Opcode,
 }
 
 impl Default for InstructionExecutorRegistry {
@@ -229,6 +230,7 @@ impl Default for InstructionExecutorRegistry {
             precompiles: HashMap::<Opcode, InstructionExecutorFn<UnifiedMemory>>::new(),
             read_input: Opcode::new(0b0101011, Some(0b000), None, "rin"),
             write_output: Opcode::new(0b1011011, Some(0b000), None, "wou"),
+            keccakf: Opcode::new(KECCAKF_OPCODE, Some(0b000), None, "keccakf"),
         }
     }
 }
@@ -284,6 +286,19 @@ impl InstructionExecutorRegistry {
         None
     }
 
+    pub fn custom_executor_from_opcode<M: MemoryProcessor>(
+        &self,
+        op: &Opcode,
+    ) -> Option<InstructionExecutorFn<M>> {
+        Some(match op {
+            op if self.is_keccakf(op) => {
+                instructions::custom::keccakf::KeccakFInstruction::evaluator
+                    as InstructionExecutorFn<M>
+            }
+            _ => return None,
+        })
+    }
+
     #[inline(always)]
     pub fn is_read_input(&self, op: &Opcode) -> bool {
         op.raw() == self.read_input.raw() && op.fn3() == self.read_input.fn3()
@@ -292,5 +307,10 @@ impl InstructionExecutorRegistry {
     #[inline(always)]
     pub fn is_write_output(&self, op: &Opcode) -> bool {
         op.raw() == self.write_output.raw() && op.fn3() == self.write_output.fn3()
+    }
+
+    #[inline(always)]
+    pub fn is_keccakf(&self, op: &Opcode) -> bool {
+        op.raw() == self.keccakf.raw() && op.fn3() == self.keccakf.fn3()
     }
 }

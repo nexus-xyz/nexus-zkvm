@@ -15,6 +15,7 @@ use crate::{
         PreprocessedColumn,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, TraceEval},
         sidenote::SideNote,
@@ -34,6 +35,7 @@ impl MachineChip for TimestampChip {
         row_idx: usize,
         _step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         let clk: u32 = row_idx as u32 + 1;
         let reg1_ts_cur = clk * 3 + 1;
@@ -70,6 +72,7 @@ impl MachineChip for TimestampChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let ch1_minus = trace_eval!(trace_eval, CH1Minus);
         let ch2_minus = trace_eval!(trace_eval, CH2Minus);
@@ -154,6 +157,7 @@ mod test {
 
     use crate::{
         chips::{AddChip, CpuChip, RegisterMemCheckChip},
+        extensions::ExtensionsConfig,
         test_utils::assert_chip,
         trace::{
             program_trace::ProgramTracesBuilder, sidenote::SideNote, PreprocessedTraces,
@@ -232,17 +236,36 @@ mod test {
 
         for (row_idx, program_step) in trace_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            CpuChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
 
             // Now fill in the traces with ValueA and CarryFlags
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            AddChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
             RegisterMemCheckChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &Default::default(),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
-            TimestampChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            TimestampChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
         assert_chip::<TimestampChip>(traces, None);
     }

@@ -13,6 +13,7 @@ use crate::{
         ValueAEffectiveFlag,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -94,6 +95,7 @@ impl MachineChip for RangeBoolChip {
         _row_idx: usize,
         _step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         // Intentionally empty. Logup isn't used.
     }
@@ -102,6 +104,7 @@ impl MachineChip for RangeBoolChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         for col in CHECKED_SINGLE.into_iter() {
             let [col] = trace_eval.column_eval(col);
@@ -191,6 +194,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         assert_chip::<RangeBoolChip>(traces, None);
@@ -216,6 +220,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         let CommittedTraces {
@@ -230,7 +235,11 @@ mod test {
 
         let component = Component::new(
             &mut TraceLocationAllocator::default(),
-            MachineEval::<RangeBoolChip>::new(LOG_SIZE, lookup_elements),
+            MachineEval::<RangeBoolChip>::new(
+                LOG_SIZE,
+                lookup_elements,
+                ExtensionsConfig::default(),
+            ),
             claimed_sum,
         );
 

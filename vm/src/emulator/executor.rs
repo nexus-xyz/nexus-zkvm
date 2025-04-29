@@ -578,9 +578,12 @@ impl Emulator for HarvardEmulator {
                 .get_for_write_output(&bare_instruction.opcode),
             self.executor
                 .instruction_executor
+                .custom_executor_from_opcode(&bare_instruction.opcode),
+            self.executor
+                .instruction_executor
                 .get(&bare_instruction.opcode),
         ) {
-            (_, _, _) if bare_instruction.is_system_instruction() => (
+            _ if bare_instruction.is_system_instruction() => (
                 <HarvardEmulator as Emulator>::execute_syscall(
                     &mut self.executor,
                     &mut self.data_memory,
@@ -590,7 +593,7 @@ impl Emulator for HarvardEmulator {
                 )?,
                 false,
             ),
-            (Some(read_input), _, _) => (
+            (Some(read_input), ..) => (
                 read_input(
                     &mut self.executor.cpu,
                     &mut self.input_memory,
@@ -598,7 +601,7 @@ impl Emulator for HarvardEmulator {
                 )?,
                 true,
             ),
-            (_, Some(write_output), _) => (
+            (_, Some(write_output), ..) => (
                 write_output(
                     &mut self.executor.cpu,
                     &mut self.output_memory,
@@ -606,7 +609,15 @@ impl Emulator for HarvardEmulator {
                 )?,
                 true,
             ),
-            (_, _, Ok(executor)) => (
+            (_, _, Some(custom_executor), ..) => (
+                custom_executor(
+                    &mut self.executor.cpu,
+                    &mut self.data_memory,
+                    bare_instruction,
+                )?,
+                true,
+            ),
+            (.., Ok(executor)) => (
                 executor(
                     &mut self.executor.cpu,
                     &mut self.data_memory,
@@ -614,7 +625,7 @@ impl Emulator for HarvardEmulator {
                 )?,
                 false,
             ),
-            (_, _, Err(e)) => return Err(e),
+            (.., Err(e)) => return Err(e),
         };
 
         let mut memory_records = MemoryRecords::new();
@@ -1051,9 +1062,12 @@ impl Emulator for LinearEmulator {
                 .get_for_write_output(&bare_instruction.opcode),
             self.executor
                 .instruction_executor
+                .custom_executor_from_opcode(&bare_instruction.opcode),
+            self.executor
+                .instruction_executor
                 .get(&bare_instruction.opcode),
         ) {
-            (_, _, _) if bare_instruction.is_system_instruction() => {
+            _ if bare_instruction.is_system_instruction() => {
                 <HarvardEmulator as Emulator>::execute_syscall(
                     &mut self.executor,
                     &mut self.memory,
@@ -1062,16 +1076,19 @@ impl Emulator for LinearEmulator {
                     true,
                 )?
             }
-            (Some(read_input), _, _) => {
+            (Some(read_input), ..) => {
                 read_input(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
             }
-            (_, Some(write_output), _) => {
+            (_, Some(write_output), ..) => {
                 write_output(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
             }
-            (_, _, Ok(executor)) => {
+            (_, _, Some(custom_executor), ..) => {
+                custom_executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
+            }
+            (.., Ok(executor)) => {
                 executor(&mut self.executor.cpu, &mut self.memory, bare_instruction)?
             }
-            (_, _, Err(e)) => return Err(e),
+            (.., Err(e)) => return Err(e),
         };
 
         let mut memory_records = MemoryRecords::new();

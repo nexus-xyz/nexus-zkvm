@@ -9,6 +9,8 @@ use nexus_vm::{
 
 use super::{program_trace::ProgramTracesBuilder, regs::RegisterMemCheckSideNote};
 
+pub(crate) mod keccak;
+
 pub struct ProgramMemCheckSideNote {
     /// For each Pc, the number of accesses to that Pc so far (None if never)
     pub(crate) last_access_counter: BTreeMap<u32, u32>,
@@ -107,6 +109,7 @@ pub struct SideNote {
     pub(crate) range32: RangeCheckSideNote<{ 1 << 5 }>,
     pub(crate) range128: RangeCheckSideNote<{ 1 << 7 }>,
     pub(crate) range256: RangeCheckSideNote<{ 1 << 8 }>,
+    pub(crate) keccak: keccak::KeccakSideNote,
 }
 
 impl SideNote {
@@ -129,6 +132,7 @@ impl SideNote {
             range32: RangeCheckSideNote::<{ 1 << 5 }>::default(),
             range128: RangeCheckSideNote::<{ 1 << 7 }>::default(),
             range256: RangeCheckSideNote::<{ 1 << 8 }>::default(),
+            keccak: keccak::KeccakSideNote::default(),
         }
     }
 }

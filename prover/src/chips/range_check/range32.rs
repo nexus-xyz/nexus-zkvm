@@ -11,6 +11,7 @@ use stwo_prover::core::{
 use crate::{
     column::Column::{self, OpA, OpB, Reg1Address, Reg2Address, Reg3Address},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
         PreprocessedTraces, ProgramStep, TracesBuilder,
@@ -32,6 +33,7 @@ impl MachineChip for Range32Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range32LookupElements::draw(channel));
     }
@@ -42,6 +44,7 @@ impl MachineChip for Range32Chip {
         row_idx: usize,
         _step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         for col in CHECKED.into_iter() {
             let [val] = traces.column(row_idx, col);
@@ -81,6 +84,7 @@ impl MachineChip for Range32Chip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &Range32LookupElements = lookup_elements.as_ref();
 
@@ -137,6 +141,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         assert_chip::<Range32Chip>(traces, None);
@@ -166,6 +171,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         // modify looked up value

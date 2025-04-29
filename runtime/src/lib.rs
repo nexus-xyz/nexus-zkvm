@@ -18,6 +18,8 @@ mod io;
 pub use io::*;
 pub use postcard;
 
+pub mod keccak;
+
 // Ecall codes. Allow dead code here because these are only used in the RISC-V runtime, not when
 // compiling for the host.
 #[cfg(target_arch = "riscv32")]

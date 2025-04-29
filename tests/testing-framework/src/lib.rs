@@ -8,7 +8,11 @@ mod test {
     use nexus_vm::elf::ElfFile;
     use nexus_vm::emulator::InternalView;
     use nexus_vm::trace::{k_trace, k_trace_direct};
-    use nexus_vm_prover::{prove, verify};
+    use nexus_vm_prover::{
+        extensions::ExtensionComponent,
+        machine::{BaseComponent, Machine},
+        prove, verify,
+    };
     use postcard::to_allocvec_cobs;
     use serial_test::serial;
     const K: usize = 1;
@@ -369,6 +373,34 @@ mod test {
             k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
         let proof = prove(&execution_trace, &view).unwrap();
         verify(proof, &view).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_prove_keccak_precompile() {
+        let elfs = compile_multi(
+            "examples/src/bin/keccak_precompile",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
+        let (view, execution_trace) =
+            k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
+        let proof = Machine::<BaseComponent>::prove_with_extensions(
+            ExtensionComponent::keccak_extensions(),
+            &execution_trace,
+            &view,
+        )
+        .unwrap();
+        Machine::<BaseComponent>::verify_with_extensions(
+            ExtensionComponent::keccak_extensions(),
+            proof,
+            view.get_program_memory(),
+            view.view_associated_data().as_deref().unwrap_or_default(),
+            view.get_initial_memory(),
+            view.get_exit_code(),
+            view.get_public_output(),
+        )
+        .unwrap();
     }
 
     #[test]

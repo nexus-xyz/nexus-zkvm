@@ -14,5 +14,8 @@ nexus-rt-macros = { path = "macros", version = "0.1.0" }
 postcard = { version = "1.0.10", features = ["alloc", "use-crc"], default-features = false }
 serde = { version = "1.0", default-features = false }
 
+[target.'cfg(not(target_arch = "riscv32"))'.dependencies]
+tiny-keccak.workspace = true
+
 [lib]
 doctest = false

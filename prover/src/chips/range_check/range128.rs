@@ -16,6 +16,7 @@ use stwo_prover::core::{
 
 use crate::{
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces, PreprocessedTraces,
         ProgramStep, TracesBuilder,
@@ -37,6 +38,7 @@ impl MachineChip for Range128Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range128LookupElements::draw(channel));
     }
@@ -47,6 +49,7 @@ impl MachineChip for Range128Chip {
         row_idx: usize,
         _step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         let [is_slt] = traces.column(row_idx, IsSlt);
         let [is_bge] = traces.column(row_idx, IsBge);
@@ -128,6 +131,7 @@ impl MachineChip for Range128Chip {
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &Range128LookupElements = lookup_elements.as_ref();
 
@@ -255,6 +259,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         assert_chip::<Range128Chip>(traces, None);
@@ -285,6 +290,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         // modify looked up value

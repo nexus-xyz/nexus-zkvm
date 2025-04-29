@@ -7,10 +7,13 @@ use nexus_vm::{
 };
 use nexus_vm_prover::{
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     machine::BaseComponent,
     trace::{
-        program::iter_program_steps, program_trace::ProgramTraceRef,
-        program_trace::ProgramTracesBuilder, sidenote::SideNote, PreprocessedTraces, TracesBuilder,
+        program::iter_program_steps,
+        program_trace::{ProgramTraceRef, ProgramTracesBuilder},
+        sidenote::SideNote,
+        PreprocessedTraces, TracesBuilder,
     },
     traits::{generate_interaction_trace, MachineChip},
 };
@@ -52,6 +55,7 @@ fn bench_trace_gen(c: &mut Criterion) {
         let blocks = program_trace(log_size);
         let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
         let program_info = view.get_program_memory();
+        let ext_config = ExtensionsConfig::default();
 
         let mut group = c.benchmark_group(format!("TraceGen-LogSize-{log_size}"));
         group.sample_size(20);
@@ -60,13 +64,13 @@ fn bench_trace_gen(c: &mut Criterion) {
             b.iter(|| black_box(PreprocessedTraces::new(black_box(log_size))))
         });
         let preprocessed_trace = PreprocessedTraces::new(log_size);
-        let program_trace_params = ProgramTraceRef {
+        let program_trace_ref = ProgramTraceRef {
             program_memory: program_info,
             init_memory: view.get_initial_memory(),
             exit_code: view.get_exit_code(),
             public_output: view.get_public_output(),
         };
-        let mut program_traces = ProgramTracesBuilder::new(log_size, program_trace_params);
+        let mut program_traces = ProgramTracesBuilder::new(log_size, program_trace_ref);
 
         group.bench_function("MainTrace", |b| {
             b.iter(|| {
@@ -102,6 +106,7 @@ fn bench_trace_gen(c: &mut Criterion) {
                 BaseComponent::draw_lookup_elements(
                     black_box(&mut lookup_elements),
                     black_box(prover_channel),
+                    black_box(&ext_config),
                 );
 
                 black_box(generate_interaction_trace::<BaseComponent>(
@@ -124,12 +129,14 @@ fn fill_main_trace(
 ) {
     let mut prover_side_note = SideNote::new(program_memory, view);
     let program_steps = iter_program_steps(execution_trace, prover_traces.num_rows());
+    let ext_config = ExtensionsConfig::default();
     for (row_idx, program_step) in black_box(program_steps.enumerate()) {
         BaseComponent::fill_main_trace(
             black_box(prover_traces),
             black_box(row_idx),
             black_box(&program_step),
             black_box(&mut prover_side_note),
+            black_box(&ext_config),
         )
     }
 }

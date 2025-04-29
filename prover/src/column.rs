@@ -178,6 +178,9 @@ pub enum Column {
     /// Boolean flag on whether the row is an ECALL_HEAP_RESET (OverwriteHeapPointer).
     #[size = 1]
     IsSysHeapReset,
+    /// Boolean flag on whether the row is a custom keccakf instruction call.
+    #[size = 1]
+    IsCustomKeccak,
     /// Boolean flag on whether the row is a padding.
     #[size = 1]
     IsPadding,

@@ -23,7 +23,7 @@ use crate::{
 use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// A component that yields logup sum emitted by the bitwise chip.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BitOpMultiplicity {
     _private: (),
 }
@@ -113,6 +113,7 @@ impl BuiltInExtension for BitOpMultiplicity {
     type Eval = BitOpMultiplicityEval;
 
     fn generate_component_trace(
+        &self,
         log_size: u32,
         _: ProgramTraceRef,
         side_note: &mut SideNote,
@@ -127,11 +128,12 @@ impl BuiltInExtension for BitOpMultiplicity {
         }
     }
 
-    fn compute_log_size(_side_note: &SideNote) -> u32 {
+    fn compute_log_size(&self, _side_note: &SideNote) -> u32 {
         BitOpMultiplicityEval::LOG_SIZE
     }
 
     fn generate_preprocessed_trace(
+        &self,
         _log_size: u32,
         _program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
@@ -151,6 +153,7 @@ impl BuiltInExtension for BitOpMultiplicity {
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,

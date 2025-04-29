@@ -15,6 +15,7 @@ use stwo_prover::core::{
 use crate::{
     column::Column::{self, OpC1_3, OpC5_7, OpC8_10},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
         PreprocessedTraces, ProgramStep, TracesBuilder,
@@ -51,6 +52,7 @@ impl MachineChip for Range8Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range8LookupElements::draw(channel));
     }
@@ -61,8 +63,9 @@ impl MachineChip for Range8Chip {
         row_idx: usize,
         step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
-        let step = match step {
+        let step = match step.as_ref().filter(|s| s.is_builtin()) {
             None => return, // Nothing to check in padding rows
             Some(step) => step,
         };
@@ -170,6 +173,7 @@ impl MachineChip for Range8Chip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &Range8LookupElements = lookup_elements.as_ref();
 

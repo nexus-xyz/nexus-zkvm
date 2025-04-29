@@ -1,3 +1,5 @@
+#![feature(portable_simd, iter_array_chunks)]
+
 pub mod chips;
 pub mod components;
 pub mod extensions;

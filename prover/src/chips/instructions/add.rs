@@ -5,6 +5,7 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use crate::{
     column::Column::{self, *},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -64,6 +65,7 @@ impl MachineChip for AddChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         let vm_step = match vm_step {
             Some(vm_step) => vm_step,
@@ -96,6 +98,7 @@ impl MachineChip for AddChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let is_add = trace_eval!(trace_eval, IsAdd);
         let is_add = is_add[0].clone();
@@ -232,7 +235,13 @@ mod test {
         let mut side_note = SideNote::new(&program_trace, &view);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
     }

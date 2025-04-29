@@ -124,6 +124,11 @@ impl ProgramStep {
             _ => None,
         }
     }
+
+    /// Returns true if the opcode is built-in.
+    pub(crate) fn is_builtin(&self) -> bool {
+        self.step.instruction.opcode.is_builtin()
+    }
 }
 
 /// Iterates over the program steps in `trace``, padded to `num_rows` with `None`

@@ -15,6 +15,7 @@ use crate::{
         PreprocessedColumn,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -43,6 +44,7 @@ impl MachineChip for RegisterMemCheckChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(RegisterCheckLookupElements::draw(channel));
     }
@@ -55,6 +57,7 @@ impl MachineChip for RegisterMemCheckChip {
         row_idx: usize,
         _vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         // Fill ValueAEffective
         // This cannot be done in CPUChip because ValueA isn't available there yet.
@@ -120,6 +123,7 @@ impl MachineChip for RegisterMemCheckChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &RegisterCheckLookupElements = lookup_elements.as_ref();
         let [value_a_effective_flag] = trace_eval!(trace_eval, ValueAEffectiveFlag);
@@ -437,7 +441,7 @@ mod test {
 
     use crate::{
         chips::{AddChip, CpuChip},
-        extensions::{final_reg::FinalRegEval, ExtensionComponent},
+        extensions::{final_reg::FinalRegEval, ExtensionComponent, ExtensionsConfig},
         test_utils::assert_chip,
         trace::{
             program::iter_program_steps,
@@ -511,15 +515,28 @@ mod test {
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            CpuChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
 
             // Now fill in the traces with ValueA and CarryFlags
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            AddChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
             RegisterMemCheckChip::fill_main_trace(
                 &mut traces,
                 row_idx,
                 &Default::default(),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         let (lookup_elements, claimed_sum_1) = assert_chip::<RegisterMemCheckChip>(traces, None);

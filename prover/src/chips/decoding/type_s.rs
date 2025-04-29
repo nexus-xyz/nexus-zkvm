@@ -2,6 +2,7 @@ use stwo_prover::core::fields::m31::BaseField;
 
 use crate::{
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -21,8 +22,9 @@ impl MachineChip for TypeSChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
-        let vm_step = match vm_step {
+        let vm_step = match vm_step.as_ref().filter(|s| s.is_builtin()) {
             Some(vm_step) => vm_step,
             None => {
                 return;
@@ -62,6 +64,7 @@ impl MachineChip for TypeSChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let [is_type_s] = virtual_column::IsTypeS::eval(trace_eval);
         let [op_c0] = trace_eval!(trace_eval, Column::OpC0);

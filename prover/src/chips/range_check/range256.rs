@@ -19,6 +19,7 @@ use crate::{
         ValueC,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
         PreprocessedTraces, ProgramStep, TracesBuilder,
@@ -86,6 +87,7 @@ impl MachineChip for Range256Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range256LookupElements::draw(channel));
     }
@@ -96,6 +98,7 @@ impl MachineChip for Range256Chip {
         row_idx: usize,
         _step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         // This chip needs to wait till every other chip finishes writing bytes.
         // Since some other chips write bytes above the current row, we need to wait till other chips finished filling for the last row.
@@ -178,6 +181,7 @@ impl MachineChip for Range256Chip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &Range256LookupElements = lookup_elements.as_ref();
 
@@ -279,6 +283,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         assert_chip::<Range256Chip>(traces, None);
@@ -311,6 +316,7 @@ mod test {
                 row_idx,
                 &Some(ProgramStep::default()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         // modify looked up value

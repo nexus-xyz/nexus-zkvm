@@ -1,6 +1,7 @@
 use crate::{
     column::Column::{self, IsEbreak, IsEcall, OpB},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     traits::MachineChip,
     virtual_column::{IsTypeSys, VirtualColumn},
 };
@@ -17,8 +18,9 @@ impl MachineChip for TypeSysChip {
         row_idx: usize,
         vm_step: &Option<crate::trace::ProgramStep>, // None for padding
         _side_note: &mut crate::trace::sidenote::SideNote,
+        _config: &ExtensionsConfig,
     ) {
-        let Some(vm_step) = vm_step else {
+        let Some(vm_step) = vm_step.as_ref().filter(|s| s.is_builtin()) else {
             return;
         };
         let step = &vm_step.step;
@@ -36,6 +38,7 @@ impl MachineChip for TypeSysChip {
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let [is_type_sys] = IsTypeSys::eval(trace_eval);
         // Making sure that op_b=x17
@@ -144,7 +147,13 @@ mod test {
         let mut side_note = SideNote::new(&program_trace, &view);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
         assert_chip::<Chips>(traces, Some(program_trace.finalize()));
     }
