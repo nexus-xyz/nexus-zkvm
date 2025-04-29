@@ -4,6 +4,7 @@ use stwo_prover::core::fields::m31::BaseField;
 
 use crate::{
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -29,8 +30,9 @@ impl MachineChip for TypeINoShiftChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
-        let vm_step = match vm_step {
+        let vm_step = match vm_step.as_ref().filter(|s| s.is_builtin()) {
             Some(vm_step) => vm_step,
             None => {
                 return;
@@ -69,6 +71,7 @@ impl MachineChip for TypeINoShiftChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let [is_type_i_no_shift] = virtual_column::IsTypeINoShift::eval(trace_eval);
         let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);
@@ -288,8 +291,9 @@ impl MachineChip for TypeIShiftChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
-        let vm_step = match vm_step {
+        let vm_step = match vm_step.as_ref().filter(|s| s.is_builtin()) {
             Some(vm_step) => vm_step,
             None => {
                 return;
@@ -325,6 +329,7 @@ impl MachineChip for TypeIShiftChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let [is_alu_imm_shift] = virtual_column::IsAluImmShift::eval(trace_eval);
         let [op_c0_3] = trace_eval!(trace_eval, OpC0_3);

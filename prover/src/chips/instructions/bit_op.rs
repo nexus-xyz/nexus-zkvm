@@ -16,6 +16,7 @@ use crate::{
         self, IsAnd, IsOr, IsXor, ValueA, ValueA4_7, ValueB, ValueB4_7, ValueC, ValueC4_7,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -252,6 +253,7 @@ impl MachineChip for BitOpChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(BitOpLookupElements::draw(channel));
     }
@@ -261,6 +263,7 @@ impl MachineChip for BitOpChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         let vm_step = match vm_step {
             Some(vm_step) => vm_step,
@@ -380,6 +383,7 @@ impl MachineChip for BitOpChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &BitOpLookupElements = lookup_elements.as_ref();
 
@@ -499,7 +503,13 @@ mod test {
 
         for (row_idx, program_step) in program_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
 
         let and_vals = traces

@@ -58,7 +58,10 @@
 //! and instruction-level parallelism detection in RISC-V programs.
 
 use crate::riscv::instructions::{BasicBlock, BasicBlockProgram, Instruction, InstructionDecoder};
-use nexus_common::riscv::{instruction::InstructionType, register::Register, Opcode};
+use nexus_common::{
+    constants::KECCAKF_OPCODE,
+    riscv::{instruction::InstructionType, register::Register, Opcode},
+};
 use rrs_lib::process_instruction;
 
 #[inline(always)]
@@ -148,7 +151,7 @@ pub fn decode_instruction(u32_instruction: u32) -> Instruction {
                 i_imm,
                 InstructionType::IType,
             )
-        } else if opcode == DYNAMIC_STYPE_OPCODE {
+        } else if opcode == DYNAMIC_STYPE_OPCODE || opcode == KECCAKF_OPCODE {
             Instruction::new(
                 Opcode::new(opcode, Some(fn3), None, "dynamic"),
                 Register::from(rs1),

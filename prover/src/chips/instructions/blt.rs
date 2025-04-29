@@ -9,6 +9,7 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use crate::{
     column::Column::{self, *},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{trace_eval, TraceEval},
         sidenote::SideNote,
@@ -85,6 +86,7 @@ impl MachineChip for BltChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         let vm_step = match vm_step {
             Some(vm_step) => vm_step,
@@ -125,6 +127,7 @@ impl MachineChip for BltChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let modulus = E::F::from(256u32.into());
         let modulus_7_inv = E::F::from(BaseField::from(128u32).inverse());
@@ -313,7 +316,13 @@ mod test {
 
         // We iterate each block in the trace for each instruction
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
 
         assert_chip::<Chips>(traces, Some(program_traces.finalize()));

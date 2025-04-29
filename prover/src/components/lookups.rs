@@ -11,7 +11,13 @@
 
 use std::{any::TypeId, collections::HashMap};
 
-use crate::chips::{
+pub use crate::chips::{
+    custom::keccak_lookups::{
+        BitNotAndLookupElements as KeccakBitNotAndLookupElements,
+        BitRotateLookupElements as KeccakBitRotateLookupElements,
+        StateLookupElements as KeccakStateLookupElements,
+        XorLookupElements as KeccakXorLookupElements,
+    },
     instructions::{bit_op::BitOpLookupElements, load_store::LoadStoreLookupElements},
     memory_check::{
         program_mem_check::ProgramCheckLookupElements,
@@ -39,6 +45,10 @@ register_relation! {
         Range32LookupElements,
         Range128LookupElements,
         Range256LookupElements,
+        KeccakXorLookupElements,
+        KeccakBitNotAndLookupElements,
+        KeccakStateLookupElements,
+        KeccakBitRotateLookupElements,
     };
     pub(crate) trait RegisteredLookupBound {}
 }

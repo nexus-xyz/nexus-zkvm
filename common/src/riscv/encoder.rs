@@ -15,7 +15,10 @@
 //! the binary representations of the instructions in the block. It supports encoding
 //! of built-in RISC-V instructions based on their instruction type.
 
-use crate::riscv::instruction::{Instruction, InstructionType};
+use crate::{
+    constants::KECCAKF_OPCODE,
+    riscv::instruction::{Instruction, InstructionType},
+};
 
 /// Encodes an R-type instruction into its binary representation.
 fn encode_r_type(instruction: &Instruction) -> u32 {
@@ -117,8 +120,11 @@ pub fn encode_instruction(instruction: &Instruction) -> u32 {
             InstructionType::Unimpl => 0,
         }
     } else {
-        // Don't support for now, panic
-        todo!("Need to support not precompile instructions")
+        // TODO: handle built-in custom instructions.
+        //
+        // The only supported opcode is keccakf.
+        assert_eq!(instruction.opcode.raw, KECCAKF_OPCODE);
+        encode_s_type(instruction).to_le()
     }
 }
 

@@ -21,6 +21,7 @@ use crate::{
         PreprocessedColumn,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval},
         program_trace::ProgramTraces,
@@ -70,6 +71,7 @@ impl MachineChip for LoadStoreChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(LoadStoreLookupElements::draw(channel));
     }
@@ -79,6 +81,7 @@ impl MachineChip for LoadStoreChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         let vm_step = match vm_step {
             Some(vm_step) => vm_step,
@@ -293,6 +296,7 @@ impl MachineChip for LoadStoreChip {
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         // Computing ram1_ts_prev_aux = clk - 1 - ram1_ts_prev
         // Helper1 used for borrow handling
@@ -986,7 +990,13 @@ mod test {
         let mut side_note = SideNote::new(&program_trace, &view);
 
         for (row_idx, program_step) in program_steps.enumerate() {
-            Chips::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            Chips::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
 
         // Assert results of loads

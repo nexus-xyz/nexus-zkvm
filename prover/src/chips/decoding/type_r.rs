@@ -1,5 +1,6 @@
 use crate::{
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
     traits::MachineChip,
     virtual_column::{self, VirtualColumn},
@@ -21,8 +22,9 @@ impl MachineChip for TypeRChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
-        let vm_step = match vm_step {
+        let vm_step = match vm_step.as_ref().filter(|s| s.is_builtin()) {
             Some(vm_step) => vm_step,
             None => {
                 return;
@@ -55,6 +57,7 @@ impl MachineChip for TypeRChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         // (is_type_r)・ (op_c0_3 + op_c4・2^4 – op_c) = 0
         let [is_type_r] = virtual_column::IsTypeR::eval(trace_eval);

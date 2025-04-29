@@ -34,7 +34,7 @@ use crate::{
 use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// An extension component for initial write set and final read set of the RAM memory checking
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RamInitFinal {
     _private: (),
 }
@@ -253,6 +253,7 @@ impl BuiltInExtension for RamInitFinal {
     type Eval = RamInitFinalEval;
 
     fn generate_component_trace(
+        &self,
         log_size: u32,
         program_trace_ref: ProgramTraceRef,
         side_note: &mut SideNote,
@@ -279,6 +280,7 @@ impl BuiltInExtension for RamInitFinal {
     }
 
     fn generate_preprocessed_trace(
+        &self,
         log_size: u32,
         program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
@@ -295,6 +297,7 @@ impl BuiltInExtension for RamInitFinal {
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
@@ -334,7 +337,7 @@ impl BuiltInExtension for RamInitFinal {
 
         logup_trace_gen.finalize_last()
     }
-    fn compute_log_size(side_note: &SideNote) -> u32 {
+    fn compute_log_size(&self, side_note: &SideNote) -> u32 {
         let num_entries = side_note.rw_mem_check.last_access.len();
         let log_size = num_entries.next_power_of_two().trailing_zeros();
         log_size.max(LOG_N_LANES)

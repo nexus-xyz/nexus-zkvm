@@ -9,6 +9,7 @@ use crate::{
         PreprocessedColumn,
     },
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{preprocessed_trace_eval, trace_eval, trace_eval_next_row, TraceEval},
         sidenote::SideNote,
@@ -18,6 +19,7 @@ use crate::{
     virtual_column::{self, VirtualColumn},
 };
 
+use nexus_common::constants::KECCAKF_OPCODE;
 use nexus_vm::{
     riscv::{
         BuiltinOpcode,
@@ -35,6 +37,7 @@ impl MachineChip for CpuChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         _side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         // Fill ValueAEffectiveFlag to the main trace
         let value_a_effective_flag = match vm_step {
@@ -85,6 +88,14 @@ impl MachineChip for CpuChip {
         // Sanity check: preprocessed column `Clk` contains `row_idx + 1`
         assert!(step.timestamp as usize == row_idx + 1);
         traces.fill_columns(row_idx, pc, Pc);
+        // Fill PcCarry
+        // PcCarry isn't used in jump or branch instructions, but we fill it anyway.
+        let (_, pc_carry) = add_with_carries(pc.to_le_bytes(), 4u32.to_le_bytes());
+        // PcCarry only needs two flags for carries for 16-bit chunks because the constraints treat the addition 16 bits at a time.
+        traces.fill_columns(row_idx, [pc_carry[1], pc_carry[3]], PcCarry);
+        traces.fill_columns(row_idx, pc.wrapping_add(WORD_SIZE as u32), PcNext); // default expectation of the next Pc; might be overwritten by Branch or Jump chips
+                                                                                 // Fill InstructionWord to the main trace for the program memory checking
+        traces.fill_columns(row_idx, step.raw_instruction, InstrVal);
 
         // Add opcode to the main trace
 
@@ -181,13 +192,12 @@ impl MachineChip for CpuChip {
                 traces.fill_columns(row_idx, true, IsEbreak);
             }
             _ => {
-                panic!(
-                    "Unsupported opcode: {:?}",
-                    step.instruction.opcode.builtin()
-                );
+                if step.instruction.opcode.raw != KECCAKF_OPCODE {
+                    panic!("Unsupported opcode: {:?}", step.instruction.opcode);
+                }
+                return;
             }
         }
-        traces.fill_columns(row_idx, pc.wrapping_add(WORD_SIZE as u32), PcNext); // default expectation of the next Pc; might be overwritten by Branch or Jump chips
 
         // Fill ValueB and ValueC to the main trace
         traces.fill_columns(row_idx, vm_step.get_value_b(), ValueB);
@@ -199,9 +209,6 @@ impl MachineChip for CpuChip {
         } else {
             traces.fill_columns(row_idx, vm_step.get_value_c(), ValueC);
         }
-
-        // Fill InstructionWord to the main trace
-        traces.fill_columns(row_idx, step.raw_instruction, InstrVal);
 
         // Fill OpA to the main trace
         traces.fill_columns(row_idx, vm_step.get_op_a() as u8, OpA);
@@ -280,18 +287,13 @@ impl MachineChip for CpuChip {
                 );
             }
         }
-
-        // Fill PcCarry
-        // PcCarry isn't used in jump or branch instructions, but we fill it anyway.
-        let (_, pc_carry) = add_with_carries(pc.to_le_bytes(), 4u32.to_le_bytes());
-        // PcCarry only needs two flags for carries for 16-bit chunks because the constraints treat the addition 16 bits at a time.
-        traces.fill_columns(row_idx, [pc_carry[1], pc_carry[3]], PcCarry);
     }
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let [is_padding] = trace_eval!(trace_eval, IsPadding);
         // Padding rows should not access registers
@@ -353,6 +355,7 @@ impl MachineChip for CpuChip {
         let [is_lw] = trace_eval!(trace_eval, IsLw);
         let [is_ecall] = trace_eval!(trace_eval, IsEcall);
         let [is_ebreak] = trace_eval!(trace_eval, IsEbreak);
+        let [is_keccak] = trace_eval!(trace_eval, IsCustomKeccak);
         eval.add_constraint(
             is_add.clone()
                 + is_sub.clone()
@@ -385,6 +388,7 @@ impl MachineChip for CpuChip {
                 + is_ecall.clone()
                 + is_ebreak.clone()
                 + is_padding
+                + is_keccak
                 - E::F::one(),
         );
 

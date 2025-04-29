@@ -15,6 +15,8 @@ pub use m::{
     MulhuInstruction, RemInstruction, RemuInstruction,
 };
 
+pub mod custom;
+
 pub use nexus_common::cpu::InstructionResult;
 
 // Macro implementations

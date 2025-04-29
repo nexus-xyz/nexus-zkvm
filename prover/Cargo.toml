@@ -21,6 +21,11 @@ impl-trait-for-tuples = "0.2.2"
 itertools = "0.13.0"
 num-traits = { workspace = true }
 stwo-prover = { workspace = true }
+tiny-keccak = { workspace = true }
+
+[dev-dependencies]
+rand = "0.8"
+rand_chacha = "0.3"
 
 # TODO(): fix or ignore these at the code level.
 [lints.clippy]

@@ -42,12 +42,23 @@ mod multiplicity8;
 mod ram_init_final;
 mod trace;
 
+mod config;
+
+#[doc(hidden)]
+pub use config::ExtensionsConfig;
+
+pub(crate) mod keccak;
+
 pub(crate) use trace::ComponentTrace;
 
 use bit_op::BitOpMultiplicity;
 use final_reg::FinalReg;
 use multiplicity::{Multiplicity128, Multiplicity16, Multiplicity256, Multiplicity32};
 use multiplicity8::Multiplicity8;
+
+use keccak::{
+    bit_rotate::BitRotateTable, BitNotAndTable, KeccakRound, PermutationMemoryCheck, XorTable,
+};
 
 trait FrameworkEvalExt: FrameworkEval + Sync + 'static {
     fn new(log_size: u32, lookup_elements: &AllLookupElements) -> Self;
@@ -58,17 +69,20 @@ trait BuiltInExtension {
     type Eval: FrameworkEvalExt;
 
     fn generate_preprocessed_trace(
+        &self,
         log_size: u32,
         program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>;
 
     fn generate_component_trace(
+        &self,
         log_size: u32,
         program_trace_ref: ProgramTraceRef,
         side_note: &mut SideNote,
     ) -> ComponentTrace;
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         side_note: &SideNote,
         lookup_elements: &AllLookupElements,
@@ -105,7 +119,7 @@ trait BuiltInExtension {
         ))
     }
 
-    fn compute_log_size(side_note: &SideNote) -> u32;
+    fn compute_log_size(&self, side_note: &SideNote) -> u32;
 
     fn trace_sizes(&self, log_size: u32) -> TreeVec<Vec<u32>> {
         <Self as BuiltInExtension>::Eval::dummy(log_size)
@@ -129,6 +143,11 @@ extension_dispatch! {
         Multiplicity256,
         BitOpMultiplicity,
         RamInitFinal,
+        XorTable,
+        BitNotAndTable,
+        BitRotateTable,
+        KeccakRound,
+        PermutationMemoryCheck,
     }
 }
 
@@ -157,6 +176,10 @@ impl ExtensionComponent {
     pub(super) const fn ram_init_final() -> Self {
         Self::RamInitFinal(RamInitFinal::new())
     }
+
+    pub const fn keccak_extensions() -> &'static [Self] {
+        keccak::keccak_extensions()
+    }
 }
 
 // A macro mimicking enum_dispatch, but with less flexibility and therefore without shared state managing.
@@ -167,7 +190,7 @@ impl ExtensionComponent {
 // Such precompiles can be implemented as a separate `Custom(Box<dyn ...>)` variant.
 macro_rules! extension_dispatch {
     ($vis:vis enum $_enum:ident { $( $name:ident ),* $(,)? }) => {
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq, Hash)]
         $vis enum $_enum {
             $($name($name),)*
         }
@@ -189,7 +212,7 @@ macro_rules! extension_dispatch {
                 program_trace_ref: ProgramTraceRef,
             ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_preprocessed_trace(log_size, program_trace_ref), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_preprocessed_trace(inner, log_size, program_trace_ref), )*
                 }
             }
 
@@ -200,7 +223,7 @@ macro_rules! extension_dispatch {
                 side_note: &mut SideNote,
             ) -> ComponentTrace {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_component_trace(log_size, program_trace_ref, side_note), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_component_trace(inner, log_size, program_trace_ref, side_note), )*
                 }
             }
 
@@ -214,7 +237,7 @@ macro_rules! extension_dispatch {
                 SecureField,
             ) {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_interaction_trace(component_trace, side_note, lookup_elements), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::generate_interaction_trace(inner, component_trace, side_note, lookup_elements), )*
                 }
             }
 
@@ -244,7 +267,7 @@ macro_rules! extension_dispatch {
 
             pub(crate) fn compute_log_size(&self, side_note: &SideNote) -> u32 {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::compute_log_size(side_note), )*
+                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::compute_log_size(inner, side_note), )*
                 }
             }
 

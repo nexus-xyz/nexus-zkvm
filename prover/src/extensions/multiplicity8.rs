@@ -26,7 +26,7 @@ use crate::{
 use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// A component for range check multiplicity
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Multiplicity8 {
     _private: (),
 }
@@ -106,7 +106,7 @@ impl FrameworkEvalExt for MultiplicityEval8 {
 impl BuiltInExtension for Multiplicity8 {
     type Eval = MultiplicityEval8;
 
-    fn compute_log_size(_side_note: &SideNote) -> u32 {
+    fn compute_log_size(&self, _side_note: &SideNote) -> u32 {
         Self::Eval::LOG_SIZE
     }
 
@@ -114,6 +114,7 @@ impl BuiltInExtension for Multiplicity8 {
     ///
     /// The ordering of rows is the same as the ordering of the preprocessed value column.
     fn generate_component_trace(
+        &self,
         log_size: u32,
         _: ProgramTraceRef,
         side_note: &mut SideNote,
@@ -129,6 +130,7 @@ impl BuiltInExtension for Multiplicity8 {
     }
 
     fn generate_preprocessed_trace(
+        &self,
         _log_size: u32,
         _program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
@@ -145,6 +147,7 @@ impl BuiltInExtension for Multiplicity8 {
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,

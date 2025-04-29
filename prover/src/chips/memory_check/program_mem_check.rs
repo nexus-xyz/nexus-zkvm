@@ -13,6 +13,7 @@ use stwo_prover::{
 use crate::{
     column::{Column, PreprocessedColumn, ProgramColumn},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::{preprocessed_trace_eval, program_trace_eval, trace_eval, TraceEval},
         program_trace::ProgramTraces,
@@ -35,6 +36,7 @@ impl MachineChip for ProgramMemCheckChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(ProgramCheckLookupElements::draw(channel));
     }
@@ -47,6 +49,7 @@ impl MachineChip for ProgramMemCheckChip {
         row_idx: usize,
         vm_step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
         if let Some(_vm_step) = vm_step {
             // not padding
@@ -152,6 +155,7 @@ impl MachineChip for ProgramMemCheckChip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &ProgramCheckLookupElements = lookup_elements.as_ref();
         // Constrain the program counter on the first row
@@ -622,7 +626,13 @@ mod test {
 
         for (row_idx, program_step) in trace_steps.enumerate() {
             // Fill in the main trace with the ValueB, valueC and Opcode
-            CpuChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            CpuChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
 
             // Fill in the main trace of the ProgMemCheckChip
             ProgramMemCheckChip::fill_main_trace(
@@ -630,10 +640,17 @@ mod test {
                 row_idx,
                 &program_step,
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
 
             // Fill in the main trace of the AddChip
-            AddChip::fill_main_trace(&mut traces, row_idx, &program_step, &mut side_note);
+            AddChip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &program_step,
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
         }
 
         for i in 0..num_steps {

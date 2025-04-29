@@ -8,9 +8,9 @@ use stwo_prover::{
 
 use crate::{
     column::Column::{
-        self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsEbreak,
-        IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsOr, IsSb, IsSh, IsSll,
-        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
+        self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne,
+        IsCustomKeccak, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw,
+        IsOr, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -305,13 +305,15 @@ impl VirtualColumn<1> for IsPcIncremented {
         let [is_type_s] = IsTypeS::read_from_traces_builder(traces, row_idx);
         let [is_type_u] = IsTypeU::read_from_traces_builder(traces, row_idx);
         let [is_type_sys] = IsTypeSys::read_from_traces_builder(traces, row_idx);
+        let [is_custom_keccak] = traces.column(row_idx, IsCustomKeccak);
 
         let [is_sys_halt] = traces.column(row_idx, Column::IsSysHalt);
         let ret = is_alu
             + is_load
             + is_type_s
             + is_type_sys * (BaseField::one() - is_sys_halt)
-            + is_type_u;
+            + is_type_u
+            + is_custom_keccak;
         [ret]
     }
     fn read_from_finalized_traces(
@@ -325,11 +327,13 @@ impl VirtualColumn<1> for IsPcIncremented {
         let is_type_sys = IsTypeSys::read_from_finalized_traces(traces, vec_idx)[0];
 
         let is_sys_halt = traces.get_base_column::<1>(Column::IsSysHalt)[0].data[vec_idx];
+        let is_custom_keccak = traces.get_base_column::<1>(Column::IsCustomKeccak)[0].data[vec_idx];
         let ret = is_alu
             + is_load
             + is_type_s
             + is_type_sys * (PackedBaseField::one() - is_sys_halt)
-            + is_type_u;
+            + is_type_u
+            + is_custom_keccak;
         [ret]
     }
     fn eval<E: EvalAtRow>(trace_eval: &TraceEval<E>) -> [E::F; 1] {
@@ -340,8 +344,13 @@ impl VirtualColumn<1> for IsPcIncremented {
         let [is_type_sys] = IsTypeSys::eval(trace_eval);
 
         let [is_sys_halt] = trace_eval!(trace_eval, Column::IsSysHalt);
-        let ret =
-            is_alu + is_load + is_type_s + is_type_sys * (E::F::one() - is_sys_halt) + is_type_u;
+        let [is_custom_keccak] = trace_eval!(trace_eval, Column::IsCustomKeccak);
+        let ret = is_alu
+            + is_load
+            + is_type_s
+            + is_type_sys * (E::F::one() - is_sys_halt)
+            + is_type_u
+            + is_custom_keccak;
         [ret]
     }
 }

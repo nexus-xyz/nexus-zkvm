@@ -12,6 +12,7 @@ use stwo_prover::core::{
 use crate::{
     column::Column::{self, OpA1_4, OpB0_3, OpB1_4, OpC0_3, OpC12_15, OpC16_19, OpC1_4, OpC4_7},
     components::AllLookupElements,
+    extensions::ExtensionsConfig,
     trace::{
         eval::TraceEval, program_trace::ProgramTraces, sidenote::SideNote, FinalizedTraces,
         PreprocessedTraces, ProgramStep, TracesBuilder,
@@ -42,6 +43,7 @@ impl MachineChip for Range16Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
         channel: &mut impl stwo_prover::core::channel::Channel,
+        _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range16LookupElements::draw(channel));
     }
@@ -52,7 +54,11 @@ impl MachineChip for Range16Chip {
         row_idx: usize,
         step: &Option<ProgramStep>,
         side_note: &mut SideNote,
+        _config: &ExtensionsConfig,
     ) {
+        if !step.as_ref().is_some_and(ProgramStep::is_builtin) {
+            return;
+        }
         fill_main_for_type::<IsTypeR>(
             traces,
             row_idx,
@@ -171,6 +177,7 @@ impl MachineChip for Range16Chip {
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
+        _config: &ExtensionsConfig,
     ) {
         let lookup_elements: &Range16LookupElements = lookup_elements.as_ref();
 
@@ -362,6 +369,7 @@ mod test {
                 row_idx,
                 &Some(program_step.clone()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         assert_chip::<Range16Chip>(traces, None);
@@ -395,6 +403,7 @@ mod test {
                 row_idx,
                 &Some(program_step.clone()),
                 &mut side_note,
+                &ExtensionsConfig::default(),
             );
         }
         // modify looked up value

@@ -15,6 +15,7 @@ use stwo_prover::{
 
 use crate::{
     components::{AllLookupElements, LOG_CONSTRAINT_DEGREE},
+    extensions::ExtensionsConfig,
     trace::{program_trace::ProgramTracesBuilder, FinalizedTraces, PreprocessedTraces},
     traits::generate_interaction_trace,
 };
@@ -80,7 +81,11 @@ pub(crate) fn commit_traces<'a, C: MachineChip>(
     let _main_trace_location = tree_builder.extend_evals(traces.clone().into_circle_evaluation());
     tree_builder.commit(&mut prover_channel);
     let mut all_elements = AllLookupElements::default();
-    C::draw_lookup_elements(&mut all_elements, &mut prover_channel);
+    C::draw_lookup_elements(
+        &mut all_elements,
+        &mut prover_channel,
+        &ExtensionsConfig::default(),
+    );
 
     // Interaction Trace
     let (interaction_trace, claimed_sum) =
@@ -142,7 +147,12 @@ pub(crate) fn assert_chip<C: MachineChip>(
         CanonicCoset::new(log_size),
         |mut eval| {
             let trace_eval = TraceEval::new(&mut eval);
-            C::add_constraints(&mut eval, &trace_eval, &lookup_elements);
+            C::add_constraints(
+                &mut eval,
+                &trace_eval,
+                &lookup_elements,
+                &ExtensionsConfig::default(),
+            );
 
             if !lookup_elements.is_empty() {
                 eval.finalize_logup();

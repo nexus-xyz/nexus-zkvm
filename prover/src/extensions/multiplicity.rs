@@ -42,6 +42,20 @@ pub struct Multiplicity<const LEN: usize, L> {
     _phantom: std::marker::PhantomData<L>,
 }
 
+// auto-derive enforces bounds on generic parameters
+
+impl<const LEN: usize, L> PartialEq for Multiplicity<LEN, L> {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl<const LEN: usize, L> Eq for Multiplicity<LEN, L> {}
+
+impl<const LEN: usize, L> std::hash::Hash for Multiplicity<LEN, L> {
+    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+}
+
 impl<const LEN: usize, L> Multiplicity<LEN, L> {
     pub(super) const fn new() -> Self {
         Self {
@@ -135,7 +149,7 @@ where
 {
     type Eval = MultiplicityEval<LEN, L>;
 
-    fn compute_log_size(_side_note: &SideNote) -> u32 {
+    fn compute_log_size(&self, _side_note: &SideNote) -> u32 {
         MultiplicityEval::<LEN, L>::LOG_SIZE
     }
 
@@ -143,6 +157,7 @@ where
     ///
     /// The ordering of rows is the same as the ordering of the preprocessed value column.
     fn generate_component_trace(
+        &self,
         log_size: u32,
         _: ProgramTraceRef,
         side_note: &mut SideNote,
@@ -158,6 +173,7 @@ where
     }
 
     fn generate_preprocessed_trace(
+        &self,
         _log_size: u32,
         _program_trace_ref: ProgramTraceRef,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
@@ -174,6 +190,7 @@ where
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
