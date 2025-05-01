@@ -1,7 +1,5 @@
 #![allow(clippy::needless_range_loop)]
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::simd::u32x16;
 
 use num_traits::{One, Zero};
@@ -244,38 +242,37 @@ pub fn convert_input_to_simd(
     offset: usize,
     rounds: usize,
 ) -> (Vec<Vec<u32x16>>, Vec<[u64; 25]>) {
-    assert!(rounds % 8 == 0);
+    assert!(rounds.is_power_of_two());
 
-    let mut trace = vec![vec![]; 200];
-    let rem = Rc::new(RefCell::new(vec![]));
+    let mut trace = vec![vec![]; 25 * LANE_SIZE];
     let round_inputs = inputs.iter().flat_map(|state| {
-        let rem = rem.clone();
         let mut state = *state;
-        (0..=rounds).filter_map(move |i| {
+        (0..=rounds).map(move |i| {
+            // flag rows that should be pushed to the remainder instead of trace
             if i == rounds {
-                if offset + rounds <= ROUNDS {
-                    rem.borrow_mut().push(state);
-                }
-                None
+                assert!(i + offset <= ROUNDS);
+                (true, state)
             } else {
                 let next = state;
                 keccak_round(&mut state, RC[i + offset]);
 
-                Some(next)
+                (false, next)
             }
         })
     });
 
     // pad for simd
-    let rows_num = if (inputs.len() * rounds) % (1 << LOG_N_LANES) != 0 {
-        inputs.len() * (rounds + 1) + 8
-    } else {
-        inputs.len() * (rounds + 1)
-    };
-    for round_input in round_inputs
-        .chain(std::iter::repeat_with(|| [0u64; 25]))
-        .take(rows_num)
+    let num_rows = (inputs.len() * rounds).next_multiple_of(1 << LOG_N_LANES);
+    let mut rem = vec![];
+
+    for (skip_row, round_input) in round_inputs
+        .chain(std::iter::repeat_with(|| (false, [0u64; 25])))
+        .take(num_rows + inputs.len())
     {
+        if skip_row {
+            rem.push(round_input);
+            continue;
+        }
         for (col, byte) in round_input
             .into_iter()
             .flat_map(u64::to_le_bytes)
@@ -294,12 +291,7 @@ pub fn convert_input_to_simd(
                 .collect()
         })
         .collect();
-    (
-        trace,
-        Rc::into_inner(rem)
-            .map(RefCell::into_inner)
-            .expect("round_inputs iterator wasn't consumed"),
-    )
+    (trace, rem)
 }
 
 pub fn generate_round_component_trace(
@@ -404,6 +396,9 @@ fn pad_input(input: Vec<Vec<u32x16>>, log_size: u32) -> Vec<Vec<u32x16>> {
 
 #[cfg(test)]
 mod tests {
+    use rand::{RngCore, SeedableRng};
+    use rand_chacha::ChaCha12Rng;
+
     use super::*;
 
     #[test]
@@ -413,5 +408,32 @@ mod tests {
         let padded = pad_input(input, LOG_N_LANES);
 
         assert_eq!(padded[0].len(), 1);
+    }
+
+    #[test]
+    fn round_initial_states_match() {
+        let mut rng = ChaCha12Rng::from_seed(Default::default());
+        let inputs: Vec<[u64; 25]> =
+            std::iter::repeat_with(|| std::array::from_fn(|_idx| rng.next_u64()))
+                .take(20)
+                .collect();
+
+        let (_, rem) = convert_input_to_simd(&inputs, 0, 1 << 4);
+
+        let expected: Vec<[u64; 25]> = inputs
+            .iter()
+            .map(|input| {
+                let mut input = *input;
+                for &rc in &RC[..1 << 4] {
+                    keccak_round(&mut input, rc);
+                }
+                input
+            })
+            .collect();
+
+        assert_eq!(rem.len(), expected.len());
+        for (state, expected) in rem.into_iter().zip(expected) {
+            assert_eq!(state, expected);
+        }
     }
 }
