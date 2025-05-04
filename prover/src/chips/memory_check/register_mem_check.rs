@@ -409,10 +409,7 @@ fn fill_prev_values(
     let cur_value = u32::from_base_fields(reg_value);
     assert!(
         reg_idx != 0 || cur_value == 0,
-        "writing non-zero to X0, reg_idx: {}, cur_value: {}, row_idx: {}",
-        reg_idx,
-        cur_value,
-        row_idx
+        "writing non-zero to X0, reg_idx: {reg_idx}, cur_value: {cur_value}, row_idx: {row_idx}"
     );
     let AccessResult {
         prev_timestamp,

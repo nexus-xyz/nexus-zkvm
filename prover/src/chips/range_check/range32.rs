@@ -101,7 +101,7 @@ impl MachineChip for Range32Chip {
 fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-    assert!(checked < 32, "value is out of range {}", checked);
+    assert!(checked < 32, "value is out of range {checked}");
     side_note.range32.multiplicity[checked as usize] += 1;
 }
 

@@ -67,8 +67,7 @@ impl MachineChip for SyscallChip {
             }
             _ => {
                 panic!(
-                    "Unknown syscall number: 0x{:x} and result: {:?}, on row {}",
-                    syscall_number, result, row_idx
+                    "Unknown syscall number: 0x{syscall_number:x} and result: {result:?}, on row {row_idx}"
                 );
             }
         };

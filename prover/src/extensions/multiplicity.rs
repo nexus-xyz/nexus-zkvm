@@ -78,7 +78,7 @@ impl<const LEN: usize> RangeValues<LEN> {
 
     pub fn id(&self) -> PreProcessedColumnId {
         PreProcessedColumnId {
-            id: format!("preprocessed_range_values_{}", LEN),
+            id: format!("preprocessed_range_values_{LEN}"),
         }
     }
 }

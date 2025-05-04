@@ -188,8 +188,7 @@ mod tests {
             assert_eq!(
                 reg.abi_name(),
                 abi_names[i as usize],
-                "Mismatch for register X{}",
-                i
+                "Mismatch for register X{i}"
             );
         }
     }
@@ -199,7 +198,7 @@ mod tests {
         for i in 0..32 {
             let reg = Register::from(i);
             assert_eq!(
-                format!("{}", reg),
+                format!("{reg}"),
                 reg.abi_name(),
                 "Display mismatch for register X{}",
                 i

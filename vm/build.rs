@@ -67,9 +67,9 @@ fn main() {
     let two_precompiles_path = built_bin_dir.join(TWO_PRECOMPILES_NAME);
     let no_precompiles_path = built_bin_dir.join(NO_PRECOMPILES_NAME);
 
-    let one_precompile_dest = test_dir.join(format!("{}.elf", ONE_PRECOMPILE_NAME));
-    let two_precompiles_dest = test_dir.join(format!("{}.elf", TWO_PRECOMPILES_NAME));
-    let no_precompiles_dest = test_dir.join(format!("{}.elf", NO_PRECOMPILES_NAME));
+    let one_precompile_dest = test_dir.join(format!("{ONE_PRECOMPILE_NAME}.elf"));
+    let two_precompiles_dest = test_dir.join(format!("{TWO_PRECOMPILES_NAME}.elf"));
+    let no_precompiles_dest = test_dir.join(format!("{NO_PRECOMPILES_NAME}.elf"));
 
     std::fs::copy(one_precompile_path, one_precompile_dest).unwrap();
     std::fs::copy(two_precompiles_path, two_precompiles_dest).unwrap();

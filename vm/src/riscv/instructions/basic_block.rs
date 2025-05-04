@@ -9,7 +9,7 @@ pub struct BasicBlock(pub Vec<Instruction>);
 impl Display for BasicBlock {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (j, instruction) in self.0.iter().enumerate() {
-            writeln!(f, "│ {:3}: {}", j, instruction)?;
+            writeln!(f, "│ {j:3}: {instruction}")?;
         }
 
         Ok(())
@@ -87,9 +87,9 @@ impl Display for BasicBlockProgram {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (i, block) in self.blocks.iter().enumerate() {
             writeln!(f, "┌─────────────────────────────────────────────────")?;
-            writeln!(f, "│ Basic Block {:3}", i)?;
+            writeln!(f, "│ Basic Block {i:3}")?;
             writeln!(f, "├─────────────────────────────────────────────────")?;
-            write!(f, "{}", block)?;
+            write!(f, "{block}")?;
             writeln!(f, "└─────────────────────────────────────────────────")?;
             writeln!(f)?;
         }
@@ -141,8 +141,7 @@ mod tests {
         for (original, re_decoded) in original_block.0.iter().zip(re_decoded_block.0.iter()) {
             assert_eq!(
                 original, re_decoded,
-                "Instruction mismatch:\nOriginal: {}\nRe-decoded: {}",
-                original, re_decoded
+                "Instruction mismatch:\nOriginal: {original}\nRe-decoded: {re_decoded}"
             );
         }
     }
@@ -182,8 +181,7 @@ mod tests {
             for (original, re_decoded) in basic_block.0.iter().zip(re_decoded_program.0.iter()) {
                 assert_eq!(
                     original, re_decoded,
-                    "Instruction mismatch:\nOriginal: {}\nRe-decoded: {}",
-                    original, re_decoded
+                    "Instruction mismatch:\nOriginal: {original}\nRe-decoded: {re_decoded}"
                 );
             }
         }

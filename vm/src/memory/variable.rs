@@ -78,7 +78,7 @@ impl<M: Mode> Debug for VariableMemory<M> {
         writeln!(f, "├───────────────────┼─────────────────┤")?;
 
         for (&address, &value) in self.0.iter() {
-            writeln!(f, "│ 0x{:08x}        │ 0x{:08x}      │", address, value)?;
+            writeln!(f, "│ 0x{address:08x}        │ 0x{value:08x}      │")?;
         }
 
         writeln!(f, "└───────────────────┴─────────────────┘")?;
