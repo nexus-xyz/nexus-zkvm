@@ -187,7 +187,7 @@ impl Multiplicity8 {
         let range_values = BaseColumn::from_iter(
             (0..8)
                 .map(BaseField::from)
-                .chain(std::iter::repeat(BaseField::zero()).take(Self::num_padding())),
+                .chain(std::iter::repeat_n(BaseField::zero(), Self::num_padding())),
         );
         vec![range_values]
     }
@@ -198,7 +198,7 @@ impl Multiplicity8 {
                 .multiplicity
                 .into_iter()
                 .map(BaseField::from)
-                .chain(std::iter::repeat(BaseField::zero()).take(Self::num_padding())),
+                .chain(std::iter::repeat_n(BaseField::zero(), Self::num_padding())),
         );
         vec![multiplicities]
     }

@@ -147,9 +147,7 @@ impl BuiltInExtension for BitOpMultiplicity {
 
     fn preprocessed_trace_sizes(_log_size: u32) -> Vec<u32> {
         // preprocessed column for each of [and, or, xor] with 2 input lookups
-        std::iter::repeat(BitOpMultiplicityEval::LOG_SIZE)
-            .take(5)
-            .collect()
+        vec![BitOpMultiplicityEval::LOG_SIZE; 5]
     }
 
     fn generate_interaction_trace(

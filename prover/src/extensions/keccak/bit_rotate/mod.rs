@@ -175,13 +175,13 @@ impl BuiltInExtension for BitRotateTable {
     }
 
     fn preprocessed_trace_sizes(_: u32) -> Vec<u32> {
-        std::iter::repeat(Self::Eval::LOG_SIZE).take(4).collect()
+        vec![Self::Eval::LOG_SIZE; 4]
     }
 }
 
 impl BitRotateTable {
     fn preprocessed_base_columns() -> Vec<BaseColumn> {
-        let range_iter = (0u32..256).flat_map(|byte| std::iter::repeat(byte).take(8));
+        let range_iter = (0u32..256).flat_map(|byte| std::iter::repeat_n(byte, 8));
         let shift_iter = (0u32..8)
             .clone()
             .cycle()

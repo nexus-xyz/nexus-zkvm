@@ -423,9 +423,8 @@ impl<C: MachineChip + Sync> Machine<C> {
         }
         let mut log_sizes = TreeVec::concat_cols(sizes.into_iter());
         // use the fact that preprocessed columns are only allowed to have [0] mask
-        log_sizes[PREPROCESSED_TRACE_IDX] = std::iter::repeat(all_log_sizes[0])
-            .take(PreprocessedColumn::COLUMNS_NUM + ProgramColumn::COLUMNS_NUM)
-            .collect();
+        log_sizes[PREPROCESSED_TRACE_IDX] =
+            vec![all_log_sizes[0]; PreprocessedColumn::COLUMNS_NUM + ProgramColumn::COLUMNS_NUM];
         for (ext, log_size) in extensions_iter
             .clone()
             .zip(all_log_sizes.get(1..).unwrap_or_default())
