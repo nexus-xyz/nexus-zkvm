@@ -217,7 +217,7 @@ impl<const ELEM_BITS: u32, const EXPAND_BITS: u32, R: RegisteredLookupBound, B: 
 
     fn preprocessed_trace_sizes(_log_size: u32) -> Vec<u32> {
         if B::PREPROCESSED_TRACE_GEN {
-            std::iter::repeat(Self::Eval::LOG_SIZE).take(4).collect()
+            vec![Self::Eval::LOG_SIZE; 4]
         } else {
             Vec::new()
         }

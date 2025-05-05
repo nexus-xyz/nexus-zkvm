@@ -8,7 +8,7 @@ nexus-vm-prover = { path = "../prover" }
 nexus-vm = { path = "../vm" }
 nexus-common = { path = "../common" }
 
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "a194fad" }
+stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "61d1f6b" }
 
 criterion = { version = "0.5", features = ["csv", "csv_output"] }
 crc = "3.2.1"

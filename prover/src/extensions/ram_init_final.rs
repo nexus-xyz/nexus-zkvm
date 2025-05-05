@@ -371,7 +371,7 @@ impl RamInitFinal {
                     .iter()
                     .map(|entry| entry.address),
             )
-            .chain(std::iter::repeat(0).take(padding_length));
+            .chain(std::iter::repeat_n(0, padding_length));
         let public_ram_addr_iter = public_ram_addr_iter
             .map(|address| -> [BaseField; WORD_SIZE] { address.into_base_fields() });
         assert_eq!(public_ram_addr_iter.clone().count(), 1 << log_size);
@@ -386,9 +386,15 @@ impl RamInitFinal {
             .init_memory
             .iter()
             .map(|_| true)
-            .chain(std::iter::repeat(false).take(program_trace_ref.exit_code.len()))
-            .chain(std::iter::repeat(false).take(program_trace_ref.public_output.len()))
-            .chain(std::iter::repeat(false).take(padding_length));
+            .chain(std::iter::repeat_n(
+                false,
+                program_trace_ref.exit_code.len(),
+            ))
+            .chain(std::iter::repeat_n(
+                false,
+                program_trace_ref.public_output.len(),
+            ))
+            .chain(std::iter::repeat_n(false, padding_length));
         assert_eq!(
             public_initial_memory_flag_iter.clone().count(),
             1 << log_size
@@ -404,9 +410,12 @@ impl RamInitFinal {
             .init_memory
             .iter()
             .map(|entry| entry.value)
-            .chain(std::iter::repeat(0).take(program_trace_ref.exit_code.len()))
-            .chain(std::iter::repeat(0).take(program_trace_ref.public_output.len()))
-            .chain(std::iter::repeat(0).take(padding_length));
+            .chain(std::iter::repeat_n(0, program_trace_ref.exit_code.len()))
+            .chain(std::iter::repeat_n(
+                0,
+                program_trace_ref.public_output.len(),
+            ))
+            .chain(std::iter::repeat_n(0, padding_length));
         assert_eq!(
             public_initial_memory_value_iter.clone().count(),
             1 << log_size
@@ -418,11 +427,11 @@ impl RamInitFinal {
         preprocessed_cols.push(base_column);
 
         // Iterator for PublicOutputFlag: false for init_memory rows, true for exit_code and public_output.
-        let public_output_flag_iter = std::iter::repeat(false)
-            .take(program_trace_ref.init_memory.len())
-            .chain(program_trace_ref.exit_code.iter().map(|_| true))
-            .chain(program_trace_ref.public_output.iter().map(|_| true))
-            .chain(std::iter::repeat(false).take(padding_length));
+        let public_output_flag_iter =
+            std::iter::repeat_n(false, program_trace_ref.init_memory.len())
+                .chain(program_trace_ref.exit_code.iter().map(|_| true))
+                .chain(program_trace_ref.public_output.iter().map(|_| true))
+                .chain(std::iter::repeat_n(false, padding_length));
         assert_eq!(public_output_flag_iter.clone().count(), 1 << log_size);
         let public_output_flag_iter =
             public_output_flag_iter.map(|flag| flag.into_base_fields()[0]);
@@ -430,8 +439,7 @@ impl RamInitFinal {
         preprocessed_cols.push(public_output_flag_column);
 
         // Iterator for PublicOutputValue: zero for init_memory rows, use the provided value for the others.
-        let public_output_value_iter = std::iter::repeat(0)
-            .take(program_trace_ref.init_memory.len())
+        let public_output_value_iter = std::iter::repeat_n(0, program_trace_ref.init_memory.len())
             .chain(program_trace_ref.exit_code.iter().map(|entry| entry.value))
             .chain(
                 program_trace_ref
@@ -439,7 +447,7 @@ impl RamInitFinal {
                     .iter()
                     .map(|entry| entry.value),
             )
-            .chain(std::iter::repeat(0).take(padding_length));
+            .chain(std::iter::repeat_n(0, padding_length));
         assert_eq!(public_output_value_iter.clone().count(), 1 << log_size);
         let public_output_value_iter =
             public_output_value_iter.map(|value| value.into_base_fields());
@@ -460,7 +468,7 @@ impl RamInitFinal {
             .last_access
             .iter()
             .map(Some)
-            .chain(std::iter::repeat(None).take(num_extension));
+            .chain(std::iter::repeat_n(None, num_extension));
         let mut ret = vec![];
         let ram_init_final_addrs = extended_iter
             .clone()

@@ -30,7 +30,7 @@ impl<E: EvalAtRow> TraceEval<E> {
             .collect();
         let evals = Column::ALL_VARIANTS
             .iter()
-            .flat_map(|col| std::iter::repeat(col).take(col.size()))
+            .flat_map(|col| std::iter::repeat_n(col, col.size()))
             .map(|col| {
                 if col.reads_next_row_mask() {
                     eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1])

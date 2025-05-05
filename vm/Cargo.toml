@@ -32,3 +32,6 @@ tiny-keccak.workspace = true
 
 [dev-dependencies]
 serial_test = "3.2.0"
+
+[lints.clippy]
+doc-overindented-list-items = { level = "allow", priority = 0 } # doc comments padding

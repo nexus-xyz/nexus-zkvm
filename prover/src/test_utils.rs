@@ -1,5 +1,5 @@
 use stwo_prover::{
-    constraint_framework::{assert_constraints, EvalAtRow},
+    constraint_framework::{assert_constraints_on_polys, EvalAtRow},
     core::{
         backend::simd::SimdBackend,
         channel::Blake2sChannel,
@@ -142,7 +142,7 @@ pub(crate) fn assert_chip<C: MachineChip>(
     });
 
     // Now check the constraints to make sure they're satisfied
-    assert_constraints(
+    assert_constraints_on_polys(
         &trace_polys,
         CanonicCoset::new(log_size),
         |mut eval| {

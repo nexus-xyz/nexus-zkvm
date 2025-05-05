@@ -164,5 +164,5 @@ const GUEST_TEMPLATE_SRC_MAIN: &str = include_str!(concat!(guest_examples_dir!()
 
 // freeze toolchain that works with all provers
 const RUST_TOOLCHAIN: &str = r#"[toolchain]
-channel = "nightly-2025-01-02"
+channel = "nightly-2025-04-06"
 "#;
