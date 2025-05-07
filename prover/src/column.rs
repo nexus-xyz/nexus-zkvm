@@ -163,6 +163,9 @@ pub enum Column {
     /// Boolean flag on whether the row is an ECALL_DEBUG (Write).
     #[size = 1]
     IsSysDebug,
+    /// Boolean flag on whether the row is an ECALL_MADVISE (Heap Allocation).
+    #[size = 1]
+    IsSysMemoryAdvise,
     /// Boolean flag on whether the row is an ECALL_HALT (Exit).
     #[size = 1]
     IsSysHalt,

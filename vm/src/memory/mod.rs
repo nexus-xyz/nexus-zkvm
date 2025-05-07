@@ -1,4 +1,7 @@
 mod fixed;
+mod memory_image;
+mod page;
+mod paged_memory;
 mod unified;
 mod variable;
 
@@ -8,5 +11,7 @@ pub use nexus_common::memory::traits::{
 };
 
 pub use fixed::FixedMemory;
+pub use memory_image::MemorySegmentImage;
+pub use paged_memory::PagedMemory;
 pub use unified::{Modes, UnifiedMemory};
 pub use variable::VariableMemory;

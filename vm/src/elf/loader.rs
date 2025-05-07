@@ -43,14 +43,13 @@
 //! This loader is designed for little-endian RISC-V 32-bit executables and implements
 //! a Harvard architecture model. Ensure your ELF files are compatible with these specifications.
 
-use crate::elf::parser;
+use crate::{elf::parser, error::VMError, memory::MemorySegmentImage};
 
 use elf::{endian::LittleEndian, ElfBytes};
-use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::Path;
 
-use super::error::ParserError;
+use super::{error::ParserError, parser::ParsedElfData};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -65,10 +64,10 @@ pub struct ElfFile {
     pub base: u32,
 
     /// Initial read only memory image.
-    pub rom_image: BTreeMap<u32, u32>,
+    pub rom_image: MemorySegmentImage,
 
     /// Initial read write memory image containing global and initialized data.
-    pub ram_image: BTreeMap<u32, u32>,
+    pub ram_image: MemorySegmentImage,
 
     /// Nexus-specific metadata embedded in the ELF file.
     pub nexus_metadata: Vec<u32>,
@@ -79,8 +78,8 @@ impl ElfFile {
         instructions: Vec<u32>,
         entry: u32,
         base: u32,
-        rom_image: BTreeMap<u32, u32>,
-        ram_image: BTreeMap<u32, u32>,
+        rom_image: MemorySegmentImage,
+        ram_image: MemorySegmentImage,
         nexus_metadata: Vec<u32>,
     ) -> Self {
         ElfFile {
@@ -97,7 +96,7 @@ impl ElfFile {
         &self.instructions[address..address + n]
     }
 
-    pub fn from_bytes(data: &[u8]) -> Result<Self, ParserError> {
+    pub fn from_bytes(data: &[u8]) -> Result<Self, VMError> {
         let elf = ElfBytes::<LittleEndian>::minimal_parse(data).map_err(ParserError::ELFError)?;
 
         parser::validate_elf_header(&elf.ehdr)?;
@@ -108,7 +107,7 @@ impl ElfFile {
             .try_into()
             .map_err(|_| ParserError::InvalidEntryPointOffset)?;
 
-        let parsed_elf_data = parser::parse_segments(&elf, data)?;
+        let parsed_elf_data: ParsedElfData = parser::parse_segments(&elf, data)?;
 
         Ok(ElfFile {
             instructions: parsed_elf_data.instructions,
@@ -120,8 +119,8 @@ impl ElfFile {
         })
     }
 
-    pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, ParserError> {
-        let file = File::open(path)?;
+    pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, VMError> {
+        let file = File::open(path).map_err(ParserError::IOError)?;
         let data: Vec<u8> = std::io::Read::bytes(file)
             .map(|b| b.expect("Failed to read byte"))
             .collect();
@@ -131,6 +130,10 @@ impl ElfFile {
 
 #[cfg(test)]
 mod tests {
+
+    use nexus_common::constants::ELF_TEXT_START;
+
+    use crate::memory::MemorySegmentImage;
 
     use super::*;
     use std::io::Write;
@@ -144,11 +147,9 @@ mod tests {
     }
 
     #[allow(dead_code)]
-    fn write_memory_to_file(memory: &BTreeMap<u32, u32>, file_path: &str) {
+    fn write_memory_to_file(memory: &MemorySegmentImage, file_path: &str) {
         let mut file = File::create(file_path).unwrap();
-        for (_, value) in memory.iter() {
-            file.write_all(&value.to_le_bytes()).unwrap();
-        }
+        file.write_all(memory.as_byte_slice()).unwrap();
     }
 
     #[allow(dead_code)]
@@ -156,8 +157,8 @@ mod tests {
         dbg!(elf.instructions.len());
         dbg!(elf.entry);
         dbg!(elf.base);
-        dbg!(elf.ram_image.len());
-        dbg!(elf.rom_image.len());
+        dbg!(elf.ram_image.len_bytes());
+        dbg!(elf.rom_image.len_bytes());
 
         // Write elf.instructions to a file
         write_instruction_to_file(&elf.instructions, &format!("{}.inst.bin", file_path));
@@ -171,7 +172,8 @@ mod tests {
 
     #[test]
     fn test_parse_elf_files() {
-        let test_cases = [("test/fib_10.elf", 4096, 4096, 1467)];
+        // Use llvm-objdump to find what these numbers should be
+        let test_cases = [("test/fib_10.elf", ELF_TEXT_START, ELF_TEXT_START, 1449)];
 
         for (file_path, entry_point, base_address, number_of_instruction) in test_cases.iter() {
             let elf = ElfFile::from_path(file_path).unwrap();

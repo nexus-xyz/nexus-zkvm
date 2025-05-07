@@ -8,6 +8,7 @@ use crate::{
 };
 use nexus_common::cpu::{Processor, Registers};
 
+#[derive(Debug)]
 pub struct LhInstruction {
     rd: (Register, u32),
     rs1: u32,
@@ -60,6 +61,7 @@ mod tests {
         let mut instruction = LhInstruction::decode(&bare_instruction, &cpu.registers);
 
         instruction.memory_read(&memory).unwrap();
+
         let res = instruction.write_back(&mut cpu);
 
         assert_eq!(res, Some(0x00007FFF));

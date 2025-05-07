@@ -6,7 +6,7 @@ ENTRY(_start);
 SECTIONS
 {
   __memory_top = 0x80400000;
-  . = 0x1000;
+  . = 0x88;
 
   .text : ALIGN(4)
   {

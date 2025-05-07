@@ -130,7 +130,16 @@ pub enum ParserError {
     /// The calculated offset is not within the file.
     #[error("Invalid offset in file")]
     InvalidOffsetInFile,
-}
 
-/// Result type for VM functions that can produce errors
-pub type Result<T, E = ParserError> = std::result::Result<T, E>;
+    // Btree memory segment has unexpected gaps
+    #[error("Memory segment has unexpected gaps")]
+    GappyMemorySegment,
+
+    // Btree memory segment has unexpected overlaps
+    #[error("Memory segment has unexpected overlaps")]
+    OverlappingMemorySegment,
+
+    // Could not find a .text section in the ELF file
+    #[error("No executable segment found")]
+    NoExecutableSegment,
+}

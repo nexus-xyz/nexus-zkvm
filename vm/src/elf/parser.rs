@@ -38,6 +38,7 @@ use elf::{
     abi,
     endian::LittleEndian,
     file::{Class, FileHeader},
+    section::SectionHeader,
     segment::ProgramHeader,
     ElfBytes,
 };
@@ -46,17 +47,19 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use tracing::debug;
 
-use super::error::{ParserError, Result};
+use crate::{error::Result, memory::MemorySegmentImage};
+
+use super::error::ParserError;
 
 type Instructions = Vec<u32>;
 type Metadata = Vec<u32>;
-type MemoryImage = BTreeMap<u32, u32>;
+type RawMemoryImage = BTreeMap<u32, u32>;
 
 pub struct ParsedElfData {
     pub instructions: Instructions,
-    pub readonly_memory: MemoryImage,
-    pub writable_memory: MemoryImage,
-    pub base_address: u64,
+    pub readonly_memory: MemorySegmentImage,
+    pub writable_memory: MemorySegmentImage,
+    pub base_address: u32,
     pub nexus_metadata: Metadata,
 }
 
@@ -112,19 +115,19 @@ impl fmt::Display for WordType {
 /// 5. At least one program header is present.
 pub fn validate_elf_header(header: &FileHeader<LittleEndian>) -> Result<()> {
     if header.class != Class::ELF32 {
-        return Err(ParserError::Not32Bit);
+        return Err(ParserError::Not32Bit.into());
     }
 
     if header.e_machine != abi::EM_RISCV {
-        return Err(ParserError::NotRiscV);
+        return Err(ParserError::NotRiscV.into());
     }
 
     if header.e_type != abi::ET_EXEC {
-        return Err(ParserError::NotExecutable);
+        return Err(ParserError::NotExecutable.into());
     }
 
     if header.e_phnum == 0 {
-        return Err(ParserError::NoProgramHeader);
+        return Err(ParserError::NoProgramHeader.into());
     }
 
     Ok(())
@@ -161,14 +164,14 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
 
     // Ensure the virtual address is word-aligned
     if virtual_address % WORD_SIZE as u32 != 0 {
-        return Err(ParserError::UnalignedVirtualAddress);
+        return Err(ParserError::UnalignedVirtualAddress.into());
     }
 
     // Ensure file_size <= mem_size and the total size does not exceed the maximum memory size
     if (file_size <= mem_size) && (mem_size + offset < MAXIMUM_MEMORY_SIZE) {
         Ok((virtual_address, offset, mem_size))
     } else {
-        Err(ParserError::SegmentSizeExceedsMemorySize)
+        Err(ParserError::SegmentSizeExceedsMemorySize.into())
     }
 }
 
@@ -237,7 +240,7 @@ fn parse_segment_content(
             .checked_add(offset_in_segment)
             .ok_or(ParserError::InvalidSegmentAddress)?;
         if memory_address == MAXIMUM_MEMORY_SIZE {
-            return Err(ParserError::AddressExceedsMemorySize);
+            return Err(ParserError::AddressExceedsMemorySize.into());
         }
 
         // Calculate the offset within the segment for this word
@@ -246,7 +249,8 @@ fn parse_segment_content(
         // Read the word from the file data
         let word = u32::from_le_bytes(
             data[absolute_address as usize..(absolute_address + WORD_SIZE as u32) as usize]
-                .try_into()?,
+                .try_into()
+                .map_err(ParserError::WordDecodingFailed)?,
         );
 
         // Determine the type of word based on the segment and section information
@@ -285,12 +289,12 @@ fn parse_segment_content(
             Some(WordType::Instruction) => instructions.push(word),
             Some(WordType::ReadOnlyData) => {
                 if readonly_memory_image.insert(memory_address, word).is_some() {
-                    return Err(ParserError::DuplicateMemoryAddress);
+                    return Err(ParserError::DuplicateMemoryAddress.into());
                 }
             }
             Some(WordType::Data) => {
                 if memory_image.insert(memory_address, word).is_some() {
-                    return Err(ParserError::DuplicateMemoryAddress);
+                    return Err(ParserError::DuplicateMemoryAddress.into());
                 }
             }
             Some(WordType::Metadata) => {
@@ -345,18 +349,20 @@ fn parse_precompile_metadata(
         }
 
         // Search for PRECOMPILE_X symbols, which are strings that contain precompile metadata.
-        let name = symbol_string_table.get(symbol.st_name as usize)?;
+        let name = symbol_string_table
+            .get(symbol.st_name as usize)
+            .map_err(|_| ParserError::NoSymbolTable)?;
         if !name.starts_with(PRECOMPILE_SYMBOL_PREFIX) {
             continue;
         }
 
         let suffix: &str = &name[PRECOMPILE_SYMBOL_PREFIX.len()..];
-        let precompile_index = suffix.parse::<u16>()?;
+        let precompile_index: u16 = suffix.parse::<u16>().map_err(ParserError::ParseIntError)?;
 
         // str is represented as a [u8], which contains two words: a pointer and a length.
         let symbol_size: usize = symbol.st_size as usize;
         if symbol_size != WORD_SIZE * 2 {
-            return Err(ParserError::InvalidPrecompileSize(symbol.st_size));
+            return Err(ParserError::InvalidPrecompileSize(symbol.st_size).into());
         }
 
         // Recover the symbol's offset in the file. Requires some address conversions.
@@ -366,11 +372,13 @@ fn parse_precompile_metadata(
             .map_err(|_| ParserError::InvalidVirtualAddress(symbol.st_value))?;
 
         // Need section data to calculate the offset in the file.
-        let section = match symbol.st_shndx {
+        let section: SectionHeader = match symbol.st_shndx {
             x if x == abi::SHN_XINDEX => {
-                return Err(ParserError::InvalidSectionIndex(x));
+                return Err(ParserError::InvalidSectionIndex(x).into());
             }
-            x => section_headers.get(x as usize)?,
+            x => section_headers
+                .get(x as usize)
+                .map_err(ParserError::ELFError)?,
         };
 
         // Virtual address of the section start
@@ -394,9 +402,13 @@ fn parse_precompile_metadata(
         // These must be encoded as valid Rust strings, so we should decode them immediately,
         // erroring if necessary.
         let str_struct_bytes = &data[offset_in_file..offset_in_file + symbol_size];
+        if str_struct_bytes.len() != WORD_SIZE * 2 {
+            return Err(ParserError::InvalidPrecompileSize(symbol.st_size).into());
+        }
 
-        let str_ptr = u32::from_le_bytes(str_struct_bytes[..WORD_SIZE].try_into()?);
-        let str_len = u32::from_le_bytes(str_struct_bytes[WORD_SIZE..].try_into()?);
+        // Safety: we've already checked that the slice is of length WORD_SIZE * 2.
+        let str_ptr = u32::from_le_bytes(str_struct_bytes[..WORD_SIZE].try_into().unwrap());
+        let str_len = u32::from_le_bytes(str_struct_bytes[WORD_SIZE..].try_into().unwrap());
 
         // str_ptr is a virtual address again, so we have to again convert it to a file address.
         // We assume the data is stored in the same section as the str representation.
@@ -406,7 +418,7 @@ fn parse_precompile_metadata(
         let str_offset = section_offset as usize + str_section_offset;
 
         let str_slice = &data[str_offset..str_offset + str_len as usize];
-        let str_value = str::from_utf8(str_slice)?;
+        let str_value = str::from_utf8(str_slice).map_err(ParserError::Utf8Error)?;
 
         precompiles.insert(precompile_index, str_value.into());
     }
@@ -464,8 +476,8 @@ fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64,
 /// Returns a `ParserError` if any parsing or validation errors occur.
 pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<ParsedElfData> {
     let mut instructions = Instructions::new();
-    let mut writable_memory = MemoryImage::new();
-    let mut readonly_memory = MemoryImage::new();
+    let mut writable_memory = RawMemoryImage::new();
+    let mut readonly_memory = RawMemoryImage::new();
     let mut metadata = Metadata::new();
 
     // Base address is the lowest virtual address of a program's loadable segment
@@ -499,10 +511,18 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
         )?;
     }
 
+    let base_address = if base_address == u64::MAX {
+        return Err(ParserError::NoExecutableSegment.into());
+    } else if base_address > u32::MAX as u64 {
+        return Err(ParserError::AddressExceedsMemorySize.into());
+    } else {
+        base_address as u32
+    };
+
     Ok(ParsedElfData {
         instructions,
-        readonly_memory,
-        writable_memory,
+        readonly_memory: MemorySegmentImage::try_from_contiguous_btree(&readonly_memory)?,
+        writable_memory: MemorySegmentImage::try_from_contiguous_btree(&writable_memory)?,
         base_address,
         nexus_metadata: metadata,
     })

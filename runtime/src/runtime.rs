@@ -1,13 +1,30 @@
 // Nexus VM runtime environment
 // Note: adapted from riscv-rt, which was adapted from cortex-m.
 use crate::alloc::sys_alloc_aligned;
+use crate::NexusLog;
 use crate::{ecall, write_output, EXIT_PANIC, EXIT_SUCCESS, SYS_EXIT};
 use core::alloc::{GlobalAlloc, Layout};
+use core::fmt::Write as _;
 use core::panic::PanicInfo;
 
 #[inline(never)]
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    let file = info
+        .location()
+        .map(|loc| loc.file())
+        .unwrap_or("unknown file");
+    let line = info.location().map(|loc| loc.line()).unwrap_or(u32::MAX);
+
+    write!(
+        NexusLog,
+        "Emulated program panic in file '{}' at line {}: {}\n",
+        file,
+        line,
+        info.message()
+    )
+    .unwrap();
+
     // Write the exit code to the output.
     let _ = write_output!(0, EXIT_PANIC);
     // Finish with exit syscall.
@@ -84,6 +101,7 @@ core::arch::global_asm!(
         mv fp, sp
 
         jal ra, _start_rust
+    .option pic
 "#
 );
 

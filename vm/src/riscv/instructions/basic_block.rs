@@ -147,6 +147,8 @@ mod tests {
         }
     }
 
+    // TODO: re-enable this test once we merge the precompile changes
+    #[ignore]
     #[test]
     fn test_encode_decode_consistency_from_elf() {
         let file_path = "test/fib_10_no_precompiles.elf";

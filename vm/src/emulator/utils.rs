@@ -1,4 +1,5 @@
 use crate::elf::ElfFile;
+use crate::memory::MemorySegmentImage;
 use crate::riscv::{decode_instruction, BasicBlock};
 
 pub use super::executor::Emulator;
@@ -8,7 +9,6 @@ use super::registry;
 use nexus_common::constants::WORD_SIZE;
 use nexus_common::memory::MemoryRecords;
 use nexus_common::riscv::{opcode::BuiltinOpcode, Opcode};
-use std::collections::BTreeMap;
 
 pub type MemoryTranscript = Vec<MemoryRecords>;
 
@@ -74,14 +74,13 @@ pub fn io_entries_into_vec<T: IOEntry>(base: u32, entries: &[T]) -> Vec<u8> {
     vec
 }
 
-pub fn map_into_io_entries<T: IOEntry>(map: &BTreeMap<u32, u32>) -> Vec<T> {
-    map.iter()
+pub fn map_into_io_entries<T: IOEntry>(map: &MemorySegmentImage) -> Vec<T> {
+    map.addressed_iter()
         .flat_map(|(addr, val)| {
-            val.to_le_bytes()
-                .iter()
-                .enumerate()
-                .map(|(idx, byte)| T::new(addr + idx as u32, *byte))
-                .collect::<Vec<_>>()
+            (0..WORD_SIZE).map(move |idx| {
+                let val = val.to_le_bytes()[idx];
+                T::new_from_offset(addr, idx as u32, val)
+            })
         })
         .collect()
 }
@@ -189,7 +188,7 @@ pub struct View {
     pub(crate) debug_logs: Vec<Vec<u8>>,
     pub(crate) program_memory: ProgramInfo,
     // When not available, initial_memory can be None
-    pub(crate) initial_memory: Option<Vec<MemoryInitializationEntry>>,
+    pub(crate) initial_memory: Vec<MemoryInitializationEntry>,
     /// The number of all addresses under RAM memory checking
     pub(crate) tracked_ram_size: usize,
     pub(crate) exit_code: Vec<PublicOutputEntry>,
@@ -214,7 +213,7 @@ impl View {
             memory_layout: memory_layout.to_owned(),
             debug_logs: debug_logs.to_owned(),
             program_memory: program_memory.to_owned(),
-            initial_memory: Some(initial_memory.to_owned()),
+            initial_memory: initial_memory.to_owned(),
             tracked_ram_size,
             exit_code: exit_code.to_owned(),
             output_memory: output_memory.to_owned(),
@@ -225,13 +224,9 @@ impl View {
     /// Return the raw bytes of the public input, if any.
     pub fn view_public_input(&self) -> Option<Vec<u8>> {
         self.memory_layout.map(|layout| {
-            let initial_memory = self
-                .initial_memory
-                .as_ref()
-                .expect("initial memory should be available");
             io_entries_into_vec(
                 layout.public_input_start() + WORD_SIZE as u32,
-                initial_memory
+                self.initial_memory
                     .iter()
                     .filter(|entry: &&MemoryInitializationEntry| {
                         layout.public_input_start() + WORD_SIZE as u32 <= entry.address
@@ -284,11 +279,7 @@ impl InternalView for View {
 
     /// Return information about the public input, static ROM, and static RAM.
     fn get_initial_memory(&self) -> &[MemoryInitializationEntry] {
-        let initial_memory = self
-            .initial_memory
-            .as_ref()
-            .expect("initial memory should be available");
-        initial_memory
+        &self.initial_memory
     }
 
     /// Return information about the public input.

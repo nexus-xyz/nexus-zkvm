@@ -112,9 +112,11 @@ mod tests {
 
         let state = {
             let mut state = vec![];
+
             let bytes = memory
-                .segment_bytes(addr, Some(addr + (25 * 2 - 1) * WORD_SIZE as u32))
+                .segment_bytes(addr, Some(addr + (25 * 2) * WORD_SIZE as u32))
                 .expect("segment read failed");
+
             for lane in bytes.chunks(8) {
                 state.push(u64::from_le_bytes(
                     lane.try_into().expect("invalid lane size"),

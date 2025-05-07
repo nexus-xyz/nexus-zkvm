@@ -227,16 +227,16 @@ mod test {
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
     fn setup_basic_block_ir() -> Vec<BasicBlock> {
-        // Make sure the 12 lowest bit of ELF_TEXT_START are zeros.
-        assert_eq!(ELF_TEXT_START & 0xFFF, 0);
+        // Make sure that ELF_TEXT_START fits into 12 bits
+        assert_eq!(ELF_TEXT_START & 0xFFF, ELF_TEXT_START);
         let basic_block = BasicBlock::new(vec![
             // Initialize registers
             // Set x1 = ELF_TEXT_START + 16 (base address for first JALR)
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 1, 0, ELF_TEXT_START >> 12),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 1, 16),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 0, 0, 0),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 1, ELF_TEXT_START + 16),
             // Set x2 = ELF_TEXT_START + 44 (base address for second JALR)
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 2, 0, ELF_TEXT_START >> 12),
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 2, 44),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 0, 0, 0),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 2, ELF_TEXT_START + 44),
             // Case 1: JALR with positive offset
             // JALR x3, x1, 4 (Jump to x1 + 4 and store return address in x3)
             Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 3, 1, 12),

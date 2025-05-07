@@ -121,7 +121,7 @@
 //!     &harvard_emulator,
 //!     elf_file,
 //!     &associated_data,
-//!     &private_input
+//!     &private_input,
 //! ).expect("Failed to create Linear Emulator from Harvard Emulator");
 //!
 //! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
@@ -139,18 +139,19 @@ use crate::{
     elf::ElfFile,
     error::{Result, VMError},
     memory::{
-        FixedMemory, LoadOp, MemoryProcessor, MemoryRecords, Modes, StoreOp, UnifiedMemory,
-        VariableMemory, NA, RO, RW, WO,
+        FixedMemory, LoadOp, MemoryProcessor, MemoryRecords, MemorySegmentImage, Modes, StoreOp,
+        UnifiedMemory, VariableMemory, NA, RO, RW, WO,
     },
     riscv::{decode_until_end_of_a_block, BasicBlock, Instruction, Opcode, Register},
     system::SyscallInstruction,
 };
 
 use nexus_common::{
-    constants::{ELF_TEXT_START, MEMORY_TOP, WORD_SIZE},
+    constants::{
+        ELF_TEXT_START, MAX_PUBLIC_INPUT_SIZE, MEMORY_TOP, PUBLIC_INPUT_ADDRESS_LOCATION, WORD_SIZE,
+    },
     cpu::{InstructionExecutor, Registers},
     memory::MemAccessSize,
-    word_align,
 };
 use rangemap::RangeMap;
 use std::{
@@ -179,7 +180,6 @@ pub struct Executor {
     basic_block_cache: BTreeMap<u32, BasicBlockEntry>,
 
     // The base address of the program
-    #[allow(unused)]
     base_address: u32,
 
     // The entrypoint of the program
@@ -231,12 +231,19 @@ pub trait Emulator {
         executor: &mut Executor,
         memory: &mut impl MemoryProcessor,
         memory_layout: Option<LinearMemoryLayout>,
+        memory_stats: Option<&mut MemoryStats>,
         bare_instruction: &Instruction,
         force_provable_transcript: bool,
     ) -> Result<(InstructionResult, (HashSet<LoadOp>, HashSet<StoreOp>))> {
         let mut syscall_instruction = SyscallInstruction::decode(bare_instruction, &executor.cpu)?;
         let load_ops = syscall_instruction.memory_read(memory)?;
-        syscall_instruction.execute(executor, memory, memory_layout, force_provable_transcript)?;
+        syscall_instruction.execute(
+            executor,
+            memory,
+            memory_layout,
+            memory_stats,
+            force_provable_transcript,
+        )?;
         let result = syscall_instruction.get_result().map(|(_, value)| value);
         let store_ops = syscall_instruction.memory_write(memory)?;
         syscall_instruction.write_back(&mut executor.cpu);
@@ -401,10 +408,10 @@ pub struct HarvardEmulator {
     output_memory: VariableMemory<WO>,
 
     // Content of static rom image
-    static_rom_image: BTreeMap<u32, u8>,
+    initial_rom_image: MemorySegmentImage,
 
     // Initial content of static ram image
-    static_ram_image: BTreeMap<u32, u8>,
+    initial_ram_image: MemorySegmentImage,
 
     // A combined read-only (in part) and read-write (in part) memory image
     pub data_memory: UnifiedMemory,
@@ -421,8 +428,8 @@ impl Default for HarvardEmulator {
             instruction_memory: FixedMemory::<RO>::new(0, 0x1000),
             input_memory: FixedMemory::<RO>::new(0, 0x1000),
             output_memory: VariableMemory::<WO>::default(),
-            static_rom_image: BTreeMap::new(),
-            static_ram_image: BTreeMap::new(),
+            initial_rom_image: MemorySegmentImage::default(),
+            initial_ram_image: MemorySegmentImage::default(),
             data_memory: UnifiedMemory::default(),
             memory_stats: MemoryStats::default(),
         }
@@ -432,76 +439,40 @@ impl Default for HarvardEmulator {
 impl HarvardEmulator {
     pub fn from_elf(elf: &ElfFile, public_input: &[u8], private_input: &[u8]) -> Self {
         // the stack and heap will also be stored in this variable memory segment
-        let text_end = (elf.instructions.len() * WORD_SIZE) as u32 + elf.base;
-        let mut data_end = *elf.ram_image.last_key_value().unwrap_or((&text_end, &0)).0;
+        let mut data_end = elf.ram_image.end();
         let mut data_memory =
             UnifiedMemory::from(VariableMemory::<RW>::from(elf.ram_image.clone()));
 
-        let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap_or((&0, &0)).0;
-        let ro_data_end = *elf.rom_image.keys().max().unwrap_or(&0);
         if !elf.rom_image.is_empty() {
-            let mut ro_data: Vec<u32> =
-                vec![0; ro_data_end as usize + 1 - ro_data_base_address as usize];
-
-            for (addr, &value) in &elf.rom_image {
-                ro_data[(addr - ro_data_base_address) as usize] = value;
-            }
-
             // Linker places data after rodata, but need to guard against edge case of empty data.
             // We also advance the `data_end` past the end of the last address in the data segment
             // because that address is used to set the base address of the heap, which needs to be
             // aligned to `WORD_SIZE` and not overlap the final word of the data segment.
-            data_end = match max(data_end, ro_data_end) {
+            data_end = match max(data_end, elf.rom_image.end()) {
                 0 => 0,
-                x => {
-                    x.checked_add(WORD_SIZE as u32)
-                        .expect("Heap base should not overflow")
-                        & (!0b11u32)
-                }
+                x => x
+                    .checked_add(WORD_SIZE as u32)
+                    .expect("Heap base should not overflow"),
             };
 
-            let ro_data_memory = FixedMemory::<RO>::from_vec(
-                ro_data_base_address,
-                ro_data.len() * WORD_SIZE,
-                ro_data,
+            let ro_data_memory = FixedMemory::<RO>::from_word_vec(
+                elf.rom_image.base(),
+                elf.rom_image.len_bytes(),
+                elf.rom_image.as_ref().to_vec(),
             );
 
             // this unwrap will never fail for a well-formed elf file, and we've already validated
-            data_memory.add_fixed_ro(&ro_data_memory).unwrap();
+            data_memory.add_fixed_ro(ro_data_memory).unwrap();
         }
 
         // Zero out the public input and public output start locations since no offset is needed for harvard emulator.
         data_memory
-            .add_fixed_ro(&FixedMemory::<RO>::from_words(0x80, 8, &[0, 0]))
+            .add_fixed_ro(FixedMemory::<RO>::from_word_slice(0x80, 8, &[0, 0]))
             .unwrap();
 
         // Add the public input length to the beginning of the public input.
         let len_bytes = (public_input.len()) as u32;
         let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
-
-        let static_rom_image: BTreeMap<u32, u8> = elf
-            .rom_image
-            .iter()
-            .flat_map(|(addr, &value)| {
-                value
-                    .to_le_bytes()
-                    .into_iter()
-                    .enumerate()
-                    .map(move |(i, byte)| (addr + i as u32, byte))
-            })
-            .collect();
-
-        let static_ram_image: BTreeMap<u32, u8> = elf
-            .ram_image
-            .iter()
-            .flat_map(|(addr, &value)| {
-                value
-                    .to_le_bytes()
-                    .into_iter()
-                    .enumerate()
-                    .map(move |(i, byte)| (addr + i as u32, byte))
-            })
-            .collect();
 
         let mut emulator = Self {
             executor: Executor {
@@ -511,15 +482,15 @@ impl HarvardEmulator {
                 global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
-            instruction_memory: FixedMemory::<RO>::from_vec(
+            instruction_memory: FixedMemory::<RO>::from_word_vec(
                 elf.base,
                 elf.instructions.len() * WORD_SIZE,
                 elf.instructions.clone(),
             ),
-            input_memory: FixedMemory::<RO>::from_bytes(0, &public_input_with_len),
+            input_memory: FixedMemory::<RO>::from_byte_slice(0, &public_input_with_len),
             output_memory: VariableMemory::<WO>::default(),
-            static_rom_image,
-            static_ram_image,
+            initial_rom_image: elf.rom_image.clone(),
+            initial_ram_image: elf.ram_image.clone(),
             data_memory,
             memory_stats: MemoryStats::new(data_end, MEMORY_TOP),
         };
@@ -544,7 +515,7 @@ impl HarvardEmulator {
                 global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
-            instruction_memory: FixedMemory::<RO>::from_vec(
+            instruction_memory: FixedMemory::<RO>::from_word_vec(
                 ELF_TEXT_START,
                 encoded_basic_blocks.len() * WORD_SIZE,
                 encoded_basic_blocks,
@@ -569,7 +540,7 @@ impl Emulator for HarvardEmulator {
         bare_instruction: &Instruction,
         force_provable_transcript: bool,
     ) -> Result<(InstructionResult, MemoryRecords)> {
-        let ((res, (load_ops, store_ops)), accessed_io_memory) = match (
+        let (res, (load_ops, store_ops)) = match (
             self.executor
                 .instruction_executor
                 .get_for_read_input(&bare_instruction.opcode),
@@ -583,48 +554,36 @@ impl Emulator for HarvardEmulator {
                 .instruction_executor
                 .get(&bare_instruction.opcode),
         ) {
-            _ if bare_instruction.is_system_instruction() => (
+            _ if bare_instruction.is_system_instruction() => {
                 <HarvardEmulator as Emulator>::execute_syscall(
                     &mut self.executor,
                     &mut self.data_memory,
                     None,
+                    Some(&mut self.memory_stats),
                     bare_instruction,
                     force_provable_transcript,
-                )?,
-                false,
-            ),
-            (Some(read_input), ..) => (
-                read_input(
-                    &mut self.executor.cpu,
-                    &mut self.input_memory,
-                    bare_instruction,
-                )?,
-                true,
-            ),
-            (_, Some(write_output), ..) => (
-                write_output(
-                    &mut self.executor.cpu,
-                    &mut self.output_memory,
-                    bare_instruction,
-                )?,
-                true,
-            ),
-            (_, _, Some(custom_executor), ..) => (
-                custom_executor(
-                    &mut self.executor.cpu,
-                    &mut self.data_memory,
-                    bare_instruction,
-                )?,
-                true,
-            ),
-            (.., Ok(executor)) => (
-                executor(
-                    &mut self.executor.cpu,
-                    &mut self.data_memory,
-                    bare_instruction,
-                )?,
-                false,
-            ),
+                )?
+            }
+            (Some(read_input), ..) => read_input(
+                &mut self.executor.cpu,
+                &mut self.input_memory,
+                bare_instruction,
+            )?,
+            (_, Some(write_output), ..) => write_output(
+                &mut self.executor.cpu,
+                &mut self.output_memory,
+                bare_instruction,
+            )?,
+            (_, _, Some(custom_executor), ..) => custom_executor(
+                &mut self.executor.cpu,
+                &mut self.data_memory,
+                bare_instruction,
+            )?,
+            (.., Ok(executor)) => executor(
+                &mut self.executor.cpu,
+                &mut self.data_memory,
+                bare_instruction,
+            )?,
             (.., Err(e)) => return Err(e),
         };
 
@@ -638,14 +597,8 @@ impl Emulator for HarvardEmulator {
             memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
-        // Update the memory size statistics.
-        if !accessed_io_memory {
-            self.memory_stats.update(
-                load_ops,
-                store_ops,
-                self.executor.cpu.registers.read(Register::X2), // Stack pointer
-            )?;
-        }
+        self.memory_stats
+            .update_stack_access(self.executor.cpu.registers.read(Register::X2));
 
         if !bare_instruction.is_branch_or_jump_instruction() {
             self.executor.cpu.pc.step();
@@ -674,7 +627,7 @@ impl Emulator for HarvardEmulator {
             return Ok(self.executor.basic_block_cache.get(start).unwrap().clone());
         }
 
-        let block = decode_until_end_of_a_block(self.instruction_memory.segment(pc, None));
+        let block = decode_until_end_of_a_block(self.instruction_memory.segment_words(pc, None));
         if block.is_empty() {
             return Err(VMError::VMOutOfInstructions);
         }
@@ -702,26 +655,25 @@ impl Emulator for HarvardEmulator {
         let mut exit_code: Vec<PublicOutputEntry> = Vec::new();
         let mut output_memory: Vec<PublicOutputEntry> = Vec::new();
 
-        if let Ok(bytes) = self.output_memory.segment_bytes(0, None) {
-            if let Some((ec, om)) = bytes.split_first_chunk::<4>() {
-                exit_code = ec
-                    .iter()
-                    .enumerate()
-                    .map(|(addr, byte)| PublicOutputEntry {
+        if let Ok(mut words_iter) = self.output_memory.segment_words(0, None) {
+            if let Some(first_word) = words_iter.next() {
+                exit_code.extend(first_word.to_le_bytes().iter().enumerate().map(
+                    |(addr, byte)| PublicOutputEntry {
                         address: addr as u32,
                         value: *byte,
-                    })
-                    .collect();
-
-                output_memory = om
-                    .iter()
-                    .enumerate()
-                    .map(|(addr, byte)| PublicOutputEntry {
-                        address: addr as u32,
-                        value: *byte,
-                    })
-                    .collect();
+                    },
+                ));
             }
+
+            output_memory.extend(
+                words_iter
+                    .flat_map(|word| word.to_le_bytes())
+                    .enumerate()
+                    .map(|(addr, byte)| PublicOutputEntry {
+                        address: addr as u32,
+                        value: byte,
+                    }),
+            );
         }
 
         let public_input: Vec<MemoryInitializationEntry> = self
@@ -734,24 +686,24 @@ impl Emulator for HarvardEmulator {
                 value: *byte,
             })
             .collect();
-        let rom_iter =
-            self.static_rom_image
-                .iter()
-                .map(|(addr, &value)| MemoryInitializationEntry {
-                    address: *addr,
-                    value,
-                });
-        // HarvardEmulator doesn't remember the initial content of the static RAM image.
-        // When the static RAM image is empty, we know the initial content was also empty, so [Some([])].
-        // Otherwise we don't know the initial content so saying [None] instead.
-        // This is awkward but it works because HarvardEmulator::finalize() is only used in tests, and the
-        // tests are never interested in the non-empty initial static RAM content.
-        // Perhaps we'll stop using HarvardEmulator::finalize() and always use LinearEmulator::finalize().
-        let ram_iter = if self.static_ram_image.is_empty() {
-            Some([].into_iter())
-        } else {
-            None
-        };
+        let initial_rom_iter = self
+            .initial_rom_image
+            .as_byte_slice()
+            .iter()
+            .enumerate()
+            .map(|(i, &byte)| MemoryInitializationEntry {
+                address: self.initial_rom_image.base() + i as u32,
+                value: byte,
+            });
+        let initial_ram_iter = self
+            .initial_ram_image
+            .as_byte_slice()
+            .iter()
+            .enumerate()
+            .map(|(i, &byte)| MemoryInitializationEntry {
+                address: self.initial_ram_image.base() + i as u32,
+                value: byte,
+            });
 
         let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
             self.get_executor().logs.clone().unwrap()
@@ -759,11 +711,18 @@ impl Emulator for HarvardEmulator {
             Vec::new()
         };
 
-        let input_size = rom_iter.len() + self.static_ram_image.len() + public_input.len();
+        let input_size =
+            initial_rom_iter.len() + self.initial_ram_image.len_bytes() + public_input.len();
         let tracked_ram_size = self
             .memory_stats
             .get_tracked_ram_size(input_size as u32, output_memory.len() as u32)
             as usize;
+
+        let initial_memory: Vec<_> = initial_rom_iter
+            .into_iter()
+            .chain(initial_ram_iter)
+            .chain(public_input)
+            .collect();
 
         View {
             memory_layout: None,
@@ -772,7 +731,7 @@ impl Emulator for HarvardEmulator {
                 initial_pc: self.executor.entrypoint,
                 program: self
                     .instruction_memory
-                    .segment(self.executor.base_address, None)
+                    .segment_words(self.executor.base_address, None)
                     .iter()
                     .enumerate()
                     .map(|(pc_offset, instruction)| ProgramMemoryEntry {
@@ -781,14 +740,7 @@ impl Emulator for HarvardEmulator {
                     })
                     .collect(),
             },
-            // Only if ram_iter = Some(...) we know the initial memory for sure. Otherwise returning None.
-            initial_memory: ram_iter.map(|ram_iter| {
-                rom_iter
-                    .into_iter()
-                    .chain(ram_iter)
-                    .chain(public_input)
-                    .collect()
-            }),
+            initial_memory,
             tracked_ram_size,
             exit_code,
             output_memory,
@@ -811,11 +763,14 @@ pub struct LinearEmulator {
     // The unified index for the location data for public IO
     public_io_location_index: (usize, usize),
 
+    // The unified index for the public output memory segment
+    public_output_index: Option<(usize, usize)>,
+
     /// The unified index for the read-only statically allocated region in elf
     static_rom_image_index: Option<(usize, usize)>,
 
     /// Initial snapshot of the static ram image
-    initial_static_ram_image: BTreeMap<u32, u8>,
+    initial_static_ram_image: MemorySegmentImage,
 
     // The memory layout
     pub memory_layout: LinearMemoryLayout,
@@ -839,7 +794,7 @@ impl LinearEmulator {
         let public_input = emulator_harvard
             .input_memory
             .segment_bytes(WORD_SIZE as u32, None); // exclude the first word which is the length
-        let output_memory = emulator_harvard.output_memory.segment_bytes(0, None)?; // grab the whole output segment, exit code included
+        let output_memory_byte_len = emulator_harvard.output_memory.bytes_spanned();
 
         // Replace custom instructions `rin` and `wou` with `lw` and `sw`.
         let instructions = compiled_elf
@@ -859,15 +814,16 @@ impl LinearEmulator {
         let memory_layout = emulator_harvard
             .memory_stats
             .create_optimized_layout(
-                ((elf.instructions.len()
-                    + WORD_SIZE
-                    + elf.rom_image.len()
-                    + WORD_SIZE
-                    + elf.ram_image.len())
-                    * WORD_SIZE) as u32,
-                ad.len() as u32,
-                public_input.len() as u32,
-                (output_memory.len() - WORD_SIZE) as u32, // Exclude the first word which is the exit code
+                (elf.instructions.len() * WORD_SIZE
+                    + WORD_SIZE // padding for linker script spacing
+                    + elf.rom_image.len_bytes()
+                    + WORD_SIZE // padding for linker script spacing
+                    + elf.ram_image.len_bytes()
+                    + WORD_SIZE) // padding for linker script spacing
+                    .try_into()?,
+                ad.len().try_into()?,
+                public_input.len().try_into()?,
+                output_memory_byte_len - WORD_SIZE as u32, // Exclude the first word which is the exit code
             )
             .unwrap();
 
@@ -875,7 +831,7 @@ impl LinearEmulator {
             memory_layout,
             ad,
             &elf,
-            public_input.as_slice(),
+            public_input,
             private_input,
         ))
     }
@@ -901,123 +857,121 @@ impl LinearEmulator {
 
         // nb: unwraps below will never fail for a well-formed elf file, and we've already validated
 
+        // 1. Add instruction memory segment.
         let code_start = memory_layout.program_start();
 
-        let code_memory = FixedMemory::<RO>::from_vec(
+        let code_memory = FixedMemory::<RO>::from_word_vec(
             code_start,
             elf.instructions.len() * WORD_SIZE,
             elf.instructions.clone(),
         );
-        let instruction_index = memory.add_fixed_ro(&code_memory).unwrap();
 
+        let instruction_memory_index = memory.add_fixed_ro(code_memory).unwrap();
+
+        // 2. Add the ROM memory segment if it exists.
         let elf_rom_image_index = if elf.rom_image.is_empty() {
             None
         } else {
-            let ro_data_base_address: u32 = *elf.rom_image.first_key_value().unwrap().0;
-            let ro_data_len = (*elf.rom_image.keys().max().unwrap() as usize + WORD_SIZE
-                - ro_data_base_address as usize)
-                / WORD_SIZE;
-            let mut ro_data: Vec<u32> = vec![0; ro_data_len];
-
-            for (addr, &value) in &elf.rom_image {
-                ro_data[(addr - ro_data_base_address) as usize] = value;
-            }
-
-            let ro_data_memory = FixedMemory::<RO>::from_vec(
-                ro_data_base_address,
-                ro_data.len() * WORD_SIZE,
-                ro_data,
+            let ro_data_memory = FixedMemory::<RO>::from_word_vec(
+                elf.rom_image.base(),
+                elf.rom_image.len_bytes(),
+                elf.rom_image.as_ref().to_vec(),
             );
 
-            Some(memory.add_fixed_ro(&ro_data_memory).unwrap())
+            Some(memory.add_fixed_ro(ro_data_memory).unwrap())
         };
 
+        // 3. Add the static ram image memory segment if it exists.
         let _elf_ram_image_index = if elf.ram_image.is_empty() {
             None
         } else {
-            let data_base_address: u32 = *elf.ram_image.first_key_value().unwrap().0;
-            let data_len = (*elf.ram_image.keys().max().unwrap() as usize + WORD_SIZE
-                - data_base_address as usize)
-                / WORD_SIZE;
-            let mut data: Vec<u32> = vec![0; data_len];
+            let data_memory = FixedMemory::<RW>::from_word_vec(
+                elf.ram_image.base(),
+                elf.ram_image.len_bytes(),
+                elf.ram_image.as_ref().to_vec(),
+            );
 
-            for (addr, &value) in &elf.ram_image {
-                data[((addr - data_base_address) as usize) / WORD_SIZE] = value;
-            }
-
-            let data_memory =
-                FixedMemory::<RW>::from_vec(data_base_address, data.len() * WORD_SIZE, data);
-
-            Some(memory.add_fixed_rw(&data_memory).unwrap())
+            Some(memory.add_fixed_rw(data_memory).unwrap())
         };
 
-        // Add the public input length to the beginning of the public input.
-        let len_bytes = public_input.len() as u32;
-        let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
+        // 4. Add the public input memory segment. This always exists but may be empty (which
+        // corresponds to a single word which encodes zero, the length of the empty public input).
 
-        let input_len =
-            (memory_layout.public_input_end() - memory_layout.public_input_start()) as usize;
-        assert_eq!(word_align!(public_input_with_len.len()), input_len);
-        let input_memory = FixedMemory::<RO>::from_bytes(
+        assert!(
+            public_input.len() <= MAX_PUBLIC_INPUT_SIZE,
+            "public input too long"
+        );
+
+        // Need to prepend the input length to the public input.
+        let public_input_with_len =
+            [&(public_input.len() as u32).to_le_bytes()[..], public_input].concat();
+
+        let public_input_memory = FixedMemory::<RO>::from_byte_slice(
             memory_layout.public_input_start(),
             &public_input_with_len,
         );
-        let public_input_index = memory.add_fixed_ro(&input_memory).unwrap();
 
+        let public_input_index = memory.add_fixed_ro(public_input_memory).unwrap();
+
+        // 5. Add the associated data memory segment if it exists.
         let ad_len = (memory_layout.ad_end() - memory_layout.ad_start()) as usize;
-        assert_eq!(ad_len, word_align!(ad.len()));
         if ad_len > 0 {
-            let ad_memory = FixedMemory::<NA>::from_bytes(memory_layout.ad_start(), ad);
-            let _ = memory.add_fixed_na(&ad_memory).unwrap();
+            let ad_memory = FixedMemory::<NA>::from_byte_slice(memory_layout.ad_start(), ad);
+
+            let _ = memory.add_fixed_na(ad_memory).unwrap();
         }
 
-        let output_len = (memory_layout.public_output_end() - memory_layout.exit_code()) as usize; // we include the exit code in the output segment
-        if output_len > 0 {
-            let init = vec![0; output_len / WORD_SIZE];
-            let output_memory =
-                FixedMemory::<WO>::from_vec(memory_layout.exit_code(), output_len, init);
-            let _ = memory.add_fixed_wo(&output_memory).unwrap();
-        }
+        // 6. Add the output memory segment if it exists.
 
+        // we include the exit code in the output memory segment
+        let output_memory_len =
+            (memory_layout.public_output_end() - memory_layout.exit_code()) as usize;
+        let output_memory_index = if output_memory_len > 0 {
+            let init = vec![0u32; output_memory_len / WORD_SIZE];
+            let output_memory = FixedMemory::<WO>::from_word_vec(
+                memory_layout.exit_code(),
+                output_memory_len,
+                init,
+            );
+
+            Some(memory.add_fixed_wo(output_memory).unwrap())
+        } else {
+            None
+        };
+
+        // 7. Add the heap segment if it exists.
         let heap_len = (memory_layout.heap_end() - memory_layout.heap_start()) as usize;
         if heap_len > 0 {
-            let init = vec![0; heap_len / WORD_SIZE];
+            let init = vec![0u32; heap_len / WORD_SIZE];
             let heap_memory =
-                FixedMemory::<RW>::from_vec(memory_layout.heap_start(), heap_len, init);
-            let _ = memory.add_fixed_rw(&heap_memory).unwrap();
+                FixedMemory::<RW>::from_word_vec(memory_layout.heap_start(), heap_len, init);
+
+            let _ = memory.add_fixed_rw(heap_memory).unwrap();
         }
 
+        // 8. Add the stack segment if it exists.
         let stack_len = (memory_layout.stack_top() - memory_layout.stack_bottom()) as usize;
         if stack_len > 0 {
+            // correctness: stack_bottom and stack_top should always be word-aligned.
             let init = vec![0; stack_len / WORD_SIZE];
             let stack_memory =
-                FixedMemory::<RW>::from_vec(memory_layout.stack_bottom(), stack_len, init);
-            let _ = memory.add_fixed_rw(&stack_memory).unwrap();
+                FixedMemory::<RW>::from_word_vec(memory_layout.stack_bottom(), stack_len, init);
+
+            let _ = memory.add_fixed_rw(stack_memory).unwrap();
         }
 
         // Add the public input and public output start locations.
-        let public_io_location_index = memory
-            .add_fixed_ro(&FixedMemory::<RO>::from_words(
-                0x80,
-                8,
-                &[
-                    memory_layout.public_input_start(),
-                    memory_layout.exit_code(), // the exit code is the first word of the output
-                ],
-            ))
-            .unwrap();
+        let public_io_location_memory = FixedMemory::<RO>::from_word_slice(
+            PUBLIC_INPUT_ADDRESS_LOCATION,
+            2 * WORD_SIZE,
+            &[
+                memory_layout.public_input_start(),
+                memory_layout.exit_code(), // the exit code is the first word of the output
+            ],
+        );
+        let public_io_location_index = memory.add_fixed_ro(public_io_location_memory).unwrap();
 
-        let initial_static_ram_image: BTreeMap<u32, u8> = elf
-            .ram_image
-            .iter()
-            .flat_map(|(addr, &value)| {
-                value
-                    .to_le_bytes()
-                    .into_iter()
-                    .enumerate()
-                    .map(move |(i, byte)| (addr + i as u32, byte))
-            })
-            .collect();
+        let initial_static_ram_image = elf.ram_image.clone();
 
         let mut emulator = Self {
             executor: Executor {
@@ -1027,9 +981,10 @@ impl LinearEmulator {
                 global_clock: 1, // global_clock = 0 captures initalization for memory records
                 ..Default::default()
             },
-            instruction_index,
+            instruction_index: instruction_memory_index,
             public_input_index,
             public_io_location_index,
+            public_output_index: output_memory_index,
             static_rom_image_index: elf_rom_image_index,
             initial_static_ram_image,
             memory_layout,
@@ -1072,6 +1027,7 @@ impl Emulator for LinearEmulator {
                     &mut self.executor,
                     &mut self.memory,
                     Some(self.memory_layout),
+                    None, // Don't bother tracking heap accesses for linear emulator
                     bare_instruction,
                     true,
                 )?
@@ -1128,8 +1084,11 @@ impl Emulator for LinearEmulator {
             return Ok(self.executor.basic_block_cache.get(start).unwrap().clone());
         }
 
-        let block =
-            decode_until_end_of_a_block(self.memory.segment(self.instruction_index, pc, None)?);
+        let block = decode_until_end_of_a_block(self.memory.segment_words(
+            self.instruction_index,
+            pc,
+            None,
+        )?);
         if block.is_empty() {
             return Err(VMError::VMOutOfInstructions);
         }
@@ -1157,35 +1116,39 @@ impl Emulator for LinearEmulator {
         let mut exit_code: Vec<PublicOutputEntry> = Vec::new();
         let mut output_memory: Vec<PublicOutputEntry> = Vec::new();
 
-        if let Ok(bytes) = self.memory.segment_bytes(
-            (Modes::WO as usize, 0),
-            self.memory_layout.exit_code(),
-            Some(self.memory_layout.public_output_end()),
-        ) {
-            if let Some((ec, om)) = bytes.split_first_chunk::<4>() {
-                exit_code = ec
-                    .iter()
-                    .enumerate()
-                    .map(|(i, byte)| PublicOutputEntry {
-                        address: self.memory_layout.exit_code() + i as u32,
-                        value: *byte,
-                    })
-                    .collect();
+        if let Some(output_index) = self.public_output_index {
+            if let Ok(bytes) = self.memory.segment_bytes(
+                output_index,
+                self.memory_layout.exit_code(),
+                Some(self.memory_layout.public_output_end()),
+            ) {
+                if let Some((ec, om)) = bytes.split_first_chunk::<4>() {
+                    exit_code = ec
+                        .iter()
+                        .enumerate()
+                        .map(|(i, byte)| PublicOutputEntry {
+                            address: self.memory_layout.exit_code() + i as u32,
+                            value: *byte,
+                        })
+                        .collect();
 
-                output_memory = om
-                    .iter()
-                    .enumerate()
-                    .map(|(i, byte)| PublicOutputEntry {
-                        address: self.memory_layout.public_output_start() + i as u32,
-                        value: *byte,
-                    })
-                    .collect();
+                    output_memory = om
+                        .iter()
+                        .enumerate()
+                        .map(|(i, byte)| PublicOutputEntry {
+                            address: self.memory_layout.public_output_start() + i as u32,
+                            value: *byte,
+                        })
+                        .collect();
+                }
             }
         }
 
+        // Need to use dynamic dispatch due to Rust typing rules and not wanting to incur the cost
+        // of doing a `collect()`.
         let public_input_iter = self
             .memory
-            .segment(
+            .segment_words(
                 self.public_input_index,
                 self.memory_layout.public_input_start(),
                 Some(self.memory_layout.public_input_end()),
@@ -1204,9 +1167,10 @@ impl Emulator for LinearEmulator {
                         value: byte,
                     })
             });
+
         let public_io_loc_iter = self
             .memory
-            .segment(self.public_io_location_index, 0x80, None)
+            .segment_words(self.public_io_location_index, 0x80, None)
             .expect("Cannot find public io location in LinearEmulator")
             .iter()
             .enumerate()
@@ -1234,13 +1198,17 @@ impl Emulator for LinearEmulator {
                 address: *addr,
                 value: *byte,
             });
+
         let ram_initialization = &self.initial_static_ram_image;
-        let ram_iter = ram_initialization
-            .iter()
-            .map(|(addr, byte)| MemoryInitializationEntry {
-                address: *addr,
-                value: *byte,
-            });
+        let ram_iter =
+            ram_initialization
+                .as_byte_slice()
+                .iter()
+                .enumerate()
+                .map(|(offset, byte)| MemoryInitializationEntry {
+                    address: offset as u32 + self.initial_static_ram_image.base(),
+                    value: *byte,
+                });
 
         let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
             self.get_executor().logs.clone().unwrap()
@@ -1248,18 +1216,26 @@ impl Emulator for LinearEmulator {
             Vec::new()
         };
 
-        let associated_data: Vec<u8> = self
+        let associated_data = self
             .memory
             .segment_bytes(
                 (Modes::NA as usize, 0),
                 self.memory_layout.ad_start(),
                 Some(self.memory_layout.ad_end()),
             )
-            .unwrap_or_default();
+            .unwrap_or_default()
+            .to_vec();
+
+        let mut initial_memory: Vec<_> = public_io_loc_iter
+            .into_iter()
+            .chain(rom_iter)
+            .chain(ram_iter)
+            .collect();
+        initial_memory.extend(public_input_iter);
 
         let tracked_ram_size = self
             .memory_layout
-            .tracked_ram_size(self.initial_static_ram_image.len() + rom_initialization.len());
+            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_initialization.len());
 
         View {
             memory_layout: Some(self.memory_layout),
@@ -1270,7 +1246,7 @@ impl Emulator for LinearEmulator {
                 initial_pc: self.memory_layout.program_start(),
                 program: self
                     .memory
-                    .segment(
+                    .segment_words(
                         self.instruction_index,
                         self.memory_layout.program_start(),
                         None,
@@ -1284,14 +1260,7 @@ impl Emulator for LinearEmulator {
                     })
                     .collect(),
             },
-            initial_memory: Some(
-                public_io_loc_iter
-                    .into_iter()
-                    .chain(rom_iter)
-                    .chain(ram_iter)
-                    .chain(public_input_iter)
-                    .collect(),
-            ),
+            initial_memory,
             tracked_ram_size,
             exit_code,
             output_memory,

@@ -1,10 +1,14 @@
+use std::num::TryFromIntError;
+
 pub use nexus_common::error::*;
 
 use nexus_common::riscv::Opcode;
 use thiserror::Error;
 
+use crate::elf::ElfError;
+
 /// Errors related to VM operations.
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, Error)]
 pub enum VMError {
     // Unimplemented syscall
     #[error("Unimplemented syscall: opcode={0:08X}, pc=0x{1:08X}")]
@@ -58,6 +62,23 @@ pub enum VMError {
     // Unsupported instruction (i.e., one with an invalid opcode)
     #[error("Unsupported instruction \"{0}\"")]
     UnsupportedInstruction(Opcode),
+
+    #[error("Integer overflow")]
+    IntOverflowError(#[from] TryFromIntError),
+
+    // ElfError wrapper
+    #[error("Wrapped ElfError: {0}")]
+    ElfError(#[from] ElfError),
+
+    // Merging non-contiguous memory segments
+    #[error("Non-contiguous memory")]
+    NonContiguousMemory,
+}
+
+impl PartialEq for VMError {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
 }
 
 /// Result type for VM functions that can produce errors.

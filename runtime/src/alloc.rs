@@ -13,16 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ecall, SYS_ALLOC_ALIGNED};
-
-// Minimum gap between heap and stack
-const MEMORY_GAP: usize = 0x1000;
+use crate::{ecall, SYS_ALLOC_ALIGNED, SYS_PERFORM_HEAP_ALLOCATION};
 
 #[allow(clippy::missing_safety_doc)]
 #[no_mangle]
 pub unsafe extern "C" fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u8 {
     extern "C" {
         // https://lld.llvm.org/ELF/linker_script.html#sections-command
+        // Represents the first address after the unitialized data segment.
         static _end: u8;
     }
 
@@ -43,12 +41,13 @@ pub unsafe extern "C" fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u
         }
     }
 
-    let offset = heap_pos & (align - 1);
-    if offset != 0 {
-        heap_pos = heap_pos
-            .checked_add(align - offset)
-            .expect("Heap calculation has overflowed");
-    }
+    heap_pos = heap_pos
+        .checked_next_multiple_of(align)
+        .expect("Heap calculation has overflowed");
+
+    let alloc_addr = heap_pos;
+
+    ecall!(SYS_PERFORM_HEAP_ALLOCATION, alloc_addr, ("a1", bytes));
 
     let ptr = heap_pos as *mut u8;
     heap_pos = heap_pos
@@ -65,10 +64,7 @@ pub unsafe extern "C" fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u
     }
 
     // Check if the heap is about to clash with the stack
-    let gap_check = heap_pos
-        .checked_add(MEMORY_GAP)
-        .expect("Heap calculation has overflowed");
-    if gap_check > stack_ptr {
+    if heap_pos > stack_ptr {
         panic!(
             "Heap clashing with stack (heap: 0x{:x}, stack: 0x{:x})",
             heap_pos, stack_ptr
