@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use nexus_common::word_align;
+    use nexus_common::memory::alignment::Alignable;
     use nexus_common_testing::emulator::{
         compile_multi, emulate, parse_output, EmulatorType, IOArgs, Input, Output,
     };
@@ -40,7 +40,7 @@ mod test {
         } else {
             Vec::new()
         };
-        let padded_len = word_align!(public_input_bytes.len());
+        let padded_len = public_input_bytes.len().word_align();
         public_input_bytes.resize(padded_len, 0x00);
 
         let mut private_input_bytes = if let Some(mut input) = io_args.private_input.clone() {
@@ -48,7 +48,7 @@ mod test {
         } else {
             Vec::new()
         };
-        let padded_len = word_align!(private_input_bytes.len());
+        let padded_len = private_input_bytes.len().word_align();
         private_input_bytes.resize(padded_len, 0x00);
 
         // Serialize expected output
@@ -58,7 +58,7 @@ mod test {
         } else {
             Vec::new()
         };
-        let padded_len = word_align!(expected_output_bytes.len());
+        let padded_len = expected_output_bytes.len().word_align();
         expected_output_bytes.resize(padded_len, 0x00);
 
         // Run emulation
@@ -132,13 +132,13 @@ mod test {
         let mut private_input_bytes = to_allocvec_cobs(&mut 2u32).unwrap();
         let mut expected_output_bytes = to_allocvec_cobs(&mut 1024u32).unwrap();
 
-        let padded_len = word_align!(public_input_bytes.len());
+        let padded_len = public_input_bytes.len().word_align();
         public_input_bytes.resize(padded_len, 0);
 
-        let padded_len = word_align!(private_input_bytes.len());
+        let padded_len = private_input_bytes.len().word_align();
         private_input_bytes.resize(padded_len, 0);
 
-        let padded_len = word_align!(expected_output_bytes.len());
+        let padded_len = expected_output_bytes.len().word_align();
         expected_output_bytes.resize(padded_len, 0);
 
         let (view, execution_trace) = k_trace(
@@ -436,14 +436,9 @@ mod test {
         let mut expected_output_bytes =
             to_allocvec_cobs(&mut (true, 2u8, 4u16, 6u32, 8u64)).unwrap();
 
-        let padded_len = word_align!(public_input_bytes.len());
-        public_input_bytes.resize(padded_len, 0);
-
-        let padded_len = word_align!(private_input_bytes.len());
-        private_input_bytes.resize(padded_len, 0);
-
-        let padded_len = word_align!(expected_output_bytes.len());
-        expected_output_bytes.resize(padded_len, 0);
+        public_input_bytes.resize(public_input_bytes.len().word_align(), 0);
+        private_input_bytes.resize(private_input_bytes.len().word_align(), 0);
+        expected_output_bytes.resize(expected_output_bytes.len().word_align(), 0);
 
         let (view, execution_trace) = k_trace(
             elfs[0].clone(),

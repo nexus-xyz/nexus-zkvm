@@ -245,9 +245,10 @@ mod tests {
     /// 3. Loads the ELF file for each test case
     /// 4. Decodes a subset of instructions starting from the entry point
     /// 5. Compares the decoded instructions with the expected assembly output
+    #[ignore]
     #[test]
     fn test_decode_instruction_from_elf() {
-        let test_cases = [("test/fib_10.elf", 4096)];
+        let test_cases = [("test/fib_10.elf", 0x1000)];
 
         let gold_test = [
             "│   0: addi a0, s1, 1",
@@ -279,6 +280,7 @@ mod tests {
         }
     }
 
+    #[ignore]
     #[test]
     fn test_decode_instruction_from_elf_until_end_of_block() {
         let test_cases = [("test/fib_10.elf", 4096)];

@@ -27,10 +27,10 @@
 //! let mut memory = UnifiedMemory::default();
 //!
 //! // Add a read-only fixed memory region
-//! memory.add_fixed_ro(&FixedMemory::<RO>::new(0x1000, 0x1000)).unwrap();
+//! memory.add_fixed_ro(FixedMemory::<RO>::new(0x1000, 0x1000)).unwrap();
 //!
 //! // Add a read-write fixed memory region
-//! memory.add_fixed_rw(&FixedMemory::<RW>::new(0x2000, 0x1000)).unwrap();
+//! memory.add_fixed_rw(FixedMemory::<RW>::new(0x2000, 0x1000)).unwrap();
 //!
 //! // Add a fallback variable memory
 //! memory.add_variable(VariableMemory::<RW>::default()).unwrap();
@@ -77,8 +77,6 @@ use std::{
     fmt::{Debug, Display, Formatter, Result as FmtResult},
 };
 
-use nexus_common::words_to_bytes;
-
 use super::{
     FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, StoreOp, VariableMemory, NA, RO, RW, WO,
 };
@@ -92,7 +90,7 @@ pub enum Modes {
 }
 
 // nb: we store outside the map becaues `rangemap::RangeMap` does not support a `get_mut` interface (https://github.com/jeffparsons/rangemap/issues/85)
-#[derive(Default, Clone, Eq, PartialEq)]
+#[derive(Default, Clone)]
 pub struct UnifiedMemory {
     // lookup for correct fixed memory, if any
     meta: RangeMap<u32, Modes>,
@@ -205,7 +203,7 @@ impl From<VariableMemory<RW>> for UnifiedMemory {
 
 macro_rules! add_fixed {
     ( $func: ident, $map: ident, $store: ident, $mode: ident ) => {
-        pub fn $func(&mut self, mem: &FixedMemory<$mode>) -> Result<(usize, usize), MemoryError> {
+        pub fn $func(&mut self, mem: FixedMemory<$mode>) -> Result<(usize, usize), MemoryError> {
             let rng = std::ops::Range {
                 start: mem.base_address,
                 end: mem.base_address + mem.max_len as u32,
@@ -218,7 +216,7 @@ macro_rules! add_fixed {
 
             let idx = self.$store.len();
             self.$map.insert(rng, idx);
-            self.$store.push(mem.clone());
+            self.$store.push(mem);
 
             Ok((Modes::$mode as usize, idx))
         }
@@ -276,7 +274,7 @@ impl UnifiedMemory {
         }
     }
 
-    pub fn segment(
+    pub fn segment_words(
         &self,
         uidx: (usize, usize),
         start: u32,
@@ -287,28 +285,28 @@ impl UnifiedMemory {
         match FromPrimitive::from_usize(store) {
             Some(Modes::RW) => {
                 if idx < self.frw_store.len() {
-                    Ok(self.frw_store[idx].segment(start, end))
+                    Ok(self.frw_store[idx].segment_words(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
-                    Ok(self.fro_store[idx].segment(start, end))
+                    Ok(self.fro_store[idx].segment_words(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::WO) => {
                 if idx < self.fwo_store.len() {
-                    Ok(self.fwo_store[idx].segment(start, end))
+                    Ok(self.fwo_store[idx].segment_words(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
-                    Ok(self.fna_store[idx].segment(start, end))
+                    Ok(self.fna_store[idx].segment_words(start, end))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
@@ -322,8 +320,40 @@ impl UnifiedMemory {
         uidx: (usize, usize),
         start: u32,
         end: Option<u32>,
-    ) -> Result<Vec<u8>, MemoryError> {
-        Ok(words_to_bytes!(self.segment(uidx, start, end)?))
+    ) -> Result<&[u8], MemoryError> {
+        let (store, idx) = uidx;
+
+        match FromPrimitive::from_usize(store) {
+            Some(Modes::RW) => {
+                if idx < self.frw_store.len() {
+                    Ok(self.frw_store[idx].segment_bytes(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::RO) => {
+                if idx < self.fro_store.len() {
+                    Ok(self.fro_store[idx].segment_bytes(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::WO) => {
+                if idx < self.fwo_store.len() {
+                    Ok(self.fwo_store[idx].segment_bytes(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::NA) => {
+                if idx < self.fna_store.len() {
+                    Ok(self.fna_store[idx].segment_bytes(start, end))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            _ => Err(MemoryError::UndefinedMemoryRegion),
+        }
     }
 }
 
@@ -368,7 +398,10 @@ impl MemoryProcessor for UnifiedMemory {
 
             ret
         } else {
-            Err(MemoryError::InvalidMemoryAccess(address))
+            Err(MemoryError::InvalidMemoryAccess(
+                address,
+                "writing address not in unified memory",
+            ))
         }
     }
 
@@ -394,7 +427,10 @@ impl MemoryProcessor for UnifiedMemory {
         } else if let Some(vrw) = &self.vrw {
             vrw.read(address, size)
         } else {
-            Err(MemoryError::InvalidMemoryAccess(address))
+            Err(MemoryError::InvalidMemoryAccess(
+                address,
+                "reading address not in unified memory",
+            ))
         }
     }
 }
@@ -410,20 +446,20 @@ mod tests {
             .unwrap();
 
         memory
-            .add_fixed_ro(&FixedMemory::<RO>::from_vec(
+            .add_fixed_ro(FixedMemory::<RO>::from_word_vec(
                 0,
                 0x1000,
                 vec![0x12EFCDAB; 0x1000],
             ))
             .unwrap();
         memory
-            .add_fixed_rw(&FixedMemory::<RW>::new(0x1000, 0x1000))
+            .add_fixed_rw(FixedMemory::<RW>::new(0x1000, 0x1000))
             .unwrap();
         memory
-            .add_fixed_wo(&FixedMemory::<WO>::new(0x2000, 0x1000))
+            .add_fixed_wo(FixedMemory::<WO>::new(0x2000, 0x1000))
             .unwrap();
         memory
-            .add_fixed_na(&FixedMemory::<NA>::new(0x3000, 0x1000))
+            .add_fixed_na(FixedMemory::<NA>::new(0x3000, 0x1000))
             .unwrap();
 
         memory
@@ -1024,7 +1060,10 @@ mod tests {
         // Write non-existant unified memory
         assert_eq!(
             memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
-            Err(MemoryError::InvalidMemoryAccess(0x4000))
+            Err(MemoryError::InvalidMemoryAccess(
+                0x4000,
+                "writing address not in unified memory",
+            ))
         );
     }
 }

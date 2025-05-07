@@ -55,7 +55,7 @@ impl CheckedView for nexus_core::nvm::View {
         let program_memory = elf_into_program_info(&converted_elf, memory_layout);
 
         let initial_memory = slice_into_io_entries::<MemoryInitializationEntry>(
-            memory_layout.public_input_start_location(),
+            memory_layout.public_input_address_location(),
             &[
                 memory_layout.public_input_start().to_le_bytes(),
                 memory_layout.exit_code().to_le_bytes(), // the exit code is the first word of the output
@@ -90,7 +90,7 @@ impl CheckedView for nexus_core::nvm::View {
         );
 
         let static_memory_size =
-            (&expected_elf.rom_image.len() + &expected_elf.ram_image.len()) * WORD_SIZE;
+            (&expected_elf.rom_image.len_bytes() + &expected_elf.ram_image.len_bytes()) * WORD_SIZE;
 
         Self::new(
             &Some(*memory_layout),
@@ -227,7 +227,7 @@ pub trait ByGuestCompilation: Prover {
 pub trait Prover: Sized {
     type Proof: Verifiable;
     type View: CheckedView;
-    type Error: From<nexus_core::nvm::ElfError>;
+    type Error: From<nexus_core::nvm::VMError>;
 
     /// Construct a new proving instance.
     fn new(elf: &nexus_core::nvm::ElfFile) -> Result<Self, <Self as Prover>::Error>;
@@ -424,7 +424,7 @@ impl Preprocessing for () {
 /// A verifiable proof of a zkVM execution.
 pub trait Verifiable: Serialize + DeserializeOwned {
     type View: CheckedView;
-    type Error: From<nexus_core::nvm::ElfError> + From<IOError>;
+    type Error: From<nexus_core::nvm::VMError> + From<IOError>;
 
     /// Get the memory layout configuration used for proving.
     fn get_memory_layout(&self) -> &LinearMemoryLayout;

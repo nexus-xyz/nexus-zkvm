@@ -11,8 +11,8 @@ pub enum MemoryError {
     UnalignedMemoryRead(u32),
 
     // Invalid memory access
-    #[error("Invalid memory access: 0x{0:08X}")]
-    InvalidMemoryAccess(u32),
+    #[error("Invalid memory access at 0x{0:08X}: {1}")]
+    InvalidMemoryAccess(u32, &'static str),
 
     // Address calculation overflow
     #[error("Address calculation overflow")]

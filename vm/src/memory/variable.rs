@@ -47,25 +47,37 @@
 //!
 //! # Performance Considerations
 //!
-//! The use of `BTreeMap` as the underlying storage provides efficient lookups and insertions,
-//! but may have higher memory overhead compared to contiguous memory allocations for densely
-//! populated address spaces.
-use std::collections::BTreeMap;
+//! We expect memory to be densely populated, so we use a contiguous vector to store the data.
 use std::fmt::{Debug, Formatter, Result as FmtResult};
 use std::marker::PhantomData;
 
 use nexus_common::constants::WORD_SIZE;
 use nexus_common::error::MemoryError;
-use nexus_common::words_to_bytes;
 
-use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, RO, RW, WO};
+use super::{
+    LoadOp, MemAccessSize, MemoryProcessor, MemorySegmentImage, Mode, PagedMemory, StoreOp, RO, RW,
+    WO,
+};
 
-#[derive(Default, Clone, PartialEq, Eq)]
-pub struct VariableMemory<M: Mode>(BTreeMap<u32, u32>, PhantomData<M>);
+#[derive(Default, Clone)]
+pub struct VariableMemory<M: Mode> {
+    store: PagedMemory,
+    _phantom_data: PhantomData<M>,
+}
 
-impl<M: Mode> From<BTreeMap<u32, u32>> for VariableMemory<M> {
-    fn from(map: BTreeMap<u32, u32>) -> Self {
-        VariableMemory::<M>(map, PhantomData)
+impl<M: Mode> From<MemorySegmentImage> for VariableMemory<M> {
+    fn from(image: MemorySegmentImage) -> Self {
+        let mut memory = PagedMemory::new();
+
+        // Safety: this is a more general/less constrained type of memory than `MemorySegmentImage`.
+        memory
+            .set_words(image.base(), image.as_word_slice())
+            .unwrap();
+
+        VariableMemory::<M> {
+            store: memory,
+            _phantom_data: PhantomData,
+        }
     }
 }
 
@@ -77,7 +89,7 @@ impl<M: Mode> Debug for VariableMemory<M> {
         writeln!(f, "│     Address       │      Value      │")?;
         writeln!(f, "├───────────────────┼─────────────────┤")?;
 
-        for (&address, &value) in self.0.iter() {
+        for (address, value) in self.addressed_iter() {
             writeln!(f, "│ 0x{:08x}        │ 0x{:08x}      │", address, value)?;
         }
 
@@ -116,23 +128,15 @@ impl<M: Mode> VariableMemory<M> {
         let write_mask = !(mask << shift);
         let data = (value & mask) << shift;
 
-        let prev_value = self
-            .0
-            .get(&aligned_address) // Align to word boundary
-            .map(|&value| ((value >> shift) & mask))
-            .unwrap_or(0);
+        let prev_word = self.get_word(aligned_address)?.unwrap_or(0);
 
-        let value = self
-            .0
-            .entry(aligned_address) // Align to word boundary
-            .and_modify(|e| *e = (*e & write_mask) | data)
-            .or_insert(data);
+        self.insert_word(aligned_address, (prev_word & write_mask) | data)?;
 
         Ok(StoreOp::Op(
             size,
             address,
-            (*value >> shift) & mask,
-            prev_value,
+            value,                       // new value
+            (prev_word >> shift) & mask, // old value
         ))
     }
 
@@ -157,51 +161,53 @@ impl<M: Mode> VariableMemory<M> {
         let aligned_address = address & !(WORD_SIZE - 1) as u32;
 
         let value = self
-            .0
-            .get(&aligned_address) // Align to word boundary
-            .map(|&value| ((value >> shift) & mask))
+            .get_word(aligned_address)?
+            .map(|value| ((value >> shift) & mask))
             .unwrap_or(0);
+
         Ok(LoadOp::Op(size, address, value))
     }
-    /// For bounded segments, returns a slice of memory between start and end addresses, if they form a contiguous segment.
+    /// For bounded segments, returns a slice of memory between start and end addresses if they form a contiguous segment.
     ///
     /// For unbounded segments, returns the longest contiguous segment starting from the start address.
     /// If the segment is empty, then an empty Vec is returned.
-    pub fn segment(&self, start: u32, end: Option<u32>) -> Result<Vec<u32>, MemoryError> {
-        // Check if end is valid (if provided)
-        if let Some(end) = end {
-            if end < start || !self.0.contains_key(&end) {
-                return Err(MemoryError::InvalidMemorySegment);
-            }
-        }
-
-        let mut values = Vec::new();
-        let mut current = start;
-
-        loop {
-            if let Some(value) = self.0.get(&current) {
-                values.push(*value);
-
-                if let Some(end) = end {
-                    if current >= end {
-                        break;
-                    }
-                }
-
-                current += WORD_SIZE as u32;
-            } else if end.is_none() {
-                break;
-            } else {
-                // If we can't find the next contiguous address, it's an invalid segment
-                return Err(MemoryError::InvalidMemorySegment);
-            }
-        }
-
-        Ok(values)
+    ///
+    /// In both cases, start and end should be word-aligned (if set).
+    ///
+    /// Returns an error if the segment is not contiguous.
+    pub fn segment_words(
+        &self,
+        start: u32,
+        end: Option<u32>,
+    ) -> Result<impl Iterator<Item = u32> + '_, MemoryError> {
+        self.store.range_words_iter(start, end)
     }
 
     pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> Result<Vec<u8>, MemoryError> {
-        Ok(words_to_bytes!(self.segment(start, end)?))
+        self.store.range_bytes(start, end)
+    }
+
+    /// Returns the length of the segment in bytes that are actually set.
+    pub fn occupied_bytes(&self) -> u32 {
+        self.store.occupied_bytes()
+    }
+
+    /// Returns the length of the segment in bytes that are actually set.
+    pub fn bytes_spanned(&self) -> u32 {
+        self.store.bytes_spanned()
+    }
+
+    /// Returns a word-addressed iterator over the memory, yielding (address, value) pairs.
+    pub fn addressed_iter(&self) -> impl Iterator<Item = (u32, u32)> + '_ {
+        self.store.addressed_iter()
+    }
+
+    pub fn get_word(&self, address: u32) -> Result<Option<u32>, MemoryError> {
+        self.store.get_word(address)
+    }
+
+    pub fn insert_word(&mut self, address: u32, value: u32) -> Result<Option<u32>, MemoryError> {
+        self.store.set_word(address, value)
     }
 }
 
@@ -315,6 +321,8 @@ impl MemoryProcessor for VariableMemory<WO> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
 
     #[test]
@@ -567,8 +575,9 @@ mod tests {
     fn test_unpermitted_read() {
         let mut map: BTreeMap<u32, u32> = BTreeMap::new();
         map.insert(0x1000, 0xABCD1234);
+        let memory_image = MemorySegmentImage::try_from_contiguous_btree(&map).unwrap();
 
-        let memory = VariableMemory::<WO>::from(map);
+        let memory = VariableMemory::<WO>::from(memory_image);
 
         // Read from an address in a write-only memory
         assert_eq!(

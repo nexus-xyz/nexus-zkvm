@@ -16,6 +16,8 @@ pub use nexus_rt_macros::{
 
 mod io;
 pub use io::*;
+mod error;
+pub use error::*;
 pub use postcard;
 
 pub mod keccak;
@@ -35,6 +37,8 @@ pub(crate) const SYS_CYCLE_COUNT: u32 = 0x401;
 pub(crate) const SYS_OVERWRITE_SP: u32 = 0x402;
 #[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_ALLOC_ALIGNED: u32 = 0x403;
+#[cfg(target_arch = "riscv32")]
+pub(crate) const SYS_PERFORM_HEAP_ALLOCATION: u32 = 0x405;
 // Error codes.
 #[cfg(target_arch = "riscv32")]
 pub(crate) const EXIT_SUCCESS: u32 = 0;

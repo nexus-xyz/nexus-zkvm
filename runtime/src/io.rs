@@ -5,7 +5,7 @@ extern crate alloc;
 mod riscv32 {
     extern crate alloc;
     use crate::{
-        ecall, read_input, write_output, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG,
+        ecall, read_input, write_output, NexusRTError, SYS_CYCLE_COUNT, SYS_EXIT, SYS_LOG,
         SYS_READ_PRIVATE_INPUT, WORD_SIZE,
     };
     use serde::{de::DeserializeOwned, Serialize};
@@ -38,9 +38,9 @@ mod riscv32 {
     /// Read an object off the private input tape
     ///
     /// exhausts the private input tape, so can only be used once
-    pub fn read_private_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
+    pub fn read_private_input<T: DeserializeOwned>() -> Result<T, NexusRTError> {
         let mut bytes: alloc::vec::Vec<u8> = core::iter::from_fn(read_from_private_input).collect();
-        postcard::from_bytes_cobs::<T>(bytes.as_mut_slice())
+        Ok(postcard::from_bytes_cobs::<T>(bytes.as_mut_slice())?)
     }
 
     /// Read a byte from the private input tape
@@ -55,11 +55,13 @@ mod riscv32 {
     }
 
     /// Read an object from the public input segment.
-    pub fn read_public_input<T: DeserializeOwned>() -> Result<T, postcard::Error> {
+    pub fn read_public_input<T: DeserializeOwned>() -> Result<T, NexusRTError> {
         // The first word stores the length of the input (in bytes).
         // This length does not take into account the first word itself.
         let len = read_input!(0) as usize;
-        let padded_len = (len + 3) & !3;
+        let padded_len = len
+            .checked_next_multiple_of(WORD_SIZE)
+            .ok_or(NexusRTError::InputLengthOverflow(len))?;
         let mut input = alloc::vec![0u8; padded_len];
 
         // Read the input into the vector.
@@ -69,17 +71,19 @@ mod riscv32 {
         }
 
         // Deserialize the input into the target type.
-        postcard::from_bytes_cobs::<T>(input.as_mut_slice())
+        Ok(postcard::from_bytes_cobs::<T>(input.as_mut_slice())?)
     }
 
     /// Write an object to the public output segment.
-    pub fn write_public_output<T: Serialize + ?Sized>(val: &T) -> Result<(), postcard::Error> {
+    pub fn write_public_output<T: Serialize + ?Sized>(val: &T) -> Result<(), NexusRTError> {
         // Serialize the value into bytes.
-        let mut bytes = postcard::to_allocvec_cobs(&val)?;
+        let mut bytes = postcard::to_allocvec_cobs(val)?;
+        let len = bytes.len();
 
-        let padded_len = (bytes.len() + 3) & !3;
-        assert!(padded_len >= bytes.len());
-        bytes.resize(padded_len, 0x00); // cobs ignores 0x00 padding
+        let padded_len = len
+            .checked_next_multiple_of(WORD_SIZE)
+            .ok_or(NexusRTError::OutputLengthOverflow(len))?;
+        bytes.resize(padded_len, 0); // cobs ignores 0x00 padding
 
         // Write bytes in word chunks to output memory.
         bytes.chunks(WORD_SIZE).enumerate().for_each(|(i, chunk)| {
@@ -147,17 +151,19 @@ mod native {
 
     use serde::{de::DeserializeOwned, Serialize};
 
+    use crate::NexusRTError;
+
     pub fn write_log<UNUSABLE: RequiresRV32Target>(_s: &str) {
         unimplemented!()
     }
 
     pub fn read_private_input<UNUSABLE: RequiresRV32Target, T: DeserializeOwned>(
-    ) -> Result<T, postcard::Error> {
+    ) -> Result<T, NexusRTError> {
         unimplemented!()
     }
 
     pub fn read_public_input<UNUSABLE: RequiresRV32Target, T: DeserializeOwned>(
-    ) -> Result<T, postcard::Error> {
+    ) -> Result<T, NexusRTError> {
         unimplemented!()
     }
 

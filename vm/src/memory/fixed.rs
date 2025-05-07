@@ -41,13 +41,14 @@
 //!
 //! Comprehensive unit tests are included to verify the correctness of memory operations
 //! across different access modes and sizes.
+use core::slice;
 use std::collections::BTreeMap;
 
 use std::{fmt::Debug, marker::PhantomData};
 
 use nexus_common::constants::WORD_SIZE;
 use nexus_common::error::MemoryError;
-use nexus_common::{bytes_to_words, word_align, words_to_bytes};
+use nexus_common::memory::alignment::Alignable;
 
 use super::{LoadOp, MemAccessSize, MemoryProcessor, Mode, StoreOp, NA, RO, RW, WO};
 
@@ -99,8 +100,8 @@ impl<M: Mode> FixedMemory<M> {
         }
     }
 
-    pub fn from_vec(base_address: u32, max_len: usize, mut vec: Vec<u32>) -> Self {
-        vec.truncate(max_len / WORD_SIZE);
+    pub fn from_word_vec(base_address: u32, max_len: usize, mut vec: Vec<u32>) -> Self {
+        vec.truncate(max_len.byte_len_in_words());
         vec.shrink_to_fit();
 
         FixedMemory::<M> {
@@ -111,19 +112,28 @@ impl<M: Mode> FixedMemory<M> {
         }
     }
 
-    pub fn from_bytes(base_address: u32, bytes: &[u8]) -> Self {
-        let padded_len = word_align!(bytes.len());
-        let mut padded_bytes = bytes.to_vec();
-        padded_bytes.resize(padded_len, 0);
+    pub fn from_byte_slice(base_address: u32, bytes: &[u8]) -> Self {
+        let padded_len_bytes = bytes.len().word_align();
+        let len_words = bytes.len().byte_len_in_words();
+
+        // Avoid using `to_vec` to prevent any possibility of having to do a `realloc`
+        let mut words: Vec<u32> = Vec::with_capacity(len_words);
+        words.extend(bytes.chunks(WORD_SIZE).map(|chunk| {
+            // Little-endian shows its convenience here
+            let mut static_chunk = [0u8; WORD_SIZE];
+            static_chunk[..chunk.len()].copy_from_slice(chunk);
+            u32::from_le_bytes(static_chunk)
+        }));
+
         FixedMemory::<M> {
             base_address,
-            max_len: padded_len,
-            vec: bytes_to_words!(padded_bytes),
+            max_len: padded_len_bytes,
+            vec: words,
             __mode: PhantomData,
         }
     }
 
-    pub fn from_words(base_address: u32, max_len: usize, words: &[u32]) -> Self {
+    pub fn from_word_slice(base_address: u32, max_len: usize, words: &[u32]) -> Self {
         let mut vec = words.to_vec();
         vec.truncate(max_len / WORD_SIZE);
 
@@ -135,19 +145,47 @@ impl<M: Mode> FixedMemory<M> {
         }
     }
 
-    pub fn segment(&self, start: u32, end: Option<u32>) -> &[u32] {
-        let s = (start - self.base_address) / WORD_SIZE as u32;
+    pub fn segment_words(&self, start: u32, end: Option<u32>) -> &[u32] {
+        assert!(
+            start >= self.base_address,
+            "start address {start:#X?} should be at least {:#X?}",
+            self.base_address
+        );
+        start.assert_word_aligned();
 
-        if let Some(mut e) = end {
-            e = (e - self.base_address) / WORD_SIZE as u32;
-            &self.vec[s as usize..e as usize]
+        let start_index = ((start - self.base_address) / WORD_SIZE as u32) as usize;
+
+        let end_index = if let Some(end) = end {
+            assert!(end >= start);
+            end.assert_word_aligned();
+            assert!(end <= self.base_address + TryInto::<u32>::try_into(self.max_len).unwrap());
+
+            (end - self.base_address) as usize / WORD_SIZE
         } else {
-            &self.vec[s as usize..]
-        }
+            self.vec.len()
+        };
+
+        &self.vec[start_index..end_index]
     }
 
-    pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> Vec<u8> {
-        words_to_bytes!(self.segment(start, end))
+    pub fn segment_bytes(&self, start: u32, end: Option<u32>) -> &[u8] {
+        assert!(start >= self.base_address);
+
+        let start_index = (start - self.base_address) as usize;
+
+        assert!(end.is_none_or(|e| e >= start));
+
+        let end_index = end.map_or(self.vec.len() * size_of::<u32>(), |e| {
+            (e - self.base_address) as usize
+        });
+
+        // Safety: `Vec` guarantees that the data it stores is contiguous. Casting the pointer to a
+        // byte pointer is safe as long as we don't mutate the data.
+        let internal_byte_view = unsafe {
+            slice::from_raw_parts(self.vec.as_ptr() as *const u8, self.vec.len() * WORD_SIZE)
+        };
+
+        &internal_byte_view[start_index..end_index]
     }
 
     /// addresses in the fixed memory, given bytewise
@@ -185,14 +223,20 @@ impl<M: Mode> FixedMemory<M> {
     ) -> Result<StoreOp, MemoryError> {
         // Error if address is outside reserved space
         if raw_address < self.base_address {
-            return Err(MemoryError::InvalidMemoryAccess(raw_address));
+            return Err(MemoryError::InvalidMemoryAccess(
+                raw_address,
+                "writing address lower than fixed memory segment base",
+            ));
         }
 
         let address = raw_address - self.base_address;
 
         // Error if address is outside reserved space
         if address >= self.max_len as u32 {
-            return Err(MemoryError::InvalidMemoryAccess(raw_address));
+            return Err(MemoryError::InvalidMemoryAccess(
+                raw_address,
+                "writing address higher than fixed memory reserved max",
+            ));
         }
 
         // Check for alignment
@@ -242,14 +286,20 @@ impl<M: Mode> FixedMemory<M> {
     fn execute_read(&self, raw_address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         // Error if address is outside reserved space
         if raw_address < self.base_address {
-            return Err(MemoryError::InvalidMemoryAccess(raw_address));
+            return Err(MemoryError::InvalidMemoryAccess(
+                raw_address,
+                "reading address lower than fixed memory segment base",
+            ));
         }
 
         let address = raw_address - self.base_address;
 
         // Error if address is outside reserved space
         if address >= self.max_len as u32 {
-            return Err(MemoryError::InvalidMemoryAccess(raw_address));
+            return Err(MemoryError::InvalidMemoryAccess(
+                raw_address,
+                "reading address higher than fixed memory reserved max",
+            ));
         }
 
         // Check for alignment
@@ -605,7 +655,10 @@ mod tests {
         // Read from an address out of the reserved memory
         assert_eq!(
             memory.read(0x1020, MemAccessSize::Word),
-            Err(MemoryError::InvalidMemoryAccess(0x1020))
+            Err(MemoryError::InvalidMemoryAccess(
+                0x1020,
+                "reading address higher than fixed memory reserved max",
+            ))
         );
     }
 
@@ -616,7 +669,10 @@ mod tests {
         // Write to an address out of the reserved memory
         assert_eq!(
             memory.write(0x1020, MemAccessSize::Word, 0xABCD1234),
-            Err(MemoryError::InvalidMemoryAccess(0x1020))
+            Err(MemoryError::InvalidMemoryAccess(
+                0x1020,
+                "writing address higher than fixed memory reserved max",
+            ))
         );
     }
 

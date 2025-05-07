@@ -35,6 +35,12 @@ serde = { version = "1.0", features = ["derive"] }
 stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "61d1f6b" }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 
+# This profile is used for CI tests. Optimized for faster compilation vs. absolute speed.
+[profile.ci-test]
+inherits = "release"
+debug = true
+lto = "thin"
+
 [profile.release]
 codegen-units = 1
 lto = true
@@ -42,9 +48,3 @@ lto = true
 [profile.bench]
 inherits = "release"
 debug = true
-
-# This profile is used for CI tests. Optimized for faster compilation vs. absolute speed.
-[profile.ci-test]
-inherits = "release"
-strip = "debuginfo"
-lto = "thin"

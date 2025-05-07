@@ -32,7 +32,7 @@ use nexus_common::cpu::Registers;
 
 use crate::{
     cpu::Cpu,
-    emulator::{Executor, LinearMemoryLayout},
+    emulator::{memory_stats::MemoryStats, Executor, LinearMemoryLayout},
     error::{Result, VMError},
     memory::{LoadOp, MemoryProcessor, StoreOp},
     riscv::{BuiltinOpcode, Instruction, Register},
@@ -48,6 +48,7 @@ pub enum SyscallCode {
     OverwriteStackPointer = 0x402,
     OverwriteHeapPointer = 0x403,
     ReadFromAuxiliaryInput = 0x404,
+    MemoryAdvise = 0x405, // Is converted to NOP for tracing
 }
 
 impl SyscallCode {
@@ -60,6 +61,7 @@ impl SyscallCode {
             0x402 => SyscallCode::OverwriteStackPointer,
             0x403 => SyscallCode::OverwriteHeapPointer,
             //0x404 => SyscallCode::ReadFromAuxiliaryInput,
+            0x405 => SyscallCode::MemoryAdvise,
             _ => return Err(VMError::UnimplementedSyscall(value, pc)),
         };
         Ok(code)
@@ -76,6 +78,7 @@ impl From<u32> for SyscallCode {
             0x402 => SyscallCode::OverwriteStackPointer,
             0x403 => SyscallCode::OverwriteHeapPointer,
             0x404 => SyscallCode::ReadFromAuxiliaryInput,
+            0x405 => SyscallCode::MemoryAdvise,
             _ => panic!("Invalid syscall code"),
         }
     }
@@ -91,6 +94,7 @@ impl From<SyscallCode> for u32 {
             SyscallCode::OverwriteStackPointer => 0x402,
             SyscallCode::OverwriteHeapPointer => 0x403,
             SyscallCode::ReadFromAuxiliaryInput => 0x404,
+            SyscallCode::MemoryAdvise => 0x405,
         }
     }
 }
@@ -277,6 +281,18 @@ impl SyscallInstruction {
         Ok(())
     }
 
+    fn execute_allocate_heap(
+        &mut self,
+        addr: u32,
+        len: u32,
+        memory_stats: Option<&mut MemoryStats>,
+    ) -> Result<()> {
+        if let Some(stats) = memory_stats {
+            stats.register_heap_allocation(addr, len);
+        }
+        Ok(())
+    }
+
     // Reads from memory for syscall instruction.
     pub fn memory_read(&mut self, _memory: &impl MemoryProcessor) -> Result<HashSet<LoadOp>> {
         Ok(HashSet::<LoadOp>::new())
@@ -297,6 +313,7 @@ impl SyscallInstruction {
         executor: &mut Executor,
         memory: &impl MemoryProcessor,
         memory_layout: Option<LinearMemoryLayout>,
+        memory_stats: Option<&mut MemoryStats>,
         force_second_pass: bool,
     ) -> Result<()> {
         let second_pass = memory_layout.is_some() || force_second_pass;
@@ -349,6 +366,19 @@ impl SyscallInstruction {
             SyscallCode::OverwriteHeapPointer => self.execute_overwrite_heap_pointer(memory_layout),
 
             SyscallCode::ReadFromAuxiliaryInput => unreachable!(), // unreachable since parsing of the code will fail
+
+            SyscallCode::MemoryAdvise => {
+                // No-op on second pass.
+                if second_pass {
+                    self.result = None;
+                    return Ok(());
+                }
+
+                let addr = self.args[0];
+                let len = self.args[1];
+
+                self.execute_allocate_heap(addr, len, memory_stats)
+            }
         }
     }
 

@@ -122,7 +122,10 @@ pub fn setup_guest_project(runtime_path: &PathBuf) -> TempDir {
         .output()
         .expect("Failed to add nexus_rt dependency");
 
-    assert!(output.status.success());
+    if !output.status.success() {
+        eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
+        panic!("cargo add failed for nexus_rt");
+    }
 
     tmp_dir
 }
@@ -138,7 +141,6 @@ pub fn write_guest_source_code(tmp_project_path: &PathBuf, test_path: &str) {
         .output()
         .expect("Failed to copy test file");
 
-    println!("{}", String::from_utf8_lossy(&output.stderr));
     assert!(output.status.success());
 }
 
@@ -172,7 +174,6 @@ pub fn compile_guest_project(
         eprintln!("Error: {}", String::from_utf8_lossy(&output.stderr));
         panic!("cargo build failed for RISC-V target");
     }
-    assert!(output.status.success());
 
     // Read the elf file to bytes.
     let elf_file = format!(
@@ -267,12 +268,21 @@ pub fn emulate(
                         .iter()
                         .map(|public_output_entry| public_output_entry.value)
                         .collect();
+                    let _output_log = if let Some(lines) = view.view_debug_logs() {
+                        lines
+                            .iter()
+                            .map(|line| String::from_utf8_lossy(line).to_string())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    } else {
+                        "".into()
+                    };
                 }
                 cycles.push(cur_cycles);
             }
             EmulatorType::Linear(heap_size, stack_size, program_size) => {
                 // Construct the memory layout.
-                let memory_layout = LinearMemoryLayout::new(
+                let memory_layout = LinearMemoryLayout::try_new(
                     heap_size,
                     stack_size,
                     public_input_bytes.len() as u32,
