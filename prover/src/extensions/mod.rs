@@ -41,9 +41,8 @@ mod multiplicity8;
 use multiplicity8::Multiplicity8;
 
 trait FrameworkEvalExt: FrameworkEval + Default + Sync + 'static {
-    // TODO: make it variable, e.g. derived by the component implementation from
-    // the finalized side note.
-    const LOG_SIZE: u32;
+    // Returns the log size for this evaluator
+    fn log_size() -> u32;
 
     fn new(lookup_elements: &AllLookupElements) -> Self;
 }
@@ -97,7 +96,7 @@ trait BuiltInExtension {
             .evaluate(InfoEvaluator::empty())
             .mask_offsets
             .as_cols_ref()
-            .map_cols(|_| Self::Eval::LOG_SIZE)
+            .map_cols(|_| <<Self as BuiltInExtension>::Eval as FrameworkEvalExt>::log_size())
     }
 
     /// Returns the log_sizes of each preprocessed columns
@@ -218,7 +217,14 @@ macro_rules! extension_dispatch {
 
             pub(crate) fn trace_sizes(&self) -> TreeVec<Vec<u32>> {
                 match self {
-                    $( $_enum::$name(inner) => <$name as BuiltInExtension>::trace_sizes(inner), )*
+                    $( $_enum::$name(inner) => {
+                        let log_size = <<$name as BuiltInExtension>::Eval as FrameworkEvalExt>::log_size();
+                        <$name as BuiltInExtension>::Eval::default()
+                            .evaluate(InfoEvaluator::empty())
+                            .mask_offsets
+                            .as_cols_ref()
+                            .map_cols(|_| log_size)
+                    })*
                 }
             }
 
