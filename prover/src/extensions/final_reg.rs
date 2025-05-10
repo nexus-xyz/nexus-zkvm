@@ -123,7 +123,9 @@ impl FrameworkEval for FinalRegEval {
 }
 
 impl FrameworkEvalExt for FinalRegEval {
-    const LOG_SIZE: u32 = Self::LOG_SIZE;
+    fn log_size() -> u32 {
+        Self::LOG_SIZE
+    }
 
     fn new(lookup_elements: &AllLookupElements) -> Self {
         let register_check_lookup_elements: &RegisterCheckLookupElements = lookup_elements.as_ref();
