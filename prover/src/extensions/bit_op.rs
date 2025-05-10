@@ -102,7 +102,9 @@ impl FrameworkEval for BitOpMultiplicityEval {
 }
 
 impl FrameworkEvalExt for BitOpMultiplicityEval {
-    const LOG_SIZE: u32 = BitOpMultiplicityEval::LOG_SIZE;
+    fn log_size() -> u32 {
+        Self::LOG_SIZE
+    }
 
     fn new(lookup_elements: &AllLookupElements) -> Self {
         let lookup_elements: &BitOpLookupElements = lookup_elements.as_ref();
