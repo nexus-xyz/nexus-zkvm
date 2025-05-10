@@ -108,7 +108,9 @@ impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEval for MultiplicityE
 }
 
 impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEvalExt for MultiplicityEval<LEN, L> {
-    const LOG_SIZE: u32 = Self::LOG_SIZE;
+    fn log_size() -> u32 {
+        Self::LOG_SIZE
+    }
 
     fn new(lookup_elements: &AllLookupElements) -> Self {
         let lookup: &L = lookup_elements.as_ref();
