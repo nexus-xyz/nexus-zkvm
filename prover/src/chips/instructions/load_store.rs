@@ -142,12 +142,12 @@ impl MachineChip for LoadStoreChip {
 
             if !is_load {
                 assert!(
-                    (memory_record.get_prev_value().unwrap() as usize) < { 1usize } << (size * 8),
+                    (memory_record.get_prev_value().unwrap() as u64) < { 1u64 } << (size * 8),
                     "a memory operation contains a too big prev value"
                 );
             }
             assert!(
-                (memory_record.get_value() as usize) < { 1usize } << (size * 8),
+                (memory_record.get_value() as u64) < { 1u64 } << (size * 8),
                 "a memory operation contains a too big value"
             );
 

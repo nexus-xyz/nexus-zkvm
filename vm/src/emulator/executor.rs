@@ -1369,6 +1369,19 @@ mod tests {
     }
 
     #[test]
+    #[serial]
+    fn test_linear_harvard_emulate_nexus_rt_binary() {
+        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let mut harvard = HarvardEmulator::from_elf(&elf_file, &[], &[]);
+
+        assert_eq!(harvard.execute(false), Err(VMError::VMExited(0)));
+
+        let mut linear = LinearEmulator::from_harvard(&harvard, elf_file, &[], &[]).unwrap();
+
+        assert_eq!(linear.execute(false), Err(VMError::VMExited(0)));
+    }
+
+    #[test]
     fn test_linear_fibonacci() {
         let basic_blocks = setup_basic_block_ir();
 

@@ -81,7 +81,8 @@ impl PagedMemory {
             return Err(MemoryError::InvalidMemoryAccess(address, "set_word"));
         }
 
-        if address as usize + WORD_SIZE > u32::MAX as usize {
+        // Allow us to freely add WORD_SIZE to the address
+        if address >= u32::MAX - WORD_SIZE as u32 {
             return Err(MemoryError::AddressCalculationOverflow);
         }
 
