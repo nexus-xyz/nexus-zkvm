@@ -58,7 +58,7 @@ impl Alignable for u32 {
     fn align_to<const N: usize>(self) -> Self {
         // Rust doesn't tolerate const computations on generics for some reason.
         debug_assert!(N.count_ones() == 1);
-        debug_assert!(N < u32::MAX as usize);
+        debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
 
         self.next_multiple_of(N as u32)
     }
@@ -66,7 +66,7 @@ impl Alignable for u32 {
     fn next_aligned_boundary<const N: usize>(self) -> Self {
         // Rust doesn't tolerate const computations on generics for some reason.
         debug_assert!(N.count_ones() == 1);
-        debug_assert!(N < u32::MAX as usize);
+        debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
 
         (self + N as u32) & !(N as u32 - 1)
     }
@@ -74,7 +74,7 @@ impl Alignable for u32 {
     fn is_aligned_to<const N: usize>(self) -> bool {
         // Rust doesn't tolerate const computations on generics for some reason.
         debug_assert!(N.count_ones() == 1);
-        debug_assert!(N < u32::MAX as usize);
+        debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
 
         self & (N as u32 - 1) == 0
     }
