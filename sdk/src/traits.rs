@@ -303,17 +303,38 @@ pub trait Setup<'a> {
     /// Access reference through borrow.
     fn reference(&self) -> Result<&'a Self::Reference, Self::Error>;
 
-    // todo: add support for reference digest
+    /// Compute a digest over the reference.
+    fn reference_digest<H: Digest>(&self) -> Result<GenericArray<u8, H::OutputSize>, Self::Error>
+    where
+        <H as OutputSizeUser>::OutputSize: ArrayLength<u8>,
+    {
+        let reference = self.reference()?;
+        Ok(H::digest(postcard::to_stdvec(reference).map_err(|_| Self::Error::from(IOError::SerializationError))?.as_slice()))
+    }
 
     /// Access parameters through borrow.
     fn parameters(&self) -> Result<&'a Self::Parameters, Self::Error>;
 
-    // todo: add support for parameters digest
+    /// Compute a digest over the parameters.
+    fn parameters_digest<H: Digest>(&self) -> Result<GenericArray<u8, H::OutputSize>, Self::Error>
+    where
+        <H as OutputSizeUser>::OutputSize: ArrayLength<u8>,
+    {
+        let parameters = self.parameters()?;
+        Ok(H::digest(postcard::to_stdvec(parameters).map_err(|_| Self::Error::from(IOError::SerializationError))?.as_slice()))
+    }
 
     /// Return preprocessing.
     fn preprocessing(&self) -> Result<Self::Preprocessing, Self::Error>;
 
-    // todo: add support for preprocessing digest
+    /// Compute a digest over the preprocessing.
+    fn preprocessing_digest<H: Digest>(&self) -> Result<GenericArray<u8, H::OutputSize>, Self::Error>
+    where
+        <H as OutputSizeUser>::OutputSize: ArrayLength<u8>,
+    {
+        let preprocessing = self.preprocessing()?;
+        Ok(H::digest(postcard::to_stdvec(&preprocessing).map_err(|_| Self::Error::from(IOError::SerializationError))?.as_slice()))
+    }
 }
 
 /// A global, trust-assumption-reliant parameter set used for proving and verifying, such as a common or structured reference string (CRS/SRS).
