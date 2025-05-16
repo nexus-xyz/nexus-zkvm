@@ -269,6 +269,12 @@ impl View {
     pub fn view_debug_logs(&self) -> Option<Vec<Vec<u8>>> {
         Some(self.debug_logs.clone())
     }
+
+    /// Return the memory layout, if any.
+    // TODO: Remove once we split Supply-Side and Demand-Side Interfaces
+    pub fn view_memory_layout(&self) -> Option<&LinearMemoryLayout> {
+        self.memory_layout.as_ref()
+    }
 }
 
 impl InternalView for View {
