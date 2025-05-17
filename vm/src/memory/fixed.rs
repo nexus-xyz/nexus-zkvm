@@ -201,6 +201,20 @@ impl<M: Mode> FixedMemory<M> {
         }
         ret
     }
+
+    /// Iterator over addresses and values in the fixed memory, given bytewise, to avoid BTreeMap allocation
+    pub fn addr_val_bytes_iter(&self) -> impl Iterator<Item = (u32, u8)> + '_ {
+        (self.base_address..self.base_address + self.vec.len() as u32 * WORD_SIZE as u32)
+            .filter_map(move |addr| {
+                let val = self.execute_read(addr, MemAccessSize::Byte);
+                if let Ok(LoadOp::Op(_, _, value)) = val {
+                    debug_assert!(value <= 0xFF);
+                    Some((addr, value as u8))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 impl<M: Mode> FixedMemory<M> {
