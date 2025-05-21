@@ -29,7 +29,7 @@ jobs:
           path-to-document: 'https://github.com/nexus-xyz/nexus-zkvm-cla/blob/main/CLA.md' # e.g. a CLA or a DCO document
           # branch should not be protected
           branch: 'main'
-          allowlist: sjudson,duc-nx,slumber,evan-schott,bhoberman,michel-nexus,danielmarinq,smart3ll
+          allowlist: sjudson,duc-nx,slumber,evan-schott,bhoberman,michel-nexus,danielmarinq,smart3ll,mfaulk
 
          # the followings are the optional inputs - If the optional inputs are not given, then default values will be taken
           remote-organization-name: 'nexus-xyz'
