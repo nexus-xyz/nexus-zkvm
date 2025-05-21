@@ -10,4 +10,5 @@ categories.workspace = true
 publish.workspace = true
 
 [dependencies]
+[target.'cfg(unix)'.dependencies]
 pprof = { version = "0.13", features = ["prost-codec", "frame-pointer"] }
