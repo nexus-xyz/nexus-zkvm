@@ -1,0 +1,20 @@
+[package]
+name = "nexus-vm-prover2"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+publish.workspace = true
+
+[dependencies]
+stwo-prover = { workspace = true }
+serde = { workspace = true }
+num-traits = { workspace = true }
+impl-trait-for-tuples = "0.2.2"
+
+nexus-vm = { path = "../../vm" }
+nexus-vm-prover-trace = { path = "../trace" }
+nexus-vm-prover-air-column = { path = "../air-column" }

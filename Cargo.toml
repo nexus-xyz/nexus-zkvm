@@ -13,6 +13,10 @@ members = [
     "tests/testing-framework",
     "benchmarks",
     "cli",
+    "prover2/trace",
+    "prover2/air-column",
+    "prover2/air-column/air-column-derive",
+    "prover2/machine"
 ]
 default-members = ["runtime", "prover", "vm", "precompiles", "common", "core"]
 exclude = ["prover-benches"]

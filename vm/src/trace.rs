@@ -53,6 +53,8 @@ pub trait Trace {
     fn get_num_steps(&self) -> usize {
         self.get_blocks_iter().map(|b| b.steps.len()).sum()
     }
+
+    fn as_blocks_slice(&self) -> &[Block];
 }
 
 /// Represents a program trace over uniform blocks.
@@ -83,6 +85,10 @@ impl Trace for UniformTrace {
 
     fn get_num_steps(&self) -> usize {
         self.k * self.blocks.len()
+    }
+
+    fn as_blocks_slice(&self) -> &[Block] {
+        self.blocks.as_slice()
     }
 }
 
@@ -145,6 +151,10 @@ impl Trace for BBTrace {
 
     fn get_start(&self) -> usize {
         self.start
+    }
+
+    fn as_blocks_slice(&self) -> &[Block] {
+        self.blocks.as_slice()
     }
 }
 

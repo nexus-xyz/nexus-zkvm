@@ -355,7 +355,7 @@ impl BuiltinOpcode {
         Self::BUILTIN_NAMES[*self as usize]
     }
 
-    fn raw(&self) -> u8 {
+    pub const fn raw(&self) -> u8 {
         match self {
             BuiltinOpcode::ADD => 0b0110011,
             BuiltinOpcode::SUB => 0b0110011,
