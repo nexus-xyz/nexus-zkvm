@@ -81,7 +81,7 @@ Dynamic precompiles need to be implemented independent of the VM or guest progra
 
 While dynamic precompiles can be included as source dependencies by guest programs, they have to be executed dynamically by the VM. ~~This means that code involved in calling precompile functionality from guest programs can use macros and Rust-native functionality while the precompile implementation called by the VM has to follow the portable `extern "C"` FFI~~. Because we're not targeting networked precompile distribution at the moment, we're allowing precompiles to be rebuilt locally, as needed, using the same unstable Rust ABI as the locally built VM.
 
-This means that the contract implementors have to follow can be a clean, Rusty interface based on the `InstructionState` and `InstructionExecutor` traits. At runtime, these instructions can be loaded into the `InstructionExecutorRegistry` via its dynamic precompile table.
+This means that the contract implementers have to follow can be a clean, Rusty interface based on the `InstructionState` and `InstructionExecutor` traits. At runtime, these instructions can be loaded into the `InstructionExecutorRegistry` via its dynamic precompile table.
 
 The relevant types and interfaces will be specified in the `nexus-common` crate (moved from their current definition in the VM crate).
 
