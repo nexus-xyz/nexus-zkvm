@@ -80,7 +80,7 @@ impl InstructionExecutor for NewInstruction {
         // We assume x is a secret and in the Register X11
         self.rd.1 = self.rs1 * self.secret_data + self.rs2;
 
-        // Now we want to update the secret data everytime it is used.
+        // Now we want to update the secret data every time it is used.
         self.secret_data = self.secret_data.wrapping_add(0xCAFEBABE);
     }
 
