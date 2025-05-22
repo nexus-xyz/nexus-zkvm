@@ -1185,20 +1185,20 @@ impl Emulator for LinearEmulator {
                     })
             });
         // TODO: avoid creating a BtreeMap and produce an iterator directly
-        let rom_initialization = match self.static_rom_image_index {
-            None => BTreeMap::new(),
-            Some(uidx) => self
-                .memory
-                .addr_val_bytes(uidx)
-                .expect("invalid static_rom_image_index"),
+        let rom_iter = match self.static_rom_image_index {
+            None => {
+                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = MemoryInitializationEntry>>
+            }
+            Some(uidx) => Box::new(
+                self.memory
+                    .addr_val_bytes_iter(uidx)
+                    .expect("invalid static_rom_image_index")
+                    .map(|(addr, byte)| MemoryInitializationEntry {
+                        address: addr,
+                        value: byte,
+                    }),
+            ) as Box<dyn Iterator<Item = MemoryInitializationEntry>>,
         };
-        let rom_iter = rom_initialization
-            .iter()
-            .map(|(addr, byte)| MemoryInitializationEntry {
-                address: *addr,
-                value: *byte,
-            });
-
         let ram_initialization = &self.initial_static_ram_image;
         let ram_iter =
             ram_initialization
@@ -1233,9 +1233,17 @@ impl Emulator for LinearEmulator {
             .collect();
         initial_memory.extend(public_input_iter);
 
-        let tracked_ram_size = self
-            .memory_layout
-            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_initialization.len());
+        let tracked_ram_size = self.memory_layout.tracked_ram_size(
+            self.initial_static_ram_image.len_bytes()
+                + match self.static_rom_image_index {
+                    None => 0,
+                    Some(uidx) => self
+                        .memory
+                        .addr_val_bytes_iter(uidx)
+                        .map(|it| it.count())
+                        .unwrap_or(0),
+                },
+        );
 
         View {
             memory_layout: Some(self.memory_layout),

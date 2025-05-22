@@ -274,6 +274,45 @@ impl UnifiedMemory {
         }
     }
 
+    /// Iterator over addresses and values in the fixed memory, given bytewise, to avoid BTreeMap allocation
+    pub fn addr_val_bytes_iter(
+        &self,
+        uidx: (usize, usize),
+    ) -> Result<Box<dyn Iterator<Item = (u32, u8)> + '_>, MemoryError> {
+        let (store, idx) = uidx;
+        match FromPrimitive::from_usize(store) {
+            Some(Modes::RW) => {
+                if idx < self.frw_store.len() {
+                    Ok(Box::new(self.frw_store[idx].addr_val_bytes_iter()))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::RO) => {
+                if idx < self.fro_store.len() {
+                    Ok(Box::new(self.fro_store[idx].addr_val_bytes_iter()))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::WO) => {
+                if idx < self.fwo_store.len() {
+                    Ok(Box::new(self.fwo_store[idx].addr_val_bytes_iter()))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            Some(Modes::NA) => {
+                if idx < self.fna_store.len() {
+                    Ok(Box::new(self.fna_store[idx].addr_val_bytes_iter()))
+                } else {
+                    Err(MemoryError::UndefinedMemoryRegion)
+                }
+            }
+            _ => Err(MemoryError::UndefinedMemoryRegion),
+        }
+    }
+
     pub fn segment_words(
         &self,
         uidx: (usize, usize),
