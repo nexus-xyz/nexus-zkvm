@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        crate: [nexus-common, nexus-vm, nexus-vm-prover, testing-framework, nexus-precompiles]
+        crate: [nexus-common, nexus-vm, nexus-vm-prover, nexus-vm-prover2, testing-framework, nexus-precompiles]
     steps:
       - uses: actions/checkout@v4
 
