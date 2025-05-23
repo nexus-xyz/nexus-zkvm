@@ -10,7 +10,7 @@ macro_rules! register_relation {
         #[allow(clippy::enum_variant_names)]
         #[derive(Debug, Clone)]
         pub enum $_enum {
-            $($name($name),)*
+            $($name(Box<$name>),)*
         }
 
         #[allow(unused)]
@@ -37,7 +37,7 @@ macro_rules! register_relation {
         $(
             impl From<$name> for $_enum {
                 fn from(it: $name) -> Self {
-                    Self::$name(it)
+                    Self::$name(Box::new(it))
                 }
             }
 
@@ -84,7 +84,7 @@ macro_rules! register_relation {
             fn dummy_array() -> [(std::any::TypeId, Self); Self::NUM_VARIANTS] {
                 [
                     $(
-                        (std::any::TypeId::of::<$name>(), Self::$name($name::dummy())),
+                        (std::any::TypeId::of::<$name>(), Self::$name(Box::new($name::dummy()))),
                     )*
                 ]
             }
