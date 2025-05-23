@@ -102,7 +102,7 @@ impl DurationTracker {
 
         self.min = std::cmp::min(self.min, *next);
         self.avg = (self.avg.mul_f64(prev) + *next).div_f64(curr);
-        self.max = std::cmp::max(self.min, *next);
+        self.max = std::cmp::max(self.max, *next);
     }
 }
 
