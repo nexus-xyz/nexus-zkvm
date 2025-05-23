@@ -15,7 +15,7 @@ impl<'a> SideNote<'a> {
         }
     }
 
-    pub fn iter_program_steps(&self) -> impl Iterator<Item = ProgramStep<'a>> {
+    pub fn iter_program_steps(&self) -> impl DoubleEndedIterator<Item = ProgramStep<'a>> {
         self.execution_trace.iter().map(ProgramStep::from)
     }
 

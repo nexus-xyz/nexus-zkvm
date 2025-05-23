@@ -131,7 +131,6 @@ impl BuiltInComponent for Add {
         trace.finalize()
     }
 
-    #[allow(unused)]
     fn generate_interaction_trace(
         component_trace: ComponentTrace,
         _side_note: &SideNote,
@@ -169,12 +168,12 @@ impl BuiltInComponent for Add {
             .concat(),
         );
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        // logup_trace_builder.add_to_relation_with(
-        //     &rel_cont_prog_exec,
-        //     [is_local_pad],
-        //     |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-        //     &[clk_next, pc_next].concat(),
-        // );
+        logup_trace_builder.add_to_relation_with(
+            &rel_cont_prog_exec,
+            [is_local_pad],
+            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
+            &[clk_next, pc_next].concat(),
+        );
 
         logup_trace_builder.finalize()
     }
@@ -253,7 +252,7 @@ impl BuiltInComponent for Add {
         );
 
         // Logup Interactions
-        let (rel_cpu_to_inst, _rel_cont_prog_exec) = lookup_elements;
+        let (rel_cpu_to_inst, rel_cont_prog_exec) = lookup_elements;
 
         // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
         eval.add_to_relation(RelationEntry::new(
@@ -270,16 +269,16 @@ impl BuiltInComponent for Add {
             .concat(),
         ));
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        // eval.add_to_relation(RelationEntry::new(
-        //     rel_cont_prog_exec,
-        //     (E::F::one() - is_local_pad.clone()).into(),
-        //     &[
-        //         clk_next[0].clone(),
-        //         clk_next[1].clone(),
-        //         pc_next[0].clone(),
-        //         pc_next[1].clone(),
-        //     ],
-        // ));
+        eval.add_to_relation(RelationEntry::new(
+            rel_cont_prog_exec,
+            (E::F::one() - is_local_pad.clone()).into(),
+            &[
+                clk_next[0].clone(),
+                clk_next[1].clone(),
+                pc_next[0].clone(),
+                pc_next[1].clone(),
+            ],
+        ));
         eval.finalize_logup_in_pairs();
     }
 }
