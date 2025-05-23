@@ -13,7 +13,9 @@ pub struct MulhInstruction {
 }
 
 implement_arithmetic_executor!(MulhInstruction, |a: u32, b: u32| {
+    // Signed extension
     let a_signed = a as i32 as i64;
+    // Signed extension
     let b_signed = b as i32 as i64;
     (a_signed.wrapping_mul(b_signed) >> 32) as i32 as u32
 });
@@ -37,7 +39,9 @@ pub struct MulhsuInstruction {
 }
 
 implement_arithmetic_executor!(MulhsuInstruction, |a: u32, b: u32| {
+    // Signed extension
     let a_signed = a as i32 as i64;
+    // Zero extension
     let b_unsigned = b as u64;
     (a_signed.wrapping_mul(b_unsigned as i64) >> 32) as i32 as u32
 });
@@ -300,6 +304,158 @@ mod tests {
 
         // Expected result: -5 * 20 = -100, which fits in lower 32 bits
         // Upper 32 bits: 0xFFFFFFFF (due to sign extension)
+        assert_eq!(res, Some(0xFFFFFFFF));
+        assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_mulh_zero_operand() {
+        let mut cpu = Cpu::default();
+
+        // Test with one operand as zero
+        cpu.registers.write(Register::X1, 0);
+        cpu.registers.write(Register::X2, 0x80000000); // -2^31
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULH), 3, 1, 2);
+        let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        // Expected result: 0 * (-2^31) = 0
+        assert_eq!(res, Some(0));
+        assert_eq!(cpu.registers.read(Register::X3), 0);
+    }
+
+    #[test]
+    fn test_mulh_both_zero() {
+        let mut cpu = Cpu::default();
+
+        cpu.registers.write(Register::X1, 0);
+        cpu.registers.write(Register::X2, 0);
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULH), 3, 1, 2);
+        let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        assert_eq!(res, Some(0));
+        assert_eq!(cpu.registers.read(Register::X3), 0);
+    }
+
+    #[test]
+    fn test_mulh_with_minus_one() {
+        let mut cpu = Cpu::default();
+
+        // -1 * large positive number
+        cpu.registers.write(Register::X1, 0xFFFFFFFF); // -1 in two's complement
+        cpu.registers.write(Register::X2, 0x7FFFFFFF); // 2^31 - 1
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULH), 3, 1, 2);
+        let mut instruction = MulhInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        // Expected result: -1 * (2^31 - 1) = -(2^31 - 1)
+        // Upper 32 bits should be 0xFFFFFFFF (all 1s)
+        assert_eq!(res, Some(0xFFFFFFFF));
+        assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFF);
+    }
+
+    #[test]
+    fn test_mulhu_with_one() {
+        let mut cpu = Cpu::default();
+
+        // 1 * large number
+        cpu.registers.write(Register::X1, 1);
+        cpu.registers.write(Register::X2, 0xFFFFFFFF); // 2^32 - 1
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHU), 3, 1, 2);
+        let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        // Expected result: 1 * (2^32 - 1) = 2^32 - 1, which fits in lower 32 bits
+        // Upper 32 bits: 0
+        assert_eq!(res, Some(0));
+        assert_eq!(cpu.registers.read(Register::X3), 0);
+    }
+
+    #[test]
+    fn test_mulhu_specific_bit_pattern() {
+        let mut cpu = Cpu::default();
+
+        // Test with alternating bit patterns
+        cpu.registers.write(Register::X1, 0xAAAAAAAA); // 10101010...
+        cpu.registers.write(Register::X2, 0x55555555); // 01010101...
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHU), 3, 1, 2);
+        let mut instruction = MulhuInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        // Expected result: 0xAAAAAAAA * 0x55555555 = 0x38E38E38E38E38E2
+        // Upper 32 bits: 0x38E38E38
+        assert_eq!(res, Some(0x38E38E38));
+        assert_eq!(cpu.registers.read(Register::X3), 0x38E38E38);
+    }
+
+    #[test]
+    fn test_mulhsu_zero_signed() {
+        let mut cpu = Cpu::default();
+
+        // Test with signed operand as zero
+        cpu.registers.write(Register::X1, 0);
+        cpu.registers.write(Register::X2, 0xFFFFFFFF);
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 3, 1, 2);
+        let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        assert_eq!(res, Some(0));
+        assert_eq!(cpu.registers.read(Register::X3), 0);
+    }
+
+    #[test]
+    fn test_mulhsu_zero_unsigned() {
+        let mut cpu = Cpu::default();
+
+        // Test with unsigned operand as zero
+        cpu.registers.write(Register::X1, 0xFFFFFFFF); // -1 in two's complement
+        cpu.registers.write(Register::X2, 0);
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 3, 1, 2);
+        let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        assert_eq!(res, Some(0));
+        assert_eq!(cpu.registers.read(Register::X3), 0);
+    }
+
+    #[test]
+    fn test_mulhsu_minus_one_signed() {
+        let mut cpu = Cpu::default();
+
+        // -1 (signed) * large unsigned
+        cpu.registers.write(Register::X1, 0xFFFFFFFF); // -1 in two's complement
+        cpu.registers.write(Register::X2, 0xFFFFFFFF); // 2^32 - 1 (unsigned)
+
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 3, 1, 2);
+        let mut instruction = MulhsuInstruction::decode(&bare_instruction, &cpu.registers);
+
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        // Expected result: -1 * (2^32 - 1) = -(2^32 - 1)
+        // Upper 32 bits: 0xFFFFFFFF
         assert_eq!(res, Some(0xFFFFFFFF));
         assert_eq!(cpu.registers.read(Register::X3), 0xFFFFFFFF);
     }
