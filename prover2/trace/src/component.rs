@@ -88,10 +88,10 @@ impl ComponentTrace {
         std::array::from_fn(|i| (&self.original_trace[i + offset]).into())
     }
 
-    pub fn preprocessed_base_column<const N: usize, P: PreprocessedAirColumn>(
-        &self,
+    pub fn preprocessed_base_column<'a, const N: usize, P: PreprocessedAirColumn>(
+        &'a self,
         col: P,
-    ) -> [&BaseColumn; N] {
+    ) -> [FinalizedColumn<'a>; N] {
         assert_eq!(
             self.preprocessed_trace.len(),
             P::COLUMNS_NUM,
@@ -100,18 +100,30 @@ impl ComponentTrace {
         assert_eq!(col.size(), N, "column size mismatch");
 
         let offset = col.offset();
-        std::array::from_fn(|i| &self.preprocessed_trace[i + offset])
+        std::array::from_fn(|i| (&self.preprocessed_trace[i + offset]).into())
     }
 }
 
 /// Returns an array of references to finalized column parts from original trace.
 ///
 /// ```ignore
-/// let [clk_0, clk_1] = original_base_column!(component_trace, Column::Clk);
+/// let [pc_0, pc_1] = original_base_column!(component_trace, Column::Pc);
 /// ```
 #[macro_export]
 macro_rules! original_base_column {
     ($component_trace:expr, $col:expr) => {{
         $component_trace.original_base_column::<{ $col.const_size() }, _>($col)
+    }};
+}
+
+/// Returns an array of references to finalized preprocessed column parts.
+///
+/// ```ignore
+/// let [clk_0, clk_1] = preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
+/// ```
+#[macro_export]
+macro_rules! preprocessed_base_column {
+    ($component_trace:expr, $col:expr) => {{
+        $component_trace.preprocessed_base_column::<{ $col.const_size() }, _>($col)
     }};
 }

@@ -17,11 +17,12 @@ use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     component::{ComponentTrace, FinalizedColumn},
     eval::TraceEval,
-    original_base_column,
+    original_base_column, preprocessed_base_column, preprocessed_trace_eval,
     program::ProgramStep,
     trace_eval,
 };
 
+use super::utils::u32_to_16bit_parts_le;
 use crate::{
     framework::BuiltInComponent,
     lookups::{
@@ -49,11 +50,7 @@ impl Cpu {
         let pc_bytes = pc.to_le_bytes();
         let pc_aux = pc_bytes[0] / 4;
 
-        let clk = step.timestamp;
-        let clk_bytes = clk.to_le_bytes();
-
         trace.fill_columns_bytes(row_idx, &pc_bytes, Column::Pc);
-        trace.fill_columns_bytes(row_idx, &clk_bytes, Column::Clk);
         trace.fill_columns(row_idx, pc_aux, Column::PcAux);
 
         match step.instruction.opcode.builtin() {
@@ -93,8 +90,22 @@ impl BuiltInComponent for Cpu {
 
     type LookupElements = (CpuToInstLookupElements, ProgramExecutionLookupElements);
 
-    fn generate_preprocessed_trace(_log_size: u32) -> FinalizedTrace {
-        FinalizedTrace::empty()
+    fn generate_preprocessed_trace(log_size: u32) -> FinalizedTrace {
+        let (clk_low, clk_high): (Vec<BaseField>, Vec<BaseField>) = (1..=(1 << log_size))
+            .map(|clk| {
+                let [clk_low, clk_high] = u32_to_16bit_parts_le(clk);
+                (
+                    BaseField::from(clk_low as u32),
+                    BaseField::from(clk_high as u32),
+                )
+            })
+            .unzip();
+        let clk_low = BaseColumn::from_iter(clk_low);
+        let clk_high = BaseColumn::from_iter(clk_high);
+        FinalizedTrace {
+            cols: vec![clk_low, clk_high],
+            log_size,
+        }
     }
 
     fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
@@ -125,7 +136,6 @@ impl BuiltInComponent for Cpu {
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
 
         let [is_add] = original_base_column!(component_trace, Column::IsAdd);
-        let clk = original_base_column!(component_trace, Column::Clk);
         let pc = original_base_column!(component_trace, Column::Pc);
         let a_val = original_base_column!(component_trace, Column::AVal);
         let b_val = original_base_column!(component_trace, Column::BVal);
@@ -133,8 +143,8 @@ impl BuiltInComponent for Cpu {
 
         let [opcode] = original_base_column!(component_trace, Column::Opcode);
 
-        let clk_low = Self::get_16bit_column(log_size, clk[0], clk[1]);
-        let clk_high = Self::get_16bit_column(log_size, clk[2], clk[3]);
+        let [clk_low, clk_high] =
+            preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
         let pc_low = Self::get_16bit_column(log_size, pc[0], pc[1]);
         let pc_high = Self::get_16bit_column(log_size, pc[2], pc[3]);
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
@@ -158,8 +168,8 @@ impl BuiltInComponent for Cpu {
             is_add,
             &[
                 [
-                    (&clk_low).into(),
-                    (&clk_high).into(),
+                    clk_low,
+                    clk_high,
                     opcode,
                     (&pc_low).into(),
                     (&pc_high).into(),
@@ -181,7 +191,6 @@ impl BuiltInComponent for Cpu {
         lookup_elements: &Self::LookupElements,
     ) {
         let pc = trace_eval!(trace_eval, Column::Pc);
-        let clk = trace_eval!(trace_eval, Column::Clk);
         let [pc_aux] = trace_eval!(trace_eval, Column::PcAux);
 
         eval.add_constraint(pc_aux * BaseField::from(4) - pc[0].clone());
@@ -196,8 +205,7 @@ impl BuiltInComponent for Cpu {
         let (rel_cpu_to_inst, _rel_cont_prog_exec) = lookup_elements;
 
         // Lookup 16 bits
-        let clk_low = clk[0].clone() + clk[1].clone() * BaseField::from(1 << 8);
-        let clk_high = clk[2].clone() + clk[3].clone() * BaseField::from(1 << 8);
+        let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
 
         let pc_low = pc[0].clone() + pc[1].clone() * BaseField::from(1 << 8);
         let pc_high = pc[2].clone() + pc[3].clone() * BaseField::from(1 << 8);

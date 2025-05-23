@@ -1,12 +1,14 @@
-use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
+use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 
-pub type PreprocessedColumn = EmptyPreprocessedColumn;
+#[derive(Debug, Copy, Clone, PreprocessedAirColumn)]
+pub enum PreprocessedColumn {
+    /// The current execution time
+    #[size = 2]
+    Clk,
+}
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum Column {
-    /// The current execution time
-    #[size = 4]
-    Clk,
     /// The current value of the program counter register
     #[size = 4]
     Pc,
