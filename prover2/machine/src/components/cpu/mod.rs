@@ -1,3 +1,4 @@
+use num_traits::One;
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
     core::{
@@ -131,11 +132,12 @@ impl BuiltInComponent for Cpu {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_cpu_to_inst, _rel_cont_prog_exec) = Self::LookupElements::get(lookup_elements);
+        let (rel_cpu_to_inst, rel_cont_prog_exec) = Self::LookupElements::get(lookup_elements);
         let log_size = component_trace.log_size();
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
 
         let [is_add] = original_base_column!(component_trace, Column::IsAdd);
+        let [is_pad] = original_base_column!(component_trace, Column::IsPad);
         let pc = original_base_column!(component_trace, Column::Pc);
         let a_val = original_base_column!(component_trace, Column::AVal);
         let b_val = original_base_column!(component_trace, Column::BVal);
@@ -148,17 +150,12 @@ impl BuiltInComponent for Cpu {
         let pc_low = Self::get_16bit_column(log_size, pc[0], pc[1]);
         let pc_high = Self::get_16bit_column(log_size, pc[2], pc[3]);
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
-        // logup_trace_builder.add_to_relation_with(
-        //     &rel_cont_prog_exec,
-        //     [is_local_pad],
-        //     |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-        //     &[
-        //         (&clk_low).into(),
-        //         (&clk_high).into(),
-        //         (&pc_low).into(),
-        //         (&pc_high).into(),
-        //     ],
-        // );
+        logup_trace_builder.add_to_relation_with(
+            &rel_cont_prog_exec,
+            [is_pad],
+            |[is_pad]| (is_pad - PackedBaseField::one()).into(),
+            &[clk_low, clk_high, (&pc_low).into(), (&pc_high).into()],
+        );
         // TODO: replace multiplicity with virtual flags.
         //
         // provide(rel-cpu-to-inst, is-type-u + is-type-j + is-load + is-type-s + is-type-b + is-alu,
@@ -190,6 +187,8 @@ impl BuiltInComponent for Cpu {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let [is_pad] = trace_eval!(trace_eval, Column::IsPad);
+
         let pc = trace_eval!(trace_eval, Column::Pc);
         let [pc_aux] = trace_eval!(trace_eval, Column::PcAux);
 
@@ -202,7 +201,7 @@ impl BuiltInComponent for Cpu {
         let c_val = trace_eval!(trace_eval, Column::CVal);
 
         // Logup Interactions
-        let (rel_cpu_to_inst, _rel_cont_prog_exec) = lookup_elements;
+        let (rel_cpu_to_inst, rel_cont_prog_exec) = lookup_elements;
 
         // Lookup 16 bits
         let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
@@ -210,19 +209,17 @@ impl BuiltInComponent for Cpu {
         let pc_low = pc[0].clone() + pc[1].clone() * BaseField::from(1 << 8);
         let pc_high = pc[2].clone() + pc[3].clone() * BaseField::from(1 << 8);
 
-        // TODO: add boundary fractions depending on initial and final pc values.
-        //
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
-        // eval.add_to_relation(RelationEntry::new(
-        //     rel_cont_prog_exec,
-        //     (is_local_pad.clone() - E::F::one()).into(),
-        //     &[
-        //         clk_low.clone(),
-        //         clk_high.clone(),
-        //         pc_low.clone(),
-        //         pc_high.clone(),
-        //     ],
-        // ));
+        eval.add_to_relation(RelationEntry::new(
+            rel_cont_prog_exec,
+            (is_pad.clone() - E::F::one()).into(),
+            &[
+                clk_low.clone(),
+                clk_high.clone(),
+                pc_low.clone(),
+                pc_high.clone(),
+            ],
+        ));
 
         // TODO: replace multiplicity with virtual flags.
         //
