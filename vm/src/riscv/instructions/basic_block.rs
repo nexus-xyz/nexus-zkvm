@@ -99,21 +99,20 @@ impl Display for BasicBlockProgram {
 
 #[cfg(test)]
 mod tests {
-    use crate::elf::ElfFile;
+    use crate::read_testing_elf_from_path;
     use crate::riscv::{decode_instructions, decode_until_end_of_a_block};
     use nexus_common::constants::WORD_SIZE;
 
     #[test]
     fn test_encode_decode_consistency_in_a_block() {
-        let file_path = "test/fib_10_no_precompiles.elf";
-        let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10_no_precompiles.elf");
 
         // Get the entry point and calculate the instruction index
-        let entry_instruction = (elf.entry - elf.base) / WORD_SIZE as u32;
+        let entry_instruction = (elf_file.entry - elf_file.base) / WORD_SIZE as u32;
 
         // Decode a block of instructions
         let original_block =
-            decode_until_end_of_a_block(&elf.instructions[entry_instruction as usize..]);
+            decode_until_end_of_a_block(&elf_file.instructions[entry_instruction as usize..]);
 
         // Encode the decoded instructions
         let encoded_instructions: Vec<u32> = original_block.encode();
@@ -123,7 +122,7 @@ mod tests {
             0,
             encoded_instructions
                 .iter()
-                .zip(&elf.instructions[entry_instruction as usize..])
+                .zip(&elf_file.instructions[entry_instruction as usize..])
                 .filter(|(a, b)| a != b)
                 .count()
         );
@@ -151,8 +150,7 @@ mod tests {
     #[ignore]
     #[test]
     fn test_encode_decode_consistency_from_elf() {
-        let file_path = "test/fib_10_no_precompiles.elf";
-        let elf = ElfFile::from_path(file_path).expect("Unable to load ELF from path");
+        let elf = read_testing_elf_from_path!("/test/fib_10_no_precompiles.elf");
 
         // Get the entry point and calculate the instruction index
         let entry_instruction = (elf.entry - elf.base) / WORD_SIZE as u32;

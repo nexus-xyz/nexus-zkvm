@@ -1272,7 +1272,7 @@ impl Emulator for LinearEmulator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::elf::ElfFile;
+    use crate::read_testing_elf_from_path;
     use crate::riscv::{BuiltinOpcode, Instruction, Opcode};
     use serial_test::serial;
 
@@ -1319,7 +1319,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_harvard_emulate_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10.elf");
+
         let mut emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 
         assert_eq!(emulator.execute(false), Err(VMError::VMExited(0)));
@@ -1361,7 +1362,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_linear_emulate_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10.elf");
+
         let mut emulator =
             LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], &elf_file, &[], &[]);
 
@@ -1371,7 +1373,8 @@ mod tests {
     #[test]
     #[serial]
     fn test_linear_harvard_emulate_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10.elf");
+
         let mut harvard = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 
         assert_eq!(harvard.execute(false), Err(VMError::VMExited(0)));

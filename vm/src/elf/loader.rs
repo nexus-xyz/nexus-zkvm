@@ -130,10 +130,9 @@ impl ElfFile {
 
 #[cfg(test)]
 mod tests {
-
     use nexus_common::constants::ELF_TEXT_START;
 
-    use crate::memory::MemorySegmentImage;
+    use crate::{memory::MemorySegmentImage, read_testing_elf_from_path};
 
     use super::*;
     use std::io::Write;
@@ -173,23 +172,25 @@ mod tests {
     #[test]
     fn test_parse_elf_files() {
         // Use llvm-objdump to find what these numbers should be
-        let test_cases = [("test/fib_10.elf", ELF_TEXT_START, ELF_TEXT_START, 1449)];
+        const FILE_PATH: &str = "/test/fib_10.elf";
+        const ENTRY_POINT: u32 = ELF_TEXT_START;
+        const BASE_ADDRESS: u32 = ELF_TEXT_START;
+        const NUMBER_OF_INSTRUCTIONS: usize = 1449;
 
-        for (file_path, entry_point, base_address, number_of_instruction) in test_cases.iter() {
-            let elf = ElfFile::from_path(file_path).unwrap();
+        // Have to use a string literal here due to dumb macro rules.
+        let elf = read_testing_elf_from_path!("/test/fib_10.elf");
 
-            assert_eq!(
-                elf.entry, *entry_point,
-                "Incorrect entrypoint for {}",
-                file_path
-            );
-            assert_eq!(
-                elf.base, *base_address,
-                "Incorrect base address for {}",
-                file_path
-            );
+        assert_eq!(
+            elf.entry, ENTRY_POINT,
+            "Incorrect entrypoint for {}",
+            FILE_PATH
+        );
+        assert_eq!(
+            elf.base, BASE_ADDRESS,
+            "Incorrect base address for {}",
+            FILE_PATH
+        );
 
-            assert_eq!(elf.instructions.len(), *number_of_instruction);
-        }
+        assert_eq!(elf.instructions.len(), NUMBER_OF_INSTRUCTIONS);
     }
 }
