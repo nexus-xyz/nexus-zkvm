@@ -530,17 +530,17 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
 
 #[cfg(test)]
 mod tests {
+    use crate::read_testing_binary_from_path;
+
     use super::{parse_precompile_metadata, validate_elf_header};
 
     use elf::{endian::LittleEndian, ElfBytes};
-    use std::{collections::HashMap, path::PathBuf};
+    use std::collections::HashMap;
 
     #[tracing_test::traced_test]
     #[test]
     fn test_parse_elf_file_with_precompile() {
-        let elf_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/program_with_dummy_div.elf");
-        let elf_bytes = std::fs::read(elf_path).unwrap();
+        let elf_bytes = read_testing_binary_from_path!("/test/program_with_dummy_div.elf");
         let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
 
         validate_elf_header(&elf.ehdr).unwrap();
@@ -553,9 +553,8 @@ mod tests {
     #[tracing_test::traced_test]
     #[test]
     fn test_parse_elf_file_with_precompiles() {
-        let elf_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/program_with_two_precompiles.elf");
-        let elf_bytes = std::fs::read(elf_path).unwrap();
+        let elf_bytes = read_testing_binary_from_path!("/test/program_with_two_precompiles.elf");
+
         let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
 
         validate_elf_header(&elf.ehdr).unwrap();
@@ -571,9 +570,7 @@ mod tests {
     #[tracing_test::traced_test]
     #[test]
     fn test_parse_elf_file_with_no_precompiles() {
-        let elf_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test/program_with_no_precompiles.elf");
-        let elf_bytes = std::fs::read(elf_path).unwrap();
+        let elf_bytes = read_testing_binary_from_path!("/test/program_with_no_precompiles.elf");
         let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
 
         validate_elf_header(&elf.ehdr).unwrap();

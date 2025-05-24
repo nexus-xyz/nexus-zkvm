@@ -50,12 +50,15 @@ jobs:
       - name: Make Warnings Errors
         run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
 
-      - name: Run `cargo check`
+      - name: Run `cargo check` for native target
         run: |
-          cargo check --all-features --all-targets --workspace --exclude example
+          # only need to build guest binaries once
+          NEXUS_VM_BUILD_GUEST_TEST_BINARIES=true cargo check --all-features --all-targets --workspace --exclude example
           cargo check --all-features --all-targets --examples --workspace --exclude example
-          cargo check --package example --target riscv32i-unknown-none-elf
           cd prover-benches && cargo check --benches --workspace
+
+      - name: Run `cargo check` for riscv32i-unknown-none-elf target (examples)
+        run: cargo check --package example --target riscv32i-unknown-none-elf
 
       - name: Run `cargo clippy`
         run: cargo clippy --no-deps --all-targets --all-features
@@ -98,3 +101,38 @@ jobs:
 
       - name: Run doc tests for ${{ matrix.crate }}
         run: cargo test --package ${{ matrix.crate }} --doc
+
+  wasm-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        crate: [nexus-vm, nexus-vm-prover]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-04-06 # same version as normal tests
+          # need riscv32i-unknown-none-elf for building guest binaries
+          targets: wasm32-wasip1, riscv32i-unknown-none-elf
+
+      - name: Install & Use `mold`
+        uses: rui314/setup-mold@v1
+
+      - name: Setup `wasmtime`
+        uses: bytecodealliance/actions/wasmtime/setup@v1
+
+      - name: Make Warnings Errors
+        run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
+
+      - name: Build VM Guest Binaries
+        run: echo "NEXUS_VM_BUILD_GUEST_TEST_BINARIES=true" >> $GITHUB_ENV
+
+      - name: Configure `wasmtime`
+        run: |
+          echo "CARGO_TARGET_WASM32_WASIP1_RUNNER=wasmtime" >> $GITHUB_ENV
+          echo "WASMTIME_BACKTRACE_DETAILS=1" >> $GITHUB_ENV
+
+      - name: Run Tests in wasm32-wasip1 for ${{ matrix.crate }}
+        run: cargo test -p ${{ matrix.crate }} --target wasm32-wasip1 --profile ci-test

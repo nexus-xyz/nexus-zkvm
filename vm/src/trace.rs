@@ -500,14 +500,17 @@ pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<(View, BBTrace)
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::riscv::{BuiltinOpcode, Opcode, Register};
+    use crate::{
+        read_testing_elf_from_path,
+        riscv::{BuiltinOpcode, Opcode, Register},
+    };
     use nexus_common::constants::ELF_TEXT_START;
     use serial_test::serial;
 
     #[test]
     #[serial]
     fn test_k1_trace_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10.elf");
         let (_, trace) = k_trace(elf_file, &[], &[], &[], 1).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
 
         // check the first block
@@ -555,7 +558,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_k8_trace_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10.elf");
         let (_, trace) = k_trace(elf_file, &[], &[], &[], 8).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
 
         // check the first block
@@ -610,7 +613,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_bb_trace_nexus_rt_binary() {
-        let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
+        let elf_file = read_testing_elf_from_path!("/test/fib_10.elf");
         let (_, trace) = bb_trace(elf_file, &[], &[], &[]).unwrap(); // todo: unit test over a program with complex i/o to enable checking view
 
         // check the first block
