@@ -60,4 +60,19 @@ mod tests {
         assert_eq!(res, Some(0));
         assert_eq!(cpu.registers.read(Register::X3), 0);
     }
+
+    #[test]
+    fn test_add_max_intermediate() {
+        let mut cpu = Cpu::default();
+
+        cpu.registers.write(Register::X1, 0x7FFFF000);
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 1, 0xFFF);
+
+        let mut instruction = AddInstruction::decode(&bare_instruction, &cpu.registers);
+        instruction.execute();
+        let res = instruction.write_back(&mut cpu);
+
+        assert_eq!(res, Some(0x7FFFFFFF));
+        assert_eq!(cpu.registers.read(Register::X3), 0x7FFFFFFF);
+    }
 }
