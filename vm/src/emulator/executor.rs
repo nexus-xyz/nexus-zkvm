@@ -158,6 +158,7 @@ use std::{
     cmp::max,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
 };
+use itertools::Either;
 
 #[derive(Debug, Default)]
 pub struct Executor {
@@ -1186,10 +1187,8 @@ impl Emulator for LinearEmulator {
             });
         // TODO: avoid creating a BtreeMap and produce an iterator directly
         let rom_iter = match self.static_rom_image_index {
-            None => {
-                Box::new(std::iter::empty()) as Box<dyn Iterator<Item = MemoryInitializationEntry>>
-            }
-            Some(uidx) => Box::new(
+            None => Either::Left(std::iter::empty()),
+            Some(uidx) => Either::Right(
                 self.memory
                     .addr_val_bytes_iter(uidx)
                     .expect("invalid static_rom_image_index")
@@ -1197,7 +1196,7 @@ impl Emulator for LinearEmulator {
                         address: addr,
                         value: byte,
                     }),
-            ) as Box<dyn Iterator<Item = MemoryInitializationEntry>>,
+            ),
         };
         let ram_initialization = &self.initial_static_ram_image;
         let ram_iter =
