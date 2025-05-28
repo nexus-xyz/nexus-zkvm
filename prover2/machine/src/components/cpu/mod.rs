@@ -91,7 +91,7 @@ impl BuiltInComponent for Cpu {
 
     type LookupElements = (CpuToInstLookupElements, ProgramExecutionLookupElements);
 
-    fn generate_preprocessed_trace(log_size: u32) -> FinalizedTrace {
+    fn generate_preprocessed_trace(&self, log_size: u32) -> FinalizedTrace {
         let (clk_low, clk_high): (Vec<BaseField>, Vec<BaseField>) = (1..=(1 << log_size))
             .map(|clk| {
                 let [clk_low, clk_high] = u32_to_16bit_parts_le(clk);
@@ -109,7 +109,7 @@ impl BuiltInComponent for Cpu {
         }
     }
 
-    fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
+    fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
         let num_steps = side_note.num_program_steps();
         let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
@@ -125,6 +125,7 @@ impl BuiltInComponent for Cpu {
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
@@ -183,6 +184,7 @@ impl BuiltInComponent for Cpu {
     }
 
     fn add_constraints<E: EvalAtRow>(
+        &self,
         eval: &mut E,
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,

@@ -29,11 +29,12 @@ pub trait BuiltInComponent {
     /// Lookups elements used by the component.
     type LookupElements: ComponentLookupElements;
 
-    fn generate_preprocessed_trace(log_size: u32) -> FinalizedTrace;
+    fn generate_preprocessed_trace(&self, log_size: u32) -> FinalizedTrace;
 
-    fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace;
+    fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace;
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         side_note: &SideNote,
         lookup_elements: &AllLookupElements,
@@ -43,6 +44,7 @@ pub trait BuiltInComponent {
     );
 
     fn add_constraints<E: EvalAtRow>(
+        &self,
         eval: &mut E,
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,

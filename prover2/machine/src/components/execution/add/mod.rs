@@ -111,11 +111,11 @@ impl BuiltInComponent for Add {
 
     type LookupElements = (CpuToInstLookupElements, ProgramExecutionLookupElements);
 
-    fn generate_preprocessed_trace(_log_size: u32) -> FinalizedTrace {
+    fn generate_preprocessed_trace(&self, _log_size: u32) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 
-    fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
+    fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
         let num_add_steps = Self::iter_program_steps(side_note).count();
         let log_size = num_add_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
@@ -132,6 +132,7 @@ impl BuiltInComponent for Add {
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
@@ -179,6 +180,7 @@ impl BuiltInComponent for Add {
     }
 
     fn add_constraints<E: EvalAtRow>(
+        &self,
         eval: &mut E,
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
