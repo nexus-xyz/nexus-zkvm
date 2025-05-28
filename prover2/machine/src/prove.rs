@@ -143,9 +143,7 @@ mod tests {
     #[test]
     fn prove_verify() {
         let basic_block = vec![BasicBlock::new(vec![
-            // TODO: uncomment first instruction to make test non-trivial, when ADDI is supported
-            //
-            // Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2),

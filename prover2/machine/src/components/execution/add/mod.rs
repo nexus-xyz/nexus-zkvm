@@ -35,7 +35,12 @@ use crate::{
 mod columns;
 use columns::{Column, PreprocessedColumn};
 
-pub struct Add;
+pub const ADD: Add = Add::new(BuiltinOpcode::ADD);
+pub const ADDI: Add = Add::new(BuiltinOpcode::ADDI);
+
+pub struct Add {
+    opcode: BuiltinOpcode,
+}
 
 struct ExecutionResult {
     carry_bits: [bool; 2], // carry bits for 16-bit boundaries
@@ -43,13 +48,24 @@ struct ExecutionResult {
 }
 
 impl Add {
-    const OPCODE: BaseField = BaseField::from_u32_unchecked(BuiltinOpcode::ADD.raw() as u32);
+    const fn new(opcode: BuiltinOpcode) -> Self {
+        assert!(matches!(opcode, BuiltinOpcode::ADD | BuiltinOpcode::ADDI));
+        Self { opcode }
+    }
 
-    fn iter_program_steps<'a>(side_note: &SideNote<'a>) -> impl Iterator<Item = ProgramStep<'a>> {
-        side_note.iter_program_steps().filter(|step| {
+    const fn opcode(&self) -> BaseField {
+        BaseField::from_u32_unchecked(self.opcode.raw() as u32)
+    }
+
+    fn iter_program_steps<'a>(
+        &self,
+        side_note: &SideNote<'a>,
+    ) -> impl Iterator<Item = ProgramStep<'a>> {
+        let add_opcode = self.opcode;
+        side_note.iter_program_steps().filter(move |step| {
             matches!(
                 step.step.instruction.opcode.builtin(),
-                Some(BuiltinOpcode::ADD)
+                opcode if opcode == Some(add_opcode),
             )
         })
     }
@@ -66,13 +82,14 @@ impl Add {
     }
 
     fn generate_trace_row(
+        &self,
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         vm_step: ProgramStep,
         _side_note: &mut SideNote,
     ) {
         let step = &vm_step.step;
-        assert_eq!(step.instruction.opcode.builtin(), Some(BuiltinOpcode::ADD));
+        assert_eq!(step.instruction.opcode.builtin(), Some(self.opcode));
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
@@ -116,12 +133,12 @@ impl BuiltInComponent for Add {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let num_add_steps = Self::iter_program_steps(side_note).count();
+        let num_add_steps = self.iter_program_steps(side_note).count();
         let log_size = num_add_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
         let mut trace = TraceBuilder::new(log_size);
-        for (row_idx, program_step) in Self::iter_program_steps(side_note).enumerate() {
-            Self::generate_trace_row(&mut trace, row_idx, program_step, side_note);
+        for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
+            self.generate_trace_row(&mut trace, row_idx, program_step, side_note);
         }
 
         // fill padding
@@ -160,7 +177,7 @@ impl BuiltInComponent for Add {
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
             &[
                 &clk,
-                std::slice::from_ref(&Self::OPCODE.into()),
+                std::slice::from_ref(&self.opcode().into()),
                 &pc,
                 &a_val,
                 &b_val,
@@ -262,7 +279,7 @@ impl BuiltInComponent for Add {
             (is_local_pad.clone() - E::F::one()).into(),
             &[
                 &clk,
-                std::slice::from_ref(&E::F::from(Self::OPCODE)),
+                std::slice::from_ref(&E::F::from(self.opcode())),
                 &pc,
                 &a_val,
                 &b_val,
@@ -308,6 +325,7 @@ mod tests {
         let (_view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        assert_component(Add, &program_trace);
+        assert_component(ADD, &program_trace);
+        assert_component(ADDI, &program_trace);
     }
 }
