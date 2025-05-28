@@ -158,7 +158,6 @@ use std::{
     cmp::max,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
 };
-use itertools::Either;
 
 #[derive(Debug, Default)]
 pub struct Executor {
@@ -1185,13 +1184,14 @@ impl Emulator for LinearEmulator {
                         value: byte,
                     })
             });
-        // TODO: avoid creating a BtreeMap and produce an iterator directly
+        let mut rom_count = 0;
         let rom_iter = match self.static_rom_image_index {
-            None => Either::Left(std::iter::empty()),
-            Some(uidx) => Either::Right(
+            None => itertools::Either::Left(std::iter::empty()),
+            Some(uidx) => itertools::Either::Right(
                 self.memory
                     .addr_val_bytes_iter(uidx)
                     .expect("invalid static_rom_image_index")
+                    .inspect(|_| rom_count += 1)
                     .map(|(addr, byte)| MemoryInitializationEntry {
                         address: addr,
                         value: byte,
@@ -1232,17 +1232,9 @@ impl Emulator for LinearEmulator {
             .collect();
         initial_memory.extend(public_input_iter);
 
-        let tracked_ram_size = self.memory_layout.tracked_ram_size(
-            self.initial_static_ram_image.len_bytes()
-                + match self.static_rom_image_index {
-                    None => 0,
-                    Some(uidx) => self
-                        .memory
-                        .addr_val_bytes_iter(uidx)
-                        .map(|it| it.count())
-                        .unwrap_or(0),
-                },
-        );
+        let tracked_ram_size = self
+            .memory_layout
+            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_count);
 
         View {
             memory_layout: Some(self.memory_layout),
