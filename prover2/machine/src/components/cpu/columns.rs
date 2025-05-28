@@ -31,6 +31,9 @@ pub enum Column {
     /// Selector flag which indicates an ADD operation
     #[size = 1]
     IsAdd,
+    /// Selector flag which indicates an ADD operation
+    #[size = 1]
+    IsAddI,
     /// A selector flag which is used for padding, not a computational step
     #[size = 1]
     IsPad,

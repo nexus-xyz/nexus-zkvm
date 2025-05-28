@@ -54,18 +54,21 @@ impl Cpu {
         trace.fill_columns_bytes(row_idx, &pc_bytes, Column::Pc);
         trace.fill_columns(row_idx, pc_aux, Column::PcAux);
 
-        match step.instruction.opcode.builtin() {
-            Some(BuiltinOpcode::ADD) => {
-                trace.fill_columns(row_idx, true, Column::IsAdd);
-                trace.fill_columns(row_idx, BuiltinOpcode::ADD.raw(), Column::Opcode);
-            }
+        let (flag_column, opcode) = match step.instruction.opcode.builtin() {
+            Some(BuiltinOpcode::ADD) => (Column::IsAdd, BuiltinOpcode::ADD),
+            Some(BuiltinOpcode::ADDI) => (Column::IsAddI, BuiltinOpcode::ADDI),
             _ => {
                 panic!("Unsupported opcode: {:?}", step.instruction.opcode);
             }
-        }
-        let a_val = vm_step.get_value_a();
+        };
+        trace.fill_columns(row_idx, true, flag_column);
+        trace.fill_columns(row_idx, opcode.raw(), Column::Opcode);
+
+        let a_val = vm_step
+            .get_result()
+            .expect("instructions with no output are unsupported");
         let b_val = vm_step.get_value_b();
-        let c_val = vm_step.get_value_c();
+        let (c_val, _) = vm_step.get_value_c();
 
         trace.fill_columns(row_idx, a_val, Column::AVal);
         trace.fill_columns(row_idx, b_val, Column::BVal);
@@ -138,7 +141,9 @@ impl BuiltInComponent for Cpu {
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
 
         let [is_add] = original_base_column!(component_trace, Column::IsAdd);
+        let [is_addi] = original_base_column!(component_trace, Column::IsAddI);
         let [is_pad] = original_base_column!(component_trace, Column::IsPad);
+
         let pc = original_base_column!(component_trace, Column::Pc);
         let a_val = original_base_column!(component_trace, Column::AVal);
         let b_val = original_base_column!(component_trace, Column::BVal);
@@ -161,9 +166,10 @@ impl BuiltInComponent for Cpu {
         //
         // provide(rel-cpu-to-inst, is-type-u + is-type-j + is-load + is-type-s + is-type-b + is-alu,
         //      (clk, opcode, pc, a-val, b-val, c-val))
-        logup_trace_builder.add_to_relation(
+        logup_trace_builder.add_to_relation_with(
             &rel_cpu_to_inst,
-            is_add,
+            [is_add, is_addi],
+            |[is_add, is_addi]| (is_add + is_addi).into(),
             &[
                 [
                     clk_low,
@@ -189,6 +195,8 @@ impl BuiltInComponent for Cpu {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let [is_add] = trace_eval!(trace_eval, Column::IsAdd);
+        let [is_addi] = trace_eval!(trace_eval, Column::IsAddI);
         let [is_pad] = trace_eval!(trace_eval, Column::IsPad);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
@@ -196,7 +204,6 @@ impl BuiltInComponent for Cpu {
 
         eval.add_constraint(pc_aux * BaseField::from(4) - pc[0].clone());
 
-        let [is_add] = trace_eval!(trace_eval, Column::IsAdd);
         let [opcode] = trace_eval!(trace_eval, Column::Opcode);
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
@@ -229,7 +236,7 @@ impl BuiltInComponent for Cpu {
         //      (clk, opcode, pc, a-val, b-val, c-val))
         eval.add_to_relation(RelationEntry::new(
             rel_cpu_to_inst,
-            is_add.into(),
+            (is_add + is_addi).into(),
             &[
                 [
                     clk_low.clone(),
@@ -263,7 +270,7 @@ mod tests {
     #[test]
     fn assert_cpu_constraints() {
         let basic_block = vec![BasicBlock::new(vec![
-            // Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2),

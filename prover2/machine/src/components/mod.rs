@@ -8,4 +8,4 @@ mod utils;
 pub use cpu::Cpu;
 pub use cpu_boundary::CpuBoundary;
 
-pub use execution::Add;
+pub use execution::{ADD, ADDI};

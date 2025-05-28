@@ -1,3 +1,3 @@
 mod add;
 
-pub use add::Add;
+pub use add::{ADD, ADDI};
