@@ -39,16 +39,19 @@ pub fn prove(trace: &impl Trace, view: &View) -> Result<Proof, ProvingError> {
         .collect();
     let log_sizes: Vec<u32> = traces.iter().map(ComponentTrace::log_size).collect();
 
+    let max_constraint_log_degree_bound = components
+        .iter()
+        .zip(&log_sizes)
+        .map(|(c, &log_size)| c.max_constraint_log_degree_bound(log_size))
+        .max()
+        .unwrap_or(0);
+
     // Precompute twiddles.
     let config = PcsConfig::default();
     let twiddles = SimdBackend::precompute_twiddles(
-        CanonicCoset::new(
-            log_sizes.iter().copied().max().unwrap_or(0)
-                + 1 // TODO: compute max constraint degree from components
-                + config.fri_config.log_blowup_factor,
-        )
-        .circle_domain()
-        .half_coset,
+        CanonicCoset::new(max_constraint_log_degree_bound + config.fri_config.log_blowup_factor)
+            .circle_domain()
+            .half_coset,
     );
     // Setup protocol.
     let prover_channel = &mut Blake2sChannel::default();
