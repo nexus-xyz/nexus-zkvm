@@ -28,6 +28,9 @@ use crate::{
 
 #[allow(unused)] // TODO: remove with introduction of the first lookup relation
 pub trait MachineComponent {
+    /// Returns the log size of the evaluation domain.
+    fn max_constraint_log_degree_bound(&self, log_size: u32) -> u32;
+
     /// Returns mask offsets of the component's circuit.
     fn trace_sizes(&self, log_size: u32) -> TreeVec<Vec<u32>>;
 
@@ -83,6 +86,10 @@ where
     C: 'static,
     C::LookupElements: Sync + 'static,
 {
+    fn max_constraint_log_degree_bound(&self, log_size: u32) -> u32 {
+        BuiltInComponentEval::<C>::max_constraint_log_degree_bound(log_size)
+    }
+
     fn trace_sizes(&self, log_size: u32) -> TreeVec<Vec<u32>> {
         BuiltInComponentEval::<C> {
             log_size: 0,

@@ -9,13 +9,19 @@ pub struct BuiltInComponentEval<C: BuiltInComponent> {
     pub(crate) lookup_elements: C::LookupElements,
 }
 
+impl<C: BuiltInComponent> BuiltInComponentEval<C> {
+    pub(crate) const fn max_constraint_log_degree_bound(log_size: u32) -> u32 {
+        log_size + C::LOG_CONSTRAINT_DEGREE_BOUND
+    }
+}
+
 impl<C: BuiltInComponent> FrameworkEval for BuiltInComponentEval<C> {
     fn log_size(&self) -> u32 {
         self.log_size
     }
 
     fn max_constraint_log_degree_bound(&self) -> u32 {
-        self.log_size + C::LOG_CONSTRAINT_DEGREE_BOUND
+        Self::max_constraint_log_degree_bound(self.log_size)
     }
 
     fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
