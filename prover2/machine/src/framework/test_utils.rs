@@ -14,7 +14,7 @@ use crate::{
 
 pub fn assert_component<C>(component: C, trace: &impl Trace)
 where
-    C: BuiltInComponent + 'static,
+    C: BuiltInComponent + 'static + Sync,
     C::LookupElements: 'static + Sync,
 {
     let mut prover_side_note = SideNote::new(trace);
@@ -51,6 +51,7 @@ where
         CanonicCoset::new(log_size),
         |eval| {
             BuiltInComponentEval::<C> {
+                component: &component,
                 log_size,
                 lookup_elements: C::LookupElements::get(&lookup_elements),
             }

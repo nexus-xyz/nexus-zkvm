@@ -64,26 +64,26 @@ pub trait MachineComponent {
         SecureField,
     );
 
-    fn to_component_prover(
-        &self,
+    fn to_component_prover<'a>(
+        &'a self,
         tree_span_provider: &mut TraceLocationAllocator,
         lookup_elements: &AllLookupElements,
         log_size: u32,
         claimed_sum: SecureField,
-    ) -> Box<dyn ComponentProver<SimdBackend>>;
+    ) -> Box<dyn ComponentProver<SimdBackend> + 'a>;
 
-    fn to_component(
-        &self,
+    fn to_component<'a>(
+        &'a self,
         tree_span_provider: &mut TraceLocationAllocator,
         lookup_elements: &AllLookupElements,
         log_size: u32,
         claimed_sum: SecureField,
-    ) -> Box<dyn Component>;
+    ) -> Box<dyn Component + 'a>;
 }
 
 impl<C: BuiltInComponent> MachineComponent for C
 where
-    C: 'static,
+    C: 'static + Sync,
     C::LookupElements: Sync + 'static,
 {
     fn max_constraint_log_degree_bound(&self, log_size: u32) -> u32 {
@@ -92,6 +92,7 @@ where
 
     fn trace_sizes(&self, log_size: u32) -> TreeVec<Vec<u32>> {
         BuiltInComponentEval::<C> {
+            component: self,
             log_size: 0,
             lookup_elements: C::LookupElements::dummy(),
         }
@@ -117,7 +118,8 @@ where
         &self,
         log_size: u32,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
-        let preprocessed_columns = <C as BuiltInComponent>::generate_preprocessed_trace(log_size);
+        let preprocessed_columns =
+            <C as BuiltInComponent>::generate_preprocessed_trace(self, log_size);
         let domain = CanonicCoset::new(log_size).circle_domain();
         preprocessed_columns
             .cols
@@ -127,10 +129,11 @@ where
     }
 
     fn generate_component_trace(&self, side_note: &mut SideNote) -> ComponentTrace {
-        let original_trace = <C as BuiltInComponent>::generate_main_trace(side_note);
+        let original_trace = <C as BuiltInComponent>::generate_main_trace(self, side_note);
 
         let log_size = original_trace.log_size;
-        let preprocessed_trace = <C as BuiltInComponent>::generate_preprocessed_trace(log_size);
+        let preprocessed_trace =
+            <C as BuiltInComponent>::generate_preprocessed_trace(self, log_size);
 
         ComponentTrace {
             log_size,
@@ -149,23 +152,25 @@ where
         SecureField,
     ) {
         <C as BuiltInComponent>::generate_interaction_trace(
+            self,
             component_trace,
             side_note,
             lookup_elements,
         )
     }
 
-    fn to_component_prover(
-        &self,
+    fn to_component_prover<'a>(
+        &'a self,
         tree_span_provider: &mut TraceLocationAllocator,
         lookup_elements: &AllLookupElements,
         log_size: u32,
         claimed_sum: SecureField,
-    ) -> Box<dyn ComponentProver<SimdBackend>> {
+    ) -> Box<dyn ComponentProver<SimdBackend> + 'a> {
         let lookup_elements = C::LookupElements::get(lookup_elements);
         Box::new(FrameworkComponent::new(
             tree_span_provider,
             BuiltInComponentEval::<C> {
+                component: self,
                 log_size,
                 lookup_elements,
             },
@@ -173,17 +178,18 @@ where
         ))
     }
 
-    fn to_component(
-        &self,
+    fn to_component<'a>(
+        &'a self,
         tree_span_provider: &mut TraceLocationAllocator,
         lookup_elements: &AllLookupElements,
         log_size: u32,
         claimed_sum: SecureField,
-    ) -> Box<dyn Component> {
+    ) -> Box<dyn Component + 'a> {
         let lookup_elements = C::LookupElements::get(lookup_elements);
         Box::new(FrameworkComponent::new(
             tree_span_provider,
             BuiltInComponentEval::<C> {
+                component: self,
                 log_size,
                 lookup_elements,
             },

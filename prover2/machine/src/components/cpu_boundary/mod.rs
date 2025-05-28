@@ -44,7 +44,7 @@ impl BuiltInComponent for CpuBoundary {
 
     type LookupElements = ProgramExecutionLookupElements;
 
-    fn generate_preprocessed_trace(log_size: u32) -> FinalizedTrace {
+    fn generate_preprocessed_trace(&self, log_size: u32) -> FinalizedTrace {
         assert_eq!(log_size, Self::LOG_SIZE);
 
         let mut trace = TraceBuilder::new(log_size);
@@ -54,7 +54,7 @@ impl BuiltInComponent for CpuBoundary {
         trace.finalize()
     }
 
-    fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
+    fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
         let log_size = Self::LOG_SIZE;
 
         let first_step = side_note
@@ -89,6 +89,7 @@ impl BuiltInComponent for CpuBoundary {
     }
 
     fn generate_interaction_trace(
+        &self,
         component_trace: ComponentTrace,
         _side_note: &SideNote,
         lookup_elements: &AllLookupElements,
@@ -111,6 +112,7 @@ impl BuiltInComponent for CpuBoundary {
     }
 
     fn add_constraints<E: EvalAtRow>(
+        &self,
         eval: &mut E,
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
