@@ -80,6 +80,7 @@ use std::{
 use super::{
     FixedMemory, LoadOp, MemAccessSize, MemoryProcessor, StoreOp, VariableMemory, NA, RO, RW, WO,
 };
+use crate::memory::fixed::FixedMemoryAddrValBytesIter;
 
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive)]
 pub enum Modes {
@@ -223,6 +224,28 @@ macro_rules! add_fixed {
     };
 }
 
+// Enum to wrap all possible iterator types for addr_val_bytes_iter
+pub enum AddrValBytesIter {
+    RW(FixedMemoryAddrValBytesIter<RO>),
+    RO(FixedMemoryAddrValBytesIter<RO>),
+    WO(FixedMemoryAddrValBytesIter<NA>),
+    NA(FixedMemoryAddrValBytesIter<NA>),
+    Empty(std::iter::Empty<(u32, u8)>),
+}
+
+impl Iterator for AddrValBytesIter {
+    type Item = (u32, u8);
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            AddrValBytesIter::RW(iter) => iter.next(),
+            AddrValBytesIter::RO(iter) => iter.next(),
+            AddrValBytesIter::WO(iter) => iter.next(),
+            AddrValBytesIter::NA(iter) => iter.next(),
+            AddrValBytesIter::Empty(iter) => iter.next(),
+        }
+    }
+}
+
 impl UnifiedMemory {
     pub fn add_variable(&mut self, vrw: VariableMemory<RW>) -> Result<(), MemoryError> {
         if self.vrw.is_some() {
@@ -277,38 +300,40 @@ impl UnifiedMemory {
     pub fn addr_val_bytes_iter(
         &self,
         uidx: (usize, usize),
-    ) -> Result<Box<dyn Iterator<Item = (u32, u8)> + '_>, MemoryError> {
+    ) -> Result<AddrValBytesIter, MemoryError> {
         let (store, idx) = uidx;
         match num_traits::FromPrimitive::from_usize(store) {
             Some(Modes::RW) => {
                 if idx < self.frw_store.len() {
-                    Ok(Box::new(self.frw_store[idx].addr_val_bytes_iter()))
+                    let mem: FixedMemory<RO> = self.frw_store[idx].clone().into();
+                    Ok(AddrValBytesIter::RW(mem.into_addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
-                    Ok(Box::new(self.fro_store[idx].addr_val_bytes_iter()))
+                    Ok(AddrValBytesIter::RO(self.fro_store[idx].clone().into_addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::WO) => {
                 if idx < self.fwo_store.len() {
-                    Ok(Box::new(self.fwo_store[idx].addr_val_bytes_iter()))
+                    let mem: FixedMemory<NA> = self.fwo_store[idx].clone().into();
+                    Ok(AddrValBytesIter::WO(mem.into_addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
-                    Ok(Box::new(self.fna_store[idx].addr_val_bytes_iter()))
+                    Ok(AddrValBytesIter::NA(self.fna_store[idx].clone().into_addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
-            _ => Ok(Box::new(std::iter::empty())),
+            _ => Ok(AddrValBytesIter::Empty(std::iter::empty())),
         }
     }
 
