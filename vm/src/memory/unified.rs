@@ -274,69 +274,41 @@ impl UnifiedMemory {
         }
     }
 
-    /// Iterator over addresses and values in the fixed memory, given bytewise, to avoid BTreeMap allocation
     pub fn addr_val_bytes_iter(
         &self,
         uidx: (usize, usize),
-    ) -> Result<
-        itertools::Either<
-            std::iter::Empty<(u32, u8)>,
-            itertools::Either<
-                impl Iterator<Item = (u32, u8)> + '_,
-                itertools::Either<
-                    impl Iterator<Item = (u32, u8)> + '_,
-                    itertools::Either<
-                        impl Iterator<Item = (u32, u8)> + '_,
-                        impl Iterator<Item = (u32, u8)> + '_,
-                    >,
-                >,
-            >,
-        >,
-        MemoryError,
-    > {
+    ) -> Result<Box<dyn Iterator<Item = (u32, u8)> + '_>, MemoryError> {
         let (store, idx) = uidx;
         match num_traits::FromPrimitive::from_usize(store) {
             Some(Modes::RW) => {
                 if idx < self.frw_store.len() {
-                    Ok(itertools::Either::Right(itertools::Either::Left(
-                        self.frw_store[idx].addr_val_bytes_iter(),
-                    )))
+                    Ok(Box::new(self.frw_store[idx].addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
-                    Ok(itertools::Either::Right(itertools::Either::Right(
-                        itertools::Either::Left(self.fro_store[idx].addr_val_bytes_iter()),
-                    )))
+                    Ok(Box::new(self.fro_store[idx].addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::WO) => {
                 if idx < self.fwo_store.len() {
-                    Ok(itertools::Either::Right(itertools::Either::Right(
-                        itertools::Either::Right(itertools::Either::Left(
-                            self.fwo_store[idx].addr_val_bytes_iter(),
-                        )),
-                    )))
+                    Ok(Box::new(self.fwo_store[idx].addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
-                    Ok(itertools::Either::Right(itertools::Either::Right(
-                        itertools::Either::Right(itertools::Either::Right(
-                            self.fna_store[idx].addr_val_bytes_iter(),
-                        )),
-                    )))
+                    Ok(Box::new(self.fna_store[idx].addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
             }
-            _ => Ok(itertools::Either::Left(std::iter::empty())),
+            _ => Ok(Box::new(std::iter::empty())),
         }
     }
 
