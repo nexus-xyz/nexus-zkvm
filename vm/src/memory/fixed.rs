@@ -482,6 +482,62 @@ impl MemoryProcessor for FixedMemory<NA> {
     }
 }
 
+// Implement From for FixedMemory conversions according to the security lattice
+impl From<FixedMemory<RW>> for FixedMemory<RO> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<RO> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RW>> for FixedMemory<WO> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<WO> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RW>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RO>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<RO>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<WO>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<WO>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use nexus_common::error::MemoryError;
