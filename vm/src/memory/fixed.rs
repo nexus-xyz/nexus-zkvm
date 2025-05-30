@@ -201,6 +201,20 @@ impl<M: Mode> FixedMemory<M> {
         }
         ret
     }
+
+    /// Iterator over addresses and values in the fixed memory, given bytewise, to avoid BTreeMap allocation
+    pub fn addr_val_bytes_iter(&self) -> impl Iterator<Item = (u32, u8)> + '_ {
+        (self.base_address..self.base_address + self.vec.len() as u32 * WORD_SIZE as u32)
+            .filter_map(move |addr| {
+                let val = self.execute_read(addr, MemAccessSize::Byte);
+                if let Ok(LoadOp::Op(_, _, value)) = val {
+                    debug_assert!(value <= 0xFF);
+                    Some((addr, value as u8))
+                } else {
+                    None
+                }
+            })
+    }
 }
 
 impl<M: Mode> FixedMemory<M> {
@@ -465,6 +479,62 @@ impl MemoryProcessor for FixedMemory<NA> {
     /// Returns a `Result` containing the read value or an error.
     fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         Err(MemoryError::UnauthorizedRead(raw_address))
+    }
+}
+
+// Implement From for FixedMemory conversions according to the security lattice
+impl From<FixedMemory<RW>> for FixedMemory<RO> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<RO> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RW>> for FixedMemory<WO> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<WO> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RW>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RO>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<RO>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<WO>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<WO>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
     }
 }
 

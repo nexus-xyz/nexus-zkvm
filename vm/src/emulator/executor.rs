@@ -1184,21 +1184,20 @@ impl Emulator for LinearEmulator {
                         value: byte,
                     })
             });
-        // TODO: avoid creating a BtreeMap and produce an iterator directly
-        let rom_initialization = match self.static_rom_image_index {
-            None => BTreeMap::new(),
-            Some(uidx) => self
-                .memory
-                .addr_val_bytes(uidx)
-                .expect("invalid static_rom_image_index"),
+        let mut rom_count = 0;
+        let rom_iter = match self.static_rom_image_index {
+            None => itertools::Either::Left(std::iter::empty()),
+            Some(uidx) => itertools::Either::Right(
+                self.memory
+                    .addr_val_bytes_iter(uidx)
+                    .expect("invalid static_rom_image_index")
+                    .inspect(|_| rom_count += 1)
+                    .map(|(addr, byte)| MemoryInitializationEntry {
+                        address: addr,
+                        value: byte,
+                    }),
+            ),
         };
-        let rom_iter = rom_initialization
-            .iter()
-            .map(|(addr, byte)| MemoryInitializationEntry {
-                address: *addr,
-                value: *byte,
-            });
-
         let ram_initialization = &self.initial_static_ram_image;
         let ram_iter =
             ram_initialization
@@ -1235,7 +1234,7 @@ impl Emulator for LinearEmulator {
 
         let tracked_ram_size = self
             .memory_layout
-            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_initialization.len());
+            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_count);
 
         View {
             memory_layout: Some(self.memory_layout),
