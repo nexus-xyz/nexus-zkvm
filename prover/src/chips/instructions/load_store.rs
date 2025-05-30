@@ -542,8 +542,8 @@ impl MachineChip for LoadStoreChip {
         eval.add_constraint(
             is_lw.clone()
                 * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)
-                    - ram3_val_prev
-                    - ram4_val_prev * BaseField::from(1 << 8)),
+                    - ram3_val_prev.clone()
+                    - ram4_val_prev.clone() * BaseField::from(1 << 8)),
         );
 
         // In case of LHU instruction, ValueA[0..=1] should be equal to the loaded values in Ram{1,2}ValPrev
@@ -618,6 +618,38 @@ impl MachineChip for LoadStoreChip {
                 * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)
                     - sign_bit.clone() * (E::F::from(BaseField::from(1 << 16)) - E::F::one())),
         );
+
+        // for store instructions, enforce that the stored value is equal to low bits of register b,
+        // unused ram values don't contribute to the logup sum and can be ignored
+        let [is_sw] = trace_eval!(trace_eval, IsSw);
+        let [is_sh] = trace_eval!(trace_eval, IsSh);
+        let [is_sb] = trace_eval!(trace_eval, IsSb);
+
+        // is_sw * (value_b_1 + value_b_2 * 256 - ram1_val_cur - ram2_val_cur * 256) = 0
+        eval.add_constraint(
+            is_sw.clone()
+                * (value_b[0].clone() + value_b[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_cur.clone()
+                    - ram2_val_cur.clone() * BaseField::from(1 << 8)),
+        );
+        // is_sw * (value_b_3 + value_b_4 * 256 - ram3_val_cur - ram4_val_cur * 256) = 0
+        eval.add_constraint(
+            is_sw.clone()
+                * (value_b[2].clone() + value_b[3].clone() * BaseField::from(1 << 8)
+                    - ram3_val_cur.clone()
+                    - ram4_val_cur.clone() * BaseField::from(1 << 8)),
+        );
+
+        // is_sh * (value_b_1 + value_b_2 * 256 - ram1_val_cur - ram2_val_cur * 256) = 0
+        eval.add_constraint(
+            is_sh.clone()
+                * (value_b[0].clone() + value_b[1].clone() * BaseField::from(1 << 8)
+                    - ram1_val_cur.clone()
+                    - ram2_val_cur.clone() * BaseField::from(1 << 8)),
+        );
+
+        // is_sb * (value_b_1 - ram1_val_cur) = 0
+        eval.add_constraint(is_sb.clone() * (value_b[0].clone() - ram1_val_cur.clone()));
 
         let lookup_elements: &LoadStoreLookupElements = lookup_elements.as_ref();
 
@@ -898,9 +930,11 @@ mod test {
     use super::*;
     use nexus_vm::{
         emulator::InternalView,
+        memory::MemoryRecords,
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
+    use stwo_prover::core::prover::ProvingError;
 
     const LOG_SIZE: u32 = PreprocessedTraces::MIN_LOG_SIZE;
 
@@ -959,24 +993,25 @@ mod test {
         vec![basic_block]
     }
 
+    type Chips = (
+        CpuChip,
+        DecodingCheckChip,
+        AddChip,
+        BeqChip,
+        SllChip,
+        LoadStoreChip,
+        // `prove` call includes default extensions that require lookup elements.
+        RegisterMemCheckChip,
+        Range8Chip,
+        Range16Chip,
+        Range32Chip,
+        Range128Chip,
+        Range256Chip,
+        BitOpChip,
+    );
+
     #[test]
     fn test_k_trace_constrained_store_instructions() {
-        type Chips = (
-            CpuChip,
-            DecodingCheckChip,
-            AddChip,
-            BeqChip,
-            SllChip,
-            LoadStoreChip,
-            // `prove` call includes default extensions that require lookup elements.
-            RegisterMemCheckChip,
-            Range8Chip,
-            Range16Chip,
-            Range32Chip,
-            Range128Chip,
-            Range256Chip,
-            BitOpChip,
-        );
         let basic_block = setup_basic_block_ir();
         let k = 1;
 
@@ -1042,5 +1077,39 @@ mod test {
             view.get_public_output(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_invalid_store() {
+        let basic_block = BasicBlock::new(vec![
+            // First we create a usable address. heap start: 0x81008, heap end: 0x881008
+            // Aiming to create 0x81008
+            // Set x0 = 0 (default constant), x1 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLLI), 1, 1, 19),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 8),
+            // here x1 should be 0x80008
+            // Setting x3 to be 128
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 128),
+            // Storing a byte *x3 = 128 to memory address *x1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SB), 1, 3, 0),
+        ]);
+        let blocks = vec![basic_block];
+
+        let k = 1;
+        let (view, mut vm_traces) = k_trace_direct(&blocks, k).expect("Failed to create trace");
+        let store_step = &mut vm_traces.blocks.last_mut().unwrap().steps[0];
+        let mut memory_record = std::mem::take(&mut store_step.memory_records)
+            .into_iter()
+            .next()
+            .unwrap();
+        match &mut memory_record {
+            nexus_vm::memory::MemoryRecord::StoreRecord((_, _addr, value, _), _) => *value += 10,
+            _ => panic!("store record expected"),
+        };
+        store_step.memory_records = MemoryRecords::from_iter([memory_record]);
+
+        let result = Machine::<Chips>::prove(&vm_traces, &view);
+        assert!(matches!(result, Err(ProvingError::ConstraintsNotSatisfied)));
     }
 }
