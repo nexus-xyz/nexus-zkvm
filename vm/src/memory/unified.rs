@@ -313,7 +313,9 @@ impl UnifiedMemory {
             }
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
-                    Ok(AddrValBytesIter::RO(self.fro_store[idx].clone().into_addr_val_bytes_iter()))
+                    Ok(AddrValBytesIter::RO(
+                        self.fro_store[idx].clone().into_addr_val_bytes_iter(),
+                    ))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
@@ -328,7 +330,9 @@ impl UnifiedMemory {
             }
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
-                    Ok(AddrValBytesIter::NA(self.fna_store[idx].clone().into_addr_val_bytes_iter()))
+                    Ok(AddrValBytesIter::NA(
+                        self.fna_store[idx].clone().into_addr_val_bytes_iter(),
+                    ))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
