@@ -82,6 +82,15 @@ use super::{
 };
 use crate::memory::fixed::FixedMemoryAddrValBytesIter;
 
+// Helper to cast &FixedMemory<RW> to &FixedMemory<RO>
+fn as_ro(mem: &FixedMemory<RW>) -> &FixedMemory<RO> {
+    unsafe { &*(mem as *const FixedMemory<RW> as *const FixedMemory<RO>) }
+}
+// Helper to cast &FixedMemory<WO> to &FixedMemory<NA>
+fn as_na_from_wo(mem: &FixedMemory<WO>) -> &FixedMemory<NA> {
+    unsafe { &*(mem as *const FixedMemory<WO> as *const FixedMemory<NA>) }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, FromPrimitive)]
 pub enum Modes {
     NA = 0,
@@ -225,15 +234,15 @@ macro_rules! add_fixed {
 }
 
 // Enum to wrap all possible iterator types for addr_val_bytes_iter
-pub enum AddrValBytesIter {
-    RW(FixedMemoryAddrValBytesIter<RO>),
-    RO(FixedMemoryAddrValBytesIter<RO>),
-    WO(FixedMemoryAddrValBytesIter<NA>),
-    NA(FixedMemoryAddrValBytesIter<NA>),
+pub enum AddrValBytesIter<'a> {
+    RW(FixedMemoryAddrValBytesIter<'a, RO>),
+    RO(FixedMemoryAddrValBytesIter<'a, RO>),
+    WO(FixedMemoryAddrValBytesIter<'a, NA>),
+    NA(FixedMemoryAddrValBytesIter<'a, NA>),
     Empty(std::iter::Empty<(u32, u8)>),
 }
 
-impl Iterator for AddrValBytesIter {
+impl<'a> Iterator for AddrValBytesIter<'a> {
     type Item = (u32, u8);
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -305,8 +314,8 @@ impl UnifiedMemory {
         match num_traits::FromPrimitive::from_usize(store) {
             Some(Modes::RW) => {
                 if idx < self.frw_store.len() {
-                    let mem: FixedMemory<RO> = self.frw_store[idx].clone().into();
-                    Ok(AddrValBytesIter::RW(mem.into_addr_val_bytes_iter()))
+                    let mem_ro = as_ro(&self.frw_store[idx]);
+                    Ok(AddrValBytesIter::RW(mem_ro.addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
@@ -314,7 +323,7 @@ impl UnifiedMemory {
             Some(Modes::RO) => {
                 if idx < self.fro_store.len() {
                     Ok(AddrValBytesIter::RO(
-                        self.fro_store[idx].clone().into_addr_val_bytes_iter(),
+                        self.fro_store[idx].addr_val_bytes_iter(),
                     ))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
@@ -322,8 +331,8 @@ impl UnifiedMemory {
             }
             Some(Modes::WO) => {
                 if idx < self.fwo_store.len() {
-                    let mem: FixedMemory<NA> = self.fwo_store[idx].clone().into();
-                    Ok(AddrValBytesIter::WO(mem.into_addr_val_bytes_iter()))
+                    let mem_na = as_na_from_wo(&self.fwo_store[idx]);
+                    Ok(AddrValBytesIter::WO(mem_na.addr_val_bytes_iter()))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
                 }
@@ -331,7 +340,7 @@ impl UnifiedMemory {
             Some(Modes::NA) => {
                 if idx < self.fna_store.len() {
                     Ok(AddrValBytesIter::NA(
-                        self.fna_store[idx].clone().into_addr_val_bytes_iter(),
+                        self.fna_store[idx].addr_val_bytes_iter(),
                     ))
                 } else {
                     Err(MemoryError::UndefinedMemoryRegion)
