@@ -90,6 +90,29 @@ impl_debug_for_fixed_memory!(WO, "WO ");
 impl_debug_for_fixed_memory!(RW, "RW ");
 impl_debug_for_fixed_memory!(NA, "NA ");
 
+// New iterator for addr_val_bytes_iter
+pub struct FixedMemoryAddrValBytesIter<'a, M: Mode> {
+    range: std::ops::Range<u32>,
+    memory: &'a FixedMemory<M>,
+}
+
+impl<'a, M: Mode> Iterator for FixedMemoryAddrValBytesIter<'a, M> {
+    type Item = (u32, u8);
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(addr) = self.range.next() {
+            // Use the instance method execute_read to get the byte value
+            let val = self
+                .memory
+                .execute_read(addr, crate::memory::MemAccessSize::Byte);
+            if let Ok(crate::memory::LoadOp::Op(_, _, value)) = val {
+                debug_assert!(value <= 0xFF);
+                return Some((addr, value as u8));
+            }
+        }
+        None
+    }
+}
+
 impl<M: Mode> FixedMemory<M> {
     pub fn new(base_address: u32, max_len: usize) -> Self {
         FixedMemory::<M> {
@@ -203,17 +226,12 @@ impl<M: Mode> FixedMemory<M> {
     }
 
     /// Iterator over addresses and values in the fixed memory, given bytewise, to avoid BTreeMap allocation
-    pub fn addr_val_bytes_iter(&self) -> impl Iterator<Item = (u32, u8)> + '_ {
-        (self.base_address..self.base_address + self.vec.len() as u32 * WORD_SIZE as u32)
-            .filter_map(move |addr| {
-                let val = self.execute_read(addr, MemAccessSize::Byte);
-                if let Ok(LoadOp::Op(_, _, value)) = val {
-                    debug_assert!(value <= 0xFF);
-                    Some((addr, value as u8))
-                } else {
-                    None
-                }
-            })
+    pub fn addr_val_bytes_iter(&self) -> FixedMemoryAddrValBytesIter<M> {
+        FixedMemoryAddrValBytesIter {
+            range: self.base_address
+                ..self.base_address + self.vec.len() as u32 * crate::WORD_SIZE as u32,
+            memory: self,
+        }
     }
 }
 
