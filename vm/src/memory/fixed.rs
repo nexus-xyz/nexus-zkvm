@@ -99,7 +99,7 @@ pub struct FixedMemoryAddrValBytesIter<'a, M: Mode> {
 impl<'a, M: Mode> Iterator for FixedMemoryAddrValBytesIter<'a, M> {
     type Item = (u32, u8);
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(addr) = self.range.next() {
+        for addr in self.range.by_ref() {
             // Use the instance method execute_read to get the byte value
             let val = self
                 .memory
