@@ -1132,12 +1132,13 @@ impl Emulator for LinearEmulator {
                         })
                         .collect();
 
+                    let om: &[u8] = om;
                     output_memory = om
                         .iter()
                         .enumerate()
-                        .map(|(i, byte)| PublicOutputEntry {
+                        .map(|(i, &byte)| PublicOutputEntry {
                             address: self.memory_layout.public_output_start() + i as u32,
-                            value: *byte,
+                            value: byte,
                         })
                         .collect();
                 }
@@ -1184,19 +1185,54 @@ impl Emulator for LinearEmulator {
                         value: byte,
                     })
             });
+
+        // Helper function to map (addr, byte) to MemoryInitializationEntry
+        fn map_to_mem_init_entry((addr, byte): (u32, u8)) -> MemoryInitializationEntry {
+            MemoryInitializationEntry {
+                address: addr,
+                value: byte,
+            }
+        }
         let mut rom_count = 0;
         let rom_iter = match self.static_rom_image_index {
-            None => itertools::Either::Left(std::iter::empty()),
-            Some(uidx) => itertools::Either::Right(
-                self.memory
-                    .addr_val_bytes_iter(uidx)
-                    .expect("invalid static_rom_image_index")
-                    .inspect(|_| rom_count += 1)
-                    .map(|(addr, byte)| MemoryInitializationEntry {
-                        address: addr,
-                        value: byte,
-                    }),
-            ),
+            None => std::iter::empty().collect::<Vec<_>>().into_iter(),
+            Some((store, idx)) => {
+                if store == Modes::RW as usize {
+                    let mem_ro: FixedMemory<RO> = self.memory.frw_store[idx].clone().into();
+                    mem_ro
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(map_to_mem_init_entry)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                } else if store == Modes::RO as usize {
+                    let mem_ro: FixedMemory<RO> = self.memory.fro_store[idx].clone();
+                    mem_ro
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(map_to_mem_init_entry)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                } else if store == Modes::WO as usize {
+                    let mem_na: FixedMemory<NA> = self.memory.fwo_store[idx].clone().into();
+                    mem_na
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(map_to_mem_init_entry)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                } else if store == Modes::NA as usize {
+                    let mem_na: FixedMemory<NA> = self.memory.fna_store[idx].clone();
+                    mem_na
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(map_to_mem_init_entry)
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                } else {
+                    std::iter::empty().collect::<Vec<_>>().into_iter()
+                }
+            }
         };
         let ram_initialization = &self.initial_static_ram_image;
         let ram_iter =
