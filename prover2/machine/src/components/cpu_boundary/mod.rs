@@ -136,14 +136,14 @@ impl BuiltInComponent for CpuBoundary {
 mod tests {
     use super::*;
 
-    use crate::framework::test_utils::assert_component;
+    use crate::framework::test_utils::{assert_component, AssertContext};
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
 
     #[test]
-    fn assert_cpu_constraints() {
+    fn assert_cpu_boundary_constraints() {
         let basic_block = vec![BasicBlock::new(vec![Instruction::new_ir(
             Opcode::from(BuiltinOpcode::ADDI),
             2,
@@ -153,6 +153,6 @@ mod tests {
         let (_view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        assert_component(CpuBoundary, &program_trace);
+        assert_component(CpuBoundary, &mut AssertContext::new(&program_trace));
     }
 }

@@ -306,14 +306,18 @@ impl BuiltInComponent for Add {
 mod tests {
     use super::*;
 
-    use crate::framework::test_utils::assert_component;
+    use crate::{
+        components::{Cpu, CpuBoundary},
+        framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
+    };
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
+    use num_traits::Zero;
 
     #[test]
-    fn assert_cpu_constraints() {
+    fn assert_add_constraints() {
         let basic_block = vec![BasicBlock::new(vec![
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
@@ -325,7 +329,14 @@ mod tests {
         let (_view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        assert_component(ADD, &program_trace);
-        assert_component(ADDI, &program_trace);
+        let assert_ctx = &mut AssertContext::new(&program_trace);
+        let mut claimed_sum = SecureField::zero();
+
+        claimed_sum += assert_component(ADD, assert_ctx);
+        claimed_sum += assert_component(ADDI, assert_ctx);
+
+        claimed_sum += components_claimed_sum(&[&Cpu, &CpuBoundary], assert_ctx);
+
+        assert!(claimed_sum.is_zero());
     }
 }
