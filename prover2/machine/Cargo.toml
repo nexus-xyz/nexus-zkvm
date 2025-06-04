@@ -16,5 +16,6 @@ num-traits = { workspace = true }
 impl-trait-for-tuples = "0.2.2"
 
 nexus-vm = { path = "../../vm" }
+nexus-common = { path = "../../common" }
 nexus-vm-prover-trace = { path = "../trace" }
 nexus-vm-prover-air-column = { path = "../air-column" }
