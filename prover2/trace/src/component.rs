@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 use stwo_prover::{
     constraint_framework::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX},
@@ -13,12 +15,14 @@ use stwo_prover::{
 };
 
 /// Reference to a finalized column in a SIMD representation, or a constant.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum FinalizedColumn<'a> {
     /// Repeating constant value.
     Constant(BaseField),
     /// Reference to a finalized column.
     Column(&'a BaseColumn),
+    /// An allocated column, not part of the component's trace.
+    Virtual(Rc<BaseColumn>),
 }
 
 impl From<BaseField> for FinalizedColumn<'_> {
@@ -34,11 +38,16 @@ impl<'a> From<&'a BaseColumn> for FinalizedColumn<'a> {
 }
 
 impl FinalizedColumn<'_> {
-    pub fn at(self, index: usize) -> PackedBaseField {
+    pub fn at(&self, index: usize) -> PackedBaseField {
         match self {
-            Self::Constant(c) => c.into(),
+            Self::Constant(c) => (*c).into(),
             Self::Column(col) => col.data[index],
+            Self::Virtual(col) => col.data[index],
         }
+    }
+
+    pub fn new_virtual(column: BaseColumn) -> Self {
+        Self::Virtual(Rc::new(column))
     }
 }
 

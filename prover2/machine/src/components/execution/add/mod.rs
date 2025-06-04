@@ -173,7 +173,7 @@ impl BuiltInComponent for Add {
         // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
         logup_trace_builder.add_to_relation_with(
             &rel_cpu_to_inst,
-            [is_local_pad],
+            [is_local_pad.clone()],
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
             &[
                 &clk,

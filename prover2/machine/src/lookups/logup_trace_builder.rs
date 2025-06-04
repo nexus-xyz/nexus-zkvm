@@ -49,7 +49,7 @@ impl LogupTraceBuilder {
         F: Fn([PackedBaseField; N]) -> PackedSecureField + 'a,
     {
         (0..1 << (log_size - LOG_N_LANES)).map(move |vec_idx| {
-            let mult_vals = mult_columns.map(|col| col.at(vec_idx));
+            let mult_vals = mult_columns.clone().map(|col| col.at(vec_idx));
             let p0 = mult_expr(mult_vals);
 
             let tuple: Vec<PackedBaseField> = tuple.iter().map(|col| col.at(vec_idx)).collect();

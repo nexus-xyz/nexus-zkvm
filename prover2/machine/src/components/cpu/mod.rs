@@ -16,11 +16,12 @@ use stwo_prover::{
 use nexus_vm::riscv::BuiltinOpcode;
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
-    component::{ComponentTrace, FinalizedColumn},
+    component::ComponentTrace,
     eval::TraceEval,
     original_base_column, preprocessed_base_column, preprocessed_trace_eval,
     program::ProgramStep,
     trace_eval,
+    virtual_column::VirtualColumn,
 };
 
 use super::utils::u32_to_16bit_parts_le;
@@ -34,7 +35,7 @@ use crate::{
 };
 
 mod columns;
-use columns::{Column, PreprocessedColumn};
+use columns::{Column, PreprocessedColumn, IS_ALU, PC_HIGH, PC_LOW};
 
 pub struct Cpu;
 
@@ -73,17 +74,6 @@ impl Cpu {
         trace.fill_columns(row_idx, a_val, Column::AVal);
         trace.fill_columns(row_idx, b_val, Column::BVal);
         trace.fill_columns(row_idx, c_val, Column::CVal);
-    }
-
-    /// Combines two 8-bit limbs into a single 16-bit column.
-    fn get_16bit_column(log_size: u32, low: FinalizedColumn, high: FinalizedColumn) -> BaseColumn {
-        let mut data = Vec::with_capacity(1 << (log_size - LOG_N_LANES));
-        for vec_row in 0..1 << (log_size - LOG_N_LANES) {
-            data.push(
-                low.at(vec_row) + high.at(vec_row) * PackedBaseField::from(BaseField::from(1 << 8)),
-            );
-        }
-        BaseColumn::from_simd(data)
     }
 }
 
@@ -140,11 +130,8 @@ impl BuiltInComponent for Cpu {
         let log_size = component_trace.log_size();
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
 
-        let [is_add] = original_base_column!(component_trace, Column::IsAdd);
-        let [is_addi] = original_base_column!(component_trace, Column::IsAddI);
         let [is_pad] = original_base_column!(component_trace, Column::IsPad);
 
-        let pc = original_base_column!(component_trace, Column::Pc);
         let a_val = original_base_column!(component_trace, Column::AVal);
         let b_val = original_base_column!(component_trace, Column::BVal);
         let c_val = original_base_column!(component_trace, Column::CVal);
@@ -153,32 +140,33 @@ impl BuiltInComponent for Cpu {
 
         let [clk_low, clk_high] =
             preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
-        let pc_low = Self::get_16bit_column(log_size, pc[0], pc[1]);
-        let pc_high = Self::get_16bit_column(log_size, pc[2], pc[3]);
+        let pc_low = PC_LOW.combine_from_finalized_trace(&component_trace);
+        let pc_high = PC_HIGH.combine_from_finalized_trace(&component_trace);
+
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
         logup_trace_builder.add_to_relation_with(
             &rel_cont_prog_exec,
             [is_pad],
             |[is_pad]| (is_pad - PackedBaseField::one()).into(),
-            &[clk_low, clk_high, (&pc_low).into(), (&pc_high).into()],
+            &[
+                clk_low.clone(),
+                clk_high.clone(),
+                pc_low.clone(),
+                pc_high.clone(),
+            ],
         );
-        // TODO: replace multiplicity with virtual flags.
+
+        let is_alu = IS_ALU.combine_from_finalized_trace(&component_trace);
+
+        // TODO: for logup trace generation the prover can use side-note to compute the numerator.
         //
         // provide(rel-cpu-to-inst, is-type-u + is-type-j + is-load + is-type-s + is-type-b + is-alu,
         //      (clk, opcode, pc, a-val, b-val, c-val))
-        logup_trace_builder.add_to_relation_with(
+        logup_trace_builder.add_to_relation(
             &rel_cpu_to_inst,
-            [is_add, is_addi],
-            |[is_add, is_addi]| (is_add + is_addi).into(),
+            is_alu,
             &[
-                [
-                    clk_low,
-                    clk_high,
-                    opcode,
-                    (&pc_low).into(),
-                    (&pc_high).into(),
-                ]
-                .as_slice(),
+                [clk_low, clk_high, opcode, pc_low, pc_high].as_slice(),
                 &a_val,
                 &b_val,
                 &c_val,
@@ -195,8 +183,6 @@ impl BuiltInComponent for Cpu {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
-        let [is_add] = trace_eval!(trace_eval, Column::IsAdd);
-        let [is_addi] = trace_eval!(trace_eval, Column::IsAddI);
         let [is_pad] = trace_eval!(trace_eval, Column::IsPad);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
@@ -214,9 +200,10 @@ impl BuiltInComponent for Cpu {
 
         // Lookup 16 bits
         let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
+        let pc_low = PC_LOW.eval(&trace_eval);
+        let pc_high = PC_HIGH.eval(&trace_eval);
 
-        let pc_low = pc[0].clone() + pc[1].clone() * BaseField::from(1 << 8);
-        let pc_high = pc[2].clone() + pc[3].clone() * BaseField::from(1 << 8);
+        let is_alu = IS_ALU.eval(&trace_eval);
 
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
         eval.add_to_relation(RelationEntry::new(
@@ -230,13 +217,11 @@ impl BuiltInComponent for Cpu {
             ],
         ));
 
-        // TODO: replace multiplicity with virtual flags.
-        //
         // provide(rel-cpu-to-inst, is-type-u + is-type-j + is-load + is-type-s + is-type-b + is-alu,
         //      (clk, opcode, pc, a-val, b-val, c-val))
         eval.add_to_relation(RelationEntry::new(
             rel_cpu_to_inst,
-            (is_add + is_addi).into(),
+            is_alu.into(),
             &[
                 [
                     clk_low.clone(),
