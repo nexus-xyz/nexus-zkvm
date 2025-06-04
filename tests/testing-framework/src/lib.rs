@@ -82,7 +82,7 @@ mod test {
                 output
             );
             assert_eq!(
-                Err(nexus_vm::error::VMError::VMExited(exit_code)),
+                Err(nexus_vm::error::VMErrorKind::VMExited(exit_code)),
                 io_args.expected_result
             );
         }

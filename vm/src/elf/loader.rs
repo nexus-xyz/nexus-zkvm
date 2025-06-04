@@ -97,7 +97,8 @@ impl ElfFile {
     }
 
     pub fn from_bytes(data: &[u8]) -> Result<Self, VMError> {
-        let elf = ElfBytes::<LittleEndian>::minimal_parse(data).map_err(ParserError::ELFError)?;
+        let elf =
+            ElfBytes::<LittleEndian>::minimal_parse(data).map_err(Into::<ParserError>::into)?;
 
         parser::validate_elf_header(&elf.ehdr)?;
 
@@ -120,7 +121,8 @@ impl ElfFile {
     }
 
     pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, VMError> {
-        let file = File::open(path).map_err(ParserError::IOError)?;
+        let file = File::open(path).map_err(Into::<ParserError>::into)?;
+
         let data: Vec<u8> = std::io::Read::bytes(file)
             .map(|b| b.expect("Failed to read byte"))
             .collect();

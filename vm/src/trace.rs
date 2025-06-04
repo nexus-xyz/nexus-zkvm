@@ -4,7 +4,7 @@ use crate::{
     cpu::{instructions::InstructionResult, RegisterFile},
     elf::ElfFile,
     emulator::{Emulator, HarvardEmulator, InternalView, LinearEmulator, LinearMemoryLayout, View},
-    error::{Result, VMError},
+    error::{Result, VMError, VMErrorKind},
     memory::MemoryRecords,
     riscv::{BasicBlock, Instruction},
     WORD_SIZE,
@@ -263,7 +263,10 @@ fn k_step(
 
                     match step(vm, instruction, pc, timestamp, force_second_pass) {
                         Ok(step) => block.steps.push(step),
-                        Err(VMError::VMExited(n)) => {
+                        Err(VMError {
+                            source: VMErrorKind::VMExited(n),
+                            ..
+                        }) => {
                             block.steps.push(Step {
                                 timestamp,
                                 pc,
@@ -274,7 +277,7 @@ fn k_step(
                                 memory_records: MemoryRecords::default(),
                             });
 
-                            return (Some(block), Err(VMError::VMExited(n)));
+                            return (Some(block), Err(VMErrorKind::VMExited(n).into()));
                         }
                         Err(e) => return (None, Err(e)),
                     }
@@ -308,7 +311,10 @@ pub fn k_trace(
     harvard.get_executor_mut().capture_logs(true);
 
     match harvard.execute(false) {
-        Err(VMError::VMExited(_)) => {
+        Err(VMError {
+            source: VMErrorKind::VMExited(_),
+            ..
+        }) => {
             // todo: consistency check i/o between harvard and linear?
             let mut linear = LinearEmulator::from_harvard(&harvard, elf, ad, private_input)?;
 
@@ -327,8 +333,8 @@ pub fn k_trace(
                             trace.blocks.push(block);
                         }
 
-                        match e {
-                            VMError::VMExited(_) => {
+                        match e.source {
+                            VMErrorKind::VMExited(_) => {
                                 let mut view = linear.finalize();
                                 view.add_logs(&harvard);
                                 return Ok((view, trace));
@@ -365,8 +371,8 @@ pub fn k_trace_direct(basic_blocks: &Vec<BasicBlock>, k: usize) -> Result<(View,
                     trace.blocks.push(block);
                 }
 
-                match e {
-                    VMError::VMExited(_) | VMError::VMOutOfInstructions => {
+                match e.source {
+                    VMErrorKind::VMExited(_) | VMErrorKind::VMOutOfInstructions => {
                         return Ok((harvard.finalize(), trace))
                     }
                     _ => return Err(e),
@@ -397,7 +403,10 @@ fn bb_step(vm: &mut impl Emulator) -> (Option<Block>, Result<()>) {
 
                 match step(vm, instruction, pc, timestamp, true) {
                     Ok(step) => block.steps.push(step),
-                    Err(VMError::VMExited(n)) => {
+                    Err(VMError {
+                        source: VMErrorKind::VMExited(n),
+                        ..
+                    }) => {
                         block.steps.push(Step {
                             timestamp,
                             pc,
@@ -408,7 +417,7 @@ fn bb_step(vm: &mut impl Emulator) -> (Option<Block>, Result<()>) {
                             memory_records: MemoryRecords::default(),
                         });
 
-                        return (Some(block), Err(VMError::VMExited(n)));
+                        return (Some(block), Err(VMErrorKind::VMExited(n).into()));
                     }
                     Err(e) => return (None, Err(e)),
                 }
@@ -430,7 +439,10 @@ pub fn bb_trace(
     harvard.get_executor_mut().capture_logs(true);
 
     match harvard.execute(false) {
-        Err(VMError::VMExited(_)) => {
+        Err(VMError {
+            source: VMErrorKind::VMExited(_),
+            ..
+        }) => {
             // todo: consistency check i/o between harvard and linear?
             let mut linear = LinearEmulator::from_harvard(&harvard, elf, ad, private_input)?;
 
@@ -448,8 +460,8 @@ pub fn bb_trace(
                             trace.blocks.push(block);
                         }
 
-                        match e {
-                            VMError::VMExited(_) => {
+                        match e.source {
+                            VMErrorKind::VMExited(_) => {
                                 let mut view = linear.finalize();
                                 view.add_logs(&harvard);
                                 return Ok((view, trace));
@@ -485,12 +497,18 @@ pub fn bb_trace_direct(basic_blocks: &Vec<BasicBlock>) -> Result<(View, BBTrace)
                     trace.blocks.push(block);
                 }
 
-                match e {
-                    VMError::VMExited(_) => return Ok((harvard.finalize(), trace)),
+                match e.source {
+                    VMErrorKind::VMExited(_) => return Ok((harvard.finalize(), trace)),
                     _ => return Err(e),
                 }
             }
-            (None, Err(VMError::VMOutOfInstructions)) => return Ok((harvard.finalize(), trace)),
+            (
+                None,
+                Err(VMError {
+                    source: VMErrorKind::VMOutOfInstructions,
+                    ..
+                }),
+            ) => return Ok((harvard.finalize(), trace)),
             (None, Err(e)) => return Err(e),
             (None, Ok(())) => unreachable!(),
         }

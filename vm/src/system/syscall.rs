@@ -33,7 +33,7 @@ use nexus_common::cpu::Registers;
 use crate::{
     cpu::Cpu,
     emulator::{memory_stats::MemoryStats, Executor, LinearMemoryLayout},
-    error::{Result, VMError},
+    error::{Result, VMErrorKind},
     memory::{LoadOp, MemoryProcessor, StoreOp},
     riscv::{BuiltinOpcode, Instruction, Register},
 };
@@ -62,7 +62,7 @@ impl SyscallCode {
             0x403 => SyscallCode::OverwriteHeapPointer,
             //0x404 => SyscallCode::ReadFromAuxiliaryInput,
             0x405 => SyscallCode::MemoryAdvise,
-            _ => return Err(VMError::UnimplementedSyscall(value, pc)),
+            _ => return Err(VMErrorKind::UnimplementedSyscall(value, pc))?,
         };
         Ok(code)
     }
@@ -126,10 +126,10 @@ pub struct SyscallInstruction {
 impl SyscallInstruction {
     pub fn decode(ins: &Instruction, cpu: &Cpu) -> Result<Self> {
         if !matches!(ins.opcode.builtin(), Some(BuiltinOpcode::ECALL)) {
-            return Err(VMError::InstructionNotSyscall(
+            return Err(VMErrorKind::InstructionNotSyscall(
                 ins.opcode.clone(),
                 cpu.pc.value,
-            ));
+            ))?;
         }
         Ok(Self {
             code: SyscallCode::try_from(cpu.registers[Register::X17], cpu.pc.value)?,
@@ -181,7 +181,7 @@ impl SyscallInstruction {
     /// This function sets the exit code and signals the VM to terminate execution.
     fn execute_exit(&mut self, error_code: u32) -> Result<()> {
         self.result = Some((Register::X10, error_code));
-        Err(VMError::VMExited(error_code))
+        Err(VMErrorKind::VMExited(error_code))?
     }
 
     /// Executes the cycle count syscall for profiling function execution time.
@@ -202,12 +202,12 @@ impl SyscallInstruction {
         let label = String::from_utf8_lossy(&buf).to_string();
         let (marker, fn_name) = label
             .split_once('#')
-            .ok_or_else(|| VMError::InvalidProfileLabel(label.clone()))?
+            .ok_or_else(|| VMErrorKind::InvalidProfileLabel(label.clone()))?
             .to_owned();
 
         // Ensure the marker is either '^' (start) or '$' (end)
         if !matches!(marker, "^" | "$") {
-            return Err(VMError::InvalidProfileLabel(label));
+            return Err(VMErrorKind::InvalidProfileLabel(label))?;
         }
 
         // Get or create an entry in the cycle tracker for this function
@@ -349,7 +349,7 @@ impl SyscallInstruction {
                     self.result = None;
                     // but we still need to return an error to stop the VM
                     let error_code = self.args[0];
-                    return Err(VMError::VMExited(error_code));
+                    return Err(VMErrorKind::VMExited(error_code))?;
                 }
                 let error_code = self.args[0];
                 self.execute_exit(error_code)
@@ -485,7 +485,10 @@ mod tests {
         let result = syscall_instruction.execute_exit(error_code);
         syscall_instruction.write_back(&mut emulator.executor.cpu);
 
-        assert_eq!(result, Err(VMError::VMExited(error_code)));
+        assert_eq!(
+            result.unwrap_err().source,
+            VMErrorKind::VMExited(error_code)
+        );
     }
 
     #[test]

@@ -23,7 +23,7 @@
 //! ```rust
 //! use nexus_vm::emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout};
 //! use nexus_vm::elf::ElfFile;
-//! use nexus_vm::error::VMError::VMExited;
+//! use nexus_vm::error::VMErrorKind::VMExited;
 //!
 //! // Create a Harvard emulator
 //! let elf_file = ElfFile::from_path("test/fib_10.elf").unwrap();
@@ -39,8 +39,8 @@
 //! );
 //!
 //! // Execute the program, and check the exit code, 0 means success
-//! assert_eq!(harvard_emulator.execute(true), Err(VMExited(0)));
-//! assert_eq!(linear_emulator.execute(true), Err(VMExited(0)));
+//! assert_eq!(harvard_emulator.execute(true).unwrap_err().source, VMExited(0));
+//! assert_eq!(linear_emulator.execute(true).unwrap_err().source, VMExited(0));
 //!
 //!
 //! // Get the final state
