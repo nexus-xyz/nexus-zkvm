@@ -55,10 +55,11 @@
 //! custom and special instructions.
 use nexus_common::{constants::KECCAKF_OPCODE, cpu::InstructionExecutor, error::MemoryError};
 
+use crate::error::{VMError, VMErrorKind};
 use crate::memory::MemoryProcessor;
 use crate::{
     cpu::{instructions, Cpu},
-    error::{Result, VMError},
+    error::Result,
     memory::{LoadOps, StoreOps, UnifiedMemory},
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
@@ -239,7 +240,7 @@ impl InstructionExecutorRegistry {
     pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<(), VMError> {
         self.precompiles
             .insert(op.clone(), register_instruction_executor!(IE::evaluator))
-            .ok_or(VMError::DuplicateInstruction(op.clone()))
+            .ok_or(VMErrorKind::DuplicateInstruction(op.clone()).into())
             .map(|_| ())
     }
 
@@ -250,13 +251,14 @@ impl InstructionExecutorRegistry {
             // Safety: the length of `builtins` is statically guaranteed to be equal to the number
             // of variants in `BuiltinOpcode`.
             #[allow(clippy::unnecessary_lazy_evaluations)]
-            self.builtins[idx].ok_or_else(|| VMError::UnimplementedInstruction(op.clone()))
+            self.builtins[idx]
+                .ok_or_else(|| VMErrorKind::UnimplementedInstruction(op.clone()).into())
         } else {
             if let Some(func) = self.precompiles.get(op) {
                 return Ok(*func);
             }
 
-            Err(VMError::UndefinedInstruction(op.clone()))
+            Err(VMErrorKind::UndefinedInstruction(op.clone()).into())
         }
     }
 

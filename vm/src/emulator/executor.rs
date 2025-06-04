@@ -87,7 +87,7 @@
 //! use nexus_vm::elf::ElfFile;
 //! use nexus_vm::emulator::{LinearEmulator, LinearMemoryLayout};
 //! use nexus_vm::emulator::Emulator;
-//! use nexus_vm::error::VMError;
+//! use nexus_vm::error::VMErrorKind;
 //!
 //! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
 //! let memory_layout = LinearMemoryLayout::default();
@@ -100,7 +100,7 @@
 //!     &[]
 //! );
 //!
-//! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
+//! assert_eq!(linear_emulator.execute(true).unwrap_err().source, VMErrorKind::VMExited(0));
 //! ```
 //!
 //! ### Creating a Linear Emulator from a Harvard Emulator
@@ -109,7 +109,7 @@
 //! use nexus_vm::elf::ElfFile;
 //! use nexus_vm::emulator::{HarvardEmulator, LinearEmulator};
 //! use nexus_vm::emulator::Emulator;
-//! use nexus_vm::error::VMError;
+//! use nexus_vm::error::VMErrorKind;
 //!
 //! let elf_file = ElfFile::from_path("test/fib_10.elf").expect("Unable to load ELF file");
 //! let harvard_emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
@@ -124,7 +124,7 @@
 //!     &private_input,
 //! ).expect("Failed to create Linear Emulator from Harvard Emulator");
 //!
-//! assert_eq!(linear_emulator.execute(true), Err(VMError::VMExited(0)));
+//! assert_eq!(linear_emulator.execute(true).unwrap_err().source, VMErrorKind::VMExited(0));
 //! ```
 //!
 //! This module provides a flexible and efficient implementation of RISC-V emulation,
@@ -137,7 +137,7 @@ use super::{
 use crate::{
     cpu::{instructions::InstructionResult, Cpu},
     elf::ElfFile,
-    error::{Result, VMError},
+    error::{Result, VMErrorKind},
     memory::{
         FixedMemory, LoadOp, MemoryProcessor, MemoryRecords, MemorySegmentImage, Modes, StoreOp,
         UnifiedMemory, VariableMemory, NA, RO, RW, WO,
@@ -629,7 +629,7 @@ impl Emulator for HarvardEmulator {
 
         let block = decode_until_end_of_a_block(self.instruction_memory.segment_words(pc, None));
         if block.is_empty() {
-            return Err(VMError::VMOutOfInstructions);
+            Err(VMErrorKind::VMOutOfInstructions)?
         }
 
         let entry = BasicBlockEntry::new(pc, block);
@@ -1090,7 +1090,7 @@ impl Emulator for LinearEmulator {
             None,
         )?);
         if block.is_empty() {
-            return Err(VMError::VMOutOfInstructions);
+            Err(VMErrorKind::VMOutOfInstructions)?
         }
 
         let entry = BasicBlockEntry::new(pc, block);
@@ -1323,7 +1323,10 @@ mod tests {
 
         let mut emulator = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 
-        assert_eq!(emulator.execute(false), Err(VMError::VMExited(0)));
+        assert_eq!(
+            emulator.execute(false).unwrap_err().source,
+            VMErrorKind::VMExited(0)
+        );
     }
 
     #[test]
@@ -1356,7 +1359,10 @@ mod tests {
         let basic_blocks = setup_basic_block_ir();
         let mut emulator = HarvardEmulator::from_basic_blocks(&basic_blocks);
 
-        assert_eq!(emulator.execute(false), Err(VMError::VMOutOfInstructions));
+        assert_eq!(
+            emulator.execute(false).unwrap_err().source,
+            VMErrorKind::VMOutOfInstructions
+        );
     }
 
     #[test]
@@ -1367,7 +1373,10 @@ mod tests {
         let mut emulator =
             LinearEmulator::from_elf(LinearMemoryLayout::default(), &[], &elf_file, &[], &[]);
 
-        assert_eq!(emulator.execute(false), Err(VMError::VMExited(0)));
+        assert_eq!(
+            emulator.execute(false).unwrap_err().source,
+            VMErrorKind::VMExited(0)
+        );
     }
 
     #[test]
@@ -1377,11 +1386,17 @@ mod tests {
 
         let mut harvard = HarvardEmulator::from_elf(&elf_file, &[], &[]);
 
-        assert_eq!(harvard.execute(false), Err(VMError::VMExited(0)));
+        assert_eq!(
+            harvard.execute(false).unwrap_err().source,
+            VMErrorKind::VMExited(0)
+        );
 
         let mut linear = LinearEmulator::from_harvard(&harvard, elf_file, &[], &[]).unwrap();
 
-        assert_eq!(linear.execute(false), Err(VMError::VMExited(0)));
+        assert_eq!(
+            linear.execute(false).unwrap_err().source,
+            VMErrorKind::VMExited(0)
+        );
     }
 
     #[test]
@@ -1419,11 +1434,17 @@ mod tests {
         let mut emulator = HarvardEmulator::default();
         let res = emulator.execute_basic_block(&basic_block_entry, false);
 
-        assert_eq!(res, Err(VMError::UndefinedInstruction(op.clone())));
+        assert_eq!(
+            res.unwrap_err().source,
+            VMErrorKind::UndefinedInstruction(op.clone())
+        );
 
         let mut emulator = LinearEmulator::default();
         let res = emulator.execute_basic_block(&basic_block_entry, false);
 
-        assert_eq!(res, Err(VMError::UndefinedInstruction(op)));
+        assert_eq!(
+            res.unwrap_err().source,
+            VMErrorKind::UndefinedInstruction(op)
+        );
     }
 }

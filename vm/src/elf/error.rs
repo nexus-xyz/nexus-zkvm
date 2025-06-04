@@ -143,3 +143,15 @@ pub enum ParserError {
     #[error("No executable segment found")]
     NoExecutableSegment,
 }
+
+impl PartialEq for ParserError {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::ELFError(a), Self::ELFError(b)) => a.to_string() == b.to_string(),
+            // This type has no data, so any instance of this error is the same as another.
+            (Self::WordDecodingFailed(_), Self::WordDecodingFailed(_)) => true,
+            (Self::IOError(a), Self::IOError(b)) => a.to_string() == b.to_string(),
+            (a, b) => a == b,
+        }
+    }
+}

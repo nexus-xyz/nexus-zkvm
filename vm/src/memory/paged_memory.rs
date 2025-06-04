@@ -5,7 +5,7 @@ use rangemap::RangeSet;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 
-use crate::error::VMError;
+use crate::error::VMErrorKind;
 
 use super::page::{next_page_base, page_number, page_word_offset, Page, PAGE_SIZE_BYTES};
 
@@ -28,7 +28,7 @@ impl PagedMemory {
     }
 
     /// Create a memory image from a contiguous BTreeMap of addresses to values.
-    pub fn try_from_contiguous_btree(image: &BTreeMap<u32, u32>) -> Result<Self, VMError> {
+    pub fn try_from_contiguous_btree(image: &BTreeMap<u32, u32>) -> Result<Self, VMErrorKind> {
         if image.is_empty() {
             return Ok(Self::new());
         }

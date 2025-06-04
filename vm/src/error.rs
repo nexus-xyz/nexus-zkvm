@@ -1,4 +1,4 @@
-use std::num::TryFromIntError;
+use std::{backtrace::Backtrace, fmt::Display, num::TryFromIntError, panic::Location};
 
 pub use nexus_common::error::*;
 
@@ -7,9 +7,40 @@ use thiserror::Error;
 
 use crate::elf::ElfError;
 
+#[derive(Debug)]
+pub struct VMError {
+    pub source: VMErrorKind,
+    pub location: &'static Location<'static>,
+    pub backtrace: Backtrace,
+}
+
+impl Display for VMError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{} at ", self.source)?;
+        writeln!(f, "Location: {}", self.location)?;
+        write!(f, "Backtrace: {}", self.backtrace)?;
+        Ok(())
+    }
+}
+
+impl core::error::Error for VMError {}
+
+impl<T> From<T> for VMError
+where
+    T: Into<VMErrorKind>,
+{
+    fn from(source: T) -> Self {
+        VMError {
+            source: source.into(),
+            location: Location::caller(),
+            backtrace: Backtrace::capture(),
+        }
+    }
+}
+
 /// Errors related to VM operations.
-#[derive(Debug, Error)]
-pub enum VMError {
+#[derive(Debug, Error, PartialEq)]
+pub enum VMErrorKind {
     // Unimplemented syscall
     #[error("Unimplemented syscall: opcode={0:08X}, pc=0x{1:08X}")]
     UnimplementedSyscall(u32, u32),
@@ -73,12 +104,6 @@ pub enum VMError {
     // Merging non-contiguous memory segments
     #[error("Non-contiguous memory")]
     NonContiguousMemory,
-}
-
-impl PartialEq for VMError {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_string() == other.to_string()
-    }
 }
 
 /// Result type for VM functions that can produce errors.

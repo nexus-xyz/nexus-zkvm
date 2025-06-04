@@ -6,7 +6,7 @@ use std::{
 
 use nexus_common::{constants::WORD_SIZE, error::MemoryError, memory::alignment::Alignable};
 
-use crate::{elf::ElfError, error::VMError};
+use crate::{elf::ElfError, error::VMErrorKind};
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct MemorySegmentImage {
@@ -29,7 +29,7 @@ impl MemorySegmentImage {
     /// * The addresses are not contiguous.
     ///
     /// Superfluous addresses (entries) are ignored (i.e., non-word-aligned addresses in the middle).
-    pub fn try_from_contiguous_btree(image: &BTreeMap<u32, u32>) -> Result<Self, VMError> {
+    pub fn try_from_contiguous_btree(image: &BTreeMap<u32, u32>) -> Result<Self, VMErrorKind> {
         if image.is_empty() {
             return Ok(MemorySegmentImage {
                 image: vec![],
