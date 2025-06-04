@@ -261,10 +261,15 @@ impl BuiltInComponent for Cpu {
 mod tests {
     use super::*;
 
-    use crate::framework::test_utils::assert_component;
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
+    };
+    use num_traits::Zero;
+
+    use crate::{
+        components::{CpuBoundary, ADD, ADDI},
+        framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
 
     #[test]
@@ -280,6 +285,11 @@ mod tests {
         let (_view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        assert_component(Cpu, &program_trace);
+        let assert_ctx = &mut AssertContext::new(&program_trace);
+        let mut claimed_sum = assert_component(Cpu, assert_ctx);
+
+        claimed_sum += components_claimed_sum(&[&CpuBoundary, &ADD, &ADDI], assert_ctx);
+
+        assert!(claimed_sum.is_zero());
     }
 }
