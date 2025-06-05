@@ -90,6 +90,29 @@ impl_debug_for_fixed_memory!(WO, "WO ");
 impl_debug_for_fixed_memory!(RW, "RW ");
 impl_debug_for_fixed_memory!(NA, "NA ");
 
+// New iterator for addr_val_bytes_iter
+pub struct FixedMemoryAddrValBytesIter<'a, M: Mode> {
+    range: std::ops::Range<u32>,
+    memory: &'a FixedMemory<M>,
+}
+
+impl<'a, M: Mode> Iterator for FixedMemoryAddrValBytesIter<'a, M> {
+    type Item = (u32, u8);
+    fn next(&mut self) -> Option<Self::Item> {
+        for addr in self.range.by_ref() {
+            // Use the instance method execute_read to get the byte value
+            let val = self
+                .memory
+                .execute_read(addr, crate::memory::MemAccessSize::Byte);
+            if let Ok(crate::memory::LoadOp::Op(_, _, value)) = val {
+                debug_assert!(value <= 0xFF);
+                return Some((addr, value as u8));
+            }
+        }
+        None
+    }
+}
+
 impl<M: Mode> FixedMemory<M> {
     pub fn new(base_address: u32, max_len: usize) -> Self {
         FixedMemory::<M> {
@@ -200,6 +223,15 @@ impl<M: Mode> FixedMemory<M> {
             }
         }
         ret
+    }
+
+    /// Iterator over addresses and values in the fixed memory, given bytewise, to avoid BTreeMap allocation
+    pub fn addr_val_bytes_iter(&self) -> FixedMemoryAddrValBytesIter<M> {
+        FixedMemoryAddrValBytesIter {
+            range: self.base_address
+                ..self.base_address + self.vec.len() as u32 * crate::WORD_SIZE as u32,
+            memory: self,
+        }
     }
 }
 
@@ -465,6 +497,62 @@ impl MemoryProcessor for FixedMemory<NA> {
     /// Returns a `Result` containing the read value or an error.
     fn read(&self, raw_address: u32, _size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         Err(MemoryError::UnauthorizedRead(raw_address))
+    }
+}
+
+// Implement From for FixedMemory conversions according to the security lattice
+impl From<FixedMemory<RW>> for FixedMemory<RO> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<RO> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RW>> for FixedMemory<WO> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<WO> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RW>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<RW>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<RO>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<RO>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
+    }
+}
+
+impl From<FixedMemory<WO>> for FixedMemory<NA> {
+    fn from(mem: FixedMemory<WO>) -> Self {
+        FixedMemory::<NA> {
+            base_address: mem.base_address,
+            max_len: mem.max_len,
+            vec: mem.vec,
+            __mode: std::marker::PhantomData,
+        }
     }
 }
 

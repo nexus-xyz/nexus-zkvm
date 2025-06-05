@@ -96,16 +96,16 @@ pub struct UnifiedMemory {
     meta: RangeMap<u32, Modes>,
     // lookup and storage for fixed read-write memories
     frw: RangeMap<u32, usize>,
-    frw_store: Vec<FixedMemory<RW>>,
+    pub frw_store: Vec<FixedMemory<RW>>,
     // lookup and storage for fixed read-only memories
     fro: RangeMap<u32, usize>,
-    fro_store: Vec<FixedMemory<RO>>,
+    pub fro_store: Vec<FixedMemory<RO>>,
     // lookup and storage for fixed write-only memories
     fwo: RangeMap<u32, usize>,
-    fwo_store: Vec<FixedMemory<WO>>,
+    pub fwo_store: Vec<FixedMemory<WO>>,
     // lookup and storage for fixed no-access memories
     fna: RangeMap<u32, usize>,
-    fna_store: Vec<FixedMemory<NA>>,
+    pub fna_store: Vec<FixedMemory<NA>>,
     // fallback variable read-write memory for all other addresses
     vrw: Option<VariableMemory<RW>>,
 }
@@ -1057,7 +1057,7 @@ mod tests {
     fn test_no_variable_write() {
         let mut memory = UnifiedMemory::default();
 
-        // Write non-existant unified memory
+        // Write non-existent unified memory
         assert_eq!(
             memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
             Err(MemoryError::InvalidMemoryAccess(

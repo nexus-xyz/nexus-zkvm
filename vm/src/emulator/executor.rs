@@ -153,6 +153,7 @@ use nexus_common::{
     cpu::{InstructionExecutor, Registers},
     memory::MemAccessSize,
 };
+use num_traits::FromPrimitive;
 use rangemap::RangeMap;
 use std::{
     cmp::max,
@@ -1132,12 +1133,13 @@ impl Emulator for LinearEmulator {
                         })
                         .collect();
 
+                    let om: &[u8] = om;
                     output_memory = om
                         .iter()
                         .enumerate()
-                        .map(|(i, byte)| PublicOutputEntry {
+                        .map(|(i, &byte)| PublicOutputEntry {
                             address: self.memory_layout.public_output_start() + i as u32,
-                            value: *byte,
+                            value: byte,
                         })
                         .collect();
                 }
@@ -1160,12 +1162,9 @@ impl Emulator for LinearEmulator {
                 let base_address =
                     self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
                 let word = word_content.to_le_bytes();
-                word.into_iter()
-                    .enumerate()
-                    .map(move |(j, byte)| MemoryInitializationEntry {
-                        address: base_address + j as u32,
-                        value: byte,
-                    })
+                word.into_iter().enumerate().map(move |(j, byte)| {
+                    MemoryInitializationEntry::new(base_address + j as u32, byte)
+                })
             });
 
         let public_io_loc_iter = self
@@ -1177,37 +1176,65 @@ impl Emulator for LinearEmulator {
             .flat_map(|(i, word_content)| {
                 let base_address = 0x80 + i as u32 * WORD_SIZE as u32;
                 let word = word_content.to_le_bytes();
-                word.into_iter()
-                    .enumerate()
-                    .map(move |(j, byte)| MemoryInitializationEntry {
-                        address: base_address + j as u32,
-                        value: byte,
-                    })
-            });
-        // TODO: avoid creating a BtreeMap and produce an iterator directly
-        let rom_initialization = match self.static_rom_image_index {
-            None => BTreeMap::new(),
-            Some(uidx) => self
-                .memory
-                .addr_val_bytes(uidx)
-                .expect("invalid static_rom_image_index"),
-        };
-        let rom_iter = rom_initialization
-            .iter()
-            .map(|(addr, byte)| MemoryInitializationEntry {
-                address: *addr,
-                value: *byte,
+                word.into_iter().enumerate().map(move |(j, byte)| {
+                    MemoryInitializationEntry::new(base_address + j as u32, byte)
+                })
             });
 
+        let mut rom_count = 0;
+        let rom_iter = match self.static_rom_image_index {
+            None => std::iter::empty().collect::<Vec<_>>().into_iter(),
+            Some((store, idx)) => match Modes::from_usize(store) {
+                Some(Modes::RW) => {
+                    let mem_ro: FixedMemory<RO> = self.memory.frw_store[idx].clone().into();
+                    mem_ro
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                }
+                Some(Modes::RO) => {
+                    let mem_ro: FixedMemory<RO> = self.memory.fro_store[idx].clone();
+                    mem_ro
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                }
+                Some(Modes::WO) => {
+                    let mem_na: FixedMemory<NA> = self.memory.fwo_store[idx].clone().into();
+                    mem_na
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                }
+                Some(Modes::NA) => {
+                    let mem_na: FixedMemory<NA> = self.memory.fna_store[idx].clone();
+                    mem_na
+                        .addr_val_bytes_iter()
+                        .inspect(|_| rom_count += 1)
+                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .collect::<Vec<_>>()
+                        .into_iter()
+                }
+                _ => std::iter::empty().collect::<Vec<_>>().into_iter(),
+            },
+        };
         let ram_initialization = &self.initial_static_ram_image;
         let ram_iter =
             ram_initialization
                 .as_byte_slice()
                 .iter()
                 .enumerate()
-                .map(|(offset, byte)| MemoryInitializationEntry {
-                    address: offset as u32 + self.initial_static_ram_image.base(),
-                    value: *byte,
+                .map(|(offset, byte)| {
+                    MemoryInitializationEntry::new(
+                        offset as u32 + self.initial_static_ram_image.base(),
+                        *byte,
+                    )
                 });
 
         let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
@@ -1235,7 +1262,7 @@ impl Emulator for LinearEmulator {
 
         let tracked_ram_size = self
             .memory_layout
-            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_initialization.len());
+            .tracked_ram_size(self.initial_static_ram_image.len_bytes() + rom_count);
 
         View {
             memory_layout: Some(self.memory_layout),
