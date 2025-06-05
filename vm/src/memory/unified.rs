@@ -355,39 +355,6 @@ impl UnifiedMemory {
             _ => Err(MemoryError::UndefinedMemoryRegion),
         }
     }
-
-    /// Returns a cloned FixedMemory<RO> for the given index in the RW store.
-    pub fn fixed_memory_as_ro(&self, idx: usize) -> Result<FixedMemory<RO>, MemoryError> {
-        if idx < self.frw_store.len() {
-            Ok(self.frw_store[idx].clone().into())
-        } else {
-            Err(MemoryError::UndefinedMemoryRegion)
-        }
-    }
-    /// Returns a cloned FixedMemory<RO> for the given index in the RO store.
-    pub fn fixed_memory_ro(&self, idx: usize) -> Result<FixedMemory<RO>, MemoryError> {
-        if idx < self.fro_store.len() {
-            Ok(self.fro_store[idx].clone())
-        } else {
-            Err(MemoryError::UndefinedMemoryRegion)
-        }
-    }
-    /// Returns a cloned FixedMemory<NA> for the given index in the WO store.
-    pub fn fixed_memory_as_na_from_wo(&self, idx: usize) -> Result<FixedMemory<NA>, MemoryError> {
-        if idx < self.fwo_store.len() {
-            Ok(self.fwo_store[idx].clone().into())
-        } else {
-            Err(MemoryError::UndefinedMemoryRegion)
-        }
-    }
-    /// Returns a cloned FixedMemory<NA> for the given index in the NA store.
-    pub fn fixed_memory_na(&self, idx: usize) -> Result<FixedMemory<NA>, MemoryError> {
-        if idx < self.fna_store.len() {
-            Ok(self.fna_store[idx].clone())
-        } else {
-            Err(MemoryError::UndefinedMemoryRegion)
-        }
-    }
 }
 
 impl MemoryProcessor for UnifiedMemory {
@@ -1090,7 +1057,7 @@ mod tests {
     fn test_no_variable_write() {
         let mut memory = UnifiedMemory::default();
 
-        // Write non-existant unified memory
+        // Write non-existent unified memory
         assert_eq!(
             memory.write(0x4000, MemAccessSize::Word, 0xABCD1234),
             Err(MemoryError::InvalidMemoryAccess(
