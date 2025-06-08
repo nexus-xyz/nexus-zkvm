@@ -1,4 +1,4 @@
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::EvalAtRow,
     core::fields::{
@@ -27,6 +27,8 @@ pub struct ExecutionResult {
     pub neq_flag: bool,        // Flag indicating if a_val != b_val
     pub neq_12_flag: bool,     // Flag indicating if (a_val_1, a_val_2) != (b_val_1, b_val_2)
     pub neq_34_flag: bool,     // Flag indicating if (a_val_3, a_val_4) != (b_val_3, b_val_4)
+    pub diff_12: i32,          // Difference between lower 16 bits of a and b
+    pub diff_34: i32,          // Difference between higher 16 bits of a and b
     pub result: Word,          // Next program counter (pc_next)
     pub carry_bits: [bool; 2], // Carry bits for addition at 16-bit boundaries
     pub neq_aux: [M31; 2],     // Difference between a_val and b_val
@@ -43,12 +45,13 @@ impl ExecuteChip for BeqChip {
         let value_b = program_step.get_value_b();
         let imm = program_step.get_value_c().0;
         let pc = program_step.step.pc.to_le_bytes();
-        let pc_l = u16::from_be_bytes([pc[0], pc[1]]) as u32;
-        let pc_h = u16::from_be_bytes([pc[2], pc[3]]) as u32;
         let value_a_l = u16::from_le_bytes([value_a[0], value_a[1]]) as u32;
         let value_b_l = u16::from_le_bytes([value_b[0], value_b[1]]) as u32;
         let value_a_h = u16::from_le_bytes([value_a[2], value_a[3]]) as u32;
         let value_b_h = u16::from_le_bytes([value_b[2], value_b[3]]) as u32;
+
+        let diff_12 = value_a_l as i32 - value_b_l as i32;
+        let diff_34 = value_a_h as i32 - value_b_h as i32;
 
         let (pc_next, carry_bits) = if value_a == value_b {
             add::add_with_carries(pc, imm)
@@ -65,14 +68,14 @@ impl ExecuteChip for BeqChip {
             // When neq_12_flag == 1
             // value_a_[0] ≠ value_b_[0] or value_a_[1] ≠ value_b_[1]
             // neq_12_flag_aux = 1 / (value_a_l - value_b_l)
-            // neq_12_flag_aux_inv = value_a_l - value_b_l
+            // neq_12_flag_aux = value_a_l - value_b_l
             let aux_inv = BaseField::from(value_a_l) - BaseField::from(value_b_l);
             let aux = aux_inv.inverse();
             (aux, aux_inv)
         } else {
             // Use PC as it's guaranteed to be non-zero.
             // Even if PC is 0, use 1 as a fallback value.
-            let aux_inv = BaseField::from(pc_l.max(1));
+            let aux_inv = BaseField::from(value_a_l.max(1));
             let aux = aux_inv.inverse();
             (aux, aux_inv)
         };
@@ -81,14 +84,14 @@ impl ExecuteChip for BeqChip {
             // When neq_34_flag == 1
             // value_a_[2] ≠ value_b_[2] or value_a_[3] ≠ value_b_[3]
             // neq_34_flag_aux = 1 / (value_a_h - value_b_h)
-            // neq_34_flag_aux_inv = value_a_h - value_b_h
+            // neq_34_flag_aux = value_a_h - value_b_h
             let aux_inv = BaseField::from(value_a_h) - BaseField::from(value_b_h);
             let aux = aux_inv.inverse();
             (aux, aux_inv)
         } else {
             // Use PC as it's guaranteed to be non-zero.
             // Even if PC is 0, use 1 as a fallback value.
-            let aux_inv = BaseField::from(pc_h.max(1));
+            let aux_inv = BaseField::from(value_a_h.max(1));
             let aux = aux_inv.inverse();
             (aux, aux_inv)
         };
@@ -102,6 +105,8 @@ impl ExecuteChip for BeqChip {
             neq_flag,
             neq_12_flag,
             neq_34_flag,
+            diff_12,
+            diff_34,
             result: pc_next,
             carry_bits,
             neq_aux,
@@ -131,8 +136,10 @@ impl MachineChip for BeqChip {
 
         let ExecutionResult {
             neq_flag,
-            neq_12_flag,
-            neq_34_flag,
+            neq_12_flag: _,
+            neq_34_flag: _,
+            diff_12,
+            diff_34,
             result: pc_next,
             carry_bits,
             neq_aux,
@@ -140,13 +147,14 @@ impl MachineChip for BeqChip {
         } = Self::execute(vm_step);
 
         traces.fill_columns(row_idx, neq_flag, Column::Neq);
-        traces.fill_columns(row_idx, neq_12_flag, Column::Neq12);
-        traces.fill_columns(row_idx, neq_34_flag, Column::Neq34);
+        let mut helper1 = [BaseField::zero(); 4];
+        helper1[0] = BaseField::from(M31::from(diff_12));
+        helper1[1] = BaseField::from(M31::from(diff_34));
+        traces.fill_columns_base_field(row_idx, &helper1, Column::Helper1);
 
         // Fill valueA
         traces.fill_columns(row_idx, vm_step.get_value_a(), Column::ValueA);
 
-        // TODO: it's possible to pack neq_{12,34}_flag into diff and store in Helper
         // NeqAux = 1 / (valueA - valueB); If valueA == valueB, NeqAux is random non-zero value.
         traces.fill_columns_base_field(row_idx, [neq_aux[0]].as_slice(), Column::Neq12Aux);
         traces.fill_columns_base_field(row_idx, [neq_aux[1]].as_slice(), Column::Neq34Aux);
@@ -167,8 +175,9 @@ impl MachineChip for BeqChip {
     ) {
         let modulus = E::F::from(256u32.into());
         let neq_flag = trace_eval!(trace_eval, Column::Neq);
-        let neq_12_flag = trace_eval!(trace_eval, Column::Neq12);
-        let neq_34_flag = trace_eval!(trace_eval, Column::Neq34);
+        let helper1 = trace_eval!(trace_eval, Column::Helper1);
+        let diff_12 = helper1[0].clone();
+        let diff_34 = helper1[1].clone();
         let value_a = trace_eval!(trace_eval, ValueA);
         let value_b = trace_eval!(trace_eval, ValueB);
         let value_c = trace_eval!(trace_eval, ValueC);
@@ -190,7 +199,7 @@ impl MachineChip for BeqChip {
                     - value_b[0].clone()
                     - value_b[1].clone() * modulus.clone())
                     * neq_12_flag_aux[0].clone()
-                    - neq_12_flag[0].clone()),
+                    - diff_12.clone() * neq_12_flag_aux[0].clone()),
         );
 
         // is_beq・((a_val_3 + a_val_4·2^8 − b_val_3 - b_val_4·2^8)・neq_34_flag_aux - neq_34_flag) = 0
@@ -200,16 +209,22 @@ impl MachineChip for BeqChip {
                     - value_b[2].clone()
                     - value_b[3].clone() * modulus.clone())
                     * neq_34_flag_aux[0].clone()
-                    - neq_34_flag[0].clone()),
+                    - diff_34.clone() * neq_34_flag_aux[0].clone()),
         );
 
         // is_beq・(neq_12_flag)・(1-neq_12_flag) = 0
+        // neq_12_flag = 1, если diff_12 != 0, иначе 0
+        // Can be expressed as diff_12 * neq_12_flag_aux = neq_12_flag
         eval.add_constraint(
-            is_beq.clone() * neq_12_flag[0].clone() * (E::F::one() - neq_12_flag[0].clone()),
+            is_beq.clone()
+                * (diff_12.clone() * neq_12_flag_aux[0].clone())
+                * (E::F::one() - diff_12.clone() * neq_12_flag_aux[0].clone()),
         );
         // is_beq・(neq_34_flag)・(1-neq_34_flag) = 0
         eval.add_constraint(
-            is_beq.clone() * neq_34_flag[0].clone() * (E::F::one() - neq_34_flag[0].clone()),
+            is_beq.clone()
+                * (diff_34.clone() * neq_34_flag_aux[0].clone())
+                * (E::F::one() - diff_34.clone() * neq_34_flag_aux[0].clone()),
         );
 
         // Enforcing neq_flag_aux_i ≠ 0
@@ -225,9 +240,12 @@ impl MachineChip for BeqChip {
         );
 
         // is_beq・((1-neq_12_flag)・(1-neq_34_flag) - (1-neq_flag)) = 0
+        // neq_12_flag = diff_12 * neq_12_flag_aux, neq_34_flag = diff_34 * neq_34_flag_aux
+        let neq_12_flag = diff_12.clone() * neq_12_flag_aux[0].clone();
+        let neq_34_flag = diff_34.clone() * neq_34_flag_aux[0].clone();
         eval.add_constraint(
             is_beq.clone()
-                * ((E::F::one() - neq_12_flag[0].clone()) * (E::F::one() - neq_34_flag[0].clone())
+                * ((E::F::one() - neq_12_flag.clone()) * (E::F::one() - neq_34_flag.clone())
                     - (E::F::one() - neq_flag[0].clone())),
         );
 
@@ -240,7 +258,7 @@ impl MachineChip for BeqChip {
             is_beq.clone()
                 * ((E::F::one() - neq_flag[0].clone())
                     * (value_c[0].clone() + value_c[1].clone() * modulus.clone())
-                    + neq_flag[0].clone() * E::F::from(4u32.into())
+                    + neq_flag[0].clone() * E::F::from(M31::from(4u32))
                     + pc[0].clone()
                     + pc[1].clone() * modulus.clone()
                     - carry_bits[0].clone() * modulus.clone().pow(2)
