@@ -18,7 +18,7 @@ pub use crate::chips::{
         StateLookupElements as KeccakStateLookupElements,
         XorLookupElements as KeccakXorLookupElements,
     },
-    instructions::{bit_op::BitOpLookupElements, load_store::LoadStoreLookupElements},
+    instructions::{BitOpLookupElements, LoadStoreLookupElements},
     memory_check::{
         program_mem_check::ProgramCheckLookupElements,
         register_mem_check::RegisterCheckLookupElements,

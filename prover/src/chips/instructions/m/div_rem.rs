@@ -3,14 +3,13 @@ use num_traits::One;
 use stwo_prover::core::fields::m31::BaseField;
 
 use crate::{
-    chips::instructions::mulhu::mulh_limb,
     column::Column::{self, *},
     extensions::ExtensionsConfig,
     trace::eval::trace_eval,
     traits::MachineChip,
 };
 
-use super::mul::mul_limb;
+use super::{mul::mul_limb, mulhu::mulh_limb};
 
 pub struct AbsResult {
     pub abs_limbs: [u8; 4],

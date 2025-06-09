@@ -23,10 +23,7 @@ use stwo_prover::{
 };
 
 use crate::{
-    chips::{
-        instructions::load_store::LoadStoreLookupElements,
-        range_check::range256::Range256LookupElements,
-    },
+    chips::{instructions::LoadStoreLookupElements, range_check::range256::Range256LookupElements},
     components::AllLookupElements,
     trace::{program_trace::ProgramTraceRef, sidenote::SideNote, utils::IntoBaseFields},
 };

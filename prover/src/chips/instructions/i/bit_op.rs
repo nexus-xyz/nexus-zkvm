@@ -40,7 +40,7 @@ stwo_prover::relation!(BitOpLookupElements, LOOKUP_TUPLE_SIZE);
 /// (is_and, is_or) == (one(), zero()) and (is_and, is_or) == (zero(), one()) for the
 /// same denominator in the logup fraction.
 #[derive(Debug, Copy, Clone)]
-pub(crate) enum BitOp {
+pub enum BitOp {
     And = 1,
     Or = 2,
     Xor = 3,
