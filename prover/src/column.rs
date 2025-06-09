@@ -157,9 +157,15 @@ pub enum Column {
     /// Boolean flag on whether the row is a MUL.
     #[size = 1]
     IsMul,
-    /// Boolean flag on whether the row is a MULH.
+    /// Boolean flag on whether the row is a MULHU.
     #[size = 1]
     IsMulhu,
+    /// Boolean flag on whether the row is a MULH.
+    #[size = 1]
+    IsMulh,
+    /// Boolean flag on whether the row is a MULHSU.
+    #[size = 1]
+    IsMulhsu,
     /// Boolean flag on whether the row is a DIVU.
     #[size = 1]
     IsDivu,
@@ -369,10 +375,15 @@ pub enum Column {
     #[size = 2]
     HelperUBorrow,
 
-    // TODO: This could use Regular Borrow columns like in the design document
-    /// The borrow flag for absolute value of Value_A. Possible values in {0, 1}
+    /// The lower 32-bit of value_A, used for M extension: MULH/MULHSU
+    #[size = 4]
+    ValueALow,
+    /// The borrow flag for absolute value of Value_A. Possible values in {0, 1}. Default for lower half 32-bit.
     #[size = 2]
     ValueAAbsBorrow,
+    /// The borrow flag for absolute value of Value_A. Possible values in {0, 1}. Default for upper half 32-bit.
+    #[size = 2]
+    ValueAAbsBorrowHigh,
     /// The borrow flag for absolute value of Value_B. Possible values in {0, 1}
     #[size = 2]
     ValueBAbsBorrow,
@@ -380,6 +391,12 @@ pub enum Column {
     #[size = 2]
     ValueCAbsBorrow,
 
+    /// The absolute value of Value_A. Default for lower half 32-bit.
+    #[size = 4]
+    ValueAAbs,
+    /// The absolute value of Value_A. Default for upper half 32-bit.
+    #[size = 4]
+    ValueAAbsHigh,
     /// The absolute value of Value_B.
     #[size = 4]
     ValueBAbs,

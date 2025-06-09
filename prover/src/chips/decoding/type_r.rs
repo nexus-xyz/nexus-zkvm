@@ -267,6 +267,28 @@ impl MachineChip for TypeRChip {
                     - instr_val[1].clone()),
         );
 
+        let [is_mulhsu] = trace_eval!(trace_eval, Column::IsMulhsu);
+        // (is_mulhsu)  ・ (1-imm_c)・ (op_a1_4 + b010・2^4 + op_b0・2^7 - instr_val_2) = 0
+        eval.add_constraint(
+            is_mulhsu.clone()
+                * (one.clone() - imm_c.clone())
+                * (op_a1_4.clone()
+                    + E::F::from(BaseField::from(0b010)) * BaseField::from(1 << 4)
+                    + op_b0.clone() * BaseField::from(1 << 7)
+                    - instr_val[1].clone()),
+        );
+
+        let [is_mulh] = trace_eval!(trace_eval, Column::IsMulh);
+        // (is_mulh)  ・ (1-imm_c)・ (op_a1_4 + b001・2^4 + op_b0・2^7 - instr_val_2) = 0
+        eval.add_constraint(
+            is_mulh.clone()
+                * (one.clone() - imm_c.clone())
+                * (op_a1_4.clone()
+                    + E::F::from(BaseField::from(0b001)) * BaseField::from(1 << 4)
+                    + op_b0.clone() * BaseField::from(1 << 7)
+                    - instr_val[1].clone()),
+        );
+
         // (is_type_r) ・ (op_b1_4 + op_c0_3・2^4 - instr_val_3) = 0
         eval.add_constraint(
             is_type_r.clone()
@@ -371,7 +393,9 @@ impl MachineChip for TypeRChip {
                 + is_divu.clone()
                 + is_remu.clone()
                 + is_div.clone()
-                + is_rem.clone())
+                + is_rem.clone()
+                + is_mulhsu.clone()
+                + is_mulh.clone())
                 * (one.clone() - imm_c.clone())
                 * (op_c4.clone()
                     + E::F::from(BaseField::from(0b0000001)) * BaseField::from(1 << 1)

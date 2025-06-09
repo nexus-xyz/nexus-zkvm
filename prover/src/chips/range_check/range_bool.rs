@@ -6,14 +6,14 @@ use crate::{
     column::Column::{
         self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, HelperUBorrow, ImmC, IsAZero,
         IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsCZero, IsDiv, IsDivu,
-        IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsMul, IsMulhu,
-        IsOr, IsOverflow, IsPadding, IsRem, IsRemu, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl,
-        IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset, IsSysPrivInput,
-        IsSysStackReset, IsXor, LtFlag, MulC1, MulC3Prime, MulC3PrimePrime, MulC5, MulCarry0,
-        MulCarry1_0, MulCarry1_1, MulCarry2_0, MulCarry2_1, MulCarry3, OpA0, OpB0, OpB4, OpC0,
-        OpC11, OpC12, OpC20, OpC4, PcCarry, ProgCtrCarry, RemAux, RemainderBorrow, SgnA, SgnB,
-        SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAAbsBorrow,
-        ValueAEffectiveFlag, ValueBAbsBorrow, ValueCAbsBorrow,
+        IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsMul, IsMulh,
+        IsMulhsu, IsMulhu, IsOr, IsOverflow, IsPadding, IsRem, IsRemu, IsSb, IsSh, IsSll, IsSlt,
+        IsSltu, IsSra, IsSrl, IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset,
+        IsSysPrivInput, IsSysStackReset, IsXor, LtFlag, MulC1, MulC3Prime, MulC3PrimePrime, MulC5,
+        MulCarry0, MulCarry1_0, MulCarry1_1, MulCarry2_0, MulCarry2_1, MulCarry3, OpA0, OpB0, OpB4,
+        OpC0, OpC11, OpC12, OpC20, OpC4, PcCarry, ProgCtrCarry, RemAux, RemainderBorrow, SgnA,
+        SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAAbsBorrow,
+        ValueAAbsBorrowHigh, ValueAEffectiveFlag, ValueBAbsBorrow, ValueCAbsBorrow,
     },
     components::AllLookupElements,
     extensions::ExtensionsConfig,
@@ -27,7 +27,7 @@ use crate::{
 /// RangeBoolChip can be located anywhere in the chip composition.
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 55] = [
+const CHECKED_SINGLE: [Column; 57] = [
     ValueAEffectiveFlag,
     ImmC,
     IsAdd,
@@ -60,6 +60,8 @@ const CHECKED_SINGLE: [Column; 55] = [
     IsSra,
     IsMul,
     IsMulhu,
+    IsMulh,
+    IsMulhsu,
     IsDivu,
     IsRemu,
     IsDiv,
@@ -84,7 +86,7 @@ const CHECKED_SINGLE: [Column; 55] = [
     ShiftBit4,
     ShiftBit5,
 ];
-const CHECKED_HALF_WORD: [Column; 12] = [
+const CHECKED_HALF_WORD: [Column; 13] = [
     CarryFlag,
     PcCarry,
     CH1Minus,
@@ -97,6 +99,7 @@ const CHECKED_HALF_WORD: [Column; 12] = [
     ValueAAbsBorrow,
     ValueBAbsBorrow,
     ValueCAbsBorrow,
+    ValueAAbsBorrowHigh,
 ];
 const TYPE_R_CHECKED_SINGLE: [Column; 16] = [
     OpC4,

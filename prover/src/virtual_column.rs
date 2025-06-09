@@ -10,8 +10,8 @@ use crate::{
     column::Column::{
         self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne,
         IsCustomKeccak, IsDiv, IsDivu, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu,
-        IsLui, IsLw, IsMul, IsMulhu, IsOr, IsRem, IsRemu, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra,
-        IsSrl, IsSub, IsSw, IsXor,
+        IsLui, IsLw, IsMul, IsMulh, IsMulhsu, IsMulhu, IsOr, IsRem, IsRemu, IsSb, IsSh, IsSll,
+        IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -66,9 +66,9 @@ impl<S: VirtualColumnForSum> VirtualColumn<1> for S {
 pub(crate) struct IsTypeR;
 
 impl IsTypeR {
-    const TYPE_R_OPS: [Column; 16] = [
+    const TYPE_R_OPS: [Column; 18] = [
         IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsMul, IsMulhu,
-        IsDiv, IsDivu, IsRem, IsRemu,
+        IsDiv, IsDivu, IsRem, IsRemu, IsMulh, IsMulhsu,
     ];
 }
 
@@ -122,7 +122,7 @@ impl VirtualColumnForSum for IsAlu {
     fn columns() -> &'static [Column] {
         &[
             IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsMul, IsMulhu,
-            IsDiv, IsDivu, IsRem, IsRemu,
+            IsDiv, IsDivu, IsRem, IsRemu, IsMulh, IsMulhsu,
         ]
     }
 }
@@ -363,7 +363,7 @@ impl VirtualColumn<1> for IsPcIncremented {
 /// The definition of op-b-flag follows:
 /// (is-sb + is-sh + is-sw + is-lb + is-lh + is-lw + is-lbu + is-lhu + is-jalr + is-add + is-sub + is-slt + is-sltu
 /// + is-xor + is-or + is-and + is-sll + is-srl + is-sra+ is-beq + is-bne + is-blt + is-bge + is-bltu
-/// + is-bgeu + is-ecall + is-ebreak + is-mul + is-mulhu + is-divu + is-remu + is-div + is-rem - op-b-flag) = 0
+/// + is-bgeu + is-ecall + is-ebreak + is-mul + is-mulhu + is-divu + is-remu + is-div + is-rem + is-mulh + is-mulhsu - op-b-flag) = 0
 ///
 /// op-b-flag controls whether Reg1Address is used.
 pub(crate) struct OpBFlag;
@@ -373,7 +373,7 @@ impl VirtualColumnForSum for OpBFlag {
         &[
             IsSb, IsSh, IsSw, IsLb, IsLh, IsLw, IsLbu, IsLhu, IsJalr, IsAdd, IsSub, IsSlt, IsSltu,
             IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsBeq, IsBne, IsBlt, IsBge, IsBltu, IsBgeu,
-            IsMul, IsEcall, IsEbreak, IsMulhu, IsDivu, IsRemu, IsDiv, IsRem,
+            IsMul, IsEcall, IsEbreak, IsMulhu, IsDivu, IsRemu, IsDiv, IsRem, IsMulh, IsMulhsu,
         ]
     }
 }
