@@ -16,8 +16,8 @@ use crate::{
         PrevCtr, ProgCtrCur, ProgCtrPrev, Qt, Quotient, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur,
         Ram1ValPrev, Ram2TsPrev, Ram2TsPrevAux, Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3TsPrevAux,
         Ram3ValCur, Ram3ValPrev, Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur, Ram4ValPrev, RamBaseAddr,
-        Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Rem, RemDiff, Remainder, ValueA, ValueB, ValueBAbs,
-        ValueC, ValueCAbs,
+        Reg1TsPrev, Reg2TsPrev, Reg3TsPrev, Rem, RemDiff, Remainder, ValueA, ValueAAbs,
+        ValueAAbsHigh, ValueALow, ValueB, ValueBAbs, ValueC, ValueCAbs,
     },
     components::AllLookupElements,
     extensions::ExtensionsConfig,
@@ -38,7 +38,7 @@ const LOOKUP_TUPLE_SIZE: usize = 1;
 stwo_prover::relation!(Range256LookupElements, LOOKUP_TUPLE_SIZE);
 
 impl Range256Chip {
-    const CHECKED_WORDS: [Column; 35] = [
+    const CHECKED_WORDS: [Column; 38] = [
         Pc,
         PcNextAux,
         InstrVal,
@@ -74,6 +74,9 @@ impl Range256Chip {
         Remainder,
         ValueBAbs,
         ValueCAbs,
+        ValueAAbs,
+        ValueAAbsHigh,
+        ValueALow,
     ];
 
     const CHECKED_BYTES: [Column; 8] = [

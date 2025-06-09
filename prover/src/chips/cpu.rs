@@ -204,6 +204,12 @@ impl MachineChip for CpuChip {
             Some(BuiltinOpcode::REMU) => {
                 traces.fill_columns(row_idx, true, IsRemu);
             }
+            Some(BuiltinOpcode::MULH) => {
+                traces.fill_columns(row_idx, true, IsMulh);
+            }
+            Some(BuiltinOpcode::MULHSU) => {
+                traces.fill_columns(row_idx, true, IsMulhsu);
+            }
             Some(BuiltinOpcode::ECALL) => {
                 traces.fill_columns(row_idx, true, IsEcall);
             }
@@ -373,6 +379,8 @@ impl MachineChip for CpuChip {
         let [is_lhu] = trace_eval!(trace_eval, IsLhu);
         let [is_lw] = trace_eval!(trace_eval, IsLw);
         let [is_mul] = trace_eval!(trace_eval, IsMul);
+        let [is_mulh] = trace_eval!(trace_eval, IsMulh);
+        let [is_mulhsu] = trace_eval!(trace_eval, IsMulhsu);
         let [is_mulhu] = trace_eval!(trace_eval, IsMulhu);
         let [is_div] = trace_eval!(trace_eval, IsDiv);
         let [is_divu] = trace_eval!(trace_eval, IsDivu);
@@ -411,6 +419,8 @@ impl MachineChip for CpuChip {
                 + is_srl.clone()
                 + is_sra.clone()
                 + is_mul.clone()
+                + is_mulh.clone()
+                + is_mulhsu.clone()
                 + is_mulhu.clone()
                 + is_div.clone()
                 + is_divu.clone()
@@ -424,7 +434,7 @@ impl MachineChip for CpuChip {
         );
 
         // is_type_r = (1-imm_c) ・(is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra)
-        // is_type_r += (1 - imm_c) ・(is_mul + is_mulhu + is_div + is_divu + is_rem + is_remu) //TODO: M extension
+        // is_type_r += (1 - imm_c) ・(is_mul + is_mulhu + is_div + is_divu + is_rem + is_remu + is_mulh + is_mulhsu)
         let [is_type_r] = virtual_column::IsTypeR::eval(trace_eval);
 
         // is_type_i = is_load + is_jalr + is_alu_imm_no_shift + is_alu_imm_shift

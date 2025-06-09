@@ -208,7 +208,7 @@ impl MachineChip for RegisterMemCheckChip {
         let value_c = trace_eval!(trace_eval, Column::ValueC);
 
         // is_alu = is_add + is_sub + is_slt + is_sltu + is_xor + is_or + is_and + is_sll + is_srl + is_sra +
-        // is_mul + is_mulhu + is_divu + is_remu + is_div + is_rem
+        // is_mul + is_mulhu + is_divu + is_remu + is_div + is_rem + is_mulhsu + is_mulh
         let [is_alu] = virtual_column::IsAlu::eval(trace_eval);
 
         for i in 0..WORD_SIZE {
