@@ -89,8 +89,7 @@ impl MachineChip for MulhuChip {
         let z_2 = value_b[2].clone() * value_c[2].clone();
         let z_3 = value_b[3].clone() * value_c[3].clone();
 
-        // (is_mulhu) ⋅
-        // [𝑃 ′3 + 𝑐′3 ⋅ 2^16 − (|𝑏|0 + |𝑏|3) ⋅ (|𝑐|0 + |𝑐|3) + 𝑧0 + 𝑧3]
+        // is_mulhu * (P3_prime + c3_prime * 2^16 - (|b|_0 + |b|_3) * (|c|_0 + |c|_3) + z_0 + z_3)
         constraint_gadget_mul_product(
             eval,
             is_mulhu.clone(),
@@ -104,8 +103,7 @@ impl MachineChip for MulhuChip {
             z_3.clone(),
         );
 
-        // (is_mulhu) ⋅
-        // [𝑃 ″3 + 𝑐″3 ⋅ 2^16 − (|𝑏|1 + |𝑏|2) ⋅ (|𝑐|1 + |𝑐|2) + 𝑧1 + 𝑧2]
+        // is_mulhu * (P3_prime_prime + c3_prime_prime * 2^16 - (|b|_1 + |b|_2) * (|c|_1 + |c|_2) + z_1 + z_2)
         constraint_gadget_mul_product(
             eval,
             is_mulhu.clone(),
@@ -119,7 +117,7 @@ impl MachineChip for MulhuChip {
             z_2.clone(),
         );
 
-        // (is_mulhu) ⋅ [𝑃 5 + 𝑐5 ⋅ 2^16 − (|𝑏|2 + |𝑏|3) ⋅ (|𝑐|2 + |𝑐|3) + 𝑧2 + 𝑧3]
+        // is_mulhu * (P5 + c5 * 2^16 - (|b|_2 + |b|_3) * (|c|_2 + |c|_3) + z_2 + z_3)
         constraint_gadget_mul_product(
             eval,
             is_mulhu.clone(),
@@ -139,8 +137,8 @@ impl MachineChip for MulhuChip {
         let [mul_carry_2_1] = trace_eval!(trace_eval, MulCarry2_1);
         let [mul_carry_3] = trace_eval!(trace_eval, MulCarry3);
 
-        // ((is_mulh + is_mulhu + is_mulhsu) ⋅ [𝑧2 + 𝑃 ′3_ℎ + 𝑃 ″3_ℎ + (𝑏1 + 𝑏3) ⋅ (𝑐1 + 𝑐3) − 𝑧1 − 𝑧3 +
-        // (𝑃 5_𝑙 + 𝑐″3 + 𝑐′3) ⋅ 2^8 + carry1 − carry2 ⋅ 2^16 − |𝑎|0 − |𝑎|1 ⋅ 2^8]
+        // is_mulhu * (z_2 + P3_prime_h + P3_prime_prime_h + (b_1 + b_3) * (c_1 + c_3) - z_1 - z_3 +
+        // (P5_l + c3_prime_prime + c3_prime) * 2^8 + carry1 - carry2 * 2^16 - |a|_0 - |a|_1 * 2^8)
         eval.add_constraint(
             is_mulhu.clone()
                 * (z_2.clone()
@@ -160,7 +158,7 @@ impl MachineChip for MulhuChip {
                     - value_a[1].clone() * BaseField::from(1 << 8)),
         );
 
-        // (is_mulh + is_mulhu + is_mulhsu) ⋅(𝑧3 + 𝑃 5ℎ + 𝑐5 ⋅ 2^8 + carry2 − carry3 ⋅ 2^16 − |𝑎|2 − |𝑎|3 ⋅ 2^8)
+        // is_mulhu * (z_3 + P5_h + c5 * 2^8 + carry2 - carry3 * 2^16 - |a|_2 - |a|_3 * 2^8)
         eval.add_constraint(
             is_mulhu.clone()
                 * (z_3.clone()

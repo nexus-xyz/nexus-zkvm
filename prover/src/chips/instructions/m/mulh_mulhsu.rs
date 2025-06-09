@@ -149,7 +149,7 @@ impl MachineChip for MulhMulhsuChip {
         let [c3_prime_prime] = trace_eval!(trace_eval, MulC3PrimePrime);
         let [c5] = trace_eval!(trace_eval, MulC5);
 
-        // (is_mulh + is_mulhsu) ⋅ [P1_l + P1_h⋅2^8 + c1⋅2^16 - (|b|0 + |b|1)⋅(|c|0 + |c|1) + z0 + z1]
+        // (is_mulh + is_mulhsu) * [P1_l + P1_h*2^8 + c1*2^16 - (|b|_0 + |b|_1)*(|c|_0 + |c|_1) + z_0 + z_1]
         constraint_gadget_mul_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
@@ -163,7 +163,7 @@ impl MachineChip for MulhMulhsuChip {
             z_1.clone(),
         );
 
-        // (is_mulh + is_mulhsu) ⋅ [P'3_l + P'3_h⋅2^8 + c'3⋅2^16 - (|b|0 + |b|3)⋅(|c|0 + |c|3) + z0 + z3]
+        // (is_mulh + is_mulhsu) * [P'3_l + P'3_h*2^8 + c'3*2^16 - (|b|_0 + |b|_3)*(|c|_0 + |c|_3) + z_0 + z_3]
         constraint_gadget_mul_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
@@ -177,7 +177,7 @@ impl MachineChip for MulhMulhsuChip {
             z_3.clone(),
         );
 
-        // (is_mulh + is_mulhsu) ⋅ [P''3_l + P''3_h⋅2^8 + c''3⋅2^16 - (|b|1 + |b|2)⋅(|c|1 + |c|2) + z1 + z2]
+        // (is_mulh + is_mulhsu) * [P''3_l + P''3_h*2^8 + c''3*2^16 - (|b|_1 + |b|_2)*(|c|_1 + |c|_2) + z_1 + z_2]
         constraint_gadget_mul_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
@@ -191,7 +191,7 @@ impl MachineChip for MulhMulhsuChip {
             z_2.clone(),
         );
 
-        // (is_mulh + is_mulhsu) ⋅ [P5_l + P5_h⋅2^8 + c5⋅2^16 - (|b|2 + |b|3)⋅(|c|2 + |c|3) + z2 + z3]
+        // (is_mulh + is_mulhsu) * [P5_l + P5_h*2^8 + c5*2^16 - (|b|_2 + |b|_3)*(|c|_2 + |c|_3) + z_2 + z_3]
         constraint_gadget_mul_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
@@ -215,8 +215,7 @@ impl MachineChip for MulhMulhsuChip {
         let abs_value_a_low = trace_eval!(trace_eval, ValueAAbs);
         let abs_value_a_high = trace_eval!(trace_eval, ValueAAbsHigh);
 
-        // (is_mulh + is_mulhsu) ⋅
-        // (𝑧0 + 𝑃1_𝑙 ⋅ 2^8 − carry0 ⋅ 2^16 − |𝑎|0 − |𝑎|1 ⋅ 2^8)
+        // (is_mulh + is_mulhsu) * [z_0 + P1_l*2^8 - carry_0*2^16 - |a|_0 - |a|_1*2^8]
         eval.add_constraint(
             (is_mulh.clone() + is_mulhsu.clone())
                 * (z_0.clone() + p1[0].clone() * BaseField::from(1 << 8)
@@ -225,8 +224,8 @@ impl MachineChip for MulhMulhsuChip {
                     - abs_value_a_low[1].clone() * BaseField::from(1 << 8)),
         );
 
-        // (is_mulh + is_mulhsu) ⋅
-        // [𝑧1 + 𝑃1ℎ + (𝑏0 + 𝑏2) ⋅ (𝑐0 + 𝑐2) − 𝑧0 − 𝑧2 + (𝑃′3𝑙 + 𝑃″3𝑙 + 𝑐1) ⋅ 2^8 + carry0 − carry1_0 ⋅ 2^16 − carry1_1 ⋅ 2^17 − |𝑎|2 − |𝑎|3 ⋅ 2^8]
+        // (is_mulh + is_mulhsu) *
+        // [z_1 + P1_h + (b_0 + b_2)*(c_0 + c_2) - z_0 - z_2 + (P'3_l + P''3_l + c_1)*2^8 + carry_0 - carry_1_0*2^16 - carry_1_1*2^17 - |a|_2 - |a|_3*2^8]
         eval.add_constraint(
             (is_mulh.clone() + is_mulhsu.clone())
                 * (z_1.clone()
@@ -244,9 +243,8 @@ impl MachineChip for MulhMulhsuChip {
                     - abs_value_a_low[3].clone() * BaseField::from(1 << 8)),
         );
 
-        // (is_mulh + is_mulhsu) ⋅ [𝑧2 + 𝑃′3_ℎ + 𝑃″3_ℎ + (𝑏1 + 𝑏3) ⋅ (𝑐1 + 𝑐3) − 𝑧1 − 𝑧3 +
-        // (𝑃5_𝑙 + 𝑐″3 + 𝑐′3) ⋅ 2^8 + carry1_0 + carry1_1 ⋅ 2^1 − carry2_0 ⋅ 2^16
-        // − carry2_1 ⋅ 2^17 − |𝑎|0 − |𝑎|1 ⋅ 2^8]
+        // (is_mulh + is_mulhsu) * [z_2 + P'3_h + P''3_h + (b_1 + b_3)*(c_1 + c_3) - z_1 - z_3 +
+        // (P5_l + c''3 + c'3)*2^8 + carry_1_0 + carry_1_1*2^1 - carry_2_0*2^16 - carry_2_1*2^17 - |a|_0 - |a|_1*2^8]
         eval.add_constraint(
             (is_mulh.clone() + is_mulhsu.clone())
                 * (z_2.clone()
@@ -266,8 +264,7 @@ impl MachineChip for MulhMulhsuChip {
                     - abs_value_a_high[1].clone() * BaseField::from(1 << 8)),
         );
 
-        // (is_mulh + is_mulhsu) ⋅
-        // (𝑧3 + 𝑃5ℎ + 𝑐5 ⋅ 2^8 + carry2_0 + carry2_1 ⋅ 2^1 − carry3 ⋅ 2^16 − |𝑎|2 − |𝑎|3 ⋅ 2^8)
+        // (is_mulh + is_mulhsu) * [z_3 + P5_h + c5*2^8 + carry_2_0 + carry_2_1*2^1 - carry_3*2^16 - |a|_2 - |a|_3*2^8]
         eval.add_constraint(
             (is_mulh.clone() + is_mulhsu.clone())
                 * (z_3.clone()

@@ -193,8 +193,8 @@ impl MachineChip for DivRemChip {
         let [is_a_zero] = trace_eval!(trace_eval, IsAZero);
         let [is_overflow] = trace_eval!(trace_eval, IsOverflow);
 
-        // Check for is_c_zero
-        // (is_div + is_rem) ⋅ ((c_0 + c_1 ⋅ 2^8 + c_2 ⋅ 2^16 + c_3 ⋅ 2^22) ⋅ is_c_zero
+        // Check for is_divide_by_zero
+        // (is_div + is_rem) ⋅ is_divide_by_zero ⋅ ((c_0 + c_1 + c_2 + c_3)
         constraint_gadget_is_zero(
             eval,
             is_div.clone() + is_rem.clone(),
@@ -202,7 +202,7 @@ impl MachineChip for DivRemChip {
             value_c.clone(),
         );
         // Check for is_a_zero
-        // (is_div + is_rem) ⋅ ((a_0 + a_1 ⋅ 2^8 + a_2 ⋅ 2^16 + a_3 ⋅ 2^22) ⋅ is_a_zero
+        // (is_div + is_rem) ⋅ is_a_zero ⋅ ((a_0 + a_1 + a_2 + a_3)
         constraint_gadget_is_zero(
             eval,
             is_div.clone() + is_rem.clone(),
@@ -294,7 +294,7 @@ impl MachineChip for DivRemChip {
             abs_value_a_borrow.clone(),
         );
 
-        // Handle DIV exception:If C is zero, then the result of the division is `-1`
+        // Handle DIV exception:If divide_by_zero is true, then the result of the division is `-1`
         // When overflow occurs, the result of the division is `-2^31`
         eval.add_constraint(
             is_div.clone()
@@ -314,7 +314,7 @@ impl MachineChip for DivRemChip {
                     - value_a[2].clone()
                     - value_a[3].clone() * BaseField::from(1 << 8)),
         );
-        // Handle REMU exception:If C is zero, then the result of the remainder is the dividend (no absolute value)
+        // Handle REMU exception:If divide_by_zero is true, then the result of the remainder is the dividend (no absolute value)
         // When overflow occurs, the result of the remainder is 0
         eval.add_constraint(
             is_rem.clone()
