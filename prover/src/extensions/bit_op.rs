@@ -15,7 +15,7 @@ use stwo_prover::{
 };
 
 use crate::{
-    chips::instructions::bit_op::{BitOp, BitOpLookupElements},
+    chips::instructions::{BitOp, BitOpLookupElements},
     components::AllLookupElements,
     trace::{program_trace::ProgramTraceRef, sidenote::SideNote},
 };
