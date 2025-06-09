@@ -9,7 +9,7 @@ pub(crate) mod custom;
 pub use instructions::{
     add_with_carries, subtract_with_borrow, AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip,
     BitOpChip, BltChip, BltuChip, BneChip, JalChip, JalrChip, LoadStoreChip, LuiChip, MulChip,
-    SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, SyscallChip,
+    MulhuChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, SyscallChip,
 };
 
 pub use cpu::CpuChip;

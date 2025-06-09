@@ -12,7 +12,7 @@ use stwo_prover::core::{
 use crate::{
     column::Column::{
         self, CReg1TsPrev, CReg2TsPrev, CReg3TsPrev, FinalPrgMemoryCtr, Helper1, InstrVal, MulP1,
-        MulP3Prime, MulP3PrimePrime, OpC16_23, OpC24_31, Pc, PcNextAux, PrevCtr, ProgCtrCur,
+        MulP3Prime, MulP3PrimePrime, MulP5, OpC16_23, OpC24_31, Pc, PcNextAux, PrevCtr, ProgCtrCur,
         ProgCtrPrev, Qt, Ram1TsPrev, Ram1TsPrevAux, Ram1ValCur, Ram1ValPrev, Ram2TsPrev,
         Ram2TsPrevAux, Ram2ValCur, Ram2ValPrev, Ram3TsPrev, Ram3TsPrevAux, Ram3ValCur, Ram3ValPrev,
         Ram4TsPrev, Ram4TsPrevAux, Ram4ValCur, Ram4ValPrev, RamBaseAddr, Reg1TsPrev, Reg2TsPrev,
@@ -80,7 +80,7 @@ impl Range256Chip {
         Ram4ValPrev,
     ];
 
-    const CHECKED_HALF_WORDS: [Column; 3] = [MulP1, MulP3Prime, MulP3PrimePrime];
+    const CHECKED_HALF_WORDS: [Column; 4] = [MulP1, MulP3Prime, MulP3PrimePrime, MulP5];
 
     const TYPE_U_CHECKED_BYTES: [Column; 2] = [OpC16_23, OpC24_31];
 }

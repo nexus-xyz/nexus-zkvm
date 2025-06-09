@@ -6,12 +6,12 @@ use crate::{
     column::Column::{
         self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmC, IsAdd, IsAnd, IsAuipc,
         IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu,
-        IsLh, IsLhu, IsLui, IsLw, IsMul, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra,
-        IsSrl, IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset, IsSysPrivInput,
-        IsSysStackReset, IsXor, LtFlag, MulC1, MulC3Prime, MulC3PrimePrime, MulCarry0, MulCarry1_0,
-        MulCarry1_1, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12, OpC20, OpC4, PcCarry, ProgCtrCarry,
-        RemAux, SgnA, SgnB, SgnC, ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5,
-        ValueAEffectiveFlag,
+        IsLh, IsLhu, IsLui, IsLw, IsMul, IsMulhu, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt,
+        IsSltu, IsSra, IsSrl, IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset,
+        IsSysPrivInput, IsSysStackReset, IsXor, LtFlag, MulC1, MulC3Prime, MulC3PrimePrime, MulC5,
+        MulCarry0, MulCarry1_0, MulCarry1_1, MulCarry2_0, MulCarry2_1, MulCarry3, OpA0, OpB0, OpB4,
+        OpC0, OpC11, OpC12, OpC20, OpC4, PcCarry, ProgCtrCarry, RemAux, SgnA, SgnB, SgnC,
+        ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
     },
     components::AllLookupElements,
     extensions::ExtensionsConfig,
@@ -25,7 +25,7 @@ use crate::{
 /// RangeBoolChip can be located anywhere in the chip composition.
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 50] = [
+const CHECKED_SINGLE: [Column; 51] = [
     ValueAEffectiveFlag,
     ImmC,
     IsAdd,
@@ -57,6 +57,7 @@ const CHECKED_SINGLE: [Column; 50] = [
     IsSrl,
     IsSra,
     IsMul,
+    IsMulhu,
     IsEcall,
     IsEbreak,
     IsSysCycleCount,
@@ -86,16 +87,20 @@ const CHECKED_HALF_WORD: [Column; 7] = [
     ProgCtrCarry,
     BorrowFlag,
 ];
-const TYPE_R_CHECKED_SINGLE: [Column; 9] = [
+const TYPE_R_CHECKED_SINGLE: [Column; 13] = [
     OpC4,
     OpA0,
     OpB0,
     MulCarry0,
     MulCarry1_0,
     MulCarry1_1,
+    MulCarry2_0,
+    MulCarry2_1,
+    MulCarry3,
     MulC1,
     MulC3Prime,
     MulC3PrimePrime,
+    MulC5,
 ];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];

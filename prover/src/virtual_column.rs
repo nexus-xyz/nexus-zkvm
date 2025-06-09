@@ -10,7 +10,7 @@ use crate::{
     column::Column::{
         self, ImmC, IsAdd, IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne,
         IsCustomKeccak, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw,
-        IsMul, IsOr, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
+        IsMul, IsMulhu, IsOr, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw, IsXor,
     },
     trace::{eval::trace_eval, eval::TraceEval, FinalizedTraces, TracesBuilder},
 };
@@ -65,8 +65,8 @@ impl<S: VirtualColumnForSum> VirtualColumn<1> for S {
 pub(crate) struct IsTypeR;
 
 impl IsTypeR {
-    const TYPE_R_OPS: [Column; 11] = [
-        IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsMul,
+    const TYPE_R_OPS: [Column; 12] = [
+        IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsMul, IsMulhu,
     ];
 }
 
@@ -119,7 +119,7 @@ pub(crate) struct IsAlu;
 impl VirtualColumnForSum for IsAlu {
     fn columns() -> &'static [Column] {
         &[
-            IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsMul,
+            IsAdd, IsSub, IsSlt, IsSltu, IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsMul, IsMulhu,
         ]
     }
 }
@@ -360,7 +360,7 @@ impl VirtualColumn<1> for IsPcIncremented {
 /// The definition of op-b-flag follows:
 /// (is-sb + is-sh + is-sw + is-lb + is-lh + is-lw + is-lbu + is-lhu + is-jalr + is-add + is-sub + is-slt + is-sltu
 /// + is-xor + is-or + is-and + is-sll + is-srl + is-sra+ is-beq + is-bne + is-blt + is-bge + is-bltu
-/// + is-bgeu + is-ecall + is-ebreak + is-mul − op-b-flag) = 0
+/// + is-bgeu + is-ecall + is-ebreak + is-mul + is-mulh − op-b-flag) = 0
 ///
 /// op-b-flag controls whether Reg1Address is used.
 pub(crate) struct OpBFlag;
@@ -370,7 +370,7 @@ impl VirtualColumnForSum for OpBFlag {
         &[
             IsSb, IsSh, IsSw, IsLb, IsLh, IsLw, IsLbu, IsLhu, IsJalr, IsAdd, IsSub, IsSlt, IsSltu,
             IsXor, IsOr, IsAnd, IsSll, IsSrl, IsSra, IsBeq, IsBne, IsBlt, IsBge, IsBltu, IsBgeu,
-            IsMul, IsEcall, IsEbreak,
+            IsMul, IsEcall, IsEbreak, IsMulhu,
         ]
     }
 }
