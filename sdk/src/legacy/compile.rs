@@ -147,9 +147,9 @@ impl CompileOpts {
         // let target = if self.native {
         //     "native"
         // } else {
-        //     "riscv32i-unknown-none-elf"
+        //     "riscv32im-unknown-none-elf"
         // };
-        let target = "riscv32i-unknown-none-elf";
+        let target = "riscv32im-unknown-none-elf";
 
         let profile = if self.debug { "debug" } else { "release" };
 

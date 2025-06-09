@@ -1,7 +1,7 @@
 [build]
-target = "riscv32i-unknown-none-elf"
+target = "riscv32im-unknown-none-elf"
 
-[target.riscv32i-unknown-none-elf]
+[target.riscv32im-unknown-none-elf]
 rustflags = [
   "-C", "link-arg=-Tlinker-scripts/default.x",
 ]

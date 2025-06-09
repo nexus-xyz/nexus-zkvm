@@ -69,7 +69,7 @@ mod test {
             .current_dir(tmp_project_path.clone())
             .arg("expand")
             .arg("--target")
-            .arg("riscv32i-unknown-none-elf")
+            .arg("riscv32im-unknown-none-elf")
             .output()
             .expect("Failed to run test");
 

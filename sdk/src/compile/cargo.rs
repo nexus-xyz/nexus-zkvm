@@ -80,7 +80,7 @@ impl Compile for Compiler<CargoPackager> {
         let target = if self.native {
             "native"
         } else {
-            "riscv32i-unknown-none-elf"
+            "riscv32im-unknown-none-elf"
         };
 
         let profile = if self.debug { "debug" } else { "release" };

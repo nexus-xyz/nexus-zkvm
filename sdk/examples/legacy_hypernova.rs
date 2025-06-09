@@ -12,7 +12,7 @@ mod legacy_hypernova {
 
     const TARGET_PATH: &str = concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../target/riscv32i-unknown-none-elf/release"
+        "/../target/riscv32im-unknown-none-elf/release"
     );
 
     pub fn run() {
@@ -21,7 +21,7 @@ mod legacy_hypernova {
             panic!(
                 "{}{} was not found, make sure to compile the program \
                  with `cd examples && cargo build --release --bin {}`",
-                "target/riscv32i-unknown-none-elf/release/", EXAMPLE_NAME, EXAMPLE_NAME,
+                "target/riscv32im-unknown-none-elf/release/", EXAMPLE_NAME, EXAMPLE_NAME,
             );
         }
 
