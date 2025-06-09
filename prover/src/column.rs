@@ -160,6 +160,12 @@ pub enum Column {
     /// Boolean flag on whether the row is a MULH.
     #[size = 1]
     IsMulhu,
+    /// Boolean flag on whether the row is a DIVU.
+    #[size = 1]
+    IsDivu,
+    /// Boolean flag on whether the row is a REMU.
+    #[size = 1]
+    IsRemu,
     /// Boolean flag on whether the row is an ECALL.
     #[size = 1]
     IsEcall,
@@ -327,6 +333,31 @@ pub enum Column {
     #[size = 1]
     MulCarry3,
 
+    /// 1 indicates ValueC is zero, 0 indicates ValueC is non-zero
+    #[size = 1]
+    IsCZero,
+
+    /// The quotient for the DIV/REM instruction: quotient*c + remainder = value_a
+    #[size = 4]
+    Quotient,
+
+    /// The helper intermediate value of t = b*c
+    #[size = 4]
+    HelperT,
+    /// The remainder for the DIV/REM instruction: r = a - t
+    #[size = 4]
+    Remainder,
+    /// The helper intermediate value of u = c - r - 1
+    #[size = 4]
+    HelperU,
+    /// The borrow flag for DIV instruction for r = a - t. Possible values in {0, 1}
+    #[size = 2]
+    RemainderBorrow,
+    /// The borrow flag for DIV instruction for u = c - r - 1. Possible values in {0, 1}
+    #[size = 2]
+    HelperUBorrow,
+
+    /// End M Extension
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
     ValueAEffectiveFlag,

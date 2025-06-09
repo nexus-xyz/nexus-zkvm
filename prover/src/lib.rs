@@ -1,4 +1,6 @@
 #![feature(portable_simd, iter_array_chunks)]
+// Need this feature to use the `borrowing_sub` method
+#![feature(bigint_helper_methods)]
 
 pub mod chips;
 pub mod components;

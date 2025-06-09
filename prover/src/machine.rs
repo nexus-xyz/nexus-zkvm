@@ -30,9 +30,10 @@ use super::traits::MachineChip;
 use crate::{
     chips::{
         AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip, BitOpChip, BltChip, BltuChip, BneChip,
-        CpuChip, CustomInstructionChip, DecodingCheckChip, JalChip, JalrChip, LoadStoreChip,
-        LuiChip, MulChip, MulhuChip, ProgramMemCheckChip, RangeCheckChip, RegisterMemCheckChip,
-        SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, SyscallChip, TimestampChip,
+        CpuChip, CustomInstructionChip, DecodingCheckChip, DivuRemuChip, JalChip, JalrChip,
+        LoadStoreChip, LuiChip, MulChip, MulhuChip, ProgramMemCheckChip, RangeCheckChip,
+        RegisterMemCheckChip, SllChip, SltChip, SltuChip, SraChip, SrlChip, SubChip, SyscallChip,
+        TimestampChip,
     },
     column::{PreprocessedColumn, ProgramColumn},
     components::{self, AllLookupElements},
@@ -66,6 +67,7 @@ pub type BaseComponent = (
     LoadStoreChip,
     MulChip,
     MulhuChip,
+    DivuRemuChip,
     SyscallChip,
     CustomInstructionChip,
     ProgramMemCheckChip,
