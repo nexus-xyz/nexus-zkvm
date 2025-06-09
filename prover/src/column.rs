@@ -157,6 +157,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a MUL.
     #[size = 1]
     IsMul,
+    /// Boolean flag on whether the row is a MULH.
+    #[size = 1]
+    IsMulhu,
     /// Boolean flag on whether the row is an ECALL.
     #[size = 1]
     IsEcall,
@@ -300,6 +303,13 @@ pub enum Column {
     #[size = 1]
     MulC3PrimePrime,
 
+    /// The product of (P5, C5) = b1*c2 + b2*c1
+    /// P5 is in range [0, 2^16-1], C5 is in {0, 1}
+    #[size = 2]
+    MulP5,
+    #[size = 1]
+    MulC5,
+
     /// The carry flag for the low-half of MUL instruction. Possible values {0, 1}
     #[size = 1]
     MulCarry0,
@@ -308,6 +318,14 @@ pub enum Column {
     MulCarry1_0,
     #[size = 1]
     MulCarry1_1,
+    /// The carry flag for the high-half of MUL instruction. Possible values in {0, 1}
+    #[size = 1]
+    MulCarry2_0,
+    #[size = 1]
+    MulCarry2_1,
+    /// The carry flag for the high-half of MUL instruction. Possible values {0, 1}
+    #[size = 1]
+    MulCarry3,
 
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
