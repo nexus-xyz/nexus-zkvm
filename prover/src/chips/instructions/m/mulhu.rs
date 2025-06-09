@@ -7,7 +7,7 @@ use crate::{
 use nexus_vm::riscv::BuiltinOpcode;
 use stwo_prover::core::fields::m31::BaseField;
 
-use super::gadget::constraint_gadget_mul_product;
+use super::gadget::constrain_mul_partial_product;
 use super::nexani::mull_limb;
 
 pub struct MulhuChip;
@@ -90,7 +90,7 @@ impl MachineChip for MulhuChip {
         let z_3 = value_b[3].clone() * value_c[3].clone();
 
         // is_mulhu * (P3_prime + c3_prime * 2^16 - (|b|_0 + |b|_3) * (|c|_0 + |c|_3) + z_0 + z_3)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulhu.clone(),
             p3_prime.clone(),
@@ -104,7 +104,7 @@ impl MachineChip for MulhuChip {
         );
 
         // is_mulhu * (P3_prime_prime + c3_prime_prime * 2^16 - (|b|_1 + |b|_2) * (|c|_1 + |c|_2) + z_1 + z_2)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulhu.clone(),
             p3_prime_prime.clone(),
@@ -118,7 +118,7 @@ impl MachineChip for MulhuChip {
         );
 
         // is_mulhu * (P5 + c5 * 2^16 - (|b|_2 + |b|_3) * (|c|_2 + |c|_3) + z_2 + z_3)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulhu.clone(),
             p5.clone(),
@@ -177,8 +177,8 @@ impl MachineChip for MulhuChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, DecodingCheckChip, LuiChip, MulhuChip, ProgramMemCheckChip,
-            RangeCheckChip, RegisterMemCheckChip, SrlChip, SubChip,
+            AddChip, CpuChip, DecodingCheckChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip, SrlChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -205,12 +205,14 @@ mod test {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 0), // x3 = 0
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 1), // x4 = 1
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 2), // x5 = 2
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 6, 0, 0xFFFFF), // x6 = 0xFFFFF000
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 6, 6, 0xFFF), // x6 = 0xFFFFFFFF (max u32)
+            // Create MAX_UINT using simple ADDI + SUB
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 6, 0, 1), // x6 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 6, 0, 6), // x6 = 0 - 1 = 0xFFFFFFFF (MAX_UINT)
             Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 7, 0, 0x80000), // x7 = 0x80000000 (msb set)
             Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 8, 0, 1),       // x8 = 0x10000
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 9, 0, 30), // x9 = 0xFFFFFFFF (max u32, alt)
             Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 9, 9, 16), // x9 = 0x0000FFFF
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 28, 0, 0x40000), // x28 = 0x40000000
             // --- MULHU Tests ---
             // Small positive * Small positive (result fits in lower 32 bits)
             // 5 * 7 = 35 = 0x23. Upper bits = 0.
@@ -253,10 +255,12 @@ mod test {
             // 1 * MSB set
             // 1 * 0x80000000 = 0x80000000. Upper bits = 0.
             Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHU), 25, 4, 7), // x25 = mulhu(1, 0x80000000) = 0
-            // Max u32 * Max u32 (using alternative register for max u32)
-            // 0xFFFFFFFF * 0xFFFFFFFF = 0xFFFFFFFE00000001. Upper bits = 0xFFFFFFFE.
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 26, 0, 30), // x26 = 0xFFFFFFFF
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHU), 27, 6, 26), // x27 = mulhu(max_u32, max_u32) = 0xFFFFFFFE
+            // Max u32 * 0x40000000
+            // 0xFFFFFFFF * 0x40000000 = 0x3FFFFFFFC0000000. Upper bits = 0x3FFFFFFF.
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHU), 26, 6, 28), // x26 = mulhu(max_u32, 0x40000000) = 0x3FFFFFFF
+            // 0x40000000 * 0x40000000
+            // 0x40000000 * 0x40000000 = 0x1000000000000000. Upper bits = 0x10000000.
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHU), 27, 28, 28), // x27 = mulhu(0x40000000, 0x40000000) = 0x10000000
         ]);
         vec![basic_block]
     }

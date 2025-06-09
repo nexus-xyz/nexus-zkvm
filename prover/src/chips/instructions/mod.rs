@@ -9,3 +9,4 @@ pub use i::{
 
 pub(crate) mod m;
 pub use m::{DivRemChip, DivuRemuChip, MulChip, MulhMulhsuChip, MulhuChip};
+pub type MExtensionChips = (DivRemChip, DivuRemuChip, MulChip, MulhMulhsuChip, MulhuChip);

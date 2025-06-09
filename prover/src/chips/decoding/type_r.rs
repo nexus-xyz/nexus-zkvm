@@ -386,7 +386,7 @@ impl MachineChip for TypeRChip {
                     - instr_val[3].clone()),
         );
 
-        // (is_mul + is_mulhu + is_divu + is_remu)  ・ (1-imm_c)・ (op_c4 + b0000001・2 - instr_val_4) = 0
+        // (is_mul + is_mulhu + is_divu + is_remu + is_div + is_rem + is_mulhsu + is_mulh)  ・ (1-imm_c)・ (op_c4 + b0000001・2 - instr_val_4) = 0
         eval.add_constraint(
             (is_mul.clone()
                 + is_mulhu.clone()

@@ -10,9 +10,7 @@ use crate::{
 };
 
 use super::{
-    gadget::{
-        constraint_gadget_is_equal, constraint_gadget_is_zero, constraint_gadget_mul_product,
-    },
+    gadget::{constrain_mul_partial_product, constrain_values_equal, constrain_zero_word},
     nexani::{divu_limb, mull_limb},
 };
 
@@ -100,10 +98,10 @@ impl MachineChip for DivuRemuChip {
 
         // Store r = dividend - (quotient * divisor)
         traces.fill_columns(row_idx, divu_result.r, Remainder);
-        traces.fill_columns(row_idx, divu_result.r_borrow, RemainderBorrow);
+        traces.fill_columns(row_idx, divu_result.r_borrow[0], RemainderBorrow);
         // Store u = divisor - r - 1
         traces.fill_columns(row_idx, divu_result.u, HelperU);
-        traces.fill_columns(row_idx, divu_result.u_borrow, HelperUBorrow);
+        traces.fill_columns(row_idx, divu_result.u_borrow[0], HelperUBorrow);
 
         // Store original values needed in constraints
         traces.fill_columns(row_idx, value_a, ValueA); // Quotient/Remainder (rd)
@@ -123,8 +121,8 @@ impl MachineChip for DivuRemuChip {
         let value_a = trace_eval!(trace_eval, ValueA);
 
         // Check for is_divide_by_zero
-        // (is_div + is_rem) ⋅ is_divide_by_zero ⋅ ((c_0 + c_1 ⋅ 2^8 + c_2 ⋅ 2^16 + c_3 ⋅ 2^22)
-        constraint_gadget_is_zero(
+        // (is_divu + is_remu) ⋅ is_divide_by_zero ⋅ (c_0 + c_1 + c_2 + c_3)
+        constrain_zero_word(
             eval,
             is_divu.clone() + is_remu.clone(),
             is_divide_by_zero.clone(),
@@ -173,14 +171,14 @@ impl MachineChip for DivuRemuChip {
         let quotient = trace_eval!(trace_eval, Quotient);
         let remainder = trace_eval!(trace_eval, Remainder);
         // Assert that the committed Quotient is equal to value_a
-        constraint_gadget_is_equal(eval, is_divu.clone(), value_a.clone(), quotient.clone());
+        constrain_values_equal(eval, is_divu.clone(), value_a.clone(), quotient.clone());
         // Assert that the committed Remainder is equal to value_a
-        constraint_gadget_is_equal(eval, is_remu.clone(), value_a.clone(), remainder.clone());
+        constrain_values_equal(eval, is_remu.clone(), value_a.clone(), remainder.clone());
 
         // Now, we verify the committed quotient and remainder are correct
         // We do this by verifying the following constraints:
         // 1. t = quotient * divisor is in 32-bit range
-        // 2. r = divident - t >= 0 and r is equal to the committed remainder
+        // 2. r = dividend - t >= 0 and r is equal to the committed remainder
         // 3. u = divisor - r - 1 >= 0 when c != 0
 
         // Assert that the multiplication of quotient * divisor fits within 32 bits
@@ -206,7 +204,7 @@ impl MachineChip for DivuRemuChip {
         let z_3 = quotient[3].clone() * divisor_c[3].clone();
 
         // (is_divu + is_remu) * (P3_prime + c3_prime * 2^16 - (|b|_0 + |b|_3) * (|c|_0 + |c|_3) + z_0 + z_3)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_divu.clone() + is_remu.clone(),
             p3_prime.clone(),
@@ -220,7 +218,7 @@ impl MachineChip for DivuRemuChip {
         );
 
         // (is_divu + is_remu) * (P3_prime_prime + c3_prime_prime * 2^16 - (|b|_1 + |b|_2) * (|c|_1 + |c|_2) + z_1 + z_2)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_divu.clone() + is_remu.clone(),
             p3_prime_prime.clone(),
@@ -234,7 +232,7 @@ impl MachineChip for DivuRemuChip {
         );
 
         // (is_divu + is_remu) * (P1 + c1 * 2^16 - (|b|_0 + |b|_1) * (|c|_0 + |c|_1) + z_0 + z_1)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_divu.clone() + is_remu.clone(),
             p1.clone(),
@@ -254,7 +252,7 @@ impl MachineChip for DivuRemuChip {
         let helper_t = trace_eval!(trace_eval, HelperT); // t = quotient * divisor
 
         // Constraint for low part of t = quotient * divisor
-        // (is_divu + is_remu) ⋅ (z0 + P1_l ⋅ 2^8 − carry0 ⋅ 2^16 − |t|0 − |t|1)
+        // (is_divu + is_remu) ⋅ (z0 + P1_l ⋅ 2^8 − carry0 ⋅ 2^16 − |t|0 − |t|1 ⋅ 2^8)
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * (z_0.clone() + p1[0].clone() * BaseField::from(1 << 8)
@@ -265,7 +263,7 @@ impl MachineChip for DivuRemuChip {
 
         // Constraint for high part of t = quotient * divisor
         // (is_divu + is_remu) *
-        // (z_1 + P1_h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P3_l_prime + P3_l_prime_prime + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - |t|_2 - |t|_3)
+        // (z_1 + P1_h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P3_l_prime + P3_l_prime_prime + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - carry_1 * 2^17 - |t|_2 - |t|_3 * 2^8)
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * (z_1.clone()
@@ -283,46 +281,42 @@ impl MachineChip for DivuRemuChip {
                     - helper_t[3].clone() * BaseField::from(1 << 8)),
         );
 
-        let remainder_borrow = trace_eval!(trace_eval, RemainderBorrow); // borrow for r = dividend - t
+        let [remainder_borrow] = trace_eval!(trace_eval, RemainderBorrow); // borrow for r = dividend - t
 
         // Assert the calculation of r = dividend - t, rearranged as dividend = t + r
-        // Low part: dividend_low + borrow0 * 2^16 = t_low + r_low
+        // Low part: dividend_low + remainder_borrow0 * 2^16 = t_low + r_low
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * ((dividend[0].clone()
                     + dividend[1].clone() * BaseField::from(1 << 8)
-                    + remainder_borrow[0].clone() * BaseField::from(1 << 16)) // borrow0 * 2^16
+                    + remainder_borrow.clone() * BaseField::from(1 << 16)) // remainder_borrow0 * 2^16
                    - (helper_t[0].clone()
                     + helper_t[1].clone() * BaseField::from(1 << 8)
-                    + remainder[0].clone())
-                    + remainder[1].clone() * BaseField::from(1 << 8)), // t_low + r_low
+                    + remainder[0].clone()
+                    + remainder[1].clone() * BaseField::from(1 << 8))), // t_low + r_low
         );
 
-        // High part: dividend_high + borrow1 * 2^16 = t_high + r_high + borrow0
+        // High part: dividend_high = t_high + r_high + remainder_borrow0 (simplified)
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * ((dividend[2].clone()
-                    + dividend[3].clone() * BaseField::from(1 << 8)
-                    + remainder_borrow[1].clone() * BaseField::from(1 << 16)) // borrow1 * 2^16
-                    - remainder_borrow[0].clone() // borrow0
+                    + dividend[3].clone() * BaseField::from(1 << 8))
+                   - remainder_borrow.clone() // remainder_borrow0
                    - (helper_t[2].clone()
                     + helper_t[3].clone() * BaseField::from(1 << 8)
                     + remainder[2].clone()
                     + remainder[3].clone() * BaseField::from(1 << 8))), // t_high + r_high
         );
 
-        // Assert remainder non-negative: r >= 0 (borrow1 must be 0)
-        eval.add_constraint(is_divu.clone() * remainder_borrow[1].clone());
-
         // Check u = c - r - 1 >= 0
-        // Low part: c_low + borrow2 * 2^16 = r_low + u_low + 1
+        // Low part: c_low + helper_u_borrow0 * 2^16 = r_low + u_low + 1
         let helper_u = trace_eval!(trace_eval, HelperU); // u
-        let helper_u_borrow = trace_eval!(trace_eval, HelperUBorrow); // borrow for c - r - 1
+        let [helper_u_borrow] = trace_eval!(trace_eval, HelperUBorrow); // borrow for c - r - 1
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * (E::F::one() - is_divide_by_zero.clone())
                 * ((divisor_c[0].clone() + divisor_c[1].clone() * BaseField::from(1 << 8)) // c_low
-                   + helper_u_borrow[0].clone() * BaseField::from(1 << 16) // borrow2 * 2^16
+                   + helper_u_borrow.clone() * BaseField::from(1 << 16) // helper_u_borrow0 * 2^16
                    - remainder[0].clone() // r_low
                    - remainder[1].clone() * BaseField::from(1 << 8) // r_low
                    - E::F::one() // 1
@@ -330,21 +324,17 @@ impl MachineChip for DivuRemuChip {
                    - helper_u[1].clone() * BaseField::from(1 << 8)), // u_low
         );
 
-        // High part: c_high + borrow3 * 2^16 = r_high + u_high + borrow2
+        // High part: c_high = r_high + u_high + helper_u_borrow0 (simplified)
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * (E::F::one() - is_divide_by_zero.clone())
                 * ((divisor_c[2].clone() + divisor_c[3].clone() * BaseField::from(1 << 8)) // c_high
-                    + helper_u_borrow[1].clone() * BaseField::from(1 << 16) // borrow3 * 2^16
                     - remainder[2].clone() // r_high
                     - remainder[3].clone() * BaseField::from(1 << 8) // r_high
-                    - helper_u_borrow[0].clone() // borrow2
+                    - helper_u_borrow.clone() // helper_u_borrow0
                     - helper_u[2].clone()
                     - helper_u[3].clone() * BaseField::from(1 << 8)), // u_high
         );
-
-        // Assert check value non-negative: u >= 0 (borrow3 must be 0)
-        eval.add_constraint((is_divu.clone() + is_remu.clone()) * helper_u_borrow[1].clone());
     }
 }
 
@@ -352,7 +342,7 @@ impl MachineChip for DivuRemuChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, DecodingCheckChip, DivuRemuChip, ProgramMemCheckChip, RangeCheckChip,
+            AddChip, CpuChip, DecodingCheckChip, ProgramMemCheckChip, RangeCheckChip,
             RegisterMemCheckChip, SubChip,
         },
         extensions::ExtensionsConfig,
@@ -499,6 +489,43 @@ mod test {
     #[test]
     fn test_k_trace_constrained_remu_instructions() {
         let basic_block = setup_basic_block_remu_ir();
+        test_k_trace_constrained_instructions(basic_block);
+    }
+
+    fn setup_comprehensive_divu_remu_tests() -> Vec<BasicBlock> {
+        let basic_block = BasicBlock::new(vec![
+            // Setup useful constants
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 30, 0, 1), // x30 = 1
+            // --- Simple Power of 2 Tests ---
+            // 8 / 4 = 2, 8 % 4 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 8), // x1 = 8
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 4), // x2 = 4
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 3, 1, 2), // x3 = 8/4 = 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 4, 1, 2), // x4 = 8%4 = 0
+            // 16 / 8 = 2, 16 % 8 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 16), // x5 = 16
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 6, 5, 1),  // x6 = 16/8 = 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 7, 5, 1),  // x7 = 16%8 = 0
+            // 9 / 4 = 2, 9 % 4 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 8, 0, 9), // x8 = 9
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 9, 8, 2), // x9 = 9/4 = 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 10, 8, 2), // x10 = 9%4 = 1
+            // --- Boundary Value Tests ---
+            // 1 / 1 = 1, 1 % 1 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 11, 30, 30), // x11 = 1/1 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 12, 30, 30), // x12 = 1%1 = 0
+            // 0 / 5 = 0, 0 % 5 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 13, 0, 0), // x13 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 14, 0, 5), // x14 = 5
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIVU), 15, 13, 14), // x15 = 0/5 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REMU), 16, 13, 14), // x16 = 0%5 = 0
+        ]);
+        vec![basic_block]
+    }
+
+    #[test]
+    fn test_k_trace_constrained_comprehensive_divu_remu() {
+        let basic_block = setup_comprehensive_divu_remu_tests();
         test_k_trace_constrained_instructions(basic_block);
     }
 }
