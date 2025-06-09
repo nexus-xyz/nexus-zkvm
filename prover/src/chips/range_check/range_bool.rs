@@ -4,14 +4,15 @@ use num_traits::One;
 
 use crate::{
     column::Column::{
-        self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, ImmC, IsAdd, IsAnd, IsAuipc,
-        IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsEbreak, IsEcall, IsJal, IsJalr, IsLb, IsLbu,
-        IsLh, IsLhu, IsLui, IsLw, IsMul, IsMulhu, IsOr, IsPadding, IsSb, IsSh, IsSll, IsSlt,
-        IsSltu, IsSra, IsSrl, IsSub, IsSw, IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset,
-        IsSysPrivInput, IsSysStackReset, IsXor, LtFlag, MulC1, MulC3Prime, MulC3PrimePrime, MulC5,
-        MulCarry0, MulCarry1_0, MulCarry1_1, MulCarry2_0, MulCarry2_1, MulCarry3, OpA0, OpB0, OpB4,
-        OpC0, OpC11, OpC12, OpC20, OpC4, PcCarry, ProgCtrCarry, RemAux, SgnA, SgnB, SgnC,
-        ShiftBit1, ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
+        self, BorrowFlag, CH1Minus, CH2Minus, CH3Minus, CarryFlag, HelperUBorrow, ImmC, IsAdd,
+        IsAnd, IsAuipc, IsBeq, IsBge, IsBgeu, IsBlt, IsBltu, IsBne, IsCZero, IsDivu, IsEbreak,
+        IsEcall, IsJal, IsJalr, IsLb, IsLbu, IsLh, IsLhu, IsLui, IsLw, IsMul, IsMulhu, IsOr,
+        IsPadding, IsRemu, IsSb, IsSh, IsSll, IsSlt, IsSltu, IsSra, IsSrl, IsSub, IsSw,
+        IsSysCycleCount, IsSysDebug, IsSysHalt, IsSysHeapReset, IsSysPrivInput, IsSysStackReset,
+        IsXor, LtFlag, MulC1, MulC3Prime, MulC3PrimePrime, MulC5, MulCarry0, MulCarry1_0,
+        MulCarry1_1, MulCarry2_0, MulCarry2_1, MulCarry3, OpA0, OpB0, OpB4, OpC0, OpC11, OpC12,
+        OpC20, OpC4, PcCarry, ProgCtrCarry, RemAux, RemainderBorrow, SgnA, SgnB, SgnC, ShiftBit1,
+        ShiftBit2, ShiftBit3, ShiftBit4, ShiftBit5, ValueAEffectiveFlag,
     },
     components::AllLookupElements,
     extensions::ExtensionsConfig,
@@ -25,7 +26,7 @@ use crate::{
 /// RangeBoolChip can be located anywhere in the chip composition.
 pub struct RangeBoolChip;
 
-const CHECKED_SINGLE: [Column; 51] = [
+const CHECKED_SINGLE: [Column; 53] = [
     ValueAEffectiveFlag,
     ImmC,
     IsAdd,
@@ -58,6 +59,8 @@ const CHECKED_SINGLE: [Column; 51] = [
     IsSra,
     IsMul,
     IsMulhu,
+    IsDivu,
+    IsRemu,
     IsEcall,
     IsEbreak,
     IsSysCycleCount,
@@ -78,7 +81,7 @@ const CHECKED_SINGLE: [Column; 51] = [
     ShiftBit4,
     ShiftBit5,
 ];
-const CHECKED_HALF_WORD: [Column; 7] = [
+const CHECKED_HALF_WORD: [Column; 9] = [
     CarryFlag,
     PcCarry,
     CH1Minus,
@@ -86,8 +89,10 @@ const CHECKED_HALF_WORD: [Column; 7] = [
     CH3Minus,
     ProgCtrCarry,
     BorrowFlag,
+    RemainderBorrow,
+    HelperUBorrow,
 ];
-const TYPE_R_CHECKED_SINGLE: [Column; 13] = [
+const TYPE_R_CHECKED_SINGLE: [Column; 14] = [
     OpC4,
     OpA0,
     OpB0,
@@ -101,6 +106,7 @@ const TYPE_R_CHECKED_SINGLE: [Column; 13] = [
     MulC3Prime,
     MulC3PrimePrime,
     MulC5,
+    IsCZero,
 ];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];

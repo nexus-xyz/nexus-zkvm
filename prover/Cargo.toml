@@ -33,3 +33,4 @@ unused-enumerate-index = { level = "allow", priority = 0 }
 too-many-arguments = { level = "allow", priority = 0 }
 needless-pub-self = { level = "allow", priority = 0 }
 doc-lazy-continuation = { level = "allow", priority = 0 }
+bool-assert-comparison =  { level = "allow", priority = 0 }
