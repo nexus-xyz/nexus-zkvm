@@ -57,7 +57,7 @@ fn main() {
         .output()
         .expect("Failed to build guest programs");
 
-    let built_bin_dir = build_target_dir.join("riscv32i-unknown-none-elf/release-for-tests");
+    let built_bin_dir = build_target_dir.join("riscv32im-unknown-none-elf/release-for-tests");
 
     const ONE_PRECOMPILE_NAME: &str = "program_with_dummy_div";
     const TWO_PRECOMPILES_NAME: &str = "program_with_two_precompiles";

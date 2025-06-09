@@ -11,7 +11,7 @@ First, install Rust: [https://www.rust-lang.org/tools/install](https://www.rust-
 Next, install the RISC-V target:
 
 ```shell
-$ rustup target add riscv32i-unknown-none-elf
+$ rustup target add riscv32im-unknown-none-elf
 ```
 
 Then, install the Nexus zkVM:

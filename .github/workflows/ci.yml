@@ -42,7 +42,7 @@ jobs:
         with:
           components: clippy
           toolchain: nightly-2025-04-06
-          targets: riscv32i-unknown-none-elf
+          targets: riscv32im-unknown-none-elf
 
       - name: Add clippy
         run: rustup component add clippy
@@ -57,8 +57,8 @@ jobs:
           cargo check --all-features --all-targets --examples --workspace --exclude example
           cd prover-benches && cargo check --benches --workspace
 
-      - name: Run `cargo check` for riscv32i-unknown-none-elf target (examples)
-        run: cargo check --package example --target riscv32i-unknown-none-elf
+      - name: Run `cargo check` for riscv32im-unknown-none-elf target (examples)
+        run: cargo check --package example --target riscv32im-unknown-none-elf
 
       - name: Run `cargo clippy`
         run: cargo clippy --no-deps --all-targets --all-features
@@ -80,7 +80,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2025-04-06
-          targets: riscv32i-unknown-none-elf
+          targets: riscv32im-unknown-none-elf
 
       - name: Install cargo-expand
         run: cargo install cargo-expand --locked --version 1.0.95 # blocked on upgrading rust; might involve upgrading stwo-prover
@@ -114,8 +114,8 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2025-04-06 # same version as normal tests
-          # need riscv32i-unknown-none-elf for building guest binaries
-          targets: wasm32-wasip1, riscv32i-unknown-none-elf
+          # need riscv32im-unknown-none-elf for building guest binaries
+          targets: wasm32-wasip1, riscv32im-unknown-none-elf
 
       - name: Install & Use `mold`
         uses: rui314/setup-mold@v1

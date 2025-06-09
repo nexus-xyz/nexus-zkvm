@@ -154,7 +154,7 @@ macro_rules! guest_examples_dir {
 
 const HOST_TEMPLATE_SRC_MAIN: &str = include_str!(concat!(host_examples_dir!(), "/stwo_build.rs"));
 
-const GUEST_TEMPLATE_CARGO_CONFIG: &str = r#"[target.riscv32i-unknown-none-elf]
+const GUEST_TEMPLATE_CARGO_CONFIG: &str = r#"[target.riscv32im-unknown-none-elf]
 rustflags = [
   "-C", "link-arg=-Tlink.x",
 ]

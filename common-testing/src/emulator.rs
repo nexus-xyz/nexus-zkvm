@@ -150,7 +150,7 @@ pub fn compile_guest_project(
     linker_path: &PathBuf,
     compile_flags: &str,
 ) -> Vec<u8> {
-    let target = "riscv32i-unknown-none-elf";
+    let target = "riscv32im-unknown-none-elf";
 
     let linker_script = std::env::current_dir().unwrap().join(linker_path);
 
