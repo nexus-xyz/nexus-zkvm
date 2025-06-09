@@ -154,6 +154,9 @@ pub enum Column {
     /// Boolean flag on whether the row is a SRA.
     #[size = 1]
     IsSra,
+    /// Boolean flag on whether the row is a MUL.
+    #[size = 1]
+    IsMul,
     /// Boolean flag on whether the row is an ECALL.
     #[size = 1]
     IsEcall,
@@ -273,6 +276,38 @@ pub enum Column {
     /// Auxiliary column for SRA chip, equals sgn_b・(exp1_3-1)・exp in the doc, to keep the constraint degree low.
     #[size = 1]
     SraDegreeAux,
+
+    // M Extension
+    /// Intermediate products for M Extension
+    /// The product of (P1, C1) = b0*c1 + b1*c0
+    /// P1 is in range [0, 2^16-1], C1 is in {0, 1}
+    #[size = 2]
+    MulP1,
+    #[size = 1]
+    MulC1,
+
+    /// The product of (P3', C2) = b0*c3 + b3*c0
+    /// P3' is in range [0, 2^16-1], C3' is in {0, 1}
+    #[size = 2]
+    MulP3Prime,
+    #[size = 1]
+    MulC3Prime,
+
+    /// The product of (P3'', C3'') = b1*c2 + b2*c1
+    /// P3'' is in range [0, 2^16-1], C3' is in {0, 1}
+    #[size = 2]
+    MulP3PrimePrime,
+    #[size = 1]
+    MulC3PrimePrime,
+
+    /// The carry flag for the low-half of MUL instruction. Possible values {0, 1}
+    #[size = 1]
+    MulCarry0,
+    /// The carry flag for the low-half of MUL instruction. Possible values in {0, 1}
+    #[size = 1]
+    MulCarry1_0,
+    #[size = 1]
+    MulCarry1_1,
 
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
     #[size = 1]
