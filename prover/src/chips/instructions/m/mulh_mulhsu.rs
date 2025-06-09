@@ -8,8 +8,8 @@ use nexus_vm::riscv::BuiltinOpcode;
 use stwo_prover::core::fields::m31::BaseField;
 
 use super::gadget::{
-    constraint_gadget_abs32, constraint_gadget_abs64, constraint_gadget_is_zero,
-    constraint_gadget_mul_product, constraint_gadget_sign_1_to_1, constraint_gadget_sign_2_to_1,
+    constrain_absolute_32_bit, constrain_absolute_64_bit, constrain_mul_partial_product,
+    constrain_sign_1_to_1, constrain_sign_2_to_1, constrain_values_equal, constrain_zero_word,
 };
 use super::nexani::{abs64_limb, abs_limb, mull_limb};
 
@@ -35,6 +35,11 @@ impl MachineChip for MulhMulhsuChip {
             return;
         }
 
+        let is_mulhsu = matches!(
+            vm_step.step.instruction.opcode.builtin(),
+            Some(BuiltinOpcode::MULHSU)
+        );
+
         let value_b = vm_step.get_value_b();
         let value_c = vm_step.get_value_c().0;
 
@@ -44,14 +49,28 @@ impl MachineChip for MulhMulhsuChip {
         traces.fill_columns(row_idx, abs_value_b.carry, ValueBAbsBorrow);
         traces.fill_columns(row_idx, abs_value_b.sgn, SgnB);
 
-        let abs_value_c = abs_limb(u32::from_le_bytes(value_c));
-        traces.fill_columns(row_idx, abs_value_c.abs_limbs, ValueCAbs);
-        traces.fill_columns(row_idx, abs_value_c.carry, ValueCAbsBorrow);
-        traces.fill_columns(row_idx, abs_value_c.sgn, SgnC);
+        // For MULHSU, operand C is treated as unsigned, so we don't compute its absolute value
+        // For MULH, operand C is treated as signed, so we compute its absolute value
+        let abs_value_c = if is_mulhsu {
+            // For MULHSU, treat operand C as unsigned (no absolute value needed)
+            let value_c_u32 = u32::from_le_bytes(value_c);
+            let abs_limbs = value_c_u32.to_le_bytes();
+            traces.fill_columns(row_idx, abs_limbs, ValueCAbs);
+            traces.fill_columns(row_idx, [false, false], ValueCAbsBorrow); // No borrow for unsigned
+            traces.fill_columns(row_idx, false, SgnC); // Always positive for unsigned
+            abs_limbs
+        } else {
+            // For MULH, treat operand C as signed (compute absolute value)
+            let abs_value_c = abs_limb(u32::from_le_bytes(value_c));
+            traces.fill_columns(row_idx, abs_value_c.abs_limbs, ValueCAbs);
+            traces.fill_columns(row_idx, abs_value_c.carry, ValueCAbsBorrow);
+            traces.fill_columns(row_idx, abs_value_c.sgn, SgnC);
+            abs_value_c.abs_limbs
+        };
 
         let result = mull_limb(
             u32::from_le_bytes(abs_value_b.abs_limbs),
-            u32::from_le_bytes(abs_value_c.abs_limbs),
+            u32::from_le_bytes(abs_value_c),
         );
 
         traces.fill_columns(row_idx, result.p1, MulP1);
@@ -111,7 +130,7 @@ impl MachineChip for MulhMulhsuChip {
         let [sgn_b] = trace_eval!(trace_eval, SgnB);
 
         // Assert that the absolute value and carry of the operand B is correct. Applies to MULH and MULHSU.
-        constraint_gadget_abs32(
+        constrain_absolute_32_bit(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             sgn_b.clone(),
@@ -125,13 +144,22 @@ impl MachineChip for MulhMulhsuChip {
         let value_c = trace_eval!(trace_eval, ValueC);
         let [sgn_c] = trace_eval!(trace_eval, SgnC);
         // Assert that the absolute value and carry of the operand C is correct. Applies to MULH only.
-        constraint_gadget_abs32(
+        constrain_absolute_32_bit(
             eval,
             is_mulh.clone(),
             sgn_c.clone(),
-            value_c,
+            value_c.clone(),
             abs_value_c.clone(),
             abs_value_c_borrow.clone(),
+        );
+
+        eval.add_constraint(is_mulhsu.clone() * sgn_c.clone());
+
+        constrain_values_equal(
+            eval,
+            is_mulhsu.clone(),
+            abs_value_c.clone(),
+            value_c.clone(),
         );
 
         // Intermediate products
@@ -150,7 +178,7 @@ impl MachineChip for MulhMulhsuChip {
         let [c5] = trace_eval!(trace_eval, MulC5);
 
         // (is_mulh + is_mulhsu) * [P1_l + P1_h*2^8 + c1*2^16 - (|b|_0 + |b|_1)*(|c|_0 + |c|_1) + z_0 + z_1]
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             p1.clone(),
@@ -164,7 +192,7 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         // (is_mulh + is_mulhsu) * [P'3_l + P'3_h*2^8 + c'3*2^16 - (|b|_0 + |b|_3)*(|c|_0 + |c|_3) + z_0 + z_3]
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             p3_prime.clone(),
@@ -178,7 +206,7 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         // (is_mulh + is_mulhsu) * [P''3_l + P''3_h*2^8 + c''3*2^16 - (|b|_1 + |b|_2)*(|c|_1 + |c|_2) + z_1 + z_2]
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             p3_prime_prime.clone(),
@@ -192,7 +220,7 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         // (is_mulh + is_mulhsu) * [P5_l + P5_h*2^8 + c5*2^16 - (|b|_2 + |b|_3)*(|c|_2 + |c|_3) + z_2 + z_3]
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             p5.clone(),
@@ -278,13 +306,13 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         let [is_a_zero] = trace_eval!(trace_eval, IsAZero);
-        constraint_gadget_is_zero(
+        constrain_zero_word(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             is_a_zero.clone(),
             abs_value_a_low.clone(),
         );
-        constraint_gadget_is_zero(
+        constrain_zero_word(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             is_a_zero.clone(),
@@ -293,7 +321,7 @@ impl MachineChip for MulhMulhsuChip {
 
         let [sgn_a] = trace_eval!(trace_eval, SgnA);
         // The sign of the result depends on the sign of the valueB and valueC for MULH.
-        constraint_gadget_sign_2_to_1(
+        constrain_sign_2_to_1(
             eval,
             is_mulh.clone(),
             sgn_a.clone(),
@@ -302,7 +330,7 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         // The sign of the result depends on the sign of the valueB for MULHSU.
-        constraint_gadget_sign_1_to_1(
+        constrain_sign_1_to_1(
             eval,
             is_mulhsu.clone(),
             sgn_a.clone(),
@@ -315,7 +343,7 @@ impl MachineChip for MulhMulhsuChip {
         let abs_value_a_low_borrow = trace_eval!(trace_eval, ValueAAbsBorrow);
         let abs_value_a_high_borrow = trace_eval!(trace_eval, ValueAAbsBorrowHigh);
         // Check for absolute value of value_a is equal to abs_value_a_high
-        constraint_gadget_abs64(
+        constrain_absolute_64_bit(
             eval,
             is_mulh.clone() + is_mulhsu.clone(),
             sgn_a.clone(),
@@ -333,8 +361,8 @@ impl MachineChip for MulhMulhsuChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, DecodingCheckChip, LuiChip, MulhMulhsuChip, ProgramMemCheckChip,
-            RangeCheckChip, RegisterMemCheckChip, SrlChip, SubChip,
+            AddChip, CpuChip, DecodingCheckChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip, SrlChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{
@@ -420,6 +448,95 @@ mod test {
         vec![basic_block]
     }
 
+    fn setup_basic_mulhsu_block_ir() -> Vec<BasicBlock> {
+        let basic_block = BasicBlock::new(vec![
+            // Setup registers with various signed values
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 30, 0, 1), // x30 = 1
+            // Positive values
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 5), // x1 = 5 (small positive)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 7), // x2 = 7 (small positive)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, 0), // x3 = 0
+            // Negative values via ADDI + SUB
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 0, 1), // x4 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 4, 0, 4),  // x4 = -1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 7), // x5 = 7
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 5, 0, 5),  // x5 = -7
+            // Edge cases
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 6, 0, 0x7FFFF), // x6 = 0x7FFFF000
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 6, 6, 0xFFF), // x6 = 0x7FFFFFFF (MAX_INT)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 7, 0, 0x80000), // x7 = 0x80000000 (MIN_INT)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 8, 0, 1),       // x8 = 0x00001000
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 9, 0, 30),      // x9 = -1 (alt)
+            // Large unsigned values for second operand
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 25, 0, 1), // x25 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 25, 0, 25), // x25 = 0 - 1 = -1 = 0xFFFFFFFF (MAX_UINT)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 26, 0, 0x80000), // x26 = 0x80000000
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 27, 0, 0x40000), // x27 = 0x40000000
+            // --- MULHSU Tests ---
+            // MULHSU treats first operand as signed, second as unsigned
+
+            // 1. Positive signed * Small unsigned
+            // 5 * 7 = 35 = 0x23. Upper bits = 0.
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 10, 1, 2), // x10 = mulhsu(5, 7) = 0
+            // 2. Positive signed * Large unsigned (treated as positive)
+            // 5 * 0xFFFFFFFF = 5 * 4294967295 = 21474836475 = 0x4FFFFFFFB
+            // Upper bits = 0x4
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 11, 1, 25), // x11 = mulhsu(5, MAX_UINT)
+            // 3. Negative signed * Small unsigned
+            // (-1) * 7 = -7 = 0xFFFFFFF9. Upper bits = 0xFFFFFFFF.
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 12, 4, 2), // x12 = mulhsu(-1, 7)
+            // 4. Negative signed * Large unsigned
+            // (-1) * 0xFFFFFFFF = -4294967295 = 0xFFFFFFFF00000001
+            // Upper bits = 0xFFFFFFFF
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 13, 4, 25), // x13 = mulhsu(-1, MAX_UINT)
+            // 5. Negative signed * Medium unsigned
+            // (-7) * 0x80000000 = -7 * 2147483648 = -15032385536 = 0xFFFFFFFCC8000000
+            // Upper bits = 0xFFFFFFFC
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 14, 5, 26), // x14 = mulhsu(-7, 0x80000000)
+            // 6. Edge Cases with MAX_INT and MIN_INT
+            // MAX_INT * MAX_UINT
+            // 0x7FFFFFFF * 0xFFFFFFFF = 2147483647 * 4294967295 = 9223372034707292160
+            // = 0x7FFFFFFE80000001. Upper bits = 0x7FFFFFFE
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 15, 6, 25), // x15 = mulhsu(MAX_INT, MAX_UINT)
+            // MIN_INT * MAX_UINT
+            // 0x80000000 * 0xFFFFFFFF = -2147483648 * 4294967295 = -9223372034707292160
+            // = 0x8000000180000000. Upper bits = 0x80000001
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 16, 7, 25), // x16 = mulhsu(MIN_INT, MAX_UINT)
+            // MIN_INT * 0x80000000
+            // 0x80000000 * 0x80000000 = -2147483648 * 2147483648 = -4611686018427387904
+            // = 0xC000000000000000. Upper bits = 0xC0000000
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 17, 7, 26), // x17 = mulhsu(MIN_INT, 0x80000000)
+            // MIN_INT * 1
+            // 0x80000000 * 1 = -2147483648. Upper bits = 0xFFFFFFFF
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 18, 7, 30), // x18 = mulhsu(MIN_INT, 1)
+            // MAX_INT * 0x80000000
+            // 0x7FFFFFFF * 0x80000000 = 2147483647 * 2147483648 = 4611686016279904256
+            // = 0x3FFFFFFF80000000. Upper bits = 0x3FFFFFFF
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 19, 6, 26), // x19 = mulhsu(MAX_INT, 0x80000000)
+            // 7. Zero Cases
+            // 0 * 5
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 20, 3, 1), // x20 = mulhsu(0, 5) = 0
+            // 5 * 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 21, 1, 3), // x21 = mulhsu(5, 0) = 0
+            // 0 * MAX_UINT
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 22, 3, 25), // x22 = mulhsu(0, MAX_UINT) = 0
+            // (-7) * 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 23, 5, 3), // x23 = mulhsu(-7, 0) = 0
+            // 8. Additional boundary cases
+            // 0x00001000 * 0x00001000
+            // 0x1000 * 0x1000 = 4096 * 4096 = 16777216 = 0x1000000. Upper bits = 0.
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 24, 8, 8), // x24 = mulhsu(0x1000, 0x1000) = 0
+            // (-1) * 0x40000000
+            // 0xFFFFFFFF * 0x40000000 = -1 * 1073741824 = -1073741824 = 0xC0000000
+            // Upper bits = 0xFFFFFFFF
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 28, 4, 27), // x28 = mulhsu(-1, 0x40000000)
+            // 1 * MAX_UINT
+            // 1 * 0xFFFFFFFF = 4294967295 = 0xFFFFFFFF. Upper bits = 0.
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::MULHSU), 29, 30, 25), // x29 = mulhsu(1, MAX_UINT) = 0
+        ]);
+        vec![basic_block]
+    }
+
     fn test_k_trace_constrained_instructions(basic_block: Vec<BasicBlock>) {
         type Chips = (
             CpuChip,
@@ -459,7 +576,13 @@ mod test {
     }
 
     #[test]
-    fn test_k_trace_constrained_mulhhh_instructions() {
+    fn test_k_trace_constrained_mulhsu_instructions() {
+        let basic_block = setup_basic_mulhsu_block_ir();
+        test_k_trace_constrained_instructions(basic_block);
+    }
+
+    #[test]
+    fn test_k_trace_constrained_mulh_instructions() {
         let basic_block = setup_basic_mulh_block_ir();
         test_k_trace_constrained_instructions(basic_block);
     }

@@ -1,8 +1,7 @@
 use num_traits::{One, Zero};
 use stwo_prover::core::fields::m31::BaseField;
 
-#[inline(always)]
-fn eval_at_row_lhs_rhs<E: stwo_prover::constraint_framework::EvalAtRow>(
+fn constrain_equal<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     lhs: E::F,
@@ -11,8 +10,7 @@ fn eval_at_row_lhs_rhs<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval.add_constraint(selector * (lhs - rhs));
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_abs32<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_absolute_32_bit<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn: E::F,
@@ -20,7 +18,7 @@ pub(super) fn constraint_gadget_abs32<E: stwo_prover::constraint_framework::Eval
     abs_value: [E::F; 4],
     abs_value_borrow: [E::F; 2],
 ) {
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
@@ -33,7 +31,7 @@ pub(super) fn constraint_gadget_abs32<E: stwo_prover::constraint_framework::Eval
         abs_value[0].clone() + abs_value[1].clone() * BaseField::from(1 << 8),
     );
 
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
@@ -48,8 +46,7 @@ pub(super) fn constraint_gadget_abs32<E: stwo_prover::constraint_framework::Eval
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_abs64<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_absolute_64_bit<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn: E::F,
@@ -60,7 +57,7 @@ pub(super) fn constraint_gadget_abs64<E: stwo_prover::constraint_framework::Eval
     abs_value_low_borrow: [E::F; 2],
     abs_value_high_borrow: [E::F; 2],
 ) {
-    constraint_gadget_abs32(
+    constrain_absolute_32_bit(
         eval,
         selector.clone(),
         sgn.clone(),
@@ -69,7 +66,7 @@ pub(super) fn constraint_gadget_abs64<E: stwo_prover::constraint_framework::Eval
         abs_value_low_borrow.clone(),
     );
 
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
@@ -83,7 +80,7 @@ pub(super) fn constraint_gadget_abs64<E: stwo_prover::constraint_framework::Eval
         abs_value_high[0].clone() + abs_value_high[1].clone() * BaseField::from(1 << 8),
     );
 
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
@@ -98,14 +95,13 @@ pub(super) fn constraint_gadget_abs64<E: stwo_prover::constraint_framework::Eval
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_is_zero<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_zero_word<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     is_zero: E::F,
     value: [E::F; 4],
 ) {
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector,
         is_zero.clone()
@@ -114,15 +110,14 @@ pub(super) fn constraint_gadget_is_zero<E: stwo_prover::constraint_framework::Ev
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_sign_2_to_1<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_sign_2_to_1<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn_out: E::F,
     is_out_zero: E::F,
     sgn_in: [E::F; 2],
 ) {
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector,
         sgn_out,
@@ -132,15 +127,14 @@ pub(super) fn constraint_gadget_sign_2_to_1<E: stwo_prover::constraint_framework
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_sign_1_to_1<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_sign_1_to_1<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn_out: E::F,
     is_out_zero: E::F,
     sgn_in: E::F,
 ) {
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector,
         sgn_out,
@@ -148,8 +142,7 @@ pub(super) fn constraint_gadget_sign_1_to_1<E: stwo_prover::constraint_framework
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_mul_product<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_mul_partial_product<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     p: [E::F; 2],
@@ -161,7 +154,7 @@ pub(super) fn constraint_gadget_mul_product<E: stwo_prover::constraint_framework
     zx: E::F,
     zy: E::F,
 ) {
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector,
         p[0].clone() + p[1].clone() * BaseField::from(1 << 8) + carry * BaseField::from(1 << 16),
@@ -169,8 +162,7 @@ pub(super) fn constraint_gadget_mul_product<E: stwo_prover::constraint_framework
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_is_overflow<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_division_overflow<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     is_overflow: E::F,
@@ -179,7 +171,7 @@ pub(super) fn constraint_gadget_is_overflow<E: stwo_prover::constraint_framework
 ) {
     // The dividend is equal to i32::MIN = 0x8000_0000
     // i32::MIN % M31 = 1
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone() * is_overflow.clone(),
         dividend[0].clone()
@@ -190,14 +182,14 @@ pub(super) fn constraint_gadget_is_overflow<E: stwo_prover::constraint_framework
     );
 
     // The divisor is equal to -1
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone() * is_overflow.clone(),
         divisor[0].clone() + divisor[1].clone() * BaseField::from(1 << 8),
         E::F::from(BaseField::from_u32_unchecked(0xFFFF)),
     );
 
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector * is_overflow,
         divisor[2].clone() + divisor[3].clone() * BaseField::from(1 << 8),
@@ -205,21 +197,20 @@ pub(super) fn constraint_gadget_is_overflow<E: stwo_prover::constraint_framework
     );
 }
 
-#[inline(always)]
-pub(super) fn constraint_gadget_is_equal<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_values_equal<E: stwo_prover::constraint_framework::EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     value_a: [E::F; 4],
     value_b: [E::F; 4],
 ) {
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector.clone(),
         value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8),
         value_b[0].clone() + value_b[1].clone() * BaseField::from(1 << 8),
     );
 
-    eval_at_row_lhs_rhs(
+    constrain_equal(
         eval,
         selector,
         value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8),

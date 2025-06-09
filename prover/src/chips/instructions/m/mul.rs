@@ -8,7 +8,7 @@ use crate::{
     traits::MachineChip,
 };
 
-use super::{gadget::constraint_gadget_mul_product, nexani::mull_limb};
+use super::{gadget::constrain_mul_partial_product, nexani::mull_limb};
 
 pub struct MulChip;
 
@@ -87,7 +87,7 @@ impl MachineChip for MulChip {
         let z_3 = value_b[3].clone() * value_c[3].clone();
 
         // is_mul * (P3_prime + c3_prime * 2^16 - (|b|_0 + |b|_3) * (|c|_0 + |c|_3) + z_0 + z_3)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mul.clone(),
             p3_prime.clone(),
@@ -101,7 +101,7 @@ impl MachineChip for MulChip {
         );
 
         // is_mul * (P3_prime_prime + c3_prime_prime * 2^16 - (|b|_1 + |b|_2) * (|c|_1 + |c|_2) + z_1 + z_2)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mul.clone(),
             p3_prime_prime.clone(),
@@ -115,7 +115,7 @@ impl MachineChip for MulChip {
         );
 
         // is_mul * (P1 + c1 * 2^16 - (|b|_0 + |b|_1) * (|c|_0 + |c|_1) + z_0 + z_1)
-        constraint_gadget_mul_product(
+        constrain_mul_partial_product(
             eval,
             is_mul.clone(),
             p1.clone(),
@@ -142,7 +142,7 @@ impl MachineChip for MulChip {
         );
 
         // is_mul ⋅
-        // [z_1 + P_1h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P'_3l + P''_3l + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - |a|_2 - |a|_3 * 2^8]
+        // [z_1 + P_1h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P'_3l + P''_3l + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - carry_1 * 2^17 - |a|_2 - |a|_3 * 2^8]
         eval.add_constraint(
             is_mul.clone()
                 * (z_1.clone()
@@ -166,8 +166,8 @@ impl MachineChip for MulChip {
 mod test {
     use crate::{
         chips::{
-            AddChip, CpuChip, DecodingCheckChip, LuiChip, MulChip, ProgramMemCheckChip,
-            RangeCheckChip, RegisterMemCheckChip, SubChip,
+            AddChip, CpuChip, DecodingCheckChip, LuiChip, ProgramMemCheckChip, RangeCheckChip,
+            RegisterMemCheckChip, SubChip,
         },
         test_utils::assert_chip,
         trace::{

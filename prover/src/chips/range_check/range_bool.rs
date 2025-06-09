@@ -87,7 +87,7 @@ const CHECKED_SINGLE: [Column; 57] = [
     ShiftBit4,
     ShiftBit5,
 ];
-const CHECKED_HALF_WORD: [Column; 13] = [
+const CHECKED_HALF_WORD: [Column; 11] = [
     CarryFlag,
     PcCarry,
     CH1Minus,
@@ -95,14 +95,12 @@ const CHECKED_HALF_WORD: [Column; 13] = [
     CH3Minus,
     ProgCtrCarry,
     BorrowFlag,
-    RemainderBorrow,
-    HelperUBorrow,
     ValueAAbsBorrow,
     ValueBAbsBorrow,
     ValueCAbsBorrow,
     ValueAAbsBorrowHigh,
 ];
-const TYPE_R_CHECKED_SINGLE: [Column; 16] = [
+const TYPE_R_CHECKED_SINGLE: [Column; 18] = [
     OpC4,
     OpA0,
     OpB0,
@@ -119,6 +117,8 @@ const TYPE_R_CHECKED_SINGLE: [Column; 16] = [
     IsDivideByZero,
     IsOverflow,
     IsAZero,
+    RemainderBorrow,
+    HelperUBorrow,
 ];
 const TYPE_I_NO_SHIFT_SINGLE: [Column; 3] = [OpC11, OpA0, OpB0];
 const TYPE_I_SHIFT_SINGLE: [Column; 3] = [OpC4, OpA0, OpB0];

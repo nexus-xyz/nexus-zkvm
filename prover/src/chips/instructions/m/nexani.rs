@@ -1,26 +1,68 @@
-/// THE IMPLEMENTATION WILL BE MOVED INTO NEXANI CRATE IN THE FUTURE!!
-/// Gadget for multiplication and division operations
+//! THE IMPLEMENTATION WILL BE MOVED INTO NEXANI CRATE IN THE FUTURE!!
+//! Gadget for arithmetic operations on limb-based representations
+//!
+//! This module contains the implementation of fundamental arithmetic operations
+//! for 32-bit and 64-bit integers represented as byte limbs (8-bit chunks).
+//!
+//! ## Operations Supported:
+//! - **Multiplication**: 32-bit × 32-bit → 64-bit using Karatsuba algorithm
+//! - **Division**: 32-bit ÷ 32-bit with quotient and remainder verification
+//! - **Absolute Value**: Two's complement absolute value for 32-bit and 64-bit integers
+//!
+//! ## Implementation Details:
+//! - Uses limb-by-limb operations for circuit-friendly computation
+//! - Karatsuba multiplication reduces complexity from O(n²) to O(n^log₂3)
+//! - Division uses multiplication verification: a = b × c + r where 0 ≤ r < c
+//! - Absolute value uses two's complement negation with carry propagation
+//! - All intermediate values and carries are exposed for zero-knowledge proof constraints
+
+/// Result structure for 32-bit × 32-bit multiplication using Karatsuba algorithm
 ///
-/// This module contains the implementation of the multiplication and division operations
-/// for the 32-bit limbs.
-///
-/// The implementation is based on the Karatsuba algorithm, which is a divide-and-conquer
-/// algorithm for multiplying two large numbers.
+/// Contains all intermediate values and carries needed for zero-knowledge proof verification.
+/// The multiplication computes `b × c = a_h << 32 + a_l` where the result is split into
+/// high and low 32-bit parts.
 pub(super) struct MulResult {
+    /// Karatsuba intermediate product p1 = (c0+c1)(b0+b1) - z0 - z1 (2 bytes, little-endian)
     pub p1: [u8; 2],
+    /// Carry flag from p1 computation (true if p1 overflowed 16 bits)
     pub c1: bool,
+    /// Karatsuba intermediate product p3' = (c0+c3)(b0+b3) - z0 - z3 (2 bytes, little-endian)
     pub p3_prime: [u8; 2],
+    /// Carry flag from p3' computation (true if p3' overflowed 16 bits)
     pub c3_prime: bool,
+    /// Karatsuba intermediate product p3'' = (c1+c2)(b1+b2) - z1 - z2 (2 bytes, little-endian)
     pub p3_prime_prime: [u8; 2],
+    /// Carry flag from p3'' computation (true if p3'' overflowed 16 bits)
     pub c3_prime_prime: bool,
+    /// Karatsuba intermediate product p5 = (c2+c3)(b2+b3) - z2 - z3 (2 bytes, little-endian)
     pub p5: [u8; 2],
+    /// Carry flag from p5 computation (true if p5 overflowed 16 bits)
     pub c5: bool,
+    /// Low 32 bits of the multiplication result b × c (4 bytes, little-endian)
     pub a_l: [u8; 4],
+    /// High 32 bits of the multiplication result b × c (4 bytes, little-endian)
     pub a_h: [u8; 4],
+    /// Carry values from low 32-bit computation [carry_0, carry_1_low, carry_1_high]
     pub carry_l: [u8; 3],
+    /// Carry values from high 32-bit computation [carry_2_low, carry_2_high, carry_3]
     pub carry_h: [u8; 3],
 }
 
+/// Multiply two 32-bit unsigned integers using the Karatsuba algorithm
+///
+/// This function implements 32-bit × 32-bit → 64-bit multiplication using the Karatsuba
+/// divide-and-conquer algorithm, which reduces the computational complexity from O(n²) to O(n^log₂3).
+/// The implementation is circuit-friendly and returns all intermediate values for the AIR trace.
+/// ## Verification process:
+/// 1. **Multiplication**: Compute `t = b × c` using `mull_limb`
+/// 2. **Constraint Validation**: Ensure all intermediate values satisfy circuit constraints
+/// 3. **Result Validation**: Verify that the result matches the expected 64-bit product
+///
+/// ## Algorithm Overview:
+/// 1. **Limb Decomposition**: Split inputs into 4 byte limbs each
+/// 2. **Basic Products**: Compute z0, z1, z2, z3 (byte × byte multiplications)
+/// 3. **Karatsuba Products**: Compute intermediate cross-products p1, p3', p3'', p5
+/// 4. **Result Assembly**: Combine products to form the final 64-bit result
 pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
     // Convert inputs to limbs (4 bytes each)
     let b_limbs = b.to_le_bytes();
@@ -217,27 +259,53 @@ pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
     }
 }
 
+/// Result structure for division verification operations
+///
+/// Contains the remainder and verification values needed to prove that
+/// the division relationship `dividend = quotient × divisor + remainder` holds
+/// with `0 ≤ remainder < divisor`.
 pub struct DivResult {
-    // Remainder: r = a - b * c = a - t
+    /// Remainder r = dividend - quotient × divisor (4 bytes, little-endian)
     pub r: [u8; 4],
-    // Borrows for r = a - t calculation
+    /// Borrow flags from r = dividend - (quotient × divisor) subtraction
+    /// [borrow_0, borrow_1] where borrow_1 must be false for valid division
     pub r_borrow: [bool; 2],
-    // Check value: u = c - r - 1
+    /// Check value u = divisor - remainder - 1 (4 bytes, little-endian)
     pub u: [u8; 4],
-    // Borrows for u = c - r - 1 calculation
+    /// Borrow flags from u = divisor - remainder - 1 subtraction
+    /// [borrow_2, borrow_3] where borrow_3 must be false for valid division
     pub u_borrow: [bool; 2],
 }
 
-// This function verifies the relationship a = b * c + r, where 0 <= r < c.
-// It computes t = b * c, r = a - t, and u = c - r - 1.
-// It asserts that the intermediate borrow flags are as expected,
-// specifically that r >= 0 (borrow_1 is false) and u >= 0 (borrow_3 is false).
-// This implies 0 <= r < c.
-//
-// Preconditions:
-// - b * c must fit within a u32 (checked by mul_limb result t.a_h == [0; 4]).
-// - The specific implementation details of mul_limb might impose further constraints
-//   (e.g., related to t.c5, t.p3_prime_prime, etc.), which are asserted here.
+/// Verify a 32-bit unsigned integer division operation
+///
+/// This function **verifies** rather than **computes** division. Given a quotient, remainder,
+/// dividend, and divisor, it checks that the division relationship holds:
+/// `dividend = quotient × divisor + remainder` where `0 ≤ remainder < divisor`.
+///
+/// ## Verification Process:
+/// 1. **Multiplication**: Compute `t = quotient × divisor` using `mull_limb`
+/// 2. **Remainder Check**: Compute `r = dividend - t` and verify `r ≥ 0`
+/// 3. **Bound Check**: Compute `u = divisor - r - 1` and verify `u ≥ 0`
+/// 4. **Constraint Validation**: Ensure all intermediate values satisfy circuit constraints
+///
+/// ## Division by Zero:
+/// When `divisor = 0`, follows RISC-V semantics:
+/// - DIVU: quotient = 2³² - 1, remainder = dividend
+/// - REMU: quotient = undefined, remainder = dividend
+///
+/// ## Panics:
+/// - If `quotient × divisor` overflows 32 bits
+/// - If `remainder ≥ divisor` (invalid division)
+/// - If any circuit constraints are violated
+///
+/// ## Example:
+/// ```ignore
+/// // Verify that 100 ÷ 7 = 14 remainder 2
+/// let result = divu_limb(14, 2, 100, 7);
+/// assert_eq!(result.r, [2, 0, 0, 0]); // remainder in little-endian bytes
+/// assert_eq!(result.r_borrow, [false, false]); // no underflow
+/// ```
 pub fn divu_limb(quotient: u32, remainder: u32, dividend: u32, divisor: u32) -> DivResult {
     let dividend_bytes = dividend.to_le_bytes();
     let divisor_bytes = divisor.to_le_bytes();
@@ -373,23 +441,57 @@ pub fn divu_limb(quotient: u32, remainder: u32, dividend: u32, divisor: u32) -> 
     }
 }
 
+/// Result structure for 32-bit absolute value computation
+///
+/// Contains the absolute value and intermediate carry values from the two's complement
+/// negation process used for negative numbers.
 pub(super) struct AbsResult {
+    /// Absolute value as 4 bytes in little-endian format
     pub abs_limbs: [u8; 4],
+    /// Carry flags from two's complement addition: [carry_16bit, carry_32bit]
+    /// Only relevant for negative inputs where two's complement negation is performed
     pub carry: [bool; 2],
+    /// Sign of the original input (true if negative, false if non-negative)
     pub sgn: bool,
 }
 
-/// Compute the absolute value of a 32-bit integer represented as 4 8-bit limbs
+/// Compute the absolute value of a 32-bit signed integer using limb-by-limb operations
 ///
-/// This function implements absolute value computation using limb-by-limb operations:
-/// 1. For negative numbers: We negate each limb (two's complement) and add 1
-/// 2. For non-negative numbers: We return the original value
+/// This function computes the absolute value using a circuit-friendly approach that
+/// explicitly handles the two's complement negation for negative numbers.
+/// The implementation is circuit-friendly and returns all intermediate values for the AIR trace.
 ///
-/// The two's complement negation is done by:
-/// - Inverting each bit (complementing)
-/// - Adding 1 to the result
+/// ## Algorithm:
+/// 1. **Sign Detection**: Extract the sign bit from the input
+/// 2. **Conditional Negation**: For negative numbers, perform two's complement:
+///    - First complement: Invert all bits (subtract each byte from 255)
+///    - Second complement: Add 1 with carry propagation across limbs
+/// 3. **Verification**: Validate the result using mathematical constraints
 ///
-/// Returns the absolute value result as limbs and carry flags
+/// ## Two's Complement Details:
+/// For negative numbers, the algorithm computes `|n| = ~n + 1` where:
+/// - `~n` inverts all bits (each byte becomes `255 - byte`)
+/// - `+1` adds one with carry propagation across all limbs
+/// - Carry flags capture overflow between 16-bit and 32-bit boundaries
+///
+/// ## Example:
+/// ```ignore
+/// // Absolute value of -42
+/// let result = abs_limb(-42i32 as u32);
+/// assert_eq!(result.abs_limbs, [42, 0, 0, 0]); // 42 in little-endian
+/// assert_eq!(result.sgn, true); // Original was negative
+///
+/// // Absolute value of 42 (positive)
+/// let result = abs_limb(42);
+/// assert_eq!(result.abs_limbs, [42, 0, 0, 0]); // Same result
+/// assert_eq!(result.sgn, false); // Original was non-negative
+/// ```
+///
+/// ## Circuit Constraints:
+/// The implementation validates correctness using mathematical equations that verify:
+/// - Lower 16 bits: `(1-sgn) × unsigned + sgn × signed = unsigned`
+/// - Upper 16 bits: Similar constraint with carry propagation
+/// - These equations ensure the two's complement negation is computed correctly
 pub fn abs_limb(n: u32) -> AbsResult {
     //--------------------------------------------------------------
     // STEP 1: Determine the sign of input and prepare limbs
@@ -476,25 +578,57 @@ pub fn abs_limb(n: u32) -> AbsResult {
     }
 }
 
+/// Result structure for 64-bit absolute value computation
+///
+/// Contains the absolute value and intermediate carry values from the two's complement
+/// negation process, organized into low and high 32-bit sections.
 #[derive(Debug, Clone, Copy)]
 pub struct AbsResult64 {
+    /// Absolute value as 8 bytes in little-endian format
     pub _abs_limbs: [u8; 8],
+    /// Carry flags from two's complement addition in low 32 bits: [carry_16bit, carry_32bit]
     pub carry_low: [bool; 2],
+    /// Carry flags from two's complement addition in high 32 bits: [carry_48bit, carry_64bit]
     pub carry_high: [bool; 2],
+    /// Sign of the original input (true if negative, false if non-negative)
     pub sgn: bool,
 }
 
-/// Compute the absolute value of a 64-bit integer represented as 8 8-bit limbs
+/// Compute the absolute value of a 64-bit signed integer using limb-by-limb operations
 ///
-/// This function implements absolute value computation using limb-by-limb operations:
-/// 1. For negative numbers: We negate each limb (two's complement) and add 1
-/// 2. For non-negative numbers: We return the original value
+/// This function extends the 32-bit absolute value computation to 64-bit integers,
+/// taking the input as separate low and high 32-bit parts. It uses the same two's
+/// complement approach but with carry propagation across all 8 byte limbs.
+/// The implementation is circuit-friendly and returns all intermediate values for the AIR trace.
 ///
-/// The two's complement negation is done by:
-/// - Inverting each bit (complementing)
-/// - Adding 1 to the result
+/// ## Algorithm:
+/// 1. **Sign Detection**: Extract the sign bit from the high 32 bits
+/// 2. **Conditional Negation**: For negative numbers, perform two's complement:
+///    - First complement: Invert all bits across all 8 bytes
+///    - Second complement: Add 1 with carry propagation from low to high
+/// 3. **Verification**: Validate using mathematical constraints for each 16-bit section
 ///
-/// Returns the absolute value result as limbs and carry flags
+/// ## Carry Propagation:
+/// The algorithm tracks carries at 16-bit boundaries:
+/// - `carry_low[0]`: Carry from bits 0-15 to bits 16-31
+/// - `carry_low[1]`: Carry from bits 16-31 to bits 32-47
+/// - `carry_high[0]`: Carry from bits 32-47 to bits 48-63
+/// - `carry_high[1]`: Carry from bits 48-63 (overflow indicator)
+///
+/// ## Example:
+/// ```ignore
+/// // Absolute value of -12345678901234567890
+/// let low = 0x12345678u32;
+/// let high = 0x9ABCDEFu32 | 0x80000000u32; // Set sign bit
+/// let result = abs64_limb(low, high);
+/// assert_eq!(result.sgn, true); // Original was negative
+/// // result._abs_limbs contains the absolute value in little-endian bytes
+/// ```
+///
+/// ## Circuit Constraints:
+/// The implementation validates correctness using mathematical equations for each
+/// 16-bit section, ensuring the two's complement negation is computed correctly
+/// across the full 64-bit range with proper carry propagation.
 pub fn abs64_limb(low: u32, high: u32) -> AbsResult64 {
     //--------------------------------------------------------------
     // STEP 1: Determine the sign of input and prepare limbs

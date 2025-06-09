@@ -369,10 +369,10 @@ pub enum Column {
     #[size = 4]
     HelperU,
     /// The borrow flag for DIV instruction for r = a - t. Possible values in {0, 1}
-    #[size = 2]
+    #[size = 1]
     RemainderBorrow,
     /// The borrow flag for DIV instruction for u = c - r - 1. Possible values in {0, 1}
-    #[size = 2]
+    #[size = 1]
     HelperUBorrow,
 
     /// The lower 32-bit of value_A, used for M extension: MULH/MULHSU

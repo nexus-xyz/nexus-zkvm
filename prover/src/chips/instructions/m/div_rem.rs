@@ -11,9 +11,8 @@ use crate::{
 
 use super::{
     gadget::{
-        constraint_gadget_abs32, constraint_gadget_is_overflow, constraint_gadget_is_zero,
-        constraint_gadget_mul_product, constraint_gadget_sign_1_to_1,
-        constraint_gadget_sign_2_to_1,
+        constrain_absolute_32_bit, constrain_division_overflow, constrain_mul_partial_product,
+        constrain_sign_1_to_1, constrain_sign_2_to_1, constrain_zero_word,
     },
     nexani::{abs_limb, divu_limb, mull_limb, AbsResult},
 };
@@ -118,7 +117,7 @@ impl MachineChip for DivRemChip {
         traces.fill_columns(row_idx, abs_value_c.abs_limbs, ValueCAbs);
         traces.fill_columns(row_idx, abs_value_c.carry, ValueCAbsBorrow);
 
-        // Calculate t = quotient * divisor using mul_limb to get intermediate values
+        // Calculate t = quotient * divisor using mull_limb (mul long limbs) to get intermediate values
         let mul_result = mull_limb(
             u32::from_le_bytes(quotient.abs_limbs),
             u32::from_le_bytes(abs_value_c.abs_limbs),
@@ -153,10 +152,10 @@ impl MachineChip for DivRemChip {
 
         // Store r = dividend - t
         traces.fill_columns(row_idx, divu_result.r, Remainder);
-        traces.fill_columns(row_idx, divu_result.r_borrow, RemainderBorrow);
+        traces.fill_columns(row_idx, divu_result.r_borrow[0], RemainderBorrow);
         // Store u = divisor - r - 1
         traces.fill_columns(row_idx, divu_result.u, HelperU);
-        traces.fill_columns(row_idx, divu_result.u_borrow, HelperUBorrow);
+        traces.fill_columns(row_idx, divu_result.u_borrow[0], HelperUBorrow);
 
         // Store original values needed in constraints
         traces.fill_columns(row_idx, value_a, ValueA); // Quotient/Remainder (rd)
@@ -194,16 +193,16 @@ impl MachineChip for DivRemChip {
         let [is_overflow] = trace_eval!(trace_eval, IsOverflow);
 
         // Check for is_divide_by_zero
-        // (is_div + is_rem) ⋅ is_divide_by_zero ⋅ ((c_0 + c_1 + c_2 + c_3)
-        constraint_gadget_is_zero(
+        // (is_div + is_rem) ⋅ is_divide_by_zero ⋅ (c_0 + c_1 + c_2 + c_3)
+        constrain_zero_word(
             eval,
             is_div.clone() + is_rem.clone(),
             is_divide_by_zero.clone(),
             value_c.clone(),
         );
         // Check for is_a_zero
-        // (is_div + is_rem) ⋅ is_a_zero ⋅ ((a_0 + a_1 + a_2 + a_3)
-        constraint_gadget_is_zero(
+        // (is_div + is_rem) ⋅ is_a_zero ⋅ (a_0 + a_1 + a_2 + a_3)
+        constrain_zero_word(
             eval,
             is_div.clone() + is_rem.clone(),
             is_a_zero.clone(),
@@ -211,7 +210,7 @@ impl MachineChip for DivRemChip {
         );
 
         // Check for is_overflow when dividend is i32::MIN and divisor is -1
-        constraint_gadget_is_overflow(
+        constrain_division_overflow(
             eval,
             is_div.clone() + is_rem.clone(),
             is_overflow.clone(),
@@ -224,7 +223,7 @@ impl MachineChip for DivRemChip {
         // [(1 − sgn_b) ⋅ (b_0 + b_1 ⋅ 2^8) + sgn_b ⋅ (2^16 − b_0 - b_1 ⋅ 2^8 - abs_value_b_borrow ⋅ 2^16) - dividend_0 - dividend_1 ⋅ 2^8]
         // (is_div + is_rem) ⋅
         // [(1 − sgn_b) ⋅ (b_2 + b_3 ⋅ 2^8) + sgn_b ⋅ (2^16 - 1 - b_2 - b_3 ⋅ 2^8 - abs_value_b_borrow_1 ⋅ 2^16 + abs_value_b_borrow_0) - dividend_2 - dividend_3 ⋅ 2^8]
-        constraint_gadget_abs32(
+        constrain_absolute_32_bit(
             eval,
             is_div.clone() + is_rem.clone(),
             sgn_b.clone(),
@@ -238,7 +237,7 @@ impl MachineChip for DivRemChip {
         // [(1 − sgn_c) ⋅ (c_0 + c_1 ⋅ 2^8) + sgn_c ⋅ (2^16 − c_0 - c_1 ⋅ 2^8 - abs_value_c_borrow ⋅ 2^16) - divisor_0 - divisor_1 ⋅ 2^8]
         // (is_div + is_rem) ⋅
         // [(1 − sgn_c) ⋅ (c_2 + c_3 ⋅ 2^8) + sgn_c ⋅ (2^16 - 1 - c_2 - c_3 ⋅ 2^8 - abs_value_c_borrow_1 ⋅ 2^16 + abs_value_c_borrow_0) - divisor_2 - divisor_3 ⋅ 2^8]
-        constraint_gadget_abs32(
+        constrain_absolute_32_bit(
             eval,
             is_div.clone() + is_rem.clone(),
             sgn_c.clone(),
@@ -251,7 +250,7 @@ impl MachineChip for DivRemChip {
         let [sgn_a] = trace_eval!(trace_eval, SgnA);
 
         // For REM, the sign of remainder is the same as the sign of dividend, except when overflow occurs
-        constraint_gadget_sign_1_to_1(
+        constrain_sign_1_to_1(
             eval,
             is_rem.clone() * (E::F::one() - is_divide_by_zero.clone() - is_overflow.clone()),
             sgn_a.clone(),
@@ -260,7 +259,7 @@ impl MachineChip for DivRemChip {
         );
 
         // For DIV, the sign of quotient is sign_b xor sign_c, except when valueC is zero and overflow occurs
-        constraint_gadget_sign_2_to_1(
+        constrain_sign_2_to_1(
             eval,
             is_div.clone() * (E::F::one() - is_divide_by_zero.clone() - is_overflow.clone()),
             sgn_a.clone(),
@@ -271,7 +270,7 @@ impl MachineChip for DivRemChip {
         // Assert that the committed absolute value_a is equal to quotient except when valueC is zero or overflow occurs
         // is_div ⋅
         // [(1 − sgn_a) ⋅ (a_0 + a_1 ⋅ 2^8) + sgn_a ⋅ (2^16 − a_0 - a_1 ⋅ 2^8 - abs_value_a_borrow ⋅ 2^16) - quotient_0 - quotient_1 ⋅ 2^8]
-        constraint_gadget_abs32(
+        constrain_absolute_32_bit(
             eval,
             is_div.clone() * (E::F::one() - is_divide_by_zero.clone() - is_overflow.clone()),
             sgn_a.clone(),
@@ -285,7 +284,7 @@ impl MachineChip for DivRemChip {
         // Assert that the committed absolute value_a is equal to remainder
         // is_rem ⋅ [(1 − sgn_a) ⋅ (a_0 + a_1 ⋅ 2^8) + sgn_a ⋅ (2^16 - a_0 - a_1 ⋅ 2^8 - abs_value_a_borrow_0 ⋅ 2^16) - remainder_0 - remainder_1 ⋅ 2^8]
         // is_rem ⋅ [(1 − sgn_a) ⋅ (a_2 + a_3 ⋅ 2^8) + sgn_a ⋅ (2^16 - 1 - a_2 - a_3 ⋅ 2^8 - abs_value_a_borrow_1 ⋅ 2^16 + abs_value_a_borrow_0) - remainder_2 - remainder_3 ⋅ 2^8]
-        constraint_gadget_abs32(
+        constrain_absolute_32_bit(
             eval,
             is_rem.clone() * (E::F::one() - is_divide_by_zero.clone()),
             sgn_a.clone(),
@@ -365,9 +364,9 @@ impl MachineChip for DivRemChip {
         let z_2 = quotient[2].clone() * abs_divisor_c[2].clone();
         let z_3 = quotient[3].clone() * abs_divisor_c[3].clone();
 
-        // (is_mul + is_mulh + is_mulhu + is_mulhsu + is_div + is_divu + is_rem + is_remu) ⋅
-        // [𝑃 ′3 + 𝑐′3 ⋅ 2^16 − (|𝑏|0 + |𝑏|3) ⋅ (|𝑐|0 + |𝑐|3) + 𝑧0 + 𝑧3]
-        constraint_gadget_mul_product(
+        // (is_div + is_rem) ⋅
+        // [P3' + c3' ⋅ 2^16 − (|b|0 + |b|3) ⋅ (|c|0 + |c|3) + z0 + z3]
+        constrain_mul_partial_product(
             eval,
             is_div.clone() + is_rem.clone(),
             p3_prime.clone(),
@@ -380,9 +379,9 @@ impl MachineChip for DivRemChip {
             z_3.clone(),
         );
 
-        // (is_mul + is_mulh + is_mulhu + is_mulhsu + is_div + is_divu + is_rem + is_remu) ⋅
-        // [𝑃 ″3 + 𝑐″3 ⋅ 2^16 − (|𝑏|1 + |𝑏|2) ⋅ (|𝑐|1 + |𝑐|2) + 𝑧1 + 𝑧2]
-        constraint_gadget_mul_product(
+        // (is_div + is_rem) ⋅
+        // [P3'' + c3'' ⋅ 2^16 − (|b|1 + |b|2) ⋅ (|c|1 + |c|2) + z1 + z2]
+        constrain_mul_partial_product(
             eval,
             is_div.clone() + is_rem.clone(),
             p3_prime_prime.clone(),
@@ -395,9 +394,9 @@ impl MachineChip for DivRemChip {
             z_2.clone(),
         );
 
-        // (is_mul + is_div + is_divu + is_rem + is_remu) ⋅
-        // [𝑃 1 + 𝑐1 ⋅ 2^16 − (|𝑏|0 + |𝑏|1) ⋅ (|𝑐|0 + |𝑐|1) + 𝑧0 + 𝑧1]
-        constraint_gadget_mul_product(
+        // (is_div + is_rem) ⋅
+        // [P1 + c1 ⋅ 2^16 − (|b|0 + |b|1) ⋅ (|c|0 + |c|1) + z0 + z1]
+        constrain_mul_partial_product(
             eval,
             is_div.clone() + is_rem.clone(),
             p1.clone(),
@@ -417,7 +416,7 @@ impl MachineChip for DivRemChip {
         let helper_t = trace_eval!(trace_eval, HelperT); // t = quotient * divisor
 
         // Constraint for low part of t = quotient * divisor
-        // (is_divu + is_remu) ⋅ (z0 + P1_l ⋅ 2^8 − carry0 ⋅ 2^16 − |t|0 − |t|1)
+        // (is_div + is_rem) ⋅ (z0 + P1_l ⋅ 2^8 − carry0 ⋅ 2^16 − |t|0 − |t|1 * 2^8)
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * (z_0.clone() + p1[0].clone() * BaseField::from(1 << 8)
@@ -427,8 +426,8 @@ impl MachineChip for DivRemChip {
         );
 
         // Constraint for high part of t = quotient * divisor
-        // is_divu ⋅
-        // [z1 + P1h + (b0 + b2) ⋅ (c0 + c2) − z0 − z2 +(P′3l + P″3l + c1) ⋅ 2^8 + carry0 − carry1 ⋅ 2^16 − |t|2 − |t|3]
+        // (is_div + is_rem) ⋅
+        // [z1 + P1h + (b0 + b2) ⋅ (c0 + c2) − z0 − z2 + (P′3l + P″3l + c1) ⋅ 2^8 + carry0 − carry1_0 ⋅ 2^16 − carry1_1 ⋅ 2^17 − |t|2 − |t|3 ⋅ 2^8]
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * (z_1.clone()
@@ -446,46 +445,42 @@ impl MachineChip for DivRemChip {
                     - helper_t[3].clone() * BaseField::from(1 << 8)),
         );
 
-        let remainder_borrow = trace_eval!(trace_eval, RemainderBorrow); // borrow for r = dividend - t
+        let [remainder_borrow] = trace_eval!(trace_eval, RemainderBorrow); // borrow for r = dividend - t
 
         // Assert the calculation of r = dividend - t, rearranged as dividend = t + r
-        // Low part: dividend_low + borrow0 * 2^16 = t_low + r_low
+        // Low part: dividend_low + remainder_borrow0 * 2^16 = t_low + r_low
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * ((abs_dividend_b[0].clone()
                     + abs_dividend_b[1].clone() * BaseField::from(1 << 8)
-                    + remainder_borrow[0].clone() * BaseField::from(1 << 16)) // borrow0 * 2^16
+                    + remainder_borrow.clone() * BaseField::from(1 << 16)) // remainder_borrow0 * 2^16
                    - (helper_t[0].clone()
                     + helper_t[1].clone() * BaseField::from(1 << 8)
                     + remainder[0].clone()
                     + remainder[1].clone() * BaseField::from(1 << 8))), // t_low + r_low
         );
 
-        // High part: dividend_high + borrow1 * 2^16 = t_high + r_high + borrow0
+        // High part: dividend_high = t_high + r_high + remainder_borrow0 (simplified)
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * ((abs_dividend_b[2].clone()
-                    + abs_dividend_b[3].clone() * BaseField::from(1 << 8)
-                    + remainder_borrow[1].clone() * BaseField::from(1 << 16)) // borrow1 * 2^16
-                    - remainder_borrow[0].clone() // borrow0
+                    + abs_dividend_b[3].clone() * BaseField::from(1 << 8))
+                   - remainder_borrow.clone() // remainder_borrow0
                    - (helper_t[2].clone()
                     + helper_t[3].clone() * BaseField::from(1 << 8)
                     + remainder[2].clone()
                     + remainder[3].clone() * BaseField::from(1 << 8))), // t_high + r_high
         );
 
-        // Assert remainder non-negative: r >= 0 (borrow1 must be 0)
-        eval.add_constraint(is_div.clone() * remainder_borrow[1].clone());
-
         // Check u = c - r - 1 >= 0
-        // Low part: c_low + borrow2 * 2^16 = r_low + u_low + 1
+        // Low part: c_low + helper_u_borrow0 * 2^16 = r_low + u_low + 1
         let helper_u = trace_eval!(trace_eval, HelperU); // u
-        let helper_u_borrow = trace_eval!(trace_eval, HelperUBorrow); // borrow for c - r - 1
+        let [helper_u_borrow] = trace_eval!(trace_eval, HelperUBorrow); // borrow for c - r - 1
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * (E::F::one() - is_divide_by_zero.clone())
                 * ((abs_divisor_c[0].clone() + abs_divisor_c[1].clone() * BaseField::from(1 << 8)) // c_low
-                   + helper_u_borrow[0].clone() * BaseField::from(1 << 16) // borrow2 * 2^16
+                   + helper_u_borrow.clone() * BaseField::from(1 << 16) // helper_u_borrow0 * 2^16
                    - remainder[0].clone() // r_low
                    - remainder[1].clone() * BaseField::from(1 << 8) // r_low
                    - E::F::one() // 1
@@ -493,21 +488,17 @@ impl MachineChip for DivRemChip {
                    - helper_u[1].clone() * BaseField::from(1 << 8)), // u_low
         );
 
-        // High part: c_high + borrow3 * 2^16 = r_high + u_high + borrow2
+        // High part: c_high = r_high + u_high + helper_u_borrow0 (simplified)
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * (E::F::one() - is_divide_by_zero.clone())
                 * ((abs_divisor_c[2].clone() + abs_divisor_c[3].clone() * BaseField::from(1 << 8)) // c_high
-                    + helper_u_borrow[1].clone() * BaseField::from(1 << 16) // borrow3 * 2^16
                     - remainder[2].clone() // r_high
                     - remainder[3].clone() * BaseField::from(1 << 8) // r_high
-                    - helper_u_borrow[0].clone() // borrow2
+                    - helper_u_borrow.clone() // helper_u_borrow0
                     - helper_u[2].clone()
                     - helper_u[3].clone() * BaseField::from(1 << 8)), // u_high
         );
-
-        // Assert check value non-negative: u >= 0 (borrow3 must be 0)
-        eval.add_constraint((is_div.clone() + is_rem.clone()) * helper_u_borrow[1].clone());
     }
 }
 
@@ -767,6 +758,67 @@ mod test {
     #[test]
     fn test_k_trace_constrained_remm_instructions() {
         let basic_block = setup_basic_block_rem_ir();
+        test_k_trace_constrained_instructions(basic_block);
+    }
+
+    fn setup_comprehensive_div_rem_tests() -> Vec<BasicBlock> {
+        let basic_block = BasicBlock::new(vec![
+            // Setup useful constants
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 30, 0, 1), // x30 = 1 for MAX_UINT construction
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 31, 0, 30), // x31 = 0 - 1 = 0xFFFFFFFF (MAX_UINT)
+            // --- Power of 2 Division Tests ---
+            // 16 / 4 = 4, 16 % 4 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 16), // x1 = 16
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 4),  // x2 = 4
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 3, 1, 2),   // x3 = 16/4 = 4
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 4, 1, 2),   // x4 = 16%4 = 0
+            // 15 / 4 = 3, 15 % 4 = 3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 15), // x5 = 15
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 6, 5, 2),   // x6 = 15/4 = 3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 7, 5, 2),   // x7 = 15%4 = 3
+            // --- Sign Combination Tests ---
+            // Positive / Positive: 11 / 3 = 3, 11 % 3 = 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 8, 0, 11), // x8 = 11
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 9, 0, 3),  // x9 = 3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 10, 8, 9),  // x10 = 11/3 = 3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 11, 8, 9),  // x11 = 11%3 = 2
+            // Positive / Negative: 11 / -3 = -3, 11 % -3 = 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 12, 0, 9), // x12 = -3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 13, 8, 12), // x13 = 11/(-3) = -3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 14, 8, 12), // x14 = 11%(-3) = 2
+            // Negative / Positive: -11 / 3 = -3, -11 % 3 = -2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 15, 0, 8), // x15 = -11
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 16, 15, 9), // x16 = (-11)/3 = -3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 17, 15, 9), // x17 = (-11)%3 = -2
+            // Negative / Negative: -11 / -3 = 3, -11 % -3 = -2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 18, 15, 12), // x18 = (-11)/(-3) = 3
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 19, 15, 12), // x19 = (-11)%(-3) = -2
+            // --- Boundary Cases ---
+            // 1 / 1 = 1, 1 % 1 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 20, 30, 30), // x20 = 1/1 = 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 21, 30, 30), // x21 = 1%1 = 0
+            // 0 / 5 = 0, 0 % 5 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 22, 0, 0), // x22 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 23, 0, 5), // x23 = 5
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 24, 22, 23), // x24 = 0/5 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 25, 22, 23), // x25 = 0%5 = 0
+            // --- Special Cases ---
+            // Division by zero: 7 / 0 = -1, 7 % 0 = 7
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 26, 0, 7), // x26 = 7
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 27, 26, 22), // x27 = 7/0 = -1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 28, 26, 22), // x28 = 7%0 = 7
+            // Overflow case: MIN_INT / -1 = MIN_INT, MIN_INT % -1 = 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::LUI), 1, 0, 0x80000), // x1 = 0x80000000 (MIN_INT)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 2, 0, 30),      // x2 = -1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::DIV), 3, 1, 2), // x3 = MIN_INT/(-1) = MIN_INT (overflow)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::REM), 4, 1, 2), // x4 = MIN_INT%(-1) = 0
+        ]);
+        vec![basic_block]
+    }
+
+    #[test]
+    fn test_k_trace_constrained_comprehensive_div_rem() {
+        let basic_block = setup_comprehensive_div_rem_tests();
         test_k_trace_constrained_instructions(basic_block);
     }
 }

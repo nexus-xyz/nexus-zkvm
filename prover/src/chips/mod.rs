@@ -8,10 +8,12 @@ pub(crate) mod custom;
 
 pub use instructions::{
     add_with_carries, subtract_with_borrow, AddChip, AuipcChip, BeqChip, BgeChip, BgeuChip,
-    BitOpChip, BltChip, BltuChip, BneChip, DivRemChip, DivuRemuChip, JalChip, JalrChip,
-    LoadStoreChip, LuiChip, MulChip, MulhMulhsuChip, MulhuChip, SllChip, SltChip, SltuChip,
-    SraChip, SrlChip, SubChip, SyscallChip,
+    BitOpChip, BltChip, BltuChip, BneChip, JalChip, JalrChip, LoadStoreChip, LuiChip, SllChip,
+    SltChip, SltuChip, SraChip, SrlChip, SubChip, SyscallChip,
 };
+
+// M extension
+pub use instructions::MExtensionChips;
 
 pub use cpu::CpuChip;
 pub use custom::CustomInstructionChip;
