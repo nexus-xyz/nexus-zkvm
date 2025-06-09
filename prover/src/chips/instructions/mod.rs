@@ -11,6 +11,7 @@ pub(crate) mod jal;
 pub(crate) mod jalr;
 pub(crate) mod load_store;
 pub(crate) mod lui;
+pub(crate) mod mul;
 pub(crate) mod sll;
 pub(crate) mod slt;
 pub(crate) mod sltu;
@@ -22,7 +23,7 @@ pub(crate) mod syscall;
 pub use self::{
     add::add_with_carries, add::AddChip, auipc::AuipcChip, beq::BeqChip, bge::BgeChip,
     bgeu::BgeuChip, bit_op::BitOpChip, blt::BltChip, bltu::BltuChip, bne::BneChip, jal::JalChip,
-    jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip, sll::SllChip, slt::SltChip,
-    sltu::SltuChip, sra::SraChip, srl::SrlChip, sub::subtract_with_borrow, sub::SubChip,
-    syscall::SyscallChip,
+    jalr::JalrChip, load_store::LoadStoreChip, lui::LuiChip, mul::MulChip, sll::SllChip,
+    slt::SltChip, sltu::SltuChip, sra::SraChip, srl::SrlChip, sub::subtract_with_borrow,
+    sub::SubChip, syscall::SyscallChip,
 };
