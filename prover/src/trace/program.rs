@@ -32,17 +32,6 @@ impl ProgramStep {
         self.regs.read(self.step.instruction.op_a).to_le_bytes()
     }
 
-    /// Returns the value of the first operand (rd or rs1) in absolute value as bytes.
-    /// Always a register value in range u32.
-    pub(crate) fn _get_absolute_result(&self) -> Word {
-        let result = self.step.result.expect("Must have result");
-        if (result as i32) < 0 {
-            (result as i32).wrapping_neg().to_le_bytes()
-        } else {
-            result.to_le_bytes()
-        }
-    }
-
     /// Returns the value of the second operand (rs1 or rs2) as bytes.
     /// Always a register value in range u32.
     pub(crate) fn get_value_b(&self) -> Word {
@@ -108,7 +97,7 @@ impl ProgramStep {
     }
 
     /// Returns the signed bit of the result
-    pub(crate) fn _get_sgn_result(&self) -> bool {
+    pub(crate) fn get_sgn_result(&self) -> bool {
         let result = self.get_result().expect("Must have result");
         (result[WORD_SIZE - 1] >> 7) == 1
     }

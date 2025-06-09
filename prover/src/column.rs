@@ -163,9 +163,15 @@ pub enum Column {
     /// Boolean flag on whether the row is a DIVU.
     #[size = 1]
     IsDivu,
+    /// Boolean flag on whether the row is a DIV.
+    #[size = 1]
+    IsDiv,
     /// Boolean flag on whether the row is a REMU.
     #[size = 1]
     IsRemu,
+    /// Boolean flag on whether the row is a REM.
+    #[size = 1]
+    IsRem,
     /// Boolean flag on whether the row is an ECALL.
     #[size = 1]
     IsEcall,
@@ -336,6 +342,12 @@ pub enum Column {
     /// 1 indicates ValueC is zero, 0 indicates ValueC is non-zero
     #[size = 1]
     IsCZero,
+    /// 1 indicates ValueA is zero, 0 indicates ValueA is non-zero
+    #[size = 1]
+    IsAZero,
+    /// Boolean flag on whether the DIV/REM instruction is an overflow.
+    #[size = 1]
+    IsOverflow,
 
     /// The quotient for the DIV/REM instruction: quotient*c + remainder = value_a
     #[size = 4]
@@ -356,6 +368,24 @@ pub enum Column {
     /// The borrow flag for DIV instruction for u = c - r - 1. Possible values in {0, 1}
     #[size = 2]
     HelperUBorrow,
+
+    // TODO: This could use Regular Borrow columns like in the design document
+    /// The borrow flag for absolute value of Value_A. Possible values in {0, 1}
+    #[size = 2]
+    ValueAAbsBorrow,
+    /// The borrow flag for absolute value of Value_B. Possible values in {0, 1}
+    #[size = 2]
+    ValueBAbsBorrow,
+    /// The borrow flag for absolute value of Value_C. Possible values in {0, 1}
+    #[size = 2]
+    ValueCAbsBorrow,
+
+    /// The absolute value of Value_B.
+    #[size = 4]
+    ValueBAbs,
+    /// The absolute value of Value_C.
+    #[size = 4]
+    ValueCAbs,
 
     /// End M Extension
     /// 1 indicates OpA is non-zero, 0 indicates OpA is zero
