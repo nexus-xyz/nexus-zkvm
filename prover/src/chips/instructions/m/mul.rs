@@ -86,8 +86,7 @@ impl MachineChip for MulChip {
         let z_2 = value_b[2].clone() * value_c[2].clone();
         let z_3 = value_b[3].clone() * value_c[3].clone();
 
-        // (is_mul) ⋅
-        // [𝑃 ′3 + 𝑐′3 ⋅ 2^16 − (|𝑏|0 + |𝑏|3) ⋅ (|𝑐|0 + |𝑐|3) + 𝑧0 + 𝑧3]
+        // is_mul * (P3_prime + c3_prime * 2^16 - (|b|_0 + |b|_3) * (|c|_0 + |c|_3) + z_0 + z_3)
         constraint_gadget_mul_product(
             eval,
             is_mul.clone(),
@@ -101,8 +100,7 @@ impl MachineChip for MulChip {
             z_3.clone(),
         );
 
-        // (is_mul) ⋅
-        // [𝑃 ″3 + 𝑐″3 ⋅ 2^16 − (|𝑏|1 + |𝑏|2) ⋅ (|𝑐|1 + |𝑐|2) + 𝑧1 + 𝑧2]
+        // is_mul * (P3_prime_prime + c3_prime_prime * 2^16 - (|b|_1 + |b|_2) * (|c|_1 + |c|_2) + z_1 + z_2)
         constraint_gadget_mul_product(
             eval,
             is_mul.clone(),
@@ -116,8 +114,7 @@ impl MachineChip for MulChip {
             z_2.clone(),
         );
 
-        // (is_mul) ⋅
-        // [𝑃 1 + 𝑐1 ⋅ 2^16 − (|𝑏|0 + |𝑏|1) ⋅ (|𝑐|0 + |𝑐|1) + 𝑧0 + 𝑧1]
+        // is_mul * (P1 + c1 * 2^16 - (|b|_0 + |b|_1) * (|c|_0 + |c|_1) + z_0 + z_1)
         constraint_gadget_mul_product(
             eval,
             is_mul.clone(),
@@ -135,7 +132,7 @@ impl MachineChip for MulChip {
         let [mul_carry_1_0] = trace_eval!(trace_eval, MulCarry1_0);
         let [mul_carry_1_1] = trace_eval!(trace_eval, MulCarry1_1);
 
-        // is_mul ⋅ (𝑧0 + 𝑃1_𝑙 ⋅ 2^8 − carry0 ⋅ 2^16 − |𝑎|0 − |𝑎|1 ⋅ 2^8)
+        // is_mul * (z_0 + P1_l * 2^8 - carry0 * 2^16 - |a|_0 - |a|_1 * 2^8)
         eval.add_constraint(
             is_mul.clone()
                 * (z_0.clone() + p1[0].clone() * BaseField::from(1 << 8)
@@ -145,7 +142,7 @@ impl MachineChip for MulChip {
         );
 
         // is_mul ⋅
-        // [𝑧1 + 𝑃 1ℎ + (𝑏0 + 𝑏2) ⋅ (𝑐0 + 𝑐2) − 𝑧0 − 𝑧2 +(𝑃 ′3𝑙 + 𝑃 ″3𝑙 + 𝑐1) ⋅ 2^8 + carry0 − carry1 ⋅ 2^16 − |𝑎|2 − |𝑎|3 ⋅ 2^8]
+        // [z_1 + P_1h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P'_3l + P''_3l + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - |a|_2 - |a|_3 * 2^8]
         eval.add_constraint(
             is_mul.clone()
                 * (z_1.clone()

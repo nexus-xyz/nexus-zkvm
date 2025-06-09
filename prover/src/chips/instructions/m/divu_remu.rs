@@ -123,7 +123,7 @@ impl MachineChip for DivuRemuChip {
         let value_a = trace_eval!(trace_eval, ValueA);
 
         // Check for is_divide_by_zero
-        // (is_div + is_rem) ⋅ ((c_0 + c_1 ⋅ 2^8 + c_2 ⋅ 2^16 + c_3 ⋅ 2^22) ⋅ is_divide_by_zero
+        // (is_div + is_rem) ⋅ is_divide_by_zero ⋅ ((c_0 + c_1 ⋅ 2^8 + c_2 ⋅ 2^16 + c_3 ⋅ 2^22)
         constraint_gadget_is_zero(
             eval,
             is_divu.clone() + is_remu.clone(),
@@ -205,8 +205,7 @@ impl MachineChip for DivuRemuChip {
         let z_2 = quotient[2].clone() * divisor_c[2].clone();
         let z_3 = quotient[3].clone() * divisor_c[3].clone();
 
-        // (is_mul + is_mulh + is_mulhu + is_mulhsu + is_div + is_divu + is_rem + is_remu) ⋅
-        // [𝑃 ′3 + 𝑐′3 ⋅ 2^16 − (|𝑏|0 + |𝑏|3) ⋅ (|𝑐|0 + |𝑐|3) + 𝑧0 + 𝑧3]
+        // (is_divu + is_remu) * (P3_prime + c3_prime * 2^16 - (|b|_0 + |b|_3) * (|c|_0 + |c|_3) + z_0 + z_3)
         constraint_gadget_mul_product(
             eval,
             is_divu.clone() + is_remu.clone(),
@@ -220,8 +219,7 @@ impl MachineChip for DivuRemuChip {
             z_3.clone(),
         );
 
-        // (is_mul + is_mulh + is_mulhu + is_mulhsu + is_div + is_divu + is_rem + is_remu) ⋅
-        // [𝑃 ″3 + 𝑐″3 ⋅ 2^16 − (|𝑏|1 + |𝑏|2) ⋅ (|𝑐|1 + |𝑐|2) + 𝑧1 + 𝑧2]
+        // (is_divu + is_remu) * (P3_prime_prime + c3_prime_prime * 2^16 - (|b|_1 + |b|_2) * (|c|_1 + |c|_2) + z_1 + z_2)
         constraint_gadget_mul_product(
             eval,
             is_divu.clone() + is_remu.clone(),
@@ -235,8 +233,7 @@ impl MachineChip for DivuRemuChip {
             z_2.clone(),
         );
 
-        // (is_mul + is_div + is_divu + is_rem + is_remu) ⋅
-        // [𝑃 1 + 𝑐1 ⋅ 2^16 − (|𝑏|0 + |𝑏|1) ⋅ (|𝑐|0 + |𝑐|1) + 𝑧0 + 𝑧1]
+        // (is_divu + is_remu) * (P1 + c1 * 2^16 - (|b|_0 + |b|_1) * (|c|_0 + |c|_1) + z_0 + z_1)
         constraint_gadget_mul_product(
             eval,
             is_divu.clone() + is_remu.clone(),
@@ -267,8 +264,8 @@ impl MachineChip for DivuRemuChip {
         );
 
         // Constraint for high part of t = quotient * divisor
-        // is_divu ⋅
-        // [z1 + P1h + (b0 + b2) ⋅ (c0 + c2) − z0 − z2 +(P′3l + P″3l + c1) ⋅ 2^8 + carry0 − carry1 ⋅ 2^16 − |t|2 − |t|3]
+        // (is_divu + is_remu) *
+        // (z_1 + P1_h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P3_l_prime + P3_l_prime_prime + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - |t|_2 - |t|_3)
         eval.add_constraint(
             (is_divu.clone() + is_remu.clone())
                 * (z_1.clone()
