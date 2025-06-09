@@ -8,216 +8,7 @@ use crate::{
     traits::MachineChip,
 };
 
-pub struct MulResult {
-    pub p1: [u8; 2],
-    pub c1: bool,
-    pub p3_prime: [u8; 2],
-    pub c3_prime: bool,
-    pub p3_prime_prime: [u8; 2],
-    pub c3_prime_prime: bool,
-    pub _a_l: [u8; 4],
-    pub _a_h: [u8; 4],
-    pub carry_l: [u8; 3],
-    pub _carry_h: [u8; 3],
-    pub _p5: [u8; 2],
-    pub _c5: bool,
-}
-
-pub fn mul_limb(b: u32, c: u32) -> MulResult {
-    // Convert inputs to limbs (4 bytes each)
-    let b_limbs = b.to_le_bytes();
-    let c_limbs = c.to_le_bytes();
-
-    // Calculate the full 64-bit product using built-in operation
-    // This serves as our reference result for verification
-    let product = (b as u64) * (c as u64);
-    let a_l = product as u32;
-    let a_h = (product >> 32) as u32;
-    let a_l_bytes = a_l.to_le_bytes();
-    let a_h_bytes = a_h.to_le_bytes();
-
-    //--------------------------------------------------------------
-    // STEP 1: Compute the 8x8 bit multiplications for each byte pair
-    //--------------------------------------------------------------
-    // Calculate the individual limb products (each byte multiplied)
-    let z0_prod = (c_limbs[0] as u16) * (b_limbs[0] as u16);
-    let z0_l = z0_prod as u8;
-    let z0_h = (z0_prod >> 8) as u8;
-
-    let z1_prod = (c_limbs[1] as u16) * (b_limbs[1] as u16);
-    let z1_l = z1_prod as u8;
-    let z1_h = (z1_prod >> 8) as u8;
-
-    let z2_prod = (c_limbs[2] as u16) * (b_limbs[2] as u16);
-    let z2_l = z2_prod as u8;
-    let z2_h = (z2_prod >> 8) as u8;
-
-    let z3_prod = (c_limbs[3] as u16) * (b_limbs[3] as u16);
-    let z3_l = z3_prod as u8;
-    let z3_h = (z3_prod >> 8) as u8;
-
-    // Combine low and high parts of each limb product to form 16-bit values
-    let z0 = (z0_l as u16).wrapping_add((z0_h as u16) << 8);
-    let z1 = (z1_l as u16).wrapping_add((z1_h as u16) << 8);
-    let z2 = (z2_l as u16).wrapping_add((z2_h as u16) << 8);
-    let z3 = (z3_l as u16).wrapping_add((z3_h as u16) << 8);
-
-    // Convert limbs to u32 for easier calculations with larger intermediate values
-    let c_limbs = c_limbs.map(|x| x as u32);
-    let b_limbs = b_limbs.map(|x| x as u32);
-
-    //--------------------------------------------------------------
-    // STEP 2: Karatsuba multiplication - compute intermediate products
-    //--------------------------------------------------------------
-    // p1 = (c0+c1)(b0+b1) - z0 - z1
-    let p1 = (c_limbs[0].wrapping_add(c_limbs[1]))
-        .wrapping_mul(b_limbs[0].wrapping_add(b_limbs[1]))
-        .wrapping_sub(z0 as u32)
-        .wrapping_sub(z1 as u32);
-    let (p1, c1) = (p1 as u16, (p1 >> 16));
-
-    // p2_prime = (c0+c2)(b0+b2) - z0 - z2
-    let p2_prime = (c_limbs[0].wrapping_add(c_limbs[2]))
-        .wrapping_mul(b_limbs[0].wrapping_add(b_limbs[2]))
-        .wrapping_sub(z0 as u32)
-        .wrapping_sub(z2 as u32);
-
-    // p3_prime = (c0+c3)(b0+b3) - z0 - z3
-    let p3_prime = (c_limbs[0].wrapping_add(c_limbs[3]))
-        .wrapping_mul(b_limbs[0].wrapping_add(b_limbs[3]))
-        .wrapping_sub(z0 as u32)
-        .wrapping_sub(z3 as u32);
-    let (p3_prime, c3_prime) = (p3_prime as u16, p3_prime >> 16);
-
-    // p3_prime_prime = (c1+c2)(b1+b2) - z1 - z2
-    let p3_prime_prime = (c_limbs[1].wrapping_add(c_limbs[2]))
-        .wrapping_mul(b_limbs[1].wrapping_add(b_limbs[2]))
-        .wrapping_sub(z1 as u32)
-        .wrapping_sub(z2 as u32);
-    let (p3_prime_prime, c3_prime_prime) = (p3_prime_prime as u16, p3_prime_prime >> 16);
-
-    // Verify that our carries stay within expected bounds
-    // These assertions help catch potential overflow issues
-    assert!(c1 < 2, "Carry c1 exceeds expected bounds");
-    assert!(c3_prime < 2, "Carry c3_prime exceeds expected bounds");
-    assert!(
-        c3_prime_prime < 2,
-        "Carry c3_prime_prime exceeds expected bounds"
-    );
-
-    // Split intermediate products into high and low bytes for further calculations
-    let (p1_h, p1_l) = (p1 >> 8, p1 & 0xFF);
-
-    // Get low bytes from intermediate products
-    let p3_prime_l = p3_prime & 0xFF;
-    let p3_prime_h = (p3_prime >> 8) & 0xFF; // Extract high byte properly
-
-    let p3_prime_prime_l = p3_prime_prime & 0xFF;
-    let p3_prime_prime_h = (p3_prime_prime >> 8) & 0xFF; // Extract high byte properly
-
-    //--------------------------------------------------------------
-    // STEP 3: Form the lower 32 bits of the final result
-    //--------------------------------------------------------------
-    // First two bytes of the result (bytes 0-1)
-    // Calculate z0 + (p1_l << 8)
-    let temp_sum_0 = (z0 as u32) + ((p1_l << 8) as u32);
-    let a01 = temp_sum_0 as u16;
-    let carry_0 = (temp_sum_0 >> 16) as u16; // Carry value (0 or 1)
-
-    // Next two bytes of the result (bytes 2-3)
-    let a23 = (z1 as u32)
-        .wrapping_add(p1_h as u32)
-        .wrapping_add(p2_prime)
-        .wrapping_add(carry_0 as u32)
-        .wrapping_add(((p3_prime_l + p3_prime_prime_l + c1 as u16) as u32) << 8);
-    let (a23, carry_1) = (a23 as u16, (a23 >> 16));
-
-    // Verify our calculations match the built-in multiplication
-    assert!(carry_1 < 4, "Carry_1 exceeds expected bounds {}", carry_1);
-    assert_eq!(
-        a01.to_le_bytes(),
-        [a_l_bytes[0], a_l_bytes[1]],
-        "Low bytes (0-1) mismatch"
-    );
-    assert_eq!(
-        a23.to_le_bytes(),
-        [a_l_bytes[2], a_l_bytes[3]],
-        "Low bytes (2-3) mismatch"
-    );
-
-    //--------------------------------------------------------------
-    // STEP 4: Form the upper 32 bits of the final result
-    //--------------------------------------------------------------
-    // Calculate remaining Karatsuba products needed for high bytes
-    let p4_prime = b_limbs[1]
-        .wrapping_add(b_limbs[3])
-        .wrapping_mul(c_limbs[1].wrapping_add(c_limbs[3]))
-        .wrapping_sub(z1 as u32)
-        .wrapping_sub(z3 as u32);
-
-    let p5 = b_limbs[2]
-        .wrapping_add(b_limbs[3])
-        .wrapping_mul(c_limbs[2].wrapping_add(c_limbs[3]))
-        .wrapping_sub(z2 as u32)
-        .wrapping_sub(z3 as u32);
-
-    let (p5, c5) = (p5 as u16, p5 >> 16);
-    let (p5_h, p5_l) = (p5 >> 8, p5 & 0xFF);
-
-    assert!(c5 < 2, "Carry c5 exceeds expected bounds");
-
-    // Bytes 4-5 of the final result
-    let a45 = (z2 as u32)
-        .wrapping_add(p4_prime)
-        .wrapping_add(p3_prime_h as u32)
-        .wrapping_add(p3_prime_prime_h as u32)
-        .wrapping_add((p5_l as u32) << 8)
-        .wrapping_add(carry_1)
-        .wrapping_add((c3_prime) << 8)
-        .wrapping_add((c3_prime_prime) << 8);
-    let (a45, carry_2) = (a45 as u16, (a45 >> 16));
-
-    assert!(carry_2 < 4, "Carry_2 exceeds expected bounds {}", carry_2);
-
-    // Bytes 6-7 of the final result
-    let a67 = (z3 as u32)
-        .wrapping_add(p5_h as u32)
-        .wrapping_add((c5) << 8)
-        .wrapping_add(carry_2);
-    let (a67, carry_3) = (a67 as u16, (a67 >> 16));
-
-    assert!(carry_3 < 2, "Carry_3 exceeds expected bounds");
-
-    // Verify our high bytes match the built-in multiplication
-    assert_eq!(
-        a45.to_le_bytes(),
-        [a_h_bytes[0], a_h_bytes[1]],
-        "High bytes (4-5) mismatch"
-    );
-    assert_eq!(
-        a67.to_le_bytes(),
-        [a_h_bytes[2], a_h_bytes[3]],
-        "High bytes (6-7) mismatch"
-    );
-    let (carry_1_0, carry_1_1) = (carry_1 & 0x1, (carry_1 >> 1) & 0x1);
-    let (carry_2_0, carry_2_1) = (carry_2 & 0x1, (carry_2 >> 1) & 0x1);
-
-    // Return all intermediate and final results for verification and testing
-    MulResult {
-        p1: p1.to_le_bytes(),
-        c1: c1 == 1,
-        p3_prime: p3_prime.to_le_bytes(),
-        c3_prime: c3_prime == 1,
-        p3_prime_prime: p3_prime_prime.to_le_bytes(),
-        c3_prime_prime: c3_prime_prime == 1,
-        _p5: p5.to_le_bytes(),
-        _c5: c5 == 1,
-        _a_l: a_l_bytes,
-        _a_h: a_h_bytes,
-        carry_l: [carry_0 as u8, carry_1_0 as u8, carry_1_1 as u8],
-        _carry_h: [carry_2_0 as u8, carry_2_1 as u8, carry_3 as u8],
-    }
-}
+use super::{gadget::constraint_gadget_mul_product, nexani::mull_limb};
 
 pub struct MulChip;
 
@@ -245,7 +36,7 @@ impl MachineChip for MulChip {
         let value_c = vm_step.get_value_c().0;
 
         // MUL main constraint need these intermediate values
-        let mul_result = mul_limb(u32::from_le_bytes(value_b), u32::from_le_bytes(value_c));
+        let mul_result = mull_limb(u32::from_le_bytes(value_b), u32::from_le_bytes(value_c));
 
         // Fill in the intermediate values into traces
         // MUL carry_0 for lower half, in {0, 1}
@@ -295,43 +86,49 @@ impl MachineChip for MulChip {
         let z_2 = value_b[2].clone() * value_c[2].clone();
         let z_3 = value_b[3].clone() * value_c[3].clone();
 
-        // (is_mul + is_mulh + is_mulhu + is_mulhsu + is_div + is_divu + is_rem + is_remu) ⋅
+        // (is_mul) ⋅
         // [𝑃 ′3 + 𝑐′3 ⋅ 2^16 − (|𝑏|0 + |𝑏|3) ⋅ (|𝑐|0 + |𝑐|3) + 𝑧0 + 𝑧3]
-        eval.add_constraint(
-            is_mul.clone()
-                * (p3_prime[0].clone()
-                    + p3_prime[1].clone() * BaseField::from(1 << 8)
-                    + c3_prime.clone() * BaseField::from(1 << 16)
-                    - (value_b[0].clone() + value_b[3].clone())
-                        * (value_c[0].clone() + value_c[3].clone())
-                    + z_0.clone()
-                    + z_3.clone()),
+        constraint_gadget_mul_product(
+            eval,
+            is_mul.clone(),
+            p3_prime.clone(),
+            c3_prime.clone(),
+            value_b[0].clone(),
+            value_b[3].clone(),
+            value_c[0].clone(),
+            value_c[3].clone(),
+            z_0.clone(),
+            z_3.clone(),
         );
 
-        // (is_mul + is_mulh + is_mulhu + is_mulhsu + is_div + is_divu + is_rem + is_remu) ⋅
+        // (is_mul) ⋅
         // [𝑃 ″3 + 𝑐″3 ⋅ 2^16 − (|𝑏|1 + |𝑏|2) ⋅ (|𝑐|1 + |𝑐|2) + 𝑧1 + 𝑧2]
-        eval.add_constraint(
-            is_mul.clone()
-                * (p3_prime_prime[0].clone()
-                    + p3_prime_prime[1].clone() * BaseField::from(1 << 8)
-                    + c3_prime_prime.clone() * BaseField::from(1 << 16)
-                    - (value_b[1].clone() + value_b[2].clone())
-                        * (value_c[1].clone() + value_c[2].clone())
-                    + z_1.clone()
-                    + z_2.clone()),
+        constraint_gadget_mul_product(
+            eval,
+            is_mul.clone(),
+            p3_prime_prime.clone(),
+            c3_prime_prime.clone(),
+            value_b[1].clone(),
+            value_b[2].clone(),
+            value_c[1].clone(),
+            value_c[2].clone(),
+            z_1.clone(),
+            z_2.clone(),
         );
 
-        // (is_mul + is_div + is_divu + is_rem + is_remu) ⋅
+        // (is_mul) ⋅
         // [𝑃 1 + 𝑐1 ⋅ 2^16 − (|𝑏|0 + |𝑏|1) ⋅ (|𝑐|0 + |𝑐|1) + 𝑧0 + 𝑧1]
-        eval.add_constraint(
-            is_mul.clone()
-                * (p1[0].clone()
-                    + p1[1].clone() * BaseField::from(1 << 8)
-                    + c1.clone() * BaseField::from(1 << 16)
-                    - (value_b[0].clone() + value_b[1].clone())
-                        * (value_c[0].clone() + value_c[1].clone())
-                    + z_0.clone()
-                    + z_1.clone()),
+        constraint_gadget_mul_product(
+            eval,
+            is_mul.clone(),
+            p1.clone(),
+            c1.clone(),
+            value_b[0].clone(),
+            value_b[1].clone(),
+            value_c[0].clone(),
+            value_c[1].clone(),
+            z_0.clone(),
+            z_1.clone(),
         );
 
         let [mul_carry_0] = trace_eval!(trace_eval, MulCarry0);

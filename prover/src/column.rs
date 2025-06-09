@@ -347,7 +347,7 @@ pub enum Column {
 
     /// 1 indicates ValueC is zero, 0 indicates ValueC is non-zero
     #[size = 1]
-    IsCZero,
+    IsDivideByZero,
     /// 1 indicates ValueA is zero, 0 indicates ValueA is non-zero
     #[size = 1]
     IsAZero,
