@@ -25,6 +25,8 @@ mod test {
         "galeshapley",
         "lambda_calculus",
         "keccak",
+        "multiply",
+        "simple_hash",
     ];
 
     const HOME_PATH: &str = "../../";
@@ -341,6 +343,60 @@ mod test {
     fn test_prove_lambda_calculus() {
         let elfs = compile_multi(
             "examples/src/bin/lambda_calculus",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
+        let (view, execution_trace) =
+            k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(proof, &view).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_emulate_multiply() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "examples/src/bin/multiply",
+            IOArgs::<(), (), ()>::default_list(),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_prove_multiply() {
+        let elfs = compile_multi("examples/src/bin/multiply", &["-C opt-level=3"], &HOME_PATH);
+        let (view, execution_trace) =
+            k_trace(elfs[0].clone(), &[], &[], &[], K).expect("error generating trace");
+        let proof = prove(&execution_trace, &view).unwrap();
+        verify(proof, &view).unwrap();
+    }
+
+    #[test]
+    #[serial]
+    fn test_emulate_simple_hash() {
+        test_example_multi(
+            vec![
+                EmulatorType::Harvard,
+                EmulatorType::default_linear(),
+                EmulatorType::TwoPass,
+            ],
+            vec!["-C opt-level=3"],
+            "examples/src/bin/simple_hash",
+            IOArgs::<(), (), ()>::default_list(),
+        );
+    }
+
+    #[test]
+    #[serial]
+    fn test_prove_simple_hash() {
+        let elfs = compile_multi(
+            "examples/src/bin/simple_hash",
             &["-C opt-level=3"],
             &HOME_PATH,
         );
