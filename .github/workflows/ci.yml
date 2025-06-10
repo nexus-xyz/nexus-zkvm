@@ -136,3 +136,109 @@ jobs:
 
       - name: Run Tests in wasm32-wasip1 for ${{ matrix.crate }}
         run: cargo test -p ${{ matrix.crate }} --target wasm32-wasip1 --profile ci-test
+
+  tests-sdk:
+    runs-on: ubuntu-latest-m
+    strategy:
+      matrix:
+        crate: [nexus-sdk]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: "true"
+          cache-on-failure: "true"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-04-06
+          targets: riscv32im-unknown-none-elf
+
+      - uses: taiki-e/install-action@nextest
+
+      - name: Make Warnings Errors
+        run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
+
+      - name: Build cargo-nexus
+        run: cargo build -r -p cargo-nexus
+
+      - name: Run cargo-nexus
+        run: target/release/cargo-nexus nexus host /tmp/nexus-host
+
+      - name: Change host SDK to current PR
+        run: |
+          sdk_path=$(pwd)/sdk
+          pushd /tmp/nexus-host
+            cargo add nexus-sdk --path $sdk_path
+          popd
+
+      - name: Change guest SDK to current PR
+        run: |
+          runtime_path=$(pwd)/runtime
+          pushd /tmp/nexus-host/src/guest
+            cargo add nexus-rt --path $runtime_path
+          popd
+
+      - name: Pre-build host application
+        run: |
+          cp sdk/examples/stwo_instrument.rs /tmp/nexus-host/src/main.rs
+          pushd /tmp/nexus-host
+            cargo build -r
+          popd
+
+      - name: Upload cargo-nexus binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-nexus
+          path: target/release/cargo-nexus
+          retention-days: 90
+
+      - name: Upload pre-built host project
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-host-project
+          path: /tmp/nexus-host
+          retention-days: 90
+
+  run-sdk-examples:
+    runs-on: ubuntu-latest-m
+    needs: tests-sdk
+    strategy:
+      matrix:
+        example: [
+          fact, fib, galeshapley, keccak, lambda_calculus, multiply, palindromes, simple_hash,
+        ]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2025-04-06
+          targets: riscv32im-unknown-none-elf
+
+      - name: Download pre-built host project
+        uses: actions/download-artifact@v4
+        with:
+          name: nexus-host-project
+          path: /tmp/nexus-host
+
+      - name: Make host binary executable
+        run: chmod +x /tmp/nexus-host/target/release/nexus-host
+
+      - name: Make Warnings Errors
+        run: echo "RUSTFLAGS=-D warnings" >> $GITHUB_ENV
+
+      - name: Run example ${{ matrix.example }}
+        continue-on-error: true
+        run: |
+          cp examples/src/bin/${{ matrix.example }}.rs /tmp/nexus-host/src/guest/src/main.rs
+          pushd /tmp/nexus-host/src/guest
+            cargo build -r --bin guest
+          popd
+          pushd /tmp/nexus-host
+            ./target/release/nexus-host
+          popd
