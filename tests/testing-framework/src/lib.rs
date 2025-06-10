@@ -110,7 +110,7 @@ mod test {
         test_example_multi(
             vec![EmulatorType::TwoPass],
             vec!["-C opt-level=3"],
-            "examples/src/bin/input_output",
+            "examples/src/bin/io/input_output",
             vec![IOArgs::<u32, u32, u32>::new(
                 Some(3u32),
                 Some(4u32),
@@ -123,7 +123,7 @@ mod test {
     #[serial]
     fn test_prove_io() {
         let elfs = compile_multi(
-            &format!("examples/src/bin/input_output"),
+            &format!("examples/src/bin/io/input_output"),
             &["-C opt-level=3"],
             &HOME_PATH,
         );
@@ -379,7 +379,7 @@ mod test {
     #[serial]
     fn test_prove_keccak_precompile() {
         let elfs = compile_multi(
-            "examples/src/bin/keccak_precompile",
+            "examples/src/bin/precompiles/keccak_precompile",
             &["-C opt-level=3"],
             &HOME_PATH,
         );
@@ -413,7 +413,7 @@ mod test {
                 EmulatorType::TwoPass,
             ],
             vec!["-C opt-level=3"],
-            "examples/src/bin/long_io",
+            "examples/src/bin/io/long_io",
             vec![IOArgs::<
                 (bool, u8, u16, u32, u64),
                 (bool, u8, u16, u32, u64),
@@ -429,7 +429,11 @@ mod test {
     #[test]
     #[serial]
     fn test_prove_long_io() {
-        let elfs = compile_multi("examples/src/bin/long_io", &["-C opt-level=3"], &HOME_PATH);
+        let elfs = compile_multi(
+            "examples/src/bin/io/long_io",
+            &["-C opt-level=3"],
+            &HOME_PATH,
+        );
 
         let mut public_input_bytes = to_allocvec_cobs(&mut (true, 1u8, 2u16, 3u32, 4u64)).unwrap();
         let mut private_input_bytes = to_allocvec_cobs(&mut (true, 1u8, 2u16, 3u32, 4u64)).unwrap();
