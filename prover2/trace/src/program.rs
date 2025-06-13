@@ -6,6 +6,8 @@ use nexus_vm::{
     SyscallCode, WORD_SIZE,
 };
 
+use super::utils;
+
 /// Program execution step.
 #[derive(Clone, Copy, Debug)]
 pub struct ProgramStep<'a> {
@@ -98,6 +100,31 @@ impl ProgramStep<'_> {
             }
         } else {
             self.step.instruction.op_a
+        }
+    }
+
+    /// Returns op-c, which may be either a register index (reg2-addr) or an immediate value.
+    pub fn get_op_c(&self) -> u32 {
+        let op_c_raw = self.step.instruction.op_c;
+        match self.step.instruction.ins_type {
+            InstructionType::RType => op_c_raw,
+            InstructionType::BType | InstructionType::JType => {
+                let (_, op_c_bits) = self.get_value_c();
+                // immediate sign is part of instruction word and is used for decoding constraints.
+                // op_c_sign_extended
+                utils::sign_extend(op_c_raw, op_c_bits)
+            }
+            InstructionType::IType
+            | InstructionType::SType
+            | InstructionType::ITypeShamt
+            | InstructionType::UType => {
+                let (_, op_c_bits) = self.get_value_c();
+                // op_c_zero_extended
+                op_c_raw & ((1u32 << op_c_bits) - 1)
+            }
+            InstructionType::Unimpl => {
+                panic!("Unimpl instruction doesn't have op_c: {:?}", self.step);
+            }
         }
     }
 

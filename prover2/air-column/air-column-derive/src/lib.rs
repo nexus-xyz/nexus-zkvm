@@ -10,7 +10,7 @@ pub fn derive_air_column(input: TokenStream) -> TokenStream {
         .unwrap_or_else(|err| err.into_compile_error().into())
 }
 
-#[proc_macro_derive(PreprocessedAirColumn, attributes(size))]
+#[proc_macro_derive(PreprocessedAirColumn, attributes(size, preprocessed_prefix))]
 pub fn derive_preprocessed_air_column(input: TokenStream) -> TokenStream {
     derive_impl::generate_impl(input.into(), true)
         .map(Into::into)

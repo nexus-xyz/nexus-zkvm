@@ -1,6 +1,7 @@
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 
 #[derive(Debug, Copy, Clone, PreprocessedAirColumn)]
+#[preprocessed_prefix = "cpu_boundary"]
 pub enum PreprocessedColumn {
     /// Multiplicity for boundary lookup. 1 on the first row, -1 on the second, and 0 everywhere else.
     #[size = 1]

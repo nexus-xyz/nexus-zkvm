@@ -1,7 +1,7 @@
 use std::num::NonZeroU8;
 
 use convert_case::{Case, Casing};
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 
 use super::utils::air_column_crate_include;
@@ -29,7 +29,7 @@ pub fn generate_impl(input: TokenStream, preprocessed: bool) -> syn::Result<Toke
 
     let crate_ident: TokenStream = air_column_crate_include();
     let preprocessed_impl = if preprocessed {
-        preprocessed_impl(&variants, &crate_ident, enum_ident)
+        preprocessed_impl(&input, &variants, &crate_ident, enum_ident)?
     } else {
         TokenStream::new()
     };
@@ -107,10 +107,45 @@ fn const_offset_impl(parsed_variants: &[ParsedVariant]) -> (usize, TokenStream) 
 }
 
 fn preprocessed_impl(
+    input: &syn::ItemEnum,
     parsed_variants: &[ParsedVariant],
     crate_ident: &TokenStream,
     enum_ident: &syn::Ident,
-) -> TokenStream {
+) -> Result<TokenStream, syn::Error> {
+    // parse prefix
+    let mut prefix = None;
+    for attr in &input.attrs {
+        if attr
+            .path
+            .get_ident()
+            .is_none_or(|ident| *ident != "preprocessed_prefix")
+        {
+            continue;
+        }
+        let syn::Meta::NameValue(meta) = attr.parse_meta()? else {
+            return Err(syn::Error::new_spanned(attr, "string literal is expected"));
+        };
+        if let syn::Lit::Str(s) = meta.lit {
+            if prefix.is_none() {
+                prefix = Some(s.value())
+            } else {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "repeating `preprocessed_prefix` attribute",
+                ));
+            }
+        } else {
+            return Err(syn::Error::new_spanned(attr, "string literal is expected"));
+        }
+    }
+
+    let prefix = prefix.ok_or_else(|| {
+        syn::Error::new(
+            Span::call_site(),
+            "preprocessed prefix attribute must be present",
+        )
+    })?;
+
     let ident_iter = parsed_variants.iter().map(|v| &v.ident);
     let size_iter = parsed_variants.iter().map(|v| v.size);
     let ids: Vec<String> = (ident_iter.clone())
@@ -118,15 +153,15 @@ fn preprocessed_impl(
         .flat_map(|(ident, size)| {
             (0..size).map(|i| {
                 let ident = ident.to_string().to_case(Case::Snake);
-                format!("{ident}_{i}")
+                format!("{prefix}_{ident}_{i}")
             })
         })
         .collect();
-    quote! {
+    Ok(quote! {
         impl #crate_ident::PreprocessedAirColumn for #enum_ident {
             const PREPROCESSED_IDS: &'static [&'static str] = &[#(#ids,)*];
         }
-    }
+    })
 }
 
 fn mask_next_row_impl(parsed_variants: &[ParsedVariant]) -> TokenStream {
@@ -176,6 +211,12 @@ fn collect_variants(input: &syn::ItemEnum) -> syn::Result<Vec<ParsedVariant>> {
                     continue;
                 }
                 Some(ident) if *ident == "size" => {}
+                Some(ident) if *ident == "preprocessed_prefix" => {
+                    return Err(syn::Error::new_spanned(
+                        attr,
+                        "preprocessed prefix is only allowed on the enum definition level",
+                    ));
+                }
                 _ => continue,
             }
 
