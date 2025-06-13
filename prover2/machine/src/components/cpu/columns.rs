@@ -12,6 +12,7 @@ use nexus_vm_prover_trace::{
 };
 
 #[derive(Debug, Copy, Clone, PreprocessedAirColumn)]
+#[preprocessed_prefix = "cpu"]
 pub enum PreprocessedColumn {
     /// The current execution time
     #[size = 2]
@@ -38,6 +39,16 @@ pub enum Column {
     /// The value of operand op-c
     #[size = 4]
     CVal,
+    /// The address of the first operand of the instruction
+    #[size = 1]
+    OpA,
+    /// The address of the second operand of the instruction
+    #[size = 1]
+    OpB,
+    /// The address of the third operand of the instruction
+    #[size = 1]
+    OpC,
+
     // Instruction flags
     /// Selector flag which indicates an ADD operation
     #[size = 1]

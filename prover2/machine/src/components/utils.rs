@@ -22,6 +22,41 @@ pub fn add_with_carries(a: Word, b: Word) -> (Word, BoolWord) {
     (sum_bytes, carry_bits)
 }
 
+/// Computes the byte-wise subtraction `x - y` with borrow bits across a 4-byte word.
+pub fn subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
+    let mut diff_bytes = [0u8; WORD_SIZE];
+    let mut borrow_bits: BoolWord = [false; WORD_SIZE];
+
+    let (diff, b0) = x[0].overflowing_sub(y[0]);
+    borrow_bits[0] = b0;
+    diff_bytes[0] = diff;
+
+    // Process the remaining difference bytes
+    for i in 1..WORD_SIZE {
+        // Subtract the bytes and the previous borrow
+        let (diff, b1) = x[i].overflowing_sub(borrow_bits[i - 1] as u8);
+        let (diff, b2) = diff.overflowing_sub(y[i]);
+
+        // There can't be 2 borrow in: a - b - borrow, either b1 or b2 is true.
+        borrow_bits[i] = b1 || b2;
+        diff_bytes[i] = diff;
+    }
+    (diff_bytes, borrow_bits)
+}
+
+/// Performs x - 1 - y, returning the result and the borrow bits
+///
+/// Note that for - 1 - y, for every limb, just one borrow bit suffices
+pub fn decr_subtract_with_borrow(x: Word, y: Word) -> (Word, BoolWord) {
+    let (diff, borrow1) = subtract_with_borrow(x, 1u32.to_le_bytes());
+    let (diff, borrow2) = subtract_with_borrow(diff, y);
+    for i in 0..WORD_SIZE {
+        assert!(!borrow1[i] || !borrow2[i]);
+    }
+    let borrow = std::array::from_fn(|i| borrow1[i] | borrow2[i]);
+    (diff, borrow)
+}
+
 /// Splits a 32-bit unsigned integer into two 16-bit limbs in little-endian order.
 pub fn u32_to_16bit_parts_le(a: u32) -> [u16; 2] {
     let mask = (1 << 16) - 1;

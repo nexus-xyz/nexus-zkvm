@@ -55,7 +55,8 @@ pub trait AirColumn: 'static + Copy + fmt::Debug {
     fn mask_next_row(self) -> bool;
 }
 
-/// An extension of [`AirColumn`] that implement preprocessed id.
+/// An extension of [`AirColumn`] that implement preprocessed id. Preprocessed columns are indexed across all components,
+/// to avoid collisions and unexpected errors, make sure to choose unique prefix or column names.
 ///
 /// Note that unlike the super trait preprocessed columns do not support next row mask.
 pub trait PreprocessedAirColumn: AirColumn {
@@ -64,4 +65,27 @@ pub trait PreprocessedAirColumn: AirColumn {
     /// A slice `&<Self as PreprocessedAirColumn>::PREPROCESSED_IDS[self.offset()..self.offset() + self.size()]`
     /// corresponds to preprocessed ids of a variant, which can be used for shared column access.
     const PREPROCESSED_IDS: &'static [&'static str];
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_preprocessed_prefix_derive() {
+        #[derive(Debug, Copy, Clone, PreprocessedAirColumn)]
+        #[preprocessed_prefix = "abc"]
+        enum Test {
+            #[size = 4]
+            A,
+            #[size = 5]
+            B,
+            #[size = 6]
+            C,
+        }
+
+        assert!(Test::PREPROCESSED_IDS
+            .iter()
+            .all(|id| id.starts_with("abc")));
+    }
 }

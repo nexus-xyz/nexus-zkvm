@@ -26,8 +26,8 @@ use crate::{
     components::utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
     framework::BuiltInComponent,
     lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToInstLookupElements, LogupTraceBuilder,
-        ProgramExecutionLookupElements,
+        AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
+        InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
     },
     side_note::SideNote,
 };
@@ -40,6 +40,7 @@ pub const ADDI: Add = Add::new(BuiltinOpcode::ADDI);
 
 pub struct Add {
     opcode: BuiltinOpcode,
+    reg2_accessed: bool,
 }
 
 struct ExecutionResult {
@@ -48,9 +49,16 @@ struct ExecutionResult {
 }
 
 impl Add {
+    const REG1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
+    const REG3_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
+    const REG3_WRITE: BaseField = BaseField::from_u32_unchecked(1);
+
     const fn new(opcode: BuiltinOpcode) -> Self {
         assert!(matches!(opcode, BuiltinOpcode::ADD | BuiltinOpcode::ADDI));
-        Self { opcode }
+        Self {
+            opcode,
+            reg2_accessed: matches!(opcode, BuiltinOpcode::ADD),
+        }
     }
 
     const fn opcode(&self) -> BaseField {
@@ -126,7 +134,11 @@ impl BuiltInComponent for Add {
 
     type MainColumn = Column;
 
-    type LookupElements = (CpuToInstLookupElements, ProgramExecutionLookupElements);
+    type LookupElements = (
+        CpuToInstLookupElements,
+        ProgramExecutionLookupElements,
+        InstToRegisterMemoryLookupElements,
+    );
 
     fn generate_preprocessed_trace(&self, _log_size: u32) -> FinalizedTrace {
         FinalizedTrace::empty()
@@ -157,7 +169,8 @@ impl BuiltInComponent for Add {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_cpu_to_inst, rel_cont_prog_exec) = Self::LookupElements::get(lookup_elements);
+        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
@@ -188,9 +201,33 @@ impl BuiltInComponent for Add {
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         logup_trace_builder.add_to_relation_with(
             &rel_cont_prog_exec,
-            [is_local_pad],
+            [is_local_pad.clone()],
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
             &[clk_next, pc_next].concat(),
+        );
+        // provide(
+        //     rel-inst-to-reg-memory,
+        //     1 − is-local-pad,
+        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        // )
+        let reg2_accessed = BaseField::from(self.reg2_accessed as u32);
+        logup_trace_builder.add_to_relation_with(
+            &rel_inst_to_reg_memory,
+            [is_local_pad],
+            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
+            &[
+                clk.as_slice(),
+                &a_val,
+                &b_val,
+                &c_val,
+                &[
+                    Add::REG1_ACCESSED.into(),
+                    reg2_accessed.into(),
+                    Add::REG3_ACCESSED.into(),
+                    Add::REG3_WRITE.into(),
+                ],
+            ]
+            .concat(),
         );
 
         logup_trace_builder.finalize()
@@ -271,7 +308,7 @@ impl BuiltInComponent for Add {
         );
 
         // Logup Interactions
-        let (rel_cpu_to_inst, rel_cont_prog_exec) = lookup_elements;
+        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
 
         // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
         eval.add_to_relation(RelationEntry::new(
@@ -298,6 +335,30 @@ impl BuiltInComponent for Add {
                 pc_next[1].clone(),
             ],
         ));
+        // provide(
+        //     rel-inst-to-reg-memory,
+        //     1 − is-local-pad,
+        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        // )
+        let reg2_accessed = E::F::from(BaseField::from(self.reg2_accessed as u32));
+        eval.add_to_relation(RelationEntry::new(
+            rel_inst_to_reg_memory,
+            (E::F::one() - is_local_pad.clone()).into(),
+            &[
+                clk.as_slice(),
+                &a_val,
+                &b_val,
+                &c_val,
+                &[
+                    Add::REG1_ACCESSED.into(),
+                    reg2_accessed,
+                    Add::REG3_ACCESSED.into(),
+                    Add::REG3_WRITE.into(),
+                ],
+            ]
+            .concat(),
+        ));
+
         eval.finalize_logup_in_pairs();
     }
 }
@@ -307,7 +368,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        components::{Cpu, CpuBoundary},
+        components::{Cpu, CpuBoundary, RegisterMemory, RegisterMemoryBoundary},
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
     use nexus_vm::{
@@ -335,7 +396,10 @@ mod tests {
         claimed_sum += assert_component(ADD, assert_ctx);
         claimed_sum += assert_component(ADDI, assert_ctx);
 
-        claimed_sum += components_claimed_sum(&[&Cpu, &CpuBoundary], assert_ctx);
+        claimed_sum += components_claimed_sum(
+            &[&Cpu, &CpuBoundary, &RegisterMemory, &RegisterMemoryBoundary],
+            assert_ctx,
+        );
 
         assert!(claimed_sum.is_zero());
     }

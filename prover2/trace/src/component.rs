@@ -21,7 +21,7 @@ pub enum FinalizedColumn<'a> {
     Constant(BaseField),
     /// Reference to a finalized column.
     Column(&'a BaseColumn),
-    /// An allocated column, not part of the component's trace.
+    /// Separately allocated column, not part of the component's trace.
     Virtual(Rc<BaseColumn>),
 }
 
