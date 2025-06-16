@@ -7,6 +7,8 @@
         <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/></a>
     <a href="https://nexus.xyz">
         <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/></a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/releases">
+        <img src="https://img.shields.io/static/v1?label=Version&message=v0.3.4&color=blue"/></a>
 </div>
 
 <p align="center">
@@ -21,9 +23,16 @@ To get started with the Nexus zkVM, check out the [Getting Started](https://docs
 
 *The Nexus zkVM is in an experimental stage and is not currently recommended for production use.*
 
+## System Requirements
+
+- **CPU**: Multi-core processor recommended for optimal proving performance
+- **RAM**: 8GB minimum, 16GB+ recommended for larger proofs
+- **OS**: Compatible with Linux, macOS, and Windows
+- **Rust**: Latest stable version
+
 ### The Nexus Ethos: Assurance through Open Science
 
-We believe a zkVM must provide an efficient proving mechanism without compromising on security and correctness. A zkVM cannot provide provide transparency without being transparent itself. Every component of a zkVM should be powered by fully and publicly specified cryptographic components, with careful analysis of security and performance.
+We believe a zkVM must provide an efficient proving mechanism without compromising on security and correctness. A zkVM cannot provide transparency without being transparent itself. Every component of a zkVM should be powered by fully and publicly specified cryptographic components, with careful analysis of security and performance.
 
 The Nexus zkVM features no code obfuscation, no proprietary components, and no closed-source code.
 
