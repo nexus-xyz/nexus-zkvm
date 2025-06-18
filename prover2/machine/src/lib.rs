@@ -11,6 +11,8 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::CpuBoundary,
     &components::RegisterMemory,
     &components::RegisterMemoryBoundary,
+    &components::ReadWriteMemory,
+    &components::ReadWriteMemoryBoundary,
     &components::ADD,
     &components::ADDI,
 ];

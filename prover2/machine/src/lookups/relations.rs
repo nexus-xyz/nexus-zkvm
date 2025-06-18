@@ -42,3 +42,19 @@ stwo_prover::relation!(
     CpuToRegisterMemoryLookupElements,
     REL_CPU_TO_REG_MEMORY_LOOKUP_SIZE
 );
+
+// (
+//     clk,
+//     ram-base-addr,
+//     ram1-val-cur, ram2-val-cur, ram3-val-cur, ram4-val-cur,
+//     ram1-accessed, ram2-accessed, ram3-accessed, ram4-accessed,
+//     ram-write
+// )
+const REL_INST_TO_RAM_LOOKUP_SIZE: usize = WORD_SIZE_HALVED + WORD_SIZE * 3;
+stwo_prover::relation!(InstToRamLookupElements, REL_INST_TO_RAM_LOOKUP_SIZE);
+
+// (ram-base-addr, ram-val-prev, ram-ts)
+//
+// Timestamp is a half word.
+const REL_RAM_READ_WRITE_LOOKUP_SIZE: usize = WORD_SIZE * 2 + WORD_SIZE_HALVED;
+stwo_prover::relation!(RamReadWriteLookupElements, REL_RAM_READ_WRITE_LOOKUP_SIZE);

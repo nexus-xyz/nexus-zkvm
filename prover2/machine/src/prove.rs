@@ -30,7 +30,7 @@ pub struct Proof {
 }
 
 pub fn prove(trace: &impl Trace, view: &View) -> Result<Proof, ProvingError> {
-    let mut prover_side_note = SideNote::new(trace);
+    let mut prover_side_note = SideNote::new(trace, view);
     let components = BASE_COMPONENTS;
 
     let traces: Vec<ComponentTrace> = components

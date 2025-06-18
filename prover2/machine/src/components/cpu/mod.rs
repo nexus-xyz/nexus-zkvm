@@ -26,8 +26,8 @@ use crate::{
 mod columns;
 mod trace;
 
+pub use self::{columns::HalfWord, trace::preprocessed_clk_trace};
 use columns::{Column, PreprocessedColumn, IS_ALU, PC_HIGH, PC_LOW};
-pub use trace::preprocessed_clk_trace;
 
 pub struct Cpu;
 
@@ -42,12 +42,9 @@ impl BuiltInComponent for Cpu {
         CpuToRegisterMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, log_size: u32) -> FinalizedTrace {
-        let trace = preprocessed_clk_trace(log_size);
-        FinalizedTrace {
-            cols: trace.to_vec(),
-            log_size,
-        }
+    fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+        let cols = preprocessed_clk_trace(log_size);
+        FinalizedTrace { cols, log_size }
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
@@ -234,10 +231,10 @@ mod tests {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4),
         ])];
-        let (_view, program_trace) =
+        let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        let assert_ctx = &mut AssertContext::new(&program_trace);
+        let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = assert_component(Cpu, assert_ctx);
 
         claimed_sum += components_claimed_sum(

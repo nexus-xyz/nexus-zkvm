@@ -3,7 +3,6 @@ use stwo_prover::core::{
     fields::m31::BaseField,
 };
 
-use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::riscv::BuiltinOpcode;
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
@@ -14,7 +13,7 @@ use super::columns::Column;
 use crate::{components::utils::u32_to_16bit_parts_le, side_note::SideNote};
 
 /// Returns low and high parts of the cpu clock.
-pub fn preprocessed_clk_trace(log_size: u32) -> [BaseColumn; WORD_SIZE_HALVED] {
+pub fn preprocessed_clk_trace(log_size: u32) -> Vec<BaseColumn> {
     let (clk_low, clk_high): (Vec<BaseField>, Vec<BaseField>) = (1..=(1 << log_size))
         .map(|clk| {
             let [clk_low, clk_high] = u32_to_16bit_parts_le(clk);
@@ -26,7 +25,7 @@ pub fn preprocessed_clk_trace(log_size: u32) -> [BaseColumn; WORD_SIZE_HALVED] {
         .unzip();
     let clk_low = BaseColumn::from_iter(clk_low);
     let clk_high = BaseColumn::from_iter(clk_high);
-    [clk_low, clk_high]
+    vec![clk_low, clk_high]
 }
 
 pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {

@@ -48,8 +48,8 @@ impl BuiltInComponent for RegisterMemory {
         CpuToRegisterMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, log_size: u32) -> FinalizedTrace {
-        let mut trace = preprocessed_clk_trace(log_size).to_vec();
+    fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+        let mut trace = preprocessed_clk_trace(log_size);
 
         trace.extend(preprocessed_timestamp_trace(log_size, 2));
         trace.extend(preprocessed_timestamp_trace(log_size, 1));
@@ -423,10 +423,10 @@ mod tests {
             // ADDI doesn't use reg2 and the timestamp is not zero
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
         ])];
-        let (_view, program_trace) =
+        let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        let assert_ctx = &mut AssertContext::new(&program_trace);
+        let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = assert_component(RegisterMemory, assert_ctx);
 
         claimed_sum += components_claimed_sum(
