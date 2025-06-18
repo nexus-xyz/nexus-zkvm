@@ -140,7 +140,7 @@ impl BuiltInComponent for Add {
         InstToRegisterMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, _log_size: u32) -> FinalizedTrace {
+    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 
@@ -387,10 +387,10 @@ mod tests {
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4),
         ])];
-        let (_view, program_trace) =
+        let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        let assert_ctx = &mut AssertContext::new(&program_trace);
+        let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = SecureField::zero();
 
         claimed_sum += assert_component(ADD, assert_ctx);

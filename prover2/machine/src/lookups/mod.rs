@@ -9,9 +9,9 @@ mod relations;
 pub use self::{
     logup_trace_builder::LogupTraceBuilder,
     relations::{
-        CpuToInstLookupElements, CpuToRegisterMemoryLookupElements,
+        CpuToInstLookupElements, CpuToRegisterMemoryLookupElements, InstToRamLookupElements,
         InstToRegisterMemoryLookupElements, ProgramExecutionLookupElements,
-        RegisterMemoryLookupElements,
+        RamReadWriteLookupElements, RegisterMemoryLookupElements,
     },
 };
 
@@ -22,6 +22,8 @@ macros::register_relation! {
         RegisterMemoryLookupElements,
         InstToRegisterMemoryLookupElements,
         CpuToRegisterMemoryLookupElements,
+        InstToRamLookupElements,
+        RamReadWriteLookupElements
     };
     pub(crate) trait RegisteredLookupBound {}
 }

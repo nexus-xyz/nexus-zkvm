@@ -44,7 +44,7 @@ impl BuiltInComponent for CpuBoundary {
 
     type LookupElements = ProgramExecutionLookupElements;
 
-    fn generate_preprocessed_trace(&self, log_size: u32) -> FinalizedTrace {
+    fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
         assert_eq!(log_size, Self::LOG_SIZE);
 
         let mut trace = TraceBuilder::new(log_size);
@@ -150,9 +150,9 @@ mod tests {
             1,
             0,
         )])];
-        let (_view, program_trace) =
+        let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
-        assert_component(CpuBoundary, &mut AssertContext::new(&program_trace));
+        assert_component(CpuBoundary, &mut AssertContext::new(&program_trace, &view));
     }
 }

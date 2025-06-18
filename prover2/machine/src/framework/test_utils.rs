@@ -7,7 +7,7 @@ use stwo_prover::{
     },
 };
 
-use nexus_vm::trace::Trace;
+use nexus_vm::{emulator::View, trace::Trace};
 use nexus_vm_prover_trace::eval::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 
 use super::{eval::BuiltInComponentEval, BuiltInComponent, MachineComponent};
@@ -23,10 +23,10 @@ pub struct AssertContext<'a> {
 }
 
 impl<'a> AssertContext<'a> {
-    pub fn new(trace: &'a impl Trace) -> Self {
+    pub fn new(trace: &'a impl Trace, view: &'a View) -> Self {
         let mut lookup_elements = AllLookupElements::default();
 
-        let side_note = SideNote::new(trace);
+        let side_note = SideNote::new(trace, view);
 
         // draw non-zero lookup elements in advance for testing
         let channel = &mut Blake2sChannel::default();

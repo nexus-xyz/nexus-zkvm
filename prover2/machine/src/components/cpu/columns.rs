@@ -62,25 +62,25 @@ pub enum Column {
 }
 
 /// Lower 16 bits of pc
-pub const PC_LOW: HalfWord = HalfWord {
+pub const PC_LOW: HalfWord<Column> = HalfWord {
     col: Column::Pc,
     idx: 0,
 };
 
 /// Higher 16 bits of pc
-pub const PC_HIGH: HalfWord = HalfWord {
+pub const PC_HIGH: HalfWord<Column> = HalfWord {
     col: Column::Pc,
     idx: 1,
 };
 
 /// Two limbs combined into a single 16 bit column.
-pub struct HalfWord {
-    col: Column,
-    idx: usize,
+pub struct HalfWord<C> {
+    pub col: C,
+    pub idx: usize,
 }
 
-impl VirtualColumn for HalfWord {
-    type Column = Column;
+impl<C: AirColumn> VirtualColumn for HalfWord<C> {
+    type Column = C;
 
     fn eval<E: EvalAtRow, P: PreprocessedAirColumn>(
         &self,

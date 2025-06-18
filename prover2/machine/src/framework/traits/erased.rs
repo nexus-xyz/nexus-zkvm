@@ -50,6 +50,7 @@ pub trait MachineComponent {
     fn generate_preprocessed_trace(
         &self,
         log_size: u32,
+        side_note: &SideNote,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>;
 
     fn generate_component_trace(&self, side_note: &mut SideNote) -> ComponentTrace;
@@ -117,9 +118,10 @@ where
     fn generate_preprocessed_trace(
         &self,
         log_size: u32,
+        side_note: &SideNote,
     ) -> ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>> {
         let preprocessed_columns =
-            <C as BuiltInComponent>::generate_preprocessed_trace(self, log_size);
+            <C as BuiltInComponent>::generate_preprocessed_trace(self, log_size, side_note);
         let domain = CanonicCoset::new(log_size).circle_domain();
         preprocessed_columns
             .cols
@@ -133,7 +135,7 @@ where
 
         let log_size = original_trace.log_size;
         let preprocessed_trace =
-            <C as BuiltInComponent>::generate_preprocessed_trace(self, log_size);
+            <C as BuiltInComponent>::generate_preprocessed_trace(self, log_size, side_note);
 
         ComponentTrace {
             log_size,

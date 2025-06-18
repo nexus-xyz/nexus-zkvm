@@ -42,7 +42,7 @@ impl BuiltInComponent for RegisterMemoryBoundary {
 
     type LookupElements = RegisterMemoryLookupElements;
 
-    fn generate_preprocessed_trace(&self, _log_size: u32) -> FinalizedTrace {
+    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
         let reg_col = BaseColumn::from_iter((0..1 << Self::LOG_SIZE).map(BaseField::from));
         FinalizedTrace {
             cols: vec![reg_col],
@@ -159,11 +159,11 @@ mod tests {
             1,
             0,
         )])];
-        let (_view, program_trace) =
+        let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
         // compute final values
-        let assert_ctx = &mut AssertContext::new(&program_trace);
+        let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let _ = components_claimed_sum(&[&RegisterMemory], assert_ctx);
 
         assert_component(RegisterMemoryBoundary, assert_ctx);
