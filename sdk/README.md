@@ -41,7 +41,7 @@ This will create a new Rust project directory with the following structure:
 ```shell
 ./nexus-host
 ├── Cargo.lock
-├── Cargo.tom
+├── Cargo.toml
 ├── rust-toolchain.toml
 └── src
     ├── main.rs
