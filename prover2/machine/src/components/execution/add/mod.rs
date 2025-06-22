@@ -368,7 +368,10 @@ mod tests {
     use super::*;
 
     use crate::{
-        components::{Cpu, CpuBoundary, RegisterMemory, RegisterMemoryBoundary},
+        components::{
+            Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
+            RegisterMemoryBoundary,
+        },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
     use nexus_vm::{
@@ -397,7 +400,14 @@ mod tests {
         claimed_sum += assert_component(ADDI, assert_ctx);
 
         claimed_sum += components_claimed_sum(
-            &[&Cpu, &CpuBoundary, &RegisterMemory, &RegisterMemoryBoundary],
+            &[
+                &Cpu,
+                &CpuBoundary,
+                &RegisterMemory,
+                &RegisterMemoryBoundary,
+                &ProgramMemory,
+                &ProgramMemoryBoundary,
+            ],
             assert_ctx,
         );
 

@@ -1,5 +1,7 @@
 mod cpu;
 mod cpu_boundary;
+mod program_memory;
+mod program_memory_boundary;
 mod read_write_memory;
 mod read_write_memory_boundary;
 mod register_memory;
@@ -17,5 +19,8 @@ pub use read_write_memory_boundary::ReadWriteMemoryBoundary;
 
 pub use register_memory::{RegisterMemory, RegisterMemorySideNote};
 pub use register_memory_boundary::RegisterMemoryBoundary;
+
+pub use program_memory::{ProgramMemory, ProgramMemorySideNote};
+pub use program_memory_boundary::ProgramMemoryBoundary;
 
 pub use execution::{ADD, ADDI};

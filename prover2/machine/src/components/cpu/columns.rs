@@ -48,6 +48,9 @@ pub enum Column {
     /// The address of the third operand of the instruction
     #[size = 1]
     OpC,
+    /// A 32-bit word encoding the instruction stored at the pc address
+    #[size = 4]
+    InstrVal,
 
     // Instruction flags
     /// Selector flag which indicates an ADD operation

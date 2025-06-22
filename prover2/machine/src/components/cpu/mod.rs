@@ -18,7 +18,8 @@ use crate::{
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
-        CpuToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        CpuToProgMemoryLookupElements, CpuToRegisterMemoryLookupElements, LogupTraceBuilder,
+        ProgramExecutionLookupElements,
     },
     side_note::SideNote,
 };
@@ -40,6 +41,7 @@ impl BuiltInComponent for Cpu {
         CpuToInstLookupElements,
         ProgramExecutionLookupElements,
         CpuToRegisterMemoryLookupElements,
+        CpuToProgMemoryLookupElements,
     );
 
     fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
@@ -60,7 +62,7 @@ impl BuiltInComponent for Cpu {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_cpu_to_reg_memory) =
+        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_cpu_to_reg_memory, rel_cpu_to_prog_memory) =
             Self::LookupElements::get(lookup_elements);
         let log_size = component_trace.log_size();
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
@@ -82,6 +84,9 @@ impl BuiltInComponent for Cpu {
         let pc_low = PC_LOW.combine_from_finalized_trace(&component_trace);
         let pc_high = PC_HIGH.combine_from_finalized_trace(&component_trace);
 
+        let pc = original_base_column!(component_trace, Column::Pc);
+        let instr_val = original_base_column!(component_trace, Column::InstrVal);
+
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
         logup_trace_builder.add_to_relation_with(
             &rel_cont_prog_exec,
@@ -93,6 +98,14 @@ impl BuiltInComponent for Cpu {
                 pc_low.clone(),
                 pc_high.clone(),
             ],
+        );
+
+        // consume(rel-cpu-to-prog-memory, 1−is-local-pad, (pc, instr-val))
+        logup_trace_builder.add_to_relation_with(
+            &rel_cpu_to_prog_memory,
+            [is_pad.clone()],
+            |[is_pad]| (is_pad - PackedBaseField::one()).into(),
+            &[pc.as_slice(), &instr_val].concat(),
         );
 
         let is_alu = IS_ALU.combine_from_finalized_trace(&component_trace);
@@ -137,6 +150,7 @@ impl BuiltInComponent for Cpu {
 
         let pc = trace_eval!(trace_eval, Column::Pc);
         let [pc_aux] = trace_eval!(trace_eval, Column::PcAux);
+        let instr_val = trace_eval!(trace_eval, Column::InstrVal);
 
         eval.add_constraint(pc_aux * BaseField::from(4) - pc[0].clone());
 
@@ -150,7 +164,8 @@ impl BuiltInComponent for Cpu {
         let [op_c] = trace_eval!(trace_eval, Column::OpC);
 
         // Logup Interactions
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_cpu_to_reg_memory) = lookup_elements;
+        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_cpu_to_reg_memory, rel_cpu_to_prog_memory) =
+            lookup_elements;
 
         // Lookup 16 bits
         let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
@@ -169,6 +184,13 @@ impl BuiltInComponent for Cpu {
                 pc_low.clone(),
                 pc_high.clone(),
             ],
+        ));
+
+        // consume(rel-cpu-to-prog-memory, 1−is-local-pad, (pc, instr-val))
+        eval.add_to_relation(RelationEntry::new(
+            rel_cpu_to_prog_memory,
+            (is_pad.clone() - E::F::one()).into(),
+            &[pc.as_slice(), &instr_val].concat(),
         ));
 
         // provide(
@@ -217,7 +239,10 @@ mod tests {
     use num_traits::Zero;
 
     use crate::{
-        components::{CpuBoundary, RegisterMemory, RegisterMemoryBoundary, ADD, ADDI},
+        components::{
+            CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
+            RegisterMemoryBoundary, ADD, ADDI,
+        },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
 
@@ -242,6 +267,8 @@ mod tests {
                 &CpuBoundary,
                 &RegisterMemory,
                 &RegisterMemoryBoundary,
+                &ProgramMemory,
+                &ProgramMemoryBoundary,
                 &ADD,
                 &ADDI,
             ],
