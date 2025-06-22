@@ -1,32 +1,39 @@
 use nexus_vm::{
-    emulator::{InternalView, MemoryInitializationEntry, PublicOutputEntry, View},
+    emulator::{
+        InternalView, MemoryInitializationEntry, ProgramInfo, ProgramMemoryEntry,
+        PublicOutputEntry, View,
+    },
     trace::{Block, Trace},
 };
 use nexus_vm_prover_trace::program::ProgramStep;
 
-use super::components::{ReadWriteMemorySideNote, RegisterMemorySideNote};
+use super::components::{ProgramMemorySideNote, ReadWriteMemorySideNote, RegisterMemorySideNote};
 
 /// Prover's side note used for tracking additional data for trace generation.
 pub struct SideNote<'a> {
     execution_trace: &'a [Block],
+    program_info: &'a ProgramInfo,
     init_memory: &'a [MemoryInitializationEntry],
     exit_code: &'a [PublicOutputEntry],
     output_memory: &'a [PublicOutputEntry],
     num_steps: usize,
     register_memory_side_note: RegisterMemorySideNote,
     read_write_memory_side_note: ReadWriteMemorySideNote,
+    program_memory_side_note: ProgramMemorySideNote,
 }
 
 impl<'a> SideNote<'a> {
     pub fn new<'b: 'a>(trace: &'b impl Trace, view: &'a View) -> Self {
         SideNote {
             execution_trace: trace.as_blocks_slice(),
+            program_info: view.get_program_memory(),
             init_memory: view.get_initial_memory(),
             exit_code: view.get_exit_code(),
             output_memory: view.get_public_output(),
             num_steps: trace.get_num_steps(),
             register_memory_side_note: Default::default(),
             read_write_memory_side_note: Default::default(),
+            program_memory_side_note: Default::default(),
         }
     }
 
@@ -40,6 +47,10 @@ impl<'a> SideNote<'a> {
 
     pub fn output_memory(&self) -> &[PublicOutputEntry] {
         self.output_memory
+    }
+
+    pub fn program_memory(&self) -> &[ProgramMemoryEntry] {
+        &self.program_info.program
     }
 
     pub fn iter_program_steps(&self) -> impl DoubleEndedIterator<Item = ProgramStep<'a>> {
@@ -64,5 +75,13 @@ impl<'a> SideNote<'a> {
 
     pub fn read_write_memory_mut(&mut self) -> &mut ReadWriteMemorySideNote {
         &mut self.read_write_memory_side_note
+    }
+
+    pub fn program_memory_counter(&self) -> &ProgramMemorySideNote {
+        &self.program_memory_side_note
+    }
+
+    pub fn program_memory_counter_mut(&mut self) -> &mut ProgramMemorySideNote {
+        &mut self.program_memory_side_note
     }
 }

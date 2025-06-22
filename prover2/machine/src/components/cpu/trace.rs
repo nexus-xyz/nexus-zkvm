@@ -85,4 +85,6 @@ fn generate_trace_row(
     trace.fill_columns(row_idx, op_a, Column::OpA);
     trace.fill_columns(row_idx, op_b, Column::OpB);
     trace.fill_columns(row_idx, op_c, Column::OpC);
+
+    trace.fill_columns(row_idx, program_step.step.raw_instruction, Column::InstrVal);
 }

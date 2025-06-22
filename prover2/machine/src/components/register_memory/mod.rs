@@ -404,7 +404,8 @@ mod tests {
 
     use crate::{
         components::{
-            register_memory_boundary::RegisterMemoryBoundary, Cpu, CpuBoundary, ADD, ADDI,
+            register_memory_boundary::RegisterMemoryBoundary, Cpu, CpuBoundary, ProgramMemory,
+            ProgramMemoryBoundary, ADD, ADDI,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -430,7 +431,15 @@ mod tests {
         let mut claimed_sum = assert_component(RegisterMemory, assert_ctx);
 
         claimed_sum += components_claimed_sum(
-            &[&Cpu, &CpuBoundary, &RegisterMemoryBoundary, &ADD, &ADDI],
+            &[
+                &Cpu,
+                &CpuBoundary,
+                &ProgramMemory,
+                &ProgramMemoryBoundary,
+                &RegisterMemoryBoundary,
+                &ADD,
+                &ADDI,
+            ],
             assert_ctx,
         );
 

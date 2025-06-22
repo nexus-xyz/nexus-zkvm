@@ -58,3 +58,17 @@ stwo_prover::relation!(InstToRamLookupElements, REL_INST_TO_RAM_LOOKUP_SIZE);
 // Timestamp is a half word.
 const REL_RAM_READ_WRITE_LOOKUP_SIZE: usize = WORD_SIZE * 2 + WORD_SIZE_HALVED;
 stwo_prover::relation!(RamReadWriteLookupElements, REL_RAM_READ_WRITE_LOOKUP_SIZE);
+
+// (pc, instr-val, prog-ctr)
+const REL_PROG_MEMORY_READ_LOOKUP_SIZE: usize = WORD_SIZE * 3;
+stwo_prover::relation!(
+    ProgramMemoryReadLookupElements,
+    REL_PROG_MEMORY_READ_LOOKUP_SIZE
+);
+
+// (pc, instr-val)
+const REL_CPU_TO_PROG_MEMORY_LOOKUP_SIZE: usize = WORD_SIZE * 2;
+stwo_prover::relation!(
+    CpuToProgMemoryLookupElements,
+    REL_CPU_TO_PROG_MEMORY_LOOKUP_SIZE
+);
