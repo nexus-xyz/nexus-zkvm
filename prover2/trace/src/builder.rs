@@ -151,4 +151,13 @@ impl FinalizedTrace {
             log_size: 0,
         }
     }
+
+    pub fn concat(self, mut other: Self) -> Self {
+        assert_eq!(self.log_size, other.log_size);
+
+        let Self { mut cols, log_size } = self;
+        cols.append(&mut other.cols);
+
+        Self { cols, log_size }
+    }
 }

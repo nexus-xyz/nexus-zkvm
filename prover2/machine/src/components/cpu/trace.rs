@@ -61,6 +61,11 @@ fn generate_trace_row(
     let (flag_column, opcode) = match step.instruction.opcode.builtin() {
         Some(BuiltinOpcode::ADD) => (Column::IsAdd, BuiltinOpcode::ADD),
         Some(BuiltinOpcode::ADDI) => (Column::IsAddI, BuiltinOpcode::ADDI),
+        Some(BuiltinOpcode::LB) => (Column::IsLb, BuiltinOpcode::LB),
+        Some(BuiltinOpcode::LH) => (Column::IsLh, BuiltinOpcode::LH),
+        Some(BuiltinOpcode::LW) => (Column::IsLw, BuiltinOpcode::LW),
+        Some(BuiltinOpcode::LBU) => (Column::IsLbu, BuiltinOpcode::LBU),
+        Some(BuiltinOpcode::LHU) => (Column::IsLhu, BuiltinOpcode::LHU),
         _ => {
             panic!("Unsupported opcode: {:?}", step.instruction.opcode);
         }

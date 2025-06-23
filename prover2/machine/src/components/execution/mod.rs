@@ -1,3 +1,2 @@
-mod add;
-
-pub use add::{ADD, ADDI};
+pub mod add;
+pub mod load;

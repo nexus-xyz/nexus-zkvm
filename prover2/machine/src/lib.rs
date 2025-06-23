@@ -17,6 +17,11 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::ProgramMemoryBoundary,
     &components::ADD,
     &components::ADDI,
+    &components::LB,
+    &components::LH,
+    &components::LW,
+    &components::LBU,
+    &components::LHU,
 ];
 
 pub use prove::{prove, Proof};
