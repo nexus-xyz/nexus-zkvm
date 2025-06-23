@@ -23,4 +23,5 @@ pub use register_memory_boundary::RegisterMemoryBoundary;
 pub use program_memory::{ProgramMemory, ProgramMemorySideNote};
 pub use program_memory_boundary::ProgramMemoryBoundary;
 
-pub use execution::{ADD, ADDI};
+pub use execution::add::{ADD, ADDI};
+pub use execution::load::{LB, LBU, LH, LHU, LW};

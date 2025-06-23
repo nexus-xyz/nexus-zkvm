@@ -59,6 +59,21 @@ pub enum Column {
     /// Selector flag which indicates an ADD operation
     #[size = 1]
     IsAddI,
+    /// A selector flag which indicates an `LB` (load byte, sign-extended) operation
+    #[size = 1]
+    IsLb,
+    /// A selector flag which indicates an `LH` (load halfword, sign-extended) operation
+    #[size = 1]
+    IsLh,
+    /// A selector flag which indicates an `LW` (load word) operation
+    #[size = 1]
+    IsLw,
+    /// A selector flag which indicates an `LBU` (load byte, zero-extended) operation
+    #[size = 1]
+    IsLbu,
+    /// A selector flag which indicates an `LHU` (load halfword, zero-extended) operation
+    #[size = 1]
+    IsLhu,
     /// A selector flag which is used for padding, not a computational step
     #[size = 1]
     IsPad,
@@ -106,6 +121,15 @@ pub const IS_TYPE_R: ColumnSum<Column> = ColumnSum::new(&[Column::IsAdd]);
 
 /// is-alu-imm-no-shift = is-addi + is-slti + is-sltiu + is-xori + is-ori + is-andi
 pub const IS_ALU_IMM_NO_SHIFT: ColumnSum<Column> = ColumnSum::new(&[Column::IsAddI]);
+
+/// is-load = is-lb + is-lh + is-lw + is-lbu + is-lhu
+pub const IS_LOAD: ColumnSum<Column> = ColumnSum::new(&[
+    Column::IsLb,
+    Column::IsLh,
+    Column::IsLw,
+    Column::IsLbu,
+    Column::IsLhu,
+]);
 
 /// is-alu = is-type-r + is-alu-imm-no-shift + is-alu-imm-shift
 pub const IS_ALU: IsAlu = IsAlu;
