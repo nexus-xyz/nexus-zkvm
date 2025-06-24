@@ -66,6 +66,9 @@ fn generate_trace_row(
         Some(BuiltinOpcode::LW) => (Column::IsLw, BuiltinOpcode::LW),
         Some(BuiltinOpcode::LBU) => (Column::IsLbu, BuiltinOpcode::LBU),
         Some(BuiltinOpcode::LHU) => (Column::IsLhu, BuiltinOpcode::LHU),
+        Some(BuiltinOpcode::SB) => (Column::IsSb, BuiltinOpcode::SB),
+        Some(BuiltinOpcode::SH) => (Column::IsSh, BuiltinOpcode::SH),
+        Some(BuiltinOpcode::SW) => (Column::IsSw, BuiltinOpcode::SW),
         _ => {
             panic!("Unsupported opcode: {:?}", step.instruction.opcode);
         }
@@ -75,7 +78,7 @@ fn generate_trace_row(
 
     let a_val = program_step
         .get_result()
-        .expect("instructions with no output are unsupported");
+        .unwrap_or_else(|| program_step.get_value_a());
     let b_val = program_step.get_value_b();
     let (c_val, _) = program_step.get_value_c();
 

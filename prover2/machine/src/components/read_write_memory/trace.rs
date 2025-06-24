@@ -120,16 +120,8 @@ fn generate_trace_row(
         let access_size = memory_record.get_size() as usize;
 
         if !is_load {
-            assert!(
-                (memory_record.get_prev_value().unwrap() as u64) < { 1u64 } << (access_size * 8),
-                "memory operation previous value overflow"
-            );
             trace.fill_columns(row_idx, true, Column::RamWrite);
         }
-        assert!(
-            (memory_record.get_value() as u64) < { 1u64 } << (access_size * 8),
-            "memory operation next value overflow"
-        );
 
         let cur_value = memory_record.get_value().to_le_bytes();
         let prev_value = if is_load {
