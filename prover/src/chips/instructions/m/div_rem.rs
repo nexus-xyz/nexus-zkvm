@@ -126,8 +126,7 @@ impl MachineChip for DivRemChip {
         // Fill in the intermediate values from mul_limb(quotient, divisor) into traces
         // These are needed for the multiplication constraints that verify t = quotient * divisor
         traces.fill_columns(row_idx, mul_result.carry_l[0], MulCarry0);
-        traces.fill_columns(row_idx, mul_result.carry_l[1], MulCarry1_0);
-        traces.fill_columns(row_idx, mul_result.carry_l[2], MulCarry1_1);
+        traces.fill_columns(row_idx, mul_result.carry_l[1], MulCarry1);
 
         // MUL P1, P3' and P3'' in range [0, 2^16 - 1]
         traces.fill_columns(row_idx, mul_result.p1, MulP1);
@@ -410,8 +409,7 @@ impl MachineChip for DivRemChip {
         );
 
         let [mul_carry_0] = trace_eval!(trace_eval, MulCarry0);
-        let [mul_carry_1_0] = trace_eval!(trace_eval, MulCarry1_0);
-        let [mul_carry_1_1] = trace_eval!(trace_eval, MulCarry1_1);
+        let [mul_carry_1] = trace_eval!(trace_eval, MulCarry1);
 
         let helper_t = trace_eval!(trace_eval, HelperT); // t = quotient * divisor
 
@@ -427,7 +425,7 @@ impl MachineChip for DivRemChip {
 
         // Constraint for high part of t = quotient * divisor
         // (is_div + is_rem) ⋅
-        // [z1 + P1h + (b0 + b2) ⋅ (c0 + c2) − z0 − z2 + (P′3l + P″3l + c1) ⋅ 2^8 + carry0 − carry1_0 ⋅ 2^16 − carry1_1 ⋅ 2^17 − |t|2 − |t|3 ⋅ 2^8]
+        // [z1 + P1h + (b0 + b2) ⋅ (c0 + c2) − z0 − z2 + (P′3l + P″3l + c1) ⋅ 2^8 + carry0 − carry1 ⋅ 2^16 − |t|2 − |t|3 ⋅ 2^8]
         eval.add_constraint(
             (is_div.clone() + is_rem.clone())
                 * (z_1.clone()
@@ -437,8 +435,7 @@ impl MachineChip for DivRemChip {
                     - z_0.clone()
                     - z_2.clone()
                     + mul_carry_0.clone()
-                    - mul_carry_1_0.clone() * BaseField::from(1 << 16)
-                    - mul_carry_1_1.clone() * BaseField::from(1 << 17)
+                    - mul_carry_1.clone() * BaseField::from(1 << 16)
                     + (p3_prime[0].clone() + p3_prime_prime[0].clone() + c1.clone())
                         * BaseField::from(1 << 8)
                     - helper_t[2].clone()

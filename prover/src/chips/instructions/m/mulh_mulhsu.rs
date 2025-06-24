@@ -87,8 +87,7 @@ impl MachineChip for MulhMulhsuChip {
         traces.fill_columns(row_idx, result.a_h, ValueAAbsHigh);
 
         traces.fill_columns(row_idx, result.carry_l[0], MulCarry0);
-        traces.fill_columns(row_idx, result.carry_l[1], MulCarry1_0);
-        traces.fill_columns(row_idx, result.carry_l[2], MulCarry1_1);
+        traces.fill_columns(row_idx, result.carry_l[1], MulCarry1);
         traces.fill_columns(row_idx, result.carry_h[0], MulCarry2_0);
         traces.fill_columns(row_idx, result.carry_h[1], MulCarry2_1);
         traces.fill_columns(row_idx, result.carry_h[2], MulCarry3);
@@ -234,8 +233,7 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         let [mul_carry_0] = trace_eval!(trace_eval, MulCarry0);
-        let [mul_carry_1_0] = trace_eval!(trace_eval, MulCarry1_0);
-        let [mul_carry_1_1] = trace_eval!(trace_eval, MulCarry1_1);
+        let [mul_carry_1] = trace_eval!(trace_eval, MulCarry1);
         let [mul_carry_2_0] = trace_eval!(trace_eval, MulCarry2_0);
         let [mul_carry_2_1] = trace_eval!(trace_eval, MulCarry2_1);
         let [mul_carry_3] = trace_eval!(trace_eval, MulCarry3);
@@ -253,7 +251,7 @@ impl MachineChip for MulhMulhsuChip {
         );
 
         // (is_mulh + is_mulhsu) *
-        // [z_1 + P1_h + (b_0 + b_2)*(c_0 + c_2) - z_0 - z_2 + (P'3_l + P''3_l + c_1)*2^8 + carry_0 - carry_1_0*2^16 - carry_1_1*2^17 - |a|_2 - |a|_3*2^8]
+        // [z_1 + P1_h + (b_0 + b_2)*(c_0 + c_2) - z_0 - z_2 + (P'3_l + P''3_l + c_1)*2^8 + carry_0 - carry_1*2^16 - |a|_2 - |a|_3*2^8]
         eval.add_constraint(
             (is_mulh.clone() + is_mulhsu.clone())
                 * (z_1.clone()
@@ -265,14 +263,13 @@ impl MachineChip for MulhMulhsuChip {
                     + (p3_prime[0].clone() + p3_prime_prime[0].clone() + c1.clone())
                         * BaseField::from(1 << 8)
                     + mul_carry_0.clone()
-                    - mul_carry_1_0.clone() * BaseField::from(1 << 16)
-                    - mul_carry_1_1.clone() * BaseField::from(1 << 17)
+                    - mul_carry_1.clone() * BaseField::from(1 << 16)
                     - abs_value_a_low[2].clone()
                     - abs_value_a_low[3].clone() * BaseField::from(1 << 8)),
         );
 
         // (is_mulh + is_mulhsu) * [z_2 + P'3_h + P''3_h + (b_1 + b_3)*(c_1 + c_3) - z_1 - z_3 +
-        // (P5_l + c''3 + c'3)*2^8 + carry_1_0 + carry_1_1*2^1 - carry_2_0*2^16 - carry_2_1*2^17 - |a|_0 - |a|_1*2^8]
+        // (P5_l + c''3 + c'3)*2^8 + carry_1 - carry_2_0*2^16 - carry_2_1*2^17 - |a|_0 - |a|_1*2^8]
         eval.add_constraint(
             (is_mulh.clone() + is_mulhsu.clone())
                 * (z_2.clone()
@@ -284,8 +281,7 @@ impl MachineChip for MulhMulhsuChip {
                     - z_3.clone()
                     + (p5[0].clone() + c3_prime_prime.clone() + c3_prime.clone())
                         * BaseField::from(1 << 8)
-                    + mul_carry_1_0.clone()
-                    + mul_carry_1_1.clone() * BaseField::from(1 << 1)
+                    + mul_carry_1
                     - mul_carry_2_0.clone() * BaseField::from(1 << 16)
                     - mul_carry_2_1.clone() * BaseField::from(1 << 17)
                     - abs_value_a_high[0].clone()
