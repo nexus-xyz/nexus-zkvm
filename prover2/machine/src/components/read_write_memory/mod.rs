@@ -406,11 +406,12 @@ impl ReadWriteMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use num_traits::Zero;
+
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
-    use num_traits::Zero;
     use stwo_prover::{constraint_framework::Relation, core::fields::FieldExpOps};
 
     use crate::{
@@ -442,7 +443,7 @@ mod tests {
 
         claimed_sum += components_claimed_sum(&[&ReadWriteMemoryBoundary], assert_ctx);
 
-        // manually add a fraction from the store component since it's not implemented yet
+        // manually add a fraction from the store component to skip registers and cpu
         //
         // (
         //     clk,

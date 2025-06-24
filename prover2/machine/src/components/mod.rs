@@ -25,3 +25,4 @@ pub use program_memory_boundary::ProgramMemoryBoundary;
 
 pub use execution::add::{ADD, ADDI};
 pub use execution::load::{LB, LBU, LH, LHU, LW};
+pub use execution::store::{SB, SH, SW};

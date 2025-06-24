@@ -136,6 +136,15 @@ fn reg3_accessed(step: ProgramStep) -> bool {
     true
 }
 
+fn reg3_write(step: ProgramStep) -> bool {
+    let opcode = &step.step.instruction.opcode;
+
+    !matches!(
+        opcode.builtin(),
+        Some(BuiltinOpcode::SB) | Some(BuiltinOpcode::SH) | Some(BuiltinOpcode::SW)
+    )
+}
+
 fn generate_trace_row(
     trace: &mut TraceBuilder<Column>,
     row_idx: usize,
@@ -158,26 +167,6 @@ fn generate_trace_row(
     let reg2_addr = program_step.get_op_c();
     let reg3_addr = program_step.get_op_a() as u8;
 
-    let (reg1_prev_ts, reg2_prev_ts, reg3_prev_ts) = {
-        (
-            if reg1_accessed {
-                reg_mem_side_note.last_access_timestamp[reg1_addr as usize]
-            } else {
-                0
-            },
-            if reg2_accessed {
-                reg_mem_side_note.last_access_timestamp[reg2_addr as usize]
-            } else {
-                0
-            },
-            if reg3_accessed {
-                reg_mem_side_note.last_access_timestamp[reg3_addr as usize]
-            } else {
-                0
-            },
-        )
-    };
-
     let reg1_value = program_step.get_value_b();
     let reg2_value = if program_step.step.instruction.ins_type == InstructionType::UType {
         (program_step.step.instruction.op_c << 12).to_le_bytes()
@@ -186,7 +175,7 @@ fn generate_trace_row(
     };
     let reg3_value = program_step
         .get_result()
-        .expect("instructions with no output are unsupported");
+        .unwrap_or_else(|| program_step.get_value_a());
 
     let reg3_value_effective_flag = program_step.value_a_effectitve_flag();
     let (reg3_value_effective_flag_aux, reg3_value_effective_flag_aux_inv): (BaseField, u8) = {
@@ -218,7 +207,7 @@ fn generate_trace_row(
         Column::Reg3ValEffectiveFlagAuxInv,
     );
 
-    if reg1_accessed {
+    let reg1_prev_ts = if reg1_accessed {
         generate_prev_access(
             trace,
             row_idx,
@@ -227,9 +216,12 @@ fn generate_trace_row(
             reg_mem_side_note,
             reg1_cur_ts,
             Column::Reg1TsPrev,
-        );
-    }
-    if reg2_accessed {
+        )
+        .1
+    } else {
+        0
+    };
+    let reg2_prev_ts = if reg2_accessed {
         let reg2_addr = u8::try_from(reg2_addr).expect("invalid value of reg2-addr");
         generate_prev_access(
             trace,
@@ -239,10 +231,13 @@ fn generate_trace_row(
             reg_mem_side_note,
             reg2_cur_ts,
             Column::Reg2TsPrev,
-        );
-    }
-    if reg3_accessed {
-        let (reg3_prev_value, _reg3_prev_ts) = generate_prev_access(
+        )
+        .1
+    } else {
+        0
+    };
+    let reg3_prev_ts = if reg3_accessed {
+        let (reg3_prev_value, reg3_prev_ts) = generate_prev_access(
             trace,
             row_idx,
             reg3_addr,
@@ -254,12 +249,11 @@ fn generate_trace_row(
 
         // write reg3 previous value
         trace.fill_columns(row_idx, reg3_prev_value, Column::Reg3ValPrev);
-        trace.fill_columns(
-            row_idx,
-            true, // syscalls may access reg3 without write
-            Column::Reg3Write,
-        );
-    }
+        trace.fill_columns(row_idx, reg3_write(program_step), Column::Reg3Write);
+        reg3_prev_ts
+    } else {
+        0
+    };
 
     trace.fill_columns(row_idx, reg1_addr, Column::Reg1Addr);
     trace.fill_columns(row_idx, BaseField::from(reg2_addr), Column::Reg2Addr);

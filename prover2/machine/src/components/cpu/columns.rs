@@ -59,6 +59,15 @@ pub enum Column {
     /// Selector flag which indicates an ADD operation
     #[size = 1]
     IsAddI,
+    /// A selector flag which indicates an `sb` (store byte) operation
+    #[size = 1]
+    IsSb,
+    /// A selector flag which indicates an `sh` (store halfword) operation
+    #[size = 1]
+    IsSh,
+    /// A selector flag which indicates an `sw` (store word) operation
+    #[size = 1]
+    IsSw,
     /// A selector flag which indicates an `LB` (load byte, sign-extended) operation
     #[size = 1]
     IsLb,
@@ -130,6 +139,10 @@ pub const IS_LOAD: ColumnSum<Column> = ColumnSum::new(&[
     Column::IsLbu,
     Column::IsLhu,
 ]);
+
+/// is-type-s = is-sb + is-sh + is-sw
+pub const IS_TYPE_S: ColumnSum<Column> =
+    ColumnSum::new(&[Column::IsSb, Column::IsSh, Column::IsSw]);
 
 /// is-alu = is-type-r + is-alu-imm-no-shift + is-alu-imm-shift
 pub const IS_ALU: IsAlu = IsAlu;

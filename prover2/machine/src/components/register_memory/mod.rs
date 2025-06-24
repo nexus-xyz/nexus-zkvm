@@ -414,6 +414,8 @@ mod tests {
     fn assert_register_memory_constraints() {
         let basic_block = vec![BasicBlock::new(vec![
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 1, 1, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2),

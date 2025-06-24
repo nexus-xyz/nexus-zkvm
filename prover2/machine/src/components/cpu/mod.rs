@@ -28,7 +28,7 @@ mod columns;
 mod trace;
 
 pub use self::{columns::HalfWord, trace::preprocessed_clk_trace};
-use columns::{Column, PreprocessedColumn, IS_ALU, IS_LOAD, PC_HIGH, PC_LOW};
+use columns::{Column, PreprocessedColumn, IS_ALU, IS_LOAD, IS_TYPE_S, PC_HIGH, PC_LOW};
 
 pub struct Cpu;
 
@@ -110,6 +110,7 @@ impl BuiltInComponent for Cpu {
 
         let is_alu = IS_ALU.combine_from_finalized_trace(&component_trace);
         let is_load = IS_LOAD.combine_from_finalized_trace(&component_trace);
+        let is_type_s = IS_TYPE_S.combine_from_finalized_trace(&component_trace);
 
         // TODO: for logup trace generation the prover can use side-note to compute the numerator.
         //
@@ -120,8 +121,8 @@ impl BuiltInComponent for Cpu {
         // )
         logup_trace_builder.add_to_relation_with(
             &rel_cpu_to_inst,
-            [is_alu, is_load],
-            |[is_alu, is_load]| (is_alu + is_load).into(),
+            [is_type_s, is_alu, is_load],
+            |[is_type_s, is_alu, is_load]| (is_type_s + is_alu + is_load).into(),
             &[
                 [clk_low.clone(), clk_high.clone(), opcode, pc_low, pc_high].as_slice(),
                 &a_val,
