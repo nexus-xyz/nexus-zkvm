@@ -13,7 +13,7 @@ use stwo_prover::core::{
 };
 
 use crate::{
-    column::Column::{self, OpC1_3, OpC5_7, OpC8_10},
+    column::Column::{self, MulCarry1, OpC1_3, OpC5_7, OpC8_10},
     components::AllLookupElements,
     extensions::ExtensionsConfig,
     trace::{
@@ -22,7 +22,7 @@ use crate::{
     },
     traits::MachineChip,
     virtual_column::{
-        IsTypeB, IsTypeINoShift, IsTypeJ, IsTypeS, VirtualColumn, VirtualColumnForSum,
+        IsTypeB, IsTypeINoShift, IsTypeJ, IsTypeR, IsTypeS, VirtualColumn, VirtualColumnForSum,
     },
 };
 
@@ -47,6 +47,7 @@ const TYPE_I_NO_SHIFT_CHECKED: [Column; 1] = [OpC8_10];
 const TYPE_J_CHECKED: [Column; 2] = [OpC1_3, OpC8_10];
 const TYPE_B_CHECKED: [Column; 2] = [OpC5_7, OpC8_10];
 const TYPE_S_CHECKED: [Column; 2] = [OpC5_7, OpC8_10];
+const TYPE_R_CHECKED: [Column; 1] = [MulCarry1];
 
 impl MachineChip for Range8Chip {
     fn draw_lookup_elements(
@@ -115,6 +116,14 @@ impl MachineChip for Range8Chip {
             &TYPE_S_CHECKED,
             side_note,
         );
+        fill_main_for_type::<IsTypeR>(
+            traces,
+            row_idx,
+            step,
+            InstructionType::RType,
+            &TYPE_R_CHECKED,
+            side_note,
+        );
     }
 
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
@@ -152,6 +161,12 @@ impl MachineChip for Range8Chip {
             logup_trace_gen,
             &TYPE_S_CHECKED,
         );
+        fill_interaction_for_type::<IsTypeR>(
+            original_traces,
+            lookup_element,
+            logup_trace_gen,
+            &TYPE_R_CHECKED,
+        );
 
         // Fill the interaction trace for Helper1[0] in case of SLL, SRL and SRA
         let [value_basecolumn, _, _, _]: [&BaseColumn; WORD_SIZE] =
@@ -186,6 +201,7 @@ impl MachineChip for Range8Chip {
         add_constraints_for_type::<E, IsTypeJ>(eval, trace_eval, lookup_elements, &TYPE_J_CHECKED);
         add_constraints_for_type::<E, IsTypeB>(eval, trace_eval, lookup_elements, &TYPE_B_CHECKED);
         add_constraints_for_type::<E, IsTypeS>(eval, trace_eval, lookup_elements, &TYPE_S_CHECKED);
+        add_constraints_for_type::<E, IsTypeR>(eval, trace_eval, lookup_elements, &TYPE_R_CHECKED);
 
         // Add checked multiplicities for Helper1[0] in case of SLL, SRL and SRA
         let [numerator] = Helper1MsbChecked::eval(trace_eval);

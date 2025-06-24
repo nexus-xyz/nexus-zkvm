@@ -39,10 +39,8 @@ impl MachineChip for MulhuChip {
         let mul_result = mull_limb(u32::from_le_bytes(value_b), u32::from_le_bytes(value_c));
 
         // Fill in the intermediate values into traces
-        // MUL carry_1 for lower half, in {0, 1, 2, 3}
-        traces.fill_columns(row_idx, mul_result.carry_l[1], MulCarry1_0);
-        traces.fill_columns(row_idx, mul_result.carry_l[2], MulCarry1_1);
-
+        // MUL carry_1 for lower half, in {0, 1, 2, 3, 4}
+        traces.fill_columns(row_idx, mul_result.carry_l[1], MulCarry1);
         traces.fill_columns(row_idx, mul_result.carry_h[0], MulCarry2_0);
         traces.fill_columns(row_idx, mul_result.carry_h[1], MulCarry2_1);
         traces.fill_columns(row_idx, mul_result.carry_h[2], MulCarry3);
@@ -131,14 +129,13 @@ impl MachineChip for MulhuChip {
             z_3.clone(),
         );
 
-        let [mul_carry_1_0] = trace_eval!(trace_eval, MulCarry1_0);
-        let [mul_carry_1_1] = trace_eval!(trace_eval, MulCarry1_1);
+        let [mul_carry_1] = trace_eval!(trace_eval, MulCarry1);
         let [mul_carry_2_0] = trace_eval!(trace_eval, MulCarry2_0);
         let [mul_carry_2_1] = trace_eval!(trace_eval, MulCarry2_1);
         let [mul_carry_3] = trace_eval!(trace_eval, MulCarry3);
 
         // is_mulhu * (z_2 + P3_prime_h + P3_prime_prime_h + (b_1 + b_3) * (c_1 + c_3) - z_1 - z_3 +
-        // (P5_l + c3_prime_prime + c3_prime) * 2^8 + carry1 - carry2 * 2^16 - |a|_0 - |a|_1 * 2^8)
+        // (P5_l + c3_prime_prime + c3_prime) * 2^8 + carry1 - carry2_0 * 2^16 - carry2_1 * 2^17 - |a|_0 - |a|_1 * 2^8)
         eval.add_constraint(
             is_mulhu.clone()
                 * (z_2.clone()
@@ -150,8 +147,7 @@ impl MachineChip for MulhuChip {
                     - z_3.clone()
                     + (p5[0].clone() + c3_prime_prime.clone() + c3_prime.clone())
                         * BaseField::from(1 << 8)
-                    + mul_carry_1_0.clone()
-                    + mul_carry_1_1.clone() * BaseField::from(1 << 1)
+                    + mul_carry_1
                     - mul_carry_2_0.clone() * BaseField::from(1 << 16)
                     - mul_carry_2_1.clone() * BaseField::from(1 << 17)
                     - value_a[0].clone()

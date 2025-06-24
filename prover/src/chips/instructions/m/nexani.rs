@@ -42,8 +42,8 @@ pub(super) struct MulResult {
     pub a_l: [u8; 4],
     /// High 32 bits of the multiplication result b × c (4 bytes, little-endian)
     pub a_h: [u8; 4],
-    /// Carry values from low 32-bit computation [carry_0, carry_1_low, carry_1_high]
-    pub carry_l: [u8; 3],
+    /// Carry values from low 32-bit computation [carry_0, carry_1]
+    pub carry_l: [u8; 2],
     /// Carry values from high 32-bit computation [carry_2_low, carry_2_high, carry_3]
     pub carry_h: [u8; 3],
 }
@@ -173,7 +173,7 @@ pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
     let (a23, carry_1) = (a23 as u16, (a23 >> 16));
 
     // Verify our calculations match the built-in multiplication
-    assert!(carry_1 < 4, "Carry_1 exceeds expected bounds {}", carry_1);
+    assert!(carry_1 < 5, "Carry_1 exceeds expected bounds {}", carry_1);
     assert_eq!(
         a01.to_le_bytes(),
         [a_l_bytes[0], a_l_bytes[1]],
@@ -239,7 +239,6 @@ pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
         [a_h_bytes[2], a_h_bytes[3]],
         "High bytes (6-7) mismatch"
     );
-    let (carry_1_0, carry_1_1) = (carry_1 & 0x1, (carry_1 >> 1) & 0x1);
     let (carry_2_0, carry_2_1) = (carry_2 & 0x1, (carry_2 >> 1) & 0x1);
 
     // Return all intermediate and final results for verification and testing
@@ -254,7 +253,7 @@ pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
         c5: c5 == 1,
         a_l: a_l_bytes,
         a_h: a_h_bytes,
-        carry_l: [carry_0 as u8, carry_1_0 as u8, carry_1_1 as u8],
+        carry_l: [carry_0 as u8, carry_1 as u8],
         carry_h: [carry_2_0 as u8, carry_2_1 as u8, carry_3 as u8],
     }
 }

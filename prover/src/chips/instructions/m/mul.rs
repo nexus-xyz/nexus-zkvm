@@ -42,8 +42,7 @@ impl MachineChip for MulChip {
         // MUL carry_0 for lower half, in {0, 1}
         traces.fill_columns(row_idx, mul_result.carry_l[0], MulCarry0);
         // MUL carry_1 for lower half, in {0, 1, 2, 3}
-        traces.fill_columns(row_idx, mul_result.carry_l[1], MulCarry1_0);
-        traces.fill_columns(row_idx, mul_result.carry_l[2], MulCarry1_1);
+        traces.fill_columns(row_idx, mul_result.carry_l[1], MulCarry1);
 
         // MUL P1, P3' and P3'' in range [0, 2^16 - 1]
         traces.fill_columns(row_idx, mul_result.p1, MulP1);
@@ -129,8 +128,7 @@ impl MachineChip for MulChip {
         );
 
         let [mul_carry_0] = trace_eval!(trace_eval, MulCarry0);
-        let [mul_carry_1_0] = trace_eval!(trace_eval, MulCarry1_0);
-        let [mul_carry_1_1] = trace_eval!(trace_eval, MulCarry1_1);
+        let [mul_carry_1] = trace_eval!(trace_eval, MulCarry1);
 
         // is_mul * (z_0 + P1_l * 2^8 - carry0 * 2^16 - |a|_0 - |a|_1 * 2^8)
         eval.add_constraint(
@@ -142,7 +140,7 @@ impl MachineChip for MulChip {
         );
 
         // is_mul ⋅
-        // [z_1 + P_1h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P'_3l + P''_3l + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - carry_1 * 2^17 - |a|_2 - |a|_3 * 2^8]
+        // [z_1 + P_1h + (b_0 + b_2) * (c_0 + c_2) - z_0 - z_2 + (P'_3l + P''_3l + c_1) * 2^8 + carry_0 - carry_1 * 2^16 - |a|_2 - |a|_3 * 2^8]
         eval.add_constraint(
             is_mul.clone()
                 * (z_1.clone()
@@ -152,8 +150,7 @@ impl MachineChip for MulChip {
                     - z_0.clone()
                     - z_2.clone()
                     + mul_carry_0.clone()
-                    - mul_carry_1_0.clone() * BaseField::from(1 << 16)
-                    - mul_carry_1_1.clone() * BaseField::from(1 << 17)
+                    - mul_carry_1.clone() * BaseField::from(1 << 16)
                     + (p3_prime[0].clone() + p3_prime_prime[0].clone() + c1.clone())
                         * BaseField::from(1 << 8)
                     - value_a[2].clone()

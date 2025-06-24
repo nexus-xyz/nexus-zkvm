@@ -331,11 +331,9 @@ pub enum Column {
     /// The carry flag for the low-half of MUL instruction. Possible values {0, 1}
     #[size = 1]
     MulCarry0,
-    /// The carry flag for the low-half of MUL instruction. Possible values in {0, 1}
+    /// The carry flag for the low-half of MUL instruction. Possible values in {0, 1, 2, 3, 4}
     #[size = 1]
-    MulCarry1_0,
-    #[size = 1]
-    MulCarry1_1,
+    MulCarry1,
     /// The carry flag for the high-half of MUL instruction. Possible values in {0, 1}
     #[size = 1]
     MulCarry2_0,
