@@ -159,7 +159,7 @@ impl LinearMemoryLayout {
         self.public_output.assert_word_aligned();
         self.heap.assert_word_aligned();
         self.stack_bottom.assert_word_aligned();
-        self.stack_top.assert_word_aligned(); // TODO: this should actually be 0x10-aligned
+        self.stack_top.assert_aligned_to::<0x10>();
 
         Ok(())
     }
