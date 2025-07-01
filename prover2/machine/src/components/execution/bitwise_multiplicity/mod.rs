@@ -19,7 +19,7 @@ use crate::{
     components::execution::bitwise::{AND_LOOKUP_IDX, OR_LOOKUP_IDX, XOR_LOOKUP_IDX},
     framework::BuiltInComponent,
     lookups::{AllLookupElements, BitwiseInstrLookupElements, LogupTraceBuilder},
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -39,7 +39,11 @@ impl BuiltInComponent for BitwiseMultiplicity {
 
     type LookupElements = BitwiseInstrLookupElements;
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         let column_b =
             (0u8..1 << Self::NUM_BITS).flat_map(|i| std::iter::repeat_n(i, 1 << Self::NUM_BITS));
         let column_c = (0u8..1 << Self::NUM_BITS).cycle().take(1 << Self::LOG_SIZE);
@@ -61,9 +65,9 @@ impl BuiltInComponent for BitwiseMultiplicity {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let multiplicity_and = side_note.bitwise_accum_and.multiplicities();
-        let multiplicity_or = side_note.bitwise_accum_or.multiplicities();
-        let multiplicity_xor = side_note.bitwise_accum_xor.multiplicities();
+        let multiplicity_and = side_note.bitwise.bitwise_accum_and.multiplicities();
+        let multiplicity_or = side_note.bitwise.bitwise_accum_or.multiplicities();
+        let multiplicity_xor = side_note.bitwise.bitwise_accum_xor.multiplicities();
 
         let range = 0..=255;
         let multiplicity_and = BaseColumn::from_iter(

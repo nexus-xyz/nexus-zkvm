@@ -66,7 +66,7 @@ pub fn preprocessed_timestamp_trace(log_size: u32, shift: u32) -> Vec<BaseColumn
 pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
     // Main routine for generating register-memory trace.
 
-    assert_initial_state(side_note.register_memory());
+    assert_initial_state(&side_note.memory.register_memory);
     let num_steps = side_note.num_program_steps();
     let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
@@ -78,7 +78,7 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
     }
 
     // store final register state into side note
-    *side_note.register_memory_mut() = reg_mem_side_note;
+    side_note.memory.register_memory = reg_mem_side_note;
 
     for row_idx in num_steps..1 << log_size {
         trace.fill_columns(row_idx, true, Column::IsLocalPad);

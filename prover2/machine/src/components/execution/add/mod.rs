@@ -29,7 +29,7 @@ use crate::{
         AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -140,7 +140,11 @@ impl BuiltInComponent for Add {
         InstToRegisterMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 

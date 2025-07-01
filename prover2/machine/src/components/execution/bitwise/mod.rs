@@ -31,7 +31,7 @@ use crate::{
         CpuToInstLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -108,7 +108,11 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
         BitwiseInstrLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 
@@ -130,9 +134,9 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
 
         // store computed multiplicities
         let accum_mut = match B::BITWISE_LOOKUP_IDX {
-            idx if idx == AND_LOOKUP_IDX => &mut side_note.bitwise_accum_and,
-            idx if idx == OR_LOOKUP_IDX => &mut side_note.bitwise_accum_or,
-            idx if idx == XOR_LOOKUP_IDX => &mut side_note.bitwise_accum_xor,
+            idx if idx == AND_LOOKUP_IDX => &mut side_note.bitwise.bitwise_accum_and,
+            idx if idx == OR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_accum_or,
+            idx if idx == XOR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_accum_xor,
             _ => panic!("invalid lookup idx"),
         };
         for (row, mult) in accum.accum.iter() {

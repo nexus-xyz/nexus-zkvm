@@ -25,7 +25,7 @@ use super::utils::u32_to_16bit_parts_le;
 use crate::{
     framework::BuiltInComponent,
     lookups::{AllLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements},
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -44,7 +44,11 @@ impl BuiltInComponent for CpuBoundary {
 
     type LookupElements = ProgramExecutionLookupElements;
 
-    fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         assert_eq!(log_size, Self::LOG_SIZE);
 
         let mut trace = TraceBuilder::new(log_size);

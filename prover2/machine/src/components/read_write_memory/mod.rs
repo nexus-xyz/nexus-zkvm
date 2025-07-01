@@ -22,7 +22,7 @@ use crate::{
         AllLookupElements, ComponentLookupElements, InstToRamLookupElements, LogupTraceBuilder,
         RamReadWriteLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod ram_write_constraints;
@@ -43,7 +43,11 @@ impl BuiltInComponent for ReadWriteMemory {
 
     type LookupElements = (RamReadWriteLookupElements, InstToRamLookupElements);
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 

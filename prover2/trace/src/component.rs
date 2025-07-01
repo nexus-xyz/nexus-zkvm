@@ -86,21 +86,6 @@ impl ComponentTrace {
         &'a self,
         col: C,
     ) -> [FinalizedColumn<'a>; N] {
-        assert_eq!(
-            self.original_trace.len(),
-            C::COLUMNS_NUM,
-            "original trace length mismatch"
-        );
-
-        self.original_base_column_unchecked(col)
-    }
-
-    /// Skips the assertion of the number of columns.
-    #[doc(hidden)]
-    pub fn original_base_column_unchecked<'a, const N: usize, C: AirColumn>(
-        &'a self,
-        col: C,
-    ) -> [FinalizedColumn<'a>; N] {
         assert_eq!(col.size(), N, "column size mismatch");
 
         let offset = col.offset();

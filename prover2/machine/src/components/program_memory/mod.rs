@@ -20,7 +20,7 @@ use crate::{
         AllLookupElements, ComponentLookupElements, CpuToProgMemoryLookupElements,
         LogupTraceBuilder, ProgramMemoryReadLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -41,7 +41,11 @@ impl BuiltInComponent for ProgramMemory {
         CpuToProgMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 

@@ -12,7 +12,7 @@ use crate::{components::utils::add_with_carries, side_note::SideNote};
 // Program memory side note can only be updated by the program memory component, once it's stored
 // in the prover's side note it can only be used to fetch final program counters.
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ProgramMemorySideNote {
     last_access: BTreeMap<u32, u32>,
 }
@@ -40,7 +40,7 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
     }
 
     // store final program memory counters into side note
-    *side_note.program_memory_counter_mut() = program_mem_side_note;
+    side_note.memory.program_memory = program_mem_side_note;
 
     for row_idx in num_steps..1 << log_size {
         trace.fill_columns(row_idx, true, Column::IsLocalPad);

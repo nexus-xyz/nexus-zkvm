@@ -13,7 +13,7 @@ use super::{
 use crate::components::utils::{add_16bit_with_carry, u32_to_16bit_parts_le};
 
 /// Multiplicities accumulator for bitwise instructions that require lookups.
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct BitwiseAccumulator {
     pub(super) accum: BTreeMap<u8, u32>,
 }

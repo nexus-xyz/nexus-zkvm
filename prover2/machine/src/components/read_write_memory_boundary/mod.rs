@@ -28,7 +28,7 @@ use nexus_vm_prover_trace::{
 use crate::{
     framework::BuiltInComponent,
     lookups::{AllLookupElements, LogupTraceBuilder, RamReadWriteLookupElements},
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -59,12 +59,16 @@ impl BuiltInComponent for ReadWriteMemoryBoundary {
 
     type LookupElements = RamReadWriteLookupElements;
 
-    fn generate_preprocessed_trace(&self, log_size: u32, side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        log_size: u32,
+        program_ref: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         let mut trace = TraceBuilder::new(log_size);
 
-        let init_memory = side_note.init_memory();
-        let exit_code = side_note.exit_code();
-        let output_memory = side_note.output_memory();
+        let init_memory = program_ref.init_memory;
+        let exit_code = program_ref.exit_code;
+        let output_memory = program_ref.public_output;
 
         let init_memory_len = init_memory.len();
         let exit_code_len = exit_code.len();
@@ -98,7 +102,7 @@ impl BuiltInComponent for ReadWriteMemoryBoundary {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let last_access = side_note.read_write_memory().last_access();
+        let last_access = side_note.memory.read_write_memory.last_access();
         let log_size = last_access
             .len()
             .next_power_of_two()

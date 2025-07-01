@@ -22,7 +22,7 @@ use nexus_vm_prover_trace::{
 use crate::{
     framework::BuiltInComponent,
     lookups::{AllLookupElements, LogupTraceBuilder, ProgramMemoryReadLookupElements},
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -37,8 +37,12 @@ impl BuiltInComponent for ProgramMemoryBoundary {
 
     type LookupElements = ProgramMemoryReadLookupElements;
 
-    fn generate_preprocessed_trace(&self, log_size: u32, side_note: &SideNote) -> FinalizedTrace {
-        let program_memory = side_note.program_memory();
+    fn generate_preprocessed_trace(
+        &self,
+        log_size: u32,
+        program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
+        let program_memory = &program.program_memory.program;
 
         let program_memory_log_size = program_memory
             .len()
@@ -64,12 +68,14 @@ impl BuiltInComponent for ProgramMemoryBoundary {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let pc_offset = side_note.program_memory()[0].pc;
-        let program_len = side_note.program_memory().len();
+        let program_ref = &side_note.program;
+        let program_memory = &program_ref.program_memory.program;
+        let pc_offset = program_memory[0].pc;
+        let program_len = program_memory.len();
 
         let log_size = program_len.next_power_of_two().ilog2().max(LOG_N_LANES);
         let mut trace = TraceBuilder::new(log_size);
-        for (pc, final_counter) in side_note.program_memory_counter().last_access() {
+        for (pc, final_counter) in side_note.memory.program_memory.last_access() {
             assert!(*pc >= pc_offset);
 
             let pc = (pc - pc_offset) as usize;
