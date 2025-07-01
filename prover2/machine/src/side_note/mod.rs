@@ -7,6 +7,8 @@ use nexus_vm::{
 };
 use nexus_vm_prover_trace::program::ProgramStep;
 
+use crate::components::BitwiseAccumulator;
+
 use super::components::{ProgramMemorySideNote, ReadWriteMemorySideNote, RegisterMemorySideNote};
 
 /// Prover's side note used for tracking additional data for trace generation.
@@ -20,6 +22,9 @@ pub struct SideNote<'a> {
     register_memory_side_note: RegisterMemorySideNote,
     read_write_memory_side_note: ReadWriteMemorySideNote,
     program_memory_side_note: ProgramMemorySideNote,
+    pub(crate) bitwise_accum_and: BitwiseAccumulator,
+    pub(crate) bitwise_accum_or: BitwiseAccumulator,
+    pub(crate) bitwise_accum_xor: BitwiseAccumulator,
 }
 
 impl<'a> SideNote<'a> {
@@ -34,6 +39,9 @@ impl<'a> SideNote<'a> {
             register_memory_side_note: Default::default(),
             read_write_memory_side_note: Default::default(),
             program_memory_side_note: Default::default(),
+            bitwise_accum_and: BitwiseAccumulator::default(),
+            bitwise_accum_or: BitwiseAccumulator::default(),
+            bitwise_accum_xor: BitwiseAccumulator::default(),
         }
     }
 

@@ -25,6 +25,13 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::SB,
     &components::SH,
     &components::SW,
+    &components::AND,
+    &components::ANDI,
+    &components::OR,
+    &components::ORI,
+    &components::XOR,
+    &components::XORI,
+    &components::BitwiseMultiplicity,
 ];
 
 pub use prove::{prove, Proof};
