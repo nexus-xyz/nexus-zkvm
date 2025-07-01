@@ -41,7 +41,7 @@ impl MachineChip for CpuChip {
     ) {
         // Fill ValueAEffectiveFlag to the main trace
         let value_a_effective_flag = match vm_step {
-            Some(vm_step) => vm_step.value_a_effectitve_flag(),
+            Some(vm_step) => vm_step.value_a_effective_flag(),
             None => false,
         };
         traces.fill_columns(row_idx, value_a_effective_flag, ValueAEffectiveFlag);

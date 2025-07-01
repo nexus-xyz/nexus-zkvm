@@ -177,7 +177,7 @@ fn generate_trace_row(
         .get_result()
         .unwrap_or_else(|| program_step.get_value_a());
 
-    let reg3_value_effective_flag = program_step.value_a_effectitve_flag();
+    let reg3_value_effective_flag = program_step.value_a_effective_flag();
     let (reg3_value_effective_flag_aux, reg3_value_effective_flag_aux_inv): (BaseField, u8) = {
         if reg3_value_effective_flag {
             (BaseField::from(reg3_addr as u32).inverse(), reg3_addr)

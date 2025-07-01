@@ -92,7 +92,7 @@ impl ProgramStep {
     }
 
     /// Returns true if the valueA register is x0 register.
-    pub(crate) fn value_a_effectitve_flag(&self) -> bool {
+    pub(crate) fn value_a_effective_flag(&self) -> bool {
         self.get_op_a() != Register::X0
     }
 
