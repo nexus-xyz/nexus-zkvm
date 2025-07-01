@@ -69,6 +69,12 @@ fn generate_trace_row(
         Some(BuiltinOpcode::SB) => (Column::IsSb, BuiltinOpcode::SB),
         Some(BuiltinOpcode::SH) => (Column::IsSh, BuiltinOpcode::SH),
         Some(BuiltinOpcode::SW) => (Column::IsSw, BuiltinOpcode::SW),
+        Some(BuiltinOpcode::AND) => (Column::IsAnd, BuiltinOpcode::AND),
+        Some(BuiltinOpcode::ANDI) => (Column::IsAndI, BuiltinOpcode::ANDI),
+        Some(BuiltinOpcode::OR) => (Column::IsOr, BuiltinOpcode::OR),
+        Some(BuiltinOpcode::ORI) => (Column::IsOrI, BuiltinOpcode::ORI),
+        Some(BuiltinOpcode::XOR) => (Column::IsXor, BuiltinOpcode::XOR),
+        Some(BuiltinOpcode::XORI) => (Column::IsXorI, BuiltinOpcode::XORI),
         _ => {
             panic!("Unsupported opcode: {:?}", step.instruction.opcode);
         }

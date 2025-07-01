@@ -83,6 +83,24 @@ pub enum Column {
     /// A selector flag which indicates an `LHU` (load halfword, zero-extended) operation
     #[size = 1]
     IsLhu,
+    /// A selector flag which indicates an `AND` (bitwise AND of two registers) operation
+    #[size = 1]
+    IsAnd,
+    /// A selector flag which indicates an `ANDI` (bitwise AND with immediate) operation
+    #[size = 1]
+    IsAndI,
+    /// A selector flag which indicates an `OR` (bitwise OR of two registers) operation
+    #[size = 1]
+    IsOr,
+    /// A selector flag which indicates an `ORI` (bitwise OR with immediate) operation
+    #[size = 1]
+    IsOrI,
+    /// A selector flag which indicates a `XOR` (bitwise XOR of two registers) operation
+    #[size = 1]
+    IsXor,
+    /// A selector flag which indicates a `XORI` (bitwise XOR with immediate) operation
+    #[size = 1]
+    IsXorI,
     /// A selector flag which is used for padding, not a computational step
     #[size = 1]
     IsPad,
@@ -126,10 +144,16 @@ impl<C: AirColumn> VirtualColumn for HalfWord<C> {
 }
 
 /// is-type-r = is-add + is-sub + is-slt + is-sltu + is-xor + is-or + is-and + is-sll + is-srl + is-sra
-pub const IS_TYPE_R: ColumnSum<Column> = ColumnSum::new(&[Column::IsAdd]);
+pub const IS_TYPE_R: ColumnSum<Column> =
+    ColumnSum::new(&[Column::IsAdd, Column::IsAnd, Column::IsOr, Column::IsXor]);
 
 /// is-alu-imm-no-shift = is-addi + is-slti + is-sltiu + is-xori + is-ori + is-andi
-pub const IS_ALU_IMM_NO_SHIFT: ColumnSum<Column> = ColumnSum::new(&[Column::IsAddI]);
+pub const IS_ALU_IMM_NO_SHIFT: ColumnSum<Column> = ColumnSum::new(&[
+    Column::IsAddI,
+    Column::IsAndI,
+    Column::IsOrI,
+    Column::IsXorI,
+]);
 
 /// is-load = is-lb + is-lh + is-lw + is-lbu + is-lhu
 pub const IS_LOAD: ColumnSum<Column> = ColumnSum::new(&[

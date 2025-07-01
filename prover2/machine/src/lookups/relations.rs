@@ -1,6 +1,15 @@
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::WORD_SIZE;
 
+pub use multiplicity::BitwiseInstrLookupElements;
+
+/// Relations for multiplicity components, such as range checks and lookup tables.
+mod multiplicity {
+    // (bit-op-idx, b-val, c-val, a-val)
+    const REL_BITWISE_INSTR_LOOKUP_SIZE: usize = 4;
+    stwo_prover::relation!(BitwiseInstrLookupElements, REL_BITWISE_INSTR_LOOKUP_SIZE);
+}
+
 // (clk, opcode, pc, a-val, b-val, c-val)
 //
 // Both clk and pc are half words.
