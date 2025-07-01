@@ -13,7 +13,7 @@ use nexus_vm_prover_trace::{builder::FinalizedTrace, component::ComponentTrace, 
 
 use crate::{
     lookups::{AllLookupElements, ComponentLookupElements},
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 pub trait BuiltInComponent {
@@ -29,7 +29,11 @@ pub trait BuiltInComponent {
     /// Lookups elements used by the component.
     type LookupElements: ComponentLookupElements;
 
-    fn generate_preprocessed_trace(&self, log_size: u32, side_note: &SideNote) -> FinalizedTrace;
+    fn generate_preprocessed_trace(
+        &self,
+        log_size: u32,
+        program: &ProgramTraceRef,
+    ) -> FinalizedTrace;
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace;
 

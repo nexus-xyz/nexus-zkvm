@@ -14,13 +14,13 @@ use stwo_prover::{
     },
 };
 
-use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::AirColumn;
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     component::{ComponentTrace, FinalizedColumn},
     eval::TraceEval,
+    original_base_column,
     program::ProgramStep,
     trace_eval,
 };
@@ -33,7 +33,7 @@ use crate::{
         InstToRamLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod lb;
@@ -162,7 +162,11 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         InstToRegisterMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         FinalizedTrace::empty()
     }
 
@@ -194,28 +198,26 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
+        assert_eq!(
+            component_trace.original_trace.len(),
+            Column::COLUMNS_NUM + L::LocalColumn::COLUMNS_NUM
+        );
         let (rel_inst_to_ram, rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
-        // finalized trace size wouldn't match common trace size, make unchecked calls
+        let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
+        let clk = original_base_column!(component_trace, Column::Clk);
+        let pc = original_base_column!(component_trace, Column::Pc);
+        let clk_next = original_base_column!(component_trace, Column::ClkNext);
+        let pc_next = original_base_column!(component_trace, Column::PcNext);
 
-        let [is_local_pad] = component_trace.original_base_column_unchecked(Column::IsLocalPad);
-        let clk: [_; WORD_SIZE_HALVED] =
-            component_trace.original_base_column_unchecked(Column::Clk);
-        let pc: [_; WORD_SIZE_HALVED] = component_trace.original_base_column_unchecked(Column::Pc);
-        let clk_next: [_; WORD_SIZE_HALVED] =
-            component_trace.original_base_column_unchecked(Column::ClkNext);
-        let pc_next: [_; WORD_SIZE_HALVED] =
-            component_trace.original_base_column_unchecked(Column::PcNext);
-
-        let h_ram_base_addr: [_; WORD_SIZE] =
-            component_trace.original_base_column_unchecked(Column::HRamBaseAddr);
+        let h_ram_base_addr = original_base_column!(component_trace, Column::HRamBaseAddr);
         let ram_values = L::finalized_ram_values(&component_trace);
         let reg3_value = L::finalized_reg3_value(&component_trace);
 
-        let b_val: [_; WORD_SIZE] = component_trace.original_base_column_unchecked(Column::BVal);
-        let c_val: [_; WORD_SIZE] = component_trace.original_base_column_unchecked(Column::CVal);
+        let b_val = original_base_column!(component_trace, Column::BVal);
+        let c_val = original_base_column!(component_trace, Column::CVal);
 
         // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
         logup_trace_builder.add_to_relation_with(

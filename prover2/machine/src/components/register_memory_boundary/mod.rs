@@ -23,7 +23,7 @@ use nexus_vm_prover_trace::{
 use crate::{
     framework::BuiltInComponent,
     lookups::{AllLookupElements, LogupTraceBuilder, RegisterMemoryLookupElements},
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -42,7 +42,11 @@ impl BuiltInComponent for RegisterMemoryBoundary {
 
     type LookupElements = RegisterMemoryLookupElements;
 
-    fn generate_preprocessed_trace(&self, _log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        _log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         let reg_col = BaseColumn::from_iter((0..1 << Self::LOG_SIZE).map(BaseField::from));
         FinalizedTrace {
             cols: vec![reg_col],
@@ -51,7 +55,7 @@ impl BuiltInComponent for RegisterMemoryBoundary {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let register_memory = side_note.register_memory();
+        let register_memory = &side_note.memory.register_memory;
         let mut trace = TraceBuilder::new(Self::LOG_SIZE);
 
         let final_ts = register_memory.timestamps();

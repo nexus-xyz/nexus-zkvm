@@ -22,7 +22,7 @@ use crate::{
         AllLookupElements, ComponentLookupElements, CpuToRegisterMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, RegisterMemoryLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -48,7 +48,11 @@ impl BuiltInComponent for RegisterMemory {
         CpuToRegisterMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         let mut trace = preprocessed_clk_trace(log_size);
 
         trace.extend(preprocessed_timestamp_trace(log_size, 2));

@@ -16,7 +16,7 @@ use crate::{
 // Read-write memory side note can only be updated by the read-write memory component, once it's stored
 // in the prover's side note it can only be used to fetch final memory state.
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ReadWriteMemorySideNote {
     /// u32 is the access counter, u8 is the value of the byte
     last_access: BTreeMap<u32, (u32, u8)>,
@@ -55,7 +55,7 @@ fn iter_program_steps<'a>(side_note: &SideNote<'a>) -> impl Iterator<Item = Prog
 }
 
 pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
-    let mut rw_memory_side_note = ReadWriteMemorySideNote::new(side_note.init_memory());
+    let mut rw_memory_side_note = ReadWriteMemorySideNote::new(side_note.program.init_memory);
 
     let num_memory_steps = iter_program_steps(side_note).count();
     let log_size = num_memory_steps
@@ -69,7 +69,7 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
     }
 
     // store final ram state into side note
-    *side_note.read_write_memory_mut() = rw_memory_side_note;
+    side_note.memory.read_write_memory = rw_memory_side_note;
 
     // fill padding
     for row_idx in num_memory_steps..1 << log_size {

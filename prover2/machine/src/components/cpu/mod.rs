@@ -21,7 +21,7 @@ use crate::{
         CpuToProgMemoryLookupElements, CpuToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
     },
-    side_note::SideNote,
+    side_note::{program::ProgramTraceRef, SideNote},
 };
 
 mod columns;
@@ -44,7 +44,11 @@ impl BuiltInComponent for Cpu {
         CpuToProgMemoryLookupElements,
     );
 
-    fn generate_preprocessed_trace(&self, log_size: u32, _side_note: &SideNote) -> FinalizedTrace {
+    fn generate_preprocessed_trace(
+        &self,
+        log_size: u32,
+        _program: &ProgramTraceRef,
+    ) -> FinalizedTrace {
         let cols = preprocessed_clk_trace(log_size);
         FinalizedTrace { cols, log_size }
     }
