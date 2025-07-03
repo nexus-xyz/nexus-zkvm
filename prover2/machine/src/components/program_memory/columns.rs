@@ -1,5 +1,7 @@
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 
+use crate::components::cpu::HalfWord;
+
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
 
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -25,3 +27,13 @@ pub enum Column {
     #[size = 1]
     ProgCtrCarry,
 }
+
+pub const PC_LOW: HalfWord<Column> = HalfWord {
+    col: Column::Pc,
+    idx: 0,
+};
+
+pub const PC_HIGH: HalfWord<Column> = HalfWord {
+    col: Column::Pc,
+    idx: 1,
+};

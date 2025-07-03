@@ -10,12 +10,6 @@ mod multiplicity {
     stwo_prover::relation!(BitwiseInstrLookupElements, REL_BITWISE_INSTR_LOOKUP_SIZE);
 }
 
-// (clk, opcode, pc, a-val, b-val, c-val)
-//
-// Both clk and pc are half words.
-const REL_CPU_TO_INST_LOOKUP_SIZE: usize = WORD_SIZE + 1 + WORD_SIZE * 3;
-stwo_prover::relation!(CpuToInstLookupElements, REL_CPU_TO_INST_LOOKUP_SIZE);
-
 // (clk-next, pc-next)
 //
 // Both clk-next and pc-next are half words.
@@ -34,22 +28,25 @@ stwo_prover::relation!(
     REL_REG_MEMORY_READ_WRITE_LOOKUP_SIZE
 );
 
-// (clk, reg3-val, reg1-val, reg2-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+// (
+//     clk,
+//     op-a, op-b, op-c,
+//     a-val, b-val, c-val,
+//     reg1-accessed, reg2-accessed, reg3-accessed,
+//     reg3-write
+// )
 //
-// clk is a half word, values are 4-byte words, the rest are single-column flags.
-const REL_INST_TO_REG_MEMORY_LOOKUP_SIZE: usize = WORD_SIZE_HALVED + 3 * WORD_SIZE + 4;
+// clk is a half word, values are 4-byte words, the rest are single-column values.
+const REL_INST_TO_REG_MEMORY_LOOKUP_SIZE: usize =
+    WORD_SIZE_HALVED      // clk
+    + 3                   // reg addresses (op-a, op-b, op-c)
+    + 3 * WORD_SIZE       // register values (a-val, b-val, c-val)
+    + 4                   // access flags (reg1/2/3-accessed, reg3-write)
+    ;
+
 stwo_prover::relation!(
     InstToRegisterMemoryLookupElements,
     REL_INST_TO_REG_MEMORY_LOOKUP_SIZE
-);
-
-// (clk, reg3-addr, reg1-addr, reg2-addr)
-//
-// clk is a half word, addresses are single columns.
-const REL_CPU_TO_REG_MEMORY_LOOKUP_SIZE: usize = WORD_SIZE_HALVED + 3;
-stwo_prover::relation!(
-    CpuToRegisterMemoryLookupElements,
-    REL_CPU_TO_REG_MEMORY_LOOKUP_SIZE
 );
 
 // (
@@ -78,6 +75,6 @@ stwo_prover::relation!(
 // (pc, instr-val)
 const REL_CPU_TO_PROG_MEMORY_LOOKUP_SIZE: usize = WORD_SIZE * 2;
 stwo_prover::relation!(
-    CpuToProgMemoryLookupElements,
+    InstToProgMemoryLookupElements,
     REL_CPU_TO_PROG_MEMORY_LOOKUP_SIZE
 );

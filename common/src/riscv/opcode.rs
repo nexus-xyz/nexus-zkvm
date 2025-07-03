@@ -416,7 +416,7 @@ impl BuiltinOpcode {
         }
     }
 
-    fn fn3(&self) -> SubByte<3> {
+    pub fn fn3(&self) -> SubByte<3> {
         match self {
             BuiltinOpcode::ADD | BuiltinOpcode::SUB => SubByte::<3>::new_set(0b000),
             BuiltinOpcode::SLL => SubByte::<3>::new_set(0b001),
@@ -479,7 +479,7 @@ impl BuiltinOpcode {
         }
     }
 
-    fn fn7(&self) -> SubByte<7> {
+    pub fn fn7(&self) -> SubByte<7> {
         match self {
             BuiltinOpcode::ADD => SubByte::<7>::new_set(0b0000000),
             BuiltinOpcode::SUB => SubByte::<7>::new_set(0b0100000),

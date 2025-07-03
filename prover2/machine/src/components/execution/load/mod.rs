@@ -26,10 +26,16 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
-    components::utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+    components::{
+        execution::{
+            decoding::{instruction_decoding_trace, VirtualDecodingColumn},
+            load::columns::load_instr_val,
+        },
+        utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+    },
     framework::BuiltInComponent,
     lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
+        AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRamLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
     },
@@ -42,6 +48,8 @@ mod lw;
 
 mod lbu;
 mod lhu;
+
+mod decoding;
 
 mod columns;
 use columns::{Column, PreprocessedColumn};
@@ -95,10 +103,6 @@ impl<L: LoadOp> Load<L> {
         }
     }
 
-    const fn opcode(&self) -> BaseField {
-        BaseField::from_u32_unchecked(L::OPCODE.raw() as u32)
-    }
-
     fn iter_program_steps<'a>(
         &self,
         side_note: &SideNote<'a>,
@@ -147,6 +151,8 @@ impl<L: LoadOp> Load<L> {
 
         trace.fill_columns(row_idx, h_ram_base_addr, Column::HRamBaseAddr);
         trace.fill_columns(row_idx, [h_carry[1], h_carry[3]], Column::HCarry);
+
+        self.generate_decoding_trace_row(trace, row_idx, program_step);
     }
 }
 
@@ -157,7 +163,7 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
 
     type LookupElements = (
         InstToRamLookupElements,
-        CpuToInstLookupElements,
+        InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
     );
@@ -192,7 +198,7 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
     fn generate_interaction_trace(
         &self,
         component_trace: ComponentTrace,
-        _side_note: &SideNote,
+        side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
@@ -202,7 +208,7 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
             component_trace.original_trace.len(),
             Column::COLUMNS_NUM + L::LocalColumn::COLUMNS_NUM
         );
-        let (rel_inst_to_ram, rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -219,20 +225,22 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         let b_val = original_base_column!(component_trace, Column::BVal);
         let c_val = original_base_column!(component_trace, Column::CVal);
 
-        // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        let decoding_trace = instruction_decoding_trace(
+            component_trace.log_size(),
+            self.iter_program_steps(side_note),
+        );
+        let instr_val = original_base_column!(decoding_trace, VirtualDecodingColumn::InstrVal);
+
+        let [op_a] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpA);
+        let [op_b] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpB);
+        let [op_c] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpC);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_inst,
+            &rel_inst_to_prog_memory,
             [is_local_pad.clone()],
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&self.opcode().into()),
-                &pc,
-                &reg3_value,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         );
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         logup_trace_builder.add_to_relation_with(
@@ -275,7 +283,13 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         logup_trace_builder.add_to_relation_with(
             &rel_inst_to_reg_memory,
@@ -283,6 +297,7 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
             &[
                 clk.as_slice(),
+                &[op_a, op_b, op_c],
                 &reg3_value,
                 &b_val,
                 &c_val,
@@ -381,24 +396,23 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
             eval.add_constraint(h_carry.clone() * (E::F::one() - h_carry.clone()));
         }
 
+        Self::constrain_decoding(eval, &trace_eval);
+
+        let instr_val = load_instr_val(L::OPCODE.raw(), L::OPCODE.fn3().value()).eval(&trace_eval);
+        let op_a = columns::OP_A.eval(&trace_eval);
+        let op_b = columns::OP_B.eval(&trace_eval);
+        let op_c = columns::OP_C.eval(&trace_eval);
+
         let [ram_values, reg3_value] = L::add_constraints(eval, trace_eval);
 
-        let (rel_inst_to_ram, rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             lookup_elements;
 
-        // consume(rel-cpu-to-inst, 1 − is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_inst,
+            rel_inst_to_prog_memory,
             (is_local_pad.clone() - E::F::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&E::F::from(self.opcode())),
-                &pc,
-                &reg3_value,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         ));
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         eval.add_to_relation(RelationEntry::new(
@@ -444,13 +458,20 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_reg_memory,
             (E::F::one() - is_local_pad.clone()).into(),
             &[
                 clk.as_slice(),
+                &[op_a, op_b, op_c],
                 &reg3_value,
                 &b_val,
                 &c_val,

@@ -1,3 +1,6 @@
+use std::marker::PhantomData;
+
+use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
@@ -23,24 +26,61 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
-    components::utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+    components::{
+        execution::decoding::{instruction_decoding_trace, VirtualDecodingColumn},
+        utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+    },
     framework::BuiltInComponent,
     lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
+        AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
 
+mod add;
+mod addi;
 mod columns;
+
 use columns::{Column, PreprocessedColumn};
 
-pub const ADD: Add = Add::new(BuiltinOpcode::ADD);
-pub const ADDI: Add = Add::new(BuiltinOpcode::ADDI);
+pub const ADD: Add<add::Add> = Add::new();
+pub const ADDI: Add<addi::Addi> = Add::new();
 
-pub struct Add {
-    opcode: BuiltinOpcode,
-    reg2_accessed: bool,
+pub trait AddOp {
+    const OPCODE: BuiltinOpcode;
+    const REG2_ACCESSED: bool;
+
+    /// Columns used for instruction decoding.
+    type LocalColumn: AirColumn;
+
+    fn generate_trace_row(
+        row_idx: usize,
+        trace: &mut TraceBuilder<Self::LocalColumn>,
+        program_step: ProgramStep,
+    );
+
+    fn constrain_decoding<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+    );
+
+    /// Returns a linear combinations of decoding columns that represent [op-a, op-b, op-c]
+    ///
+    /// op-c is an immediate in case of ADDI
+    fn combine_reg_addresses<E: EvalAtRow>(
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+    ) -> [E::F; 3];
+
+    /// Returns a linear combination of decoding columns that represent raw instruction word.
+    fn combine_instr_val<E: EvalAtRow>(
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+    ) -> [E::F; WORD_SIZE];
+}
+
+pub struct Add<A> {
+    _phantom: PhantomData<A>,
 }
 
 struct ExecutionResult {
@@ -48,28 +88,26 @@ struct ExecutionResult {
     sum_bytes: Word,
 }
 
-impl Add {
+impl<A: AddOp> Add<A> {
     const REG1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
     const REG3_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
     const REG3_WRITE: BaseField = BaseField::from_u32_unchecked(1);
 
-    const fn new(opcode: BuiltinOpcode) -> Self {
-        assert!(matches!(opcode, BuiltinOpcode::ADD | BuiltinOpcode::ADDI));
+    const fn new() -> Self {
+        assert!(matches!(
+            A::OPCODE,
+            BuiltinOpcode::ADD | BuiltinOpcode::ADDI
+        ));
         Self {
-            opcode,
-            reg2_accessed: matches!(opcode, BuiltinOpcode::ADD),
+            _phantom: PhantomData,
         }
-    }
-
-    const fn opcode(&self) -> BaseField {
-        BaseField::from_u32_unchecked(self.opcode.raw() as u32)
     }
 
     fn iter_program_steps<'a>(
         &self,
         side_note: &SideNote<'a>,
     ) -> impl Iterator<Item = ProgramStep<'a>> {
-        let add_opcode = self.opcode;
+        let add_opcode = A::OPCODE;
         side_note.iter_program_steps().filter(move |step| {
             matches!(
                 step.step.instruction.opcode.builtin(),
@@ -93,11 +131,10 @@ impl Add {
         &self,
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
-        vm_step: ProgramStep,
+        program_step: ProgramStep,
         _side_note: &mut SideNote,
     ) {
-        let step = &vm_step.step;
-        assert_eq!(step.instruction.opcode.builtin(), Some(self.opcode));
+        let step = &program_step.step;
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
@@ -107,8 +144,8 @@ impl Add {
         let clk_parts = u32_to_16bit_parts_le(clk);
         let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
-        let value_b = vm_step.get_value_b();
-        let (value_c, _) = vm_step.get_value_c();
+        let value_b = program_step.get_value_b();
+        let (value_c, _) = program_step.get_value_c();
         let ExecutionResult {
             carry_bits,
             sum_bytes,
@@ -129,13 +166,13 @@ impl Add {
     }
 }
 
-impl BuiltInComponent for Add {
+impl<A: AddOp> BuiltInComponent for Add<A> {
     type PreprocessedColumn = PreprocessedColumn;
 
     type MainColumn = Column;
 
     type LookupElements = (
-        CpuToInstLookupElements,
+        InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
     );
@@ -152,28 +189,35 @@ impl BuiltInComponent for Add {
         let num_add_steps = self.iter_program_steps(side_note).count();
         let log_size = num_add_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
-        let mut trace = TraceBuilder::new(log_size);
-        for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
-            self.generate_trace_row(&mut trace, row_idx, program_step, side_note);
-        }
+        let mut common_trace = TraceBuilder::new(log_size);
+        let mut local_trace = TraceBuilder::new(log_size);
 
+        for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
+            self.generate_trace_row(&mut common_trace, row_idx, program_step, side_note);
+            A::generate_trace_row(row_idx, &mut local_trace, program_step);
+        }
         // fill padding
         for row_idx in num_add_steps..1 << log_size {
-            trace.fill_columns(row_idx, true, Column::IsLocalPad);
+            common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
         }
-        trace.finalize()
+
+        common_trace.finalize().concat(local_trace.finalize())
     }
 
     fn generate_interaction_trace(
         &self,
         component_trace: ComponentTrace,
-        _side_note: &SideNote,
+        side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+        assert_eq!(
+            component_trace.original_trace.len(),
+            Column::COLUMNS_NUM + A::LocalColumn::COLUMNS_NUM
+        );
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -187,20 +231,22 @@ impl BuiltInComponent for Add {
         let clk_next = original_base_column!(component_trace, Column::ClkNext);
         let pc_next = original_base_column!(component_trace, Column::PcNext);
 
-        // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        let decoding_trace = instruction_decoding_trace(
+            component_trace.log_size(),
+            self.iter_program_steps(side_note),
+        );
+        let instr_val = original_base_column!(decoding_trace, VirtualDecodingColumn::InstrVal);
+
+        let [op_a] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpA);
+        let [op_b] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpB);
+        let [op_c] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpC);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_inst,
+            &rel_inst_to_prog_memory,
             [is_local_pad.clone()],
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&self.opcode().into()),
-                &pc,
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         );
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         logup_trace_builder.add_to_relation_with(
@@ -212,23 +258,30 @@ impl BuiltInComponent for Add {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
-        let reg2_accessed = BaseField::from(self.reg2_accessed as u32);
+        let reg2_accessed = BaseField::from(A::REG2_ACCESSED as u32);
         logup_trace_builder.add_to_relation_with(
             &rel_inst_to_reg_memory,
             [is_local_pad],
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
             &[
                 clk.as_slice(),
+                &[op_a, op_b, op_c],
                 &a_val,
                 &b_val,
                 &c_val,
                 &[
-                    Add::REG1_ACCESSED.into(),
+                    Self::REG1_ACCESSED.into(),
                     reg2_accessed.into(),
-                    Add::REG3_ACCESSED.into(),
-                    Add::REG3_WRITE.into(),
+                    Self::REG3_ACCESSED.into(),
+                    Self::REG3_WRITE.into(),
                 ],
             ]
             .concat(),
@@ -311,22 +364,20 @@ impl BuiltInComponent for Add {
                         + h_carry_1.clone())),
         );
 
-        // Logup Interactions
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
+        let local_trace_eval = TraceEval::new(eval);
+        A::constrain_decoding(eval, &trace_eval, &local_trace_eval);
 
-        // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        // Logup Interactions
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
+
+        let instr_val = A::combine_instr_val(&local_trace_eval);
+        let reg_addrs = A::combine_reg_addresses(&local_trace_eval);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_inst,
+            rel_inst_to_prog_memory,
             (is_local_pad.clone() - E::F::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&E::F::from(self.opcode())),
-                &pc,
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         ));
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         eval.add_to_relation(RelationEntry::new(
@@ -342,22 +393,29 @@ impl BuiltInComponent for Add {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
-        let reg2_accessed = E::F::from(BaseField::from(self.reg2_accessed as u32));
+        let reg2_accessed = E::F::from(BaseField::from(A::REG2_ACCESSED as u32));
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_reg_memory,
             (E::F::one() - is_local_pad.clone()).into(),
             &[
                 clk.as_slice(),
+                &reg_addrs,
                 &a_val,
                 &b_val,
                 &c_val,
                 &[
-                    Add::REG1_ACCESSED.into(),
+                    Self::REG1_ACCESSED.into(),
                     reg2_accessed,
-                    Add::REG3_ACCESSED.into(),
-                    Add::REG3_WRITE.into(),
+                    Self::REG3_ACCESSED.into(),
+                    Self::REG3_WRITE.into(),
                 ],
             ]
             .concat(),
@@ -387,12 +445,17 @@ mod tests {
     #[test]
     fn assert_add_constraints() {
         let basic_block = vec![BasicBlock::new(vec![
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 127),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 2, 1, 0),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 3, 2, 1),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 4, 3, 2),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 5, 4, 3),
             Instruction::new_ir(Opcode::from(BuiltinOpcode::ADD), 6, 5, 4),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 1, 1230),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 2, 1231),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 3, 1232),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 4, 1233),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 6, 5, 1234),
         ])];
         let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");

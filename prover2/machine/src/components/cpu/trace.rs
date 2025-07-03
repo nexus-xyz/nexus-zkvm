@@ -3,7 +3,6 @@ use stwo_prover::core::{
     fields::m31::BaseField,
 };
 
-use nexus_vm::riscv::BuiltinOpcode;
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     program::ProgramStep,
@@ -57,48 +56,4 @@ fn generate_trace_row(
 
     trace.fill_columns_bytes(row_idx, &pc_bytes, Column::Pc);
     trace.fill_columns(row_idx, pc_aux, Column::PcAux);
-
-    let (flag_column, opcode) = match step.instruction.opcode.builtin() {
-        Some(BuiltinOpcode::ADD) => (Column::IsAdd, BuiltinOpcode::ADD),
-        Some(BuiltinOpcode::ADDI) => (Column::IsAddI, BuiltinOpcode::ADDI),
-        Some(BuiltinOpcode::LB) => (Column::IsLb, BuiltinOpcode::LB),
-        Some(BuiltinOpcode::LH) => (Column::IsLh, BuiltinOpcode::LH),
-        Some(BuiltinOpcode::LW) => (Column::IsLw, BuiltinOpcode::LW),
-        Some(BuiltinOpcode::LBU) => (Column::IsLbu, BuiltinOpcode::LBU),
-        Some(BuiltinOpcode::LHU) => (Column::IsLhu, BuiltinOpcode::LHU),
-        Some(BuiltinOpcode::SB) => (Column::IsSb, BuiltinOpcode::SB),
-        Some(BuiltinOpcode::SH) => (Column::IsSh, BuiltinOpcode::SH),
-        Some(BuiltinOpcode::SW) => (Column::IsSw, BuiltinOpcode::SW),
-        Some(BuiltinOpcode::AND) => (Column::IsAnd, BuiltinOpcode::AND),
-        Some(BuiltinOpcode::ANDI) => (Column::IsAndI, BuiltinOpcode::ANDI),
-        Some(BuiltinOpcode::OR) => (Column::IsOr, BuiltinOpcode::OR),
-        Some(BuiltinOpcode::ORI) => (Column::IsOrI, BuiltinOpcode::ORI),
-        Some(BuiltinOpcode::XOR) => (Column::IsXor, BuiltinOpcode::XOR),
-        Some(BuiltinOpcode::XORI) => (Column::IsXorI, BuiltinOpcode::XORI),
-        _ => {
-            panic!("Unsupported opcode: {:?}", step.instruction.opcode);
-        }
-    };
-    trace.fill_columns(row_idx, true, flag_column);
-    trace.fill_columns(row_idx, opcode.raw(), Column::Opcode);
-
-    let a_val = program_step
-        .get_result()
-        .unwrap_or_else(|| program_step.get_value_a());
-    let b_val = program_step.get_value_b();
-    let (c_val, _) = program_step.get_value_c();
-
-    trace.fill_columns(row_idx, a_val, Column::AVal);
-    trace.fill_columns(row_idx, b_val, Column::BVal);
-    trace.fill_columns(row_idx, c_val, Column::CVal);
-
-    let op_a = program_step.get_op_a() as u8;
-    let op_b = program_step.get_op_b() as u8;
-    let op_c = BaseField::from(program_step.get_op_c());
-
-    trace.fill_columns(row_idx, op_a, Column::OpA);
-    trace.fill_columns(row_idx, op_b, Column::OpB);
-    trace.fill_columns(row_idx, op_c, Column::OpC);
-
-    trace.fill_columns(row_idx, program_step.step.raw_instruction, Column::InstrVal);
 }
