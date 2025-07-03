@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
+use nexus_vm_prover_air_column::AirColumn;
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
@@ -27,8 +27,14 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     components::{
-        execution::decoding::{instruction_decoding_trace, VirtualDecodingColumn},
-        utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+        execution::decoding::{
+            instruction_decoding_trace, InstructionDecoding, VirtualDecodingColumn,
+        },
+        utils::{
+            add_16bit_with_carry, add_with_carries,
+            constraints::{ClkIncrement, PcIncrement},
+            u32_to_16bit_parts_le,
+        },
     },
     framework::BuiltInComponent,
     lookups::{
@@ -47,36 +53,9 @@ use columns::{Column, PreprocessedColumn};
 pub const ADD: Add<add::Add> = Add::new();
 pub const ADDI: Add<addi::Addi> = Add::new();
 
-pub trait AddOp {
-    const OPCODE: BuiltinOpcode;
-    const REG2_ACCESSED: bool;
-
-    /// Columns used for instruction decoding.
-    type LocalColumn: AirColumn;
-
-    fn generate_trace_row(
-        row_idx: usize,
-        trace: &mut TraceBuilder<Self::LocalColumn>,
-        program_step: ProgramStep,
-    );
-
-    fn constrain_decoding<E: EvalAtRow>(
-        eval: &mut E,
-        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
-        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
-    );
-
-    /// Returns a linear combinations of decoding columns that represent [op-a, op-b, op-c]
-    ///
-    /// op-c is an immediate in case of ADDI
-    fn combine_reg_addresses<E: EvalAtRow>(
-        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
-    ) -> [E::F; 3];
-
-    /// Returns a linear combination of decoding columns that represent raw instruction word.
-    fn combine_instr_val<E: EvalAtRow>(
-        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
-    ) -> [E::F; WORD_SIZE];
+pub trait AddOp:
+    InstructionDecoding<PreprocessedColumn = PreprocessedColumn, MainColumn = Column>
+{
 }
 
 pub struct Add<A> {
@@ -215,7 +194,7 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
     ) {
         assert_eq!(
             component_trace.original_trace.len(),
-            Column::COLUMNS_NUM + A::LocalColumn::COLUMNS_NUM
+            Column::COLUMNS_NUM + A::DecodingColumn::COLUMNS_NUM
         );
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
@@ -297,8 +276,6 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-        let [clk_carry] = trace_eval!(trace_eval, Column::ClkCarry);
-        let [pc_carry] = trace_eval!(trace_eval, Column::PcCarry);
         let [h_carry_1, h_carry_2] = trace_eval!(trace_eval, Column::HCarry);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
@@ -310,38 +287,27 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = trace_eval!(trace_eval, Column::CVal);
 
-        // TODO: annotate
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[0].clone() + clk_carry.clone() * BaseField::from(1 << 16)
-                    - clk[0].clone()
-                    - E::F::one()),
-        );
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[1].clone() - clk[1].clone() - clk_carry.clone()),
-        );
-
-        // (clk-carry) · (1 − clk-carry) = 0
-        eval.add_constraint(clk_carry.clone() * (E::F::one() - clk_carry.clone()));
-
-        // TODO: annotate
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[0].clone() + pc_carry.clone() * BaseField::from(1 << 16)
-                    - pc[0].clone()
-                    - E::F::from(4.into())),
-        );
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[1].clone() - pc[1].clone() - pc_carry.clone()),
-        );
-        // (pc-carry) · (1 − pc-carry) = 0
-        eval.add_constraint(pc_carry.clone() * (E::F::one() - pc_carry.clone()));
+        ClkIncrement {
+            is_local_pad: Column::IsLocalPad,
+            clk: Column::Clk,
+            clk_next: Column::ClkNext,
+            clk_carry: Column::ClkCarry,
+        }
+        .constrain(eval, &trace_eval);
+        PcIncrement {
+            is_local_pad: Column::IsLocalPad,
+            pc: Column::Pc,
+            pc_next: Column::PcNext,
+            pc_carry: Column::PcCarry,
+        }
+        .constrain(eval, &trace_eval);
 
         let modulus = E::F::from(256u32.into());
 
-        // TODO: annotate
+        // add two bytes at a time
+        //
+        // (1 − is-local-pad) · (a-val(1) + h-carry(1) · 2^8 − b-val(1) − c-val(1) ) = 0
+        // (1 − is-local-pad) · (a-val(2) + h-carry(2) · 2^8 − b-val(2) − c-val(2) − h-carry(1)) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (a_val[0].clone()
@@ -352,6 +318,8 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
                         + c_val[0].clone()
                         + c_val[1].clone() * modulus.clone())),
         );
+        // (1 − is-local-pad) · (a-val(3) + h-carry(3) · 2^8 − b-val(3) − c-val(3) − h-carry(2)) = 0
+        // (1 − is-local-pad) · (a-val(4) + h-carry(4) · 2^8 − b-val(4) − c-val(4) − h-carry(3)) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (a_val[2].clone()

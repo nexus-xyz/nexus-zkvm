@@ -1,7 +1,9 @@
+use std::marker::PhantomData;
+
 use num_traits::One;
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
-use nexus_vm::WORD_SIZE;
+use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::{
     empty::EmptyPreprocessedColumn, AirColumn, PreprocessedAirColumn,
 };
@@ -9,7 +11,7 @@ use nexus_vm_prover_trace::{
     builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
 };
 
-use super::RegSplitAt0;
+use super::{InstructionDecoding, RegSplitAt0};
 
 /// Decoding columns used by type I instructions.
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -212,4 +214,68 @@ pub fn constrain_c_val<E: EvalAtRow>(
         (E::F::one() - is_local_pad.clone())
             * (op_c11.clone() * BaseField::from((1 << 8) - 1) - c_val[3].clone()),
     );
+}
+
+/// Zero-sized struct that implements type-I instruction decoding.
+pub struct TypeI<T>(PhantomData<T>);
+
+pub trait TypeIDecoding {
+    const OPCODE: BuiltinOpcode;
+    const C_VAL: Self::MainColumn;
+    const IS_LOCAL_PAD: Self::MainColumn;
+
+    type PreprocessedColumn: PreprocessedAirColumn;
+    type MainColumn: AirColumn;
+}
+
+impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
+    const OPCODE: BuiltinOpcode = T::OPCODE;
+    const REG2_ACCESSED: bool = false;
+
+    type PreprocessedColumn = <T as TypeIDecoding>::PreprocessedColumn;
+    type MainColumn = <T as TypeIDecoding>::MainColumn;
+    type DecodingColumn = DecodingColumn;
+
+    fn generate_trace_row(
+        row_idx: usize,
+        trace: &mut TraceBuilder<Self::DecodingColumn>,
+        program_step: ProgramStep,
+    ) {
+        generate_trace_row(row_idx, trace, program_step);
+    }
+
+    fn constrain_decoding<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) {
+        let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
+        let c_val = trace_eval.column_eval(T::C_VAL);
+
+        let [op_a0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA0);
+        let [op_b0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB0);
+        let [op_c11] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC11);
+
+        // constrain op_a0, op_b0, op_c11 ∈ {0, 1}
+        for bit in [op_a0, op_b0, op_c11.clone()] {
+            eval.add_constraint(bit.clone() * (E::F::one() - bit));
+        }
+
+        constrain_c_val(eval, decoding_trace_eval, c_val, is_local_pad);
+    }
+
+    fn combine_reg_addresses<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; 3] {
+        let op_a = OP_A.eval(decoding_trace_eval);
+        let op_b = OP_B.eval(decoding_trace_eval);
+        let op_c = OP_C.eval(decoding_trace_eval);
+        [op_a, op_b, op_c]
+    }
+
+    fn combine_instr_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE] {
+        InstrVal::new(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(decoding_trace_eval)
+    }
 }

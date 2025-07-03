@@ -1,6 +1,5 @@
 use std::marker::PhantomData;
 
-use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
@@ -15,7 +14,7 @@ use stwo_prover::{
     },
 };
 
-use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     component::ComponentTrace,
@@ -26,7 +25,12 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
-    components::execution::decoding::{instruction_decoding_trace, VirtualDecodingColumn},
+    components::{
+        execution::decoding::{
+            instruction_decoding_trace, InstructionDecoding, VirtualDecodingColumn,
+        },
+        utils::constraints::{ClkIncrement, PcIncrement},
+    },
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, BitwiseInstrLookupElements, ComponentLookupElements,
@@ -50,37 +54,10 @@ pub const AND_LOOKUP_IDX: u32 = 1;
 pub const OR_LOOKUP_IDX: u32 = 2;
 pub const XOR_LOOKUP_IDX: u32 = 3;
 
-pub trait BitwiseOp {
-    const OPCODE: BuiltinOpcode;
-    const REG2_ACCESSED: bool;
+pub trait BitwiseOp:
+    InstructionDecoding<PreprocessedColumn = PreprocessedColumn, MainColumn = Column>
+{
     const BITWISE_LOOKUP_IDX: u32;
-
-    /// Columns used for instruction decoding.
-    type LocalColumn: AirColumn;
-
-    fn generate_trace_row(
-        row_idx: usize,
-        trace: &mut TraceBuilder<Self::LocalColumn>,
-        program_step: ProgramStep,
-    );
-
-    fn constrain_decoding<E: EvalAtRow>(
-        eval: &mut E,
-        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
-        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
-    );
-
-    /// Returns a linear combinations of decoding columns that represent [op-a, op-b, op-c]
-    ///
-    /// op-c is an immediate in case of Type-I instructions.
-    fn combine_reg_addresses<E: EvalAtRow>(
-        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
-    ) -> [E::F; 3];
-
-    /// Returns a linear combination of decoding columns that represent raw instruction word.
-    fn combine_instr_val<E: EvalAtRow>(
-        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
-    ) -> [E::F; WORD_SIZE];
 }
 
 pub struct Bitwise<B> {
@@ -304,8 +281,6 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-        let [clk_carry] = trace_eval!(trace_eval, Column::ClkCarry);
-        let [pc_carry] = trace_eval!(trace_eval, Column::PcCarry);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
@@ -316,36 +291,20 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = trace_eval!(trace_eval, Column::CVal);
 
-        // (1 − is-local-pad) · (clk-next(1) + clk-next(2) · 2^8 + clk-carry(1) · 2^16 − clk(1) − clk(2) · 2^8 − 1) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[0].clone() + clk_carry.clone() * BaseField::from(1 << 16)
-                    - clk[0].clone()
-                    - E::F::one()),
-        );
-        // (1 − is-local-pad) · (clk-next(3) + clk-next(4) · 2^8 + clk-carry(2) · 2^16 − clk(3) − clk(4) · 2^8 − clk-carry(1)) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[1].clone() - clk[1].clone() - clk_carry.clone()),
-        );
-
-        // (clk-carry) · (1 − clk-carry) = 0
-        eval.add_constraint(clk_carry.clone() * (E::F::one() - clk_carry.clone()));
-
-        // (1 − is-local-pad) · (pc-next(1) + pc-next(2) · 2^8 + pc-carry(1) · 2^16 − pc(1) − pc(2) · 2^8 − 4) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[0].clone() + pc_carry.clone() * BaseField::from(1 << 16)
-                    - pc[0].clone()
-                    - E::F::from(4.into())),
-        );
-        // (1 − is-local-pad) · (pc-next(3) + pc-next(4) · 2^8 + pc-carry(2) · 2^16 − pc(3) − pc(4) · 2^8 − pc-carry(1)) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[1].clone() - pc[1].clone() - pc_carry.clone()),
-        );
-        // (pc-carry) · (1 − pc-carry) = 0
-        eval.add_constraint(pc_carry.clone() * (E::F::one() - pc_carry.clone()));
+        ClkIncrement {
+            is_local_pad: Column::IsLocalPad,
+            clk: Column::Clk,
+            clk_next: Column::ClkNext,
+            clk_carry: Column::ClkCarry,
+        }
+        .constrain(eval, &trace_eval);
+        PcIncrement {
+            is_local_pad: Column::IsLocalPad,
+            pc: Column::Pc,
+            pc_next: Column::PcNext,
+            pc_carry: Column::PcCarry,
+        }
+        .constrain(eval, &trace_eval);
 
         let a_val_high = trace_eval!(trace_eval, Column::AValHigh);
         let a_val_low = A_VAL_LOW.eval(&trace_eval);
@@ -449,11 +408,11 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
 }
 
 pub const AND: Bitwise<and::And> = Bitwise::new();
-pub const ANDI: Bitwise<and::AndI> = Bitwise::new();
+pub const ANDI: Bitwise<and::Andi> = Bitwise::new();
 pub const OR: Bitwise<or::Or> = Bitwise::new();
-pub const ORI: Bitwise<or::OrI> = Bitwise::new();
+pub const ORI: Bitwise<or::Ori> = Bitwise::new();
 pub const XOR: Bitwise<xor::Xor> = Bitwise::new();
-pub const XORI: Bitwise<xor::XorI> = Bitwise::new();
+pub const XORI: Bitwise<xor::Xori> = Bitwise::new();
 
 #[cfg(test)]
 mod tests {

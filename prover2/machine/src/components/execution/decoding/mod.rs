@@ -3,9 +3,13 @@ use stwo_prover::{
     core::{backend::simd::column::BaseColumn, fields::m31::BaseField},
 };
 
-use nexus_vm::WORD_SIZE;
-use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
-use nexus_vm_prover_trace::{component::ComponentTrace, eval::TraceEval, program::ProgramStep};
+use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+use nexus_vm_prover_air_column::{
+    empty::EmptyPreprocessedColumn, AirColumn, PreprocessedAirColumn,
+};
+use nexus_vm_prover_trace::{
+    builder::TraceBuilder, component::ComponentTrace, eval::TraceEval, program::ProgramStep,
+};
 
 // some instructions share local columns required for decoding across modules (e.g., type-R and type-I),
 // and these are reused where possible, while others, such as loads and stores, define and use their columns locally.
@@ -15,7 +19,44 @@ use nexus_vm_prover_trace::{component::ComponentTrace, eval::TraceEval, program:
 pub mod type_i;
 pub mod type_r;
 
-/// Column for indexing decoding trace, these values are used by the prover
+pub trait InstructionDecoding {
+    const OPCODE: BuiltinOpcode;
+    const REG2_ACCESSED: bool;
+    /// Columns used in the preprocessed (constant) trace.
+    type PreprocessedColumn;
+    /// Columns used in the original (main) trace.
+    type MainColumn;
+    /// (local) Columns used for instruction decoding. Prover commits to this trace.
+    type DecodingColumn: AirColumn;
+
+    /// Fills trace values for the decoding trace.
+    fn generate_trace_row(
+        row_idx: usize,
+        trace: &mut TraceBuilder<Self::DecodingColumn>,
+        program_step: ProgramStep,
+    );
+
+    /// Constrains decoding trace values.
+    fn constrain_decoding<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    );
+
+    /// Returns a linear combinations of decoding columns that represent [op-a, op-b, op-c]
+    ///
+    /// op-c can be an immediate or a register address.
+    fn combine_reg_addresses<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; 3];
+
+    /// Returns a linear combination of decoding columns that represent raw instruction word.
+    fn combine_instr_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE];
+}
+
+/// Column for indexing virtual decoding trace, these values are used by the prover
 /// for the program memory checking logup trace generation.
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum VirtualDecodingColumn {
