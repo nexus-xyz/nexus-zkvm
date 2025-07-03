@@ -159,7 +159,7 @@ use std::{
     cmp::max,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
 };
-
+use std::rc::Rc;
 #[derive(Debug, Default)]
 pub struct Executor {
     // The CPU
@@ -178,7 +178,7 @@ pub struct Executor {
     basic_block_ref_cache: RangeMap<u32, u32>,
 
     // Basic block cache to improve performance
-    basic_block_cache: BTreeMap<u32, BasicBlockEntry>,
+    basic_block_cache: BTreeMap<u32, Rc<BasicBlockEntry>>,
 
     // The base address of the program
     base_address: u32,
@@ -275,7 +275,7 @@ pub trait Emulator {
     ///
     /// # Returns
     /// if success, return a `BasicBlockEntry` starting at the current PC.
-    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlockEntry>;
+    fn fetch_block(&mut self, pc: u32) -> Result<Rc<BasicBlockEntry>>;
 
     /// Return a reference to the internal executor component used by the emulator.
     fn get_executor(&self) -> &Executor;
@@ -623,7 +623,7 @@ impl Emulator for HarvardEmulator {
     ///
     /// # Returns
     /// if success, return a `BasicBlockEntry` starting at the current PC.
-    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlockEntry> {
+    fn fetch_block(&mut self, pc: u32) -> Result<Rc<BasicBlockEntry>> {
         if let Some(start) = self.executor.basic_block_ref_cache.get(&pc) {
             return Ok(self.executor.basic_block_cache.get(start).unwrap().clone());
         }
@@ -633,7 +633,7 @@ impl Emulator for HarvardEmulator {
             Err(VMErrorKind::VMOutOfInstructions)?
         }
 
-        let entry = BasicBlockEntry::new(pc, block);
+        let entry = Rc::new(BasicBlockEntry::new(pc, block));
         let _ = self.executor.basic_block_cache.insert(pc, entry.clone());
 
         self.executor
@@ -1080,7 +1080,7 @@ impl Emulator for LinearEmulator {
     ///
     /// # Returns
     /// if success, return a `BasicBlockEntry` starting at the current PC.
-    fn fetch_block(&mut self, pc: u32) -> Result<BasicBlockEntry> {
+    fn fetch_block(&mut self, pc: u32) -> Result<Rc<BasicBlockEntry>> {
         if let Some(start) = self.executor.basic_block_ref_cache.get(&pc) {
             return Ok(self.executor.basic_block_cache.get(start).unwrap().clone());
         }
@@ -1094,7 +1094,7 @@ impl Emulator for LinearEmulator {
             Err(VMErrorKind::VMOutOfInstructions)?
         }
 
-        let entry = BasicBlockEntry::new(pc, block);
+        let entry = Rc::new(BasicBlockEntry::new(pc, block));
         let _ = self.executor.basic_block_cache.insert(pc, entry.clone());
 
         self.executor
