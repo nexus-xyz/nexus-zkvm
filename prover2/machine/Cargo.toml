@@ -19,3 +19,6 @@ nexus-vm = { path = "../../vm" }
 nexus-common = { path = "../../common" }
 nexus-vm-prover-trace = { path = "../trace" }
 nexus-vm-prover-air-column = { path = "../air-column" }
+
+[lints.clippy]
+module-inception = { level = "allow", priority = 0 }

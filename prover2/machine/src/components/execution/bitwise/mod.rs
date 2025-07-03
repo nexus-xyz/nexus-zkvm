@@ -1,5 +1,6 @@
 use std::marker::PhantomData;
 
+use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
@@ -25,10 +26,11 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
+    components::execution::decoding::{instruction_decoding_trace, VirtualDecodingColumn},
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, BitwiseInstrLookupElements, ComponentLookupElements,
-        CpuToInstLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
+        InstToProgMemoryLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
@@ -52,6 +54,33 @@ pub trait BitwiseOp {
     const OPCODE: BuiltinOpcode;
     const REG2_ACCESSED: bool;
     const BITWISE_LOOKUP_IDX: u32;
+
+    /// Columns used for instruction decoding.
+    type LocalColumn: AirColumn;
+
+    fn generate_trace_row(
+        row_idx: usize,
+        trace: &mut TraceBuilder<Self::LocalColumn>,
+        program_step: ProgramStep,
+    );
+
+    fn constrain_decoding<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+    );
+
+    /// Returns a linear combinations of decoding columns that represent [op-a, op-b, op-c]
+    ///
+    /// op-c is an immediate in case of Type-I instructions.
+    fn combine_reg_addresses<E: EvalAtRow>(
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+    ) -> [E::F; 3];
+
+    /// Returns a linear combination of decoding columns that represent raw instruction word.
+    fn combine_instr_val<E: EvalAtRow>(
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+    ) -> [E::F; WORD_SIZE];
 }
 
 pub struct Bitwise<B> {
@@ -78,10 +107,6 @@ impl<B: BitwiseOp> Bitwise<B> {
         }
     }
 
-    const fn opcode(&self) -> BaseField {
-        BaseField::from_u32_unchecked(B::OPCODE.raw() as u32)
-    }
-
     fn iter_program_steps<'a>(
         &self,
         side_note: &SideNote<'a>,
@@ -102,7 +127,7 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
     type MainColumn = Column;
 
     type LookupElements = (
-        CpuToInstLookupElements,
+        InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
         BitwiseInstrLookupElements,
@@ -122,14 +147,17 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
 
         let mut accum = BitwiseAccumulator::default();
 
-        let mut trace = TraceBuilder::new(log_size);
+        let mut common_trace = TraceBuilder::new(log_size);
+        let mut local_trace = TraceBuilder::new(log_size);
+
         for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
-            self.generate_trace_row(&mut trace, row_idx, program_step, &mut accum);
+            self.generate_trace_row(&mut common_trace, row_idx, program_step, &mut accum);
+            B::generate_trace_row(row_idx, &mut local_trace, program_step);
         }
 
         // fill padding
         for row_idx in num_steps..1 << log_size {
-            trace.fill_columns(row_idx, true, Column::IsLocalPad);
+            common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
         }
 
         // store computed multiplicities
@@ -143,20 +171,24 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
             *accum_mut.accum.entry(*row).or_default() += mult;
         }
 
-        trace.finalize()
+        common_trace.finalize().concat(local_trace.finalize())
     }
 
     fn generate_interaction_trace(
         &self,
         component_trace: ComponentTrace,
-        _side_note: &SideNote,
+        side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory, rel_bitwise_instr) =
-            Self::LookupElements::get(lookup_elements);
+        let (
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            rel_bitwise_instr,
+        ) = Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
@@ -205,20 +237,22 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
             );
         }
 
-        // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        let decoding_trace = instruction_decoding_trace(
+            component_trace.log_size(),
+            self.iter_program_steps(side_note),
+        );
+        let instr_val = original_base_column!(decoding_trace, VirtualDecodingColumn::InstrVal);
+
+        let [op_a] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpA);
+        let [op_b] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpB);
+        let [op_c] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpC);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_inst,
+            &rel_inst_to_prog_memory,
             [is_local_pad.clone()],
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&self.opcode().into()),
-                &pc,
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         );
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         logup_trace_builder.add_to_relation_with(
@@ -231,7 +265,13 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         let reg2_accessed = BaseField::from(B::REG2_ACCESSED as u32);
         logup_trace_builder.add_to_relation_with(
@@ -240,6 +280,7 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
             &[
                 clk.as_slice(),
+                &[op_a, op_b, op_c],
                 &a_val,
                 &b_val,
                 &c_val,
@@ -315,9 +356,16 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
         let c_val_high = trace_eval!(trace_eval, Column::CValHigh);
         let c_val_low = C_VAL_LOW.eval(&trace_eval);
 
+        let local_trace_eval = TraceEval::new(eval);
+        B::constrain_decoding(eval, &trace_eval, &local_trace_eval);
+
         // logup interactions
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory, rel_bitwise_instr) =
-            lookup_elements;
+        let (
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            rel_bitwise_instr,
+        ) = lookup_elements;
 
         let bitwise_lookup_idx: E::F = BaseField::from(B::BITWISE_LOOKUP_IDX).into();
         for i in 0..WORD_SIZE {
@@ -344,19 +392,14 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
             ));
         }
 
-        // consume(rel-cpu-to-inst, 1 − is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        let instr_val = B::combine_instr_val(&local_trace_eval);
+        let reg_addrs = B::combine_reg_addresses(&local_trace_eval);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_inst,
+            rel_inst_to_prog_memory,
             (is_local_pad.clone() - E::F::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&E::F::from(self.opcode())),
-                &pc,
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         ));
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         eval.add_to_relation(RelationEntry::new(
@@ -373,7 +416,13 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         let reg2_accessed: E::F = BaseField::from(B::REG2_ACCESSED as u32).into();
         eval.add_to_relation(RelationEntry::new(
@@ -381,6 +430,7 @@ impl<B: BitwiseOp> BuiltInComponent for Bitwise<B> {
             (E::F::one() - is_local_pad.clone()).into(),
             &[
                 clk.as_slice(),
+                &reg_addrs,
                 &a_val,
                 &b_val,
                 &c_val,

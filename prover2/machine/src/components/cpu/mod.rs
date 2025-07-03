@@ -16,11 +16,7 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     framework::BuiltInComponent,
-    lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
-        CpuToProgMemoryLookupElements, CpuToRegisterMemoryLookupElements, LogupTraceBuilder,
-        ProgramExecutionLookupElements,
-    },
+    lookups::{AllLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements},
     side_note::{program::ProgramTraceRef, SideNote},
 };
 
@@ -28,7 +24,7 @@ mod columns;
 mod trace;
 
 pub use self::{columns::HalfWord, trace::preprocessed_clk_trace};
-use columns::{Column, PreprocessedColumn, IS_ALU, IS_LOAD, IS_TYPE_S, PC_HIGH, PC_LOW};
+use columns::{Column, PreprocessedColumn, PC_HIGH, PC_LOW};
 
 pub struct Cpu;
 
@@ -37,12 +33,7 @@ impl BuiltInComponent for Cpu {
 
     type MainColumn = Column;
 
-    type LookupElements = (
-        CpuToInstLookupElements,
-        ProgramExecutionLookupElements,
-        CpuToRegisterMemoryLookupElements,
-        CpuToProgMemoryLookupElements,
-    );
+    type LookupElements = ProgramExecutionLookupElements;
 
     fn generate_preprocessed_trace(
         &self,
@@ -66,34 +57,20 @@ impl BuiltInComponent for Cpu {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_cpu_to_reg_memory, rel_cpu_to_prog_memory) =
-            Self::LookupElements::get(lookup_elements);
+        let rel_cont_prog_exec: &Self::LookupElements = lookup_elements.as_ref();
         let log_size = component_trace.log_size();
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
 
         let [is_pad] = original_base_column!(component_trace, Column::IsPad);
-
-        let a_val = original_base_column!(component_trace, Column::AVal);
-        let b_val = original_base_column!(component_trace, Column::BVal);
-        let c_val = original_base_column!(component_trace, Column::CVal);
-
-        let [op_a] = original_base_column!(component_trace, Column::OpA);
-        let [op_b] = original_base_column!(component_trace, Column::OpB);
-        let [op_c] = original_base_column!(component_trace, Column::OpC);
-
-        let [opcode] = original_base_column!(component_trace, Column::Opcode);
 
         let [clk_low, clk_high] =
             preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
         let pc_low = PC_LOW.combine_from_finalized_trace(&component_trace);
         let pc_high = PC_HIGH.combine_from_finalized_trace(&component_trace);
 
-        let pc = original_base_column!(component_trace, Column::Pc);
-        let instr_val = original_base_column!(component_trace, Column::InstrVal);
-
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
         logup_trace_builder.add_to_relation_with(
-            &rel_cont_prog_exec,
+            rel_cont_prog_exec,
             [is_pad.clone()],
             |[is_pad]| (is_pad - PackedBaseField::one()).into(),
             &[
@@ -102,46 +79,6 @@ impl BuiltInComponent for Cpu {
                 pc_low.clone(),
                 pc_high.clone(),
             ],
-        );
-
-        // consume(rel-cpu-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_prog_memory,
-            [is_pad.clone()],
-            |[is_pad]| (is_pad - PackedBaseField::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        );
-
-        let is_alu = IS_ALU.combine_from_finalized_trace(&component_trace);
-        let is_load = IS_LOAD.combine_from_finalized_trace(&component_trace);
-        let is_type_s = IS_TYPE_S.combine_from_finalized_trace(&component_trace);
-
-        // TODO: for logup trace generation the prover can use side-note to compute the numerator.
-        //
-        // provide(
-        //     rel-cpu-to-inst,
-        //     is-type-u + is-type-j + is-load + is-type-s + is-type-b + is-alu,
-        //     (clk, opcode, pc, a-val, b-val, c-val)
-        // )
-        logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_inst,
-            [is_type_s, is_alu, is_load],
-            |[is_type_s, is_alu, is_load]| (is_type_s + is_alu + is_load).into(),
-            &[
-                [clk_low.clone(), clk_high.clone(), opcode, pc_low, pc_high].as_slice(),
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
-        );
-
-        // provide(rel-cpu-to-reg-memory, 1 − is-pad, (clk, op-a, op-b, op-c))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_reg_memory,
-            [is_pad],
-            |[is_pad]| (PackedBaseField::one() - is_pad).into(),
-            &[clk_low, clk_high, op_a, op_b, op_c],
         );
 
         logup_trace_builder.finalize()
@@ -157,30 +94,16 @@ impl BuiltInComponent for Cpu {
 
         let pc = trace_eval!(trace_eval, Column::Pc);
         let [pc_aux] = trace_eval!(trace_eval, Column::PcAux);
-        let instr_val = trace_eval!(trace_eval, Column::InstrVal);
 
         eval.add_constraint(pc_aux * BaseField::from(4) - pc[0].clone());
 
-        let [opcode] = trace_eval!(trace_eval, Column::Opcode);
-        let a_val = trace_eval!(trace_eval, Column::AVal);
-        let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
-
-        let [op_a] = trace_eval!(trace_eval, Column::OpA);
-        let [op_b] = trace_eval!(trace_eval, Column::OpB);
-        let [op_c] = trace_eval!(trace_eval, Column::OpC);
-
         // Logup Interactions
-        let (rel_cpu_to_inst, rel_cont_prog_exec, rel_cpu_to_reg_memory, rel_cpu_to_prog_memory) =
-            lookup_elements;
+        let rel_cont_prog_exec = lookup_elements;
 
         // Lookup 16 bits
         let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
         let pc_low = PC_LOW.eval(&trace_eval);
         let pc_high = PC_HIGH.eval(&trace_eval);
-
-        let is_alu = IS_ALU.eval(&trace_eval);
-        let is_load = IS_LOAD.eval(&trace_eval);
 
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
         eval.add_to_relation(RelationEntry::new(
@@ -194,45 +117,7 @@ impl BuiltInComponent for Cpu {
             ],
         ));
 
-        // consume(rel-cpu-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_prog_memory,
-            (is_pad.clone() - E::F::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        ));
-
-        // provide(
-        //     rel-cpu-to-inst,
-        //     is-type-u + is-type-j + is-load + is-type-s + is-type-b + is-alu,
-        //     (clk, opcode, pc, a-val, b-val, c-val)
-        // )
-        eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_inst,
-            (is_alu + is_load).into(),
-            &[
-                [
-                    clk_low.clone(),
-                    clk_high.clone(),
-                    opcode.clone(),
-                    pc_low.clone(),
-                    pc_high.clone(),
-                ]
-                .as_slice(),
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
-        ));
-
-        // provide(rel-cpu-to-reg-memory, 1 − is-pad, (clk, op-a, op-b, op-c))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_reg_memory,
-            (E::F::one() - is_pad).into(),
-            &[clk_low, clk_high, op_a, op_b, op_c],
-        ));
-
-        eval.finalize_logup_in_pairs();
+        eval.finalize_logup();
     }
 }
 

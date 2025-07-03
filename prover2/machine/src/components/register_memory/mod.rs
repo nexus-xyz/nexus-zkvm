@@ -19,8 +19,8 @@ use crate::{
     components::cpu::preprocessed_clk_trace,
     framework::BuiltInComponent,
     lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToRegisterMemoryLookupElements,
-        InstToRegisterMemoryLookupElements, LogupTraceBuilder, RegisterMemoryLookupElements,
+        AllLookupElements, ComponentLookupElements, InstToRegisterMemoryLookupElements,
+        LogupTraceBuilder, RegisterMemoryLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -45,7 +45,6 @@ impl BuiltInComponent for RegisterMemory {
     type LookupElements = (
         RegisterMemoryLookupElements,
         InstToRegisterMemoryLookupElements,
-        CpuToRegisterMemoryLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -78,19 +77,20 @@ impl BuiltInComponent for RegisterMemory {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_reg_memory_read_write, rel_inst_to_reg_memory, rel_cpu_to_reg_memory) =
+        let (rel_reg_memory_read_write, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
         let clk = preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
-        let reg1_val = original_base_column!(component_trace, Column::Reg1Val);
-        let reg2_val = original_base_column!(component_trace, Column::Reg2Val);
-        let reg3_val = original_base_column!(component_trace, Column::Reg3Val);
 
         let [reg1_addr] = original_base_column!(component_trace, Column::Reg1Addr);
         let [reg2_addr] = original_base_column!(component_trace, Column::Reg2Addr);
         let [reg3_addr] = original_base_column!(component_trace, Column::Reg3Addr);
+
+        let reg1_val = original_base_column!(component_trace, Column::Reg1Val);
+        let reg2_val = original_base_column!(component_trace, Column::Reg2Val);
+        let reg3_val = original_base_column!(component_trace, Column::Reg3Val);
 
         let [reg1_accessed] = original_base_column!(component_trace, Column::Reg1Accessed);
         let [reg2_accessed] = original_base_column!(component_trace, Column::Reg2Accessed);
@@ -100,7 +100,13 @@ impl BuiltInComponent for RegisterMemory {
         // consume(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, reg3-val, reg1-val, reg2-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         reg3-addr, reg1-addr, reg2-addr,
+        //         reg3-val, reg1-val, reg2-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         logup_trace_builder.add_to_relation_with(
             &rel_inst_to_reg_memory,
@@ -108,20 +114,13 @@ impl BuiltInComponent for RegisterMemory {
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
             &[
                 clk.as_slice(),
+                &[reg3_addr, reg1_addr, reg2_addr],
                 &reg3_val,
                 &reg1_val,
                 &reg2_val,
                 &[reg1_accessed, reg2_accessed, reg3_accessed, reg3_write],
             ]
             .concat(),
-        );
-
-        // consume(rel-cpu-to-reg-memory, 1 − is-local-pad, (clk, reg3-addr, reg1-addr, reg2-addr))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_reg_memory,
-            [is_local_pad],
-            |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[clk.as_slice(), &[reg3_addr, reg1_addr, reg2_addr]].concat(),
         );
 
         // consume(rel-reg-memory-read-write, reg1-accessed, (reg1-addr, reg1-val, reg1-ts-prev))
@@ -197,8 +196,7 @@ impl BuiltInComponent for RegisterMemory {
         RegisterMemory::constrain_reg3(eval, &trace_eval);
 
         // Logup Interactions
-        let (rel_reg_memory_read_write, rel_inst_to_reg_memory, rel_cpu_to_reg_memory) =
-            lookup_elements;
+        let (rel_reg_memory_read_write, rel_inst_to_reg_memory) = lookup_elements;
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
@@ -218,13 +216,20 @@ impl BuiltInComponent for RegisterMemory {
         // consume(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, reg3-val, reg1-val, reg2-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         reg3-addr, reg1-addr, reg2-addr,
+        //         reg3-val, reg1-val, reg2-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_reg_memory,
             (is_local_pad.clone() - E::F::one()).into(),
             &[
                 clk.as_slice(),
+                &[reg3_addr, reg1_addr, reg2_addr],
                 &reg3_val,
                 &reg1_val,
                 &reg2_val,
@@ -236,13 +241,6 @@ impl BuiltInComponent for RegisterMemory {
                 ],
             ]
             .concat(),
-        ));
-
-        // consume(rel-cpu-to-reg-memory, 1 − is-local-pad, (clk, reg3-addr, reg1-addr, reg2-addr))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_reg_memory,
-            (is_local_pad.clone() - E::F::one()).into(),
-            &[clk.as_slice(), &[reg3_addr, reg1_addr, reg2_addr]].concat(),
         ));
 
         // consume(rel-reg-memory-read-write, reg1-accessed, (reg1-addr, reg1-val, reg1-ts-prev))

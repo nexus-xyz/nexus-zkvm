@@ -25,9 +25,8 @@ pub enum Column {
     /// The current execution time represented by two 16-bit limbs
     #[size = 2]
     Clk,
-    // The next execution time represented by four 16-bit limbs
+    /// The next execution time represented by four 16-bit limbs
     #[size = 2]
-    /// The helper bit to compute the next clock value
     ClkNext,
     /// The helper bit to compute the next clock value
     #[size = 1]

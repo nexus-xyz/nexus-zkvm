@@ -11,13 +11,13 @@ use stwo_prover::{
 
 use nexus_vm_prover_trace::{
     builder::FinalizedTrace, component::ComponentTrace, eval::TraceEval, original_base_column,
-    trace_eval,
+    trace_eval, virtual_column::VirtualColumn,
 };
 
 use crate::{
     framework::BuiltInComponent,
     lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToProgMemoryLookupElements,
+        AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         LogupTraceBuilder, ProgramMemoryReadLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
@@ -26,7 +26,7 @@ use crate::{
 mod columns;
 mod trace;
 
-use columns::{Column, PreprocessedColumn};
+use columns::{Column, PreprocessedColumn, PC_HIGH, PC_LOW};
 pub use trace::ProgramMemorySideNote;
 
 pub struct ProgramMemory;
@@ -38,7 +38,7 @@ impl BuiltInComponent for ProgramMemory {
 
     type LookupElements = (
         ProgramMemoryReadLookupElements,
-        CpuToProgMemoryLookupElements,
+        InstToProgMemoryLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -62,7 +62,7 @@ impl BuiltInComponent for ProgramMemory {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_prog_memory_read, rel_cpu_to_prog_memory) =
+        let (rel_prog_memory_read, rel_inst_to_prog_memory) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -73,19 +73,22 @@ impl BuiltInComponent for ProgramMemory {
         let prog_ctr_cur = original_base_column!(component_trace, Column::ProgCtrCur);
         let prog_ctr_prev = original_base_column!(component_trace, Column::ProgCtrPrev);
 
+        let pc_low = PC_LOW.combine_from_finalized_trace(&component_trace);
+        let pc_high = PC_HIGH.combine_from_finalized_trace(&component_trace);
+
+        // provide(rel-inst-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
+        logup_trace_builder.add_to_relation_with(
+            &rel_inst_to_prog_memory,
+            [is_local_pad.clone()],
+            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
+            &[[pc_low, pc_high].as_slice(), &instr_val].concat(),
+        );
         // consume(rel-prog-memory-read, 1 − is-local-pad, (pc, instr-val, prog-ctr-prev))
         logup_trace_builder.add_to_relation_with(
             &rel_prog_memory_read,
             [is_local_pad.clone()],
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
             &[pc.as_slice(), &instr_val, &prog_ctr_prev].concat(),
-        );
-        // provide(rel-cpu-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_prog_memory,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[pc.as_slice(), &instr_val].concat(),
         );
         // provide(rel-prog-memory-read, 1 − is-local-pad, (pc, instr-val, prog-ctr-cur))
         logup_trace_builder.add_to_relation_with(
@@ -140,21 +143,22 @@ impl BuiltInComponent for ProgramMemory {
         // prog-ctr-carry(j) ∈ {0, 1} for j = 1, 2
         eval.add_constraint(prog_ctr_carry.clone() * (E::F::one() - prog_ctr_carry));
 
-        let (rel_prog_memory_read, rel_cpu_to_prog_memory) = lookup_elements;
+        let pc_low = PC_LOW.eval(&trace_eval);
+        let pc_high = PC_HIGH.eval(&trace_eval);
+
+        let (rel_prog_memory_read, rel_inst_to_prog_memory) = lookup_elements;
+        // provide(rel-inst-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
+        eval.add_to_relation(RelationEntry::new(
+            rel_inst_to_prog_memory,
+            (E::F::one() - is_local_pad.clone()).into(),
+            &[[pc_low, pc_high].as_slice(), &instr_val].concat(),
+        ));
         // consume(rel-prog-memory-read, 1 − is-local-pad, (pc, instr-val, prog-ctr-prev))
         eval.add_to_relation(RelationEntry::new(
             rel_prog_memory_read,
             (is_local_pad.clone() - E::F::one()).into(),
             &[pc.as_slice(), &instr_val, &prog_ctr_prev].concat(),
         ));
-
-        // provide(rel-cpu-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_prog_memory,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        ));
-
         // provide(rel-prog-memory-read, 1 − is-local-pad, (pc, instr-val, prog-ctr-cur))
         eval.add_to_relation(RelationEntry::new(
             rel_prog_memory_read,

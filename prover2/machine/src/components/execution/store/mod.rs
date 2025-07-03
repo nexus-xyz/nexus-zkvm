@@ -26,10 +26,13 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
-    components::utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+    components::{
+        execution::decoding::{instruction_decoding_trace, VirtualDecodingColumn},
+        utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+    },
     framework::BuiltInComponent,
     lookups::{
-        AllLookupElements, ComponentLookupElements, CpuToInstLookupElements,
+        AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRamLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
     },
@@ -39,6 +42,8 @@ use crate::{
 mod sb;
 mod sh;
 mod sw;
+
+mod decoding;
 
 mod columns;
 use columns::{Column, PreprocessedColumn};
@@ -72,10 +77,6 @@ impl<S: StoreOp> Store<S> {
         Self {
             _phantom: PhantomData,
         }
-    }
-
-    const fn opcode(&self) -> BaseField {
-        BaseField::from_u32_unchecked(S::OPCODE.raw() as u32)
     }
 
     fn iter_program_steps<'a>(
@@ -129,6 +130,8 @@ impl<S: StoreOp> Store<S> {
         trace.fill_columns(row_idx, h_ram_base_addr, Column::HRamBaseAddr);
         trace.fill_columns(row_idx, [h_carry[1], h_carry[3]], Column::HCarry);
 
+        self.generate_decoding_trace_row(trace, row_idx, program_step);
+
         if S::ALIGNMENT > 0 {
             assert!(h_ram_base_addr[0].is_multiple_of(S::ALIGNMENT));
             let h_ram_base_addr_aux = &mut trace.cols[Column::COLUMNS_NUM][row_idx];
@@ -144,7 +147,7 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
 
     type LookupElements = (
         InstToRamLookupElements,
-        CpuToInstLookupElements,
+        InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
     );
@@ -181,7 +184,7 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
     fn generate_interaction_trace(
         &self,
         component_trace: ComponentTrace,
-        _side_note: &SideNote,
+        side_note: &SideNote,
         lookup_elements: &AllLookupElements,
     ) -> (
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
@@ -194,7 +197,7 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
         };
         assert_eq!(component_trace.original_trace.len(), expected_trace_len);
 
-        let (rel_inst_to_ram, rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -210,20 +213,22 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
         let b_val = original_base_column!(component_trace, Column::BVal);
         let c_val = original_base_column!(component_trace, Column::CVal);
 
-        // consume(rel-cpu-to-inst, 1−is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        let decoding_trace = instruction_decoding_trace(
+            component_trace.log_size(),
+            self.iter_program_steps(side_note),
+        );
+        let instr_val = original_base_column!(decoding_trace, VirtualDecodingColumn::InstrVal);
+
+        let [op_a] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpA);
+        let [op_b] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpB);
+        let [op_c] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpC);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         logup_trace_builder.add_to_relation_with(
-            &rel_cpu_to_inst,
+            &rel_inst_to_prog_memory,
             [is_local_pad.clone()],
             |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&self.opcode().into()),
-                &pc,
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         );
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         logup_trace_builder.add_to_relation_with(
@@ -235,7 +240,13 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         logup_trace_builder.add_to_relation_with(
             &rel_inst_to_reg_memory,
@@ -243,6 +254,7 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
             &[
                 clk.as_slice(),
+                &[op_a, op_b, op_c],
                 &a_val,
                 &b_val,
                 &c_val,
@@ -388,22 +400,22 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
             );
         }
 
-        let (rel_inst_to_ram, rel_cpu_to_inst, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+        Self::constrain_decoding(eval, &trace_eval);
+
+        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             lookup_elements;
 
-        // consume(rel-cpu-to-inst, 1 − is-local-pad, (clk, opcode, pc, a-val, b-val, c-val))
+        let instr_val =
+            columns::InstrVal::new(S::OPCODE.raw(), S::OPCODE.fn3().value()).eval(&trace_eval);
+        let op_a = columns::OP_A.eval(&trace_eval);
+        let op_b = columns::OP_B.eval(&trace_eval);
+        let op_c = columns::OP_C.eval(&trace_eval);
+
+        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
-            rel_cpu_to_inst,
+            rel_inst_to_prog_memory,
             (is_local_pad.clone() - E::F::one()).into(),
-            &[
-                &clk,
-                std::slice::from_ref(&E::F::from(self.opcode())),
-                &pc,
-                &a_val,
-                &b_val,
-                &c_val,
-            ]
-            .concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         ));
         // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
         eval.add_to_relation(RelationEntry::new(
@@ -420,13 +432,20 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
-        //     (clk, a-val, b-val, c-val, reg1-accessed, reg2-accessed, reg3-accessed, reg3-write)
+        //     (
+        //         clk,
+        //         op-a, op-b, op-c,
+        //         a-val, b-val, c-val,
+        //         reg1-accessed, reg2-accessed, reg3-accessed,
+        //         reg3-write
+        //     )
         // )
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_reg_memory,
             (E::F::one() - is_local_pad.clone()).into(),
             &[
                 clk.as_slice(),
+                &[op_a, op_b, op_c],
                 &a_val,
                 &b_val,
                 &c_val,
