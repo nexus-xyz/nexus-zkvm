@@ -1,6 +1,8 @@
 use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::program::{BoolWord, Word};
 
+pub mod constraints;
+
 /// Adds two 4-byte words with carry propagation across each byte.
 pub fn add_with_carries(a: Word, b: Word) -> (Word, BoolWord) {
     let mut sum_bytes = [0u8; WORD_SIZE];

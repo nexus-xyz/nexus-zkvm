@@ -26,7 +26,11 @@ use nexus_vm_prover_trace::{
 use crate::{
     components::{
         execution::decoding::{instruction_decoding_trace, type_r, VirtualDecodingColumn},
-        utils::{add_16bit_with_carry, subtract_with_borrow, u32_to_16bit_parts_le},
+        utils::{
+            add_16bit_with_carry,
+            constraints::{ClkIncrement, PcIncrement},
+            subtract_with_borrow, u32_to_16bit_parts_le,
+        },
     },
     framework::BuiltInComponent,
     lookups::{
@@ -248,8 +252,6 @@ impl BuiltInComponent for Sub {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-        let [clk_carry] = trace_eval!(trace_eval, Column::ClkCarry);
-        let [pc_carry] = trace_eval!(trace_eval, Column::PcCarry);
         let [h_borrow_1, h_borrow_2] = trace_eval!(trace_eval, Column::HBorrow);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
@@ -261,42 +263,20 @@ impl BuiltInComponent for Sub {
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = trace_eval!(trace_eval, Column::CVal);
 
-        // (1 − is-local-pad) · (
-        //     clk-next(1) + clk-carry(1) · 2^16
-        //     − clk(1) − 1
-        // ) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[0].clone() + clk_carry.clone() * BaseField::from(1 << 16)
-                    - clk[0].clone()
-                    - E::F::one()),
-        );
-        // (1 − is-local-pad) · (clk-next(2) − clk(2) − clk-carry(1)) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[1].clone() - clk[1].clone() - clk_carry.clone()),
-        );
-
-        // (clk-carry) · (1 − clk-carry) = 0
-        eval.add_constraint(clk_carry.clone() * (E::F::one() - clk_carry.clone()));
-
-        // (1 − is-local-pad) · (
-        //     pc-next(1) + pc-carry(1) · 2^16
-        //     − pc(1) − 4
-        // ) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[0].clone() + pc_carry.clone() * BaseField::from(1 << 16)
-                    - pc[0].clone()
-                    - E::F::from(4.into())),
-        );
-        // (1 − is-local-pad) · (pc-next(2) − pc(2) − pc-carry(1)) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[1].clone() - pc[1].clone() - pc_carry.clone()),
-        );
-        // (pc-carry) · (1 − pc-carry) = 0
-        eval.add_constraint(pc_carry.clone() * (E::F::one() - pc_carry.clone()));
+        ClkIncrement {
+            is_local_pad: Column::IsLocalPad,
+            clk: Column::Clk,
+            clk_next: Column::ClkNext,
+            clk_carry: Column::ClkCarry,
+        }
+        .constrain(eval, &trace_eval);
+        PcIncrement {
+            is_local_pad: Column::IsLocalPad,
+            pc: Column::Pc,
+            pc_next: Column::PcNext,
+            pc_carry: Column::PcCarry,
+        }
+        .constrain(eval, &trace_eval);
 
         let modulus = E::F::from(256u32.into());
 

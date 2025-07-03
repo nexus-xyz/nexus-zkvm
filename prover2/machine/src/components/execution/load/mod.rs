@@ -31,7 +31,11 @@ use crate::{
             decoding::{instruction_decoding_trace, VirtualDecodingColumn},
             load::columns::load_instr_val,
         },
-        utils::{add_16bit_with_carry, add_with_carries, u32_to_16bit_parts_le},
+        utils::{
+            add_16bit_with_carry, add_with_carries,
+            constraints::{ClkIncrement, PcIncrement},
+            u32_to_16bit_parts_le,
+        },
     },
     framework::BuiltInComponent,
     lookups::{
@@ -321,8 +325,6 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-        let [clk_carry] = trace_eval!(trace_eval, Column::ClkCarry);
-        let [pc_carry] = trace_eval!(trace_eval, Column::PcCarry);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
@@ -335,36 +337,20 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         let h_ram_base_addr = trace_eval!(trace_eval, Column::HRamBaseAddr);
         let h_carry = trace_eval!(trace_eval, Column::HCarry);
 
-        // (1 − is-local-pad) · (clk-next(1) + clk-next(2) · 2^8 + clk-carry(1) · 2^16 − clk(1) − clk(2) · 2^8 − 1) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[0].clone() + clk_carry.clone() * BaseField::from(1 << 16)
-                    - clk[0].clone()
-                    - E::F::one()),
-        );
-        // (1 − is-local-pad) · (clk-next(3) + clk-next(4) · 2^8 + clk-carry(2) · 2^16 − clk(3) − clk(4) · 2^8 − clk-carry(1)) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (clk_next[1].clone() - clk[1].clone() - clk_carry.clone()),
-        );
-
-        // (clk-carry) · (1 − clk-carry) = 0
-        eval.add_constraint(clk_carry.clone() * (E::F::one() - clk_carry.clone()));
-
-        // (1 − is-local-pad) · (pc-next(1) + pc-next(2) · 2^8 + pc-carry(1) · 2^16 − pc(1) − pc(2) · 2^8 − 4) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[0].clone() + pc_carry.clone() * BaseField::from(1 << 16)
-                    - pc[0].clone()
-                    - E::F::from(4.into())),
-        );
-        // (1 − is-local-pad) · (pc-next(3) + pc-next(4) · 2^8 + pc-carry(2) · 2^16 − pc(3) − pc(4) · 2^8 − pc-carry(1)) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (pc_next[1].clone() - pc[1].clone() - pc_carry.clone()),
-        );
-        // (pc-carry) · (1 − pc-carry) = 0
-        eval.add_constraint(pc_carry.clone() * (E::F::one() - pc_carry.clone()));
+        ClkIncrement {
+            is_local_pad: Column::IsLocalPad,
+            clk: Column::Clk,
+            clk_next: Column::ClkNext,
+            clk_carry: Column::ClkCarry,
+        }
+        .constrain(eval, &trace_eval);
+        PcIncrement {
+            is_local_pad: Column::IsLocalPad,
+            pc: Column::Pc,
+            pc_next: Column::PcNext,
+            pc_carry: Column::PcCarry,
+        }
+        .constrain(eval, &trace_eval);
 
         // (1 − is-local-pad) *
         // (h_ram_base_addr(1) + h_ram_base_addr(2) * 2^8 − b-val(1) − b-val(2) * 2^8 − c-val(1) − c-val(2) * 2^8 + h_carry(1) * 2^16) = 0
