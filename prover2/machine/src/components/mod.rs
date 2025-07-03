@@ -28,3 +28,4 @@ pub use execution::bitwise::{BitwiseAccumulator, AND, ANDI, OR, ORI, XOR, XORI};
 pub use execution::bitwise_multiplicity::BitwiseMultiplicity;
 pub use execution::load::{LB, LBU, LH, LHU, LW};
 pub use execution::store::{SB, SH, SW};
+pub use execution::sub::SUB;
