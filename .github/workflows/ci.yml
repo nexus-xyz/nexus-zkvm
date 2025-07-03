@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
           toolchain: nightly-2025-04-06
@@ -38,7 +38,7 @@ jobs:
         uses: rui314/setup-mold@v1
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
           toolchain: nightly-2025-04-06
@@ -77,7 +77,7 @@ jobs:
           cache-on-failure: "true"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2025-04-06
           targets: riscv32im-unknown-none-elf
@@ -111,7 +111,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2025-04-06 # same version as normal tests
           # need riscv32im-unknown-none-elf for building guest binaries
@@ -151,7 +151,7 @@ jobs:
           cache-on-failure: "true"
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2025-04-06
           targets: riscv32im-unknown-none-elf
@@ -215,7 +215,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly-2025-04-06
           targets: riscv32im-unknown-none-elf
