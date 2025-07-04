@@ -257,13 +257,15 @@ impl BuiltInComponent for Add {
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = trace_eval!(trace_eval, Column::CVal);
 
-        // TODO: annotate
+        // Clock increment constraints: ensure clock advances by 1 with proper carry handling
+        // clk_next[0] + clk_carry * 2^16 - clk[0] - 1 = 0 (low 16 bits increment by 1)
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (clk_next[0].clone() + clk_carry.clone() * BaseField::from(1 << 16)
                     - clk[0].clone()
                     - E::F::one()),
         );
+        // clk_next[1] - clk[1] - clk_carry = 0 (high 16 bits increment by carry)
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (clk_next[1].clone() - clk[1].clone() - clk_carry.clone()),
@@ -272,13 +274,15 @@ impl BuiltInComponent for Add {
         // (clk-carry) · (1 − clk-carry) = 0
         eval.add_constraint(clk_carry.clone() * (E::F::one() - clk_carry.clone()));
 
-        // TODO: annotate
+        // Program Counter increment constraints: ensure PC advances by 4 (RISC-V instruction size) with proper carry handling
+        // pc_next[0] + pc_carry * 2^16 - pc[0] - 4 = 0 (low 16 bits increment by 4)
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (pc_next[0].clone() + pc_carry.clone() * BaseField::from(1 << 16)
                     - pc[0].clone()
                     - E::F::from(4.into())),
         );
+        // pc_next[1] - pc[1] - pc_carry = 0 (high 16 bits increment by carry)
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (pc_next[1].clone() - pc[1].clone() - pc_carry.clone()),
@@ -288,7 +292,9 @@ impl BuiltInComponent for Add {
 
         let modulus = E::F::from(256u32.into());
 
-        // TODO: annotate
+        // Addition correctness constraints: ensure a = b + c with proper carry propagation
+        // First constraint: verify addition for lower 16 bits (bytes 0-1)
+        // a_val[0] + a_val[1] * 256 + h_carry_1 * 256^2 = b_val[0] + b_val[1] * 256 + c_val[0] + c_val[1] * 256
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (a_val[0].clone()
@@ -299,6 +305,8 @@ impl BuiltInComponent for Add {
                         + c_val[0].clone()
                         + c_val[1].clone() * modulus.clone())),
         );
+        // Second constraint: verify addition for upper 16 bits (bytes 2-3) with carry from lower bits
+        // a_val[2] + a_val[3] * 256 + h_carry_2 * 256^2 = b_val[2] + b_val[3] * 256 + c_val[2] + c_val[3] * 256 + h_carry_1
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (a_val[2].clone()
