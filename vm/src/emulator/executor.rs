@@ -158,8 +158,8 @@ use rangemap::RangeMap;
 use std::{
     cmp::max,
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
+    rc::Rc,
 };
-use std::rc::Rc;
 #[derive(Debug, Default)]
 pub struct Executor {
     // The CPU
@@ -634,7 +634,10 @@ impl Emulator for HarvardEmulator {
         }
 
         let entry = Rc::new(BasicBlockEntry::new(pc, block));
-        let _ = self.executor.basic_block_cache.insert(pc, entry.clone());
+        let _ = self
+            .executor
+            .basic_block_cache
+            .insert(pc, Rc::clone(&entry));
 
         self.executor
             .basic_block_ref_cache
