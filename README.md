@@ -3,10 +3,16 @@
 <div align="left">
     <a href="https://github.com/nexus-xyz/nexus-zkvm/graphs/contributors">
         <img src="https://img.shields.io/github/contributors/nexus-xyz/nexus-zkvm.svg"></a>
-    <a href="https://x.com/NexusLabs">
-        <img src="https://img.shields.io/badge/Twitter-black?logo=x&logoColor=white"/></a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE">
+        <img src="https://img.shields.io/badge/License-BSL_1.1-blue.svg"></a>
     <a href="https://nexus.xyz">
         <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/></a>
+    <a href="https://github.com/nexus-xyz/nexus-zkvm/actions">
+        <img src="https://github.com/nexus-xyz/nexus-zkvm/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="https://x.com/NexusLabs">
+        <img src="https://img.shields.io/twitter/follow/NexusLabs"></a>
+    <a href="https://discord.com/invite/nexus-xyz">
+        <img src="https://img.shields.io/badge/Discord-Join-7289da.svg?logo=discord&logoColor=white"></a>
 </div>
 
 <p align="center">
