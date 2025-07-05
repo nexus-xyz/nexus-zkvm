@@ -1,24 +1,14 @@
 # The Nexus zkVM
 
-<div align="left">
-    <a href="https://github.com/nexus-xyz/nexus-zkvm/graphs/contributors">
-        <img src="https://img.shields.io/github/contributors/nexus-xyz/nexus-zkvm.svg"></a>
-    <a href="https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE">
-        <img src="https://img.shields.io/badge/License-BSL_1.1-blue.svg"></a>
-    <a href="https://nexus.xyz">
-        <img src="https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB"/></a>
-    <a href="https://github.com/nexus-xyz/nexus-zkvm/actions">
-        <img src="https://github.com/nexus-xyz/nexus-zkvm/actions/workflows/ci.yml/badge.svg"></a>
-    <a href="https://x.com/NexusLabs">
-        <img src="https://img.shields.io/twitter/follow/NexusLabs"></a>
-    <a href="https://discord.com/invite/nexus-xyz">
-        <img src="https://img.shields.io/badge/Discord-Join-7289da.svg?logo=discord&logoColor=white"></a>
-</div>
+[![Contributors](https://img.shields.io/github/contributors/nexus-xyz/nexus-zkvm.svg)](https://github.com/nexus-xyz/nexus-zkvm/graphs/contributors)
+[![License](https://img.shields.io/badge/License-BSL_1.1-blue.svg)](https://github.com/nexus-xyz/nexus-zkvm/blob/main/LICENSE)
+[![Stage](https://img.shields.io/static/v1?label=Stage&message=Alpha&color=2BB4AB)](https://nexus.xyz)
+[![CI](https://github.com/nexus-xyz/nexus-zkvm/actions/workflows/ci.yml/badge.svg)](https://github.com/nexus-xyz/nexus-zkvm/actions)
+[![Twitter](https://img.shields.io/twitter/follow/NexusLabs)](https://x.com/NexusLabs)
+[![Discord](https://img.shields.io/badge/Discord-Join-7289da.svg?logo=discord&logoColor=white)](https://discord.com/invite/nexus-xyz)
 
 <p align="center">
-  <p align="center">
-   <img width="100%" src="assets/nexus_docs-header.png" alt="Logo">
-  </p>
+  <img width="100%" src="assets/nexus_docs-header.png" alt="Logo">
 </p>
 
 The Nexus zero-knowledge virtual machine is a modular, extensible, prover-optimized, fully-specified zkVM written in Rust, focused on performance and security. Built with [Stwo](https://github.com/starkware-libs/stwo) by [StarkWare](https://starkware.co/blog/starkware-new-proving-record/). Review the specification [here](./specification/zkvm-spec-3.0.pdf).
