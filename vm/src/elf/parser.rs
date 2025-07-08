@@ -491,8 +491,9 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
         .iter()
         .filter(|x| x.p_type == abi::PT_LOAD || x.p_type == abi::PT_NOTE)
     {
-        #[cfg(debug_assertions)]
-        debug_segment_info(&segment, &section_map);
+        // TODO: Uncomment this when we need to debug the segment info
+        // #[cfg(debug_assertions)]
+        // debug_segment_info(&segment, &section_map);
         // We assume the executable section (PF_X or .text section) is the first executable segment,
         // thus it has the lower address, we use this information to figure out the base address of the program
         if (segment.p_flags & abi::PF_X) != 0 && base_address > segment.p_vaddr {
