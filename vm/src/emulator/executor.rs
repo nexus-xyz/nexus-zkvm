@@ -289,11 +289,6 @@ pub trait Emulator {
         basic_block_entry: &BasicBlockEntry,
         force_provable_transcript: bool,
     ) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
-        #[cfg(debug_assertions)]
-        basic_block_entry
-            .block
-            .print_with_offset(self.get_executor().cpu.pc.value as usize);
-
         let mut results: Vec<InstructionResult> = Vec::new();
         let mut transcript: MemoryTranscript = Vec::new();
 
