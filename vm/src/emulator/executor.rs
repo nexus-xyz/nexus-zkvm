@@ -590,11 +590,11 @@ impl Emulator for HarvardEmulator {
 
         let mut memory_records = MemoryRecords::new();
 
-        load_ops.clone().iter().for_each(|op| {
+        load_ops.iter().for_each(|op| {
             memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
-        store_ops.clone().iter().for_each(|op| {
+        store_ops.iter().for_each(|op| {
             memory_records.insert(op.as_record(self.executor.global_clock));
         });
 
