@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
@@ -11,7 +11,7 @@ use nexus_vm_prover_trace::{
     builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
 };
 
-use super::{InstructionDecoding, RegSplitAt0, RegSplitAt4};
+use super::{InstructionDecoding, RegSplitAt0};
 
 /// Decoding columns used by type I instructions.
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -46,11 +46,7 @@ pub const OP_B: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
     bit_0: DecodingColumn::OpB0,
     bits_1_4: DecodingColumn::OpB1_4,
 };
-/// op-c register encoded as a linear combination of helper columns.
-pub const OP_C: RegSplitAt4<DecodingColumn> = RegSplitAt4 {
-    bits_0_3: DecodingColumn::OpC0_3,
-    bit_4: DecodingColumn::OpC4,
-};
+
 pub struct InstrVal<C> {
     /// Byte 0: opcode + op_a0 * 2^7
     pub opcode: u8,
@@ -215,8 +211,7 @@ impl<T: TypeIShamtDecoding> InstructionDecoding for TypeIShamt<T> {
     ) -> [E::F; 3] {
         let op_a = OP_A.eval(decoding_trace_eval);
         let op_b = OP_B.eval(decoding_trace_eval);
-        let op_c = OP_C.eval(decoding_trace_eval);
-        [op_a, op_b, op_c]
+        [op_a, op_b, E::F::zero()]
     }
 
     fn combine_instr_val<E: EvalAtRow>(

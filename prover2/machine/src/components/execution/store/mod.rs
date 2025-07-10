@@ -23,11 +23,12 @@ use nexus_vm_prover_trace::{
     original_base_column,
     program::ProgramStep,
     trace_eval,
+    utils::zero_array,
 };
 
 use crate::{
     components::{
-        execution::decoding::{instruction_decoding_trace, VirtualDecodingColumn},
+        execution::common::ExecutionComponent,
         utils::{
             add_16bit_with_carry, add_with_carries,
             constraints::{ClkIncrement, PcIncrement},
@@ -63,37 +64,29 @@ pub trait StoreOp {
     const ALIGNMENT: u8;
 }
 
-pub struct Store<S> {
-    _phantom: PhantomData<S>,
+pub struct Store<T> {
+    _phantom: PhantomData<T>,
 }
 
-impl<S: StoreOp> Store<S> {
+impl<T: StoreOp> ExecutionComponent for Store<T> {
+    const OPCODE: BuiltinOpcode = <T as StoreOp>::OPCODE;
+
+    const REG1_ACCESSED: bool = true;
+    const REG2_ACCESSED: bool = false;
+    const REG3_ACCESSED: bool = true;
+    const REG3_WRITE: bool = false;
+
+    type Column = Column;
+}
+
+impl<T: StoreOp> Store<T> {
     const RAM1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
     const RAM_WRITE: BaseField = BaseField::from_u32_unchecked(1);
-
-    const REG1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1); // rs1 is read
-    const REG2_ACCESSED: BaseField = BaseField::from_u32_unchecked(0); // rs2 is unused
-
-    const REG3_ACCESSED: BaseField = BaseField::from_u32_unchecked(1); // rd is read
-    const REG3_WRITE: BaseField = BaseField::from_u32_unchecked(0);
 
     const fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
-    }
-
-    fn iter_program_steps<'a>(
-        &self,
-        side_note: &SideNote<'a>,
-    ) -> impl Iterator<Item = ProgramStep<'a>> {
-        let store_opcode = S::OPCODE;
-        side_note.iter_program_steps().filter(move |step| {
-            matches!(
-                step.step.instruction.opcode.builtin(),
-                opcode if opcode == Some(store_opcode),
-            )
-        })
     }
 
     fn generate_trace_row(
@@ -103,7 +96,7 @@ impl<S: StoreOp> Store<S> {
         program_step: ProgramStep,
     ) {
         let step = &program_step.step;
-        assert_eq!(step.instruction.opcode.builtin(), Some(S::OPCODE));
+        assert_eq!(step.instruction.opcode.builtin(), Some(T::OPCODE));
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
@@ -136,15 +129,15 @@ impl<S: StoreOp> Store<S> {
 
         self.generate_decoding_trace_row(trace, row_idx, program_step);
 
-        if S::ALIGNMENT > 0 {
-            assert!(h_ram_base_addr[0].is_multiple_of(S::ALIGNMENT));
+        if T::ALIGNMENT > 0 {
+            assert!(h_ram_base_addr[0].is_multiple_of(T::ALIGNMENT));
             let h_ram_base_addr_aux = &mut trace.cols[Column::COLUMNS_NUM][row_idx];
-            *h_ram_base_addr_aux = BaseField::from((h_ram_base_addr[0] / S::ALIGNMENT) as u32);
+            *h_ram_base_addr_aux = BaseField::from((h_ram_base_addr[0] / T::ALIGNMENT) as u32);
         }
     }
 }
 
-impl<S: StoreOp> BuiltInComponent for Store<S> {
+impl<T: StoreOp> BuiltInComponent for Store<T> {
     type PreprocessedColumn = PreprocessedColumn;
 
     type MainColumn = Column;
@@ -165,16 +158,18 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let num_store_steps = self.iter_program_steps(side_note).count();
+        let num_store_steps = <Self as ExecutionComponent>::iter_program_steps(side_note).count();
         let log_size = num_store_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
         let mut trace = TraceBuilder::new(log_size);
-        if S::ALIGNMENT > 0 {
+        if T::ALIGNMENT > 0 {
             // manually add h-ram-base-addr-aux column
             trace.cols.push(vec![BaseField::zero(); 1 << log_size]);
         }
 
-        for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
+        for (row_idx, program_step) in
+            <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
+        {
             self.generate_trace_row(&mut trace, row_idx, program_step);
         }
         // fill padding
@@ -194,7 +189,7 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let expected_trace_len = if S::ALIGNMENT > 0 {
+        let expected_trace_len = if T::ALIGNMENT > 0 {
             Column::COLUMNS_NUM + 1
         } else {
             Column::COLUMNS_NUM
@@ -207,74 +202,14 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
         let clk = original_base_column!(component_trace, Column::Clk);
-        let pc = original_base_column!(component_trace, Column::Pc);
-        let clk_next = original_base_column!(component_trace, Column::ClkNext);
-        let pc_next = original_base_column!(component_trace, Column::PcNext);
 
         let h_ram_base_addr = original_base_column!(component_trace, Column::HRamBaseAddr);
-
-        let a_val = original_base_column!(component_trace, Column::AVal);
         let b_val = original_base_column!(component_trace, Column::BVal);
-        let c_val = original_base_column!(component_trace, Column::CVal);
 
-        let decoding_trace = instruction_decoding_trace(
-            component_trace.log_size(),
-            self.iter_program_steps(side_note),
-        );
-        let instr_val = original_base_column!(decoding_trace, VirtualDecodingColumn::InstrVal);
-
-        let [op_a] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpA);
-        let [op_b] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpB);
-        let [op_c] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpC);
-
-        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        logup_trace_builder.add_to_relation_with(
-            &rel_inst_to_prog_memory,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        );
-        // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cont_prog_exec,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[clk_next, pc_next].concat(),
-        );
-        // provide(
-        //     rel-inst-to-reg-memory,
-        //     1 − is-local-pad,
-        //     (
-        //         clk,
-        //         op-a, op-b, op-c,
-        //         a-val, b-val, c-val,
-        //         reg1-accessed, reg2-accessed, reg3-accessed,
-        //         reg3-write
-        //     )
-        // )
-        logup_trace_builder.add_to_relation_with(
-            &rel_inst_to_reg_memory,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[
-                clk.as_slice(),
-                &[op_a, op_b, op_c],
-                &a_val,
-                &b_val,
-                &c_val,
-                &[
-                    Self::REG1_ACCESSED.into(),
-                    Self::REG2_ACCESSED.into(),
-                    Self::REG3_ACCESSED.into(),
-                    Self::REG3_WRITE.into(),
-                ],
-            ]
-            .concat(),
-        );
-        let ram2_accessed = BaseField::from(S::RAM2_ACCESSED as u32);
-        let ram3_4accessed = BaseField::from(S::RAM3_4ACCESSED as u32);
+        let ram2_accessed = BaseField::from(T::RAM2_ACCESSED as u32);
+        let ram3_4accessed = BaseField::from(T::RAM3_4ACCESSED as u32);
         // unused ram is zeroed for memory checking
-        let mut ram_values = match S::ALIGNMENT as usize {
+        let mut ram_values = match T::ALIGNMENT as usize {
             0 => vec![b_val[0].clone()],
             n => b_val[..n].into(),
         };
@@ -308,6 +243,17 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
             ]
             .concat(),
         );
+
+        <Self as ExecutionComponent>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            side_note,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
+        );
         logup_trace_builder.finalize()
     }
 
@@ -318,11 +264,7 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-
-        let pc = trace_eval!(trace_eval, Column::Pc);
-        let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let clk = trace_eval!(trace_eval, Column::Clk);
-        let clk_next = trace_eval!(trace_eval, Column::ClkNext);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
@@ -376,12 +318,12 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
             eval.add_constraint(h_carry.clone() * (E::F::one() - h_carry.clone()));
         }
 
-        if S::ALIGNMENT > 0 {
+        if T::ALIGNMENT > 0 {
             let h_ram_base_addr_aux = eval.next_trace_mask();
             // (1 − is-local-pad) · (ALIGNMENT · h-ram-base-addr-aux − h-ram-base-addr(1)) = 0
             eval.add_constraint(
                 (E::F::one() - is_local_pad.clone())
-                    * (h_ram_base_addr_aux.clone() * BaseField::from(S::ALIGNMENT as u32)
+                    * (h_ram_base_addr_aux.clone() * BaseField::from(T::ALIGNMENT as u32)
                         - h_ram_base_addr[0].clone()),
             );
         }
@@ -392,63 +334,15 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
             lookup_elements;
 
         let instr_val =
-            columns::InstrVal::new(S::OPCODE.raw(), S::OPCODE.fn3().value()).eval(&trace_eval);
+            columns::InstrVal::new(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(&trace_eval);
         let op_a = columns::OP_A.eval(&trace_eval);
         let op_b = columns::OP_B.eval(&trace_eval);
         let op_c = columns::OP_C.eval(&trace_eval);
 
-        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        eval.add_to_relation(RelationEntry::new(
-            rel_inst_to_prog_memory,
-            (is_local_pad.clone() - E::F::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        ));
-        // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cont_prog_exec,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[
-                clk_next[0].clone(),
-                clk_next[1].clone(),
-                pc_next[0].clone(),
-                pc_next[1].clone(),
-            ],
-        ));
-
-        // provide(
-        //     rel-inst-to-reg-memory,
-        //     1 − is-local-pad,
-        //     (
-        //         clk,
-        //         op-a, op-b, op-c,
-        //         a-val, b-val, c-val,
-        //         reg1-accessed, reg2-accessed, reg3-accessed,
-        //         reg3-write
-        //     )
-        // )
-        eval.add_to_relation(RelationEntry::new(
-            rel_inst_to_reg_memory,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[
-                clk.as_slice(),
-                &[op_a, op_b, op_c],
-                &a_val,
-                &b_val,
-                &c_val,
-                &[
-                    Self::REG1_ACCESSED.into(),
-                    Self::REG2_ACCESSED.into(),
-                    Self::REG3_ACCESSED.into(),
-                    Self::REG3_WRITE.into(),
-                ],
-            ]
-            .concat(),
-        ));
-
-        let ram2_accessed = E::F::from(BaseField::from(S::RAM2_ACCESSED as u32));
-        let ram3_4accessed = E::F::from(BaseField::from(S::RAM3_4ACCESSED as u32));
+        let ram2_accessed = E::F::from(BaseField::from(T::RAM2_ACCESSED as u32));
+        let ram3_4accessed = E::F::from(BaseField::from(T::RAM3_4ACCESSED as u32));
         // unused ram is zeroed for memory checking
-        let mut ram_values = match S::ALIGNMENT as usize {
+        let mut ram_values = match T::ALIGNMENT as usize {
             0 => vec![b_val[0].clone()],
             n => b_val[..n].into(),
         };
@@ -481,6 +375,18 @@ impl<S: StoreOp> BuiltInComponent for Store<S> {
             .concat(),
         ));
 
+        <Self as ExecutionComponent>::constrain_logups(
+            eval,
+            &trace_eval,
+            (
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
+            [op_a, op_b, op_c],
+            [a_val, b_val, zero_array::<WORD_SIZE, E>()],
+            instr_val,
+        );
         eval.finalize_logup_in_pairs();
     }
 }

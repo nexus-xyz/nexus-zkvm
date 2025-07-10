@@ -1,7 +1,11 @@
+use num_traits::Zero;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, SimdBackend},
-    fields::m31::BaseField,
+use stwo_prover::{
+    constraint_framework::EvalAtRow,
+    core::{
+        backend::simd::{column::BaseColumn, SimdBackend},
+        fields::m31::BaseField,
+    },
 };
 
 use nexus_common::constants::WORD_SIZE;
@@ -123,6 +127,10 @@ pub fn sign_extend(value: u32, num_bits: usize) -> u32 {
     }
 
     lower_bits
+}
+
+pub fn zero_array<const N: usize, E: EvalAtRow>() -> [E::F; N] {
+    std::array::from_fn(|_i| E::F::zero())
 }
 
 #[cfg(test)]

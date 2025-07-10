@@ -18,7 +18,11 @@ use nexus_vm_prover_trace::{
     eval::TraceEval,
 };
 
+use crate::components::execution::common::derive_execution_column;
+
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
+
+derive_execution_column! { Column }
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum Column {

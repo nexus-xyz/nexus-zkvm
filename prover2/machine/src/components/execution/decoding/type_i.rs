@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
@@ -42,13 +42,6 @@ pub enum DecodingColumn {
     OpC8_10,
 }
 
-pub struct OpC<C> {
-    pub op_c0_3: C,
-    pub op_c4_7: C,
-    pub op_c8_10: C,
-    pub op_c11: C,
-}
-
 /// op-a register encoded as a linear combination of helper columns.
 pub const OP_A: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
     bit_0: DecodingColumn::OpA0,
@@ -58,13 +51,6 @@ pub const OP_A: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
 pub const OP_B: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
     bit_0: DecodingColumn::OpB0,
     bits_1_4: DecodingColumn::OpB1_4,
-};
-/// op-c immediate encoded as a linear combination of helper columns.
-pub const OP_C: OpC<DecodingColumn> = OpC {
-    op_c0_3: DecodingColumn::OpC0_3,
-    op_c4_7: DecodingColumn::OpC4_7,
-    op_c8_10: DecodingColumn::OpC8_10,
-    op_c11: DecodingColumn::OpC11,
 };
 
 pub struct InstrVal<C> {
@@ -101,23 +87,6 @@ impl InstrVal<DecodingColumn> {
             op_c8_10: DecodingColumn::OpC8_10,
             op_c11: DecodingColumn::OpC11,
         }
-    }
-}
-
-impl<C: AirColumn> OpC<C> {
-    pub fn eval<E: EvalAtRow, P: PreprocessedAirColumn>(
-        &self,
-        trace_eval: &TraceEval<P, C, E>,
-    ) -> E::F {
-        let [op_c0_3] = trace_eval.column_eval(self.op_c0_3);
-        let [op_c4_7] = trace_eval.column_eval(self.op_c4_7);
-        let [op_c8_10] = trace_eval.column_eval(self.op_c8_10);
-        let [op_c11] = trace_eval.column_eval(self.op_c11);
-
-        op_c0_3
-            + op_c4_7 * BaseField::from(1 << 4)
-            + op_c8_10 * BaseField::from(1 << 8)
-            + op_c11 * BaseField::from(1 << 11)
     }
 }
 
@@ -270,8 +239,7 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
     ) -> [E::F; 3] {
         let op_a = OP_A.eval(decoding_trace_eval);
         let op_b = OP_B.eval(decoding_trace_eval);
-        let op_c = OP_C.eval(decoding_trace_eval);
-        [op_a, op_b, op_c]
+        [op_a, op_b, E::F::zero()]
     }
 
     fn combine_instr_val<E: EvalAtRow>(

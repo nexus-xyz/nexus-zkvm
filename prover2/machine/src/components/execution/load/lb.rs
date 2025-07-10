@@ -59,7 +59,7 @@ impl LoadOp for Lb {
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: TraceEval<
+        trace_eval: &TraceEval<
             <Load<Self> as BuiltInComponent>::PreprocessedColumn,
             <Load<Self> as BuiltInComponent>::MainColumn,
             E,
@@ -100,20 +100,6 @@ impl LoadOp for Lb {
                 ram1_val.clone()
             } else {
                 BaseField::zero().into()
-            }
-        })
-    }
-
-    fn finalized_reg3_value(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE] {
-        let (_, local_trace) = component_trace.original_trace.split_at(Column::COLUMNS_NUM);
-        let ram1_val = FinalizedColumn::from(&local_trace[0]);
-        let sign_ext_byte = SIGN_EXT_BYTE.combine_from_finalized_trace(component_trace);
-
-        std::array::from_fn(|i| {
-            if i == 0 {
-                ram1_val.clone()
-            } else {
-                sign_ext_byte.clone()
             }
         })
     }

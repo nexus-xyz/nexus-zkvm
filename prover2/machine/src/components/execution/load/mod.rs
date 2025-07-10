@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
     core::{
@@ -23,14 +23,12 @@ use nexus_vm_prover_trace::{
     original_base_column,
     program::ProgramStep,
     trace_eval,
+    utils::zero_array,
 };
 
 use crate::{
     components::{
-        execution::{
-            decoding::{instruction_decoding_trace, VirtualDecodingColumn},
-            load::columns::load_instr_val,
-        },
+        execution::{common::ExecutionComponent, load::columns::load_instr_val},
         utils::{
             add_16bit_with_carry, add_with_carries,
             constraints::{ClkIncrement, PcIncrement},
@@ -73,7 +71,7 @@ pub trait LoadOp: Sized + Sync + 'static {
     /// Add constraints for load instruction, returns evaluations for ram values and register values.
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: TraceEval<
+        trace_eval: &TraceEval<
             <Load<Self> as BuiltInComponent>::PreprocessedColumn,
             <Load<Self> as BuiltInComponent>::MainColumn,
             E,
@@ -83,41 +81,31 @@ pub trait LoadOp: Sized + Sync + 'static {
     ///
     /// Sign extended bytes are expected to be zeroed by the read-write memory component.
     fn finalized_ram_values(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE];
-    /// Returns finalized columns for register memory component logup.
-    fn finalized_reg3_value(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE];
 }
 
-pub struct Load<L> {
-    _phantom: PhantomData<L>,
+pub struct Load<T> {
+    _phantom: PhantomData<T>,
 }
 
-impl<L: LoadOp> Load<L> {
+impl<T: LoadOp> ExecutionComponent for Load<T> {
+    const OPCODE: BuiltinOpcode = <T as LoadOp>::OPCODE;
+
+    const REG1_ACCESSED: bool = true;
+    const REG2_ACCESSED: bool = false;
+    const REG3_ACCESSED: bool = true;
+    const REG3_WRITE: bool = true;
+
+    type Column = Column;
+}
+
+impl<T: LoadOp> Load<T> {
     const RAM1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
     const RAM_WRITE: BaseField = BaseField::from_u32_unchecked(0);
-
-    const REG1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1); // rs1 is read
-    const REG2_ACCESSED: BaseField = BaseField::from_u32_unchecked(0); // rs2 is unused
-
-    const REG3_ACCESSED: BaseField = BaseField::from_u32_unchecked(1); // rd is written
-    const REG3_WRITE: BaseField = BaseField::from_u32_unchecked(1);
 
     const fn new() -> Self {
         Self {
             _phantom: PhantomData,
         }
-    }
-
-    fn iter_program_steps<'a>(
-        &self,
-        side_note: &SideNote<'a>,
-    ) -> impl Iterator<Item = ProgramStep<'a>> {
-        let load_opcode = L::OPCODE;
-        side_note.iter_program_steps().filter(move |step| {
-            matches!(
-                step.step.instruction.opcode.builtin(),
-                opcode if opcode == Some(load_opcode),
-            )
-        })
     }
 
     fn generate_common_trace_row(
@@ -127,7 +115,7 @@ impl<L: LoadOp> Load<L> {
         program_step: ProgramStep,
     ) {
         let step = &program_step.step;
-        assert_eq!(step.instruction.opcode.builtin(), Some(L::OPCODE));
+        assert_eq!(step.instruction.opcode.builtin(), Some(T::OPCODE));
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
@@ -160,7 +148,7 @@ impl<L: LoadOp> Load<L> {
     }
 }
 
-impl<L: LoadOp> BuiltInComponent for Load<L> {
+impl<T: LoadOp> BuiltInComponent for Load<T> {
     type PreprocessedColumn = PreprocessedColumn;
 
     type MainColumn = Column;
@@ -181,15 +169,17 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let num_load_steps = self.iter_program_steps(side_note).count();
+        let num_load_steps = <Self as ExecutionComponent>::iter_program_steps(side_note).count();
         let log_size = num_load_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
 
-        for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
+        for (row_idx, program_step) in
+            <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
+        {
             self.generate_common_trace_row(&mut common_trace, row_idx, program_step);
-            L::generate_trace_row(row_idx, &mut local_trace, program_step);
+            T::generate_trace_row(row_idx, &mut local_trace, program_step);
         }
         // fill padding
         for row_idx in num_load_steps..1 << log_size {
@@ -210,7 +200,7 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
     ) {
         assert_eq!(
             component_trace.original_trace.len(),
-            Column::COLUMNS_NUM + L::LocalColumn::COLUMNS_NUM
+            Column::COLUMNS_NUM + T::LocalColumn::COLUMNS_NUM
         );
         let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             Self::LookupElements::get(lookup_elements);
@@ -218,44 +208,12 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
         let clk = original_base_column!(component_trace, Column::Clk);
-        let pc = original_base_column!(component_trace, Column::Pc);
-        let clk_next = original_base_column!(component_trace, Column::ClkNext);
-        let pc_next = original_base_column!(component_trace, Column::PcNext);
 
         let h_ram_base_addr = original_base_column!(component_trace, Column::HRamBaseAddr);
-        let ram_values = L::finalized_ram_values(&component_trace);
-        let reg3_value = L::finalized_reg3_value(&component_trace);
+        let ram_values = T::finalized_ram_values(&component_trace);
 
-        let b_val = original_base_column!(component_trace, Column::BVal);
-        let c_val = original_base_column!(component_trace, Column::CVal);
-
-        let decoding_trace = instruction_decoding_trace(
-            component_trace.log_size(),
-            self.iter_program_steps(side_note),
-        );
-        let instr_val = original_base_column!(decoding_trace, VirtualDecodingColumn::InstrVal);
-
-        let [op_a] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpA);
-        let [op_b] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpB);
-        let [op_c] = original_base_column!(decoding_trace, VirtualDecodingColumn::OpC);
-
-        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        logup_trace_builder.add_to_relation_with(
-            &rel_inst_to_prog_memory,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        );
-        // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cont_prog_exec,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[clk_next, pc_next].concat(),
-        );
-
-        let ram2_accessed = BaseField::from(L::RAM2_ACCESSED as u32);
-        let ram3_4accessed = BaseField::from(L::RAM3_4ACCESSED as u32);
+        let ram2_accessed = BaseField::from(T::RAM2_ACCESSED as u32);
+        let ram3_4accessed = BaseField::from(T::RAM3_4ACCESSED as u32);
         // provide(
         //     rel-inst-to-ram,
         //     1 − is-local-pad,
@@ -284,35 +242,16 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
             ]
             .concat(),
         );
-        // provide(
-        //     rel-inst-to-reg-memory,
-        //     1 − is-local-pad,
-        //     (
-        //         clk,
-        //         op-a, op-b, op-c,
-        //         a-val, b-val, c-val,
-        //         reg1-accessed, reg2-accessed, reg3-accessed,
-        //         reg3-write
-        //     )
-        // )
-        logup_trace_builder.add_to_relation_with(
-            &rel_inst_to_reg_memory,
-            [is_local_pad],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[
-                clk.as_slice(),
-                &[op_a, op_b, op_c],
-                &reg3_value,
-                &b_val,
-                &c_val,
-                &[
-                    Self::REG1_ACCESSED.into(),
-                    Self::REG2_ACCESSED.into(),
-                    Self::REG3_ACCESSED.into(),
-                    Self::REG3_WRITE.into(),
-                ],
-            ]
-            .concat(),
+
+        <Self as ExecutionComponent>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            side_note,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
         );
 
         logup_trace_builder.finalize()
@@ -325,11 +264,7 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-
-        let pc = trace_eval!(trace_eval, Column::Pc);
-        let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let clk = trace_eval!(trace_eval, Column::Clk);
-        let clk_next = trace_eval!(trace_eval, Column::ClkNext);
 
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = trace_eval!(trace_eval, Column::CVal);
@@ -384,36 +319,18 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
 
         Self::constrain_decoding(eval, &trace_eval);
 
-        let instr_val = load_instr_val(L::OPCODE.raw(), L::OPCODE.fn3().value()).eval(&trace_eval);
+        let instr_val = load_instr_val(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(&trace_eval);
         let op_a = columns::OP_A.eval(&trace_eval);
         let op_b = columns::OP_B.eval(&trace_eval);
-        let op_c = columns::OP_C.eval(&trace_eval);
+        let op_c = E::F::zero();
 
-        let [ram_values, reg3_value] = L::add_constraints(eval, trace_eval);
+        let [ram_values, reg3_value] = T::add_constraints(eval, &trace_eval);
 
         let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
             lookup_elements;
 
-        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        eval.add_to_relation(RelationEntry::new(
-            rel_inst_to_prog_memory,
-            (is_local_pad.clone() - E::F::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        ));
-        // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cont_prog_exec,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[
-                clk_next[0].clone(),
-                clk_next[1].clone(),
-                pc_next[0].clone(),
-                pc_next[1].clone(),
-            ],
-        ));
-
-        let ram2_accessed = E::F::from(BaseField::from(L::RAM2_ACCESSED as u32));
-        let ram3_4accessed = E::F::from(BaseField::from(L::RAM3_4ACCESSED as u32));
+        let ram2_accessed = E::F::from(BaseField::from(T::RAM2_ACCESSED as u32));
+        let ram3_4accessed = E::F::from(BaseField::from(T::RAM3_4ACCESSED as u32));
         // provide(
         //     rel-inst-to-ram,
         //     1 − is-local-pad,
@@ -441,35 +358,19 @@ impl<L: LoadOp> BuiltInComponent for Load<L> {
             ]
             .concat(),
         ));
-        // provide(
-        //     rel-inst-to-reg-memory,
-        //     1 − is-local-pad,
-        //     (
-        //         clk,
-        //         op-a, op-b, op-c,
-        //         a-val, b-val, c-val,
-        //         reg1-accessed, reg2-accessed, reg3-accessed,
-        //         reg3-write
-        //     )
-        // )
-        eval.add_to_relation(RelationEntry::new(
-            rel_inst_to_reg_memory,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[
-                clk.as_slice(),
-                &[op_a, op_b, op_c],
-                &reg3_value,
-                &b_val,
-                &c_val,
-                &[
-                    Self::REG1_ACCESSED.into(),
-                    Self::REG2_ACCESSED.into(),
-                    Self::REG3_ACCESSED.into(),
-                    Self::REG3_WRITE.into(),
-                ],
-            ]
-            .concat(),
-        ));
+
+        <Self as ExecutionComponent>::constrain_logups(
+            eval,
+            &trace_eval,
+            (
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
+            [op_a, op_b, op_c],
+            [reg3_value, b_val, zero_array::<WORD_SIZE, E>()],
+            instr_val,
+        );
 
         eval.finalize_logup_in_pairs();
     }
