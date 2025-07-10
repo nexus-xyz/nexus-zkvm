@@ -42,6 +42,8 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::ORI,
     &components::XOR,
     &components::XORI,
+    &components::LUI,
+    &components::AUIPC,
     &components::BitwiseMultiplicity,
 ];
 

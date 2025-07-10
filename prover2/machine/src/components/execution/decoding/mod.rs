@@ -14,6 +14,7 @@ use nexus_vm_prover_trace::{builder::TraceBuilder, eval::TraceEval, program::Pro
 pub mod type_i;
 pub mod type_i_shamt;
 pub mod type_r;
+pub mod type_u;
 
 mod logup_gen;
 pub use logup_gen::{ComponentDecodingTrace, DecodingColumn};

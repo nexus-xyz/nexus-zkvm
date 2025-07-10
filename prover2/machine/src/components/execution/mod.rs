@@ -1,7 +1,9 @@
 pub mod add;
+pub mod auipc;
 pub mod bitwise;
 pub mod bitwise_multiplicity;
 pub mod load;
+pub mod lui;
 pub mod sll;
 pub mod slt;
 pub mod sltu;
