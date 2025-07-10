@@ -1,6 +1,10 @@
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 
+use crate::components::execution::common::derive_execution_column;
+
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
+
+derive_execution_column! { Column }
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum Column {
@@ -13,10 +17,6 @@ pub enum Column {
     /// The helper bit to compute the next clock value
     #[size = 1]
     ClkCarry,
-    /// Lowest byte of operand op-a
-    // TODO: similarly to SLTU this column can be removed, but this requires adapting logup interaction
-    #[size = 1]
-    AVal,
     /// A 32-bit word specifying the value of operand op-b represented by four 8-bit limbs
     #[size = 4]
     BVal,

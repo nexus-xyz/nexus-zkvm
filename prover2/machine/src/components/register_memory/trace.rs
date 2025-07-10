@@ -255,14 +255,19 @@ fn generate_trace_row(
         0
     };
 
-    trace.fill_columns(row_idx, reg1_addr, Column::Reg1Addr);
-    trace.fill_columns(row_idx, BaseField::from(reg2_addr), Column::Reg2Addr);
-    trace.fill_columns(row_idx, reg3_addr, Column::Reg3Addr);
-
-    trace.fill_columns(row_idx, reg1_value, Column::Reg1Val);
-    trace.fill_columns(row_idx, reg2_value, Column::Reg2Val);
-    trace.fill_columns(row_idx, reg3_value, Column::Reg3Val);
-    trace.fill_columns(row_idx, reg3_value_cur, Column::Reg3ValCur);
+    if reg1_accessed {
+        trace.fill_columns(row_idx, reg1_addr, Column::Reg1Addr);
+        trace.fill_columns(row_idx, reg1_value, Column::Reg1Val);
+    }
+    if reg2_accessed {
+        trace.fill_columns(row_idx, BaseField::from(reg2_addr), Column::Reg2Addr);
+        trace.fill_columns(row_idx, reg2_value, Column::Reg2Val);
+    }
+    if reg3_accessed {
+        trace.fill_columns(row_idx, reg3_addr, Column::Reg3Addr);
+        trace.fill_columns(row_idx, reg3_value, Column::Reg3Val);
+        trace.fill_columns(row_idx, reg3_value_cur, Column::Reg3ValCur);
+    }
 
     trace.fill_columns(row_idx, reg1_accessed, Column::Reg1Accessed);
     trace.fill_columns(row_idx, reg2_accessed, Column::Reg2Accessed);

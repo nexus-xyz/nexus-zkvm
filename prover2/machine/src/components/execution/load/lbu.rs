@@ -42,7 +42,7 @@ impl LoadOp for Lbu {
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        _trace_eval: TraceEval<
+        _trace_eval: &TraceEval<
             <Load<Self> as BuiltInComponent>::PreprocessedColumn,
             <Load<Self> as BuiltInComponent>::MainColumn,
             E,
@@ -69,10 +69,6 @@ impl LoadOp for Lbu {
                 BaseField::zero().into()
             }
         })
-    }
-
-    fn finalized_reg3_value(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE] {
-        Self::finalized_ram_values(component_trace)
     }
 }
 

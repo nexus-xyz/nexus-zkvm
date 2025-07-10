@@ -52,7 +52,7 @@ impl LoadOp for Lhu {
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: TraceEval<
+        trace_eval: &TraceEval<
             <Load<Self> as BuiltInComponent>::PreprocessedColumn,
             <Load<Self> as BuiltInComponent>::MainColumn,
             E,
@@ -92,9 +92,5 @@ impl LoadOp for Lhu {
 
         let zero = FinalizedColumn::from(BaseField::zero());
         [ram1_val, ram2_val, zero.clone(), zero]
-    }
-
-    fn finalized_reg3_value(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE] {
-        Self::finalized_ram_values(component_trace)
     }
 }

@@ -1,8 +1,13 @@
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 
-use crate::components::execution::decoding::{type_i, RegSplitAt0};
+use crate::components::execution::{
+    common::derive_execution_column,
+    decoding::{type_i, RegSplitAt0},
+};
 
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
+
+derive_execution_column! { Column }
 
 /// Columns common to all load instructions.
 ///
@@ -77,12 +82,6 @@ pub const OP_A: RegSplitAt0<Column> = RegSplitAt0 {
 pub const OP_B: RegSplitAt0<Column> = RegSplitAt0 {
     bit_0: Column::OpB0,
     bits_1_4: Column::OpB1_4,
-};
-pub const OP_C: type_i::OpC<Column> = type_i::OpC {
-    op_c0_3: Column::OpC0_3,
-    op_c4_7: Column::OpC4_7,
-    op_c8_10: Column::OpC8_10,
-    op_c11: Column::OpC11,
 };
 
 pub const fn load_instr_val(opcode: u8, funct3: u8) -> type_i::InstrVal<Column> {

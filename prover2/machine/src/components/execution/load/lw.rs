@@ -52,7 +52,7 @@ impl LoadOp for Lw {
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: TraceEval<
+        trace_eval: &TraceEval<
             <Load<Self> as BuiltInComponent>::PreprocessedColumn,
             <Load<Self> as BuiltInComponent>::MainColumn,
             E,
@@ -81,9 +81,5 @@ impl LoadOp for Lw {
     fn finalized_ram_values(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE] {
         let (_, local_trace) = component_trace.original_trace.split_at(Column::COLUMNS_NUM);
         std::array::from_fn(|i| (&local_trace[i]).into())
-    }
-
-    fn finalized_reg3_value(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE] {
-        Self::finalized_ram_values(component_trace)
     }
 }

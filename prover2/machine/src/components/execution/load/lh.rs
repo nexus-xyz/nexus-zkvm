@@ -63,7 +63,7 @@ impl LoadOp for Lh {
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: TraceEval<
+        trace_eval: &TraceEval<
             <Load<Self> as BuiltInComponent>::PreprocessedColumn,
             <Load<Self> as BuiltInComponent>::MainColumn,
             E,
@@ -114,15 +114,6 @@ impl LoadOp for Lh {
 
         let zero = FinalizedColumn::from(BaseField::zero());
         [ram1_val, ram2_val, zero.clone(), zero]
-    }
-
-    fn finalized_reg3_value(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE] {
-        let (_, local_trace) = component_trace.original_trace.split_at(Column::COLUMNS_NUM);
-        let ram1_val = FinalizedColumn::from(&local_trace[0]);
-        let ram2_val = FinalizedColumn::from(&local_trace[1]);
-        let sign_ext_byte = SIGN_EXT_BYTE.combine_from_finalized_trace(component_trace);
-
-        [ram1_val, ram2_val, sign_ext_byte.clone(), sign_ext_byte]
     }
 }
 

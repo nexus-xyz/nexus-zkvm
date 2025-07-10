@@ -4,9 +4,14 @@ use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField}
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use nexus_vm_prover_trace::eval::TraceEval;
 
-use crate::components::execution::decoding::{RegSplitAt0, RegSplitAt4};
+use crate::components::execution::{
+    common::derive_execution_column,
+    decoding::{RegSplitAt0, RegSplitAt4},
+};
 
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
+
+derive_execution_column! { Column }
 
 /// Columns common to all store instructions.
 ///
