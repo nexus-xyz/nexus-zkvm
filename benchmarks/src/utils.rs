@@ -1,4 +1,3 @@
-use chrono;
 use libc::{getrusage, rusage, RUSAGE_CHILDREN, RUSAGE_SELF};
 use std::{fs::OpenOptions, io::Write, time::Duration};
 
