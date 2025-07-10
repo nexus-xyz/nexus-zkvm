@@ -475,7 +475,7 @@ impl HarvardEmulator {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
                 base_address: elf.base,
                 entrypoint: elf.entry,
-                global_clock: 1, // global_clock = 0 captures initalization for memory records
+                global_clock: 1, // global_clock = 0 captures initialization for memory records
                 ..Default::default()
             },
             instruction_memory: FixedMemory::<RO>::from_word_vec(
@@ -508,7 +508,7 @@ impl HarvardEmulator {
             executor: Executor {
                 base_address: ELF_TEXT_START,
                 entrypoint: ELF_TEXT_START,
-                global_clock: 1, // global_clock = 0 captures initalization for memory records
+                global_clock: 1, // global_clock = 0 captures initialization for memory records
                 ..Default::default()
             },
             instruction_memory: FixedMemory::<RO>::from_word_vec(
@@ -977,7 +977,7 @@ impl LinearEmulator {
                 private_input_tape: VecDeque::<u8>::from(private_input.to_vec()),
                 base_address: code_start,
                 entrypoint: code_start + (elf.entry - elf.base),
-                global_clock: 1, // global_clock = 0 captures initalization for memory records
+                global_clock: 1, // global_clock = 0 captures initialization for memory records
                 ..Default::default()
             },
             instruction_index: instruction_memory_index,

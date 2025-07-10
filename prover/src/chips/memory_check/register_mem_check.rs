@@ -128,7 +128,7 @@ impl MachineChip for RegisterMemCheckChip {
         let lookup_elements: &RegisterCheckLookupElements = lookup_elements.as_ref();
         let [value_a_effective_flag] = trace_eval!(trace_eval, ValueAEffectiveFlag);
 
-        // value_a_effective can be constrainted uniquely with value_a_effective_flag and value_a
+        // value_a_effective can be constrained uniquely with value_a_effective_flag and value_a
         let value_a = trace_eval!(trace_eval, ValueA);
         let value_a_effective = trace_eval!(trace_eval, ValueAEffective);
         for i in 0..WORD_SIZE {
