@@ -165,8 +165,8 @@ impl<S: SltuOp> BuiltInComponent for Sltu<S> {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let num_add_steps = self.iter_program_steps(side_note).count();
-        let log_size = num_add_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
+        let num_steps = self.iter_program_steps(side_note).count();
+        let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
@@ -176,7 +176,7 @@ impl<S: SltuOp> BuiltInComponent for Sltu<S> {
             S::generate_trace_row(row_idx, &mut local_trace, program_step);
         }
         // fill padding
-        for row_idx in num_add_steps..1 << log_size {
+        for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
         }
 

@@ -11,7 +11,7 @@ use nexus_vm_prover_trace::{
     builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
 };
 
-use super::{InstructionDecoding, RegSplitAt0};
+use super::{InstructionDecoding, RegSplitAt0, RegSplitAt4};
 
 /// Decoding columns used by type I instructions.
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -28,25 +28,12 @@ pub enum DecodingColumn {
     /// Higher 4 bits of op-b
     #[size = 1]
     OpB1_4,
-    /// Bit 11 of op-c
+    /// Highest bit of op-c
     #[size = 1]
-    OpC11,
+    OpC4,
     /// Lower 4 bits of op-c
     #[size = 1]
     OpC0_3,
-    /// Bits 4–7 of op-c
-    #[size = 1]
-    OpC4_7,
-    /// Bits 8–10 of op-c
-    #[size = 1]
-    OpC8_10,
-}
-
-pub struct OpC<C> {
-    pub op_c0_3: C,
-    pub op_c4_7: C,
-    pub op_c8_10: C,
-    pub op_c11: C,
 }
 
 /// op-a register encoded as a linear combination of helper columns.
@@ -59,14 +46,11 @@ pub const OP_B: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
     bit_0: DecodingColumn::OpB0,
     bits_1_4: DecodingColumn::OpB1_4,
 };
-/// op-c immediate encoded as a linear combination of helper columns.
-pub const OP_C: OpC<DecodingColumn> = OpC {
-    op_c0_3: DecodingColumn::OpC0_3,
-    op_c4_7: DecodingColumn::OpC4_7,
-    op_c8_10: DecodingColumn::OpC8_10,
-    op_c11: DecodingColumn::OpC11,
+/// op-c register encoded as a linear combination of helper columns.
+pub const OP_C: RegSplitAt4<DecodingColumn> = RegSplitAt4 {
+    bits_0_3: DecodingColumn::OpC0_3,
+    bit_4: DecodingColumn::OpC4,
 };
-
 pub struct InstrVal<C> {
     /// Byte 0: opcode + op_a0 * 2^7
     pub opcode: u8,
@@ -81,14 +65,13 @@ pub struct InstrVal<C> {
     pub op_b1_4: C,
     pub op_c0_3: C,
 
-    /// Byte 3: op_c4_7 + op_c8_10 * 2^4 + op_c11 * 2^7
-    pub op_c4_7: C,
-    pub op_c8_10: C,
-    pub op_c11: C,
+    /// Byte 3: op_c4 + imm[11:5] * 2
+    pub op_c4: C,
+    pub funct7: u8,
 }
 
 impl InstrVal<DecodingColumn> {
-    pub const fn new(opcode: u8, funct3: u8) -> Self {
+    pub const fn new(opcode: u8, funct3: u8, funct7: u8) -> Self {
         Self {
             opcode,
             op_a0: DecodingColumn::OpA0,
@@ -97,27 +80,9 @@ impl InstrVal<DecodingColumn> {
             op_b0: DecodingColumn::OpB0,
             op_b1_4: DecodingColumn::OpB1_4,
             op_c0_3: DecodingColumn::OpC0_3,
-            op_c4_7: DecodingColumn::OpC4_7,
-            op_c8_10: DecodingColumn::OpC8_10,
-            op_c11: DecodingColumn::OpC11,
+            op_c4: DecodingColumn::OpC4,
+            funct7,
         }
-    }
-}
-
-impl<C: AirColumn> OpC<C> {
-    pub fn eval<E: EvalAtRow, P: PreprocessedAirColumn>(
-        &self,
-        trace_eval: &TraceEval<P, C, E>,
-    ) -> E::F {
-        let [op_c0_3] = trace_eval.column_eval(self.op_c0_3);
-        let [op_c4_7] = trace_eval.column_eval(self.op_c4_7);
-        let [op_c8_10] = trace_eval.column_eval(self.op_c8_10);
-        let [op_c11] = trace_eval.column_eval(self.op_c11);
-
-        op_c0_3
-            + op_c4_7 * BaseField::from(1 << 4)
-            + op_c8_10 * BaseField::from(1 << 8)
-            + op_c11 * BaseField::from(1 << 11)
     }
 }
 
@@ -131,9 +96,7 @@ impl<C: AirColumn> InstrVal<C> {
         let [op_b0] = trace_eval.column_eval(self.op_b0);
         let [op_b1_4] = trace_eval.column_eval(self.op_b1_4);
         let [op_c0_3] = trace_eval.column_eval(self.op_c0_3);
-        let [op_c4_7] = trace_eval.column_eval(self.op_c4_7);
-        let [op_c8_10] = trace_eval.column_eval(self.op_c8_10);
-        let [op_c11] = trace_eval.column_eval(self.op_c11);
+        let [op_c4] = trace_eval.column_eval(self.op_c4);
 
         let opcode = E::F::from(BaseField::from(self.opcode as u32));
 
@@ -142,8 +105,7 @@ impl<C: AirColumn> InstrVal<C> {
             + E::F::from(BaseField::from(self.funct3 as u32 * (1 << 4)))
             + op_b0 * BaseField::from(1 << 7);
         let instr_val_2 = op_b1_4 + op_c0_3 * BaseField::from(1 << 4);
-        let instr_val_3 =
-            op_c4_7 + op_c8_10 * BaseField::from(1 << 4) + op_c11 * BaseField::from(1 << 7);
+        let instr_val_3 = op_c4 + E::F::from(BaseField::from(self.funct7 as u32 * 2));
 
         [instr_val_0, instr_val_1, instr_val_2, instr_val_3]
     }
@@ -167,15 +129,11 @@ pub fn generate_trace_row(
     trace.fill_columns(row_idx, op_b0, DecodingColumn::OpB0);
     trace.fill_columns(row_idx, op_b1_4, DecodingColumn::OpB1_4);
 
-    let op_c_raw = program_step.step.instruction.op_c;
+    let op_c_raw = program_step.step.instruction.op_c as u8;
     let op_c0_3 = op_c_raw & 0xF;
-    let op_c4_7 = (op_c_raw >> 4) & 0xF;
-    let op_c8_10 = (op_c_raw >> 8) & 0x7;
-    let op_c11 = (op_c_raw >> 11) & 0x1;
-    trace.fill_columns(row_idx, op_c0_3 as u8, DecodingColumn::OpC0_3);
-    trace.fill_columns(row_idx, op_c4_7 as u8, DecodingColumn::OpC4_7);
-    trace.fill_columns(row_idx, op_c8_10 as u8, DecodingColumn::OpC8_10);
-    trace.fill_columns(row_idx, op_c11 as u8, DecodingColumn::OpC11);
+    let op_c4 = (op_c_raw >> 4) & 0x1;
+    trace.fill_columns(row_idx, op_c0_3, DecodingColumn::OpC0_3);
+    trace.fill_columns(row_idx, op_c4, DecodingColumn::OpC4);
 }
 
 // Constrains c-val to equal 12-bit immediate
@@ -185,41 +143,28 @@ pub fn constrain_c_val<E: EvalAtRow>(
     c_val: [E::F; WORD_SIZE],
     is_local_pad: E::F,
 ) {
-    let [op_c11] = trace_eval!(trace_eval, DecodingColumn::OpC11);
     let [op_c0_3] = trace_eval!(trace_eval, DecodingColumn::OpC0_3);
-    let [op_c4_7] = trace_eval!(trace_eval, DecodingColumn::OpC4_7);
-    let [op_c8_10] = trace_eval!(trace_eval, DecodingColumn::OpC8_10);
+    let [op_c4] = trace_eval!(trace_eval, DecodingColumn::OpC4);
 
-    // constrain c-val to equal 12-bit immediate
+    // constrain c-val to equal 5-bit immediate
     //
-    // (1 − is-local-pad) · (op-c0-3 + op-c4-7 · 2^4 − c-val(1)) = 0
+    // (1 − is-local-pad) · (op-c0-3 + op-c4 · 2^4 − c-val(1)) = 0
     eval.add_constraint(
         (E::F::one() - is_local_pad.clone())
-            * (op_c0_3.clone() + op_c4_7.clone() * BaseField::from(1 << 4) - c_val[0].clone()),
+            * (op_c0_3.clone() + op_c4.clone() * BaseField::from(1 << 4) - c_val[0].clone()),
     );
-    // (1 − is-local-pad) · (op-c8-10 + op-c11 · (2^5 − 1) · 2^3 − c-val(2)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c8_10.clone()
-                + op_c11.clone() * BaseField::from((1 << 5) - 1) * BaseField::from(1 << 3)
-                - c_val[1].clone()),
-    );
-    // (1 − is-local-pad) · (op-c11 · (2^8 − 1) − c-val(3)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c11.clone() * BaseField::from((1 << 8) - 1) - c_val[2].clone()),
-    );
-    // (1 − is-local-pad) · (op-c11 · (2^8 − 1) − c-val(4)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c11.clone() * BaseField::from((1 << 8) - 1) - c_val[3].clone()),
-    );
+    // (1 − is-local-pad) · (c-val(2) ) = 0
+    // (1 − is-local-pad) · (c-val(3) ) = 0
+    // (1 − is-local-pad) · (c-val(4) ) = 0
+    for c_val_byte in &c_val[1..] {
+        eval.add_constraint(c_val_byte.clone());
+    }
 }
 
-/// Zero-sized struct that implements type-I instruction decoding.
-pub struct TypeI<T>(PhantomData<T>);
+/// Zero-sized struct that implements type-I shift instruction decoding.
+pub struct TypeIShamt<T>(PhantomData<T>);
 
-pub trait TypeIDecoding {
+pub trait TypeIShamtDecoding {
     const OPCODE: BuiltinOpcode;
     const C_VAL: Self::MainColumn;
     const IS_LOCAL_PAD: Self::MainColumn;
@@ -228,12 +173,12 @@ pub trait TypeIDecoding {
     type MainColumn: AirColumn;
 }
 
-impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
+impl<T: TypeIShamtDecoding> InstructionDecoding for TypeIShamt<T> {
     const OPCODE: BuiltinOpcode = T::OPCODE;
     const REG2_ACCESSED: bool = false;
 
-    type PreprocessedColumn = <T as TypeIDecoding>::PreprocessedColumn;
-    type MainColumn = <T as TypeIDecoding>::MainColumn;
+    type PreprocessedColumn = <T as TypeIShamtDecoding>::PreprocessedColumn;
+    type MainColumn = <T as TypeIShamtDecoding>::MainColumn;
     type DecodingColumn = DecodingColumn;
 
     fn generate_trace_row(
@@ -254,10 +199,10 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
 
         let [op_a0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA0);
         let [op_b0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB0);
-        let [op_c11] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC11);
+        let [op_c4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC4);
 
-        // constrain op_a0, op_b0, op_c11 ∈ {0, 1}
-        for bit in [op_a0, op_b0, op_c11.clone()] {
+        // constrain op_a0, op_b0, op_c4 ∈ {0, 1}
+        for bit in [op_a0, op_b0, op_c4] {
             eval.add_constraint(bit.clone() * (E::F::one() - bit));
         }
 
@@ -277,6 +222,11 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
     fn combine_instr_val<E: EvalAtRow>(
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
     ) -> [E::F; WORD_SIZE] {
-        InstrVal::new(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(decoding_trace_eval)
+        InstrVal::new(
+            T::OPCODE.raw(),
+            T::OPCODE.fn3().value(),
+            T::OPCODE.fn7().value(),
+        )
+        .eval(decoding_trace_eval)
     }
 }

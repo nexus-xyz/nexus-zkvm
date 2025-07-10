@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use num_traits::{One, Zero};
+use num_traits::{Euclid, One};
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
     core::{
@@ -8,7 +8,7 @@ use stwo_prover::{
             m31::{PackedBaseField, LOG_N_LANES},
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField, FieldExpOps},
+        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
@@ -33,7 +33,7 @@ use crate::{
         utils::{
             add_16bit_with_carry,
             constraints::{ClkIncrement, PcIncrement},
-            subtract_with_borrow, u32_to_16bit_parts_le,
+            u32_to_16bit_parts_le,
         },
     },
     framework::BuiltInComponent,
@@ -45,29 +45,33 @@ use crate::{
 };
 
 mod columns;
-mod slt;
-mod slti;
+mod srl;
+mod srli;
 
 use columns::{Column, PreprocessedColumn};
 
-pub const SLT: Slt<slt::Slt> = Slt::new();
-pub const SLTI: Slt<slti::Slti> = Slt::new();
+pub const SRL: Srl<srl::Srl> = Srl::new();
+pub const SRLI: Srl<srli::Srli> = Srl::new();
 
-pub trait SltOp:
+pub trait SrlOp:
     InstructionDecoding<PreprocessedColumn = PreprocessedColumn, MainColumn = Column>
 {
 }
 
-pub struct Slt<S> {
+pub struct Srl<S> {
     _phantom: PhantomData<S>,
 }
 
 struct ExecutionResult {
-    pub borrow_bits: [bool; 2], // for 16-bit boundaries
-    pub diff_bytes: Word,
+    shift_bits: [u8; 5],
+    exp1_3: u8,
+    h1: u8,
+    rem: Word,
+    rem_diff: Word,
+    qt: Word,
 }
 
-impl<S: SltOp> Slt<S> {
+impl<S: SrlOp> Srl<S> {
     const REG1_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
     const REG3_ACCESSED: BaseField = BaseField::from_u32_unchecked(1);
     const REG3_WRITE: BaseField = BaseField::from_u32_unchecked(1);
@@ -75,7 +79,7 @@ impl<S: SltOp> Slt<S> {
     const fn new() -> Self {
         assert!(matches!(
             S::OPCODE,
-            BuiltinOpcode::SLT | BuiltinOpcode::SLTI
+            BuiltinOpcode::SRL | BuiltinOpcode::SRLI
         ));
         Self {
             _phantom: PhantomData,
@@ -86,22 +90,49 @@ impl<S: SltOp> Slt<S> {
         &self,
         side_note: &SideNote<'a>,
     ) -> impl Iterator<Item = ProgramStep<'a>> {
-        let slt_opcode = S::OPCODE;
+        let srl_opcode = S::OPCODE;
         side_note.iter_program_steps().filter(move |step| {
             matches!(
                 step.step.instruction.opcode.builtin(),
-                opcode if opcode == Some(slt_opcode),
+                opcode if opcode == Some(srl_opcode),
             )
         })
     }
 
     fn execute_step(value_b: Word, value_c: Word) -> ExecutionResult {
-        let (diff_bytes, borrow_bits) = subtract_with_borrow(value_b, value_c);
-        let borrow_bits = [borrow_bits[1], borrow_bits[3]];
+        let imm = value_c[0];
+
+        let h1 = imm >> 5;
+        let exp1_3 = 1 << (imm & 0b111);
+        let mut sh = [0; 5];
+        for (i, sh) in sh.iter_mut().enumerate() {
+            *sh = (imm >> i) & 1;
+        }
+
+        let mut rem = [0u8; WORD_SIZE];
+        let mut rem_diff = [0u8; WORD_SIZE];
+        let mut qt = [0u8; WORD_SIZE];
+
+        (qt[3], rem[3]) = value_b[3].div_rem_euclid(&exp1_3);
+        for i in (0..WORD_SIZE - 1).rev() {
+            let t = u16::from(value_b[i]) + (u16::from(rem[i + 1]) << 8);
+            let (q, r) = t.div_rem_euclid(&(exp1_3 as u16));
+            // It is guaranteed that q, r < 256
+            rem[i] = r as u8;
+            qt[i] = q as u8;
+        }
+
+        for i in 0..WORD_SIZE {
+            rem_diff[i] = exp1_3 - 1 - rem[i];
+        }
 
         ExecutionResult {
-            borrow_bits,
-            diff_bytes,
+            shift_bits: sh,
+            exp1_3,
+            h1,
+            rem,
+            qt,
+            rem_diff,
         }
     }
 
@@ -124,14 +155,17 @@ impl<S: SltOp> Slt<S> {
 
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
-        let ExecutionResult {
-            borrow_bits,
-            diff_bytes,
-        } = Self::execute_step(value_b, value_c);
-
         let result = program_step
             .get_result()
             .unwrap_or_else(|| panic!("{} instruction must have result", S::OPCODE));
+        let ExecutionResult {
+            shift_bits,
+            exp1_3,
+            h1,
+            rem,
+            rem_diff,
+            qt,
+        } = Self::execute_step(value_b, value_c);
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
         trace.fill_columns(row_idx, pc_next, Column::PcNext);
@@ -141,22 +175,20 @@ impl<S: SltOp> Slt<S> {
         trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
-        trace.fill_columns(row_idx, result[0], Column::AVal);
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
         trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
+        trace.fill_columns_bytes(row_idx, &result, Column::AVal);
 
-        trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
-        trace.fill_columns(row_idx, diff_bytes, Column::HRem);
-
-        trace.fill_columns(row_idx, value_b[WORD_SIZE - 1] & 0x7F, Column::HRemB);
-        trace.fill_columns(row_idx, value_c[WORD_SIZE - 1] & 0x7F, Column::HRemC);
-
-        trace.fill_columns(row_idx, program_step.get_sgn_b(), Column::HSgnB);
-        trace.fill_columns(row_idx, program_step.get_sgn_c(), Column::HSgnC);
+        trace.fill_columns_bytes(row_idx, &shift_bits, Column::Sh);
+        trace.fill_columns(row_idx, exp1_3, Column::Exp3);
+        trace.fill_columns(row_idx, h1, Column::HRem);
+        trace.fill_columns(row_idx, rem, Column::Rem);
+        trace.fill_columns(row_idx, rem_diff, Column::RemAux);
+        trace.fill_columns(row_idx, qt, Column::Qt);
     }
 }
 
-impl<S: SltOp> BuiltInComponent for Slt<S> {
+impl<S: SrlOp> BuiltInComponent for Srl<S> {
     const LOG_CONSTRAINT_DEGREE_BOUND: u32 = 2;
 
     type PreprocessedColumn = PreprocessedColumn;
@@ -182,18 +214,18 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
         let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
         let mut common_trace = TraceBuilder::new(log_size);
-        let mut local_trace = TraceBuilder::new(log_size);
+        let mut decoding_trace = TraceBuilder::new(log_size);
 
         for (row_idx, program_step) in self.iter_program_steps(side_note).enumerate() {
             self.generate_trace_row(&mut common_trace, row_idx, program_step, side_note);
-            S::generate_trace_row(row_idx, &mut local_trace, program_step);
+            S::generate_trace_row(row_idx, &mut decoding_trace, program_step);
         }
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
         }
 
-        common_trace.finalize().concat(local_trace.finalize())
+        common_trace.finalize().concat(decoding_trace.finalize())
     }
 
     fn generate_interaction_trace(
@@ -216,8 +248,7 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
         let clk = original_base_column!(component_trace, Column::Clk);
         let pc = original_base_column!(component_trace, Column::Pc);
-
-        let [a_val] = original_base_column!(component_trace, Column::AVal);
+        let a_val = original_base_column!(component_trace, Column::AVal);
         let b_val = original_base_column!(component_trace, Column::BVal);
         let c_val = original_base_column!(component_trace, Column::CVal);
 
@@ -248,10 +279,6 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
             &[clk_next, pc_next].concat(),
         );
-
-        let reg2_accessed = BaseField::from(S::REG2_ACCESSED as u32);
-        let mut a_val = vec![a_val];
-        a_val.resize(WORD_SIZE, BaseField::zero().into());
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
@@ -263,6 +290,7 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
         //         reg3-write
         //     )
         // )
+        let reg2_accessed = BaseField::from(S::REG2_ACCESSED as u32);
         logup_trace_builder.add_to_relation_with(
             &rel_inst_to_reg_memory,
             [is_local_pad],
@@ -293,16 +321,13 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
         lookup_elements: &Self::LookupElements,
     ) {
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-        let [h_borrow_1, h_borrow_2] = trace_eval!(trace_eval, Column::HBorrow);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
         let clk = trace_eval!(trace_eval, Column::Clk);
         let clk_next = trace_eval!(trace_eval, Column::ClkNext);
 
-        let h_rem = trace_eval!(trace_eval, Column::HRem);
-
-        let [a_val] = trace_eval!(trace_eval, Column::AVal);
+        let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = trace_eval!(trace_eval, Column::CVal);
 
@@ -321,79 +346,124 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
         }
         .constrain(eval, &trace_eval);
 
-        let modulus = E::F::from(256u32.into());
+        let sh = trace_eval!(trace_eval, Column::Sh);
+        let qt = trace_eval!(trace_eval, Column::Qt);
+        let rem = trace_eval!(trace_eval, Column::Rem);
+        let rem_aux = trace_eval!(trace_eval, Column::RemAux);
 
-        // subtracting 2 limbs at a time
-        //
+        let [h_rem] = trace_eval!(trace_eval, Column::HRem);
+        let [exp3] = trace_eval!(trace_eval, Column::Exp3);
+
         // (1 − is-local-pad) · (
-        //     a-val(1) + a-val(2) · 2^8
-        //     − h-borrow(1) · 2^16
-        //     − (b-val(1) + b-val(2) · 2^8 − c-val(1) − c-val(2) · 2^8)
+        //     sh1 + sh2 · 2 + sh3 · 2^2 + sh4 · 2^3 + sh5 · 2^4 + h-rem · 2^5 − c-val(1)
         // ) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
-                * (h_rem[0].clone() + h_rem[1].clone() * modulus.clone()
-                    - h_borrow_1.clone() * modulus.clone().pow(2)
-                    - (b_val[0].clone() + b_val[1].clone() * modulus.clone()
-                        - c_val[0].clone()
-                        - c_val[1].clone() * modulus.clone())),
+                * (sh[0].clone()
+                    + sh[1].clone() * BaseField::from(1 << 1)
+                    + sh[2].clone() * BaseField::from(1 << 2)
+                    + sh[3].clone() * BaseField::from(1 << 3)
+                    + sh[4].clone() * BaseField::from(1 << 4)
+                    + h_rem.clone() * BaseField::from(1 << 5)
+                    - c_val[0].clone()),
         );
+        // (sh1) · (1 − sh1) = 0
+        // (sh2) · (1 − sh2) = 0
+        // (sh3) · (1 − sh3) = 0
+        // (sh4) · (1 − sh4) = 0
+        // (sh5) · (1 − sh5) = 0
+        for sh in &sh {
+            eval.add_constraint((E::F::one() - sh.clone()) * sh.clone());
+        }
         // (1 − is-local-pad) · (
-        //     a-val(3) + a-val(4) · 2^8
-        //     − h-borrow(2) · 2^16
-        //     − (b-val(3) + b-val(4) · 2^8 − c-val(3) − c-val(4) · 2^8 − h-borrow(1))
+        //     (sh1 + 1)
+        //     · ((2^2 − 1) · sh2 + 1)
+        //     · ((2^4 − 1) · sh3 + 1)
+        //     − exp3
         // ) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
-                * (h_rem[2].clone() + h_rem[3].clone() * modulus.clone()
-                    - h_borrow_2.clone() * modulus.clone().pow(2)
-                    - (b_val[2].clone() + b_val[3].clone() * modulus.clone()
-                        - c_val[2].clone()
-                        - c_val[3].clone() * modulus.clone()
-                        - h_borrow_1.clone())),
+                * ((sh[0].clone() + E::F::one())
+                    * (sh[1].clone() * BaseField::from((1 << 2) - 1) + E::F::one())
+                    * (sh[2].clone() * BaseField::from((1 << 4) - 1) + E::F::one())
+                    - exp3.clone()),
         );
 
-        let [h_rem_b] = trace_eval!(trace_eval, Column::HRemB);
-        let [h_rem_c] = trace_eval!(trace_eval, Column::HRemC);
-        let [h_sgn_b] = trace_eval!(trace_eval, Column::HSgnB);
-        let [h_sgn_c] = trace_eval!(trace_eval, Column::HSgnC);
-
-        // (1 − is-local-pad) · (h-rem-b + h-sgn-b · 2^7 − b-val(4) ) = 0
+        // (1 − is-local-pad) · (b-val(4) − rem4 − qt4 · exp3) = 0
+        // (1 − is-local-pad) · (b-val(3) + rem4 · 2^8 − rem3 − qt3 · exp3) = 0
+        // (1 − is-local-pad) · (b-val(2) + rem3 · 2^8 − rem2 − qt2 · exp3) = 0
+        // (1 − is-local-pad) · (b-val(1) + rem2 · 2^8 − rem1 − qt1 · exp3) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
-                * (h_rem_b.clone() + h_sgn_b.clone() * BaseField::from(1 << 7) - b_val[3].clone()),
+                * (b_val[3].clone() - rem[3].clone() - qt[3].clone() * exp3.clone()),
         );
-        // (1 − is-local-pad) · (h-rem-c + h-sgn-c · 2^7 − c-val(4) ) = 0
+        for i in (0..WORD_SIZE - 1).rev() {
+            eval.add_constraint(
+                (E::F::one() - is_local_pad.clone())
+                    * (b_val[i].clone() + rem[i + 1].clone() * BaseField::from(1 << 8)
+                        - rem[i].clone()
+                        - qt[i].clone() * exp3.clone()),
+            );
+        }
+
+        // (1 − is-local-pad) · (exp3 − 1 − rem1 − rem1-aux) = 0
+        // (1 − is-local-pad) · (exp3 − 1 − rem2 − rem2-aux) = 0
+        // (1 − is-local-pad) · (exp3 − 1 − rem3 − rem3-aux) = 0
+        // (1 − is-local-pad) · (exp3 − 1 − rem4 − rem4-aux) = 0
+        for i in 0..WORD_SIZE {
+            eval.add_constraint(
+                (E::F::one() - is_local_pad.clone())
+                    * (exp3.clone() - E::F::one() - rem[i].clone() - rem_aux[i].clone()),
+            );
+        }
+
+        // (1 − is-local-pad) · (a-val(4) − qt4 · (1 − sh4) · (1 − sh5)) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
-                * (h_rem_c.clone() + h_sgn_c.clone() * BaseField::from(1 << 7) - c_val[3].clone()),
+                * (a_val[3].clone()
+                    - qt[3].clone()
+                        * (E::F::one() - sh[3].clone())
+                        * (E::F::one() - sh[4].clone())),
         );
-
-        // (1 − is-local-pad) · (
-        //     (h-sgn-b)(1 − h-sgn-c)
-        //     + h-ltu-flag · (
-        //         (h-sgn-b)(h-sgn-c) + (1 − h-sgn-b)(1 − h-sgn-c)
-        //     )
-        //     − a-val(1)
-        // ) = 0
-        let h_ltu_flag = &h_borrow_2;
+        // (1 − is-local-pad) · (a-val(3) − qt3 · (1 − sh4) · (1 − sh5) − qt4 · sh4 · (1 − sh5)) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
-                * (h_sgn_b.clone() * (E::F::one() - h_sgn_c.clone())
-                    + h_ltu_flag.clone()
-                        * (h_sgn_b.clone() * h_sgn_c.clone()
-                            + (E::F::one() - h_sgn_b.clone()) * (E::F::one() - h_sgn_c.clone()))
-                    - a_val.clone()),
+                * (a_val[2].clone()
+                    - qt[2].clone()
+                        * (E::F::one() - sh[3].clone())
+                        * (E::F::one() - sh[4].clone())
+                    - qt[3].clone() * sh[3].clone() * (E::F::one() - sh[4].clone())),
+        );
+        // (1 − is-local-pad) · (a-val(2) − qt2 · (1 − sh4) · (1 − sh5) − qt3 · sh4 · (1 − sh5) − qt4 · (1 − sh4) · sh5) = 0
+        eval.add_constraint(
+            (E::F::one() - is_local_pad.clone())
+                * (a_val[1].clone()
+                    - qt[1].clone()
+                        * (E::F::one() - sh[3].clone())
+                        * (E::F::one() - sh[4].clone())
+                    - qt[2].clone() * sh[3].clone() * (E::F::one() - sh[4].clone())
+                    - qt[3].clone() * (E::F::one() - sh[3].clone()) * sh[4].clone()),
+        );
+        // (1 − is-local-pad) · (a-val(1) − qt1 · (1 − sh4) · (1 − sh5) − qt2 · sh4 · (1 − sh5) − qt3 · (1 − sh4) · sh5 − qt4 · sh4 · sh5) = 0
+        eval.add_constraint(
+            (E::F::one() - is_local_pad.clone())
+                * (a_val[0].clone()
+                    - qt[0].clone()
+                        * (E::F::one() - sh[3].clone())
+                        * (E::F::one() - sh[4].clone())
+                    - qt[1].clone() * sh[3].clone() * (E::F::one() - sh[4].clone())
+                    - qt[2].clone() * (E::F::one() - sh[3].clone()) * sh[4].clone()
+                    - qt[3].clone() * sh[3].clone() * sh[4].clone()),
         );
 
-        let local_trace_eval = TraceEval::new(eval);
-        S::constrain_decoding(eval, &trace_eval, &local_trace_eval);
+        let decoding_trace_eval = TraceEval::new(eval);
+        S::constrain_decoding(eval, &trace_eval, &decoding_trace_eval);
 
         // Logup Interactions
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
 
-        let instr_val = S::combine_instr_val(&local_trace_eval);
-        let reg_addrs = S::combine_reg_addresses(&local_trace_eval);
+        let instr_val = S::combine_instr_val(&decoding_trace_eval);
+        let reg_addrs = S::combine_reg_addresses(&decoding_trace_eval);
 
         // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
@@ -412,10 +482,6 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
                 pc_next[1].clone(),
             ],
         ));
-
-        let reg2_accessed = E::F::from(BaseField::from(S::REG2_ACCESSED as u32));
-        let mut a_val = vec![a_val];
-        a_val.resize(WORD_SIZE, E::F::zero());
         // provide(
         //     rel-inst-to-reg-memory,
         //     1 − is-local-pad,
@@ -427,6 +493,7 @@ impl<S: SltOp> BuiltInComponent for Slt<S> {
         //         reg3-write
         //     )
         // )
+        let reg2_accessed = E::F::from(BaseField::from(S::REG2_ACCESSED as u32));
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_reg_memory,
             (E::F::one() - is_local_pad.clone()).into(),
@@ -457,7 +524,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADDI,
+            RegisterMemoryBoundary, ADDI, SLLI, SUB,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -468,44 +535,44 @@ mod tests {
     use num_traits::Zero;
 
     #[test]
-    fn assert_slt_constraints() {
+    fn assert_srl_constraints() {
         let basic_block = vec![BasicBlock::new(vec![
-            // x1 = 5
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 5),
-            // x2 = 10
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 10),
-            // x3 = -5 (0xFFFF_FFFB)
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 3, 0, -5i32 as u32),
-            // x4 = -1 (0xFFFFFFFF)
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 4, 0, -1i32 as u32),
-            // SLT tests
-            //
-            // x5 = (x1 < x2) -> 1   // 5 < 10
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 5, 1, 2),
-            // x6 = (x2 < x1) -> 0   // 10 < 5
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 6, 2, 1),
-            // x7 = (x3 < x2) -> 1   // -5 < 10
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 7, 3, 2),
-            // x8 = (x2 < x3) -> 0   // 10 < -5
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 8, 2, 3),
-            // x9 = (x3 < x4) -> 1   // -5 < -1
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 9, 3, 4),
-            // x10 = (x4 < x3) -> 0  // -1 < -5
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLT), 10, 4, 3),
-            // SLTI tests
-            //
-            // x11 = (x1 < 10) => 1   // 5 < 10
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTI), 11, 1, 10),
-            // x12 = (x2 < 5) => 0    // 10 < 5
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTI), 12, 2, 5),
-            // x13 = (x3 < 0) => 1    // -5 < 0
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTI), 13, 3, 0),
-            // x14 = (x1 < -1) => 0   // 5 < -1
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTI), 14, 1, -1i32 as u32),
-            // x15 = (x4 < -5) => 0   // -1 < -5
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTI), 15, 4, -5i32 as u32),
-            // x16 = (x3 < -1) => 1   // -5 < -1
-            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLTI), 16, 3, -1i32 as u32),
+            // Set x7 = 0xFFFFFFFF (all bits set)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 7, 0, 7),
+            // x8 = x7 >> 1
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 1),
+            // x8 = x7 >> 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 2),
+            // x8 = x7 >> 4
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 4),
+            // x8 = x7 >> 8
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 8),
+            // x8 = x7 >> 16
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 16),
+            // x9 = x8 >> 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 9, 8, 0),
+            // x9 = x8 >> 0
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 9, 8, 0),
+            // Testing shift right with arbitrary values
+            // Set x1 = 20
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 1, 0, 20),
+            // Set x2 = 2
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 2, 0, 2),
+            // x3 = x1 >> x2 (20 >> 2 = 5)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRL), 3, 1, 2),
+            // x4 = x1 >> 3 (20 >> 3 = 2) using SRLI
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 4, 1, 3),
+            // Set x5 = -20 (testing negative numbers)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 5, 0, 20),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SUB), 5, 0, 5),
+            // x6 = x5 >> 1 (-20 >> 1 = 2147483638, due to logical shift)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 6, 5, 1),
+            // Set x7 = 0x80000000 (most significant bit set)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::ADDI), 7, 0, 1),
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SLLI), 7, 7, 31),
+            // x8 = x7 >> 31 (0x80000000 >> 31 = 1)
+            Instruction::new_ir(Opcode::from(BuiltinOpcode::SRLI), 8, 7, 31),
         ])];
         let (view, program_trace) =
             k_trace_direct(&basic_block, 1).expect("error generating trace");
@@ -513,8 +580,8 @@ mod tests {
         let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = SecureField::zero();
 
-        claimed_sum += assert_component(SLT, assert_ctx);
-        claimed_sum += assert_component(SLTI, assert_ctx);
+        claimed_sum += assert_component(SRL, assert_ctx);
+        claimed_sum += assert_component(SRLI, assert_ctx);
 
         claimed_sum += components_claimed_sum(
             &[
@@ -525,6 +592,8 @@ mod tests {
                 &ProgramMemory,
                 &ProgramMemoryBoundary,
                 &ADDI,
+                &SUB,
+                &SLLI,
             ],
             assert_ctx,
         );
