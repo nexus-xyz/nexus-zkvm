@@ -11,17 +11,17 @@ impl PC {
 
     // Branch: Add immediate value to PC
     pub fn branch(&mut self, imm: u32) {
-        self.value = self.value.wrapping_add(sign_extension_branch(imm));
+        self.value = self.value.wrapping_add(sign_extension_branch(imm) as i32 as u32);
     }
 
     // Jump and Link: Add immediate value to PC
     pub fn jal(&mut self, imm: u32) {
-        self.value = self.value.wrapping_add(sign_extension_jal(imm));
+        self.value = self.value.wrapping_add(sign_extension_jal(imm) as i32 as u32);
     }
 
     // Jump and Link Register: Set PC to rs1 + imm
     pub fn jalr(&mut self, rs1: u32, imm: u32) {
-        self.value = rs1.wrapping_add(sign_extension_jalr(imm));
+        self.value = rs1.wrapping_add(sign_extension_jalr(imm) as i32 as u32);
     }
 }
 
@@ -32,32 +32,31 @@ impl PartialEq<u32> for PC {
 }
 
 #[inline]
-const fn sign_extension(imm: u32, bits: u32) -> u32 {
+const fn sign_extension(imm: u32, bits: u32) -> i32 {
     let mask = 1u32 << (bits - 1);
     let value = imm & ((1u32 << bits) - 1); // Ensure we only use the specified number of bits
     if value & mask != 0 {
-        // If the sign bit is set, extend with 1s
-        value | !((1u32 << bits) - 1)
+        // If the sign bit is set, extend with 1s (negative value)
+        (value as i32) | (!((1u32 << bits) - 1) as i32)
     } else {
-        // If the sign bit is not set, extend with 0s
-        value
+        value as i32
     }
 }
 
 // Sign extension for Branch (13-bit immediate)
 #[inline]
-const fn sign_extension_branch(imm: u32) -> u32 {
+const fn sign_extension_branch(imm: u32) -> i32 {
     sign_extension(imm, 13)
 }
 
 // Sign extension for JAL (21-bit immediate)
 #[inline]
-const fn sign_extension_jal(imm: u32) -> u32 {
+const fn sign_extension_jal(imm: u32) -> i32 {
     sign_extension(imm, 21)
 }
 
 // Sign extension for JALR (12-bit immediate)
 #[inline]
-const fn sign_extension_jalr(imm: u32) -> u32 {
+const fn sign_extension_jalr(imm: u32) -> i32 {
     sign_extension(imm, 12)
 }
