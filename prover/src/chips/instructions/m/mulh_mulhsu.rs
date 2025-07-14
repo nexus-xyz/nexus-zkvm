@@ -56,8 +56,6 @@ impl MachineChip for MulhMulhsuChip {
             let value_c_u32 = u32::from_le_bytes(value_c);
             let abs_limbs = value_c_u32.to_le_bytes();
             traces.fill_columns(row_idx, abs_limbs, ValueCAbs);
-            traces.fill_columns(row_idx, [false, false], ValueCAbsBorrow); // No borrow for unsigned
-            traces.fill_columns(row_idx, false, SgnC); // Always positive for unsigned
             abs_limbs
         } else {
             // For MULH, treat operand C as signed (compute absolute value)
@@ -151,8 +149,6 @@ impl MachineChip for MulhMulhsuChip {
             abs_value_c.clone(),
             abs_value_c_borrow.clone(),
         );
-
-        eval.add_constraint(is_mulhsu.clone() * sgn_c.clone());
 
         constrain_values_equal(
             eval,
