@@ -30,6 +30,8 @@ pub use execution::bitwise_multiplicity::BitwiseMultiplicity;
 pub use execution::branch_cmp_signed::{BGE, BLT};
 pub use execution::branch_cmp_unsigned::{BGEU, BLTU};
 pub use execution::branch_eq::{BEQ, BNE};
+pub use execution::jal::JAL;
+pub use execution::jalr::JALR;
 pub use execution::load::{LB, LBU, LH, LHU, LW};
 pub use execution::lui::LUI;
 pub use execution::sll::{SLL, SLLI};

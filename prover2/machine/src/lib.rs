@@ -36,6 +36,8 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::SB,
     &components::SH,
     &components::SW,
+    &components::JAL,
+    &components::JALR,
     &components::AND,
     &components::ANDI,
     &components::OR,

@@ -22,9 +22,10 @@ pub enum DecodingColumn {
 ///
 /// Prover doesn't commit to this trace.
 pub struct ComponentDecodingTrace<'a> {
-    log_size: u32,
     trace: Vec<BaseColumn>,
-    program_steps: Vec<ProgramStep<'a>>,
+
+    pub(crate) log_size: u32,
+    pub(crate) program_steps: Vec<ProgramStep<'a>>,
 }
 
 impl<'a> ComponentDecodingTrace<'a> {
