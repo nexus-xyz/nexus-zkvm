@@ -5,6 +5,8 @@ pub mod bitwise_multiplicity;
 pub mod branch_cmp_signed;
 pub mod branch_cmp_unsigned;
 pub mod branch_eq;
+pub mod jal;
+pub mod jalr;
 pub mod load;
 pub mod lui;
 pub mod sll;
