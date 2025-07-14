@@ -11,6 +11,7 @@ use nexus_vm_prover_trace::{builder::TraceBuilder, eval::TraceEval, program::Pro
 //
 // as a result, not all instruction types are listed here.
 
+pub mod type_b;
 pub mod type_i;
 pub mod type_i_shamt;
 pub mod type_r;
