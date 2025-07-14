@@ -116,6 +116,9 @@ impl<T: SltOp> Slt<T> {
             borrow_bits,
             diff_bytes,
         } = Self::execute_step(value_b, value_c);
+        let result = program_step
+            .get_result()
+            .unwrap_or_else(|| panic!("{} instruction must have result", T::OPCODE));
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
         trace.fill_columns(row_idx, pc_next, Column::PcNext);
@@ -125,6 +128,7 @@ impl<T: SltOp> Slt<T> {
         trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
+        trace.fill_columns(row_idx, result[0], Column::AVal);
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
         trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
 
@@ -283,6 +287,7 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
                 * (h_rem_c.clone() + h_sgn_c.clone() * BaseField::from(1 << 7) - c_val[3].clone()),
         );
 
+        let [a_val_1] = trace_eval!(trace_eval, Column::AVal);
         let h_ltu_flag = &h_borrow_2;
 
         // (1 − is-local-pad) · (
@@ -292,11 +297,16 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         //     )
         //     − a-val(1)
         // ) = 0
+        eval.add_constraint(
+            (E::F::one() - is_local_pad.clone())
+                * (h_sgn_b.clone() * (E::F::one() - h_sgn_c.clone())
+                    + h_ltu_flag.clone()
+                        * (h_sgn_b.clone() * h_sgn_c.clone()
+                            + (E::F::one() - h_sgn_b.clone()) * (E::F::one() - h_sgn_c.clone()))
+                    - a_val_1.clone()),
+        );
         let mut a_val = zero_array::<WORD_SIZE, E>();
-        a_val[0] = h_sgn_b.clone() * (E::F::one() - h_sgn_c.clone())
-            + h_ltu_flag.clone()
-                * (h_sgn_b.clone() * h_sgn_c.clone()
-                    + (E::F::one() - h_sgn_b.clone()) * (E::F::one() - h_sgn_c.clone()));
+        a_val[0] = a_val_1;
 
         let local_trace_eval = TraceEval::new(eval);
         T::constrain_decoding(eval, &trace_eval, &local_trace_eval);
