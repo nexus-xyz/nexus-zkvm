@@ -137,11 +137,11 @@ fn reg3_accessed(step: ProgramStep) -> bool {
 }
 
 fn reg3_write(step: ProgramStep) -> bool {
-    let opcode = &step.step.instruction.opcode;
+    let instr = &step.step.instruction;
 
     !matches!(
-        opcode.builtin(),
-        Some(BuiltinOpcode::SB) | Some(BuiltinOpcode::SH) | Some(BuiltinOpcode::SW)
+        instr.ins_type,
+        InstructionType::SType | InstructionType::BType
     )
 }
 
@@ -173,9 +173,7 @@ fn generate_trace_row(
     } else {
         program_step.get_value_c().0
     };
-    let reg3_value = program_step
-        .get_result()
-        .unwrap_or_else(|| program_step.get_value_a());
+    let reg3_value = program_step.get_reg3_result_value();
 
     let reg3_value_effective_flag = program_step.value_a_effective_flag();
     let (reg3_value_effective_flag_aux, reg3_value_effective_flag_aux_inv): (BaseField, u8) = {

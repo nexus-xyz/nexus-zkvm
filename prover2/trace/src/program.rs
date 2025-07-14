@@ -44,6 +44,23 @@ impl ProgramStep<'_> {
         self.regs.read(self.step.instruction.op_a).to_le_bytes()
     }
 
+    /// Returns the value of the destination register (rd) after execution.
+    /// For instructions that don't write to rd, returns the original value.
+    pub fn get_reg3_result_value(&self) -> Word {
+        // TODO: handle syscalls
+        assert!(self.is_builtin());
+
+        let instr = &self.step.instruction;
+        if matches!(
+            instr.ins_type,
+            InstructionType::SType | InstructionType::BType
+        ) {
+            self.get_value_a()
+        } else {
+            self.get_result().expect("instruction must have a result")
+        }
+    }
+
     /// Returns the value of the second operand (rs1 or rs2) as bytes.
     /// Always a register value in range u32.
     pub fn get_value_b(&self) -> Word {

@@ -64,7 +64,7 @@ impl<'a> ComponentDecodingTrace<'a> {
     }
 
     pub fn a_val(&self) -> [FinalizedColumn; WORD_SIZE] {
-        self.reg_value_bytes(|step| step.get_result().unwrap_or_else(|| step.get_value_a()))
+        self.reg_value_bytes(ProgramStep::get_reg3_result_value)
     }
 
     pub fn b_val(&self) -> [FinalizedColumn; WORD_SIZE] {
