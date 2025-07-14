@@ -17,6 +17,9 @@ pub enum Column {
     /// The helper bit to compute the next clock value
     #[size = 1]
     ClkCarry,
+    /// The lowest bit of operand op-a
+    #[size = 1]
+    AVal,
     /// A 32-bit word specifying the value of operand op-b represented by four 8-bit limbs
     #[size = 4]
     BVal,
