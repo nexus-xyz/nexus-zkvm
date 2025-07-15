@@ -122,16 +122,9 @@ fn reg2_accessed(step: ProgramStep) -> bool {
 }
 
 fn reg3_accessed(step: ProgramStep) -> bool {
-    let opcode = &step.step.instruction.opcode;
-
-    // TODO: handle syscalls
-    assert!(
-        !matches!(
-            opcode.builtin(),
-            Some(BuiltinOpcode::ECALL) | Some(BuiltinOpcode::EBREAK)
-        ),
-        "register memory doesn't support syscalls"
-    );
+    if let Some(syscall_code) = step.get_syscall_code() {
+        return ProgramStep::syscall_accessed_reg3(syscall_code);
+    }
 
     true
 }

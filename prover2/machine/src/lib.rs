@@ -52,6 +52,7 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::BLTU,
     &components::LUI,
     &components::AUIPC,
+    &components::ECALL,
     &components::BitwiseMultiplicity,
 ];
 
