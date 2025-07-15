@@ -47,8 +47,13 @@ impl ProgramStep<'_> {
     /// Returns the value of the destination register (rd) after execution.
     /// For instructions that don't write to rd, returns the original value.
     pub fn get_reg3_result_value(&self) -> Word {
-        // TODO: handle syscalls
-        assert!(self.is_builtin());
+        if let Some(syscall_code) = self.get_syscall_code() {
+            if Self::syscall_accessed_reg3(syscall_code) {
+                return self.get_result().expect("syscall must have a result");
+            } else {
+                return self.get_value_a();
+            }
+        }
 
         let instr = &self.step.instruction;
         if matches!(
@@ -59,6 +64,12 @@ impl ProgramStep<'_> {
         } else {
             self.get_result().expect("instruction must have a result")
         }
+    }
+
+    pub fn syscall_accessed_reg3(syscall_code: u32) -> bool {
+        syscall_code == SyscallCode::ReadFromPrivateInput as u32
+            || syscall_code == SyscallCode::OverwriteStackPointer as u32
+            || syscall_code == SyscallCode::OverwriteHeapPointer as u32
     }
 
     /// Returns the value of the second operand (rs1 or rs2) as bytes.
