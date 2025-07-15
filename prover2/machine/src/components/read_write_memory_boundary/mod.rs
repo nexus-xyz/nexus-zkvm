@@ -2,9 +2,13 @@
 
 use num_traits::Zero;
 use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
     core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        backend::simd::{
+            column::BaseColumn,
+            m31::{PackedBaseField, LOG_N_LANES},
+            SimdBackend,
+        },
         fields::{
             m31::{self, BaseField},
             qm31::SecureField,
@@ -14,6 +18,7 @@ use stwo_prover::{
     },
 };
 
+use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{
     emulator::{MemoryInitializationEntry, PublicOutputEntry},
     WORD_SIZE,
@@ -26,8 +31,9 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
+    components::utils::u32_to_16bit_parts_le,
     framework::BuiltInComponent,
-    lookups::{AllLookupElements, LogupTraceBuilder, RamReadWriteLookupElements},
+    lookups::{AllLookupElements, RamReadWriteLookupElements},
     side_note::{program::ProgramTraceRef, SideNote},
 };
 
@@ -115,7 +121,8 @@ impl BuiltInComponent for ReadWriteMemoryBoundary {
             trace.fill_columns(row_idx, true, Column::RamInitFinalFlag);
             assert!(*last_access < m31::P, "Access counter overflow");
 
-            trace.fill_columns(row_idx, *last_access, Column::RamTsFinal);
+            let ts_final = u32_to_16bit_parts_le(*last_access);
+            trace.fill_columns(row_idx, ts_final, Column::RamTsFinal);
             trace.fill_columns(row_idx, *last_value, Column::RamValFinal);
         }
 
@@ -131,41 +138,55 @@ impl BuiltInComponent for ReadWriteMemoryBoundary {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
+        // TODO: support non-optimized logup trace generation
+
         let rel_ram_read_write: &Self::LookupElements = lookup_elements.as_ref();
-        let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
+        let log_size = component_trace.log_size();
 
         let [ram_init_final_flag] =
             original_base_column!(component_trace, Column::RamInitFinalFlag);
         let ram_init_final_addr = original_base_column!(component_trace, Column::RamInitFinalAddr);
         let [ram_val_final] = original_base_column!(component_trace, Column::RamValFinal);
         let ram_ts_final = original_base_column!(component_trace, Column::RamTsFinal);
-
-        // consume(rel-ram-read-write, ram-init-final-flag, (ram-init-final-addr, ram-val-final, ram-ts-final))
-        logup_trace_builder.add_to_relation_with(
-            rel_ram_read_write,
-            [ram_init_final_flag.clone()],
-            |[ram_init_final_flag]| (-ram_init_final_flag).into(),
-            &[
-                ram_init_final_addr.as_slice(),
-                std::slice::from_ref(&ram_val_final),
-                &ram_ts_final,
-            ]
-            .concat(),
-        );
-
         let ram_val_init = ReadWriteMemoryBoundary::combine_ram_val_init(&component_trace);
+
+        let mut logup_trace_gen = LogupTraceGenerator::new(log_size);
+
+        let final_values = [
+            ram_init_final_addr.as_slice(),
+            std::slice::from_ref(&ram_val_final),
+            &ram_ts_final,
+        ]
+        .concat();
+        // consume(rel-ram-read-write, ram-init-final-flag, (ram-init-final-addr, ram-val-final, ram-ts-final))
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
+            let tuple: Vec<PackedBaseField> =
+                final_values.iter().map(|col| col.at(vec_row)).collect();
+            let denom = rel_ram_read_write.combine(&tuple);
+            let numerator = ram_init_final_flag.at(vec_row);
+            logup_col_gen.write_frac(vec_row, (-numerator).into(), denom);
+        }
+        logup_col_gen.finalize_col();
+
+        let init_values = [
+            ram_init_final_addr.as_slice(),
+            std::slice::from_ref(&ram_val_init),
+            vec![BaseField::zero().into(); WORD_SIZE].as_slice(),
+        ]
+        .concat();
         // provide(rel-ram-read-write, ram-init-final-flag, (ram-init-final-addr, ram-val-init, 0))
-        logup_trace_builder.add_to_relation(
-            rel_ram_read_write,
-            ram_init_final_flag,
-            &[
-                ram_init_final_addr.as_slice(),
-                std::slice::from_ref(&ram_val_init),
-                vec![BaseField::zero().into(); WORD_SIZE].as_slice(),
-            ]
-            .concat(),
-        );
-        logup_trace_builder.finalize()
+        let mut logup_col_gen = logup_trace_gen.new_col();
+        for vec_row in 0..(1 << (log_size - LOG_N_LANES)) {
+            let tuple: Vec<PackedBaseField> =
+                init_values.iter().map(|col| col.at(vec_row)).collect();
+            let denom = rel_ram_read_write.combine(&tuple);
+            let numerator = ram_init_final_flag.at(vec_row);
+            logup_col_gen.write_frac(vec_row, numerator.into(), denom);
+        }
+        logup_col_gen.finalize_col();
+
+        logup_trace_gen.finalize_last()
     }
 
     fn add_constraints<E: EvalAtRow>(
@@ -225,12 +246,13 @@ impl BuiltInComponent for ReadWriteMemoryBoundary {
             &[
                 ram_init_final_addr.as_slice(),
                 std::slice::from_ref(&ram_val_init),
-                vec![E::F::zero(); WORD_SIZE].as_slice(),
+                vec![E::F::zero(); WORD_SIZE_HALVED].as_slice(),
             ]
             .concat(),
         ));
 
-        eval.finalize_logup_in_pairs();
+        // avoid in-pairs optimizations to keep low degree
+        eval.finalize_logup();
     }
 }
 

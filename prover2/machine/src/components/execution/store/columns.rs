@@ -93,28 +93,6 @@ pub const OP_B: RegSplitAt4<Column> = RegSplitAt4 {
     bits_0_3: Column::OpB0_3,
     bit_4: Column::OpB4,
 };
-pub const OP_C: OpC = OpC;
-
-pub struct OpC;
-
-impl OpC {
-    pub fn eval<E: EvalAtRow>(
-        &self,
-        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
-    ) -> E::F {
-        let [op_c0] = trace_eval.column_eval(Column::OpC0);
-        let [op_c1_4] = trace_eval.column_eval(Column::OpC1_4);
-        let [op_c5_7] = trace_eval.column_eval(Column::OpC5_7);
-        let [op_c8_10] = trace_eval.column_eval(Column::OpC8_10);
-        let [op_c11] = trace_eval.column_eval(Column::OpC11);
-
-        op_c0.clone()
-            + op_c1_4.clone() * BaseField::from(2)
-            + op_c5_7.clone() * BaseField::from(1 << 5)
-            + op_c8_10.clone() * BaseField::from(1 << 8)
-            + op_c11.clone() * BaseField::from(1 << 11)
-    }
-}
 
 pub struct InstrVal {
     opcode: u8,

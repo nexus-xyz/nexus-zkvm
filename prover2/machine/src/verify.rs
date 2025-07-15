@@ -18,7 +18,7 @@ use nexus_vm_prover_trace::eval::{
 use super::{Proof, BASE_COMPONENTS};
 use crate::lookups::AllLookupElements;
 
-pub fn verify(proof: Proof) -> Result<(), VerificationError> {
+pub fn verify(proof: Proof, ad: &[u8]) -> Result<(), VerificationError> {
     let components = BASE_COMPONENTS;
     let Proof {
         stark_proof: proof,
@@ -44,6 +44,9 @@ pub fn verify(proof: Proof) -> Result<(), VerificationError> {
 
     let config = PcsConfig::default();
     let verifier_channel = &mut Blake2sChannel::default();
+    for &byte in ad {
+        verifier_channel.mix_u64(byte.into());
+    }
 
     claimed_log_sizes.iter().for_each(|log_size| {
         verifier_channel.mix_u64(*log_size as u64);

@@ -262,6 +262,10 @@ impl<T: BranchOp> BuiltInComponent for BranchEq<T> {
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
+            common_trace.fill_columns(row_idx, 1u8, Column::HNeq12FlagAux);
+            common_trace.fill_columns(row_idx, 1u8, Column::HNeq12FlagAuxInv);
+            common_trace.fill_columns(row_idx, 1u8, Column::HNeq34FlagAux);
+            common_trace.fill_columns(row_idx, 1u8, Column::HNeq34FlagAuxInv);
             if T::OPCODE == BuiltinOpcode::BNE {
                 // (1 - h-neq-flag) * 4 term in pc-next constraint is non-zero on padding
                 common_trace.fill_columns(row_idx, [4u16, 0], Column::PcNext);
@@ -310,7 +314,6 @@ impl<T: BranchOp> BuiltInComponent for BranchEq<T> {
         }
         .constrain(eval, &trace_eval);
 
-        let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let pc = trace_eval!(trace_eval, Column::Pc);
         let pc_next = trace_eval!(trace_eval, Column::PcNext);
 
@@ -362,15 +365,9 @@ impl<T: BranchOp> BuiltInComponent for BranchEq<T> {
         // enforcing h-neq12-flag-aux != 0, h-neq34-flag-aux != 0
         //
         // (1 − is-local-pad) · (h-neq12-flag-aux · h-neq12-flag-aux-inv − 1) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (h_neq12_flag_aux.clone() * h_neq12_flag_aux_inv.clone() - E::F::one()),
-        );
+        eval.add_constraint(h_neq12_flag_aux.clone() * h_neq12_flag_aux_inv.clone() - E::F::one());
         // (1 − is-local-pad) · (h-neq34-flag-aux · h-neq34-flag-aux-inv − 1) = 0
-        eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (h_neq34_flag_aux.clone() * h_neq34_flag_aux_inv.clone() - E::F::one()),
-        );
+        eval.add_constraint(h_neq34_flag_aux.clone() * h_neq34_flag_aux_inv.clone() - E::F::one());
 
         // (1 − is-local-pad) · (
         //     (1 − h-neq12-flag) · (1 − h-neq34-flag)

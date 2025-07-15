@@ -214,7 +214,6 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             n => b_val[..n].into(),
         };
         ram_values.resize(WORD_SIZE, BaseField::zero().into());
-        ram_values.resize(WORD_SIZE, BaseField::zero().into());
         // provide(
         //     rel-inst-to-ram,
         //     1 − is-local-pad,
@@ -288,8 +287,12 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
         }
         .constrain(eval, &trace_eval);
 
-        // (1 − is-local-pad) *
-        // (h_ram_base_addr(1) + h_ram_base_addr(2) * 2^8 − a-val(1) − a-val(2) * 2^8 − c-val(1) − c-val(2) * 2^8 + h_carry(1) * 2^16) = 0
+        // (1 − is-local-pad) · (
+        //     h-ram-base-addr(1) + h-ram-base-addr(2) · 2^8
+        //     − a-val(1) − a-val(2) · 2^8
+        //     − c-val(1) − c-val(2) · 2^8
+        //     + h-carry(1) · 2^16
+        // ) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (h_ram_base_addr[0].clone()
@@ -300,12 +303,18 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
                     - c_val[1].clone() * BaseField::from(1 << 8)
                     + h_carry[0].clone() * BaseField::from(1 << 16)),
         );
-        // (1 − is-local-pad) *
-        // (h_ram_base_addr(3) + h_ram_base_addr(4) * 2^8 − a-val(3) − a-val(4) * 2^8 − c-val(3) − c-val(4) * 2^8 + h_carry(2) * 2^16) = 0
+        // (1 − is-local-pad) · (
+        //     h-ram-base-addr(3) + h-ram-base-addr(4) · 2^8
+        //     − h-carry(1)
+        //     − a-val(3) − a-val(4) · 2^8
+        //     − c-val(3) − c-val(4) · 2^8
+        //     + h-carry(2) · 2^16
+        // ) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (h_ram_base_addr[2].clone()
                     + h_ram_base_addr[3].clone() * BaseField::from(1 << 8)
+                    - h_carry[0].clone()
                     - a_val[2].clone()
                     - a_val[3].clone() * BaseField::from(1 << 8)
                     - c_val[2].clone()
@@ -337,7 +346,7 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             columns::InstrVal::new(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(&trace_eval);
         let op_a = columns::OP_A.eval(&trace_eval);
         let op_b = columns::OP_B.eval(&trace_eval);
-        let op_c = columns::OP_C.eval(&trace_eval);
+        let op_c = E::F::zero();
 
         let ram2_accessed = E::F::from(BaseField::from(T::RAM2_ACCESSED as u32));
         let ram3_4accessed = E::F::from(BaseField::from(T::RAM3_4ACCESSED as u32));

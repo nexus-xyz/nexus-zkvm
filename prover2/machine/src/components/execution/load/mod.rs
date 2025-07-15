@@ -287,8 +287,12 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
         }
         .constrain(eval, &trace_eval);
 
-        // (1 − is-local-pad) *
-        // (h_ram_base_addr(1) + h_ram_base_addr(2) * 2^8 − b-val(1) − b-val(2) * 2^8 − c-val(1) − c-val(2) * 2^8 + h_carry(1) * 2^16) = 0
+        // (1 − is-local-pad) · (
+        //     h-ram-base-addr(1) + h-ram-base-addr(2) · 2^8
+        //     − b-val(1) − b-val(2) · 2^8
+        //     − c-val(1) − c-val(2) · 2^8
+        //     + h-carry(1) · 2^16
+        // ) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (h_ram_base_addr[0].clone()
@@ -299,12 +303,18 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
                     - c_val[1].clone() * BaseField::from(1 << 8)
                     + h_carry[0].clone() * BaseField::from(1 << 16)),
         );
-        // (1 − is-local-pad) *
-        // (h_ram_base_addr(3) + h_ram_base_addr(4) * 2^8 − b-val(3) − b-val(4) * 2^8 − c-val(3) − c-val(4) * 2^8 + h_carry(2) * 2^16) = 0
+        // (1 − is-local-pad) · (
+        //     h-ram-base-addr(3) + h-ram-base-addr(4) · 2^8
+        //     − h-carry(1)
+        //     − b-val(3) − b-val(4) · 2^8
+        //     − c-val(3) − c-val(4) · 2^8
+        //     + h-carry(2) · 2^16
+        // ) = 0
         eval.add_constraint(
             (E::F::one() - is_local_pad.clone())
                 * (h_ram_base_addr[2].clone()
                     + h_ram_base_addr[3].clone() * BaseField::from(1 << 8)
+                    - h_carry[0].clone()
                     - b_val[2].clone()
                     - b_val[3].clone() * BaseField::from(1 << 8)
                     - c_val[2].clone()

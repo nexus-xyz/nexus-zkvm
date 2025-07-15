@@ -396,7 +396,7 @@ impl BuiltInComponent for Jalr {
                     + c_val[3].clone() * BaseField::from(1 << 8)
                     + b_val[2].clone()
                     + b_val[3].clone() * BaseField::from(1 << 8)
-                    + pc_carry_1.clone()
+                    + pc_carry_2.clone()
                     - pc_carry_4.clone() * BaseField::from(1 << 8).pow(2)
                     - pc_next_high.clone()),
         );
