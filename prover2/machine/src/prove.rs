@@ -154,6 +154,6 @@ mod tests {
             k_trace_direct(&basic_block, 1).expect("error generating trace");
 
         let proof = prove(&program_trace, &view).unwrap();
-        verify(proof).unwrap();
+        verify(proof, &[]).unwrap();
     }
 }

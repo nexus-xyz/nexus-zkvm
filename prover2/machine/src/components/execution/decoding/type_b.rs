@@ -70,7 +70,7 @@ impl CVal {
         let [op_c12] = trace_eval.column_eval(DecodingColumn::OpC12);
 
         [
-            op_c1_4 * BaseField::from(1 << 1) + op_c5_7 * BaseField::from(1 << 4),
+            op_c1_4 * BaseField::from(1 << 1) + op_c5_7 * BaseField::from(1 << 5),
             op_c8_10
                 + op_c11 * BaseField::from(1 << 3)
                 + op_c12.clone() * BaseField::from(((1 << 4) - 1) * (1 << 4)),

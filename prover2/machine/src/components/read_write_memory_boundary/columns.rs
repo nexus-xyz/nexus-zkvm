@@ -33,7 +33,7 @@ pub enum Column {
     #[size = 1]
     RamValInit,
     /// The timestamp associated with the last access to address ram-init-final-addr  
-    #[size = 4]
+    #[size = 2]
     RamTsFinal,
     /// A flag indicating whether ram-final, ram-init columns on the current row are being used  
     #[size = 1]
