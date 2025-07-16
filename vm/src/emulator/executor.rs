@@ -289,12 +289,11 @@ pub trait Emulator {
         basic_block_entry: &BasicBlockEntry,
         force_provable_transcript: bool,
     ) -> Result<(Vec<InstructionResult>, MemoryTranscript)> {
-        let block_size = basic_block_entry.block.0.len() - (self.get_executor().cpu.pc.value as usize - basic_block_entry.start as usize) / WORD_SIZE;
-        let mut results: Vec<InstructionResult> = Vec::with_capacity(block_size);
-        let mut transcript: MemoryTranscript = Vec::with_capacity(block_size);
-
         let at = (self.get_executor().cpu.pc.value as usize - basic_block_entry.start as usize)
             / WORD_SIZE;
+        let block_size = basic_block_entry.block.0.len() - at;
+        let mut results: Vec<InstructionResult> = Vec::with_capacity(block_size);
+        let mut transcript: MemoryTranscript = Vec::with_capacity(block_size);
 
         // Execute the instructions in the basic block
         for instruction in basic_block_entry.block.0[at..].iter() {
