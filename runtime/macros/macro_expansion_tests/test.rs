@@ -41,16 +41,13 @@ mod test {
         // Overwrite the main.rs file with the test file.
         let test_file = format!("macro_expansion_tests/tests/{test}.rs");
         let main_file = format!("{}/src/main.rs", tmp_project_path.clone().to_str().unwrap());
-        let mut output = Command::new("cp")
-            .arg(test_file)
-            .arg(main_file)
-            .output()
-            .expect("Failed to copy test file");
-
-        assert!(output.status.success());
+        let copy_result = std::fs::copy(&test_file, &main_file);
+        if let Err(e) = copy_result {
+            panic!("Failed to copy test file: {:?}", e);
+        }
 
         // Expand the procedural macro using native target.
-        output = Command::new("cargo")
+        let output = Command::new("cargo")
             .current_dir(tmp_project_path.clone())
             .arg("expand")
             .output()
