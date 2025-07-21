@@ -34,14 +34,20 @@ pub fn start_timer(usage_type: i32) -> rusage {
 }
 
 /// Stop timing and return user and system time differences.
-pub fn stop_timer(start_usage: &rusage, usage_type: i32) -> (std::time::Duration, std::time::Duration) {
+pub fn stop_timer(
+    start_usage: &rusage,
+    usage_type: i32,
+) -> (std::time::Duration, std::time::Duration) {
     let mut end_usage: rusage = unsafe { std::mem::zeroed() };
     unsafe { getrusage(usage_type, &mut end_usage) };
     calculate_time_diff(start_usage, &end_usage)
 }
 
 /// Calculate user and system time differences between two rusage measurements.
-pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (std::time::Duration, std::time::Duration) {
+pub fn calculate_time_diff(
+    start_usage: &rusage,
+    end_usage: &rusage,
+) -> (std::time::Duration, std::time::Duration) {
     let user_sec_diff = end_usage.ru_utime.tv_sec - start_usage.ru_utime.tv_sec;
     let user_usec_diff = end_usage.ru_utime.tv_usec - start_usage.ru_utime.tv_usec;
 
@@ -61,8 +67,10 @@ pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (std::ti
         (sys_sec_diff, sys_usec_diff)
     };
 
-    let user_time = std::time::Duration::from_secs(user_sec as u64) + std::time::Duration::from_micros(user_usec as u64);
-    let sys_time = std::time::Duration::from_secs(sys_sec as u64) + std::time::Duration::from_micros(sys_usec as u64);
+    let user_time = std::time::Duration::from_secs(user_sec as u64)
+        + std::time::Duration::from_micros(user_usec as u64);
+    let sys_time = std::time::Duration::from_secs(sys_sec as u64)
+        + std::time::Duration::from_micros(sys_usec as u64);
 
     (user_time, sys_time)
 }
@@ -170,11 +178,7 @@ pub fn phase_start() -> (std::time::Instant, rusage, rusage) {
         getrusage(RUSAGE_SELF, &mut initial_self_usage);
         getrusage(RUSAGE_CHILDREN, &mut initial_children_usage);
     };
-    (
-        std::time::Instant::now(),
-        initial_self_usage,
-        initial_children_usage,
-    )
+    (std::time::Instant::now(), initial_self_usage, initial_children_usage)
 }
 
 /// End measuring a phase and return duration and metrics.
@@ -247,13 +251,5 @@ pub fn phase_end(
 
     let (user_time, sys_time) = calculate_time_diff(&initial_self_usage, &final_self_usage);
 
-    (
-        duration,
-        user_time,
-        sys_time,
-        PhaseMetrics {
-            peak_cpu: cpu_percentage,
-            peak_memory_gb,
-        },
-    )
+    (duration, user_time, sys_time, PhaseMetrics { peak_cpu: cpu_percentage, peak_memory_gb })
 }
