@@ -78,8 +78,7 @@ where
 
     assert!(output.status.success(), "Native execution failed");
 
-    let (total_time, user_time, sys_time, _) =
-        phase_end(timing_state);
+    let (total_time, user_time, sys_time, _) = phase_end(timing_state);
 
     (total_time, user_time, sys_time)
 }
@@ -124,8 +123,7 @@ pub fn run_benchmark<T>(
     for _ in 0..iters {
         let timing_state = phase_start();
         let native_duration = measure_native_execution::<T>(&tmp_project_path, &public_input).0;
-        let (_, native_user_time, native_sys_time, native_metrics) =
-            phase_end(timing_state);
+        let (_, native_user_time, native_sys_time, native_metrics) = phase_end(timing_state);
 
         native_tracker.update(
             &native_duration,
