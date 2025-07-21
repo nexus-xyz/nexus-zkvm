@@ -1,5 +1,5 @@
 use libc::{getrusage, rusage, RUSAGE_CHILDREN, RUSAGE_SELF};
-use std::{fs::OpenOptions, io::Write, time::Duration};
+use std::{fs::OpenOptions, io::Write};
 
 use crate::{models::BenchmarkResult, paths::results_file};
 
@@ -34,14 +34,14 @@ pub fn start_timer(usage_type: i32) -> rusage {
 }
 
 /// Stop timing and return user and system time differences.
-pub fn stop_timer(start_usage: &rusage, usage_type: i32) -> (Duration, Duration) {
+pub fn stop_timer(start_usage: &rusage, usage_type: i32) -> (std::time::Duration, std::time::Duration) {
     let mut end_usage: rusage = unsafe { std::mem::zeroed() };
     unsafe { getrusage(usage_type, &mut end_usage) };
     calculate_time_diff(start_usage, &end_usage)
 }
 
 /// Calculate user and system time differences between two rusage measurements.
-pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (Duration, Duration) {
+pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (std::time::Duration, std::time::Duration) {
     let user_sec_diff = end_usage.ru_utime.tv_sec - start_usage.ru_utime.tv_sec;
     let user_usec_diff = end_usage.ru_utime.tv_usec - start_usage.ru_utime.tv_usec;
 
@@ -61,8 +61,8 @@ pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (Duratio
         (sys_sec_diff, sys_usec_diff)
     };
 
-    let user_time = Duration::from_secs(user_sec as u64) + Duration::from_micros(user_usec as u64);
-    let sys_time = Duration::from_secs(sys_sec as u64) + Duration::from_micros(sys_usec as u64);
+    let user_time = std::time::Duration::from_secs(user_sec as u64) + std::time::Duration::from_micros(user_usec as u64);
+    let sys_time = std::time::Duration::from_secs(sys_sec as u64) + std::time::Duration::from_micros(sys_usec as u64);
 
     (user_time, sys_time)
 }
@@ -79,13 +79,13 @@ pub struct PhaseMetrics {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DurationTracker {
     pub ct: usize,
-    pub min: Duration,
-    pub avg: Duration,
-    pub max: Duration,
+    pub min: std::time::Duration,
+    pub avg: std::time::Duration,
+    pub max: std::time::Duration,
 }
 
 impl DurationTracker {
-    pub fn update(&mut self, next: &Duration) {
+    pub fn update(&mut self, next: &std::time::Duration) {
         let prev = self.ct as f64;
         self.ct += 1;
 
@@ -150,9 +150,9 @@ pub struct PhasesTracker {
 impl PhasesTracker {
     pub fn update(
         &mut self,
-        next_duration: &Duration,
-        next_user: &Duration,
-        next_sys: &Duration,
+        next_duration: &std::time::Duration,
+        next_user: &std::time::Duration,
+        next_sys: &std::time::Duration,
         next_metrics: &PhaseMetrics,
     ) {
         self.duration.update(next_duration);
@@ -182,7 +182,7 @@ pub fn phase_end(
     start_time: std::time::Instant,
     initial_self_usage: rusage,
     initial_children_usage: rusage,
-) -> (Duration, Duration, Duration, PhaseMetrics) {
+) -> (std::time::Duration, std::time::Duration, std::time::Duration, PhaseMetrics) {
     let mut final_self_usage: rusage = unsafe { std::mem::zeroed() };
     let mut final_children_usage: rusage = unsafe { std::mem::zeroed() };
     unsafe {
