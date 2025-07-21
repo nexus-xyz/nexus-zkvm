@@ -294,10 +294,10 @@ pub fn phase_end(timing_state: TimingState) -> (Duration, Duration, Duration, Ph
     let duration = start_time.elapsed();
     (
         duration,
-        duration, // User time approximation
+        duration,       // User time approximation
         Duration::ZERO, // System time
         PhaseMetrics {
-            peak_cpu: 0.0, // Not measurable on Windows easily
+            peak_cpu: 0.0,       // Not measurable on Windows easily
             peak_memory_gb: 0.0, // Not measurable on Windows easily
         },
     )
