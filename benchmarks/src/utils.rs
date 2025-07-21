@@ -1,6 +1,6 @@
 #[cfg(unix)]
 use libc::{getrusage, rusage, RUSAGE_CHILDREN, RUSAGE_SELF};
-use std::{fs::OpenOptions, io::Write, time::Duration};
+use std::{fs::OpenOptions, io::Write};
 
 use crate::{models::BenchmarkResult, paths::results_file};
 
@@ -43,13 +43,14 @@ pub fn start_timer(usage_type: i32) -> rusage {
 
 /// Start timing and return resource usage (Windows stub).
 #[cfg(windows)]
-pub fn start_timer(_usage_type: i32) -> std::time::Instant {
-    std::time::Instant::now()
-}
+pub fn start_timer(_usage_type: i32) -> std::time::Instant { std::time::Instant::now() }
 
 /// Stop timing and return user and system time differences.
 #[cfg(unix)]
-pub fn stop_timer(start_usage: &rusage, usage_type: i32) -> (Duration, Duration) {
+pub fn stop_timer(
+    start_usage: &rusage,
+    usage_type: i32,
+) -> (std::time::Duration, std::time::Duration) {
     let mut end_usage: rusage = unsafe { std::mem::zeroed() };
     unsafe { getrusage(usage_type, &mut end_usage) };
     calculate_time_diff(start_usage, &end_usage)
@@ -57,15 +58,21 @@ pub fn stop_timer(start_usage: &rusage, usage_type: i32) -> (Duration, Duration)
 
 /// Stop timing and return user and system time differences (Windows stub).
 #[cfg(windows)]
-pub fn stop_timer(start_time: &std::time::Instant, _usage_type: i32) -> (Duration, Duration) {
+pub fn stop_timer(
+    start_time: &std::time::Instant,
+    _usage_type: i32,
+) -> (std::time::Duration, std::time::Duration) {
     let elapsed = start_time.elapsed();
     // On Windows, we can't easily separate user and system time, so return elapsed time for both
-    (elapsed, Duration::ZERO)
+    (elapsed, std::time::Duration::ZERO)
 }
 
 /// Calculate user and system time differences between two rusage measurements.
 #[cfg(unix)]
-pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (Duration, Duration) {
+pub fn calculate_time_diff(
+    start_usage: &rusage,
+    end_usage: &rusage,
+) -> (std::time::Duration, std::time::Duration) {
     let user_sec_diff = end_usage.ru_utime.tv_sec - start_usage.ru_utime.tv_sec;
     let user_usec_diff = end_usage.ru_utime.tv_usec - start_usage.ru_utime.tv_usec;
 
@@ -85,8 +92,10 @@ pub fn calculate_time_diff(start_usage: &rusage, end_usage: &rusage) -> (Duratio
         (sys_sec_diff, sys_usec_diff)
     };
 
-    let user_time = Duration::from_secs(user_sec as u64) + Duration::from_micros(user_usec as u64);
-    let sys_time = Duration::from_secs(sys_sec as u64) + Duration::from_micros(sys_usec as u64);
+    let user_time = std::time::Duration::from_secs(user_sec as u64)
+        + std::time::Duration::from_micros(user_usec as u64);
+    let sys_time = std::time::Duration::from_secs(sys_sec as u64)
+        + std::time::Duration::from_micros(sys_usec as u64);
 
     (user_time, sys_time)
 }
@@ -103,13 +112,13 @@ pub struct PhaseMetrics {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DurationTracker {
     pub ct: usize,
-    pub min: Duration,
-    pub avg: Duration,
-    pub max: Duration,
+    pub min: std::time::Duration,
+    pub avg: std::time::Duration,
+    pub max: std::time::Duration,
 }
 
 impl DurationTracker {
-    pub fn update(&mut self, next: &Duration) {
+    pub fn update(&mut self, next: &std::time::Duration) {
         let prev = self.ct as f64;
         self.ct += 1;
 
@@ -174,9 +183,9 @@ pub struct PhasesTracker {
 impl PhasesTracker {
     pub fn update(
         &mut self,
-        next_duration: &Duration,
-        next_user: &Duration,
-        next_sys: &Duration,
+        next_duration: &std::time::Duration,
+        next_user: &std::time::Duration,
+        next_sys: &std::time::Duration,
         next_metrics: &PhaseMetrics,
     ) {
         self.duration.update(next_duration);
@@ -195,22 +204,18 @@ pub fn phase_start() -> TimingState {
         getrusage(RUSAGE_SELF, &mut initial_self_usage);
         getrusage(RUSAGE_CHILDREN, &mut initial_children_usage);
     };
-    (
-        std::time::Instant::now(),
-        initial_self_usage,
-        initial_children_usage,
-    )
+    (std::time::Instant::now(), initial_self_usage, initial_children_usage)
 }
 
 /// Start measuring a phase and return initial state (Windows stub).
 #[cfg(windows)]
-pub fn phase_start() -> TimingState {
-    std::time::Instant::now()
-}
+pub fn phase_start() -> TimingState { std::time::Instant::now() }
 
 /// End measuring a phase and return duration and metrics.
 #[cfg(unix)]
-pub fn phase_end(timing_state: TimingState) -> (Duration, Duration, Duration, PhaseMetrics) {
+pub fn phase_end(
+    timing_state: TimingState,
+) -> (std::time::Duration, std::time::Duration, std::time::Duration, PhaseMetrics) {
     let (start_time, initial_self_usage, initial_children_usage) = timing_state;
     let mut final_self_usage: rusage = unsafe { std::mem::zeroed() };
     let mut final_children_usage: rusage = unsafe { std::mem::zeroed() };
@@ -276,26 +281,20 @@ pub fn phase_end(timing_state: TimingState) -> (Duration, Duration, Duration, Ph
 
     let (user_time, sys_time) = calculate_time_diff(&initial_self_usage, &final_self_usage);
 
-    (
-        duration,
-        user_time,
-        sys_time,
-        PhaseMetrics {
-            peak_cpu: cpu_percentage,
-            peak_memory_gb,
-        },
-    )
+    (duration, user_time, sys_time, PhaseMetrics { peak_cpu: cpu_percentage, peak_memory_gb })
 }
 
 /// End measuring a phase and return duration and metrics (Windows stub).
 #[cfg(windows)]
-pub fn phase_end(timing_state: TimingState) -> (Duration, Duration, Duration, PhaseMetrics) {
+pub fn phase_end(
+    timing_state: TimingState,
+) -> (std::time::Duration, std::time::Duration, std::time::Duration, PhaseMetrics) {
     let start_time = timing_state;
     let duration = start_time.elapsed();
     (
         duration,
-        duration,       // User time approximation
-        Duration::ZERO, // System time
+        duration,                  // User time approximation
+        std::time::Duration::ZERO, // System time
         PhaseMetrics {
             peak_cpu: 0.0,       // Not measurable on Windows easily
             peak_memory_gb: 0.0, // Not measurable on Windows easily
