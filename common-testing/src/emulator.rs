@@ -9,7 +9,10 @@ use nexus_vm::error::Result;
 use postcard::from_bytes_cobs;
 use serde::{de::DeserializeOwned, Serialize};
 
-use std::{path::{Path, PathBuf}, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 use tempfile::{tempdir, TempDir};
 
 #[derive(Clone)]
