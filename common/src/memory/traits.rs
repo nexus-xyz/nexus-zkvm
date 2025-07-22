@@ -249,7 +249,7 @@ pub trait MemoryProcessor: Default {
         for (i, byte) in data.iter_mut().enumerate().take(size) {
             let addr = address
                 .checked_add(i as u32)
-                .ok_or(MemoryError::AddressOverflow)?;
+                .ok_or(MemoryError::AddressCalculationOverflow)?;
             match self.read(addr, MemAccessSize::Byte)? {
                 LoadOp::Op(_, _, v) => *byte = v as u8,
             };
@@ -264,7 +264,7 @@ pub trait MemoryProcessor: Default {
         for (i, &byte) in data.iter().enumerate() {
             let addr = address
                 .checked_add(i as u32)
-                .ok_or(MemoryError::AddressOverflow)?;
+                .ok_or(MemoryError::AddressCalculationOverflow)?;
             self.write(addr, MemAccessSize::Byte, byte as u32)?;
         }
         Ok(())
