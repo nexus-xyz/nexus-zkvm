@@ -247,7 +247,10 @@ pub trait MemoryProcessor: Default {
     fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
         let mut data = vec![0; size];
         for (i, byte) in data.iter_mut().enumerate().take(size) {
-            match self.read(address + i as u32, MemAccessSize::Byte)? {
+            let addr = address
+                .checked_add(i as u32)
+                .ok_or(MemoryError::AddressCalculationOverflow)?;
+            match self.read(addr, MemAccessSize::Byte)? {
                 LoadOp::Op(_, _, v) => *byte = v as u8,
             };
         }
@@ -259,7 +262,10 @@ pub trait MemoryProcessor: Default {
     /// Only used for (unproven) ecalls, so does not return an operation record.
     fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
         for (i, &byte) in data.iter().enumerate() {
-            self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
+            let addr = address
+                .checked_add(i as u32)
+                .ok_or(MemoryError::AddressCalculationOverflow)?;
+            self.write(addr, MemAccessSize::Byte, byte as u32)?;
         }
         Ok(())
     }
