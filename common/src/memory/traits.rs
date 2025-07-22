@@ -247,7 +247,9 @@ pub trait MemoryProcessor: Default {
     fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
         let mut data = vec![0; size];
         for (i, byte) in data.iter_mut().enumerate().take(size) {
-            match self.read(address + i as u32, MemAccessSize::Byte)? {
+            let addr = address.checked_add(i as u32)
+                .ok_or(MemoryError::AddressOverflow)?;
+            match self.read(addr, MemAccessSize::Byte)? {
                 LoadOp::Op(_, _, v) => *byte = v as u8,
             };
         }
