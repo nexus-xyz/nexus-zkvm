@@ -261,7 +261,9 @@ pub trait MemoryProcessor: Default {
     /// Only used for (unproven) ecalls, so does not return an operation record.
     fn write_bytes(&mut self, address: u32, data: &[u8]) -> Result<(), MemoryError> {
         for (i, &byte) in data.iter().enumerate() {
-            self.write(address + i as u32, MemAccessSize::Byte, byte as u32)?;
+            let addr = address.checked_add(i as u32)
+                .ok_or(MemoryError::AddressOverflow)?;
+            self.write(addr, MemAccessSize::Byte, byte as u32)?;
         }
         Ok(())
     }
