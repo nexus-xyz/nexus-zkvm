@@ -43,7 +43,9 @@ pub fn start_timer(usage_type: i32) -> rusage {
 
 /// Start timing and return resource usage (Windows stub).
 #[cfg(windows)]
-pub fn start_timer(_usage_type: i32) -> std::time::Instant { std::time::Instant::now() }
+pub fn start_timer(_usage_type: i32) -> std::time::Instant {
+    std::time::Instant::now()
+}
 
 /// Stop timing and return user and system time differences.
 #[cfg(unix)]
@@ -204,18 +206,29 @@ pub fn phase_start() -> TimingState {
         getrusage(RUSAGE_SELF, &mut initial_self_usage);
         getrusage(RUSAGE_CHILDREN, &mut initial_children_usage);
     };
-    (std::time::Instant::now(), initial_self_usage, initial_children_usage)
+    (
+        std::time::Instant::now(),
+        initial_self_usage,
+        initial_children_usage,
+    )
 }
 
 /// Start measuring a phase and return initial state (Windows stub).
 #[cfg(windows)]
-pub fn phase_start() -> TimingState { std::time::Instant::now() }
+pub fn phase_start() -> TimingState {
+    std::time::Instant::now()
+}
 
 /// End measuring a phase and return duration and metrics.
 #[cfg(unix)]
 pub fn phase_end(
     timing_state: TimingState,
-) -> (std::time::Duration, std::time::Duration, std::time::Duration, PhaseMetrics) {
+) -> (
+    std::time::Duration,
+    std::time::Duration,
+    std::time::Duration,
+    PhaseMetrics,
+) {
     let (start_time, initial_self_usage, initial_children_usage) = timing_state;
     let mut final_self_usage: rusage = unsafe { std::mem::zeroed() };
     let mut final_children_usage: rusage = unsafe { std::mem::zeroed() };
@@ -281,14 +294,27 @@ pub fn phase_end(
 
     let (user_time, sys_time) = calculate_time_diff(&initial_self_usage, &final_self_usage);
 
-    (duration, user_time, sys_time, PhaseMetrics { peak_cpu: cpu_percentage, peak_memory_gb })
+    (
+        duration,
+        user_time,
+        sys_time,
+        PhaseMetrics {
+            peak_cpu: cpu_percentage,
+            peak_memory_gb,
+        },
+    )
 }
 
 /// End measuring a phase and return duration and metrics (Windows stub).
 #[cfg(windows)]
 pub fn phase_end(
     timing_state: TimingState,
-) -> (std::time::Duration, std::time::Duration, std::time::Duration, PhaseMetrics) {
+) -> (
+    std::time::Duration,
+    std::time::Duration,
+    std::time::Duration,
+    PhaseMetrics,
+) {
     let start_time = timing_state;
     let duration = start_time.elapsed();
     (
