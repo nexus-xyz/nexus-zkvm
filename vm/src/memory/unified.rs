@@ -376,19 +376,31 @@ impl MemoryProcessor for UnifiedMemory {
         value: u32,
     ) -> Result<StoreOp, MemoryError> {
         if let Some(meta) = self.meta.get(&address) {
-            // Safety: that address is in meta means unwraps and indexing are safe
+            // Address is in meta map, so corresponding index should exist in mode-specific maps
             match meta {
                 Modes::RW => {
-                    self.frw_store[*self.frw.get(&address).unwrap()].write(address, size, value)
+                    let index = *self.frw.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "RW memory index not found")
+                    })?;
+                    self.frw_store[index].write(address, size, value)
                 }
                 Modes::RO => {
-                    self.fro_store[*self.fro.get(&address).unwrap()].write(address, size, value)
+                    let index = *self.fro.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "RO memory index not found")
+                    })?;
+                    self.fro_store[index].write(address, size, value)
                 }
                 Modes::WO => {
-                    self.fwo_store[*self.fwo.get(&address).unwrap()].write(address, size, value)
+                    let index = *self.fwo.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "WO memory index not found")
+                    })?;
+                    self.fwo_store[index].write(address, size, value)
                 }
                 Modes::NA => {
-                    self.fna_store[*self.fna.get(&address).unwrap()].write(address, size, value)
+                    let index = *self.fna.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "NA memory index not found")
+                    })?;
+                    self.fna_store[index].write(address, size, value)
                 }
             }
         } else if let Some(mut vrw) = self.vrw.take() {
@@ -417,12 +429,32 @@ impl MemoryProcessor for UnifiedMemory {
     /// Returns a `Result` containing the read value or an error.
     fn read(&self, address: u32, size: MemAccessSize) -> Result<LoadOp, MemoryError> {
         if let Some(meta) = self.meta.get(&address) {
-            // that address is in meta means unwraps are safe
+            // Address is in meta map, so corresponding index should exist in mode-specific maps
             match meta {
-                Modes::RW => self.frw_store[*self.frw.get(&address).unwrap()].read(address, size),
-                Modes::RO => self.fro_store[*self.fro.get(&address).unwrap()].read(address, size),
-                Modes::WO => self.fwo_store[*self.fwo.get(&address).unwrap()].read(address, size),
-                Modes::NA => self.fna_store[*self.fna.get(&address).unwrap()].read(address, size),
+                Modes::RW => {
+                    let index = *self.frw.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "RW memory index not found")
+                    })?;
+                    self.frw_store[index].read(address, size)
+                }
+                Modes::RO => {
+                    let index = *self.fro.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "RO memory index not found")
+                    })?;
+                    self.fro_store[index].read(address, size)
+                }
+                Modes::WO => {
+                    let index = *self.fwo.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "WO memory index not found")
+                    })?;
+                    self.fwo_store[index].read(address, size)
+                }
+                Modes::NA => {
+                    let index = *self.fna.get(&address).ok_or_else(|| {
+                        MemoryError::InvalidMemoryAccess(address, "NA memory index not found")
+                    })?;
+                    self.fna_store[index].read(address, size)
+                }
             }
         } else if let Some(vrw) = &self.vrw {
             vrw.read(address, size)
