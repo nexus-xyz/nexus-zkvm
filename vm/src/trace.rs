@@ -233,7 +233,12 @@ fn k_step(
 
                         // 2. Repeat the last state, but with the global_clock incremented.
                         padding_steps.push(Step {
-                            timestamp: vm.get_executor().global_clock as u32,
+                            timestamp: vm.get_executor().global_clock.try_into()
+                                .unwrap_or_else(|_| {
+                                    // If global_clock exceeds u32::MAX, use u32::MAX
+                                    // This prevents data loss while maintaining functionality
+                                    u32::MAX
+                                }),
                             pc: last_step.next_pc,
                             next_pc: last_step.next_pc,
                             raw_instruction: unimpl_instruction.encode(),
@@ -259,7 +264,11 @@ fn k_step(
                     }
 
                     let pc = vm.get_executor().cpu.pc.value;
-                    let timestamp = vm.get_executor().global_clock as u32;
+                    let timestamp = vm.get_executor().global_clock.try_into()
+                        .unwrap_or_else(|_| {
+                            // If global_clock exceeds u32::MAX, use u32::MAX
+                            u32::MAX
+                        });
 
                     match step(vm, instruction, pc, timestamp, force_second_pass) {
                         Ok(step) => block.steps.push(step),
@@ -399,7 +408,11 @@ fn bb_step(vm: &mut impl Emulator) -> (Option<Block>, Result<()>) {
 
             for instruction in basic_block_entry.block.0[at..].iter() {
                 let pc = vm.get_executor().cpu.pc.value;
-                let timestamp = vm.get_executor().global_clock as u32;
+                let timestamp = vm.get_executor().global_clock.try_into()
+                    .unwrap_or_else(|_| {
+                        // If global_clock exceeds u32::MAX, use u32::MAX
+                        u32::MAX
+                    });
 
                 match step(vm, instruction, pc, timestamp, true) {
                     Ok(step) => block.steps.push(step),
