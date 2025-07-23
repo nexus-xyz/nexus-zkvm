@@ -87,7 +87,12 @@ mod riscv32 {
 
         // Write bytes in word chunks to output memory.
         bytes.chunks(WORD_SIZE).enumerate().for_each(|(i, chunk)| {
-            let word = u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+            let word = u32::from_le_bytes([
+                *chunk.get(0).unwrap_or(&0),
+                *chunk.get(1).unwrap_or(&0),
+                *chunk.get(2).unwrap_or(&0),
+                *chunk.get(3).unwrap_or(&0),
+            ]);
             write_output!((i + 1) * WORD_SIZE, word); // word 0 is reserved for the exit code
         });
 
