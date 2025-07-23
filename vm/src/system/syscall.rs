@@ -52,34 +52,23 @@ pub enum SyscallCode {
 }
 
 impl SyscallCode {
-    fn try_from(value: u32, pc: u32) -> Result<Self> {
-        let code = match value {
-            0x200 => SyscallCode::Write,
-            0x201 => SyscallCode::Exit,
-            0x400 => SyscallCode::ReadFromPrivateInput,
-            0x401 => SyscallCode::CycleCount,
-            0x402 => SyscallCode::OverwriteStackPointer,
-            0x403 => SyscallCode::OverwriteHeapPointer,
-            //0x404 => SyscallCode::ReadFromAuxiliaryInput,
-            0x405 => SyscallCode::MemoryAdvise,
-            _ => return Err(VMErrorKind::UnimplementedSyscall(value, pc))?,
-        };
-        Ok(code)
-    }
+    // Remove the old try_from method as we now use standard TryFrom
 }
 
-impl From<u32> for SyscallCode {
-    fn from(value: u32) -> Self {
+impl TryFrom<u32> for SyscallCode {
+    type Error = VMErrorKind;
+
+    fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
-            0x200 => SyscallCode::Write,
-            0x201 => SyscallCode::Exit,
-            0x400 => SyscallCode::ReadFromPrivateInput,
-            0x401 => SyscallCode::CycleCount,
-            0x402 => SyscallCode::OverwriteStackPointer,
-            0x403 => SyscallCode::OverwriteHeapPointer,
-            0x404 => SyscallCode::ReadFromAuxiliaryInput,
-            0x405 => SyscallCode::MemoryAdvise,
-            _ => panic!("Invalid syscall code"),
+            0x200 => Ok(SyscallCode::Write),
+            0x201 => Ok(SyscallCode::Exit),
+            0x400 => Ok(SyscallCode::ReadFromPrivateInput),
+            0x401 => Ok(SyscallCode::CycleCount),
+            0x402 => Ok(SyscallCode::OverwriteStackPointer),
+            0x403 => Ok(SyscallCode::OverwriteHeapPointer),
+            0x404 => Ok(SyscallCode::ReadFromAuxiliaryInput),
+            0x405 => Ok(SyscallCode::MemoryAdvise),
+            _ => Err(VMErrorKind::UnimplementedSyscall(value, 0)),
         }
     }
 }
@@ -131,8 +120,13 @@ impl SyscallInstruction {
                 cpu.pc.value,
             ))?;
         }
+
+        let syscall_code = cpu.registers[Register::X17];
+        let code = SyscallCode::try_from(syscall_code)
+            .map_err(|_| VMErrorKind::UnimplementedSyscall(syscall_code, cpu.pc.value))?;
+
         Ok(Self {
-            code: SyscallCode::try_from(cpu.registers[Register::X17], cpu.pc.value)?,
+            code,
             result: Some((Register::X10, u32::MAX)),
             args: vec![
                 cpu.registers[Register::X10],
