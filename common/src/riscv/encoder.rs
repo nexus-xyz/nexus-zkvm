@@ -107,9 +107,15 @@ fn encode_j_type(instruction: &Instruction) -> u32 {
 }
 
 /// Encodes an instruction into its binary representation to little-endian format.
-pub fn encode_instruction(instruction: &Instruction) -> u32 {
+///
+/// Returns Ok(encoded_value) on success, or Err if the instruction is not supported.
+///
+/// This avoids panicking on unsupported custom opcodes, which is important for production
+/// code that may receive untrusted or malformed input. Panics (assert!) are only for internal
+/// invariants, not for external data validation.
+pub fn encode_instruction(instruction: &Instruction) -> Result<u32, EncodeError> {
     if instruction.opcode.is_builtin() {
-        match instruction.ins_type {
+        let encoded = match instruction.ins_type {
             InstructionType::RType => encode_r_type(instruction).to_le(),
             InstructionType::IType => encode_i_type(instruction).to_le(),
             InstructionType::ITypeShamt => encode_i_shamt_type(instruction).to_le(),
@@ -118,14 +124,19 @@ pub fn encode_instruction(instruction: &Instruction) -> u32 {
             InstructionType::UType => encode_u_type(instruction).to_le(),
             InstructionType::JType => encode_j_type(instruction).to_le(),
             InstructionType::Unimpl => 0,
-        }
+        };
+        Ok(encoded)
     } else {
-        // TODO: handle built-in custom instructions.
-        //
-        // The only supported opcode is keccakf.
-        assert_eq!(instruction.opcode.raw, KECCAKF_OPCODE);
-        encode_s_type(instruction).to_le()
+        if instruction.opcode.raw != KECCAKF_OPCODE {
+            return Err(EncodeError::UnsupportedCustomOpcode(instruction.opcode.raw));
+        }
+        Ok(encode_s_type(instruction).to_le())
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EncodeError {
+    UnsupportedCustomOpcode(u32),
 }
 
 #[cfg(test)]
