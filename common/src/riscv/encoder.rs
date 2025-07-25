@@ -128,7 +128,7 @@ pub fn encode_instruction(instruction: &Instruction) -> Result<u32, EncodeError>
         Ok(encoded)
     } else {
         if instruction.opcode.raw != KECCAKF_OPCODE {
-            return Err(EncodeError::UnsupportedCustomOpcode(instruction.opcode.raw));
+            return Err(EncodeError::UnsupportedCustomOpcode(instruction.opcode.raw.into()));
         }
         Ok(encode_s_type(instruction).to_le())
     }
