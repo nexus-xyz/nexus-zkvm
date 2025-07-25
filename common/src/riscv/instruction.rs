@@ -264,7 +264,7 @@ impl Instruction {
 
     // Encode the instruction struct to binary representation.
     pub fn encode(&self) -> u32 {
-        encode_instruction(self)
+        encode_instruction(self).expect("Failed to encode instruction")
     }
 }
 
