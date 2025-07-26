@@ -130,6 +130,7 @@ pub fn encode_instruction(instruction: &Instruction) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use super::encode_instruction;
     use crate::riscv::{
         instruction::{Instruction, InstructionType},
         opcode::BuiltinOpcode,
@@ -214,5 +215,31 @@ mod tests {
         };
         let encoded_i_shamt = i_shamt_instruction.encode();
         assert_eq!(encoded_i_shamt, 0x40A1D113);
+    }
+
+    #[test]
+    fn test_b_type_encoding_correctness() {
+        let ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::BEQ),
+            ins_type: InstructionType::BType,
+            op_a: 1.into(),
+            op_b: 2.into(),
+            op_c: 16, // immediate must be aligned
+        };
+        let encoded = encode_instruction(&ins);
+        assert_eq!(encoded & 0x7f, 0x63); // Check opcode
+    }
+
+    #[test]
+    fn test_j_type_encoding_correctness() {
+        let ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::JAL),
+            ins_type: InstructionType::JType,
+            op_a: 1.into(),
+            op_b: 0.into(),
+            op_c: 2048,
+        };
+        let encoded = encode_instruction(&ins);
+        assert_eq!(encoded & 0x7f, 0x6f); // Check opcode
     }
 }

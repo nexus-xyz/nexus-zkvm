@@ -1,17 +1,14 @@
 [package]
 name = "dummy_program"
-edition.workspace = true
-version.workspace = true
-authors.workspace = true
-homepage.workspace = true
-repository.workspace = true
-keywords.workspace = true
-categories.workspace = true
-publish.workspace = true
+edition = "2021"
+version = "0.1.0"
 
 [dependencies]
-[lib]
-crate-type = ["staticlib"]
 
 [profile.release]
 opt-level = "z"
+panic = "abort"
+
+[[bin]]
+name = "dummy_program"
+path = "src/main.rs"
