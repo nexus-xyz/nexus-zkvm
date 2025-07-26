@@ -23,7 +23,7 @@ To get started with the Nexus zkVM, check out the [Getting Started](https://docs
 
 ### The Nexus Ethos: Assurance through Open Science
 
-We believe a zkVM must provide an efficient proving mechanism without compromising on security and correctness. A zkVM cannot provide provide transparency without being transparent itself. Every component of a zkVM should be powered by fully and publicly specified cryptographic components, with careful analysis of security and performance.
+We believe a zkVM must provide an efficient proving mechanism without compromising on security and correctness. A zkVM cannot provide transparency without being transparent itself. Every component of a zkVM should be powered by fully and publicly specified cryptographic components, with careful analysis of security and performance.
 
 The Nexus zkVM features no code obfuscation, no proprietary components, and no closed-source code.
 
