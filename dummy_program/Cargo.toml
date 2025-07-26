@@ -1,0 +1,14 @@
+[package]
+name = "dummy_program"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+
+[profile.release]
+opt-level = "z"
+panic = "abort"
+
+[[bin]]
+name = "dummy_program"
+path = "src/main.rs"
