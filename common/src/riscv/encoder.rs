@@ -130,6 +130,7 @@ pub fn encode_instruction(instruction: &Instruction) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use super::encode_instruction;
     use crate::riscv::{
         instruction::{Instruction, InstructionType},
         opcode::BuiltinOpcode,
@@ -223,7 +224,7 @@ mod tests {
             ins_type: InstructionType::BType,
             op_a: 1.into(),
             op_b: 2.into(),
-            op_c: 16,  // immediate must be aligned
+op_c: 16, // immediate must be aligned
         };
         let encoded = encode_instruction(&ins);
         assert_eq!(encoded & 0x7f, 0x63); // Check opcode
