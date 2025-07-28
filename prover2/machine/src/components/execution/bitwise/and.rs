@@ -12,6 +12,7 @@ use crate::components::execution::decoding::{
 pub struct AndDecoding;
 impl TypeRDecoding for AndDecoding {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::AND;
+    const IS_LOCAL_PAD: Column = Column::IsLocalPad;
 
     type PreprocessedColumn = PreprocessedColumn;
     type MainColumn = Column;

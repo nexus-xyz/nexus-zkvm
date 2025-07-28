@@ -20,7 +20,8 @@ use crate::{
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToRegisterMemoryLookupElements,
-        LogupTraceBuilder, RegisterMemoryLookupElements,
+        LogupTraceBuilder, RangeCheckLookupElements, RangeLookupBound,
+        RegisterMemoryLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -45,6 +46,7 @@ impl BuiltInComponent for RegisterMemory {
     type LookupElements = (
         RegisterMemoryLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -77,7 +79,7 @@ impl BuiltInComponent for RegisterMemory {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_reg_memory_read_write, rel_inst_to_reg_memory) =
+        let (rel_reg_memory_read_write, rel_inst_to_reg_memory, range_check) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -96,6 +98,38 @@ impl BuiltInComponent for RegisterMemory {
         let [reg2_accessed] = original_base_column!(component_trace, Column::Reg2Accessed);
         let [reg3_accessed] = original_base_column!(component_trace, Column::Reg3Accessed);
         let [reg3_write] = original_base_column!(component_trace, Column::Reg3Write);
+
+        let reg1_ts_prev = original_base_column!(component_trace, Column::Reg1TsPrev);
+        let reg2_ts_prev = original_base_column!(component_trace, Column::Reg2TsPrev);
+        let reg3_ts_prev = original_base_column!(component_trace, Column::Reg3TsPrev);
+
+        let reg1_ts_prev_aux = original_base_column!(component_trace, Column::Reg1TsPrevAux);
+        let reg2_ts_prev_aux = original_base_column!(component_trace, Column::Reg2TsPrevAux);
+        let reg3_ts_prev_aux = original_base_column!(component_trace, Column::Reg3TsPrevAux);
+
+        for timestamp_bytes in [
+            &reg1_ts_prev,
+            &reg2_ts_prev,
+            &reg3_ts_prev,
+            &reg1_ts_prev_aux,
+            &reg2_ts_prev_aux,
+            &reg3_ts_prev_aux,
+        ] {
+            for byte in timestamp_bytes {
+                range_check.range256.generate_logup_col(
+                    &mut logup_trace_builder,
+                    is_local_pad.clone(),
+                    byte.clone(),
+                );
+            }
+        }
+        for byte in &reg3_val {
+            range_check.range256.generate_logup_col(
+                &mut logup_trace_builder,
+                is_local_pad.clone(),
+                byte.clone(),
+            );
+        }
 
         // consume(
         //     rel-inst-to-reg-memory,
@@ -192,11 +226,11 @@ impl BuiltInComponent for RegisterMemory {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
-        RegisterMemory::constrain_timestamps(eval, &trace_eval);
-        RegisterMemory::constrain_reg3(eval, &trace_eval);
+        let (rel_reg_memory_read_write, rel_inst_to_reg_memory, range_check) = lookup_elements;
+        RegisterMemory::constrain_timestamps(eval, &trace_eval, range_check);
+        RegisterMemory::constrain_reg3(eval, &trace_eval, range_check);
 
         // Logup Interactions
-        let (rel_reg_memory_read_write, rel_inst_to_reg_memory) = lookup_elements;
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let clk = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
@@ -407,7 +441,7 @@ mod tests {
     use crate::{
         components::{
             register_memory_boundary::RegisterMemoryBoundary, Cpu, CpuBoundary, ProgramMemory,
-            ProgramMemoryBoundary, ADD, ADDI,
+            ProgramMemoryBoundary, ADD, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -443,6 +477,10 @@ mod tests {
                 &RegisterMemoryBoundary,
                 &ADD,
                 &ADDI,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

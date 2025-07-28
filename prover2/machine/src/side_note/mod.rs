@@ -10,6 +10,8 @@ pub mod bitwise;
 pub mod memory;
 /// Bytecode and the initial memory state.
 pub mod program;
+/// Range checks accumulators
+pub mod range_check;
 
 /// Prover's side note used for tracking additional data for trace generation.
 pub struct SideNote<'a> {
@@ -18,6 +20,7 @@ pub struct SideNote<'a> {
     pub(crate) program: program::ProgramTraceRef<'a>,
     pub(crate) memory: memory::MemorySideNote,
     pub(crate) bitwise: bitwise::BitwiseAccumulators,
+    pub(crate) range_check: range_check::RangeCheckAccumulator,
 }
 
 impl<'a> SideNote<'a> {
@@ -28,6 +31,7 @@ impl<'a> SideNote<'a> {
             num_steps: trace.get_num_steps(),
             memory: Default::default(),
             bitwise: Default::default(),
+            range_check: Default::default(),
         }
     }
 

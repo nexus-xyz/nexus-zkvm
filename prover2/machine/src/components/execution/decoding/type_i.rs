@@ -11,7 +11,11 @@ use nexus_vm_prover_trace::{
     builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
 };
 
-use super::{InstructionDecoding, RegSplitAt0};
+use super::{logup_gen::ComponentTraceRef, InstructionDecoding, RegSplitAt0};
+use crate::{
+    lookups::{RangeCheckLookupElements, RangeLookupBound},
+    side_note::range_check::RangeCheckAccumulator,
+};
 
 /// Decoding columns used by type I instructions.
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -52,6 +56,33 @@ pub const OP_B: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
     bit_0: DecodingColumn::OpB0,
     bits_1_4: DecodingColumn::OpB1_4,
 };
+
+pub struct CVal<C> {
+    pub op_c0_3: C,
+    pub op_c4_7: C,
+    pub op_c8_10: C,
+    pub op_c11: C,
+}
+
+impl<C: AirColumn> CVal<C> {
+    pub fn eval<E: EvalAtRow, P: PreprocessedAirColumn>(
+        &self,
+        trace_eval: &TraceEval<P, C, E>,
+    ) -> [E::F; WORD_SIZE] {
+        let [op_c0_3] = trace_eval.column_eval(self.op_c0_3);
+        let [op_c4_7] = trace_eval.column_eval(self.op_c4_7);
+        let [op_c8_10] = trace_eval.column_eval(self.op_c8_10);
+        let [op_c11] = trace_eval.column_eval(self.op_c11);
+
+        let c_val_0 = op_c0_3.clone() + op_c4_7.clone() * BaseField::from(1 << 4);
+        let c_val_1 = op_c8_10.clone()
+            + op_c11.clone() * BaseField::from((1 << 5) - 1) * BaseField::from(1 << 3);
+        let c_val_2 = op_c11.clone() * BaseField::from((1 << 8) - 1);
+        let c_val_3 = op_c11 * BaseField::from((1 << 8) - 1);
+
+        [c_val_0, c_val_1, c_val_2, c_val_3]
+    }
+}
 
 pub struct InstrVal<C> {
     /// Byte 0: opcode + op_a0 * 2^7
@@ -123,6 +154,7 @@ pub fn generate_trace_row(
     row_idx: usize,
     trace: &mut TraceBuilder<DecodingColumn>,
     program_step: ProgramStep,
+    range_check_accum: &mut RangeCheckAccumulator,
 ) {
     let op_a_raw = program_step.step.instruction.op_a as u8;
     let op_a0 = op_a_raw & 0x1;
@@ -137,14 +169,19 @@ pub fn generate_trace_row(
     trace.fill_columns(row_idx, op_b1_4, DecodingColumn::OpB1_4);
 
     let op_c_raw = program_step.step.instruction.op_c;
-    let op_c0_3 = op_c_raw & 0xF;
-    let op_c4_7 = (op_c_raw >> 4) & 0xF;
-    let op_c8_10 = (op_c_raw >> 8) & 0x7;
-    let op_c11 = (op_c_raw >> 11) & 0x1;
-    trace.fill_columns(row_idx, op_c0_3 as u8, DecodingColumn::OpC0_3);
-    trace.fill_columns(row_idx, op_c4_7 as u8, DecodingColumn::OpC4_7);
-    trace.fill_columns(row_idx, op_c8_10 as u8, DecodingColumn::OpC8_10);
-    trace.fill_columns(row_idx, op_c11 as u8, DecodingColumn::OpC11);
+    let op_c0_3 = (op_c_raw & 0xF) as u8;
+    let op_c4_7 = ((op_c_raw >> 4) & 0xF) as u8;
+    let op_c8_10 = ((op_c_raw >> 8) & 0x7) as u8;
+    let op_c11 = ((op_c_raw >> 11) & 0x1) as u8;
+    trace.fill_columns(row_idx, op_c0_3, DecodingColumn::OpC0_3);
+    trace.fill_columns(row_idx, op_c4_7, DecodingColumn::OpC4_7);
+    trace.fill_columns(row_idx, op_c8_10, DecodingColumn::OpC8_10);
+    trace.fill_columns(row_idx, op_c11, DecodingColumn::OpC11);
+
+    range_check_accum
+        .range16
+        .add_values_from_slice(&[op_a1_4, op_b1_4, op_c0_3, op_c4_7]);
+    range_check_accum.range8.add_value(op_c8_10);
 }
 
 // Constrains c-val to equal 12-bit immediate
@@ -209,14 +246,16 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::DecodingColumn>,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
-        generate_trace_row(row_idx, trace, program_step);
+        generate_trace_row(row_idx, trace, program_step, range_check_accum);
     }
 
     fn constrain_decoding<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+        range_check: &RangeCheckLookupElements,
     ) {
         let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
         let c_val = trace_eval.column_eval(T::C_VAL);
@@ -231,7 +270,47 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
         }
 
         // TODO: move c-val to decoding
-        constrain_c_val(eval, decoding_trace_eval, c_val, is_local_pad);
+        constrain_c_val(eval, decoding_trace_eval, c_val, is_local_pad.clone());
+
+        let [op_a1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA1_4);
+        let [op_b1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB1_4);
+        let [op_c0_3] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC0_3);
+        let [op_c4_7] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC4_7);
+
+        let [op_c8_10] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC8_10);
+
+        for col in [op_a1_4, op_b1_4, op_c0_3, op_c4_7] {
+            range_check
+                .range16
+                .constrain(eval, is_local_pad.clone(), col);
+        }
+        range_check.range8.constrain(eval, is_local_pad, op_c8_10);
+    }
+
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut crate::lookups::LogupTraceBuilder,
+        component_trace: &nexus_vm_prover_trace::component::ComponentTrace,
+        range_check: &RangeCheckLookupElements,
+    ) {
+        let [is_local_pad] = component_trace.original_base_column(T::IS_LOCAL_PAD);
+        let decoding_trace_ref =
+            ComponentTraceRef::<'_, Self::MainColumn, Self::DecodingColumn>::split(component_trace);
+
+        let [op_a1_4] = decoding_trace_ref.base_column(DecodingColumn::OpA1_4);
+        let [op_b1_4] = decoding_trace_ref.base_column(DecodingColumn::OpB1_4);
+        let [op_c0_3] = decoding_trace_ref.base_column(DecodingColumn::OpC0_3);
+        let [op_c4_7] = decoding_trace_ref.base_column(DecodingColumn::OpC4_7);
+
+        let [op_c8_10] = decoding_trace_ref.base_column(DecodingColumn::OpC8_10);
+
+        for col in [op_a1_4, op_b1_4, op_c0_3, op_c4_7] {
+            range_check
+                .range16
+                .generate_logup_col(logup_trace_builder, is_local_pad.clone(), col);
+        }
+        range_check
+            .range8
+            .generate_logup_col(logup_trace_builder, is_local_pad, op_c8_10);
     }
 
     fn combine_reg_addresses<E: EvalAtRow>(

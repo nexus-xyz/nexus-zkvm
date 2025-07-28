@@ -11,9 +11,12 @@ use nexus_vm_prover_trace::{
     builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
 };
 
-use crate::components::execution::decoding::RegSplitAt4;
-
-use super::{InstructionDecoding, RegSplitAt0};
+use super::{logup_gen::ComponentTraceRef, InstructionDecoding, RegSplitAt0};
+use crate::{
+    components::execution::decoding::RegSplitAt4,
+    lookups::{RangeCheckLookupElements, RangeLookupBound},
+    side_note::range_check::RangeCheckAccumulator,
+};
 
 /// Decoding columns used by type R instructions.
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -119,6 +122,7 @@ pub fn generate_trace_row(
     row_idx: usize,
     trace: &mut TraceBuilder<DecodingColumn>,
     program_step: ProgramStep,
+    range_check_accum: &mut RangeCheckAccumulator,
 ) {
     let op_a_raw = program_step.step.instruction.op_a as u8;
     let op_a0 = op_a_raw & 0x1;
@@ -137,6 +141,10 @@ pub fn generate_trace_row(
     let op_c4 = (op_c_raw >> 4) & 0x1;
     trace.fill_columns(row_idx, op_c0_3, DecodingColumn::OpC0_3);
     trace.fill_columns(row_idx, op_c4, DecodingColumn::OpC4);
+
+    range_check_accum
+        .range16
+        .add_values_from_slice(&[op_a1_4, op_b1_4, op_c0_3]);
 }
 
 /// Zero-sized struct that implements type-R instruction decoding.
@@ -144,6 +152,7 @@ pub struct TypeR<T>(PhantomData<T>);
 
 pub trait TypeRDecoding {
     const OPCODE: BuiltinOpcode;
+    const IS_LOCAL_PAD: Self::MainColumn;
 
     type PreprocessedColumn: PreprocessedAirColumn;
     type MainColumn: AirColumn;
@@ -161,14 +170,16 @@ impl<T: TypeRDecoding> InstructionDecoding for TypeR<T> {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::DecodingColumn>,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
-        generate_trace_row(row_idx, trace, program_step);
+        generate_trace_row(row_idx, trace, program_step, range_check_accum);
     }
 
     fn constrain_decoding<E: EvalAtRow>(
         eval: &mut E,
-        _trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
+        trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+        range_check: &RangeCheckLookupElements,
     ) {
         let [op_a0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA0);
         let [op_b0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB0);
@@ -177,6 +188,37 @@ impl<T: TypeRDecoding> InstructionDecoding for TypeR<T> {
         // constrain op_a0, op_b0, op_c4 ∈ {0, 1}
         for bit in [op_a0, op_b0, op_c4] {
             eval.add_constraint(bit.clone() * (E::F::one() - bit));
+        }
+
+        let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
+
+        let [op_a1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA1_4);
+        let [op_b1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB1_4);
+        let [op_c0_3] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC0_3);
+        for col in [op_a1_4, op_b1_4, op_c0_3] {
+            range_check
+                .range16
+                .constrain(eval, is_local_pad.clone(), col);
+        }
+    }
+
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut crate::lookups::LogupTraceBuilder,
+        component_trace: &nexus_vm_prover_trace::component::ComponentTrace,
+        range_check: &RangeCheckLookupElements,
+    ) {
+        let [is_local_pad] = component_trace.original_base_column(T::IS_LOCAL_PAD);
+        let decoding_trace_ref =
+            ComponentTraceRef::<'_, Self::MainColumn, Self::DecodingColumn>::split(component_trace);
+
+        let [op_a1_4] = decoding_trace_ref.base_column(DecodingColumn::OpA1_4);
+        let [op_b1_4] = decoding_trace_ref.base_column(DecodingColumn::OpB1_4);
+        let [op_c0_3] = decoding_trace_ref.base_column(DecodingColumn::OpC0_3);
+
+        for col in [op_a1_4, op_b1_4, op_c0_3] {
+            range_check
+                .range16
+                .generate_logup_col(logup_trace_builder, is_local_pad.clone(), col);
         }
     }
 

@@ -17,6 +17,7 @@ use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     component::ComponentTrace,
     eval::TraceEval,
+    original_base_column,
     program::{ProgramStep, Word},
     trace_eval,
     utils::zero_array,
@@ -37,8 +38,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        RangeCheckLookupElements, RangeLookupBound,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod bgeu;
@@ -127,6 +129,7 @@ impl<T: BranchOp> BranchCmpUnsigned<T> {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let step = &program_step.step;
 
@@ -157,6 +160,10 @@ impl<T: BranchOp> BranchCmpUnsigned<T> {
         trace.fill_columns(row_idx, diff_bytes, Column::HRem);
         trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
         trace.fill_columns(row_idx, carry_bits, Column::HCarry);
+
+        range_check_accum
+            .range256
+            .add_values_from_slice(&diff_bytes);
     }
 }
 
@@ -169,6 +176,7 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -185,13 +193,25 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
-            self.generate_trace_row(&mut common_trace, row_idx, program_step);
-            T::generate_trace_row(row_idx, &mut local_trace, program_step);
+            self.generate_trace_row(
+                &mut common_trace,
+                row_idx,
+                program_step,
+                &mut range_check_accum,
+            );
+            T::generate_trace_row(
+                row_idx,
+                &mut local_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -217,14 +237,34 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
             component_trace.original_trace.len(),
             Column::COLUMNS_NUM + T::DecodingColumn::COLUMNS_NUM
         );
-        let lookup_elements = Self::LookupElements::get(lookup_elements);
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
+        let h_rem = original_base_column!(component_trace, Column::HRem);
+        for byte in h_rem {
+            range_check.range256.generate_logup_col(
+                &mut logup_trace_builder,
+                is_local_pad.clone(),
+                byte,
+            );
+        }
+
+        <T as InstructionDecoding>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         <Self as ExecutionComponent>::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
             side_note,
-            &lookup_elements,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
         );
         logup_trace_builder.finalize()
     }
@@ -235,6 +275,9 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            lookup_elements;
+
         ClkIncrement {
             is_local_pad: Column::IsLocalPad,
             clk: Column::Clk,
@@ -316,10 +359,15 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
         eval.add_constraint(h_carry_1.clone() * (E::F::one() - h_carry_1));
         eval.add_constraint(h_carry_2.clone() * (E::F::one() - h_carry_2));
 
-        T::constrain_decoding(eval, &trace_eval, &decoding_trace_eval);
+        for byte in h_rem {
+            range_check
+                .range256
+                .constrain(eval, is_local_pad.clone(), byte);
+        }
+
+        T::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
         let reg_addrs = T::combine_reg_addresses(&decoding_trace_eval);
         let instr_val = T::combine_instr_val(&decoding_trace_eval);
 

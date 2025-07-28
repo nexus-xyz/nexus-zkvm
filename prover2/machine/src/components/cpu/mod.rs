@@ -16,7 +16,10 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     framework::BuiltInComponent,
-    lookups::{AllLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements},
+    lookups::{
+        AllLookupElements, ComponentLookupElements, LogupTraceBuilder,
+        ProgramExecutionLookupElements, RangeCheckLookupElements, RangeLookupBound,
+    },
     side_note::{program::ProgramTraceRef, SideNote},
 };
 
@@ -33,7 +36,7 @@ impl BuiltInComponent for Cpu {
 
     type MainColumn = Column;
 
-    type LookupElements = ProgramExecutionLookupElements;
+    type LookupElements = (ProgramExecutionLookupElements, RangeCheckLookupElements);
 
     fn generate_preprocessed_trace(
         &self,
@@ -57,11 +60,16 @@ impl BuiltInComponent for Cpu {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let rel_cont_prog_exec: &Self::LookupElements = lookup_elements.as_ref();
+        let (rel_cont_prog_exec, range_check) = Self::LookupElements::get(lookup_elements);
         let log_size = component_trace.log_size();
         let mut logup_trace_builder = LogupTraceBuilder::new(log_size);
 
         let [is_pad] = original_base_column!(component_trace, Column::IsPad);
+        let [pc_aux] = original_base_column!(component_trace, Column::PcAux);
+
+        range_check
+            .range64
+            .generate_logup_col(&mut logup_trace_builder, is_pad.clone(), pc_aux);
 
         let [clk_low, clk_high] =
             preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
@@ -70,7 +78,7 @@ impl BuiltInComponent for Cpu {
 
         // consume(rel-cont-prog-exec, 1 − is-pad, (clk, pc))
         logup_trace_builder.add_to_relation_with(
-            rel_cont_prog_exec,
+            &rel_cont_prog_exec,
             [is_pad.clone()],
             |[is_pad]| (is_pad - PackedBaseField::one()).into(),
             &[
@@ -95,10 +103,12 @@ impl BuiltInComponent for Cpu {
         let pc = trace_eval!(trace_eval, Column::Pc);
         let [pc_aux] = trace_eval!(trace_eval, Column::PcAux);
 
-        eval.add_constraint(pc_aux * BaseField::from(4) - pc[0].clone());
+        eval.add_constraint(pc_aux.clone() * BaseField::from(4) - pc[0].clone());
 
         // Logup Interactions
-        let rel_cont_prog_exec = lookup_elements;
+        let (rel_cont_prog_exec, range_check) = lookup_elements;
+
+        range_check.range64.constrain(eval, is_pad.clone(), pc_aux);
 
         // Lookup 16 bits
         let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
@@ -117,7 +127,7 @@ impl BuiltInComponent for Cpu {
             ],
         ));
 
-        eval.finalize_logup();
+        eval.finalize_logup_in_pairs();
     }
 }
 
@@ -134,7 +144,7 @@ mod tests {
     use crate::{
         components::{
             CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADD, ADDI,
+            RegisterMemoryBoundary, ADD, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -164,6 +174,10 @@ mod tests {
                 &ProgramMemoryBoundary,
                 &ADD,
                 &ADDI,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

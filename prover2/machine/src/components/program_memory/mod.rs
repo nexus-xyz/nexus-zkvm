@@ -18,7 +18,8 @@ use crate::{
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
-        LogupTraceBuilder, ProgramMemoryReadLookupElements,
+        LogupTraceBuilder, ProgramMemoryReadLookupElements, RangeCheckLookupElements,
+        RangeLookupBound,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -39,6 +40,7 @@ impl BuiltInComponent for ProgramMemory {
     type LookupElements = (
         ProgramMemoryReadLookupElements,
         InstToProgMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -62,7 +64,7 @@ impl BuiltInComponent for ProgramMemory {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_prog_memory_read, rel_inst_to_prog_memory) =
+        let (rel_prog_memory_read, rel_inst_to_prog_memory, range_check) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -75,6 +77,16 @@ impl BuiltInComponent for ProgramMemory {
 
         let pc_low = PC_LOW.combine_from_finalized_trace(&component_trace);
         let pc_high = PC_HIGH.combine_from_finalized_trace(&component_trace);
+
+        for timestamp_bytes in [&prog_ctr_prev, &prog_ctr_cur] {
+            for byte in timestamp_bytes {
+                range_check.range256.generate_logup_col(
+                    &mut logup_trace_builder,
+                    is_local_pad.clone(),
+                    byte.clone(),
+                );
+            }
+        }
 
         // provide(rel-inst-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
         logup_trace_builder.add_to_relation_with(
@@ -146,7 +158,14 @@ impl BuiltInComponent for ProgramMemory {
         let pc_low = PC_LOW.eval(&trace_eval);
         let pc_high = PC_HIGH.eval(&trace_eval);
 
-        let (rel_prog_memory_read, rel_inst_to_prog_memory) = lookup_elements;
+        let (rel_prog_memory_read, rel_inst_to_prog_memory, range_check) = lookup_elements;
+        for timestamp_bytes in [&prog_ctr_prev, &prog_ctr_cur] {
+            for byte in timestamp_bytes {
+                range_check
+                    .range256
+                    .constrain(eval, is_local_pad.clone(), byte.clone());
+            }
+        }
         // provide(rel-inst-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_prog_memory,
@@ -177,7 +196,7 @@ mod tests {
     use crate::{
         components::{
             program_memory_boundary::ProgramMemoryBoundary, Cpu, CpuBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADDI,
+            RegisterMemoryBoundary, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -210,6 +229,10 @@ mod tests {
                 &RegisterMemory,
                 &RegisterMemoryBoundary,
                 &ProgramMemoryBoundary,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

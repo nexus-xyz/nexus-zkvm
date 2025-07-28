@@ -14,11 +14,11 @@ use crate::components::utils::{add_16bit_with_carry, u32_to_16bit_parts_le};
 
 /// Multiplicities accumulator for bitwise instructions that require lookups.
 #[derive(Debug, Default)]
-pub struct BitwiseAccumulator {
+pub struct BitwiseMultiplicities {
     pub(super) accum: BTreeMap<u8, u32>,
 }
 
-impl BitwiseAccumulator {
+impl BitwiseMultiplicities {
     pub fn multiplicities(&self) -> &BTreeMap<u8, u32> {
         &self.accum
     }
@@ -59,7 +59,7 @@ impl<B: BitwiseOp> Bitwise<B> {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
-        accum: &mut BitwiseAccumulator,
+        accum: &mut BitwiseMultiplicities,
     ) {
         let step = &program_step.step;
         assert_eq!(step.instruction.opcode.builtin(), Some(B::OPCODE));

@@ -12,6 +12,7 @@ use crate::components::execution::decoding::{
 pub struct OrDecoding;
 impl TypeRDecoding for OrDecoding {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::OR;
+    const IS_LOCAL_PAD: Column = Column::IsLocalPad;
 
     type PreprocessedColumn = PreprocessedColumn;
     type MainColumn = Column;

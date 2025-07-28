@@ -10,7 +10,7 @@ use nexus_vm_prover_trace::{
 use super::columns::Column;
 use crate::{
     components::utils::{add_with_carries, decr_subtract_with_borrow, u32_to_16bit_parts_le},
-    side_note::SideNote,
+    side_note::{range_check::RangeCheckMultiplicities, SideNote},
 };
 
 // Read-write memory side note can only be updated by the read-write memory component, once it's stored
@@ -63,11 +63,18 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
         .ilog2()
         .max(LOG_N_LANES);
 
+    let mut range_check_mults = RangeCheckMultiplicities::default();
     let mut trace = TraceBuilder::new(log_size);
     for (row_idx, program_step) in iter_program_steps(side_note).enumerate() {
-        generate_trace_row(&mut trace, row_idx, program_step, &mut rw_memory_side_note);
+        generate_trace_row(
+            &mut trace,
+            row_idx,
+            program_step,
+            &mut rw_memory_side_note,
+            &mut range_check_mults,
+        );
     }
-
+    side_note.range_check.range256.append(range_check_mults);
     // store final ram state into side note
     side_note.memory.read_write_memory = rw_memory_side_note;
 
@@ -83,6 +90,7 @@ fn generate_trace_row(
     row_idx: usize,
     program_step: ProgramStep,
     rw_memory_side_note: &mut ReadWriteMemorySideNote,
+    range_check_mults: &mut RangeCheckMultiplicities<256>,
 ) {
     let is_load = matches!(
         program_step.step.instruction.opcode.builtin(),
@@ -199,6 +207,10 @@ fn generate_trace_row(
             assert!(!ram_ts_prev_borrow[3]);
             trace.fill_columns(row_idx, ram_ts_prev_aux_word, *ram_ts_prev_aux);
             trace.fill_columns(row_idx, ram_ts_prev_borrow[1], *helper);
+
+            range_check_mults.add_values_from_slice(&prev_timestamp.to_le_bytes());
+            range_check_mults.add_values_from_slice(&ram_ts_prev_aux_word);
+            range_check_mults.add_value(prev_val);
         }
 
         for (.., ram_ts_prev_aux, helper) in &ram_cols[access_size..] {
@@ -208,6 +220,10 @@ fn generate_trace_row(
             assert!(!ram_ts_prev_borrow[3]);
             trace.fill_columns(row_idx, ram_ts_prev_aux_word, *ram_ts_prev_aux);
             trace.fill_columns(row_idx, ram_ts_prev_borrow[1], *helper);
+
+            range_check_mults.add_values_from_slice(&[0u8; WORD_SIZE]);
+            range_check_mults.add_values_from_slice(&ram_ts_prev_aux_word);
+            range_check_mults.add_value(0); // prev value
         }
     }
 }

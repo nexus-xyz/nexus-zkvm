@@ -26,9 +26,6 @@ pub enum Column {
     /// A 32-bit word specifying the value of operand op-b represented by four 8-bit limbs
     #[size = 4]
     BVal,
-    /// A 32-bit word specifying the value of operand op-c represented by four 8-bit limbs
-    #[size = 4]
-    CVal,
     /// The current value of the program counter register
     #[size = 2]
     Pc,
@@ -98,3 +95,10 @@ pub const fn load_instr_val(opcode: u8, funct3: u8) -> type_i::InstrVal<Column> 
         op_c11: Column::OpC11,
     }
 }
+
+pub const C_VAL: type_i::CVal<Column> = type_i::CVal {
+    op_c0_3: Column::OpC0_3,
+    op_c4_7: Column::OpC4_7,
+    op_c8_10: Column::OpC8_10,
+    op_c11: Column::OpC11,
+};

@@ -39,9 +39,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRamLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
-        ProgramExecutionLookupElements,
+        ProgramExecutionLookupElements, RangeCheckLookupElements,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod sb;
@@ -52,6 +52,7 @@ mod decoding;
 
 mod columns;
 use columns::{Column, PreprocessedColumn};
+use decoding::Decoding;
 
 pub trait StoreOp {
     const RAM2_ACCESSED: bool;
@@ -62,6 +63,19 @@ pub trait StoreOp {
     ///
     /// Zero indicates no alignment - used by SB.
     const ALIGNMENT: u8;
+
+    /// Add constraints for memory alignment.
+    fn constrain_alignment<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        range_check: &RangeCheckLookupElements,
+    );
+    /// Add logup columns for the alignment range check.
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut LogupTraceBuilder,
+        component_trace: &ComponentTrace,
+        range_check: &RangeCheckLookupElements,
+    );
 }
 
 pub struct Store<T> {
@@ -94,6 +108,7 @@ impl<T: StoreOp> Store<T> {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let step = &program_step.step;
         assert_eq!(step.instruction.opcode.builtin(), Some(T::OPCODE));
@@ -122,17 +137,23 @@ impl<T: StoreOp> Store<T> {
 
         trace.fill_columns_bytes(row_idx, &value_a, Column::AVal);
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
 
         trace.fill_columns(row_idx, h_ram_base_addr, Column::HRamBaseAddr);
         trace.fill_columns(row_idx, [h_carry[1], h_carry[3]], Column::HCarry);
 
-        self.generate_decoding_trace_row(trace, row_idx, program_step);
+        Decoding::generate_decoding_trace_row(trace, row_idx, program_step, range_check_accum);
 
         if T::ALIGNMENT > 0 {
             assert!(h_ram_base_addr[0].is_multiple_of(T::ALIGNMENT));
             let h_ram_base_addr_aux = &mut trace.cols[Column::COLUMNS_NUM][row_idx];
-            *h_ram_base_addr_aux = BaseField::from((h_ram_base_addr[0] / T::ALIGNMENT) as u32);
+            let addr_rem = h_ram_base_addr[0] / T::ALIGNMENT;
+            *h_ram_base_addr_aux = BaseField::from(addr_rem as u32);
+
+            match T::ALIGNMENT {
+                2 => range_check_accum.range128.add_value(addr_rem),
+                4 => range_check_accum.range64.add_value(addr_rem),
+                _ => {}
+            }
         }
     }
 }
@@ -147,6 +168,7 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -166,12 +188,14 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             // manually add h-ram-base-addr-aux column
             trace.cols.push(vec![BaseField::zero(); 1 << log_size]);
         }
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
-            self.generate_trace_row(&mut trace, row_idx, program_step);
+            self.generate_trace_row(&mut trace, row_idx, program_step, &mut range_check_accum);
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_store_steps..1 << log_size {
             trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -196,8 +220,13 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
         };
         assert_eq!(component_trace.original_trace.len(), expected_trace_len);
 
-        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
-            Self::LookupElements::get(lookup_elements);
+        let (
+            rel_inst_to_ram,
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            range_check,
+        ) = Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
@@ -214,6 +243,14 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             n => b_val[..n].into(),
         };
         ram_values.resize(WORD_SIZE, BaseField::zero().into());
+
+        T::generate_interaction_trace(&mut logup_trace_builder, &component_trace, &range_check);
+
+        Decoding::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         // provide(
         //     rel-inst-to-ram,
         //     1 − is-local-pad,
@@ -262,12 +299,19 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (
+            rel_inst_to_ram,
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            range_check,
+        ) = lookup_elements;
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let clk = trace_eval!(trace_eval, Column::Clk);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = columns::CVal.eval(&trace_eval);
 
         let h_ram_base_addr = trace_eval!(trace_eval, Column::HRamBaseAddr);
         let h_carry = trace_eval!(trace_eval, Column::HCarry);
@@ -327,20 +371,9 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             eval.add_constraint(h_carry.clone() * (E::F::one() - h_carry.clone()));
         }
 
-        if T::ALIGNMENT > 0 {
-            let h_ram_base_addr_aux = eval.next_trace_mask();
-            // (1 − is-local-pad) · (ALIGNMENT · h-ram-base-addr-aux − h-ram-base-addr(1)) = 0
-            eval.add_constraint(
-                (E::F::one() - is_local_pad.clone())
-                    * (h_ram_base_addr_aux.clone() * BaseField::from(T::ALIGNMENT as u32)
-                        - h_ram_base_addr[0].clone()),
-            );
-        }
+        T::constrain_alignment(eval, &trace_eval, range_check);
 
-        Self::constrain_decoding(eval, &trace_eval);
-
-        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
-            lookup_elements;
+        Decoding::constrain_decoding(eval, &trace_eval, range_check);
 
         let instr_val =
             columns::InstrVal::new(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(&trace_eval);
@@ -417,7 +450,7 @@ mod tests {
         components::{
             execution::load::tests::setup_ir, Cpu, CpuBoundary, ProgramMemory,
             ProgramMemoryBoundary, ReadWriteMemory, ReadWriteMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADD, ADDI,
+            RegisterMemoryBoundary, ADD, ADDI, RANGE128, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::{
             test_utils::{assert_component, components_claimed_sum, AssertContext},
@@ -436,6 +469,11 @@ mod tests {
         &ReadWriteMemoryBoundary,
         &ADD,
         &ADDI,
+        &RANGE8,
+        &RANGE16,
+        &RANGE64,
+        &RANGE128,
+        &RANGE256,
     ];
 
     fn assert_store_constraints<C>(component: C, opcode: BuiltinOpcode)

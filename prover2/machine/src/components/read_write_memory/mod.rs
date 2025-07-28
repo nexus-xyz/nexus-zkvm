@@ -20,7 +20,7 @@ use crate::{
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToRamLookupElements, LogupTraceBuilder,
-        RamReadWriteLookupElements,
+        RamReadWriteLookupElements, RangeCheckLookupElements, RangeLookupBound,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -41,7 +41,11 @@ impl BuiltInComponent for ReadWriteMemory {
 
     type MainColumn = Column;
 
-    type LookupElements = (RamReadWriteLookupElements, InstToRamLookupElements);
+    type LookupElements = (
+        RamReadWriteLookupElements,
+        InstToRamLookupElements,
+        RangeCheckLookupElements,
+    );
 
     fn generate_preprocessed_trace(
         &self,
@@ -64,7 +68,8 @@ impl BuiltInComponent for ReadWriteMemory {
         ColumnVec<CircleEvaluation<SimdBackend, BaseField, BitReversedOrder>>,
         SecureField,
     ) {
-        let (rel_ram_read_write, rel_inst_to_ram) = Self::LookupElements::get(lookup_elements);
+        let (rel_ram_read_write, rel_inst_to_ram, range_check) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
@@ -75,6 +80,46 @@ impl BuiltInComponent for ReadWriteMemory {
         let [ram2_val_cur] = original_base_column!(component_trace, Column::Ram2ValCur);
         let [ram3_val_cur] = original_base_column!(component_trace, Column::Ram3ValCur);
         let [ram4_val_cur] = original_base_column!(component_trace, Column::Ram4ValCur);
+
+        let [ram1_val_prev] = original_base_column!(component_trace, Column::Ram1ValPrev);
+        let [ram2_val_prev] = original_base_column!(component_trace, Column::Ram2ValPrev);
+        let [ram3_val_prev] = original_base_column!(component_trace, Column::Ram3ValPrev);
+        let [ram4_val_prev] = original_base_column!(component_trace, Column::Ram4ValPrev);
+
+        let ram1_ts_prev = original_base_column!(component_trace, Column::Ram1TsPrev);
+        let ram2_ts_prev = original_base_column!(component_trace, Column::Ram2TsPrev);
+        let ram3_ts_prev = original_base_column!(component_trace, Column::Ram3TsPrev);
+        let ram4_ts_prev = original_base_column!(component_trace, Column::Ram4TsPrev);
+        let ram1_ts_prev_aux = original_base_column!(component_trace, Column::Ram1TsPrevAux);
+        let ram2_ts_prev_aux = original_base_column!(component_trace, Column::Ram2TsPrevAux);
+        let ram3_ts_prev_aux = original_base_column!(component_trace, Column::Ram3TsPrevAux);
+        let ram4_ts_prev_aux = original_base_column!(component_trace, Column::Ram4TsPrevAux);
+
+        for timestamp_bytes in [
+            ram1_ts_prev,
+            ram1_ts_prev_aux,
+            ram2_ts_prev,
+            ram2_ts_prev_aux,
+            ram3_ts_prev,
+            ram3_ts_prev_aux,
+            ram4_ts_prev,
+            ram4_ts_prev_aux,
+        ] {
+            for byte in timestamp_bytes {
+                range_check.range256.generate_logup_col(
+                    &mut logup_trace_builder,
+                    is_local_pad.clone(),
+                    byte,
+                );
+            }
+        }
+        for byte in [ram1_val_prev, ram2_val_prev, ram3_val_prev, ram4_val_prev] {
+            range_check.range256.generate_logup_col(
+                &mut logup_trace_builder,
+                is_local_pad.clone(),
+                byte,
+            );
+        }
 
         let [ram1_accessed] = original_base_column!(component_trace, Column::Ram1Accessed);
         let [ram2_accessed] = original_base_column!(component_trace, Column::Ram2Accessed);
@@ -170,10 +215,10 @@ impl BuiltInComponent for ReadWriteMemory {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
-        ReadWriteMemory::constrain_timestamps(eval, &trace_eval);
-        ReadWriteMemory::constrain_ram_write(eval, &trace_eval);
+        let (rel_ram_read_write, rel_inst_to_ram, range_check) = lookup_elements;
 
-        let (rel_ram_read_write, rel_inst_to_ram) = lookup_elements;
+        ReadWriteMemory::constrain_timestamps(eval, &trace_eval, range_check);
+        ReadWriteMemory::constrain_ram_write(eval, &trace_eval, range_check);
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let clk = trace_eval!(trace_eval, Column::Clk);
@@ -419,7 +464,7 @@ mod tests {
     use stwo_prover::{constraint_framework::Relation, core::fields::FieldExpOps};
 
     use crate::{
-        components::read_write_memory_boundary::ReadWriteMemoryBoundary,
+        components::{read_write_memory_boundary::ReadWriteMemoryBoundary, RANGE256},
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
 
@@ -445,7 +490,7 @@ mod tests {
         let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = assert_component(ReadWriteMemory, assert_ctx);
 
-        claimed_sum += components_claimed_sum(&[&ReadWriteMemoryBoundary], assert_ctx);
+        claimed_sum += components_claimed_sum(&[&ReadWriteMemoryBoundary, &RANGE256], assert_ctx);
 
         // manually add a fraction from the store component to skip registers and cpu
         //

@@ -54,6 +54,12 @@ const BASE_COMPONENTS: &[&dyn framework::MachineComponent] = &[
     &components::AUIPC,
     &components::ECALL,
     &components::BitwiseMultiplicity,
+    &components::RANGE8,
+    &components::RANGE16,
+    &components::RANGE32,
+    &components::RANGE64,
+    &components::RANGE128,
+    &components::RANGE256,
 ];
 
 pub use prove::{prove, Proof};

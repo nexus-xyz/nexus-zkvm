@@ -4,6 +4,8 @@ use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField}
 use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::{eval::TraceEval, trace_eval};
 
+use crate::lookups::{RangeCheckLookupElements, RangeLookupBound};
+
 use super::{
     columns::{Column, PreprocessedColumn},
     RegisterMemory,
@@ -13,13 +15,22 @@ impl RegisterMemory {
     pub(super) fn constrain_reg3<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        range_check: &RangeCheckLookupElements,
     ) {
+        let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
+
         let [reg3_write] = trace_eval!(trace_eval, Column::Reg3Write);
         let [reg3_addr] = trace_eval!(trace_eval, Column::Reg3Addr);
 
         let reg3_val = trace_eval!(trace_eval, Column::Reg3Val);
         let reg3_val_cur = trace_eval!(trace_eval, Column::Reg3ValCur);
         let reg3_val_prev = trace_eval!(trace_eval, Column::Reg3ValPrev);
+
+        for byte in &reg3_val {
+            range_check
+                .range256
+                .constrain(eval, is_local_pad.clone(), byte.clone());
+        }
 
         // (1 − reg3-write) · (reg3-val-cur − reg3-val-prev) = 0
         eval.add_constraint(

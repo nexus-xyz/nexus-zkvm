@@ -65,9 +65,9 @@ impl BuiltInComponent for BitwiseMultiplicity {
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
-        let multiplicity_and = side_note.bitwise.bitwise_accum_and.multiplicities();
-        let multiplicity_or = side_note.bitwise.bitwise_accum_or.multiplicities();
-        let multiplicity_xor = side_note.bitwise.bitwise_accum_xor.multiplicities();
+        let multiplicity_and = side_note.bitwise.bitwise_mults_and.multiplicities();
+        let multiplicity_or = side_note.bitwise.bitwise_mults_or.multiplicities();
+        let multiplicity_xor = side_note.bitwise.bitwise_mults_xor.multiplicities();
 
         let range = 0..=255;
         let multiplicity_and = BaseColumn::from_iter(

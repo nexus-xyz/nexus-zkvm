@@ -34,9 +34,9 @@ use crate::{
     lookups::{
         AllLookupElements, BitwiseInstrLookupElements, ComponentLookupElements,
         InstToProgMemoryLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
-        ProgramExecutionLookupElements,
+        ProgramExecutionLookupElements, RangeCheckLookupElements,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod columns;
@@ -47,7 +47,7 @@ mod or;
 mod xor;
 
 use columns::{Column, PreprocessedColumn, A_VAL_LOW, B_VAL_LOW, C_VAL_LOW};
-pub use trace::BitwiseAccumulator;
+pub use trace::BitwiseMultiplicities;
 
 pub const AND_LOOKUP_IDX: u32 = 1;
 pub const OR_LOOKUP_IDX: u32 = 2;
@@ -101,6 +101,7 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
         BitwiseInstrLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -115,18 +116,24 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let num_steps = <Self as ExecutionComponent>::iter_program_steps(side_note).count();
         let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
-        let mut accum = BitwiseAccumulator::default();
+        let mut accum = BitwiseMultiplicities::default();
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
             self.generate_trace_row(&mut common_trace, row_idx, program_step, &mut accum);
-            T::generate_trace_row(row_idx, &mut local_trace, program_step);
+            T::generate_trace_row(
+                row_idx,
+                &mut local_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
-
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -134,9 +141,9 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
 
         // store computed multiplicities
         let accum_mut = match T::BITWISE_LOOKUP_IDX {
-            idx if idx == AND_LOOKUP_IDX => &mut side_note.bitwise.bitwise_accum_and,
-            idx if idx == OR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_accum_or,
-            idx if idx == XOR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_accum_xor,
+            idx if idx == AND_LOOKUP_IDX => &mut side_note.bitwise.bitwise_mults_and,
+            idx if idx == OR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_mults_or,
+            idx if idx == XOR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_mults_xor,
             _ => panic!("invalid lookup idx"),
         };
         for (row, mult) in accum.accum.iter() {
@@ -160,6 +167,7 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
             rel_cont_prog_exec,
             rel_inst_to_reg_memory,
             rel_bitwise_instr,
+            range_check,
         ) = Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -174,6 +182,11 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let c_val_high = original_base_column!(component_trace, Column::CValHigh);
         let c_val_low = C_VAL_LOW.combine_from_finalized_trace(&component_trace);
 
+        <T as InstructionDecoding>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         let bitwise_lookup_idx = BaseField::from(T::BITWISE_LOOKUP_IDX);
         for i in 0..WORD_SIZE {
             logup_trace_builder.add_to_relation_with(
@@ -221,6 +234,14 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            rel_bitwise_instr,
+            range_check,
+        ) = lookup_elements;
+
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
@@ -250,16 +271,9 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let c_val_low = C_VAL_LOW.eval(&trace_eval);
 
         let local_trace_eval = TraceEval::new(eval);
-        T::constrain_decoding(eval, &trace_eval, &local_trace_eval);
+        T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 
         // logup interactions
-        let (
-            rel_inst_to_prog_memory,
-            rel_cont_prog_exec,
-            rel_inst_to_reg_memory,
-            rel_bitwise_instr,
-        ) = lookup_elements;
-
         let bitwise_lookup_idx: E::F = BaseField::from(T::BITWISE_LOOKUP_IDX).into();
         for i in 0..WORD_SIZE {
             eval.add_to_relation(RelationEntry::new(
@@ -324,7 +338,7 @@ mod tests {
     use crate::{
         components::{
             BitwiseMultiplicity, Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary,
-            RegisterMemory, RegisterMemoryBoundary, ADD, ADDI,
+            RegisterMemory, RegisterMemoryBoundary, ADD, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::{
             test_utils::{assert_component, components_claimed_sum, AssertContext},
@@ -346,6 +360,10 @@ mod tests {
         &ProgramMemoryBoundary,
         &ADD,
         &ADDI,
+        &RANGE8,
+        &RANGE16,
+        &RANGE64,
+        &RANGE256,
     ];
 
     fn assert_components<C1, C2>(c1: C1, c2: C2, instr: &[Instruction])
