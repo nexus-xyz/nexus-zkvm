@@ -62,7 +62,7 @@ fn encode_s_type(instruction: &Instruction) -> u32 {
     let rs1 = (instruction.op_a as u32 & 0x1F) << 15;
     let rs2 = (instruction.op_b as u32 & 0x1F) << 20;
     let imm_4_0 = (instruction.op_c & 0x1F) << 7;
-    let imm_11_5 = (instruction.op_c & 0xFE0) << 20;
+    let imm_11_5 = (instruction.op_c & 0xFE0) << 25;
 
     imm_11_5 | rs2 | rs1 | funct3 | imm_4_0 | opcode
 }
