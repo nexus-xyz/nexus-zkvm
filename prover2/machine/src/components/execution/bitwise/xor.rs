@@ -12,6 +12,7 @@ use crate::components::execution::decoding::{
 pub struct XorDecoding;
 impl TypeRDecoding for XorDecoding {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::XOR;
+    const IS_LOCAL_PAD: Column = Column::IsLocalPad;
 
     type PreprocessedColumn = PreprocessedColumn;
     type MainColumn = Column;

@@ -17,8 +17,14 @@ use nexus_vm_prover_trace::{
     virtual_column::VirtualColumn,
 };
 
-use super::{columns::Column, Load, LoadOp};
-use crate::framework::BuiltInComponent;
+use super::{
+    columns::{Column, PreprocessedColumn},
+    LoadOp,
+};
+use crate::{
+    lookups::{RangeCheckLookupElements, RangeLookupBound},
+    side_note::range_check::RangeCheckAccumulator,
+};
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum LbColumn {
@@ -47,6 +53,7 @@ impl LoadOp for Lb {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::LocalColumn>,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let value_a = program_step.get_result().expect("LB must have a result");
         let h_ram_val_rem = value_a[0] & 0x7F;
@@ -55,20 +62,16 @@ impl LoadOp for Lb {
         trace.fill_columns(row_idx, value_a[0], LbColumn::AVal);
         trace.fill_columns(row_idx, h_ram_val_rem, LbColumn::HRamValRem);
         trace.fill_columns(row_idx, h_ram_val_sign, LbColumn::HRamValSign);
+
+        range_check_accum.range128.add_value(h_ram_val_rem);
     }
 
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: &TraceEval<
-            <Load<Self> as BuiltInComponent>::PreprocessedColumn,
-            <Load<Self> as BuiltInComponent>::MainColumn,
-            E,
-        >,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+        range_check: &RangeCheckLookupElements,
     ) -> [[E::F; WORD_SIZE]; 2] {
-        // evaluate additional columns needed for the instruction
-        // this line should be called exactly once per load component
-        let local_trace_eval = TraceEval::<EmptyPreprocessedColumn, LbColumn, E>::new(eval);
-
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
 
         let [ram1_val] = trace_eval!(local_trace_eval, LbColumn::AVal);
@@ -84,7 +87,11 @@ impl LoadOp for Lb {
         // (h-ram-val-sgn) · (1 − h-ram-val-sgn) = 0
         eval.add_constraint(h_ram_val_sign.clone() * (E::F::one() - h_ram_val_sign));
 
-        let sign_ext_byte = SIGN_EXT_BYTE.eval(&local_trace_eval);
+        range_check
+            .range128
+            .constrain(eval, is_local_pad, h_ram_val_rem);
+
+        let sign_ext_byte = SIGN_EXT_BYTE.eval(local_trace_eval);
         [
             ram_values::<E>(ram1_val.clone()),
             reg3_value::<E>(ram1_val, sign_ext_byte),
@@ -102,6 +109,22 @@ impl LoadOp for Lb {
                 BaseField::zero().into()
             }
         })
+    }
+
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut crate::lookups::LogupTraceBuilder,
+        component_trace: &ComponentTrace,
+        range_check: &RangeCheckLookupElements,
+    ) {
+        let [is_local_pad] = component_trace.original_base_column(Column::IsLocalPad);
+
+        let (_, local_trace) = component_trace.original_trace.split_at(Column::COLUMNS_NUM);
+        let h_ram_val_rem = &local_trace[1];
+        range_check.range128.generate_logup_col(
+            logup_trace_builder,
+            is_local_pad,
+            h_ram_val_rem.into(),
+        );
     }
 }
 

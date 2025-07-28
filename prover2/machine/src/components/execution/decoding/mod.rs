@@ -4,7 +4,14 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::{
     empty::EmptyPreprocessedColumn, AirColumn, PreprocessedAirColumn,
 };
-use nexus_vm_prover_trace::{builder::TraceBuilder, eval::TraceEval, program::ProgramStep};
+use nexus_vm_prover_trace::{
+    builder::TraceBuilder, component::ComponentTrace, eval::TraceEval, program::ProgramStep,
+};
+
+use crate::{
+    lookups::{LogupTraceBuilder, RangeCheckLookupElements},
+    side_note::range_check::RangeCheckAccumulator,
+};
 
 // some instructions share local columns required for decoding across modules (e.g., type-R and type-I),
 // and these are reused where possible, while others, such as loads and stores, define and use their columns locally.
@@ -35,6 +42,7 @@ pub trait InstructionDecoding {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::DecodingColumn>,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     );
 
     /// Constrains decoding trace values.
@@ -42,6 +50,14 @@ pub trait InstructionDecoding {
         eval: &mut E,
         trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+        range_check: &RangeCheckLookupElements,
+    );
+
+    /// Add logup columns to the interaction trace.
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut LogupTraceBuilder,
+        component_trace: &ComponentTrace,
+        range_check: &RangeCheckLookupElements,
     );
 
     /// Returns a linear combinations of decoding columns that represent [op-a, op-b, op-c]

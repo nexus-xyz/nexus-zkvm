@@ -8,12 +8,16 @@ use nexus_vm_prover_air_column::{
     empty::EmptyPreprocessedColumn, AirColumn, PreprocessedAirColumn,
 };
 use nexus_vm_prover_trace::{
-    builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
+    builder::TraceBuilder, component::ComponentTrace, eval::TraceEval, program::ProgramStep,
+    trace_eval,
 };
 
-use crate::components::execution::decoding::RegSplitAt4;
-
-use super::{InstructionDecoding, RegSplitAt0};
+use super::{logup_gen::ComponentTraceRef, InstructionDecoding, RegSplitAt0};
+use crate::{
+    components::execution::decoding::RegSplitAt4,
+    lookups::{LogupTraceBuilder, RangeCheckLookupElements, RangeLookupBound},
+    side_note::range_check::RangeCheckAccumulator,
+};
 
 /// Decoding columns used by type B instructions.
 #[derive(Debug, Copy, Clone, AirColumn)]
@@ -127,6 +131,7 @@ pub fn generate_trace_row(
     row_idx: usize,
     trace: &mut TraceBuilder<DecodingColumn>,
     program_step: ProgramStep,
+    range_check_accum: &mut RangeCheckAccumulator,
 ) {
     let op_c_raw = program_step.step.instruction.op_c;
 
@@ -154,6 +159,13 @@ pub fn generate_trace_row(
     let op_b4 = (op_b_raw >> 4) & 0b1;
     trace.fill_columns(row_idx, op_b0_3, DecodingColumn::OpB0_3);
     trace.fill_columns(row_idx, op_b4, DecodingColumn::OpB4);
+
+    range_check_accum
+        .range16
+        .add_values_from_slice(&[op_a1_4, op_b0_3, op_c1_4]);
+    range_check_accum
+        .range8
+        .add_values_from_slice(&[op_c5_7, op_c8_10]);
 }
 
 /// Zero-sized struct that implements type-U instruction decoding.
@@ -179,14 +191,16 @@ impl<T: TypeBDecoding> InstructionDecoding for TypeB<T> {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::DecodingColumn>,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
-        generate_trace_row(row_idx, trace, program_step);
+        generate_trace_row(row_idx, trace, program_step, range_check_accum);
     }
 
     fn constrain_decoding<E: EvalAtRow>(
         eval: &mut E,
-        _trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
+        trace_eval: &TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+        range_check: &RangeCheckLookupElements,
     ) {
         let [op_a0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA0);
         let [op_b4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB4);
@@ -196,6 +210,52 @@ impl<T: TypeBDecoding> InstructionDecoding for TypeB<T> {
         // constrain op_a0, op_b4, op_c11, op_c12 ∈ {0, 1}
         for bit in [op_a0, op_b4, op_c11, op_c12] {
             eval.add_constraint(bit.clone() * (E::F::one() - bit));
+        }
+
+        let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
+
+        let [op_a1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA1_4);
+        let [op_b0_3] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB0_3);
+        let [op_c1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC1_4);
+        let [op_c5_7] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC5_7);
+        let [op_c8_10] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC8_10);
+
+        for col in [op_a1_4, op_b0_3, op_c1_4] {
+            range_check
+                .range16
+                .constrain(eval, is_local_pad.clone(), col);
+        }
+        for col in [op_c5_7, op_c8_10] {
+            range_check
+                .range8
+                .constrain(eval, is_local_pad.clone(), col);
+        }
+    }
+
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut LogupTraceBuilder,
+        component_trace: &ComponentTrace,
+        range_check: &RangeCheckLookupElements,
+    ) {
+        let [is_local_pad] = component_trace.original_base_column(T::IS_LOCAL_PAD);
+        let decoding_trace_ref =
+            ComponentTraceRef::<'_, Self::MainColumn, Self::DecodingColumn>::split(component_trace);
+
+        let [op_a1_4] = decoding_trace_ref.base_column(DecodingColumn::OpA1_4);
+        let [op_b0_3] = decoding_trace_ref.base_column(DecodingColumn::OpB0_3);
+        let [op_c1_4] = decoding_trace_ref.base_column(DecodingColumn::OpC1_4);
+        let [op_c5_7] = decoding_trace_ref.base_column(DecodingColumn::OpC5_7);
+        let [op_c8_10] = decoding_trace_ref.base_column(DecodingColumn::OpC8_10);
+
+        for col in [op_a1_4, op_b0_3, op_c1_4] {
+            range_check
+                .range16
+                .generate_logup_col(logup_trace_builder, is_local_pad.clone(), col);
+        }
+        for col in [op_c5_7, op_c8_10] {
+            range_check
+                .range8
+                .generate_logup_col(logup_trace_builder, is_local_pad.clone(), col);
         }
     }
 

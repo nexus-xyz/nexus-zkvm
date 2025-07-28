@@ -6,6 +6,7 @@ use crate::components::execution::decoding::type_r::{TypeR, TypeRDecoding};
 pub struct SltuDecoding;
 impl TypeRDecoding for SltuDecoding {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::SLTU;
+    const IS_LOCAL_PAD: Column = Column::IsLocalPad;
 
     type PreprocessedColumn = PreprocessedColumn;
     type MainColumn = Column;

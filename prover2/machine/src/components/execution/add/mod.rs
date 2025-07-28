@@ -35,8 +35,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        RangeCheckLookupElements,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod add;
@@ -57,11 +58,11 @@ pub struct Add<A> {
     _phantom: PhantomData<A>,
 }
 
-impl<A: AddOp> ExecutionComponent for Add<A> {
-    const OPCODE: BuiltinOpcode = <A as InstructionDecoding>::OPCODE;
+impl<T: AddOp> ExecutionComponent for Add<T> {
+    const OPCODE: BuiltinOpcode = <T as InstructionDecoding>::OPCODE;
 
     const REG1_ACCESSED: bool = true;
-    const REG2_ACCESSED: bool = <A as InstructionDecoding>::REG2_ACCESSED;
+    const REG2_ACCESSED: bool = <T as InstructionDecoding>::REG2_ACCESSED;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = true;
 
@@ -73,10 +74,10 @@ struct ExecutionResult {
     sum_bytes: Word,
 }
 
-impl<A: AddOp> Add<A> {
+impl<T: AddOp> Add<T> {
     const fn new() -> Self {
         assert!(matches!(
-            A::OPCODE,
+            T::OPCODE,
             BuiltinOpcode::ADD | BuiltinOpcode::ADDI
         ));
         Self {
@@ -133,7 +134,7 @@ impl<A: AddOp> Add<A> {
     }
 }
 
-impl<A: AddOp> BuiltInComponent for Add<A> {
+impl<T: AddOp> BuiltInComponent for Add<T> {
     type PreprocessedColumn = PreprocessedColumn;
 
     type MainColumn = Column;
@@ -142,6 +143,7 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -158,13 +160,20 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
             self.generate_trace_row(&mut common_trace, row_idx, program_step);
-            A::generate_trace_row(row_idx, &mut local_trace, program_step);
+            T::generate_trace_row(
+                row_idx,
+                &mut local_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_add_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -184,16 +193,26 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
     ) {
         assert_eq!(
             component_trace.original_trace.len(),
-            Column::COLUMNS_NUM + A::DecodingColumn::COLUMNS_NUM
+            Column::COLUMNS_NUM + T::DecodingColumn::COLUMNS_NUM
         );
-        let lookup_elements = Self::LookupElements::get(lookup_elements);
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        <T as InstructionDecoding>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         <Self as ExecutionComponent>::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
             side_note,
-            &lookup_elements,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
         );
 
         logup_trace_builder.finalize()
@@ -205,6 +224,9 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            lookup_elements;
+
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let [h_carry_1, h_carry_2] = trace_eval!(trace_eval, Column::HCarry);
 
@@ -258,13 +280,11 @@ impl<A: AddOp> BuiltInComponent for Add<A> {
         );
 
         let local_trace_eval = TraceEval::new(eval);
-        A::constrain_decoding(eval, &trace_eval, &local_trace_eval);
+        T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
-
-        let instr_val = A::combine_instr_val(&local_trace_eval);
-        let reg_addrs = A::combine_reg_addresses(&local_trace_eval);
+        let instr_val = T::combine_instr_val(&local_trace_eval);
+        let reg_addrs = T::combine_reg_addresses(&local_trace_eval);
 
         let c_val = if Self::REG2_ACCESSED {
             c_val
@@ -296,7 +316,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary,
+            RegisterMemoryBoundary, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -338,6 +358,10 @@ mod tests {
                 &RegisterMemoryBoundary,
                 &ProgramMemory,
                 &ProgramMemoryBoundary,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

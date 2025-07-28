@@ -1,10 +1,15 @@
 //! Logup trace generation helpers for execution components.
 
+use std::marker::PhantomData;
+
 use stwo_prover::core::{backend::simd::column::BaseColumn, fields::m31::BaseField};
 
 use nexus_vm::{riscv::Register, WORD_SIZE};
 use nexus_vm_prover_air_column::AirColumn;
-use nexus_vm_prover_trace::{component::FinalizedColumn, program::ProgramStep};
+use nexus_vm_prover_trace::{
+    component::{ComponentTrace, FinalizedColumn},
+    program::ProgramStep,
+};
 
 /// Column for indexing virtual decoding trace, these values are used by the prover
 /// for the program memory checking logup trace generation.
@@ -118,5 +123,34 @@ impl<'a> ComponentDecodingTrace<'a> {
             let col = BaseColumn::from_iter(col_iter.map(BaseField::from));
             FinalizedColumn::new_virtual(col)
         })
+    }
+}
+
+/// Reference to the part of the committed trace.
+pub struct ComponentTraceRef<'a, C, D> {
+    original_trace: &'a [BaseColumn],
+    _phantom: PhantomData<(C, D)>,
+}
+
+impl<'a, C: AirColumn, D: AirColumn> ComponentTraceRef<'a, C, D> {
+    /// Splits the component trace assuming it is a concatenation of air columns `C` and `D`,
+    /// and returns a reference to the `D` part.
+    pub fn split(component_trace: &'a ComponentTrace) -> Self {
+        assert_eq!(
+            component_trace.original_trace.len(),
+            C::COLUMNS_NUM + D::COLUMNS_NUM
+        );
+        let original_trace = &component_trace.original_trace[C::COLUMNS_NUM..];
+        Self {
+            original_trace,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub fn base_column<const N: usize>(&self, col: D) -> [FinalizedColumn; N] {
+        assert_eq!(col.size(), N, "decoding column size mismatch");
+
+        let offset = col.offset();
+        std::array::from_fn(|i| (&self.original_trace[i + offset]).into())
     }
 }

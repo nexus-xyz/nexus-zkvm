@@ -7,7 +7,10 @@ use nexus_vm_prover_trace::{
 };
 
 use super::columns::Column;
-use crate::{components::utils::add_with_carries, side_note::SideNote};
+use crate::{
+    components::utils::add_with_carries,
+    side_note::{range_check::RangeCheckMultiplicities, SideNote},
+};
 
 // Program memory side note can only be updated by the program memory component, once it's stored
 // in the prover's side note it can only be used to fetch final program counters.
@@ -29,6 +32,7 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
 
     let mut trace = TraceBuilder::new(log_size);
     let mut program_mem_side_note = ProgramMemorySideNote::default();
+    let mut range_check_mults = RangeCheckMultiplicities::default();
 
     for (row_idx, program_step) in side_note.iter_program_steps().enumerate() {
         generate_trace_row(
@@ -36,9 +40,10 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
             row_idx,
             program_step,
             &mut program_mem_side_note,
+            &mut range_check_mults,
         );
     }
-
+    side_note.range_check.range256.append(range_check_mults);
     // store final program memory counters into side note
     side_note.memory.program_memory = program_mem_side_note;
 
@@ -53,6 +58,7 @@ fn generate_trace_row(
     row_idx: usize,
     program_step: ProgramStep,
     reg_mem_side_note: &mut ProgramMemorySideNote,
+    range_check_mults: &mut RangeCheckMultiplicities<256>,
 ) {
     let instr: u32 = program_step.step.raw_instruction;
     let pc: u32 = program_step.step.pc;
@@ -70,4 +76,7 @@ fn generate_trace_row(
     trace.fill_columns(row_idx, prev_access_bytes, Column::ProgCtrPrev);
     trace.fill_columns(row_idx, next_access_bytes, Column::ProgCtrCur);
     trace.fill_columns(row_idx, carry[1], Column::ProgCtrCarry);
+
+    range_check_mults.add_values_from_slice(&prev_access_bytes);
+    range_check_mults.add_values_from_slice(&next_access_bytes);
 }

@@ -4,16 +4,23 @@ use impl_trait_for_tuples::impl_for_tuples;
 
 mod logup_trace_builder;
 mod macros;
+mod range_check;
 mod relations;
 
 pub use self::{
     logup_trace_builder::LogupTraceBuilder,
+    range_check::{
+        Range128LookupElements, Range16LookupElements, Range256LookupElements,
+        Range32LookupElements, Range64LookupElements, Range8LookupElements,
+        RangeCheckLookupElements,
+    },
     relations::{
         BitwiseInstrLookupElements, InstToProgMemoryLookupElements, InstToRamLookupElements,
         InstToRegisterMemoryLookupElements, ProgramExecutionLookupElements,
         ProgramMemoryReadLookupElements, RamReadWriteLookupElements, RegisterMemoryLookupElements,
     },
 };
+pub use range_check::RangeLookupBound;
 
 macros::register_relation! {
     enum RelationVariant {
@@ -25,6 +32,12 @@ macros::register_relation! {
         ProgramMemoryReadLookupElements,
         InstToProgMemoryLookupElements,
         BitwiseInstrLookupElements,
+        Range8LookupElements,
+        Range16LookupElements,
+        Range32LookupElements,
+        Range64LookupElements,
+        Range128LookupElements,
+        Range256LookupElements,
     };
     pub(crate) trait RegisteredLookupBound {}
 }
@@ -81,11 +94,9 @@ impl<T: RegisteredLookupBound> ComponentLookupElements for T {
 }
 
 #[impl_for_tuples(5)]
-#[tuple_types_custom_trait_bound(RegisteredLookupBound)]
 impl private::Sealed for T {}
 
 #[impl_for_tuples(5)]
-#[tuple_types_custom_trait_bound(RegisteredLookupBound)]
 #[allow(clippy::unused_unit)]
 impl ComponentLookupElements for T {
     fn dummy() -> Self {

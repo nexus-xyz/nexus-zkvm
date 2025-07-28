@@ -1,4 +1,4 @@
-use num_traits::{One, Zero};
+use num_traits::One;
 use stwo_prover::core::{
     backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
     fields::m31::BaseField,
@@ -15,7 +15,10 @@ use nexus_vm_prover_trace::{
 };
 
 use super::columns::Column;
-use crate::{components::utils::decr_subtract_with_borrow, side_note::SideNote};
+use crate::{
+    components::utils::decr_subtract_with_borrow,
+    side_note::{range_check::RangeCheckAccumulator, SideNote},
+};
 
 // Register memory side note can only be updated by the register memory component, once it's stored
 // in the prover's side note it can only be used to fetch final registers state.
@@ -65,20 +68,27 @@ pub fn preprocessed_timestamp_trace(log_size: u32, shift: u32) -> Vec<BaseColumn
 
 pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
     // Main routine for generating register-memory trace.
-
-    assert_initial_state(&side_note.memory.register_memory);
     let num_steps = side_note.num_program_steps();
     let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
     let mut trace = TraceBuilder::new(log_size);
     let mut reg_mem_side_note = RegisterMemorySideNote::default();
+    let mut range_check_accum = RangeCheckAccumulator::default();
 
     for (row_idx, program_step) in side_note.iter_program_steps().enumerate() {
-        generate_trace_row(&mut trace, row_idx, program_step, &mut reg_mem_side_note);
+        generate_trace_row(
+            &mut trace,
+            row_idx,
+            program_step,
+            &mut reg_mem_side_note,
+            &mut range_check_accum,
+        );
     }
 
     // store final register state into side note
     side_note.memory.register_memory = reg_mem_side_note;
+    // update range check accumulator
+    side_note.range_check.append(range_check_accum);
 
     for row_idx in num_steps..1 << log_size {
         trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -90,23 +100,6 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
         );
     }
     trace.finalize()
-}
-
-fn assert_initial_state(register_mem_side_note: &RegisterMemorySideNote) {
-    assert!(
-        register_mem_side_note
-            .last_access_timestamp
-            .iter()
-            .all(Zero::is_zero),
-        "register memory initial timestamps are invalid"
-    );
-    assert!(
-        register_mem_side_note
-            .last_access_value
-            .iter()
-            .all(Zero::is_zero),
-        "register memory initial values are invalid"
-    );
 }
 
 fn reg1_accessed(step: ProgramStep) -> bool {
@@ -143,6 +136,7 @@ fn generate_trace_row(
     row_idx: usize,
     program_step: ProgramStep,
     reg_mem_side_note: &mut RegisterMemorySideNote,
+    range_check_accum: &mut RangeCheckAccumulator,
 ) {
     let opcode = &program_step.step.instruction.opcode;
     assert!(opcode.is_builtin(), "custom instructions are unsupported");
@@ -281,6 +275,34 @@ fn generate_trace_row(
     trace.fill_columns(row_idx, h1_aux_borrow[1], Column::H1AuxBorrow);
     trace.fill_columns(row_idx, h2_aux_borrow[1], Column::H2AuxBorrow);
     trace.fill_columns(row_idx, h3_aux_borrow[1], Column::H3AuxBorrow);
+
+    range_check_accum
+        .range256
+        .add_values_from_slice(&reg1_prev_ts.to_le_bytes());
+    range_check_accum
+        .range256
+        .add_values_from_slice(&reg2_prev_ts.to_le_bytes());
+    range_check_accum
+        .range256
+        .add_values_from_slice(&reg3_prev_ts.to_le_bytes());
+    range_check_accum
+        .range256
+        .add_values_from_slice(&reg1_ts_prev_aux);
+    range_check_accum
+        .range256
+        .add_values_from_slice(&reg2_ts_prev_aux);
+    range_check_accum
+        .range256
+        .add_values_from_slice(&reg3_ts_prev_aux);
+
+    let range_checked_reg3_val = if reg3_accessed {
+        &reg3_value
+    } else {
+        &[0; WORD_SIZE]
+    };
+    range_check_accum
+        .range256
+        .add_values_from_slice(range_checked_reg3_val);
 }
 
 fn generate_prev_access(

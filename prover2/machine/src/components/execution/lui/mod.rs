@@ -37,8 +37,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        RangeCheckLookupElements,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod columns;
@@ -106,6 +107,7 @@ impl BuiltInComponent for Lui {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -122,13 +124,20 @@ impl BuiltInComponent for Lui {
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut decoding_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
             self.generate_trace_row(&mut common_trace, row_idx, program_step);
-            type_u::generate_trace_row(row_idx, &mut decoding_trace, program_step);
+            type_u::generate_trace_row(
+                row_idx,
+                &mut decoding_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -150,14 +159,24 @@ impl BuiltInComponent for Lui {
             component_trace.original_trace.len(),
             Column::COLUMNS_NUM + type_u::DecodingColumn::COLUMNS_NUM
         );
-        let lookup_elements = Self::LookupElements::get(lookup_elements);
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        Decoding::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         <Self as ExecutionComponent>::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
             side_note,
-            &lookup_elements,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
         );
         logup_trace_builder.finalize()
     }
@@ -168,6 +187,9 @@ impl BuiltInComponent for Lui {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            lookup_elements;
+
         ClkIncrement {
             is_local_pad: Column::IsLocalPad,
             clk: Column::Clk,
@@ -185,10 +207,9 @@ impl BuiltInComponent for Lui {
 
         let decoding_trace_eval =
             TraceEval::<EmptyPreprocessedColumn, type_u::DecodingColumn, E>::new(eval);
-        Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval);
+        Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
         let c_val = type_u::CVal.eval(&decoding_trace_eval);
         let reg_addrs = Decoding::combine_reg_addresses(&decoding_trace_eval);
         let instr_val = Decoding::combine_instr_val(&decoding_trace_eval);
@@ -221,7 +242,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary,
+            RegisterMemoryBoundary, RANGE16, RANGE256, RANGE64,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -266,6 +287,9 @@ mod tests {
                 &RegisterMemoryBoundary,
                 &ProgramMemory,
                 &ProgramMemoryBoundary,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

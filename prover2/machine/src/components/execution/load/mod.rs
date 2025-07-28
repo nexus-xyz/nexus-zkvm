@@ -15,7 +15,7 @@ use stwo_prover::{
 };
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
-use nexus_vm_prover_air_column::AirColumn;
+use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     component::{ComponentTrace, FinalizedColumn},
@@ -39,9 +39,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRamLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
-        ProgramExecutionLookupElements,
+        ProgramExecutionLookupElements, RangeCheckLookupElements,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod lb;
@@ -55,6 +55,7 @@ mod decoding;
 
 mod columns;
 use columns::{Column, PreprocessedColumn};
+use decoding::Decoding;
 
 pub trait LoadOp: Sized + Sync + 'static {
     const RAM2_ACCESSED: bool;
@@ -67,20 +68,25 @@ pub trait LoadOp: Sized + Sync + 'static {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::LocalColumn>,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     );
     /// Add constraints for load instruction, returns evaluations for ram values and register values.
     fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: &TraceEval<
-            <Load<Self> as BuiltInComponent>::PreprocessedColumn,
-            <Load<Self> as BuiltInComponent>::MainColumn,
-            E,
-        >,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+        range_check: &RangeCheckLookupElements,
     ) -> [[E::F; WORD_SIZE]; 2];
     /// Returns finalized columns for rw-memory component logup.
     ///
     /// Sign extended bytes are expected to be zeroed by the read-write memory component.
     fn finalized_ram_values(component_trace: &ComponentTrace) -> [FinalizedColumn; WORD_SIZE];
+    /// Add logup columns for the local trace.
+    fn generate_interaction_trace(
+        logup_trace_builder: &mut LogupTraceBuilder,
+        component_trace: &ComponentTrace,
+        range_check: &RangeCheckLookupElements,
+    );
 }
 
 pub struct Load<T> {
@@ -113,6 +119,7 @@ impl<T: LoadOp> Load<T> {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let step = &program_step.step;
         assert_eq!(step.instruction.opcode.builtin(), Some(T::OPCODE));
@@ -139,12 +146,11 @@ impl<T: LoadOp> Load<T> {
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
 
         trace.fill_columns(row_idx, h_ram_base_addr, Column::HRamBaseAddr);
         trace.fill_columns(row_idx, [h_carry[1], h_carry[3]], Column::HCarry);
 
-        self.generate_decoding_trace_row(trace, row_idx, program_step);
+        Decoding::generate_decoding_trace_row(trace, row_idx, program_step, range_check_accum);
     }
 }
 
@@ -158,6 +164,7 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -174,13 +181,25 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
-            self.generate_common_trace_row(&mut common_trace, row_idx, program_step);
-            T::generate_trace_row(row_idx, &mut local_trace, program_step);
+            self.generate_common_trace_row(
+                &mut common_trace,
+                row_idx,
+                program_step,
+                &mut range_check_accum,
+            );
+            T::generate_trace_row(
+                row_idx,
+                &mut local_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_load_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -202,8 +221,13 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
             component_trace.original_trace.len(),
             Column::COLUMNS_NUM + T::LocalColumn::COLUMNS_NUM
         );
-        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
-            Self::LookupElements::get(lookup_elements);
+        let (
+            rel_inst_to_ram,
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            range_check,
+        ) = Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
@@ -214,6 +238,13 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
 
         let ram2_accessed = BaseField::from(T::RAM2_ACCESSED as u32);
         let ram3_4accessed = BaseField::from(T::RAM3_4ACCESSED as u32);
+
+        Decoding::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
+        T::generate_interaction_trace(&mut logup_trace_builder, &component_trace, &range_check);
         // provide(
         //     rel-inst-to-ram,
         //     1 − is-local-pad,
@@ -263,11 +294,18 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (
+            rel_inst_to_ram,
+            rel_inst_to_prog_memory,
+            rel_cont_prog_exec,
+            rel_inst_to_reg_memory,
+            range_check,
+        ) = lookup_elements;
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let clk = trace_eval!(trace_eval, Column::Clk);
 
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = columns::C_VAL.eval(&trace_eval);
 
         let h_ram_base_addr = trace_eval!(trace_eval, Column::HRamBaseAddr);
         let h_carry = trace_eval!(trace_eval, Column::HCarry);
@@ -327,17 +365,16 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
             eval.add_constraint(h_carry.clone() * (E::F::one() - h_carry.clone()));
         }
 
-        Self::constrain_decoding(eval, &trace_eval);
+        Decoding::constrain_decoding(eval, &trace_eval, range_check);
 
         let instr_val = load_instr_val(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(&trace_eval);
         let op_a = columns::OP_A.eval(&trace_eval);
         let op_b = columns::OP_B.eval(&trace_eval);
         let op_c = E::F::zero();
 
-        let [ram_values, reg3_value] = T::add_constraints(eval, &trace_eval);
-
-        let (rel_inst_to_ram, rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
-            lookup_elements;
+        let local_trace_eval = TraceEval::<EmptyPreprocessedColumn, T::LocalColumn, E>::new(eval);
+        let [ram_values, reg3_value] =
+            T::add_constraints(eval, &trace_eval, &local_trace_eval, range_check);
 
         let ram2_accessed = E::F::from(BaseField::from(T::RAM2_ACCESSED as u32));
         let ram3_4accessed = E::F::from(BaseField::from(T::RAM3_4ACCESSED as u32));
@@ -405,7 +442,8 @@ pub mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, ReadWriteMemory,
-            ReadWriteMemoryBoundary, RegisterMemory, RegisterMemoryBoundary, ADD, ADDI,
+            ReadWriteMemoryBoundary, RegisterMemory, RegisterMemoryBoundary, ADD, ADDI, RANGE128,
+            RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::{
             test_utils::{assert_component, components_claimed_sum, AssertContext},
@@ -467,6 +505,11 @@ pub mod tests {
         &ReadWriteMemoryBoundary,
         &ADD,
         &ADDI,
+        &RANGE8,
+        &RANGE16,
+        &RANGE64,
+        &RANGE128,
+        &RANGE256,
     ];
 
     fn assert_load_constraints<C>(component: C, opcode: BuiltinOpcode)

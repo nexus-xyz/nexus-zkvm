@@ -278,6 +278,8 @@ impl BuiltInComponent for Ecall {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
+
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
@@ -422,8 +424,6 @@ impl BuiltInComponent for Ecall {
         eval.add_constraint(reg3_accessed.clone() * (E::F::one() - reg3_accessed.clone()));
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
-
         let op_a = (is_sys_priv_input.clone() + is_sys_heap_reset.clone()) * BaseField::from(10)
             + is_sys_stack_reset.clone() * BaseField::from(2);
         let op_b = E::F::from(BaseField::from(17));
@@ -488,7 +488,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADDI,
+            RegisterMemoryBoundary, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -565,6 +565,10 @@ mod tests {
                 &ProgramMemory,
                 &ProgramMemoryBoundary,
                 &ADDI,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

@@ -32,14 +32,16 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        RangeCheckLookupElements,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod columns;
 mod decoding;
 
 use columns::{CVal, Column, InstrVal, PreprocessedColumn, OP_A};
+use decoding::Decoding;
 
 pub const JAL: Jal = Jal;
 
@@ -87,6 +89,7 @@ impl Jal {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let step = &program_step.step;
         assert_eq!(step.instruction.opcode.builtin(), Some(Self::OPCODE));
@@ -116,7 +119,7 @@ impl Jal {
         trace.fill_columns(row_idx, a_val, Column::AVal);
         trace.fill_columns(row_idx, carry_bits, Column::HCarry);
 
-        self.generate_decoding_trace_row(trace, row_idx, program_step);
+        Decoding::generate_decoding_trace_row(trace, row_idx, program_step, range_check_accum);
     }
 }
 
@@ -129,6 +132,7 @@ impl BuiltInComponent for Jal {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -144,12 +148,19 @@ impl BuiltInComponent for Jal {
         let log_size = num_steps.next_power_of_two().ilog2().max(LOG_N_LANES);
 
         let mut common_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
-            self.generate_trace_row(&mut common_trace, row_idx, program_step);
+            self.generate_trace_row(
+                &mut common_trace,
+                row_idx,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -168,14 +179,24 @@ impl BuiltInComponent for Jal {
         SecureField,
     ) {
         assert_eq!(component_trace.original_trace.len(), Column::COLUMNS_NUM);
-        let lookup_elements = Self::LookupElements::get(lookup_elements);
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        Decoding::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         <Self as ExecutionComponent>::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
             side_note,
-            &lookup_elements,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
         );
         logup_trace_builder.finalize()
     }
@@ -186,6 +207,8 @@ impl BuiltInComponent for Jal {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            lookup_elements;
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
@@ -255,7 +278,7 @@ impl BuiltInComponent for Jal {
         eval.add_constraint(pc_carry_1.clone() * (E::F::one() - pc_carry_1));
         eval.add_constraint(pc_carry_2.clone() * (E::F::one() - pc_carry_2));
 
-        Self::constrain_decoding(eval, &trace_eval);
+        Decoding::constrain_decoding(eval, &trace_eval, range_check);
 
         let op_a = OP_A.eval(&trace_eval);
         let op_b = E::F::zero();
@@ -263,8 +286,6 @@ impl BuiltInComponent for Jal {
         let instr_val = InstrVal.eval(&trace_eval);
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
-
         <Self as ExecutionComponent>::constrain_logups(
             eval,
             &trace_eval,
@@ -293,7 +314,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary,
+            RegisterMemoryBoundary, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -336,6 +357,10 @@ mod tests {
                 &RegisterMemoryBoundary,
                 &ProgramMemory,
                 &ProgramMemoryBoundary,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );

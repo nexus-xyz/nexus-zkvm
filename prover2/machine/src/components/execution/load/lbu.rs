@@ -11,8 +11,11 @@ use nexus_vm_prover_trace::{
     trace_eval,
 };
 
-use super::{columns::Column, Load, LoadOp};
-use crate::framework::BuiltInComponent;
+use super::{
+    columns::{Column, PreprocessedColumn},
+    LoadOp,
+};
+use crate::{lookups::RangeCheckLookupElements, side_note::range_check::RangeCheckAccumulator};
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum LbuColumn {
@@ -35,23 +38,18 @@ impl LoadOp for Lbu {
         row_idx: usize,
         trace: &mut TraceBuilder<Self::LocalColumn>,
         program_step: ProgramStep,
+        _range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let value_a = program_step.get_result().expect("LBU must have a result");
         trace.fill_columns(row_idx, value_a[0], LbuColumn::AVal);
     }
 
     fn add_constraints<E: EvalAtRow>(
-        eval: &mut E,
-        _trace_eval: &TraceEval<
-            <Load<Self> as BuiltInComponent>::PreprocessedColumn,
-            <Load<Self> as BuiltInComponent>::MainColumn,
-            E,
-        >,
+        _eval: &mut E,
+        _trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+        _range_check: &RangeCheckLookupElements,
     ) -> [[E::F; WORD_SIZE]; 2] {
-        // evaluate additional columns needed for the instruction
-        // this line should be called exactly once per load component
-        let local_trace_eval = TraceEval::<EmptyPreprocessedColumn, LbuColumn, E>::new(eval);
-
         let [ram1_val] = trace_eval!(local_trace_eval, LbuColumn::AVal);
 
         let ram_values = ram_values::<E>(ram1_val);
@@ -69,6 +67,14 @@ impl LoadOp for Lbu {
                 BaseField::zero().into()
             }
         })
+    }
+
+    fn generate_interaction_trace(
+        _: &mut crate::lookups::LogupTraceBuilder,
+        _: &ComponentTrace,
+        _: &RangeCheckLookupElements,
+    ) {
+        // no range checks
     }
 }
 

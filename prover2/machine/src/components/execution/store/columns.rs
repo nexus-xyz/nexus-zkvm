@@ -2,7 +2,7 @@ use nexus_vm::WORD_SIZE;
 use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
-use nexus_vm_prover_trace::eval::TraceEval;
+use nexus_vm_prover_trace::{eval::TraceEval, trace_eval};
 
 use crate::components::execution::{
     common::derive_execution_column,
@@ -33,9 +33,6 @@ pub enum Column {
     /// A 32-bit word specifying the value of operand op-b represented by four 8-bit limbs
     #[size = 4]
     BVal,
-    /// A 32-bit word specifying the value of operand op-c represented by four 8-bit limbs
-    #[size = 4]
-    CVal,
     /// The current value of the program counter register
     #[size = 2]
     Pc,
@@ -131,5 +128,30 @@ impl InstrVal {
             + op_c11 * BaseField::from(1 << 7);
 
         [instr_val_0, instr_val_1, instr_val_2, instr_val_3]
+    }
+}
+
+pub struct CVal;
+
+impl CVal {
+    pub fn eval<E: EvalAtRow>(
+        &self,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+    ) -> [E::F; WORD_SIZE] {
+        let [op_c0] = trace_eval!(trace_eval, Column::OpC0);
+        let [op_c1_4] = trace_eval!(trace_eval, Column::OpC1_4);
+        let [op_c5_7] = trace_eval!(trace_eval, Column::OpC5_7);
+        let [op_c8_10] = trace_eval!(trace_eval, Column::OpC8_10);
+        let [op_c11] = trace_eval!(trace_eval, Column::OpC11);
+
+        let c_val_0 = op_c0.clone()
+            + op_c1_4.clone() * BaseField::from(1 << 1)
+            + op_c5_7.clone() * BaseField::from(1 << 5);
+        let c_val_1 = op_c8_10.clone()
+            + op_c11.clone() * BaseField::from((1 << 5) - 1) * BaseField::from(1 << 3);
+        let c_val_2 = op_c11.clone() * BaseField::from((1 << 8) - 1);
+        let c_val_3 = op_c11 * BaseField::from((1 << 8) - 1);
+
+        [c_val_0, c_val_1, c_val_2, c_val_3]
     }
 }

@@ -40,8 +40,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        RangeCheckLookupElements, RangeLookupBound,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod columns;
@@ -119,6 +120,7 @@ impl Jalr {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let step = &program_step.step;
 
@@ -160,6 +162,9 @@ impl Jalr {
         trace.fill_columns(row_idx, carry_bits, Column::HCarry);
         trace.fill_columns(row_idx, qt_aux, Column::PcQtAux);
         trace.fill_columns(row_idx, rem_aux, Column::PcRemAux);
+
+        range_check_accum.range128.add_value(qt_aux);
+        range_check_accum.range256.add_value(pc_next_bytes[1]);
     }
 
     /// Computes pc-next 16-bit parts for the interaction trace.
@@ -193,6 +198,7 @@ impl BuiltInComponent for Jalr {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -209,11 +215,23 @@ impl BuiltInComponent for Jalr {
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in Self::iter_program_steps(side_note).enumerate() {
-            self.generate_trace_row(&mut common_trace, row_idx, program_step);
-            Decoding::generate_trace_row(row_idx, &mut local_trace, program_step);
+            self.generate_trace_row(
+                &mut common_trace,
+                row_idx,
+                program_step,
+                &mut range_check_accum,
+            );
+            Decoding::generate_trace_row(
+                row_idx,
+                &mut local_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_add_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -235,7 +253,7 @@ impl BuiltInComponent for Jalr {
             component_trace.original_trace.len(),
             Column::COLUMNS_NUM + type_i::DecodingColumn::COLUMNS_NUM
         );
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) =
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
@@ -247,6 +265,8 @@ impl BuiltInComponent for Jalr {
         let clk = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::Clk);
         let clk_next =
             component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::ClkNext);
+        let [pc_qt_aux] = component_trace.original_base_column(Column::PcQtAux);
+        let [pc_next8_15] = component_trace.original_base_column(Column::PcNext8_15);
 
         let pc = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::Pc);
 
@@ -266,6 +286,23 @@ impl BuiltInComponent for Jalr {
 
         let pc_next = Self::generate_pc_next_columns(&decoding_trace);
 
+        // range checks
+        range_check.range128.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            pc_qt_aux,
+        );
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            pc_next8_15,
+        );
+
+        Decoding::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         logup_trace_builder.add_to_relation_with(
             &rel_inst_to_prog_memory,
@@ -319,6 +356,8 @@ impl BuiltInComponent for Jalr {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            lookup_elements;
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
@@ -413,11 +452,18 @@ impl BuiltInComponent for Jalr {
         let pc_next_low = pc_qt_aux.clone() * BaseField::from(1 << 1)
             + pc_next8_15.clone() * BaseField::from(1 << 8);
 
+        // range checks
+        range_check
+            .range128
+            .constrain(eval, is_local_pad.clone(), pc_qt_aux);
+        range_check
+            .range256
+            .constrain(eval, is_local_pad.clone(), pc_next8_15);
+
         let decoding_trace_eval = TraceEval::new(eval);
-        Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval);
+        Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
         let reg_addrs = Decoding::combine_reg_addresses(&decoding_trace_eval);
         let instr_val = Decoding::combine_instr_val(&decoding_trace_eval);
 
@@ -478,7 +524,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADDI, LUI,
+            RegisterMemoryBoundary, ADDI, LUI, RANGE128, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -543,6 +589,11 @@ mod tests {
                 &ProgramMemoryBoundary,
                 &ADDI,
                 &LUI,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE128,
+                &RANGE256,
             ],
             assert_ctx,
         );

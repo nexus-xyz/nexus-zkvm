@@ -17,6 +17,7 @@ use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
     component::ComponentTrace,
     eval::TraceEval,
+    original_base_column,
     program::{ProgramStep, Word},
     trace_eval,
     utils::zero_array,
@@ -35,8 +36,9 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
+        RangeCheckLookupElements, RangeLookupBound,
     },
-    side_note::{program::ProgramTraceRef, SideNote},
+    side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
 
 mod columns;
@@ -99,6 +101,7 @@ impl<T: SltOp> Slt<T> {
         trace: &mut TraceBuilder<Column>,
         row_idx: usize,
         program_step: ProgramStep,
+        range_check_accum: &mut RangeCheckAccumulator,
     ) {
         let step = &program_step.step;
 
@@ -135,11 +138,20 @@ impl<T: SltOp> Slt<T> {
         trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
         trace.fill_columns(row_idx, diff_bytes, Column::HRem);
 
-        trace.fill_columns(row_idx, value_b[WORD_SIZE - 1] & 0x7F, Column::HRemB);
-        trace.fill_columns(row_idx, value_c[WORD_SIZE - 1] & 0x7F, Column::HRemC);
+        let h_rem_b = value_b[WORD_SIZE - 1] & 0x7F;
+        let h_rem_c = value_c[WORD_SIZE - 1] & 0x7F;
+        trace.fill_columns(row_idx, h_rem_b, Column::HRemB);
+        trace.fill_columns(row_idx, h_rem_c, Column::HRemC);
 
         trace.fill_columns(row_idx, program_step.get_sgn_b(), Column::HSgnB);
         trace.fill_columns(row_idx, program_step.get_sgn_c(), Column::HSgnC);
+
+        range_check_accum
+            .range256
+            .add_values_from_slice(&diff_bytes);
+        range_check_accum
+            .range256
+            .add_values_from_slice(&[h_rem_b, h_rem_c]);
     }
 }
 
@@ -154,6 +166,7 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RangeCheckLookupElements,
     );
 
     fn generate_preprocessed_trace(
@@ -170,13 +183,25 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
 
         let mut common_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
+        let mut range_check_accum = RangeCheckAccumulator::default();
 
         for (row_idx, program_step) in
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
-            self.generate_trace_row(&mut common_trace, row_idx, program_step);
-            T::generate_trace_row(row_idx, &mut local_trace, program_step);
+            self.generate_trace_row(
+                &mut common_trace,
+                row_idx,
+                program_step,
+                &mut range_check_accum,
+            );
+            T::generate_trace_row(
+                row_idx,
+                &mut local_trace,
+                program_step,
+                &mut range_check_accum,
+            );
         }
+        side_note.range_check.append(range_check_accum);
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
@@ -198,14 +223,37 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
             component_trace.original_trace.len(),
             Column::COLUMNS_NUM + T::DecodingColumn::COLUMNS_NUM
         );
-        let lookup_elements = Self::LookupElements::get(lookup_elements);
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
+
+        let h_rem = original_base_column!(component_trace, Column::HRem);
+        let [h_rem_b] = original_base_column!(component_trace, Column::HRemB);
+        let [h_rem_c] = original_base_column!(component_trace, Column::HRemC);
+        // range check h-rem, h-rem-b, h-rem-c
+        for byte in h_rem.iter().chain([&h_rem_b, &h_rem_c]) {
+            range_check.range256.generate_logup_col(
+                &mut logup_trace_builder,
+                is_local_pad.clone(),
+                byte.clone(),
+            );
+        }
+        <T as InstructionDecoding>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            &range_check,
+        );
         <Self as ExecutionComponent>::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
             side_note,
-            &lookup_elements,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
         );
         logup_trace_builder.finalize()
     }
@@ -216,6 +264,9 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
+            lookup_elements;
+
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let [h_borrow_1, h_borrow_2] = trace_eval!(trace_eval, Column::HBorrow);
 
@@ -308,12 +359,17 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         let mut a_val = zero_array::<WORD_SIZE, E>();
         a_val[0] = a_val_1;
 
+        // range check h-rem, h-rem-b, h-rem-c
+        for byte in h_rem.iter().chain([&h_rem_b, &h_rem_c]) {
+            range_check
+                .range256
+                .constrain(eval, is_local_pad.clone(), byte.clone());
+        }
+
         let local_trace_eval = TraceEval::new(eval);
-        T::constrain_decoding(eval, &trace_eval, &local_trace_eval);
+        T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 
         // Logup Interactions
-        let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory) = lookup_elements;
-
         let instr_val = T::combine_instr_val(&local_trace_eval);
         let reg_addrs = T::combine_reg_addresses(&local_trace_eval);
 
@@ -347,7 +403,7 @@ mod tests {
     use crate::{
         components::{
             Cpu, CpuBoundary, ProgramMemory, ProgramMemoryBoundary, RegisterMemory,
-            RegisterMemoryBoundary, ADDI,
+            RegisterMemoryBoundary, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
     };
@@ -415,6 +471,10 @@ mod tests {
                 &ProgramMemory,
                 &ProgramMemoryBoundary,
                 &ADDI,
+                &RANGE8,
+                &RANGE16,
+                &RANGE64,
+                &RANGE256,
             ],
             assert_ctx,
         );
