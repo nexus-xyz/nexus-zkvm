@@ -25,7 +25,7 @@ pub mod type_r;
 pub mod type_u;
 
 mod logup_gen;
-pub use logup_gen::{ComponentDecodingTrace, DecodingColumn};
+pub use logup_gen::{ComponentDecodingTrace, ComponentTraceRef, DecodingColumn};
 
 pub trait InstructionDecoding {
     const OPCODE: BuiltinOpcode;
@@ -69,6 +69,11 @@ pub trait InstructionDecoding {
 
     /// Returns a linear combination of decoding columns that represent raw instruction word.
     fn combine_instr_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE];
+    /// Returns a linear combination of decoding columns that represent c-val, either an immediate
+    /// or register value.
+    fn combine_c_val<E: EvalAtRow>(
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
     ) -> [E::F; WORD_SIZE];
 }

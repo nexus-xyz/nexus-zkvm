@@ -129,7 +129,6 @@ impl<T: SltuOp> Sltu<T> {
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
 
         trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
         trace.fill_columns(row_idx, diff_bytes, Column::HRem);
@@ -248,13 +247,14 @@ impl<T: SltuOp> BuiltInComponent for Sltu<T> {
     ) {
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
+        let local_trace_eval = TraceEval::new(eval);
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let [h_borrow_1, h_borrow_2] = trace_eval!(trace_eval, Column::HBorrow);
 
         let h_rem = trace_eval!(trace_eval, Column::HRem);
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = T::combine_c_val(&local_trace_eval);
 
         ClkIncrement {
             is_local_pad: Column::IsLocalPad,
@@ -310,7 +310,6 @@ impl<T: SltuOp> BuiltInComponent for Sltu<T> {
                 .constrain(eval, is_local_pad.clone(), byte);
         }
 
-        let local_trace_eval = TraceEval::new(eval);
         T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 
         // Logup Interactions

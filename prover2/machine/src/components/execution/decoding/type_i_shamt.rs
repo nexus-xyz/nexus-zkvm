@@ -51,6 +51,27 @@ pub const OP_B: RegSplitAt0<DecodingColumn> = RegSplitAt0 {
     bits_1_4: DecodingColumn::OpB1_4,
 };
 
+pub struct CVal;
+
+impl CVal {
+    pub fn eval<E: EvalAtRow, P: PreprocessedAirColumn>(
+        &self,
+        trace_eval: &TraceEval<P, DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE] {
+        let [op_c0_3] = trace_eval!(trace_eval, DecodingColumn::OpC0_3);
+        let [op_c4] = trace_eval!(trace_eval, DecodingColumn::OpC4);
+
+        let c_val_0 = op_c0_3.clone() + op_c4.clone() * BaseField::from(1 << 4);
+        std::array::from_fn(|i| {
+            if i == 0 {
+                c_val_0.clone()
+            } else {
+                E::F::zero()
+            }
+        })
+    }
+}
+
 pub struct InstrVal<C> {
     /// Byte 0: opcode + op_a0 * 2^7
     pub opcode: u8,
@@ -141,37 +162,12 @@ pub fn generate_trace_row(
         .add_values_from_slice(&[op_a1_4, op_b1_4, op_c0_3]);
 }
 
-// Constrains c-val to equal 12-bit immediate
-pub fn constrain_c_val<E: EvalAtRow>(
-    eval: &mut E,
-    trace_eval: &TraceEval<EmptyPreprocessedColumn, DecodingColumn, E>,
-    c_val: [E::F; WORD_SIZE],
-    is_local_pad: E::F,
-) {
-    let [op_c0_3] = trace_eval!(trace_eval, DecodingColumn::OpC0_3);
-    let [op_c4] = trace_eval!(trace_eval, DecodingColumn::OpC4);
-
-    // constrain c-val to equal 5-bit immediate
-    //
-    // (1 − is-local-pad) · (op-c0-3 + op-c4 · 2^4 − c-val(1)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c0_3.clone() + op_c4.clone() * BaseField::from(1 << 4) - c_val[0].clone()),
-    );
-    // (1 − is-local-pad) · (c-val(2) ) = 0
-    // (1 − is-local-pad) · (c-val(3) ) = 0
-    // (1 − is-local-pad) · (c-val(4) ) = 0
-    for c_val_byte in &c_val[1..] {
-        eval.add_constraint(c_val_byte.clone());
-    }
-}
-
 /// Zero-sized struct that implements type-I shift instruction decoding.
 pub struct TypeIShamt<T>(PhantomData<T>);
 
 pub trait TypeIShamtDecoding {
     const OPCODE: BuiltinOpcode;
-    const C_VAL: Self::MainColumn;
+
     const IS_LOCAL_PAD: Self::MainColumn;
 
     type PreprocessedColumn: PreprocessedAirColumn;
@@ -201,9 +197,6 @@ impl<T: TypeIShamtDecoding> InstructionDecoding for TypeIShamt<T> {
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
         range_check: &RangeCheckLookupElements,
     ) {
-        let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
-        let c_val = trace_eval.column_eval(T::C_VAL);
-
         let [op_a0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA0);
         let [op_b0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB0);
         let [op_c4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpC4);
@@ -212,9 +205,6 @@ impl<T: TypeIShamtDecoding> InstructionDecoding for TypeIShamt<T> {
         for bit in [op_a0, op_b0, op_c4] {
             eval.add_constraint(bit.clone() * (E::F::one() - bit));
         }
-
-        // TODO: move c-val to decoding
-        constrain_c_val(eval, decoding_trace_eval, c_val, is_local_pad);
 
         let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
 
@@ -265,5 +255,11 @@ impl<T: TypeIShamtDecoding> InstructionDecoding for TypeIShamt<T> {
             T::OPCODE.fn7().value(),
         )
         .eval(decoding_trace_eval)
+    }
+
+    fn combine_c_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE] {
+        CVal.eval(decoding_trace_eval)
     }
 }

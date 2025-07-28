@@ -56,7 +56,6 @@ struct JalrDecoding;
 impl TypeIDecoding for JalrDecoding {
     const OPCODE: BuiltinOpcode = Jalr::OPCODE;
     const IS_LOCAL_PAD: Self::MainColumn = Column::IsLocalPad;
-    const C_VAL: Self::MainColumn = Column::CVal;
 
     type PreprocessedColumn = PreprocessedColumn;
     type MainColumn = Column;
@@ -136,7 +135,6 @@ impl Jalr {
         let pc_next_bytes = pc_next.to_le_bytes();
 
         let value_b = program_step.get_value_b();
-        let (value_c, _) = program_step.get_value_c();
         let ExecutionResult {
             qt_aux,
             rem_aux,
@@ -157,7 +155,6 @@ impl Jalr {
 
         trace.fill_columns(row_idx, a_val, Column::AVal);
         trace.fill_columns(row_idx, value_b, Column::BVal);
-        trace.fill_columns(row_idx, value_c, Column::CVal);
 
         trace.fill_columns(row_idx, carry_bits, Column::HCarry);
         trace.fill_columns(row_idx, qt_aux, Column::PcQtAux);
@@ -358,11 +355,12 @@ impl BuiltInComponent for Jalr {
     ) {
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
+        let decoding_trace_eval = TraceEval::new(eval);
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = Decoding::combine_c_val(&decoding_trace_eval);
 
         let clk = trace_eval!(trace_eval, Column::Clk);
         let clk_next = trace_eval!(trace_eval, Column::ClkNext);
@@ -460,7 +458,6 @@ impl BuiltInComponent for Jalr {
             .range256
             .constrain(eval, is_local_pad.clone(), pc_next8_15);
 
-        let decoding_trace_eval = TraceEval::new(eval);
         Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // Logup Interactions

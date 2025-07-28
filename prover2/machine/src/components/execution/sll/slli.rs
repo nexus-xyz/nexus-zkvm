@@ -6,7 +6,7 @@ use crate::components::execution::decoding::type_i_shamt::{TypeIShamt, TypeISham
 pub struct SlliDecoding;
 impl TypeIShamtDecoding for SlliDecoding {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::SLLI;
-    const C_VAL: Column = Column::CVal;
+
     const IS_LOCAL_PAD: Column = Column::IsLocalPad;
 
     type PreprocessedColumn = PreprocessedColumn;
