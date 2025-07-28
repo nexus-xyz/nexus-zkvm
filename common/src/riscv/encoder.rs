@@ -136,9 +136,10 @@ pub fn encode_instruction(instruction: &Instruction) -> Result<u32, EncodeError>
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum EncodeError {
-    UnsupportedCustomOpcode(u32),
+#[derive(Debug, Error, PartialEq)]
+pub enum OpcodeError {
+    #[error("Cannot convert non-builtin opcode to BuiltinOpcode: {0}")]
+    OpcodeNotBuiltin(Opcode),
 }
 
 #[cfg(test)]
