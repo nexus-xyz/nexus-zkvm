@@ -23,9 +23,6 @@ pub enum Column {
     /// A 32-bit word specifying the value of operand op-b represented by four 8-bit limbs
     #[size = 4]
     BVal,
-    /// A 32-bit word specifying the value of operand op-c represented by four 8-bit limbs
-    #[size = 4]
-    CVal,
     /// The current value of the program counter register
     #[size = 2]
     Pc,

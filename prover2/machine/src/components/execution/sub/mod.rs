@@ -120,7 +120,6 @@ impl Sub {
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
         trace.fill_columns_bytes(row_idx, &diff_bytes, Column::AVal);
         trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
     }
@@ -218,12 +217,15 @@ impl BuiltInComponent for Sub {
     ) {
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
+        let decoding_trace_eval =
+            TraceEval::<EmptyPreprocessedColumn, type_r::DecodingColumn, E>::new(eval);
+
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let [h_borrow_1, h_borrow_2] = trace_eval!(trace_eval, Column::HBorrow);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = decoding_trace_eval.column_eval(type_r::DecodingColumn::CVal);
 
         ClkIncrement {
             is_local_pad: Column::IsLocalPad,
@@ -272,8 +274,6 @@ impl BuiltInComponent for Sub {
                         - h_borrow_1.clone())),
         );
 
-        let decoding_trace_eval =
-            TraceEval::<EmptyPreprocessedColumn, type_r::DecodingColumn, E>::new(eval);
         Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // Logup Interactions

@@ -15,12 +15,13 @@ use stwo_prover::{
 };
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
-    component::ComponentTrace,
+    component::{ComponentTrace, FinalizedColumn},
     eval::TraceEval,
     original_base_column,
-    program::Word,
+    program::{ProgramStep, Word},
     trace_eval,
     utils::zero_array,
 };
@@ -46,7 +47,10 @@ mod and;
 mod or;
 mod xor;
 
-use columns::{Column, PreprocessedColumn, A_VAL_LOW, B_VAL_LOW, C_VAL_LOW};
+mod type_i;
+mod type_r;
+
+use columns::{Column, PreprocessedColumn, A_VAL_LOW, B_VAL_LOW};
 pub use trace::BitwiseMultiplicities;
 
 pub const AND_LOOKUP_IDX: u32 = 1;
@@ -57,6 +61,24 @@ pub trait BitwiseOp:
     InstructionDecoding<PreprocessedColumn = PreprocessedColumn, MainColumn = Column>
 {
     const BITWISE_LOOKUP_IDX: u32;
+
+    type LocalColumn: AirColumn;
+
+    /// Returns linear combination of decoding and local columns that represent [c-val-low, c-val-high]
+    fn combine_c_val_parts<E: EvalAtRow>(
+        local_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::LocalColumn, E>,
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [[E::F; WORD_SIZE]; 2];
+    /// Fills trace values for the local trace
+    fn generate_trace_row(
+        row_idx: usize,
+        trace: &mut TraceBuilder<Self::LocalColumn>,
+        program_step: ProgramStep,
+    );
+    /// Returns finalized columns that represent [c-val-low, c-val-high]
+    fn combine_finalized_c_val_parts(
+        component_trace: &ComponentTrace,
+    ) -> [[FinalizedColumn; WORD_SIZE]; 2];
 }
 
 pub struct Bitwise<T> {
@@ -119,6 +141,7 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let mut accum = BitwiseMultiplicities::default();
 
         let mut common_trace = TraceBuilder::new(log_size);
+        let mut decoding_trace = TraceBuilder::new(log_size);
         let mut local_trace = TraceBuilder::new(log_size);
         let mut range_check_accum = RangeCheckAccumulator::default();
 
@@ -126,12 +149,13 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
             <Self as ExecutionComponent>::iter_program_steps(side_note).enumerate()
         {
             self.generate_trace_row(&mut common_trace, row_idx, program_step, &mut accum);
-            T::generate_trace_row(
+            <T as InstructionDecoding>::generate_trace_row(
                 row_idx,
-                &mut local_trace,
+                &mut decoding_trace,
                 program_step,
                 &mut range_check_accum,
             );
+            <T as BitwiseOp>::generate_trace_row(row_idx, &mut local_trace, program_step);
         }
         side_note.range_check.append(range_check_accum);
         // fill padding
@@ -150,7 +174,10 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
             *accum_mut.accum.entry(*row).or_default() += mult;
         }
 
-        common_trace.finalize().concat(local_trace.finalize())
+        common_trace
+            .finalize()
+            .concat(decoding_trace.finalize())
+            .concat(local_trace.finalize())
     }
 
     fn generate_interaction_trace(
@@ -179,8 +206,7 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let b_val_high = original_base_column!(component_trace, Column::BValHigh);
         let b_val_low = B_VAL_LOW.combine_from_finalized_trace(&component_trace);
 
-        let c_val_high = original_base_column!(component_trace, Column::CValHigh);
-        let c_val_low = C_VAL_LOW.combine_from_finalized_trace(&component_trace);
+        let [c_val_low, c_val_high] = T::combine_finalized_c_val_parts(&component_trace);
 
         <T as InstructionDecoding>::generate_interaction_trace(
             &mut logup_trace_builder,
@@ -241,6 +267,8 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
             rel_bitwise_instr,
             range_check,
         ) = lookup_elements;
+        let decoding_trace_eval = TraceEval::new(eval);
+        let local_trace_eval = TraceEval::new(eval);
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let a_val = trace_eval!(trace_eval, Column::AVal);
@@ -267,11 +295,10 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let b_val_high = trace_eval!(trace_eval, Column::BValHigh);
         let b_val_low = B_VAL_LOW.eval(&trace_eval);
 
-        let c_val_high = trace_eval!(trace_eval, Column::CValHigh);
-        let c_val_low = C_VAL_LOW.eval(&trace_eval);
+        let [c_val_low, c_val_high] =
+            <T as BitwiseOp>::combine_c_val_parts(&local_trace_eval, &decoding_trace_eval);
 
-        let local_trace_eval = TraceEval::new(eval);
-        T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
+        T::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // logup interactions
         let bitwise_lookup_idx: E::F = BaseField::from(T::BITWISE_LOOKUP_IDX).into();
@@ -299,11 +326,11 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
             ));
         }
 
-        let instr_val = T::combine_instr_val(&local_trace_eval);
-        let reg_addrs = T::combine_reg_addresses(&local_trace_eval);
+        let instr_val = T::combine_instr_val(&decoding_trace_eval);
+        let reg_addrs = T::combine_reg_addresses(&decoding_trace_eval);
 
         let c_val = if Self::REG2_ACCESSED {
-            trace_eval!(trace_eval, Column::CVal)
+            T::combine_c_val(&decoding_trace_eval)
         } else {
             zero_array::<WORD_SIZE, E>()
         };

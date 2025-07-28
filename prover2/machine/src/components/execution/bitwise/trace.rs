@@ -73,7 +73,6 @@ impl<B: BitwiseOp> Bitwise<B> {
         let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let value_b = program_step.get_value_b();
-        let (value_c, _) = program_step.get_value_c();
         let ExecutionResult {
             out_bytes,
             value_a_4_7,
@@ -92,12 +91,10 @@ impl<B: BitwiseOp> Bitwise<B> {
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
         trace.fill_columns_bytes(row_idx, &out_bytes, Column::AVal);
 
         trace.fill_columns(row_idx, value_a_4_7, Column::AValHigh);
         trace.fill_columns(row_idx, value_b_4_7, Column::BValHigh);
-        trace.fill_columns(row_idx, value_c_4_7, Column::CValHigh);
 
         for i in 0..WORD_SIZE {
             let looked_up_row = value_b_0_3[i] * 16 + value_c_0_3[i];
@@ -110,7 +107,7 @@ impl<B: BitwiseOp> Bitwise<B> {
 }
 
 /// Splits each 8-bit limb of a word into two 4-bit components. The results are combined back into two words (less-significant, more-significant).
-fn split_limbs(word: &Word) -> (Word, Word) {
+pub fn split_limbs(word: &Word) -> (Word, Word) {
     let mut low_bits = Word::default();
     let mut high_bits = Word::default();
     for i in 0..WORD_SIZE {

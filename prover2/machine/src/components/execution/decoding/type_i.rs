@@ -184,50 +184,11 @@ pub fn generate_trace_row(
     range_check_accum.range8.add_value(op_c8_10);
 }
 
-// Constrains c-val to equal 12-bit immediate
-pub fn constrain_c_val<E: EvalAtRow>(
-    eval: &mut E,
-    trace_eval: &TraceEval<EmptyPreprocessedColumn, DecodingColumn, E>,
-    c_val: [E::F; WORD_SIZE],
-    is_local_pad: E::F,
-) {
-    let [op_c11] = trace_eval!(trace_eval, DecodingColumn::OpC11);
-    let [op_c0_3] = trace_eval!(trace_eval, DecodingColumn::OpC0_3);
-    let [op_c4_7] = trace_eval!(trace_eval, DecodingColumn::OpC4_7);
-    let [op_c8_10] = trace_eval!(trace_eval, DecodingColumn::OpC8_10);
-
-    // constrain c-val to equal 12-bit immediate
-    //
-    // (1 − is-local-pad) · (op-c0-3 + op-c4-7 · 2^4 − c-val(1)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c0_3.clone() + op_c4_7.clone() * BaseField::from(1 << 4) - c_val[0].clone()),
-    );
-    // (1 − is-local-pad) · (op-c8-10 + op-c11 · (2^5 − 1) · 2^3 − c-val(2)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c8_10.clone()
-                + op_c11.clone() * BaseField::from((1 << 5) - 1) * BaseField::from(1 << 3)
-                - c_val[1].clone()),
-    );
-    // (1 − is-local-pad) · (op-c11 · (2^8 − 1) − c-val(3)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c11.clone() * BaseField::from((1 << 8) - 1) - c_val[2].clone()),
-    );
-    // (1 − is-local-pad) · (op-c11 · (2^8 − 1) − c-val(4)) = 0
-    eval.add_constraint(
-        (E::F::one() - is_local_pad.clone())
-            * (op_c11.clone() * BaseField::from((1 << 8) - 1) - c_val[3].clone()),
-    );
-}
-
 /// Zero-sized struct that implements type-I instruction decoding.
 pub struct TypeI<T>(PhantomData<T>);
 
 pub trait TypeIDecoding {
     const OPCODE: BuiltinOpcode;
-    const C_VAL: Self::MainColumn;
     const IS_LOCAL_PAD: Self::MainColumn;
 
     type PreprocessedColumn: PreprocessedAirColumn;
@@ -258,7 +219,6 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
         range_check: &RangeCheckLookupElements,
     ) {
         let [is_local_pad] = trace_eval.column_eval(T::IS_LOCAL_PAD);
-        let c_val = trace_eval.column_eval(T::C_VAL);
 
         let [op_a0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA0);
         let [op_b0] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB0);
@@ -268,9 +228,6 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
         for bit in [op_a0, op_b0, op_c11.clone()] {
             eval.add_constraint(bit.clone() * (E::F::one() - bit));
         }
-
-        // TODO: move c-val to decoding
-        constrain_c_val(eval, decoding_trace_eval, c_val, is_local_pad.clone());
 
         let [op_a1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpA1_4);
         let [op_b1_4] = trace_eval!(decoding_trace_eval, DecodingColumn::OpB1_4);
@@ -325,5 +282,17 @@ impl<T: TypeIDecoding> InstructionDecoding for TypeI<T> {
         decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
     ) -> [E::F; WORD_SIZE] {
         InstrVal::new(T::OPCODE.raw(), T::OPCODE.fn3().value()).eval(decoding_trace_eval)
+    }
+
+    fn combine_c_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE] {
+        CVal {
+            op_c0_3: DecodingColumn::OpC0_3,
+            op_c4_7: DecodingColumn::OpC4_7,
+            op_c8_10: DecodingColumn::OpC8_10,
+            op_c11: DecodingColumn::OpC11,
+        }
+        .eval(decoding_trace_eval)
     }
 }

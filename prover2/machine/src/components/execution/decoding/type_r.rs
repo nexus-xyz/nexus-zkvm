@@ -39,6 +39,9 @@ pub enum DecodingColumn {
     /// Lower 4 bits of op-c
     #[size = 1]
     OpC0_3,
+    /// Bytes at register op-c
+    #[size = 4]
+    CVal,
 }
 
 /// op-a register encoded as a linear combination of helper columns.
@@ -142,6 +145,9 @@ pub fn generate_trace_row(
     trace.fill_columns(row_idx, op_c0_3, DecodingColumn::OpC0_3);
     trace.fill_columns(row_idx, op_c4, DecodingColumn::OpC4);
 
+    let (c_val, _) = program_step.get_value_c();
+    trace.fill_columns(row_idx, c_val, DecodingColumn::CVal);
+
     range_check_accum
         .range16
         .add_values_from_slice(&[op_a1_4, op_b1_4, op_c0_3]);
@@ -240,5 +246,11 @@ impl<T: TypeRDecoding> InstructionDecoding for TypeR<T> {
             T::OPCODE.fn7().value(),
         )
         .eval(decoding_trace_eval)
+    }
+
+    fn combine_c_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE] {
+        decoding_trace_eval.column_eval(DecodingColumn::CVal)
     }
 }

@@ -136,10 +136,7 @@ impl<'a, C: AirColumn, D: AirColumn> ComponentTraceRef<'a, C, D> {
     /// Splits the component trace assuming it is a concatenation of air columns `C` and `D`,
     /// and returns a reference to the `D` part.
     pub fn split(component_trace: &'a ComponentTrace) -> Self {
-        assert_eq!(
-            component_trace.original_trace.len(),
-            C::COLUMNS_NUM + D::COLUMNS_NUM
-        );
+        assert!(component_trace.original_trace.len() >= C::COLUMNS_NUM + D::COLUMNS_NUM);
         let original_trace = &component_trace.original_trace[C::COLUMNS_NUM..];
         Self {
             original_trace,

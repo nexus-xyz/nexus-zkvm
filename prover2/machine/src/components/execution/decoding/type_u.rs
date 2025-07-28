@@ -211,4 +211,10 @@ impl<T: TypeUDecoding> InstructionDecoding for TypeU<T> {
     ) -> [E::F; WORD_SIZE] {
         InstrVal::new(T::OPCODE.raw()).eval(decoding_trace_eval)
     }
+
+    fn combine_c_val<E: EvalAtRow>(
+        decoding_trace_eval: &TraceEval<EmptyPreprocessedColumn, Self::DecodingColumn, E>,
+    ) -> [E::F; WORD_SIZE] {
+        CVal.eval(decoding_trace_eval)
+    }
 }

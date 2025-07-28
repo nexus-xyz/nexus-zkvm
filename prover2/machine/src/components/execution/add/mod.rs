@@ -128,7 +128,6 @@ impl<T: AddOp> Add<T> {
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
         trace.fill_columns_bytes(row_idx, &sum_bytes, Column::AVal);
         trace.fill_columns(row_idx, carry_bits, Column::HCarry);
     }
@@ -226,13 +225,14 @@ impl<T: AddOp> BuiltInComponent for Add<T> {
     ) {
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
+        let local_trace_eval = TraceEval::new(eval);
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let [h_carry_1, h_carry_2] = trace_eval!(trace_eval, Column::HCarry);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = T::combine_c_val(&local_trace_eval);
 
         ClkIncrement {
             is_local_pad: Column::IsLocalPad,
@@ -278,8 +278,6 @@ impl<T: AddOp> BuiltInComponent for Add<T> {
                         + c_val[3].clone() * modulus.clone()
                         + h_carry_1.clone())),
         );
-
-        let local_trace_eval = TraceEval::new(eval);
         T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 
         // Logup Interactions

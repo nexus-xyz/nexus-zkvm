@@ -175,7 +175,6 @@ impl<T: SraOp> Sra<T> {
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
-        trace.fill_columns_bytes(row_idx, &value_c, Column::CVal);
         trace.fill_columns_bytes(row_idx, &result, Column::AVal);
 
         trace.fill_columns_bytes(row_idx, &shift_bits, Column::Sh);
@@ -324,11 +323,12 @@ impl<T: SraOp> BuiltInComponent for Sra<T> {
     ) {
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
+        let decoding_trace_eval = TraceEval::new(eval);
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
 
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
-        let c_val = trace_eval!(trace_eval, Column::CVal);
+        let c_val = T::combine_c_val(&decoding_trace_eval);
 
         ClkIncrement {
             is_local_pad: Column::IsLocalPad,
@@ -559,7 +559,6 @@ impl<T: SraOp> BuiltInComponent for Sra<T> {
             .range128
             .constrain(eval, is_local_pad.clone(), h_rem_b);
 
-        let decoding_trace_eval = TraceEval::new(eval);
         T::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 
         // Logup Interactions

@@ -41,9 +41,6 @@ pub enum Column {
     /// A 32-bit word specifying the value of operand op-b represented by four 8-bit limbs
     #[size = 4]
     BVal,
-    /// A 32-bit word specifying the value of operand op-c represented by four 8-bit limbs
-    #[size = 4]
-    CVal,
     /// The current value of the program counter register
     #[size = 2]
     Pc,
@@ -62,9 +59,6 @@ pub enum Column {
     /// Higher 4 bits of each 8-bit limb of operand op-b
     #[size = 4]
     BValHigh,
-    /// Higher 4 bits of each 8-bit limb of operand op-c
-    #[size = 4]
-    CValHigh,
 }
 
 pub struct LowBits {
@@ -83,12 +77,17 @@ impl LowBits {
         std::array::from_fn(|i| word[i].clone() - high_bits[i].clone() * BaseField::from(1 << 4))
     }
 
-    pub fn combine_from_finalized_trace(
+    pub fn combine_from_finalized_trace<'a>(
         &self,
-        component_trace: &ComponentTrace,
-    ) -> [FinalizedColumn; WORD_SIZE] {
+        component_trace: &'a ComponentTrace,
+    ) -> [FinalizedColumn<'a>; WORD_SIZE] {
         let word: [_; WORD_SIZE] = component_trace.original_base_column(self.col);
+        Self::combine_from_column(word)
+    }
 
+    pub fn combine_from_column(
+        word: [FinalizedColumn; WORD_SIZE],
+    ) -> [FinalizedColumn<'static>; WORD_SIZE] {
         let low_bits = word.map(|col| {
             let FinalizedColumn::Column(col) = col else {
                 panic!("original trace column type mismatch")
@@ -123,9 +122,4 @@ pub const A_VAL_LOW: LowBits = LowBits {
 pub const B_VAL_LOW: LowBits = LowBits {
     col: Column::BVal,
     col_high: Column::BValHigh,
-};
-
-pub const C_VAL_LOW: LowBits = LowBits {
-    col: Column::CVal,
-    col_high: Column::CValHigh,
 };
