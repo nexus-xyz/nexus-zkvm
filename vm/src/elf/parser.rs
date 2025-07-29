@@ -540,7 +540,6 @@ mod tests {
 
     #[tracing_test::traced_test]
     #[test]
-    #[ignore]
     fn test_parse_elf_file_with_precompile() {
         let elf_bytes = read_testing_binary_from_path!("/test/program_with_dummy_div.elf");
         let elf = ElfBytes::<LittleEndian>::minimal_parse(&elf_bytes).unwrap();
@@ -554,7 +553,6 @@ mod tests {
 
     #[tracing_test::traced_test]
     #[test]
-    #[ignore]
     fn test_parse_elf_file_with_precompiles() {
         let elf_bytes = read_testing_binary_from_path!("/test/program_with_two_precompiles.elf");
 

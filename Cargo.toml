@@ -17,7 +17,7 @@ members = [
     "prover2/air-column",
     "prover2/air-column/air-column-derive",
     "prover2/machine"
-, "dummy_program"]
+]
 default-members = ["runtime", "prover", "vm", "precompiles", "common", "core"]
 exclude = ["prover-benches"]
 

@@ -52,7 +52,7 @@
 //! supporting both Harvard and Linear architectures (unified memory from Harvard architecture
 //! with a single memory space, with added read and write protection), and offering detailed
 //! visibility into the emulator's state and execution results.
-pub mod executor;
+mod executor;
 mod layout;
 pub(crate) mod memory_stats;
 mod registry;
