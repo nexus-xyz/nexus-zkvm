@@ -73,11 +73,13 @@ fn encode_b_type(instruction: &Instruction) -> u32 {
     let funct3 = (instruction.opcode.fn3.value() as u32) << 12;
     let rs1 = (instruction.op_a as u32 & 0x1F) << 15;
     let rs2 = (instruction.op_b as u32 & 0x1F) << 20;
-    let imm = instruction.op_c & 0x1FFE;
-    let imm_11 = (imm & 0x800) >> 4;
-    let imm_4_1 = (imm & 0x1E) << 7;
-    let imm_10_5 = (imm & 0x7E0) << 20;
-    let imm_12 = (imm & 0x1000) << 19;
+
+    // Perform shifts on i32 to preserve sign, but cast back to u32 for bitwise OR
+    let imm = instruction.op_c as i32;
+    let imm_11 = (((imm >> 11) & 0x1) as u32) << 7;
+    let imm_4_1 = (((imm >> 1) & 0xF) as u32) << 8;
+    let imm_10_5 = (((imm >> 5) & 0x3F) as u32) << 25;
+    let imm_12 = (((imm >> 12) & 0x1) as u32) << 31;
 
     imm_12 | imm_10_5 | rs2 | rs1 | funct3 | imm_4_1 | imm_11 | opcode
 }
@@ -95,15 +97,15 @@ fn encode_u_type(instruction: &Instruction) -> u32 {
 fn encode_j_type(instruction: &Instruction) -> u32 {
     let opcode = (instruction.opcode.raw as u32) & 0x7F;
     let rd = (instruction.op_a as u32 & 0x1F) << 7;
+
+    // Perform shifts on i32 to preserve sign, but cast back to u32 for bitwise OR
     let imm = instruction.op_c as i32;
+    let imm_20 = (((imm >> 20) & 0x1) as u32) << 31;
+    let imm_10_1 = (((imm >> 1) & 0x3FF) as u32) << 21;
+    let imm_11 = (((imm >> 11) & 0x1) as u32) << 20;
+    let imm_19_12 = (((imm >> 12) & 0xFF) as u32) << 12;
 
-    // Reconstruct the immediate value in the correct bit positions
-    let imm_20 = ((imm >> 20) & 1) << 31;
-    let imm_10_1 = ((imm >> 1) & 0x3FF) << 21;
-    let imm_11 = ((imm >> 11) & 1) << 20;
-    let imm_19_12 = ((imm >> 12) & 0xFF) << 12;
-
-    imm_20 as u32 | imm_10_1 as u32 | imm_11 as u32 | imm_19_12 as u32 | rd | opcode
+    imm_20 | imm_10_1 | imm_11 | imm_19_12 | rd | opcode
 }
 
 /// Encodes an instruction into its binary representation to little-endian format.
@@ -214,5 +216,55 @@ mod tests {
         };
         let encoded_i_shamt = i_shamt_instruction.encode();
         assert_eq!(encoded_i_shamt, 0x40A1D113);
+    }
+
+    #[test]
+    fn test_b_type_branch_offsets() {
+        // Test with a positive offset: BEQ x1, x2, +16
+        let pos_ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::BEQ),
+            ins_type: InstructionType::BType,
+            op_a: 1.into(),
+            op_b: 2.into(),
+            op_c: 16,
+        };
+        let encoded_pos = pos_ins.encode();
+        assert_eq!(encoded_pos, 0x208863);
+
+        // Test with a negative offset: BEQ x1, x2, -16
+        let neg_ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::BEQ),
+            ins_type: InstructionType::BType,
+            op_a: 1.into(),
+            op_b: 2.into(),
+            op_c: -16i32 as u32,
+        };
+        let encoded_neg = neg_ins.encode();
+        assert_eq!(encoded_neg, 0xFE2088E3);
+    }
+
+    #[test]
+    fn test_j_type_jump_boundaries() {
+        // Test with a large positive jump: JAL x1, +1MB (1048576)
+        let pos_ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::JAL),
+            ins_type: InstructionType::JType,
+            op_a: 1.into(),
+            op_b: 0.into(),
+            op_c: 1048576,
+        };
+        let encoded_pos = pos_ins.encode();
+        assert_eq!(encoded_pos, 0x800000EF);
+
+        // Test with a large negative jump: JAL x1, -1MB (-1048576)
+        let neg_ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::JAL),
+            ins_type: InstructionType::JType,
+            op_a: 1.into(),
+            op_b: 0.into(),
+            op_c: -1048576i32 as u32,
+        };
+        let encoded_neg = neg_ins.encode();
+        assert_eq!(encoded_neg, 0x800000EF);
     }
 }
