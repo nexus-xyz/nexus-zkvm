@@ -141,8 +141,11 @@ impl<T: SltOp> Slt<T> {
         trace.fill_columns(row_idx, h_rem_b, Column::HRemB);
         trace.fill_columns(row_idx, h_rem_c, Column::HRemC);
 
-        trace.fill_columns(row_idx, program_step.get_sgn_b(), Column::HSgnB);
-        trace.fill_columns(row_idx, program_step.get_sgn_c(), Column::HSgnC);
+        let h_sgn_b = program_step.get_sgn_b();
+        let h_sgn_c = program_step.get_sgn_c();
+        trace.fill_columns(row_idx, h_sgn_b, Column::HSgnB);
+        trace.fill_columns(row_idx, h_sgn_c, Column::HSgnC);
+        trace.fill_columns(row_idx, h_sgn_b == h_sgn_c, Column::HSgnEq);
 
         range_check_accum
             .range256
@@ -154,8 +157,6 @@ impl<T: SltOp> Slt<T> {
 }
 
 impl<T: SltOp> BuiltInComponent for Slt<T> {
-    const LOG_CONSTRAINT_DEGREE_BOUND: u32 = 2;
-
     type PreprocessedColumn = PreprocessedColumn;
 
     type MainColumn = Column;
@@ -203,6 +204,8 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         // fill padding
         for row_idx in num_steps..1 << log_size {
             common_trace.fill_columns(row_idx, true, Column::IsLocalPad);
+            // h-sgn-eq = (h-sgn-b)(h-sgn-c) + (1 − h-sgn-b)(1 − h-sgn-c) must be satisfied on padding rows
+            common_trace.fill_columns(row_idx, true, Column::HSgnEq);
         }
 
         common_trace.finalize().concat(local_trace.finalize())
@@ -337,9 +340,12 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
                 * (h_rem_c.clone() + h_sgn_c.clone() * BaseField::from(1 << 7) - c_val[3].clone()),
         );
 
+        let [h_sgn_eq] = trace_eval!(trace_eval, Column::HSgnEq);
         let [a_val_1] = trace_eval!(trace_eval, Column::AVal);
         let h_ltu_flag = &h_borrow_2;
 
+        // To enforce this constrain with lower degree, extract the expression h-sgn-eq = (h-sgn-b)(h-sgn-c) + (1 − h-sgn-b)(1 − h-sgn-c)
+        //
         // (1 − is-local-pad) · (
         //     (h-sgn-b)(1 − h-sgn-c)
         //     + h-ltu-flag · (
@@ -348,12 +354,13 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         //     − a-val(1)
         // ) = 0
         eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (h_sgn_b.clone() * (E::F::one() - h_sgn_c.clone())
-                    + h_ltu_flag.clone()
-                        * (h_sgn_b.clone() * h_sgn_c.clone()
-                            + (E::F::one() - h_sgn_b.clone()) * (E::F::one() - h_sgn_c.clone()))
-                    - a_val_1.clone()),
+            h_sgn_b.clone() * h_sgn_c.clone()
+                + (E::F::one() - h_sgn_b.clone()) * (E::F::one() - h_sgn_c.clone())
+                - h_sgn_eq.clone(),
+        );
+        eval.add_constraint(
+            h_sgn_b.clone() * (E::F::one() - h_sgn_c.clone()) + h_ltu_flag.clone() * h_sgn_eq
+                - a_val_1.clone(),
         );
         let mut a_val = zero_array::<WORD_SIZE, E>();
         a_val[0] = a_val_1;
