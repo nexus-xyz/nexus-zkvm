@@ -26,7 +26,7 @@ use nexus_vm_prover_trace::{
 use crate::{
     components::{
         execution::{
-            common::ExecutionComponent,
+            common::{ExecutionComponent, ExecutionLookupEval},
             decoding::{type_b, InstructionDecoding},
         },
         utils::{
@@ -77,8 +77,6 @@ impl<T: BranchOp> ExecutionComponent for BranchCmpUnsigned<T> {
     const REG2_ACCESSED: bool = false;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = false;
-
-    type Column = Column;
 }
 
 struct ExecutionResult {
@@ -139,7 +137,7 @@ impl<T: BranchOp> BranchCmpUnsigned<T> {
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let ExecutionResult {
             diff_bytes,
@@ -151,7 +149,6 @@ impl<T: BranchOp> BranchCmpUnsigned<T> {
         trace.fill_columns(row_idx, pc_next, Column::PcNext);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns(row_idx, program_step.get_value_a(), Column::AVal);
@@ -265,6 +262,7 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
+            is_local_pad,
         );
         logup_trace_builder.finalize()
     }
@@ -278,13 +276,12 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk = trace_eval!(trace_eval, Column::Clk);
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
         let pc = trace_eval!(trace_eval, Column::Pc);
@@ -373,15 +370,21 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpUnsigned<T> {
 
         <Self as ExecutionComponent>::constrain_logups(
             eval,
-            &trace_eval,
             (
                 rel_inst_to_prog_memory,
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
-            reg_addrs,
-            [a_val, b_val, zero_array::<WORD_SIZE, E>()],
-            instr_val,
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs,
+                reg_values: [a_val, b_val, zero_array::<WORD_SIZE, E>()],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next,
+            },
         );
 
         eval.finalize_logup_in_pairs();

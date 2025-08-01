@@ -41,7 +41,7 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     components::{
-        execution::decoding::{ComponentDecodingTrace, DecodingColumn},
+        execution::common::{ExecutionComponentColumn, ExecutionComponentTrace},
         utils::{add_16bit_with_carry, constraints::ClkIncrement, u32_to_16bit_parts_le},
     },
     framework::BuiltInComponent,
@@ -85,13 +85,12 @@ impl Ecall {
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
         let b_val = program_step.get_value_b();
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns(row_idx, [b_val[0], b_val[1]], Column::BVal);
@@ -196,26 +195,26 @@ impl BuiltInComponent for Ecall {
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
-        // jalr doesn't have pc_next column in its trace, execution component trait is not usable because of this
+        // reg3-accessed is not a constant for ecall
         //
         // generate logups manually
 
         let [is_local_pad] = component_trace.original_base_column(Column::IsLocalPad);
-        let clk = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::Clk);
-        let clk_next =
-            component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::ClkNext);
 
-        let pc = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::Pc);
-        let pc_next =
-            component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::PcNext);
-
-        let decoding_trace = ComponentDecodingTrace::new(
+        let decoding_trace = ExecutionComponentTrace::new(
             component_trace.log_size(),
             Self::iter_program_steps(side_note),
         );
-        let instr_val = decoding_trace.base_column::<{ WORD_SIZE }>(DecodingColumn::InstrVal);
+        let instr_val =
+            decoding_trace.base_column::<{ WORD_SIZE }>(ExecutionComponentColumn::InstrVal);
 
-        let [op_a] = decoding_trace.base_column(DecodingColumn::OpA);
+        let [op_a] = decoding_trace.base_column(ExecutionComponentColumn::OpA);
+        let clk = decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::Clk);
+        let clk_next =
+            decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::ClkNext);
+        let pc = decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::Pc);
+        let pc_next =
+            decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::PcNext);
         let a_val = decoding_trace.a_val();
 
         let zeroed_reg = [0u32; WORD_SIZE].map(|byte| BaseField::from(byte).into());
@@ -291,15 +290,12 @@ impl BuiltInComponent for Ecall {
         let [pc_carry] = trace_eval!(trace_eval, Column::PcCarry);
 
         let clk = trace_eval!(trace_eval, Column::Clk);
-        let clk_next = trace_eval!(trace_eval, Column::ClkNext);
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let [is_sys_debug] = trace_eval.column_eval(Column::IsSysDebug);
         let [is_sys_halt] = trace_eval.column_eval(Column::IsSysHalt);

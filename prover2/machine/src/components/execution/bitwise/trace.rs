@@ -66,11 +66,11 @@ impl<B: BitwiseOp> Bitwise<B> {
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
-        let (pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
+        let (_pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let value_b = program_step.get_value_b();
         let ExecutionResult {
@@ -83,11 +83,9 @@ impl<B: BitwiseOp> Bitwise<B> {
         } = Self::execute_step(program_step);
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
-        trace.fill_columns(row_idx, pc_next, Column::PcNext);
         trace.fill_columns(row_idx, pc_carry, Column::PcCarry);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);

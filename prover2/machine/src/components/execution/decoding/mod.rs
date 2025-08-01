@@ -24,9 +24,6 @@ pub mod type_i_shamt;
 pub mod type_r;
 pub mod type_u;
 
-mod logup_gen;
-pub use logup_gen::{ComponentDecodingTrace, ComponentTraceRef, DecodingColumn};
-
 pub trait InstructionDecoding {
     const OPCODE: BuiltinOpcode;
     const REG2_ACCESSED: bool;

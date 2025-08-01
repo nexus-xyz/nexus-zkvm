@@ -22,7 +22,7 @@ use nexus_vm_prover_trace::{
 use crate::{
     components::{
         execution::{
-            common::ExecutionComponent,
+            common::{ExecutionComponent, ExecutionLookupEval},
             decoding::{
                 type_r::{self, TypeRDecoding},
                 InstructionDecoding,
@@ -57,8 +57,6 @@ impl ExecutionComponent for Sub {
     const REG2_ACCESSED: bool = true;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = true;
-
-    type Column = Column;
 }
 
 struct SubDecoding;
@@ -98,11 +96,11 @@ impl Sub {
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
-        let (pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
+        let (_pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
@@ -112,11 +110,9 @@ impl Sub {
         } = Self::execute_step(value_b, value_c);
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
-        trace.fill_columns(row_idx, pc_next, Column::PcNext);
         trace.fill_columns(row_idx, pc_carry, Column::PcCarry);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
@@ -190,6 +186,7 @@ impl BuiltInComponent for Sub {
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        let [is_local_pad] = component_trace.original_base_column(Column::IsLocalPad);
         Decoding::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
@@ -204,6 +201,7 @@ impl BuiltInComponent for Sub {
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
+            is_local_pad,
         );
 
         logup_trace_builder.finalize()
@@ -227,20 +225,19 @@ impl BuiltInComponent for Sub {
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = decoding_trace_eval.column_eval(type_r::DecodingColumn::CVal);
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk = trace_eval!(trace_eval, Column::Clk);
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
-        PcIncrement {
-            is_local_pad: Column::IsLocalPad,
+        .eval(eval, &trace_eval);
+
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let pc_next = PcIncrement {
             pc: Column::Pc,
-            pc_next: Column::PcNext,
             pc_carry: Column::PcCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let modulus = E::F::from(256u32.into());
 
@@ -289,15 +286,21 @@ impl BuiltInComponent for Sub {
 
         <Self as ExecutionComponent>::constrain_logups(
             eval,
-            &trace_eval,
             (
                 rel_inst_to_prog_memory,
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
-            [op_a, op_b, op_c],
-            [a_val, b_val, c_val],
-            instr_val,
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs: [op_a, op_b, op_c],
+                reg_values: [a_val, b_val, c_val],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next,
+            },
         );
         eval.finalize_logup_in_pairs();
     }

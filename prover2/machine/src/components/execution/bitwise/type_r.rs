@@ -13,10 +13,8 @@ use nexus_vm_prover_trace::{
 use super::{trace::split_limbs, BitwiseOp, Column, PreprocessedColumn};
 use crate::components::execution::{
     bitwise::columns::LowBits,
-    decoding::{
-        type_r::{self, TypeR, TypeRDecoding},
-        ComponentTraceRef,
-    },
+    common::ComponentTraceRef,
+    decoding::type_r::{self, TypeR, TypeRDecoding},
 };
 
 pub trait TypeRBitwiseDecoding:

@@ -28,7 +28,10 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     components::{
-        execution::{common::ExecutionComponent, decoding::InstructionDecoding},
+        execution::{
+            common::{ExecutionComponent, ExecutionLookupEval},
+            decoding::InstructionDecoding,
+        },
         utils::constraints::{ClkIncrement, PcIncrement},
     },
     framework::BuiltInComponent,
@@ -92,8 +95,6 @@ impl<T: BitwiseOp> ExecutionComponent for Bitwise<T> {
     const REG2_ACCESSED: bool = <T as InstructionDecoding>::REG2_ACCESSED;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = true;
-
-    type Column = Column;
 }
 
 struct ExecutionResult {
@@ -249,6 +250,7 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
+            is_local_pad,
         );
 
         logup_trace_builder.finalize()
@@ -274,20 +276,19 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
         let a_val = trace_eval!(trace_eval, Column::AVal);
         let b_val = trace_eval!(trace_eval, Column::BVal);
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk = trace_eval!(trace_eval, Column::Clk);
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
-        PcIncrement {
-            is_local_pad: Column::IsLocalPad,
+        .eval(eval, &trace_eval);
+
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let pc_next = PcIncrement {
             pc: Column::Pc,
-            pc_next: Column::PcNext,
             pc_carry: Column::PcCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let a_val_high = trace_eval!(trace_eval, Column::AValHigh);
         let a_val_low = A_VAL_LOW.eval(&trace_eval);
@@ -337,15 +338,21 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
 
         <Self as ExecutionComponent>::constrain_logups(
             eval,
-            &trace_eval,
             (
                 rel_inst_to_prog_memory,
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
-            reg_addrs,
-            [a_val, b_val, c_val],
-            instr_val,
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs,
+                reg_values: [a_val, b_val, c_val],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next,
+            },
         );
         eval.finalize_logup_in_pairs();
     }
