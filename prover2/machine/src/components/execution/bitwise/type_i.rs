@@ -16,9 +16,9 @@ use nexus_vm_prover_trace::{
 };
 
 use super::{BitwiseOp, Column, PreprocessedColumn};
-use crate::components::execution::decoding::{
-    type_i::{self, TypeI, TypeIDecoding},
-    ComponentTraceRef,
+use crate::components::execution::{
+    common::ComponentTraceRef,
+    decoding::type_i::{self, TypeI, TypeIDecoding},
 };
 
 pub trait TypeIBitwiseDecoding:

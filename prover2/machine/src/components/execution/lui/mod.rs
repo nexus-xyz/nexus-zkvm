@@ -15,13 +15,14 @@ use nexus_vm_prover_trace::{
     component::ComponentTrace,
     eval::TraceEval,
     program::ProgramStep,
+    trace_eval,
     utils::zero_array,
 };
 
 use crate::{
     components::{
         execution::{
-            common::ExecutionComponent,
+            common::{ExecutionComponent, ExecutionLookupEval},
             decoding::{
                 type_u::{self, TypeUDecoding},
                 InstructionDecoding,
@@ -56,8 +57,6 @@ impl ExecutionComponent for Lui {
     const REG2_ACCESSED: bool = false;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = true;
-
-    type Column = Column;
 }
 
 struct LuiDecoding;
@@ -82,18 +81,16 @@ impl Lui {
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
-        let (pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
+        let (_pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
-        trace.fill_columns(row_idx, pc_next, Column::PcNext);
         trace.fill_columns(row_idx, pc_carry, Column::PcCarry);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
     }
 }
@@ -163,6 +160,7 @@ impl BuiltInComponent for Lui {
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
+        let [is_local_pad] = component_trace.original_base_column(Column::IsLocalPad);
         Decoding::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
@@ -177,6 +175,7 @@ impl BuiltInComponent for Lui {
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
+            is_local_pad,
         );
         logup_trace_builder.finalize()
     }
@@ -187,23 +186,23 @@ impl BuiltInComponent for Lui {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
+        let [is_local_pad] = trace_eval.column_eval(Column::IsLocalPad);
         let (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory, range_check) =
             lookup_elements;
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk = trace_eval!(trace_eval, Column::Clk);
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
-        PcIncrement {
-            is_local_pad: Column::IsLocalPad,
+        .eval(eval, &trace_eval);
+
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let pc_next = PcIncrement {
             pc: Column::Pc,
-            pc_next: Column::PcNext,
             pc_carry: Column::PcCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let decoding_trace_eval =
             TraceEval::<EmptyPreprocessedColumn, type_u::DecodingColumn, E>::new(eval);
@@ -216,19 +215,25 @@ impl BuiltInComponent for Lui {
 
         <Self as ExecutionComponent>::constrain_logups(
             eval,
-            &trace_eval,
             (
                 rel_inst_to_prog_memory,
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
-            reg_addrs,
-            [
-                c_val,
-                zero_array::<WORD_SIZE, E>(),
-                zero_array::<WORD_SIZE, E>(),
-            ],
-            instr_val,
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs,
+                reg_values: [
+                    c_val,
+                    zero_array::<WORD_SIZE, E>(),
+                    zero_array::<WORD_SIZE, E>(),
+                ],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next,
+            },
         );
 
         eval.finalize_logup_in_pairs();

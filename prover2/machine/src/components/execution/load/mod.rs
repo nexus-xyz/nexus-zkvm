@@ -28,7 +28,10 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     components::{
-        execution::{common::ExecutionComponent, load::columns::load_instr_val},
+        execution::{
+            common::{ExecutionComponent, ExecutionLookupEval},
+            load::columns::load_instr_val,
+        },
         utils::{
             add_16bit_with_carry, add_with_carries,
             constraints::{ClkIncrement, PcIncrement},
@@ -100,8 +103,6 @@ impl<T: LoadOp> ExecutionComponent for Load<T> {
     const REG2_ACCESSED: bool = false;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = true;
-
-    type Column = Column;
 }
 
 impl<T: LoadOp> Load<T> {
@@ -126,11 +127,11 @@ impl<T: LoadOp> Load<T> {
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
-        let (pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
+        let (_pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
@@ -138,11 +139,9 @@ impl<T: LoadOp> Load<T> {
         let (h_ram_base_addr, h_carry) = add_with_carries(value_b, value_c);
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
-        trace.fill_columns(row_idx, pc_next, Column::PcNext);
         trace.fill_columns(row_idx, pc_carry, Column::PcCarry);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns_bytes(row_idx, &value_b, Column::BVal);
@@ -283,6 +282,7 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
+            is_local_pad,
         );
 
         logup_trace_builder.finalize()
@@ -302,7 +302,6 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
             range_check,
         ) = lookup_elements;
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
-        let clk = trace_eval!(trace_eval, Column::Clk);
 
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = columns::C_VAL.eval(&trace_eval);
@@ -310,20 +309,19 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
         let h_ram_base_addr = trace_eval!(trace_eval, Column::HRamBaseAddr);
         let h_carry = trace_eval!(trace_eval, Column::HCarry);
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk = trace_eval!(trace_eval, Column::Clk);
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
-        PcIncrement {
-            is_local_pad: Column::IsLocalPad,
+        .eval(eval, &trace_eval);
+
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let pc_next = PcIncrement {
             pc: Column::Pc,
-            pc_next: Column::PcNext,
             pc_carry: Column::PcCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         // (1 − is-local-pad) · (
         //     h-ram-base-addr(1) + h-ram-base-addr(2) · 2^8
@@ -408,15 +406,21 @@ impl<T: LoadOp> BuiltInComponent for Load<T> {
 
         <Self as ExecutionComponent>::constrain_logups(
             eval,
-            &trace_eval,
             (
                 rel_inst_to_prog_memory,
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
-            [op_a, op_b, op_c],
-            [reg3_value, b_val, zero_array::<WORD_SIZE, E>()],
-            instr_val,
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs: [op_a, op_b, op_c],
+                reg_values: [reg3_value, b_val, zero_array::<WORD_SIZE, E>()],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next,
+            },
         );
 
         eval.finalize_logup_in_pairs();

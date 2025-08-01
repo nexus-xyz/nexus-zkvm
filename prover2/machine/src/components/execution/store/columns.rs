@@ -4,14 +4,9 @@ use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField}
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use nexus_vm_prover_trace::{eval::TraceEval, trace_eval};
 
-use crate::components::execution::{
-    common::derive_execution_column,
-    decoding::{RegSplitAt0, RegSplitAt4},
-};
+use crate::components::execution::decoding::{RegSplitAt0, RegSplitAt4};
 
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
-
-derive_execution_column! { Column }
 
 /// Columns common to all store instructions.
 ///
@@ -21,9 +16,6 @@ pub enum Column {
     /// The current execution time represented by two 16-bit limbs
     #[size = 2]
     Clk,
-    /// The next execution time represented by two 16-bit limbs
-    #[size = 2]
-    ClkNext,
     /// The helper bit to compute the next clock value
     #[size = 1]
     ClkCarry,
@@ -39,9 +31,6 @@ pub enum Column {
     /// The helper bits to compute the program counter update
     #[size = 1]
     PcCarry,
-    /// The next value of the program counter register after the execution
-    #[size = 2]
-    PcNext,
     /// Binary value to indicate if the row is a padding row
     #[size = 1]
     IsLocalPad,

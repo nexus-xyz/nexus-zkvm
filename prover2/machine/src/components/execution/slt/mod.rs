@@ -25,7 +25,10 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     components::{
-        execution::{common::ExecutionComponent, decoding::InstructionDecoding},
+        execution::{
+            common::{ExecutionComponent, ExecutionLookupEval},
+            decoding::InstructionDecoding,
+        },
         utils::{
             add_16bit_with_carry,
             constraints::{ClkIncrement, PcIncrement},
@@ -66,8 +69,6 @@ impl<T: SltOp> ExecutionComponent for Slt<T> {
     const REG2_ACCESSED: bool = <T as InstructionDecoding>::REG2_ACCESSED;
     const REG3_ACCESSED: bool = true;
     const REG3_WRITE: bool = true;
-
-    type Column = Column;
 }
 
 struct ExecutionResult {
@@ -107,11 +108,11 @@ impl<T: SltOp> Slt<T> {
 
         let pc = step.pc;
         let pc_parts = u32_to_16bit_parts_le(pc);
-        let (pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
+        let (_pc_next, pc_carry) = add_16bit_with_carry(pc_parts, WORD_SIZE as u16);
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let value_b = program_step.get_value_b();
         let (value_c, _) = program_step.get_value_c();
@@ -124,11 +125,9 @@ impl<T: SltOp> Slt<T> {
             .unwrap_or_else(|| panic!("{} instruction must have result", T::OPCODE));
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
-        trace.fill_columns(row_idx, pc_next, Column::PcNext);
         trace.fill_columns(row_idx, pc_carry, Column::PcCarry);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns(row_idx, result[0], Column::AVal);
@@ -253,6 +252,7 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
+            is_local_pad,
         );
         logup_trace_builder.finalize()
     }
@@ -275,20 +275,19 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         let b_val = trace_eval!(trace_eval, Column::BVal);
         let c_val = T::combine_c_val(&local_trace_eval);
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk = trace_eval!(trace_eval, Column::Clk);
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
-        PcIncrement {
-            is_local_pad: Column::IsLocalPad,
+        .eval(eval, &trace_eval);
+
+        let pc = trace_eval!(trace_eval, Column::Pc);
+        let pc_next = PcIncrement {
             pc: Column::Pc,
-            pc_next: Column::PcNext,
             pc_carry: Column::PcCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let modulus = E::F::from(256u32.into());
 
@@ -380,15 +379,21 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
 
         <Self as ExecutionComponent>::constrain_logups(
             eval,
-            &trace_eval,
             (
                 rel_inst_to_prog_memory,
                 rel_cont_prog_exec,
                 rel_inst_to_reg_memory,
             ),
-            reg_addrs,
-            [a_val, b_val, c_val],
-            instr_val,
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs,
+                reg_values: [a_val, b_val, c_val],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next,
+            },
         );
 
         eval.finalize_logup_in_pairs();

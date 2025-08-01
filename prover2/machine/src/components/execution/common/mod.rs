@@ -6,11 +6,12 @@ use stwo_prover::{
 
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
-use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
-use nexus_vm_prover_trace::{component::ComponentTrace, eval::TraceEval, program::ProgramStep};
+use nexus_vm_prover_trace::{
+    component::{ComponentTrace, FinalizedColumn},
+    program::ProgramStep,
+};
 
 use crate::{
-    components::execution::decoding::{ComponentDecodingTrace, DecodingColumn},
     lookups::{
         InstToProgMemoryLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
         ProgramExecutionLookupElements,
@@ -18,26 +19,8 @@ use crate::{
     side_note::SideNote,
 };
 
-/// Main (original) trace columns shared by execution components.
-pub trait ExecutionComponentColumn: AirColumn {
-    const COLUMNS: [Self; 5];
-}
-
-macro_rules! derive_execution_column {
-    ($col:ty) => {
-        impl crate::components::execution::common::ExecutionComponentColumn for $col {
-            // [is_local_pad, clk, clk_next, pc, pc_next]
-            const COLUMNS: [Self; 5] = [
-                Self::IsLocalPad,
-                Self::Clk,
-                Self::ClkNext,
-                Self::Pc,
-                Self::PcNext,
-            ];
-        }
-    };
-}
-pub(crate) use derive_execution_column;
+mod logup_gen;
+pub use logup_gen::{ComponentTraceRef, ExecutionComponentColumn, ExecutionComponentTrace};
 
 pub trait ExecutionComponent {
     const OPCODE: BuiltinOpcode;
@@ -46,8 +29,6 @@ pub trait ExecutionComponent {
     const REG2_ACCESSED: bool;
     const REG3_ACCESSED: bool;
     const REG3_WRITE: bool;
-
-    type Column: ExecutionComponentColumn;
 
     fn iter_program_steps<'a>(side_note: &'a SideNote) -> impl Iterator<Item = ProgramStep<'a>> {
         let opcode = Self::OPCODE;
@@ -68,24 +49,22 @@ pub trait ExecutionComponent {
             ProgramExecutionLookupElements,
             InstToRegisterMemoryLookupElements,
         ),
+        is_local_pad: FinalizedColumn,
     ) {
-        let [is_local_pad, clk, clk_next, pc, pc_next] =
-            <Self::Column as ExecutionComponentColumn>::COLUMNS;
-
-        let [is_local_pad] = component_trace.original_base_column(is_local_pad);
-        let clk = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(clk);
-        let clk_next = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(clk_next);
-
-        let pc = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(pc);
-        let pc_next = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(pc_next);
-
-        let decoding_trace = ComponentDecodingTrace::new(
+        let decoding_trace = ExecutionComponentTrace::new(
             component_trace.log_size(),
             Self::iter_program_steps(side_note),
         );
-        let instr_val = decoding_trace.base_column::<{ WORD_SIZE }>(DecodingColumn::InstrVal);
+        let instr_val =
+            decoding_trace.base_column::<{ WORD_SIZE }>(ExecutionComponentColumn::InstrVal);
 
-        let [op_a] = decoding_trace.base_column(DecodingColumn::OpA);
+        let [op_a] = decoding_trace.base_column(ExecutionComponentColumn::OpA);
+        let clk = decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::Clk);
+        let clk_next =
+            decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::ClkNext);
+        let pc = decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::Pc);
+        let pc_next =
+            decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::PcNext);
 
         let zeroed_reg = || [0u32; WORD_SIZE].map(|byte| BaseField::from(byte).into());
         let (op_b, b_val) = if Self::REG1_ACCESSED {
@@ -146,27 +125,25 @@ pub trait ExecutionComponent {
         );
     }
 
-    fn constrain_logups<E: EvalAtRow, P: PreprocessedAirColumn>(
+    fn constrain_logups<E: EvalAtRow>(
         eval: &mut E,
-        trace_eval: &TraceEval<P, Self::Column, E>,
         (rel_inst_to_prog_memory, rel_cont_prog_exec, rel_inst_to_reg_memory): (
             &InstToProgMemoryLookupElements,
             &ProgramExecutionLookupElements,
             &InstToRegisterMemoryLookupElements,
         ),
-        reg_addrs: [E::F; 3],
-        reg_values: [[E::F; WORD_SIZE]; 3],
-        instr_val: [E::F; WORD_SIZE],
+        vals: ExecutionLookupEval<E::F>,
     ) {
-        let [is_local_pad, clk, clk_next, pc, pc_next] =
-            <Self::Column as ExecutionComponentColumn>::COLUMNS;
-
-        let [is_local_pad] = trace_eval.column_eval(is_local_pad);
-        let clk = trace_eval.column_eval::<{ WORD_SIZE_HALVED }>(clk);
-        let clk_next = trace_eval.column_eval::<{ WORD_SIZE_HALVED }>(clk_next);
-
-        let pc = trace_eval.column_eval::<{ WORD_SIZE_HALVED }>(pc);
-        let pc_next = trace_eval.column_eval::<{ WORD_SIZE_HALVED }>(pc_next);
+        let ExecutionLookupEval {
+            is_local_pad,
+            reg_addrs,
+            reg_values,
+            instr_val,
+            clk,
+            clk_next,
+            pc,
+            pc_next,
+        } = vals;
 
         // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
@@ -215,4 +192,16 @@ pub trait ExecutionComponent {
             .concat(),
         ));
     }
+}
+
+/// Evaluations of columns used in execution components lookups
+pub struct ExecutionLookupEval<F> {
+    pub is_local_pad: F,
+    pub reg_addrs: [F; 3],
+    pub reg_values: [[F; WORD_SIZE]; 3],
+    pub instr_val: [F; WORD_SIZE],
+    pub clk: [F; WORD_SIZE_HALVED],
+    pub clk_next: [F; WORD_SIZE_HALVED],
+    pub pc: [F; WORD_SIZE_HALVED],
+    pub pc_next: [F; WORD_SIZE_HALVED],
 }

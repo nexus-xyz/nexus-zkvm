@@ -4,20 +4,15 @@ use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use nexus_vm_prover_trace::eval::TraceEval;
 
-use crate::components::execution::{common::derive_execution_column, decoding::RegSplitAt0};
+use crate::components::execution::decoding::RegSplitAt0;
 
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
-
-derive_execution_column! { Column }
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum Column {
     /// The current execution time represented by two 16-bit limbs
     #[size = 2]
     Clk,
-    /// The next execution time represented by two 16-bit limbs
-    #[size = 2]
-    ClkNext,
     /// The helper bit to compute the next clock value
     #[size = 1]
     ClkCarry,

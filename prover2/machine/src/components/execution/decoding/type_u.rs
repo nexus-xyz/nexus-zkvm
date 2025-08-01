@@ -11,8 +11,9 @@ use nexus_vm_prover_trace::{
     builder::TraceBuilder, eval::TraceEval, program::ProgramStep, trace_eval,
 };
 
-use super::{logup_gen::ComponentTraceRef, InstructionDecoding, RegSplitAt0};
+use super::{InstructionDecoding, RegSplitAt0};
 use crate::{
+    components::execution::common::ComponentTraceRef,
     lookups::{RangeCheckLookupElements, RangeLookupBound},
     side_note::range_check::RangeCheckAccumulator,
 };

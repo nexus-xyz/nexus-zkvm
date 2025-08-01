@@ -2,6 +2,7 @@
 
 use std::marker::PhantomData;
 
+use nexus_common::constants::WORD_SIZE_HALVED;
 use stwo_prover::core::{backend::simd::column::BaseColumn, fields::m31::BaseField};
 
 use nexus_vm::{riscv::Register, WORD_SIZE};
@@ -11,49 +12,100 @@ use nexus_vm_prover_trace::{
     program::ProgramStep,
 };
 
-/// Column for indexing virtual decoding trace, these values are used by the prover
-/// for the program memory checking logup trace generation.
+/// Column for indexing virtual execution trace, these values are used by the prover
+/// for the logup trace generation.
 #[derive(Debug, Copy, Clone, AirColumn)]
-pub enum DecodingColumn {
+pub enum ExecutionComponentColumn {
     /// The address of the first operand of the instruction
     #[size = 1]
     OpA,
     /// The 32-bit instruction word stored at address pc
     #[size = 4]
     InstrVal,
+    /// The current execution time represented by two 16-bit limbs
+    #[size = 2]
+    Clk,
+    /// The next execution time represented by two 16-bit limbs
+    #[size = 2]
+    ClkNext,
+    /// The current value of the program counter
+    #[size = 2]
+    Pc,
+    /// The next value of the program counter after execution
+    #[size = 2]
+    PcNext,
 }
 
-/// Execution component decoding trace.
+/// Execution component common trace.
 ///
 /// Prover doesn't commit to this trace.
-pub struct ComponentDecodingTrace<'a> {
+pub struct ExecutionComponentTrace<'a> {
     trace: Vec<BaseColumn>,
 
     pub(crate) log_size: u32,
     pub(crate) program_steps: Vec<ProgramStep<'a>>,
 }
 
-impl<'a> ComponentDecodingTrace<'a> {
+/// Appends a column to the trace by applying a closure to each program step.
+///
+/// Extends the trace with `pad_len` zeroes.
+fn extend_trace_with<'a, F>(
+    result: &mut Vec<BaseColumn>,
+    pad_len: usize,
+    program_steps: &[ProgramStep<'a>],
+    f: F,
+) where
+    F: Fn(&ProgramStep<'a>) -> u32,
+{
+    let iter = program_steps
+        .iter()
+        .map(f)
+        .chain(std::iter::repeat_n(0, pad_len));
+    result.push(BaseColumn::from_iter(iter.map(BaseField::from)));
+}
+
+impl<'a> ExecutionComponentTrace<'a> {
     pub fn new<I: Iterator<Item = ProgramStep<'a>>>(log_size: u32, iter: I) -> Self {
         let program_steps: Vec<ProgramStep<'a>> = iter.collect();
         let pad_len = (1usize << log_size)
             .checked_sub(program_steps.len())
             .expect("padding underflow caused by incorrect log size");
 
-        let mut result = Vec::with_capacity(DecodingColumn::COLUMNS_NUM);
+        let mut result = Vec::with_capacity(ExecutionComponentColumn::COLUMNS_NUM);
 
-        let op_a_iter = program_steps
-            .iter()
-            .map(|step| step.get_op_a() as u8 as u32)
-            .chain(std::iter::repeat_n(0, pad_len));
-
-        result.push(BaseColumn::from_iter(op_a_iter.map(BaseField::from)));
+        // op-a is used by all components
+        extend_trace_with(&mut result, pad_len, &program_steps, |step| {
+            step.get_op_a() as u8 as u32
+        });
+        // instr-val
         for i in 0..WORD_SIZE {
-            let col_iter = program_steps
-                .iter()
-                .map(|step| (step.step.raw_instruction >> (i * 8)) & 255)
-                .chain(std::iter::repeat_n(0, pad_len));
-            result.push(BaseColumn::from_iter(col_iter.map(BaseField::from)));
+            extend_trace_with(&mut result, pad_len, &program_steps, |step| {
+                (step.step.raw_instruction >> (i * 8)) & 255
+            });
+        }
+        // clk
+        for i in 0..WORD_SIZE_HALVED {
+            extend_trace_with(&mut result, pad_len, &program_steps, |step| {
+                (step.step.timestamp >> (i * 16)) & 0xFFFF
+            });
+        }
+        // clk-next
+        for i in 0..WORD_SIZE_HALVED {
+            extend_trace_with(&mut result, pad_len, &program_steps, |step| {
+                ((step.step.timestamp + 1) >> (i * 16)) & 0xFFFF
+            });
+        }
+        // pc
+        for i in 0..WORD_SIZE_HALVED {
+            extend_trace_with(&mut result, pad_len, &program_steps, |step| {
+                (step.step.pc >> (i * 16)) & 0xFFFF
+            });
+        }
+        // pc-next
+        for i in 0..WORD_SIZE_HALVED {
+            extend_trace_with(&mut result, pad_len, &program_steps, |step| {
+                (step.step.next_pc >> (i * 16)) & 0xFFFF
+            });
         }
         Self {
             log_size,
@@ -62,7 +114,10 @@ impl<'a> ComponentDecodingTrace<'a> {
         }
     }
 
-    pub fn base_column<const N: usize>(&self, col: DecodingColumn) -> [FinalizedColumn; N] {
+    pub fn base_column<const N: usize>(
+        &self,
+        col: ExecutionComponentColumn,
+    ) -> [FinalizedColumn; N] {
         assert_eq!(col.size(), N, "decoding column size mismatch");
 
         let offset = col.offset();

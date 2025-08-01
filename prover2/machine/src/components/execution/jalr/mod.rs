@@ -1,24 +1,19 @@
-use num_traits::{One, Zero};
+use num_traits::One;
 use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+    constraint_framework::EvalAtRow,
     core::{
-        backend::simd::{
-            column::BaseColumn,
-            m31::{PackedBaseField, LOG_N_LANES},
-            SimdBackend,
-        },
+        backend::simd::{m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField, FieldExpOps},
         poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
 };
 
-use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::AirColumn;
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},
-    component::{ComponentTrace, FinalizedColumn},
+    component::ComponentTrace,
     eval::TraceEval,
     program::{ProgramStep, Word},
     trace_eval,
@@ -27,9 +22,12 @@ use nexus_vm_prover_trace::{
 
 use crate::{
     components::{
-        execution::decoding::{
-            type_i::{self, TypeIDecoding},
-            ComponentDecodingTrace, DecodingColumn, InstructionDecoding,
+        execution::{
+            common::{ExecutionComponent, ExecutionLookupEval},
+            decoding::{
+                type_i::{self, TypeIDecoding},
+                InstructionDecoding,
+            },
         },
         utils::{
             add_16bit_with_carry, add_with_carries, constraints::ClkIncrement,
@@ -52,6 +50,15 @@ pub const JALR: Jalr = Jalr;
 
 pub struct Jalr;
 
+impl ExecutionComponent for Jalr {
+    const OPCODE: BuiltinOpcode = BuiltinOpcode::JALR;
+
+    const REG1_ACCESSED: bool = true;
+    const REG2_ACCESSED: bool = false;
+    const REG3_ACCESSED: bool = true;
+    const REG3_WRITE: bool = true;
+}
+
 struct JalrDecoding;
 impl TypeIDecoding for JalrDecoding {
     const OPCODE: BuiltinOpcode = Jalr::OPCODE;
@@ -72,23 +79,6 @@ struct ExecutionResult {
 }
 
 impl Jalr {
-    const OPCODE: BuiltinOpcode = BuiltinOpcode::JALR;
-
-    const REG1_ACCESSED: bool = true;
-    const REG2_ACCESSED: bool = false;
-    const REG3_ACCESSED: bool = true;
-    const REG3_WRITE: bool = true;
-
-    fn iter_program_steps<'a>(side_note: &'a SideNote) -> impl Iterator<Item = ProgramStep<'a>> {
-        let opcode = Self::OPCODE;
-        side_note.iter_program_steps().filter(move |step| {
-            matches!(
-                step.step.instruction.opcode.builtin(),
-                step_opcode if step_opcode == Some(opcode),
-            )
-        })
-    }
-
     fn execute_step(program_step: ProgramStep) -> ExecutionResult {
         let value_b = program_step.get_value_b();
         let imm = program_step.get_value_c().0;
@@ -128,7 +118,7 @@ impl Jalr {
 
         let clk = step.timestamp;
         let clk_parts = u32_to_16bit_parts_le(clk);
-        let (clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
+        let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let pc_next = step.next_pc;
         let pc_next_parts = u32_to_16bit_parts_le(pc_next);
@@ -150,7 +140,6 @@ impl Jalr {
         trace.fill_columns(row_idx, pc_carry_bits, Column::PcCarry);
 
         trace.fill_columns(row_idx, clk_parts, Column::Clk);
-        trace.fill_columns(row_idx, clk_next, Column::ClkNext);
         trace.fill_columns(row_idx, clk_carry, Column::ClkCarry);
 
         trace.fill_columns(row_idx, a_val, Column::AVal);
@@ -162,27 +151,6 @@ impl Jalr {
 
         range_check_accum.range128.add_value(qt_aux);
         range_check_accum.range256.add_value(pc_next_bytes[1]);
-    }
-
-    /// Computes pc-next 16-bit parts for the interaction trace.
-    fn generate_pc_next_columns<'a>(
-        decoding_trace: &'a ComponentDecodingTrace,
-    ) -> [FinalizedColumn<'a>; WORD_SIZE_HALVED] {
-        let pad_len = (1usize << decoding_trace.log_size) - decoding_trace.program_steps.len();
-        let pc_next: Vec<[u16; WORD_SIZE_HALVED]> = decoding_trace
-            .program_steps
-            .iter()
-            .map(|program_step| u32_to_16bit_parts_le(program_step.step.next_pc))
-            .collect();
-
-        std::array::from_fn(|i| {
-            let col_iter = pc_next
-                .iter()
-                .map(|b| b[i] as u32)
-                .chain(std::iter::repeat_n(0, pad_len));
-            let col = BaseColumn::from_iter(col_iter.map(BaseField::from));
-            FinalizedColumn::new_virtual(col)
-        })
     }
 }
 
@@ -254,34 +222,9 @@ impl BuiltInComponent for Jalr {
             Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
 
-        // jalr doesn't have pc_next column in its trace, execution component trait is not usable because of this
-        //
-        // generate logups manually
-
         let [is_local_pad] = component_trace.original_base_column(Column::IsLocalPad);
-        let clk = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::Clk);
-        let clk_next =
-            component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::ClkNext);
         let [pc_qt_aux] = component_trace.original_base_column(Column::PcQtAux);
         let [pc_next8_15] = component_trace.original_base_column(Column::PcNext8_15);
-
-        let pc = component_trace.original_base_column::<{ WORD_SIZE_HALVED }, _>(Column::Pc);
-
-        let decoding_trace = ComponentDecodingTrace::new(
-            component_trace.log_size(),
-            Self::iter_program_steps(side_note),
-        );
-        let instr_val = decoding_trace.base_column::<{ WORD_SIZE }>(DecodingColumn::InstrVal);
-
-        let [op_a] = decoding_trace.base_column(DecodingColumn::OpA);
-        let a_val = decoding_trace.a_val();
-
-        let zeroed_reg = [0u32; WORD_SIZE].map(|byte| BaseField::from(byte).into());
-        let op_b = decoding_trace.op_b();
-        let b_val = component_trace.original_base_column::<{ WORD_SIZE }, _>(Column::BVal);
-        let (op_c, c_val) = (BaseField::zero().into(), zeroed_reg);
-
-        let pc_next = Self::generate_pc_next_columns(&decoding_trace);
 
         // range checks
         range_check.range128.generate_logup_col(
@@ -300,49 +243,16 @@ impl BuiltInComponent for Jalr {
             &component_trace,
             &range_check,
         );
-        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        logup_trace_builder.add_to_relation_with(
-            &rel_inst_to_prog_memory,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (is_local_pad - PackedBaseField::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        );
-        // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        logup_trace_builder.add_to_relation_with(
-            &rel_cont_prog_exec,
-            [is_local_pad.clone()],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[clk_next, pc_next].concat(),
-        );
-        // provide(
-        //     rel-inst-to-reg-memory,
-        //     1 − is-local-pad,
-        //     (
-        //         clk,
-        //         op-a, op-b, op-c,
-        //         a-val, b-val, c-val,
-        //         reg1-accessed, reg2-accessed, reg3-accessed,
-        //         reg3-write
-        //     )
-        // )
-        logup_trace_builder.add_to_relation_with(
-            &rel_inst_to_reg_memory,
-            [is_local_pad],
-            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[
-                clk.as_slice(),
-                &[op_a, op_b, op_c],
-                &a_val,
-                &b_val,
-                &c_val,
-                &[
-                    BaseField::from(Self::REG1_ACCESSED as u32).into(),
-                    BaseField::from(Self::REG2_ACCESSED as u32).into(),
-                    BaseField::from(Self::REG3_ACCESSED as u32).into(),
-                    BaseField::from(Self::REG3_WRITE as u32).into(),
-                ],
-            ]
-            .concat(),
+        <Self as ExecutionComponent>::generate_interaction_trace(
+            &mut logup_trace_builder,
+            &component_trace,
+            side_note,
+            &(
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
+            is_local_pad,
         );
         logup_trace_builder.finalize()
     }
@@ -363,15 +273,12 @@ impl BuiltInComponent for Jalr {
         let c_val = Decoding::combine_c_val(&decoding_trace_eval);
 
         let clk = trace_eval!(trace_eval, Column::Clk);
-        let clk_next = trace_eval!(trace_eval, Column::ClkNext);
 
-        ClkIncrement {
-            is_local_pad: Column::IsLocalPad,
+        let clk_next = ClkIncrement {
             clk: Column::Clk,
-            clk_next: Column::ClkNext,
             clk_carry: Column::ClkCarry,
         }
-        .constrain(eval, &trace_eval);
+        .eval(eval, &trace_eval);
 
         let pc = trace_eval!(trace_eval, Column::Pc);
 
@@ -464,52 +371,24 @@ impl BuiltInComponent for Jalr {
         let reg_addrs = Decoding::combine_reg_addresses(&decoding_trace_eval);
         let instr_val = Decoding::combine_instr_val(&decoding_trace_eval);
 
-        // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
-        eval.add_to_relation(RelationEntry::new(
-            rel_inst_to_prog_memory,
-            (is_local_pad.clone() - E::F::one()).into(),
-            &[pc.as_slice(), &instr_val].concat(),
-        ));
-        // provide(rel-cont-prog-exec, 1 − is-local-pad, (clk-next, pc-next))
-        eval.add_to_relation(RelationEntry::new(
-            rel_cont_prog_exec,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[
-                clk_next[0].clone(),
-                clk_next[1].clone(),
-                pc_next_low,
-                pc_next_high,
-            ],
-        ));
-        // provide(
-        //     rel-inst-to-reg-memory,
-        //     1 − is-local-pad,
-        //     (
-        //         clk,
-        //         op-a, op-b, op-c,
-        //         a-val, b-val, c-val,
-        //         reg1-accessed, reg2-accessed, reg3-accessed,
-        //         reg3-write
-        //     )
-        // )
-        eval.add_to_relation(RelationEntry::new(
-            rel_inst_to_reg_memory,
-            (E::F::one() - is_local_pad.clone()).into(),
-            &[
-                clk.as_slice(),
-                &reg_addrs,
-                &a_val,
-                &b_val,
-                &zero_array::<WORD_SIZE, E>(),
-                &[
-                    BaseField::from(Self::REG1_ACCESSED as u32).into(),
-                    BaseField::from(Self::REG2_ACCESSED as u32).into(),
-                    BaseField::from(Self::REG3_ACCESSED as u32).into(),
-                    BaseField::from(Self::REG3_WRITE as u32).into(),
-                ],
-            ]
-            .concat(),
-        ));
+        <Self as ExecutionComponent>::constrain_logups(
+            eval,
+            (
+                rel_inst_to_prog_memory,
+                rel_cont_prog_exec,
+                rel_inst_to_reg_memory,
+            ),
+            ExecutionLookupEval {
+                is_local_pad,
+                reg_addrs,
+                reg_values: [a_val, b_val, zero_array::<WORD_SIZE, E>()],
+                instr_val,
+                clk,
+                clk_next,
+                pc,
+                pc_next: [pc_next_low, pc_next_high],
+            },
+        );
         eval.finalize_logup_in_pairs();
     }
 }
