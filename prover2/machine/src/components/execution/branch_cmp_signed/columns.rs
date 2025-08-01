@@ -43,4 +43,9 @@ pub enum Column {
     HSgnB,
     #[size = 1]
     HLtFlag,
+
+    // helper column to reduce constraints degree
+    /// Flag indicating whether h-sgn-a and h-sgn-b are equal
+    #[size = 1]
+    HSgnEq,
 }

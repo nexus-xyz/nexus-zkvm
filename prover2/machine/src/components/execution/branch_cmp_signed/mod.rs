@@ -180,8 +180,13 @@ impl<T: BranchOp> BranchCmpSigned<T> {
         let h_rem_b = h3[WORD_SIZE - 1];
         trace.fill_columns(row_idx, diff_bytes, Column::HRem);
         trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
-        trace.fill_columns(row_idx, program_step.get_sgn_a(), Column::HSgnA);
-        trace.fill_columns(row_idx, program_step.get_sgn_b(), Column::HSgnB);
+
+        let h_sgn_a = program_step.get_sgn_a();
+        let h_sgn_b = program_step.get_sgn_b();
+        trace.fill_columns(row_idx, h_sgn_a, Column::HSgnA);
+        trace.fill_columns(row_idx, h_sgn_b, Column::HSgnB);
+        trace.fill_columns(row_idx, h_sgn_a == h_sgn_b, Column::HSgnEq);
+
         trace.fill_columns(row_idx, h_rem_a, Column::HRemA);
         trace.fill_columns(row_idx, h_rem_b, Column::HRemB);
         trace.fill_columns(row_idx, lt_flag, Column::HLtFlag);
@@ -197,8 +202,6 @@ impl<T: BranchOp> BranchCmpSigned<T> {
 }
 
 impl<T: BranchOp> BuiltInComponent for BranchCmpSigned<T> {
-    const LOG_CONSTRAINT_DEGREE_BOUND: u32 = 2;
-
     type PreprocessedColumn = PreprocessedColumn;
 
     type MainColumn = Column;
@@ -250,6 +253,8 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpSigned<T> {
                 // (1 - h-neq-flag) * 4 term in pc-next constraint is non-zero on padding
                 common_trace.fill_columns(row_idx, [4u16, 0], Column::PcNext);
             }
+            // h-sgn-eq = (h-sgn-a)(h-sgn-b) + (1 − h-sgn-a)(1 − h-sgn-b) is non-zero on padding
+            common_trace.fill_columns(row_idx, true, Column::HSgnEq);
         }
 
         common_trace.finalize().concat(local_trace.finalize())
@@ -389,20 +394,24 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpSigned<T> {
 
         let h_ltu_flag = h_borrow_2;
         let [h_lt_flag] = trace_eval!(trace_eval, Column::HLtFlag);
+        let [h_sgn_eq] = trace_eval!(trace_eval, Column::HSgnEq);
 
         // (h-sgn-a) · (1 − h-sgn-a) = 0
         // (h-sgn-b) · (1 − h-sgn-b) = 0
         eval.add_constraint(h_sgn_a.clone() * (E::F::one() - h_sgn_a.clone()));
         eval.add_constraint(h_sgn_b.clone() * (E::F::one() - h_sgn_b.clone()));
 
+        // To enforce this constrain with lower degree, extract the expression h-sgn-eq = (h-sgn-a)(h-sgn-b) + (1 − h-sgn-a)(1 − h-sgn-b)
+        //
         // (1 − is-local-pad) · ((h-sgn-a)(1 − h-sgn-b) + h-ltu-flag((h-sgn-a)(h-sgn-b) + (1 − h-sgn-a)(1 − h-sgn-b)) − h-lt-flag) = 0
         eval.add_constraint(
-            (E::F::one() - is_local_pad.clone())
-                * (h_sgn_a.clone() * (E::F::one() - h_sgn_b.clone())
-                    + h_ltu_flag.clone()
-                        * (h_sgn_a.clone() * h_sgn_b.clone()
-                            + (E::F::one() - h_sgn_a.clone()) * (E::F::one() - h_sgn_b.clone()))
-                    - h_lt_flag.clone()),
+            h_sgn_a.clone() * h_sgn_b.clone()
+                + (E::F::one() - h_sgn_a.clone()) * (E::F::one() - h_sgn_b.clone())
+                - h_sgn_eq.clone(),
+        );
+        eval.add_constraint(
+            h_sgn_a.clone() * (E::F::one() - h_sgn_b.clone()) + h_ltu_flag.clone() * h_sgn_eq
+                - h_lt_flag.clone(),
         );
 
         let decoding_trace_eval =

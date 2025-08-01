@@ -43,4 +43,9 @@ pub enum Column {
     /// Sign bit of the highest byte of `c-val`
     #[size = 1]
     HSgnC,
+
+    // helper column to reduce constraints degree
+    /// Flag indicating whether h-sgn-b and h-sgn-c are equal
+    #[size = 1]
+    HSgnEq,
 }
