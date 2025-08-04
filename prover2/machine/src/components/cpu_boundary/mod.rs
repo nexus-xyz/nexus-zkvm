@@ -47,32 +47,31 @@ impl BuiltInComponent for CpuBoundary {
     fn generate_preprocessed_trace(
         &self,
         log_size: u32,
-        _program: &ProgramTraceRef,
+        program: &ProgramTraceRef,
     ) -> FinalizedTrace {
         assert_eq!(log_size, Self::LOG_SIZE);
-
+        let init_pc = u32_to_16bit_parts_le(program.program_memory.initial_pc);
         let mut trace = TraceBuilder::new(log_size);
-        trace.fill_columns_base_field(0, &[BaseField::one()], PreprocessedColumn::Multiplicity);
-        trace.fill_columns_base_field(1, &[-BaseField::one()], PreprocessedColumn::Multiplicity);
+
+        trace.fill_columns(0, init_pc, PreprocessedColumn::InitPc);
+
+        trace.fill_columns_base_field(0, &[BaseField::one()], PreprocessedColumn::InitMultiplicity);
+        trace.fill_columns_base_field(
+            1,
+            &[-BaseField::one()],
+            PreprocessedColumn::FinalMultiplicity,
+        );
 
         trace.finalize()
     }
 
     fn generate_main_trace(&self, side_note: &mut SideNote) -> FinalizedTrace {
         let log_size = Self::LOG_SIZE;
-
-        let first_step = side_note
-            .iter_program_steps()
-            .next()
-            .expect("empty execution trace");
         let final_step = side_note
             .iter_program_steps()
             .next_back()
             .expect("empty execution trace");
 
-        let init_pc = first_step.step.pc;
-
-        let init_pc_parts = u32_to_16bit_parts_le(init_pc);
         let init_clk_parts = [1u16, 0];
 
         let final_pc = final_step.step.next_pc;
@@ -83,10 +82,9 @@ impl BuiltInComponent for CpuBoundary {
 
         let mut trace = TraceBuilder::new(log_size);
 
-        trace.fill_columns(0, init_pc_parts, Column::Pc);
         trace.fill_columns(0, init_clk_parts, Column::Clk);
 
-        trace.fill_columns(1, final_pc_parts, Column::Pc);
+        trace.fill_columns(1, final_pc_parts, Column::FinalPc);
         trace.fill_columns(1, final_clk_parts, Column::Clk);
 
         trace.finalize()
@@ -103,14 +101,23 @@ impl BuiltInComponent for CpuBoundary {
     ) {
         let lookup_elements: &Self::LookupElements = lookup_elements.as_ref();
 
-        let [mult] = preprocessed_base_column!(component_trace, PreprocessedColumn::Multiplicity);
+        let [final_mult] =
+            preprocessed_base_column!(component_trace, PreprocessedColumn::FinalMultiplicity);
+        let [init_mult] =
+            preprocessed_base_column!(component_trace, PreprocessedColumn::InitMultiplicity);
+        let init_pc = preprocessed_base_column!(component_trace, PreprocessedColumn::InitPc);
 
         let clk = original_base_column!(component_trace, Column::Clk);
-        let pc = original_base_column!(component_trace, Column::Pc);
+        let pc = original_base_column!(component_trace, Column::FinalPc);
 
         let mut logup_trace_builder = LogupTraceBuilder::new(Self::LOG_SIZE);
 
-        logup_trace_builder.add_to_relation(lookup_elements, mult, &[clk, pc].concat());
+        logup_trace_builder.add_to_relation(
+            lookup_elements,
+            init_mult,
+            &[clk.clone(), init_pc].concat(),
+        );
+        logup_trace_builder.add_to_relation(lookup_elements, final_mult, &[clk, pc].concat());
 
         logup_trace_builder.finalize()
     }
@@ -121,14 +128,23 @@ impl BuiltInComponent for CpuBoundary {
         trace_eval: TraceEval<Self::PreprocessedColumn, Self::MainColumn, E>,
         lookup_elements: &Self::LookupElements,
     ) {
-        let [mult] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Multiplicity);
+        let [final_mult] =
+            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::FinalMultiplicity);
+        let [init_mult] =
+            preprocessed_trace_eval!(trace_eval, PreprocessedColumn::InitMultiplicity);
+        let init_pc = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::InitPc);
 
         let clk = trace_eval!(trace_eval, Column::Clk);
-        let pc = trace_eval!(trace_eval, Column::Pc);
+        let pc = trace_eval!(trace_eval, Column::FinalPc);
 
         eval.add_to_relation(RelationEntry::new(
             lookup_elements,
-            mult.into(),
+            init_mult.into(),
+            &[clk.clone(), init_pc].concat(),
+        ));
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            final_mult.into(),
             &[clk, pc].concat(),
         ));
 
