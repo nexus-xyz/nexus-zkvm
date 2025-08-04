@@ -11,7 +11,7 @@ use stwo_prover::{
 
 use nexus_vm_prover_trace::{
     builder::FinalizedTrace, component::ComponentTrace, eval::TraceEval, original_base_column,
-    trace_eval, virtual_column::VirtualColumn,
+    trace_eval,
 };
 
 use crate::{
@@ -27,7 +27,7 @@ use crate::{
 mod columns;
 mod trace;
 
-use columns::{Column, PreprocessedColumn, PC_HIGH, PC_LOW};
+use columns::{Column, PreprocessedColumn};
 pub use trace::ProgramMemorySideNote;
 
 pub struct ProgramMemory;
@@ -75,9 +75,6 @@ impl BuiltInComponent for ProgramMemory {
         let prog_ctr_cur = original_base_column!(component_trace, Column::ProgCtrCur);
         let prog_ctr_prev = original_base_column!(component_trace, Column::ProgCtrPrev);
 
-        let pc_low = PC_LOW.combine_from_finalized_trace(&component_trace);
-        let pc_high = PC_HIGH.combine_from_finalized_trace(&component_trace);
-
         for timestamp_bytes in [&prog_ctr_prev, &prog_ctr_cur] {
             for byte in timestamp_bytes {
                 range_check.range256.generate_logup_col(
@@ -93,7 +90,7 @@ impl BuiltInComponent for ProgramMemory {
             &rel_inst_to_prog_memory,
             [is_local_pad.clone()],
             |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
-            &[[pc_low, pc_high].as_slice(), &instr_val].concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         );
         // consume(rel-prog-memory-read, 1 − is-local-pad, (pc, instr-val, prog-ctr-prev))
         logup_trace_builder.add_to_relation_with(
@@ -155,9 +152,6 @@ impl BuiltInComponent for ProgramMemory {
         // prog-ctr-carry(j) ∈ {0, 1} for j = 1, 2
         eval.add_constraint(prog_ctr_carry.clone() * (E::F::one() - prog_ctr_carry));
 
-        let pc_low = PC_LOW.eval(&trace_eval);
-        let pc_high = PC_HIGH.eval(&trace_eval);
-
         let (rel_prog_memory_read, rel_inst_to_prog_memory, range_check) = lookup_elements;
         for timestamp_bytes in [&prog_ctr_prev, &prog_ctr_cur] {
             for byte in timestamp_bytes {
@@ -170,7 +164,7 @@ impl BuiltInComponent for ProgramMemory {
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_prog_memory,
             (E::F::one() - is_local_pad.clone()).into(),
-            &[[pc_low, pc_high].as_slice(), &instr_val].concat(),
+            &[pc.as_slice(), &instr_val].concat(),
         ));
         // consume(rel-prog-memory-read, 1 − is-local-pad, (pc, instr-val, prog-ctr-prev))
         eval.add_to_relation(RelationEntry::new(

@@ -5,10 +5,10 @@ use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 #[preprocessed_prefix = "rw_memory_boundary"]
 pub enum PreprocessedColumn {
     /// The memory address given for each 4-byte instruction in the program memory ever touched
-    #[size = 4]
+    #[size = 2]
     ProgInitBaseAddr,
     /// The 4-byte instruction word stored at address prog-init-base-addr
-    #[size = 4]
+    #[size = 2]
     ProgValInit,
     /// A flag indicating whether prog-val-init and prog-ctr-final columns on the current row are being used
     #[size = 1]

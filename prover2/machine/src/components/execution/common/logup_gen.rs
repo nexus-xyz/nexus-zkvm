@@ -20,7 +20,7 @@ pub enum ExecutionComponentColumn {
     #[size = 1]
     OpA,
     /// The 32-bit instruction word stored at address pc
-    #[size = 4]
+    #[size = 2]
     InstrVal,
     /// The current execution time represented by two 16-bit limbs
     #[size = 2]
@@ -78,9 +78,9 @@ impl<'a> ExecutionComponentTrace<'a> {
             step.get_op_a() as u8 as u32
         });
         // instr-val
-        for i in 0..WORD_SIZE {
+        for i in 0..WORD_SIZE_HALVED {
             extend_trace_with(&mut result, pad_len, &program_steps, |step| {
-                (step.step.raw_instruction >> (i * 8)) & 255
+                (step.step.raw_instruction >> (i * 16)) & 0xFFFF
             });
         }
         // clk

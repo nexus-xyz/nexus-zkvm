@@ -56,7 +56,7 @@ pub trait ExecutionComponent {
             Self::iter_program_steps(side_note),
         );
         let instr_val =
-            decoding_trace.base_column::<{ WORD_SIZE }>(ExecutionComponentColumn::InstrVal);
+            decoding_trace.base_column::<{ WORD_SIZE_HALVED }>(ExecutionComponentColumn::InstrVal);
 
         let [op_a] = decoding_trace.base_column(ExecutionComponentColumn::OpA);
         let clk = decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::Clk);
@@ -144,6 +144,10 @@ pub trait ExecutionComponent {
             pc,
             pc_next,
         } = vals;
+        // convert to 16-bit parts
+        let instr_val: [E::F; WORD_SIZE_HALVED] = std::array::from_fn(|i| {
+            instr_val[i * 2].clone() + instr_val[i * 2 + 1].clone() * BaseField::from(1 << 8)
+        });
 
         // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(

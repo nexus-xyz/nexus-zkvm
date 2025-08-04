@@ -21,28 +21,19 @@ pub enum PreprocessedColumn {
 
 #[derive(Debug, Copy, Clone, AirColumn)]
 pub enum Column {
-    /// The current value of the program counter register
-    #[size = 4]
-    Pc,
-    /// Auxiliary variable used for program counter arithmetic
+    /// Second byte in little endian representation of the program counter
+    #[size = 1]
+    PcNext8_15,
+    /// Higher 16 bits of the program counter
+    #[size = 1]
+    PcHigh,
+    /// Bits[2..=8] of the program counter
     #[size = 1]
     PcAux,
     /// A selector flag which is used for padding, not a computational step
     #[size = 1]
     IsPad,
 }
-
-/// Lower 16 bits of pc
-pub const PC_LOW: HalfWord<Column> = HalfWord {
-    col: Column::Pc,
-    idx: 0,
-};
-
-/// Higher 16 bits of pc
-pub const PC_HIGH: HalfWord<Column> = HalfWord {
-    col: Column::Pc,
-    idx: 1,
-};
 
 /// Two limbs combined into a single 16 bit column.
 pub struct HalfWord<C> {
