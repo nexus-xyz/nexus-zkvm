@@ -20,6 +20,7 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
+    components::utils::u32_to_16bit_parts_le,
     framework::BuiltInComponent,
     lookups::{AllLookupElements, LogupTraceBuilder, ProgramMemoryReadLookupElements},
     side_note::{program::ProgramTraceRef, SideNote},
@@ -60,8 +61,10 @@ impl BuiltInComponent for ProgramMemoryBoundary {
             },
         ) in program_memory.iter().enumerate()
         {
-            trace.fill_columns(row_idx, *pc, PreprocessedColumn::ProgInitBaseAddr);
-            trace.fill_columns(row_idx, *instruction_word, PreprocessedColumn::ProgValInit);
+            let pc_parts = u32_to_16bit_parts_le(*pc);
+            let instr_parts = u32_to_16bit_parts_le(*instruction_word);
+            trace.fill_columns(row_idx, pc_parts, PreprocessedColumn::ProgInitBaseAddr);
+            trace.fill_columns(row_idx, instr_parts, PreprocessedColumn::ProgValInit);
             trace.fill_columns(row_idx, true, PreprocessedColumn::ProgInitFlag);
         }
         trace.finalize()

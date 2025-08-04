@@ -8,7 +8,7 @@ use nexus_vm_prover_trace::{
 
 use super::columns::Column;
 use crate::{
-    components::utils::add_with_carries,
+    components::utils::{add_with_carries, u32_to_16bit_parts_le},
     side_note::{range_check::RangeCheckMultiplicities, SideNote},
 };
 
@@ -70,8 +70,10 @@ fn generate_trace_row(
     let (next_access_bytes, carry) = add_with_carries(prev_access_bytes, 1u32.to_le_bytes());
     assert!(!carry[3]);
 
-    trace.fill_columns(row_idx, pc, Column::Pc);
-    trace.fill_columns(row_idx, instr, Column::InstrVal);
+    let pc_parts = u32_to_16bit_parts_le(pc);
+    let instr_parts = u32_to_16bit_parts_le(instr);
+    trace.fill_columns(row_idx, pc_parts, Column::Pc);
+    trace.fill_columns(row_idx, instr_parts, Column::InstrVal);
 
     trace.fill_columns(row_idx, prev_access_bytes, Column::ProgCtrPrev);
     trace.fill_columns(row_idx, next_access_bytes, Column::ProgCtrCur);

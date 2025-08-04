@@ -206,7 +206,7 @@ impl BuiltInComponent for Ecall {
             Self::iter_program_steps(side_note),
         );
         let instr_val =
-            decoding_trace.base_column::<{ WORD_SIZE }>(ExecutionComponentColumn::InstrVal);
+            decoding_trace.base_column::<{ WORD_SIZE_HALVED }>(ExecutionComponentColumn::InstrVal);
 
         let [op_a] = decoding_trace.base_column(ExecutionComponentColumn::OpA);
         let clk = decoding_trace.base_column::<WORD_SIZE_HALVED>(ExecutionComponentColumn::Clk);
@@ -424,8 +424,7 @@ impl BuiltInComponent for Ecall {
             + is_sys_stack_reset.clone() * BaseField::from(2);
         let op_b = E::F::from(BaseField::from(17));
         let op_c = E::F::zero();
-        let mut instr_val = zero_array::<WORD_SIZE, E>();
-        instr_val[0] = E::F::from(BaseField::from(0b01110011u32));
+        let instr_val = [E::F::from(BaseField::from(0b01110011u32)), E::F::zero()];
 
         // consume(rel-inst-to-prog-memory, 1−is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(
