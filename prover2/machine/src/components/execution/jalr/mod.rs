@@ -1,4 +1,4 @@
-use num_traits::One;
+use num_traits::{One, Zero};
 use stwo_prover::{
     constraint_framework::EvalAtRow,
     core::{
@@ -150,7 +150,9 @@ impl Jalr {
         trace.fill_columns(row_idx, rem_aux, Column::PcRemAux);
 
         range_check_accum.range128.add_value(qt_aux);
-        range_check_accum.range256.add_value(pc_next_bytes[1]);
+        range_check_accum
+            .range256
+            .add_values(&[pc_next_bytes[1], 0]);
     }
 }
 
@@ -235,7 +237,7 @@ impl BuiltInComponent for Jalr {
         range_check.range256.generate_logup_col(
             &mut logup_trace_builder,
             is_local_pad.clone(),
-            pc_next8_15,
+            &[pc_next8_15, BaseField::zero().into()],
         );
 
         Decoding::generate_interaction_trace(
@@ -363,7 +365,7 @@ impl BuiltInComponent for Jalr {
             .constrain(eval, is_local_pad.clone(), pc_qt_aux);
         range_check
             .range256
-            .constrain(eval, is_local_pad.clone(), pc_next8_15);
+            .constrain(eval, is_local_pad.clone(), &[pc_next8_15, E::F::zero()]);
 
         Decoding::constrain_decoding(eval, &trace_eval, &decoding_trace_eval, range_check);
 

@@ -39,7 +39,7 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
-        RangeCheckLookupElements, RangeLookupBound,
+        RangeCheckLookupElements,
     },
     side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
@@ -132,9 +132,7 @@ impl<T: SltuOp> Sltu<T> {
         trace.fill_columns(row_idx, borrow_bits, Column::HBorrow);
         trace.fill_columns(row_idx, diff_bytes, Column::HRem);
 
-        range_check_accum
-            .range256
-            .add_values_from_slice(&diff_bytes);
+        range_check_accum.range256.add_values(&diff_bytes);
     }
 }
 
@@ -211,13 +209,11 @@ impl<T: SltuOp> BuiltInComponent for Sltu<T> {
         // range check h-rem
         let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
         let h_rem = original_base_column!(component_trace, Column::HRem);
-        for byte in h_rem {
-            range_check.range256.generate_logup_col(
-                &mut logup_trace_builder,
-                is_local_pad.clone(),
-                byte,
-            );
-        }
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            &h_rem,
+        );
 
         <T as InstructionDecoding>::generate_interaction_trace(
             &mut logup_trace_builder,
@@ -303,11 +299,9 @@ impl<T: SltuOp> BuiltInComponent for Sltu<T> {
         );
 
         // range check h-rem
-        for byte in h_rem {
-            range_check
-                .range256
-                .constrain(eval, is_local_pad.clone(), byte);
-        }
+        range_check
+            .range256
+            .constrain(eval, is_local_pad.clone(), &h_rem);
 
         T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 

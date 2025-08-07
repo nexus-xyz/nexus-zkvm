@@ -10,7 +10,7 @@ use nexus_vm_prover_trace::{
 use super::columns::Column;
 use crate::{
     components::utils::{add_with_carries, decr_subtract_with_borrow, u32_to_16bit_parts_le},
-    side_note::{range_check::RangeCheckMultiplicities, SideNote},
+    side_note::{range_check::Range256Multiplicities, SideNote},
 };
 
 // Read-write memory side note can only be updated by the read-write memory component, once it's stored
@@ -63,7 +63,7 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
         .ilog2()
         .max(LOG_N_LANES);
 
-    let mut range_check_mults = RangeCheckMultiplicities::default();
+    let mut range_check_mults = Range256Multiplicities::default();
     let mut trace = TraceBuilder::new(log_size);
     for (row_idx, program_step) in iter_program_steps(side_note).enumerate() {
         generate_trace_row(
@@ -90,7 +90,7 @@ fn generate_trace_row(
     row_idx: usize,
     program_step: ProgramStep,
     rw_memory_side_note: &mut ReadWriteMemorySideNote,
-    range_check_mults: &mut RangeCheckMultiplicities<256>,
+    range_check_mults: &mut Range256Multiplicities,
 ) {
     let is_load = matches!(
         program_step.step.instruction.opcode.builtin(),
@@ -208,9 +208,9 @@ fn generate_trace_row(
             trace.fill_columns(row_idx, ram_ts_prev_aux_word, *ram_ts_prev_aux);
             trace.fill_columns(row_idx, ram_ts_prev_borrow[1], *helper);
 
-            range_check_mults.add_values_from_slice(&prev_timestamp.to_le_bytes());
-            range_check_mults.add_values_from_slice(&ram_ts_prev_aux_word);
-            range_check_mults.add_value(prev_val);
+            range_check_mults.add_values(&prev_timestamp.to_le_bytes());
+            range_check_mults.add_values(&ram_ts_prev_aux_word);
+            // range_check_mults.add_values(&[prev_val, 0]);
         }
 
         for (.., ram_ts_prev_aux, helper) in &ram_cols[access_size..] {
@@ -221,9 +221,16 @@ fn generate_trace_row(
             trace.fill_columns(row_idx, ram_ts_prev_aux_word, *ram_ts_prev_aux);
             trace.fill_columns(row_idx, ram_ts_prev_borrow[1], *helper);
 
-            range_check_mults.add_values_from_slice(&[0u8; WORD_SIZE]);
-            range_check_mults.add_values_from_slice(&ram_ts_prev_aux_word);
-            range_check_mults.add_value(0); // prev value
+            range_check_mults.add_values(&[0u8; WORD_SIZE]);
+            range_check_mults.add_values(&ram_ts_prev_aux_word);
+            // range_check_mults.add_values(&[0, 0]); // prev value
         }
+
+        let range_checked_prev_vals: Vec<u8> = prev_value[..access_size]
+            .iter()
+            .copied()
+            .chain(std::iter::repeat_n(0, WORD_SIZE - access_size))
+            .collect();
+        range_check_mults.add_values(&range_checked_prev_vals);
     }
 }

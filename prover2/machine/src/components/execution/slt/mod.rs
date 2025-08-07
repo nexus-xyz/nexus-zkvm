@@ -39,7 +39,7 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRegisterMemoryLookupElements, LogupTraceBuilder, ProgramExecutionLookupElements,
-        RangeCheckLookupElements, RangeLookupBound,
+        RangeCheckLookupElements,
     },
     side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
@@ -147,12 +147,8 @@ impl<T: SltOp> Slt<T> {
         trace.fill_columns(row_idx, h_sgn_c, Column::HSgnC);
         trace.fill_columns(row_idx, h_sgn_b == h_sgn_c, Column::HSgnEq);
 
-        range_check_accum
-            .range256
-            .add_values_from_slice(&diff_bytes);
-        range_check_accum
-            .range256
-            .add_values_from_slice(&[h_rem_b, h_rem_c]);
+        range_check_accum.range256.add_values(&diff_bytes);
+        range_check_accum.range256.add_values(&[h_rem_b, h_rem_c]);
     }
 }
 
@@ -234,13 +230,17 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         let [h_rem_b] = original_base_column!(component_trace, Column::HRemB);
         let [h_rem_c] = original_base_column!(component_trace, Column::HRemC);
         // range check h-rem, h-rem-b, h-rem-c
-        for byte in h_rem.iter().chain([&h_rem_b, &h_rem_c]) {
-            range_check.range256.generate_logup_col(
-                &mut logup_trace_builder,
-                is_local_pad.clone(),
-                byte.clone(),
-            );
-        }
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            &h_rem,
+        );
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            &[h_rem_b, h_rem_c],
+        );
+
         <T as InstructionDecoding>::generate_interaction_trace(
             &mut logup_trace_builder,
             &component_trace,
@@ -366,11 +366,12 @@ impl<T: SltOp> BuiltInComponent for Slt<T> {
         a_val[0] = a_val_1;
 
         // range check h-rem, h-rem-b, h-rem-c
-        for byte in h_rem.iter().chain([&h_rem_b, &h_rem_c]) {
-            range_check
-                .range256
-                .constrain(eval, is_local_pad.clone(), byte.clone());
-        }
+        range_check
+            .range256
+            .constrain(eval, is_local_pad.clone(), &h_rem);
+        range_check
+            .range256
+            .constrain(eval, is_local_pad.clone(), &[h_rem_b, h_rem_c]);
 
         T::constrain_decoding(eval, &trace_eval, &local_trace_eval, range_check);
 

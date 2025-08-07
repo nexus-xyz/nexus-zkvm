@@ -175,9 +175,9 @@ impl<T: SrlOp> Srl<T> {
         trace.fill_columns(row_idx, rem_diff, Column::RemAux);
         trace.fill_columns(row_idx, qt, Column::Qt);
 
-        range_check_accum.range256.add_values_from_slice(&rem);
-        range_check_accum.range256.add_values_from_slice(&rem_diff);
-        range_check_accum.range256.add_values_from_slice(&qt);
+        range_check_accum.range256.add_values(&rem);
+        range_check_accum.range256.add_values(&rem_diff);
+        range_check_accum.range256.add_values(&qt);
         range_check_accum.range8.add_value(h1);
     }
 }
@@ -260,11 +260,11 @@ impl<T: SrlOp> BuiltInComponent for Srl<T> {
         let rem_aux = original_base_column!(component_trace, Column::RemAux);
         let qt = original_base_column!(component_trace, Column::Qt);
         // range checks
-        for byte in rem.into_iter().chain(rem_aux).chain(qt) {
+        for word in [rem, rem_aux, qt] {
             range_check.range256.generate_logup_col(
                 &mut logup_trace_builder,
                 is_local_pad.clone(),
-                byte,
+                &word,
             );
         }
         range_check.range8.generate_logup_col(
@@ -432,10 +432,10 @@ impl<T: SrlOp> BuiltInComponent for Srl<T> {
         );
 
         // range checks
-        for byte in rem.into_iter().chain(rem_aux).chain(qt) {
+        for word in [rem, rem_aux, qt] {
             range_check
                 .range256
-                .constrain(eval, is_local_pad.clone(), byte);
+                .constrain(eval, is_local_pad.clone(), &word);
         }
         range_check
             .range8

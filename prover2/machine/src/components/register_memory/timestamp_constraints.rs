@@ -4,7 +4,7 @@ use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField}
 use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::{eval::TraceEval, preprocessed_trace_eval, trace_eval};
 
-use crate::lookups::{RangeCheckLookupElements, RangeLookupBound};
+use crate::lookups::RangeCheckLookupElements;
 
 use super::{
     columns::{Column, PreprocessedColumn},
@@ -48,11 +48,9 @@ impl RegisterMemory {
             &reg2_ts_prev_aux,
             &reg3_ts_prev_aux,
         ] {
-            for byte in timestamp_bytes {
-                range_check
-                    .range256
-                    .constrain(eval, is_local_pad.clone(), byte.clone());
-            }
+            range_check
+                .range256
+                .constrain(eval, is_local_pad.clone(), timestamp_bytes);
         }
 
         RegisterMemory::constrain_diff_minus_one(

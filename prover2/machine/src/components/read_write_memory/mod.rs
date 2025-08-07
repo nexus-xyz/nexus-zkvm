@@ -20,7 +20,7 @@ use crate::{
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToRamLookupElements, LogupTraceBuilder,
-        RamReadWriteLookupElements, RangeCheckLookupElements, RangeLookupBound,
+        RamReadWriteLookupElements, RangeCheckLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -105,21 +105,17 @@ impl BuiltInComponent for ReadWriteMemory {
             ram4_ts_prev,
             ram4_ts_prev_aux,
         ] {
-            for byte in timestamp_bytes {
-                range_check.range256.generate_logup_col(
-                    &mut logup_trace_builder,
-                    is_local_pad.clone(),
-                    byte,
-                );
-            }
-        }
-        for byte in [ram1_val_prev, ram2_val_prev, ram3_val_prev, ram4_val_prev] {
             range_check.range256.generate_logup_col(
                 &mut logup_trace_builder,
                 is_local_pad.clone(),
-                byte,
+                &timestamp_bytes,
             );
         }
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            &[ram1_val_prev, ram2_val_prev, ram3_val_prev, ram4_val_prev],
+        );
 
         let [ram1_accessed] = original_base_column!(component_trace, Column::Ram1Accessed);
         let [ram2_accessed] = original_base_column!(component_trace, Column::Ram2Accessed);

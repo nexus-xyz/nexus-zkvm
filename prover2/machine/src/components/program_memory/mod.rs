@@ -19,7 +19,6 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         LogupTraceBuilder, ProgramMemoryReadLookupElements, RangeCheckLookupElements,
-        RangeLookupBound,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -76,13 +75,11 @@ impl BuiltInComponent for ProgramMemory {
         let prog_ctr_prev = original_base_column!(component_trace, Column::ProgCtrPrev);
 
         for timestamp_bytes in [&prog_ctr_prev, &prog_ctr_cur] {
-            for byte in timestamp_bytes {
-                range_check.range256.generate_logup_col(
-                    &mut logup_trace_builder,
-                    is_local_pad.clone(),
-                    byte.clone(),
-                );
-            }
+            range_check.range256.generate_logup_col(
+                &mut logup_trace_builder,
+                is_local_pad.clone(),
+                timestamp_bytes,
+            );
         }
 
         // provide(rel-inst-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
@@ -154,11 +151,9 @@ impl BuiltInComponent for ProgramMemory {
 
         let (rel_prog_memory_read, rel_inst_to_prog_memory, range_check) = lookup_elements;
         for timestamp_bytes in [&prog_ctr_prev, &prog_ctr_cur] {
-            for byte in timestamp_bytes {
-                range_check
-                    .range256
-                    .constrain(eval, is_local_pad.clone(), byte.clone());
-            }
+            range_check
+                .range256
+                .constrain(eval, is_local_pad.clone(), timestamp_bytes);
         }
         // provide(rel-inst-to-prog-memory, 1 − is-local-pad, (pc, instr-val))
         eval.add_to_relation(RelationEntry::new(

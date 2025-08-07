@@ -1,13 +1,13 @@
-use nexus_vm_prover_trace::component::FinalizedColumn;
 use num_traits::One;
 use stwo_prover::{
     constraint_framework::{EvalAtRow, RelationEntry},
     core::{backend::simd::m31::PackedBaseField, channel::Channel},
 };
 
-use crate::lookups::{LogupTraceBuilder, RegisteredLookupBound};
+use nexus_vm_prover_trace::component::FinalizedColumn;
 
 use super::{private, AllLookupElements, ComponentLookupElements};
+use crate::lookups::{LogupTraceBuilder, RegisteredLookupBound};
 
 // lookup single value at a time
 const RANGE_CHECK_LOOKUP_SIZE: usize = 1;
@@ -17,7 +17,6 @@ stwo_prover::relation!(Range16LookupElements, RANGE_CHECK_LOOKUP_SIZE);
 stwo_prover::relation!(Range32LookupElements, RANGE_CHECK_LOOKUP_SIZE);
 stwo_prover::relation!(Range64LookupElements, RANGE_CHECK_LOOKUP_SIZE);
 stwo_prover::relation!(Range128LookupElements, RANGE_CHECK_LOOKUP_SIZE);
-stwo_prover::relation!(Range256LookupElements, RANGE_CHECK_LOOKUP_SIZE);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RangeCheckLookupElements {
@@ -95,4 +94,44 @@ impl RangeLookupBound for Range16LookupElements {}
 impl RangeLookupBound for Range32LookupElements {}
 impl RangeLookupBound for Range64LookupElements {}
 impl RangeLookupBound for Range128LookupElements {}
-impl RangeLookupBound for Range256LookupElements {}
+
+// range256 is optimized to lookup in pairs
+const RANGE256_LOOKUP_SIZE: usize = 2;
+stwo_prover::relation!(Range256LookupElements, RANGE256_LOOKUP_SIZE);
+
+impl Range256LookupElements {
+    pub fn constrain<E: EvalAtRow>(&self, eval: &mut E, is_local_pad: E::F, values: &[E::F]) {
+        assert!(
+            values.len() & 1 == 0,
+            "range256 requires even number of values"
+        );
+        for pair in values.chunks(2) {
+            eval.add_to_relation(RelationEntry::new(
+                self,
+                (E::F::one() - is_local_pad.clone()).into(),
+                pair,
+            ));
+        }
+    }
+
+    pub fn generate_logup_col(
+        &self,
+        logup_trace_builder: &mut LogupTraceBuilder,
+        is_local_pad: FinalizedColumn,
+        values: &[FinalizedColumn],
+    ) {
+        assert!(
+            values.len() & 1 == 0,
+            "range256 requires even number of values"
+        );
+
+        for pair in values.chunks(2) {
+            logup_trace_builder.add_to_relation_with(
+                self,
+                [is_local_pad.clone()],
+                |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
+                pair,
+            );
+        }
+    }
+}
