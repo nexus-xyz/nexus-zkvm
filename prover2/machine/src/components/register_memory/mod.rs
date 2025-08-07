@@ -20,8 +20,7 @@ use crate::{
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToRegisterMemoryLookupElements,
-        LogupTraceBuilder, RangeCheckLookupElements, RangeLookupBound,
-        RegisterMemoryLookupElements,
+        LogupTraceBuilder, RangeCheckLookupElements, RegisterMemoryLookupElements,
     },
     side_note::{program::ProgramTraceRef, SideNote},
 };
@@ -115,21 +114,17 @@ impl BuiltInComponent for RegisterMemory {
             &reg2_ts_prev_aux,
             &reg3_ts_prev_aux,
         ] {
-            for byte in timestamp_bytes {
-                range_check.range256.generate_logup_col(
-                    &mut logup_trace_builder,
-                    is_local_pad.clone(),
-                    byte.clone(),
-                );
-            }
-        }
-        for byte in &reg3_val {
             range_check.range256.generate_logup_col(
                 &mut logup_trace_builder,
                 is_local_pad.clone(),
-                byte.clone(),
+                timestamp_bytes,
             );
         }
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            &reg3_val,
+        );
 
         // consume(
         //     rel-inst-to-reg-memory,

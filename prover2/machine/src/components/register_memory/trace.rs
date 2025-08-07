@@ -278,22 +278,16 @@ fn generate_trace_row(
 
     range_check_accum
         .range256
-        .add_values_from_slice(&reg1_prev_ts.to_le_bytes());
+        .add_values(&reg1_prev_ts.to_le_bytes());
     range_check_accum
         .range256
-        .add_values_from_slice(&reg2_prev_ts.to_le_bytes());
+        .add_values(&reg2_prev_ts.to_le_bytes());
     range_check_accum
         .range256
-        .add_values_from_slice(&reg3_prev_ts.to_le_bytes());
-    range_check_accum
-        .range256
-        .add_values_from_slice(&reg1_ts_prev_aux);
-    range_check_accum
-        .range256
-        .add_values_from_slice(&reg2_ts_prev_aux);
-    range_check_accum
-        .range256
-        .add_values_from_slice(&reg3_ts_prev_aux);
+        .add_values(&reg3_prev_ts.to_le_bytes());
+    range_check_accum.range256.add_values(&reg1_ts_prev_aux);
+    range_check_accum.range256.add_values(&reg2_ts_prev_aux);
+    range_check_accum.range256.add_values(&reg3_ts_prev_aux);
 
     let range_checked_reg3_val = if reg3_accessed {
         &reg3_value
@@ -302,7 +296,7 @@ fn generate_trace_row(
     };
     range_check_accum
         .range256
-        .add_values_from_slice(range_checked_reg3_val);
+        .add_values(range_checked_reg3_val);
 }
 
 fn generate_prev_access(

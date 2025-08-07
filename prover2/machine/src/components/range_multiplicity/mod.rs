@@ -28,11 +28,13 @@ use crate::{
     framework::MachineComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, LogupTraceBuilder, Range128LookupElements,
-        Range16LookupElements, Range256LookupElements, Range32LookupElements,
-        Range64LookupElements, Range8LookupElements, RegisteredLookupBound,
+        Range16LookupElements, Range32LookupElements, Range64LookupElements, Range8LookupElements,
+        RegisteredLookupBound,
     },
     side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
+
+mod range256;
 
 // using [`BuiltInComponent`] trait causes a collision of preprocessed ids in generic implementation,
 // because of this range-multiplicity implements the erased trait manually
@@ -212,7 +214,6 @@ impl<const LOG_SIZE: u32, R> RangeMultiplicity<LOG_SIZE, R> {
             5 => &accum.range32,
             6 => &accum.range64,
             7 => &accum.range128,
-            8 => &accum.range256,
             _ => panic!("unsupported log size"),
         };
 
@@ -228,4 +229,4 @@ pub const RANGE16: RangeMultiplicity<4, Range16LookupElements> = RangeMultiplici
 pub const RANGE32: RangeMultiplicity<5, Range32LookupElements> = RangeMultiplicity::new();
 pub const RANGE64: RangeMultiplicity<6, Range64LookupElements> = RangeMultiplicity::new();
 pub const RANGE128: RangeMultiplicity<7, Range128LookupElements> = RangeMultiplicity::new();
-pub const RANGE256: RangeMultiplicity<8, Range256LookupElements> = RangeMultiplicity::new();
+pub use range256::RANGE256;

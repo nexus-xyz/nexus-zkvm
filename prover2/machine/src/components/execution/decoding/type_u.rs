@@ -118,7 +118,7 @@ pub fn generate_trace_row(
     range_check_accum.range16.add_value(op_a1_4);
     range_check_accum
         .range256
-        .add_values_from_slice(&[op_c12_15, op_c16_23, op_c24_31]);
+        .add_values(&[op_c12_15, op_c16_23, op_c24_31, 0]);
 }
 
 /// Zero-sized struct that implements type-U instruction decoding.
@@ -168,11 +168,11 @@ impl<T: TypeUDecoding> InstructionDecoding for TypeU<T> {
         range_check
             .range16
             .constrain(eval, is_local_pad.clone(), op_a1_4);
-        for col in [op_c12_15, op_c16_23, op_c24_31] {
-            range_check
-                .range256
-                .constrain(eval, is_local_pad.clone(), col);
-        }
+        range_check.range256.constrain(
+            eval,
+            is_local_pad.clone(),
+            &[op_c12_15, op_c16_23, op_c24_31, E::F::zero()],
+        );
     }
 
     fn generate_interaction_trace(
@@ -193,11 +193,11 @@ impl<T: TypeUDecoding> InstructionDecoding for TypeU<T> {
         range_check
             .range16
             .generate_logup_col(logup_trace_builder, is_local_pad.clone(), op_a1_4);
-        for col in [op_c12_15, op_c16_23, op_c24_31] {
-            range_check
-                .range256
-                .generate_logup_col(logup_trace_builder, is_local_pad.clone(), col);
-        }
+        range_check.range256.generate_logup_col(
+            logup_trace_builder,
+            is_local_pad.clone(),
+            &[op_c12_15, op_c16_23, op_c24_31, BaseField::zero().into()],
+        );
     }
 
     fn combine_reg_addresses<E: EvalAtRow>(

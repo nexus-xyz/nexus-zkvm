@@ -192,9 +192,7 @@ impl<T: BranchOp> BranchCmpSigned<T> {
         trace.fill_columns(row_idx, lt_flag, Column::HLtFlag);
         trace.fill_columns(row_idx, carry_bits, Column::HCarry);
 
-        range_check_accum
-            .range256
-            .add_values_from_slice(&diff_bytes);
+        range_check_accum.range256.add_values(&diff_bytes);
         range_check_accum
             .range128
             .add_values_from_slice(&[h_rem_a, h_rem_b]);
@@ -282,13 +280,11 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpSigned<T> {
         let [h_rem_a] = original_base_column!(component_trace, Column::HRemA);
         let [h_rem_b] = original_base_column!(component_trace, Column::HRemB);
         // range checks
-        for byte in h_rem {
-            range_check.range256.generate_logup_col(
-                &mut logup_trace_builder,
-                is_local_pad.clone(),
-                byte,
-            );
-        }
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_local_pad.clone(),
+            &h_rem,
+        );
         for rem in [h_rem_a, h_rem_b] {
             range_check.range128.generate_logup_col(
                 &mut logup_trace_builder,
@@ -446,11 +442,9 @@ impl<T: BranchOp> BuiltInComponent for BranchCmpSigned<T> {
         eval.add_constraint(h_carry_2.clone() * (E::F::one() - h_carry_2));
 
         // range checks
-        for byte in h_rem {
-            range_check
-                .range256
-                .constrain(eval, is_local_pad.clone(), byte);
-        }
+        range_check
+            .range256
+            .constrain(eval, is_local_pad.clone(), &h_rem);
         for rem in [h_rem_a, h_rem_b] {
             range_check
                 .range128

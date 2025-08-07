@@ -41,13 +41,54 @@ impl<const N: u32> Deref for RangeCheckMultiplicities<N> {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct Range256Multiplicities {
+    // looked up pairs of 8-bit numbers (a, b) -> mult
+    multiplicities: BTreeMap<(u8, u8), u32>,
+}
+
+impl Range256Multiplicities {
+    pub fn add_values(&mut self, values: &[u8]) {
+        assert!(
+            values.len() & 1 == 0,
+            "range256 requires even number of values"
+        );
+        for pair in values.chunks(2) {
+            let a = pair[0];
+            let b = pair[1];
+
+            let mult = self.multiplicities.entry((a, b)).or_default();
+
+            assert!(*mult < m31::P - 1);
+            *mult += 1;
+        }
+    }
+
+    pub fn append(&mut self, mults: Self) {
+        for (val, mult) in mults.multiplicities {
+            let curr = self.multiplicities.entry(val).or_default();
+            assert!(*curr + mult < m31::P);
+
+            *curr += mult;
+        }
+    }
+}
+
+impl Deref for Range256Multiplicities {
+    type Target = BTreeMap<(u8, u8), u32>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.multiplicities
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct RangeCheckAccumulator {
     pub range8: RangeCheckMultiplicities<8>,
     pub range16: RangeCheckMultiplicities<16>,
     pub range32: RangeCheckMultiplicities<32>,
     pub range64: RangeCheckMultiplicities<64>,
     pub range128: RangeCheckMultiplicities<128>,
-    pub range256: RangeCheckMultiplicities<256>,
+    pub range256: Range256Multiplicities,
 }
 
 impl RangeCheckAccumulator {

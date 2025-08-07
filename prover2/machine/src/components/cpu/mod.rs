@@ -82,9 +82,11 @@ impl BuiltInComponent for Cpu {
         range_check
             .range64
             .generate_logup_col(&mut logup_trace_builder, is_pad.clone(), pc_aux);
-        range_check
-            .range256
-            .generate_logup_col(&mut logup_trace_builder, is_pad.clone(), pc8_15);
+        range_check.range256.generate_logup_col(
+            &mut logup_trace_builder,
+            is_pad.clone(),
+            &[pc8_15, BaseField::zero().into()],
+        );
 
         let [clk_low, clk_high] =
             preprocessed_base_column!(component_trace, PreprocessedColumn::Clk);
@@ -123,7 +125,9 @@ impl BuiltInComponent for Cpu {
         let (rel_cont_prog_exec, range_check) = lookup_elements;
 
         range_check.range64.constrain(eval, is_pad.clone(), pc_aux);
-        range_check.range256.constrain(eval, is_pad.clone(), pc8_15);
+        range_check
+            .range256
+            .constrain(eval, is_pad.clone(), &[pc8_15, E::F::zero()]);
 
         // Lookup 16 bits
         let [clk_low, clk_high] = preprocessed_trace_eval!(trace_eval, PreprocessedColumn::Clk);
