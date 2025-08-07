@@ -2,16 +2,16 @@
 
 // The target of the 0..127 rangecheck depends on the opcode.
 
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry},
-    core::backend::simd::m31::PackedBaseField,
-};
+use stwo_constraint_framework::{LogupTraceGenerator, Relation, RelationEntry};
 
 use nexus_vm::WORD_SIZE;
 use num_traits::Zero as _;
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
-    fields::m31::BaseField,
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::{
+        column::BaseColumn,
+        m31::{PackedBaseField, LOG_N_LANES},
+    },
 };
 
 use crate::{
@@ -32,12 +32,12 @@ use crate::column::Column::{self, Helper2, Helper3, IsBge, IsBlt, IsSlt};
 pub struct Range128Chip;
 
 const LOOKUP_TUPLE_SIZE: usize = 1;
-stwo_prover::relation!(Range128LookupElements, LOOKUP_TUPLE_SIZE);
+stwo_constraint_framework::relation!(Range128LookupElements, LOOKUP_TUPLE_SIZE);
 
 impl MachineChip for Range128Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
         _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range128LookupElements::draw(channel));
@@ -127,7 +127,7 @@ impl MachineChip for Range128Chip {
         );
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: stwo_constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         lookup_elements: &AllLookupElements,
@@ -229,7 +229,7 @@ mod test {
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator, ProgramInfo};
 
-    use stwo_prover::core::fields::qm31::SecureField;
+    use stwo::core::fields::qm31::SecureField;
 
     #[test]
     fn test_range128_chip_success() {

@@ -1,12 +1,14 @@
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
+use stwo::{
     core::{
-        backend::simd::SimdBackend,
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
+    prover::{
+        backend::simd::SimdBackend,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
 };
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 use nexus_vm_prover_trace::{builder::FinalizedTrace, component::ComponentTrace, eval::TraceEval};

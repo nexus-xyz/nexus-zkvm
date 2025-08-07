@@ -1,9 +1,7 @@
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{
-        preprocessed_columns::PreProcessedColumnId, EvalAtRow, RelationEntry, ORIGINAL_TRACE_IDX,
-    },
-    core::fields::m31::BaseField,
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, EvalAtRow, RelationEntry, ORIGINAL_TRACE_IDX,
 };
 
 use crate::components::lookups::{

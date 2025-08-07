@@ -15,5 +15,6 @@ nexus-vm = { path = "../../vm" }
 nexus-common = { path = "../../common" }
 
 num-traits = { workspace = true }
-stwo-prover = { workspace = true }
+stwo = { workspace = true }
+stwo-constraint-framework = { workspace = true }
 rayon = "1.10"

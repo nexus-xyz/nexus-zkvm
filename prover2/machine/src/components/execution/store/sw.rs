@@ -1,5 +1,6 @@
 use num_traits::One;
-use stwo_prover::core::fields::m31::BaseField;
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm::riscv::BuiltinOpcode;
 use nexus_vm_prover_trace::{component::ComponentTrace, eval::TraceEval, trace_eval};
@@ -15,7 +16,7 @@ impl StoreOp for Sw {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::SW;
     const ALIGNMENT: u8 = 4;
 
-    fn constrain_alignment<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn constrain_alignment<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
         range_check: &RangeCheckLookupElements,

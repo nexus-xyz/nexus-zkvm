@@ -1,5 +1,6 @@
 use num_traits::One;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::{eval::TraceEval, preprocessed_trace_eval, trace_eval};

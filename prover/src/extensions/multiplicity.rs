@@ -1,22 +1,22 @@
-use stwo_prover::{
-    constraint_framework::{
-        logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, FrameworkEval,
-        Relation, RelationEntry,
-    },
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        poly::circle::CanonicCoset,
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             column::BaseColumn,
             m31::{PackedBaseField, LOG_N_LANES},
             qm31::PackedSecureField,
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
-        ColumnVec,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
     },
+};
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, FrameworkEval, LogupTraceGenerator, Relation,
+    RelationEntry,
 };
 
 use crate::{
@@ -109,7 +109,7 @@ impl<const LEN: usize, L: RegisteredLookupBound> FrameworkEval for MultiplicityE
         Self::LOG_SIZE + 1
     }
 
-    fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
+    fn evaluate<E: stwo_constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
         let lookup_elements = <L as RegisteredLookupBound>::as_relation_ref(&self.lookup_elements);
         let checked_value = RangeValues::<LEN>::new(Self::LOG_SIZE);
         let checked_value = eval.get_preprocessed_column(checked_value.id());

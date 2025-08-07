@@ -1,17 +1,19 @@
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, Relation},
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             column::BaseColumn,
             m31::{PackedM31, LOG_N_LANES},
             qm31::PackedSecureField,
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
     },
 };
+use stwo_constraint_framework::{LogupTraceGenerator, Relation};
 
 use crate::{
     components::lookups::{

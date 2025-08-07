@@ -1,18 +1,14 @@
 use std::rc::Rc;
 
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
-use stwo_prover::{
-    constraint_framework::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX},
-    core::{
+use stwo::{
+    core::{fields::m31::BaseField, poly::circle::CanonicCoset, ColumnVec},
+    prover::{
         backend::simd::{column::BaseColumn, m31::PackedBaseField, SimdBackend},
-        fields::m31::BaseField,
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
-        ColumnVec,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
     },
 };
+use stwo_constraint_framework::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 
 /// Reference to a finalized column in a SIMD representation, or a constant.
 #[derive(Debug, Clone)]

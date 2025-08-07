@@ -1,22 +1,24 @@
 //! Helper component needed to eliminate boundary logup terms in the read-write memory component.
 
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
+use stwo::{
     core::{
+        fields::{
+            m31::{self, BaseField},
+            qm31::SecureField,
+        },
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             column::BaseColumn,
             m31::{PackedBaseField, LOG_N_LANES},
             SimdBackend,
         },
-        fields::{
-            m31::{self, BaseField},
-            qm31::SecureField,
-        },
         poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
     },
 };
+use stwo_constraint_framework::{EvalAtRow, LogupTraceGenerator, Relation, RelationEntry};
 
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{

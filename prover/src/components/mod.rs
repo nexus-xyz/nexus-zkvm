@@ -1,8 +1,6 @@
 use std::marker::PhantomData;
 
-use stwo_prover::constraint_framework::{
-    EvalAtRow, FrameworkComponent, FrameworkEval, InfoEvaluator,
-};
+use stwo_constraint_framework::{EvalAtRow, FrameworkComponent, FrameworkEval, InfoEvaluator};
 
 use crate::extensions::ExtensionsConfig;
 

@@ -1,16 +1,12 @@
 use num_traits::{One, Zero};
-use stwo_prover::core::fields::m31::BaseField;
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
-fn constrain_equal<E: stwo_prover::constraint_framework::EvalAtRow>(
-    eval: &mut E,
-    selector: E::F,
-    lhs: E::F,
-    rhs: E::F,
-) {
+fn constrain_equal<E: EvalAtRow>(eval: &mut E, selector: E::F, lhs: E::F, rhs: E::F) {
     eval.add_constraint(selector * (lhs - rhs));
 }
 
-pub(super) fn constrain_absolute_32_bit<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_absolute_32_bit<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn: E::F,
@@ -46,7 +42,7 @@ pub(super) fn constrain_absolute_32_bit<E: stwo_prover::constraint_framework::Ev
     );
 }
 
-pub(super) fn constrain_absolute_64_bit<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_absolute_64_bit<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn: E::F,
@@ -95,7 +91,7 @@ pub(super) fn constrain_absolute_64_bit<E: stwo_prover::constraint_framework::Ev
     );
 }
 
-pub(super) fn constrain_zero_word<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_zero_word<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     is_zero: E::F,
@@ -110,7 +106,7 @@ pub(super) fn constrain_zero_word<E: stwo_prover::constraint_framework::EvalAtRo
     );
 }
 
-pub(super) fn constrain_sign_2_to_1<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_sign_2_to_1<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn_out: E::F,
@@ -127,7 +123,7 @@ pub(super) fn constrain_sign_2_to_1<E: stwo_prover::constraint_framework::EvalAt
     );
 }
 
-pub(super) fn constrain_sign_1_to_1<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_sign_1_to_1<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     sgn_out: E::F,
@@ -142,7 +138,7 @@ pub(super) fn constrain_sign_1_to_1<E: stwo_prover::constraint_framework::EvalAt
     );
 }
 
-pub(super) fn constrain_mul_partial_product<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_mul_partial_product<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     p: [E::F; 2],
@@ -162,7 +158,7 @@ pub(super) fn constrain_mul_partial_product<E: stwo_prover::constraint_framework
     );
 }
 
-pub(super) fn constrain_division_overflow<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_division_overflow<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     is_overflow: E::F,
@@ -197,7 +193,7 @@ pub(super) fn constrain_division_overflow<E: stwo_prover::constraint_framework::
     );
 }
 
-pub(super) fn constrain_values_equal<E: stwo_prover::constraint_framework::EvalAtRow>(
+pub(super) fn constrain_values_equal<E: EvalAtRow>(
     eval: &mut E,
     selector: E::F,
     value_a: [E::F; 4],

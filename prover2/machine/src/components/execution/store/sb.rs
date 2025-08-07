@@ -1,3 +1,5 @@
+use stwo_constraint_framework::EvalAtRow;
+
 use nexus_vm::riscv::BuiltinOpcode;
 use nexus_vm_prover_trace::{component::ComponentTrace, eval::TraceEval};
 
@@ -12,7 +14,7 @@ impl StoreOp for Sb {
     const OPCODE: BuiltinOpcode = BuiltinOpcode::SB;
     const ALIGNMENT: u8 = 0;
 
-    fn constrain_alignment<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn constrain_alignment<E: EvalAtRow>(
         _eval: &mut E,
         _trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
         _range_check: &RangeCheckLookupElements,

@@ -19,7 +19,7 @@ use nexus_vm_prover::{
 };
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use stwo_prover::core::channel::Blake2sChannel;
+use stwo::core::channel::Blake2sChannel;
 
 const K: usize = 1;
 

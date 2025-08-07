@@ -1,17 +1,16 @@
 use num_traits::One;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm_prover_trace::{
     builder::TraceBuilder, component::ComponentTrace, eval::TraceEval, original_base_column,
     program::ProgramStep, trace_eval,
 };
 
+use super::columns::{Column, PreprocessedColumn};
 use crate::{
     lookups::{LogupTraceBuilder, RangeCheckLookupElements, RangeLookupBound},
     side_note::range_check::RangeCheckAccumulator,
 };
-
-use super::columns::{Column, PreprocessedColumn};
 
 pub struct Decoding;
 

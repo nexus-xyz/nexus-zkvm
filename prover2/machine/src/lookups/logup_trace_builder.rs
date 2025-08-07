@@ -1,17 +1,17 @@
 //! Interaction trace builder for component framework.
 
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, Relation},
-    core::{
+use stwo::{
+    core::fields::{m31::BaseField, qm31::SecureField},
+    prover::{
         backend::simd::{
             m31::{PackedBaseField, LOG_N_LANES},
             qm31::PackedSecureField,
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
     },
 };
+use stwo_constraint_framework::{LogupTraceGenerator, Relation};
 
 use super::RegisteredLookupBound;
 use nexus_vm_prover_trace::component::FinalizedColumn;

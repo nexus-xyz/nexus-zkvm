@@ -1,12 +1,12 @@
 //! Utilities for stwo lookups.
 //!
 //! Adding a chip with a lookup requires doing the following:
-//!     1. Declare a relation with a [`stwo_prover::relation`] macro.
+//!     1. Declare a relation with a [`stwo_constraint_framework::relation`] macro.
 //!     2. Add this type to [`register_relation`] enum.
 //!     3. Implement [`MachineChip::draw_lookup_elements`] and [`MachineChip::fill_interaction_trace`] for the chip.
 //!
 //! Internally, [`AllLookupElements`] is a hashmap storing a set of generated alphas and z (=lookup elements) for each
-//! type. Since [`stwo_prover::constraint_framework::Relation`] is not object safe and cannot be boxed, the only way
+//! type. Since [`stwo_constraint_framework::Relation`] is not object safe and cannot be boxed, the only way
 //! to store it is by using an enum.
 
 use std::{any::TypeId, collections::HashMap};
@@ -93,12 +93,12 @@ macro_rules! register_relation {
         $_vis trait $_trait: Sync + Clone + 'static {
             type Relation<
                 F: Clone,
-                EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>
-            >: stwo_prover::constraint_framework::Relation<F, EF>;
+                EF: stwo_constraint_framework::RelationEFTraitBound<F>
+            >: stwo_constraint_framework::Relation<F, EF>;
 
             fn as_relation_ref<
                 F: Clone,
-                EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>,
+                EF: stwo_constraint_framework::RelationEFTraitBound<F>,
             >(
                 &self,
             ) -> &Self::Relation<F, EF>;
@@ -118,12 +118,12 @@ macro_rules! register_relation {
             impl $_trait for $name {
                 type Relation<
                     F: Clone,
-                    EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>
+                    EF: stwo_constraint_framework::RelationEFTraitBound<F>
                 > = Self;
 
                 fn as_relation_ref<
                     F: Clone,
-                    EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>,
+                    EF: stwo_constraint_framework::RelationEFTraitBound<F>,
                 >(
                     &self,
                 ) -> &Self::Relation<F, EF> {

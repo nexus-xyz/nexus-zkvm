@@ -1,8 +1,5 @@
 use nexus_common::constants::{WORD_SIZE, WORD_SIZE_HALVED};
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
-    core::{backend::simd::m31::PackedBaseField, fields::m31::BaseField},
-};
+use stwo::{core::fields::m31::BaseField, prover::backend::simd::m31::PackedBaseField};
 
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 use nexus_vm_prover_trace::{
@@ -10,6 +7,7 @@ use nexus_vm_prover_trace::{
     eval::TraceEval,
     virtual_column::VirtualColumn,
 };
+use stwo_constraint_framework::EvalAtRow;
 
 #[derive(Debug, Copy, Clone, PreprocessedAirColumn)]
 #[preprocessed_prefix = "cpu"]

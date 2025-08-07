@@ -2,13 +2,11 @@ use nexus_common::constants::WORD_SIZE_HALVED;
 use num_traits::{One, Zero};
 
 use nexus_vm::WORD_SIZE;
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
-    core::{
-        backend::simd::m31::{PackedBaseField, LOG_N_LANES},
-        fields::m31::BaseField,
-    },
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::m31::{PackedBaseField, LOG_N_LANES},
 };
+use stwo_constraint_framework::{EvalAtRow, LogupTraceGenerator, Relation, RelationEntry};
 
 use crate::{
     column::{Column, PreprocessedColumn, ProgramColumn},
@@ -30,12 +28,12 @@ use crate::{
 pub struct ProgramMemCheckChip;
 
 const LOOKUP_TUPLE_SIZE: usize = 3 * WORD_SIZE;
-stwo_prover::relation!(ProgramCheckLookupElements, LOOKUP_TUPLE_SIZE);
+stwo_constraint_framework::relation!(ProgramCheckLookupElements, LOOKUP_TUPLE_SIZE);
 
 impl MachineChip for ProgramMemCheckChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
         _config: &ExtensionsConfig,
     ) {
         all_elements.insert(ProgramCheckLookupElements::draw(channel));

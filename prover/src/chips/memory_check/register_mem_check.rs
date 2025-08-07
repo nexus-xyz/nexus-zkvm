@@ -1,9 +1,6 @@
-use nexus_vm::WORD_SIZE;
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
-    core::{backend::simd::m31::LOG_N_LANES, fields::m31::BaseField},
-};
+use stwo::{core::fields::m31::BaseField, prover::backend::simd::m31::LOG_N_LANES};
+use stwo_constraint_framework::{EvalAtRow, LogupTraceGenerator, Relation, RelationEntry};
 
 use crate::{
     column::{
@@ -27,6 +24,7 @@ use crate::{
     traits::MachineChip,
     virtual_column::{self, IsTypeR, OpBFlag, Reg3Accessed, VirtualColumn},
 };
+use nexus_vm::WORD_SIZE;
 
 /// A Chip for register memory checking
 ///
@@ -38,12 +36,12 @@ impl RegisterMemCheckChip {
     const TUPLE_SIZE: usize = LOOKUP_TUPLE_SIZE;
 }
 
-stwo_prover::relation!(RegisterCheckLookupElements, LOOKUP_TUPLE_SIZE);
+stwo_constraint_framework::relation!(RegisterCheckLookupElements, LOOKUP_TUPLE_SIZE);
 
 impl MachineChip for RegisterMemCheckChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
         _config: &ExtensionsConfig,
     ) {
         all_elements.insert(RegisterCheckLookupElements::draw(channel));
@@ -438,7 +436,7 @@ mod test {
         trace::k_trace_direct,
     };
     use num_traits::Zero;
-    use stwo_prover::core::fields::qm31::SecureField;
+    use stwo::core::fields::qm31::SecureField;
 
     use crate::{
         chips::{AddChip, CpuChip},

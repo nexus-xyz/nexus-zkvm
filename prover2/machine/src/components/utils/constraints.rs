@@ -1,5 +1,6 @@
 use num_traits::One;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};

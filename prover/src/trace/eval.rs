@@ -1,13 +1,13 @@
 use std::array;
 
 use num_traits::Zero;
-use stwo_prover::constraint_framework::{preprocessed_columns::PreProcessedColumnId, EvalAtRow};
+use stwo_constraint_framework::{preprocessed_columns::PreProcessedColumnId, EvalAtRow};
 
 use crate::column::{
     Column, {PreprocessedColumn, ProgramColumn},
 };
 
-pub use stwo_prover::constraint_framework::{
+pub use stwo_constraint_framework::{
     INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
 };
 

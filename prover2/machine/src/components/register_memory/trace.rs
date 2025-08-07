@@ -1,7 +1,7 @@
 use num_traits::One;
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
-    fields::m31::BaseField,
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
 };
 
 use nexus_common::riscv::register::NUM_REGISTERS;

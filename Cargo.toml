@@ -36,7 +36,16 @@ clap = { version = "4.3", features = ["derive"] }
 num-traits = "0.2"
 num-derive = "0.4.2"
 serde = { version = "1.0", features = ["derive"] }
-stwo-prover = { git = "https://github.com/starkware-libs/stwo", rev = "61d1f6b" }
+stwo = { git = "https://github.com/starkware-libs/stwo", rev = "0790eba", features = [
+    "std",
+    "prover",
+    "parallel",
+] }
+stwo-constraint-framework = { git = "https://github.com/starkware-libs/stwo", rev = "0790eba", features = [
+    "std",
+    "prover",
+    "parallel",
+] }
 tiny-keccak = { version = "2.0.2", features = ["keccak"] }
 
 # This profile is used for CI tests. Optimized for faster compilation vs. absolute speed.

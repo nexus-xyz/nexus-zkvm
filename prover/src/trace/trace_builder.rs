@@ -1,14 +1,12 @@
 use itertools::Itertools;
 use nexus_vm::WORD_SIZE;
 use num_traits::Zero;
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
-    fields::m31::BaseField,
-    poly::{
-        circle::{CanonicCoset, CircleEvaluation},
-        BitReversedOrder,
+use stwo::{
+    core::{fields::m31::BaseField, poly::circle::CanonicCoset, ColumnVec},
+    prover::{
+        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
     },
-    ColumnVec,
 };
 
 use super::utils::{finalize_columns, IntoBaseFields};

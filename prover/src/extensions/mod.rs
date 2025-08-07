@@ -15,18 +15,21 @@
 //! the crate to avoid misuse.
 
 use ram_init_final::RamInitFinal;
-use stwo_prover::{
-    constraint_framework::{
-        FrameworkComponent, FrameworkEval, InfoEvaluator, TraceLocationAllocator,
-    },
+use stwo::{
     core::{
-        air::{Component, ComponentProver},
-        backend::simd::SimdBackend,
+        air::Component,
         fields::{m31::BaseField, qm31::SecureField},
         pcs::TreeVec,
-        poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
+    prover::{
+        backend::simd::SimdBackend,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+        ComponentProver,
+    },
+};
+use stwo_constraint_framework::{
+    FrameworkComponent, FrameworkEval, InfoEvaluator, TraceLocationAllocator,
 };
 
 use crate::{

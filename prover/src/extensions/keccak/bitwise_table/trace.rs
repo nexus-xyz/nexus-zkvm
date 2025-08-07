@@ -1,8 +1,11 @@
 use std::simd::u32x16;
 
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, Relation},
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        ColumnVec,
+    },
+    prover::{
         backend::{
             simd::{
                 column::BaseColumn,
@@ -12,11 +15,10 @@ use stwo_prover::{
             },
             Column,
         },
-        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
     },
 };
+use stwo_constraint_framework::{LogupTraceGenerator, Relation};
 
 use crate::extensions::ComponentTrace;
 

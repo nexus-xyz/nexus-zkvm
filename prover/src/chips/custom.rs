@@ -9,7 +9,7 @@ use nexus_vm::{
     WORD_SIZE,
 };
 use num_traits::One;
-use stwo_prover::core::channel::Channel;
+use stwo::core::channel::Channel;
 
 use crate::{
     column::Column,
@@ -31,11 +31,11 @@ pub struct KeccakChip;
 
 pub mod keccak_lookups {
     const BITWISE_TABLE_LOOKUP_SIZE: usize = 3;
-    stwo_prover::relation!(XorLookupElements, BITWISE_TABLE_LOOKUP_SIZE);
-    stwo_prover::relation!(BitNotAndLookupElements, BITWISE_TABLE_LOOKUP_SIZE);
+    stwo_constraint_framework::relation!(XorLookupElements, BITWISE_TABLE_LOOKUP_SIZE);
+    stwo_constraint_framework::relation!(BitNotAndLookupElements, BITWISE_TABLE_LOOKUP_SIZE);
 
     const BIT_ROTATE_TABLE_LOOKUP_SIZE: usize = 4;
-    stwo_prover::relation!(BitRotateLookupElements, BIT_ROTATE_TABLE_LOOKUP_SIZE);
+    stwo_constraint_framework::relation!(BitRotateLookupElements, BIT_ROTATE_TABLE_LOOKUP_SIZE);
 
     pub use state::StateLookupElements;
     mod state {
@@ -43,31 +43,37 @@ pub mod keccak_lookups {
         // therefore wrap it into box (alternative is to modify enum macro to support boxed relations)
 
         const STATE_LOOKUP_SIZE: usize = 25 * 8;
-        stwo_prover::relation!(RawStateLookupElements, STATE_LOOKUP_SIZE);
+        stwo_constraint_framework::relation!(RawStateLookupElements, STATE_LOOKUP_SIZE);
 
         #[derive(Debug, Clone)]
         pub struct StateLookupElements(Box<RawStateLookupElements>);
         impl StateLookupElements {
-            pub fn draw(channel: &mut impl stwo_prover::core::channel::Channel) -> Self {
+            pub fn draw(channel: &mut impl stwo::core::channel::Channel) -> Self {
                 Self(Box::new(RawStateLookupElements::draw(channel)))
             }
             pub fn dummy() -> Self {
                 Self(Box::new(RawStateLookupElements::dummy()))
             }
         }
-        impl<F: Clone, EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>>
-            stwo_prover::constraint_framework::Relation<F, EF> for StateLookupElements
+        impl<F: Clone, EF: stwo_constraint_framework::RelationEFTraitBound<F>>
+            stwo_constraint_framework::Relation<F, EF> for StateLookupElements
         {
             fn combine(&self, values: &[F]) -> EF {
-                <RawStateLookupElements as stwo_prover::constraint_framework::Relation<F, EF>>::combine(&self.0, values)
+                <RawStateLookupElements as stwo_constraint_framework::Relation<F, EF>>::combine(
+                    &self.0, values,
+                )
             }
 
             fn get_name(&self) -> &str {
-                <RawStateLookupElements as stwo_prover::constraint_framework::Relation<F, EF>>::get_name(&self.0)
+                <RawStateLookupElements as stwo_constraint_framework::Relation<F, EF>>::get_name(
+                    &self.0,
+                )
             }
 
             fn get_size(&self) -> usize {
-                <RawStateLookupElements as stwo_prover::constraint_framework::Relation<F, EF>>::get_size(&self.0)
+                <RawStateLookupElements as stwo_constraint_framework::Relation<F, EF>>::get_size(
+                    &self.0,
+                )
             }
         }
     }
@@ -169,7 +175,7 @@ impl MachineChip for KeccakChip {
         traces.fill_columns(row_idx, true, Column::IsCustomKeccak);
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: stwo_constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,

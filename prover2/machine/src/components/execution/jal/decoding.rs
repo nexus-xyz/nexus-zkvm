@@ -1,5 +1,5 @@
 use num_traits::One;
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm_prover_trace::{
     builder::TraceBuilder, component::ComponentTrace, eval::TraceEval, original_base_column,

@@ -1,8 +1,6 @@
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
-    core::{backend::simd::m31::PackedBaseField, channel::Channel},
-};
+use stwo::{core::channel::Channel, prover::backend::simd::m31::PackedBaseField};
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_vm_prover_trace::component::FinalizedColumn;
 
@@ -12,11 +10,11 @@ use crate::lookups::{LogupTraceBuilder, RegisteredLookupBound};
 // lookup single value at a time
 const RANGE_CHECK_LOOKUP_SIZE: usize = 1;
 
-stwo_prover::relation!(Range8LookupElements, RANGE_CHECK_LOOKUP_SIZE);
-stwo_prover::relation!(Range16LookupElements, RANGE_CHECK_LOOKUP_SIZE);
-stwo_prover::relation!(Range32LookupElements, RANGE_CHECK_LOOKUP_SIZE);
-stwo_prover::relation!(Range64LookupElements, RANGE_CHECK_LOOKUP_SIZE);
-stwo_prover::relation!(Range128LookupElements, RANGE_CHECK_LOOKUP_SIZE);
+stwo_constraint_framework::relation!(Range8LookupElements, RANGE_CHECK_LOOKUP_SIZE);
+stwo_constraint_framework::relation!(Range16LookupElements, RANGE_CHECK_LOOKUP_SIZE);
+stwo_constraint_framework::relation!(Range32LookupElements, RANGE_CHECK_LOOKUP_SIZE);
+stwo_constraint_framework::relation!(Range64LookupElements, RANGE_CHECK_LOOKUP_SIZE);
+stwo_constraint_framework::relation!(Range128LookupElements, RANGE_CHECK_LOOKUP_SIZE);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RangeCheckLookupElements {
@@ -97,7 +95,7 @@ impl RangeLookupBound for Range128LookupElements {}
 
 // range256 is optimized to lookup in pairs
 const RANGE256_LOOKUP_SIZE: usize = 2;
-stwo_prover::relation!(Range256LookupElements, RANGE256_LOOKUP_SIZE);
+stwo_constraint_framework::relation!(Range256LookupElements, RANGE256_LOOKUP_SIZE);
 
 impl Range256LookupElements {
     pub fn constrain<E: EvalAtRow>(&self, eval: &mut E, is_local_pad: E::F, values: &[E::F]) {

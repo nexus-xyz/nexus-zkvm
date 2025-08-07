@@ -1,12 +1,11 @@
 use std::marker::PhantomData;
 
 use num_traits::Zero;
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
-    fields::m31::BaseField,
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
 };
 
-use nexus_common::constants::WORD_SIZE;
 use nexus_vm_prover_air_column::AirColumn;
 
 use super::utils::{self, IntoBaseFields};
@@ -93,27 +92,6 @@ impl<C: AirColumn> TraceBuilder<C> {
         assert_eq!(col.size(), n, "column size mismatch");
         for (i, b) in value.iter().enumerate() {
             self.cols[col.offset() + i][row] = *b;
-        }
-    }
-
-    /// Fills columns with values from a byte slice, applying a selector.
-    ///
-    /// If the selector is true, fills the columns with values from the byte slice. Otherwise, fills with zeros.
-    pub fn fill_effective_columns(&mut self, row: usize, src: C, dst: C, selector: C) {
-        let src_len = src.size();
-        let dst_len = dst.size();
-        assert_eq!(src_len, dst_len, "column size mismatch");
-        let src: [_; WORD_SIZE] = self.column(row, src);
-        let [sel] = self.column(row, selector);
-        let dst: [_; WORD_SIZE] = self.column_mut(row, dst);
-        if sel.is_zero() {
-            for dst_limb in dst.into_iter() {
-                *dst_limb = BaseField::zero();
-            }
-        } else {
-            for i in 0..dst_len {
-                *dst[i] = src[i];
-            }
         }
     }
 

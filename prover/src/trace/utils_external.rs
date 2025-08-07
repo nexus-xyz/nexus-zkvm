@@ -18,7 +18,7 @@
 // and since then modified.
 
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use stwo_prover::core::fields::Field;
+use stwo::core::fields::Field;
 
 // TODO: patch upstream to make it public and remove / or use pub methods from tests.
 pub fn coset_order_to_circle_domain_order<F: Field>(values: &[F]) -> Vec<F> {

@@ -1,17 +1,17 @@
-use stwo_prover::{
-    constraint_framework::{
-        logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, FrameworkEval,
-        Relation, RelationEntry,
-    },
+use stwo::{
     core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
+};
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, EvalAtRow, FrameworkEval, LogupTraceGenerator,
+    Relation, RelationEntry,
 };
 
 use crate::{
@@ -52,7 +52,7 @@ impl FrameworkEval for BitOpMultiplicityEval {
         Self::LOG_SIZE + 1
     }
 
-    fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
+    fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         const PREPROCESSED_COL_IDS: &[&str] = &[
             "preprocessed_bitwise_input_b",
             "preprocessed_bitwise_input_c",

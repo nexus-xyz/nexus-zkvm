@@ -1,13 +1,11 @@
 use std::array;
 
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, EvalAtRow, Relation, RelationEntry},
-    core::{
-        backend::simd::m31::{PackedBaseField, LOG_N_LANES},
-        fields::m31::BaseField,
-    },
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::m31::{PackedBaseField, LOG_N_LANES},
 };
+use stwo_constraint_framework::{EvalAtRow, LogupTraceGenerator, Relation, RelationEntry};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 
@@ -31,7 +29,7 @@ use crate::{
 pub struct BitOpChip;
 
 const LOOKUP_TUPLE_SIZE: usize = 4; // op_flag, b, c, a
-stwo_prover::relation!(BitOpLookupElements, LOOKUP_TUPLE_SIZE);
+stwo_constraint_framework::relation!(BitOpLookupElements, LOOKUP_TUPLE_SIZE);
 
 /// Unit-enum indicating which bitwise operation is executed by the chip.
 ///
@@ -252,7 +250,7 @@ impl VirtualColumnForSum for IsBitop {
 impl MachineChip for BitOpChip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
         _config: &ExtensionsConfig,
     ) {
         all_elements.insert(BitOpLookupElements::draw(channel));
@@ -453,7 +451,7 @@ mod test {
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
-    use stwo_prover::core::fields::qm31::SecureField;
+    use stwo::core::fields::qm31::SecureField;
 
     const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
 

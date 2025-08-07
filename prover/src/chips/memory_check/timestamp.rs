@@ -1,9 +1,11 @@
+use std::array;
+
+use num_traits::One;
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
+
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::WORD_SIZE;
-use num_traits::One;
-
-use std::array;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
 
 use crate::{
     chips::subtract_with_borrow,

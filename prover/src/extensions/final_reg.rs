@@ -1,34 +1,34 @@
-use nexus_common::constants::NUM_REGISTERS;
-use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{
-        logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, FrameworkEval,
-        Relation, RelationEntry,
-    },
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        poly::circle::CanonicCoset,
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             column::BaseColumn,
-            m31::{PackedBaseField, PackedM31, LOG_N_LANES},
+            m31::{PackedBaseField, LOG_N_LANES},
             qm31::PackedSecureField,
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
-        ColumnVec,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
     },
 };
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, FrameworkEval, LogupTraceGenerator, Relation,
+    RelationEntry,
+};
 
+use nexus_common::constants::NUM_REGISTERS;
+use nexus_vm::WORD_SIZE;
+
+use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 use crate::{
     chips::memory_check::register_mem_check::RegisterCheckLookupElements,
     components::AllLookupElements,
     trace::{program_trace::ProgramTraceRef, sidenote::SideNote, utils::IntoBaseFields},
 };
-
-use super::{BuiltInExtension, ComponentTrace, FrameworkEvalExt};
 
 /// A column with {0, ..., 31}
 #[derive(Debug, Clone)]
@@ -77,7 +77,7 @@ impl FrameworkEval for FinalRegEval {
         Self::LOG_SIZE + 1
     }
 
-    fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
+    fn evaluate<E: stwo_constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
         // Need to read all columns so that the information evaluator returns the correct dimension.
         // let _reg_idx = eval.next_trace_mask();
         let reg_idx = RegisterIdx::new(FinalRegEval::LOG_SIZE);
@@ -193,7 +193,7 @@ impl BuiltInExtension for FinalReg {
         let mut logup_col_gen = logup_trace_gen.new_col();
         for vec_row in 0..(1 << (FinalRegEval::LOG_SIZE - LOG_N_LANES)) {
             let row_idx = row_idx.data[vec_row];
-            let mut tuple: [PackedM31; FinalRegEval::TUPLE_SIZE] =
+            let mut tuple: [PackedBaseField; FinalRegEval::TUPLE_SIZE] =
                 [BaseField::zero().into(); FinalRegEval::TUPLE_SIZE]; // reg_idx, cur_timestamp, cur_value
             tuple[0] = row_idx; // Use row_idx as register index
             let denom_a: PackedSecureField = lookup_element.combine(tuple.as_slice());

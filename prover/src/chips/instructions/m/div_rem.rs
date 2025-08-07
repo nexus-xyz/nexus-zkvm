@@ -1,6 +1,8 @@
-use nexus_vm::riscv::BuiltinOpcode;
 use num_traits::One;
-use stwo_prover::core::fields::m31::BaseField;
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
+
+use nexus_vm::riscv::BuiltinOpcode;
 
 use crate::{
     column::Column::{self, *},
@@ -169,7 +171,7 @@ impl MachineChip for DivRemChip {
         traces.fill_columns(row_idx, value_a == [0, 0, 0, 0], IsAZero);
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         _lookup_elements: &crate::components::AllLookupElements,

@@ -4,12 +4,12 @@ use nexus_vm::{
     riscv::{BuiltinOpcode, InstructionType},
     WORD_SIZE,
 };
-use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
+use stwo_constraint_framework::{LogupTraceGenerator, Relation, RelationEntry};
 
 use num_traits::Zero;
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
-    fields::m31::BaseField,
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
 };
 
 use crate::{
@@ -41,7 +41,7 @@ impl VirtualColumnForSum for Helper1MsbChecked {
 pub struct Range8Chip;
 
 const LOOKUP_TUPLE_SIZE: usize = 1;
-stwo_prover::relation!(Range8LookupElements, LOOKUP_TUPLE_SIZE);
+stwo_constraint_framework::relation!(Range8LookupElements, LOOKUP_TUPLE_SIZE);
 
 const TYPE_I_NO_SHIFT_CHECKED: [Column; 1] = [OpC8_10];
 const TYPE_J_CHECKED: [Column; 2] = [OpC1_3, OpC8_10];
@@ -52,7 +52,7 @@ const TYPE_R_CHECKED: [Column; 1] = [MulCarry1];
 impl MachineChip for Range8Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
         _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range8LookupElements::draw(channel));
@@ -184,7 +184,7 @@ impl MachineChip for Range8Chip {
         logup_col_gen.finalize_col();
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: stwo_constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
@@ -215,10 +215,7 @@ impl MachineChip for Range8Chip {
     }
 }
 
-fn add_constraints_for_type<
-    E: stwo_prover::constraint_framework::EvalAtRow,
-    VR: VirtualColumn<1>,
->(
+fn add_constraints_for_type<E: stwo_constraint_framework::EvalAtRow, VR: VirtualColumn<1>>(
     eval: &mut E,
     trace_eval: &TraceEval<E>,
     lookup_elements: &Range8LookupElements,
