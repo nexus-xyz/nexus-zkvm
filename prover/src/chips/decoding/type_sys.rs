@@ -1,3 +1,9 @@
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
+
+use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
+
+use crate::trace::eval::trace_eval;
 use crate::{
     column::Column::{self, IsEbreak, IsEcall, OpB},
     components::AllLookupElements,
@@ -5,10 +11,6 @@ use crate::{
     traits::MachineChip,
     virtual_column::{IsTypeSys, VirtualColumn},
 };
-
-use crate::trace::eval::trace_eval;
-use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
-use stwo_prover::core::fields::m31::BaseField;
 
 pub struct TypeSysChip;
 
@@ -34,7 +36,7 @@ impl MachineChip for TypeSysChip {
         // Set OpB to be 17
         traces.fill_columns(row_idx, 17u8, OpB);
     }
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         _lookup_elements: &AllLookupElements,

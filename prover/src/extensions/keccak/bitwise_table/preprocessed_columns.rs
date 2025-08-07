@@ -1,6 +1,6 @@
-use stwo_prover::constraint_framework::preprocessed_columns::PreProcessedColumnId;
-use stwo_prover::core::backend::simd::column::BaseColumn;
-use stwo_prover::core::fields::m31::BaseField;
+use stwo::core::fields::m31::BaseField;
+use stwo::prover::backend::simd::column::BaseColumn;
+use stwo_constraint_framework::preprocessed_columns::PreProcessedColumnId;
 
 /// A preprocessed table for the bitwise operation of 2 n_bits numbers.
 /// n_expand_bits is an optimization parameter reducing the table's columns' length to

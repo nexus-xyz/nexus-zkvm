@@ -1,16 +1,14 @@
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
-    core::backend::{
-        simd::{
-            column::BaseColumn,
-            m31::{PackedBaseField, LOG_N_LANES},
-        },
-        Column,
+use stwo::prover::backend::{
+    simd::{
+        column::BaseColumn,
+        m31::{PackedBaseField, LOG_N_LANES},
     },
+    Column,
 };
 
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
+use stwo_constraint_framework::EvalAtRow;
 
 use crate::{
     component::{ComponentTrace, FinalizedColumn},

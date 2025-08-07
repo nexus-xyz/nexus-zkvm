@@ -1,15 +1,13 @@
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::TraceLocationAllocator,
-    core::{
-        air::Component,
-        channel::{Blake2sChannel, Channel},
-        fields::qm31::SecureField,
-        pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec},
-        prover::{self, VerificationError},
-        vcs::blake2_merkle::Blake2sMerkleChannel,
-    },
+use stwo::core::{
+    air::Component,
+    channel::{Blake2sChannel, Channel},
+    fields::qm31::SecureField,
+    pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec},
+    vcs::blake2_merkle::Blake2sMerkleChannel,
+    verifier::VerificationError,
 };
+use stwo_constraint_framework::TraceLocationAllocator;
 
 use nexus_vm_prover_trace::eval::{
     INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
@@ -93,5 +91,5 @@ pub fn verify(proof: Proof, ad: &[u8]) -> Result<(), VerificationError> {
         verifier_channel,
     );
 
-    prover::verify(&components_ref, verifier_channel, commitment_scheme, proof)
+    stwo::core::verifier::verify(&components_ref, verifier_channel, commitment_scheme, proof)
 }

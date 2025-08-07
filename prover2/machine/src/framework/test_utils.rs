@@ -1,11 +1,8 @@
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{assert_constraints_on_polys, FrameworkEval},
-    core::{
-        channel::Blake2sChannel, fields::qm31::SecureField, pcs::TreeVec,
-        poly::circle::CanonicCoset,
-    },
+use stwo::core::{
+    channel::Blake2sChannel, fields::qm31::SecureField, pcs::TreeVec, poly::circle::CanonicCoset,
 };
+use stwo_constraint_framework::{assert_constraints_on_polys, FrameworkEval};
 
 use nexus_vm::{emulator::View, trace::Trace};
 use nexus_vm_prover_trace::eval::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};

@@ -1,17 +1,19 @@
-use crate::extensions::ExtensionsConfig;
-use crate::{
-    column::Column::{self, *},
-    trace::eval::trace_eval,
-    traits::MachineChip,
-};
+use stwo::core::fields::m31::BaseField;
+
 use nexus_vm::riscv::BuiltinOpcode;
-use stwo_prover::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use super::gadget::{
     constrain_absolute_32_bit, constrain_absolute_64_bit, constrain_mul_partial_product,
     constrain_sign_1_to_1, constrain_sign_2_to_1, constrain_values_equal, constrain_zero_word,
 };
 use super::nexani::{abs64_limb, abs_limb, mull_limb};
+use crate::extensions::ExtensionsConfig;
+use crate::{
+    column::Column::{self, *},
+    trace::eval::trace_eval,
+    traits::MachineChip,
+};
 
 pub struct MulhMulhsuChip;
 
@@ -112,7 +114,7 @@ impl MachineChip for MulhMulhsuChip {
         traces.fill_columns(row_idx, value_a_high, ValueA);
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &crate::trace::eval::TraceEval<E>,
         _lookup_elements: &crate::components::AllLookupElements,

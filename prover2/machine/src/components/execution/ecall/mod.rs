@@ -13,21 +13,23 @@
 //! │ 0x405      │ System call for heap allocation                               │ pc ← pc + 4    │
 //! └────────────┴───────────────────────────────────────────────────────────────┴────────────────┘
 
-use nexus_common::constants::WORD_SIZE_HALVED;
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             m31::{PackedBaseField, LOG_N_LANES},
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
     },
 };
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
+use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{riscv::BuiltinOpcode, SyscallCode, WORD_SIZE};
 use nexus_vm_prover_air_column::AirColumn;
 use nexus_vm_prover_trace::{

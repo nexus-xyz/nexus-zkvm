@@ -4,23 +4,24 @@
 //! to (a_low, a_high) and replaced with a single column `a`.
 
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{
-        preprocessed_columns::PreProcessedColumnId, EvalAtRow, FrameworkComponent, FrameworkEval,
-        InfoEvaluator, RelationEntry, TraceLocationAllocator,
-    },
+use stwo::{
     core::{
-        air::{Component, ComponentProver},
-        backend::simd::{column::BaseColumn, SimdBackend},
+        air::Component,
         channel::Blake2sChannel,
         fields::{m31::BaseField, qm31::SecureField},
         pcs::TreeVec,
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::{column::BaseColumn, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+        ComponentProver,
+    },
+};
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, EvalAtRow, FrameworkComponent, FrameworkEval,
+    InfoEvaluator, RelationEntry, TraceLocationAllocator,
 };
 
 use nexus_vm_prover_trace::component::ComponentTrace;

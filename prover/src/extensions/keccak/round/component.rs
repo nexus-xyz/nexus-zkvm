@@ -1,20 +1,21 @@
-use stwo_prover::{
-    constraint_framework::{FrameworkComponent, TraceLocationAllocator},
+use stwo::{
     core::{
-        air::{Component, ComponentProver},
-        backend::simd::{
-            column::BaseColumn,
-            m31::{PackedM31, LOG_N_LANES},
-            SimdBackend,
-        },
+        air::Component,
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::{
+            column::BaseColumn,
+            m31::{PackedBaseField, LOG_N_LANES},
+            SimdBackend,
+        },
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+        ComponentProver,
+    },
 };
+use stwo_constraint_framework::{FrameworkComponent, TraceLocationAllocator};
 
 use super::{constants::LANE_SIZE, eval::KeccakRoundEval, interaction_trace::RoundLogUpGenerator};
 use crate::{
@@ -58,7 +59,7 @@ impl BuiltInExtension for KeccakRound {
             .map(|eval| {
                 BaseColumn::from_simd(
                     eval.into_iter()
-                        .map(|v| unsafe { PackedM31::from_simd_unchecked(v) })
+                        .map(|v| unsafe { PackedBaseField::from_simd_unchecked(v) })
                         .collect(),
                 )
             })

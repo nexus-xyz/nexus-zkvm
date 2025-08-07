@@ -1,18 +1,23 @@
-use crate::{
-    components::AllLookupElements,
-    extensions::ExtensionsConfig,
-    trace::{eval::TraceEval, sidenote::SideNote, ProgramStep, TracesBuilder},
-    traits::MachineChip,
-    virtual_column::{self, VirtualColumn},
-};
+use num_traits::One;
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
+
+use nexus_vm::riscv::InstructionType::RType;
 
 use crate::column::Column::{
     self, ImmC, InstrVal, IsAdd, IsSub, OpA, OpA0, OpA1_4, OpB, OpB0, OpB1_4, OpC, OpC0_3, OpC4,
 };
-use crate::trace::eval::trace_eval;
-use nexus_vm::riscv::InstructionType::RType;
-use num_traits::One;
-use stwo_prover::core::fields::m31::BaseField;
+use crate::{
+    components::AllLookupElements,
+    extensions::ExtensionsConfig,
+    trace::{
+        eval::{trace_eval, TraceEval},
+        sidenote::SideNote,
+        ProgramStep, TracesBuilder,
+    },
+    traits::MachineChip,
+    virtual_column::{self, VirtualColumn},
+};
 
 pub struct TypeRChip;
 
@@ -53,7 +58,7 @@ impl MachineChip for TypeRChip {
         traces.fill_columns(row_idx, op_c0_3, OpC0_3);
         traces.fill_columns(row_idx, op_c4, OpC4);
     }
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,

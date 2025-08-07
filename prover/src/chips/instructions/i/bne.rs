@@ -1,11 +1,6 @@
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
-    core::fields::{
-        m31::{BaseField, M31},
-        FieldExpOps,
-    },
-};
+use stwo::core::fields::{m31::BaseField, FieldExpOps};
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm::riscv::BuiltinOpcode;
 
@@ -24,13 +19,13 @@ use crate::{
 use super::add;
 
 pub struct ExecutionResult {
-    pub neq_flag: bool,        // Flag indicating if a_val != b_val
-    pub neq_12_flag: bool,     // Flag indicating if (a_val_1, a_val_2) != (b_val_1, b_val_2)
-    pub neq_34_flag: bool,     // Flag indicating if (a_val_3, a_val_4) != (b_val_3, b_val_4)
-    pub result: Word,          // Next program counter (pc_next)
-    pub carry_bits: [bool; 2], // Carry bits for addition
-    pub neq_aux: [M31; 2],     // Difference between a_val and b_val
-    pub neq_aux_inv: [M31; 2], // Inverse of the difference
+    pub neq_flag: bool,              // Flag indicating if a_val != b_val
+    pub neq_12_flag: bool,           // Flag indicating if (a_val_1, a_val_2) != (b_val_1, b_val_2)
+    pub neq_34_flag: bool,           // Flag indicating if (a_val_3, a_val_4) != (b_val_3, b_val_4)
+    pub result: Word,                // Next program counter (pc_next)
+    pub carry_bits: [bool; 2],       // Carry bits for addition
+    pub neq_aux: [BaseField; 2],     // Difference between a_val and b_val
+    pub neq_aux_inv: [BaseField; 2], // Inverse of the difference
 }
 
 pub struct BneChip;

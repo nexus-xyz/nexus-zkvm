@@ -1,26 +1,28 @@
 use itertools::Itertools;
-use nexus_common::constants::WORD_SIZE_HALVED;
-use nexus_vm::WORD_SIZE;
+
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{
-        logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, EvalAtRow,
-        FrameworkEval, Relation, RelationEntry,
-    },
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        poly::circle::CanonicCoset,
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             column::BaseColumn,
             m31::{PackedBaseField, LOG_N_LANES},
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
-        ColumnVec,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
     },
 };
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, EvalAtRow, FrameworkEval, LogupTraceGenerator,
+    Relation, RelationEntry,
+};
+
+use nexus_common::constants::WORD_SIZE_HALVED;
+use nexus_vm::WORD_SIZE;
 
 use crate::{
     chips::{instructions::LoadStoreLookupElements, range_check::range256::Range256LookupElements},
@@ -56,7 +58,7 @@ impl FrameworkEval for RamInitFinalEval {
     fn max_constraint_log_degree_bound(&self) -> u32 {
         self.log_size + 1
     }
-    fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
+    fn evaluate<E: stwo_constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
         // Retrieve all preprocessed columns in the same order as generated
         let preprocessed_ram_addr: Vec<E::F> = (0..WORD_SIZE)
             .map(|i| {

@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 
 use nexus_common::constants::WORD_SIZE_HALVED;
-use stwo_prover::core::{backend::simd::column::BaseColumn, fields::m31::BaseField};
+use stwo::{core::fields::m31::BaseField, prover::backend::simd::column::BaseColumn};
 
 use nexus_vm::{riscv::Register, WORD_SIZE};
 use nexus_vm_prover_air_column::AirColumn;

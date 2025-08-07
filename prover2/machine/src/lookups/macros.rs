@@ -17,12 +17,12 @@ macro_rules! register_relation {
         $_vis trait $_trait: Sync + Clone + 'static + Into<$_enum> {
             type Relation<
                 F: Clone,
-                EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>
-            >: stwo_prover::constraint_framework::Relation<F, EF>;
+                EF: stwo_constraint_framework::RelationEFTraitBound<F>
+            >: stwo_constraint_framework::Relation<F, EF>;
 
             fn as_relation_ref<
                 F: Clone,
-                EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>,
+                EF: stwo_constraint_framework::RelationEFTraitBound<F>,
             >(
                 &self,
             ) -> &Self::Relation<F, EF>;
@@ -31,7 +31,7 @@ macro_rules! register_relation {
 
             fn dummy() -> Self;
 
-            fn draw(channel: &mut impl stwo_prover::core::channel::Channel) -> Self;
+            fn draw(channel: &mut impl stwo::core::channel::Channel) -> Self;
         }
 
         $(
@@ -44,12 +44,12 @@ macro_rules! register_relation {
             impl $_trait for $name {
                 type Relation<
                     F: Clone,
-                    EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>
+                    EF: stwo_constraint_framework::RelationEFTraitBound<F>
                 > = Self;
 
                 fn as_relation_ref<
                     F: Clone,
-                    EF: stwo_prover::constraint_framework::RelationEFTraitBound<F>,
+                    EF: stwo_constraint_framework::RelationEFTraitBound<F>,
                 >(
                     &self,
                 ) -> &Self::Relation<F, EF> {
@@ -68,7 +68,7 @@ macro_rules! register_relation {
                     Self::dummy()
                 }
 
-                fn draw(channel: &mut impl stwo_prover::core::channel::Channel) -> Self {
+                fn draw(channel: &mut impl stwo::core::channel::Channel) -> Self {
                     Self::draw(channel)
                 }
             }

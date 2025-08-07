@@ -1,14 +1,16 @@
 //! Lookup table component for subtracting bitwise operations final multiplicities.
 
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+use stwo::{
     core::{
-        backend::simd::{column::BaseColumn, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
+    prover::{
+        backend::simd::{column::BaseColumn, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
 };
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_vm_prover_trace::{
     builder::FinalizedTrace, component::ComponentTrace, eval::TraceEval, original_base_column,

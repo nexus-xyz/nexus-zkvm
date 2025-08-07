@@ -1,8 +1,6 @@
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
-    core::{backend::simd::m31::PackedBaseField, fields::m31::BaseField},
-};
+use stwo::{core::fields::m31::BaseField, prover::backend::simd::m31::PackedBaseField};
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};

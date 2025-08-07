@@ -1,20 +1,21 @@
 //! Erased dyn-compatible version of the [`BuiltInComponent`] trait.
 
-use stwo_prover::{
-    constraint_framework::{FrameworkEval, InfoEvaluator, TraceLocationAllocator},
+use stwo::{
     core::{
-        air::{Component, ComponentProver},
-        backend::simd::SimdBackend,
+        air::Component,
         channel::Blake2sChannel,
         fields::{m31::BaseField, qm31::SecureField},
         pcs::TreeVec,
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::SimdBackend,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+        ComponentProver,
+    },
 };
+use stwo_constraint_framework::{FrameworkEval, InfoEvaluator, TraceLocationAllocator};
 
 use nexus_vm_prover_air_column::AirColumn;
 use nexus_vm_prover_trace::component::ComponentTrace;

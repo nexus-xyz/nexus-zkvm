@@ -14,7 +14,6 @@ nexus-common = { path = "../../common" }
 nexus-vm = { path = "../../vm" }
 nexus-vm-prover = { path = "../../prover" }
 nexus-common-testing = { path = "../../common-testing" }
-stwo-prover = { workspace = true }
 postcard = { version = "1.0.10", features = ["alloc"] }
 serde.workspace = true
 tempfile = "3.13"

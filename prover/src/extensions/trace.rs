@@ -1,15 +1,11 @@
-use stwo_prover::{
-    constraint_framework::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX},
-    core::{
+use stwo::{
+    core::{fields::m31::BaseField, poly::circle::CanonicCoset, ColumnVec},
+    prover::{
         backend::simd::{column::BaseColumn, SimdBackend},
-        fields::m31::BaseField,
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
-        ColumnVec,
+        poly::{circle::CircleEvaluation, BitReversedOrder},
     },
 };
+use stwo_constraint_framework::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 
 /// Intermediate representation of the component trace.
 pub struct ComponentTrace {

@@ -1,18 +1,20 @@
 use std::marker::PhantomData;
 
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             m31::{PackedBaseField, LOG_N_LANES},
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
     },
 };
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::AirColumn;

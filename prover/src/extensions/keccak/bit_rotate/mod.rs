@@ -8,20 +8,20 @@
 
 use std::{collections::BTreeMap, simd::u32x16};
 
-use stwo_prover::{
-    constraint_framework::{
-        logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, EvalAtRow,
-        FrameworkEval, Relation, RelationEntry,
-    },
+use stwo::{
     core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
+};
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, EvalAtRow, FrameworkEval, LogupTraceGenerator,
+    Relation, RelationEntry,
 };
 
 use crate::{

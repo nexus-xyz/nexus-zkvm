@@ -1,20 +1,20 @@
 // Multiplicity8 extension is a special case because it requires eight padding rows in order to fit the SIMD usage
 
 use num_traits::{CheckedSub, Zero};
-use stwo_prover::{
-    constraint_framework::{
-        logup::LogupTraceGenerator, preprocessed_columns::PreProcessedColumnId, FrameworkEval,
-        Relation, RelationEntry,
-    },
+use stwo::{
     core::{
-        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::{column::BaseColumn, m31::LOG_N_LANES, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
+};
+use stwo_constraint_framework::{
+    preprocessed_columns::PreProcessedColumnId, FrameworkEval, LogupTraceGenerator, Relation,
+    RelationEntry,
 };
 
 use crate::{
@@ -73,7 +73,7 @@ impl FrameworkEval for MultiplicityEval8 {
     // We don't need anything special about the eight additional zero's in the preprocessed column because
     // whatever the malicious prover can do with the additional padding rows, the malicious prover can do the
     // same using the non-padding row with zero.
-    fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
+    fn evaluate<E: stwo_constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
         let checked_value = RangeValues8::new(Self::LOG_SIZE);
         let checked_value = eval.get_preprocessed_column(checked_value.id());
         let multiplicity = eval.next_trace_mask();

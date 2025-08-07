@@ -1,17 +1,19 @@
 use serde::{Deserialize, Serialize};
-use stwo_prover::{
-    constraint_framework::TraceLocationAllocator,
+use stwo::{
     core::{
-        air::ComponentProver,
-        backend::simd::SimdBackend,
         channel::{Blake2sChannel, Channel},
         fields::qm31::SecureField,
-        pcs::{CommitmentSchemeProver, PcsConfig},
-        poly::circle::{CanonicCoset, PolyOps},
-        prover::{self, ProvingError, StarkProof},
+        pcs::PcsConfig,
+        poly::circle::CanonicCoset,
+        proof::StarkProof,
         vcs::blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
     },
+    prover::{
+        backend::simd::SimdBackend, poly::circle::PolyOps, CommitmentSchemeProver, ComponentProver,
+        ProvingError,
+    },
 };
+use stwo_constraint_framework::TraceLocationAllocator;
 
 use nexus_vm::{emulator::View, trace::Trace};
 use nexus_vm_prover_trace::{
@@ -118,7 +120,7 @@ pub fn prove(trace: &impl Trace, view: &View) -> Result<Proof, ProvingError> {
     let components_ref: Vec<&dyn ComponentProver<SimdBackend>> =
         components.iter().map(|c| &**c).collect();
 
-    let proof = prover::prove::<SimdBackend, Blake2sMerkleChannel>(
+    let proof = stwo::prover::prove::<SimdBackend, Blake2sMerkleChannel>(
         &components_ref,
         prover_channel,
         commitment_scheme,

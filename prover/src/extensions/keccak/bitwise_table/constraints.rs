@@ -1,9 +1,7 @@
 use std::marker::PhantomData;
 
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
-    core::fields::m31::BaseField,
-};
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use super::{preprocessed_columns::BitwiseTable, BitwiseOp};
 use crate::components::RegisteredLookupBound;

@@ -67,7 +67,7 @@ pub(crate) trait ComponentLookupElements: private::Sealed {
 
     fn draw(
         lookup_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
     );
 }
 
@@ -83,7 +83,7 @@ impl<T: RegisteredLookupBound> ComponentLookupElements for T {
 
     fn draw(
         lookup_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
     ) {
         let type_id = TypeId::of::<Self>();
         lookup_elements
@@ -109,7 +109,7 @@ impl ComponentLookupElements for T {
 
     fn draw(
         lookup_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
     ) {
         for_tuples!( #( <T as ComponentLookupElements>::draw(lookup_elements, channel); )* );
     }

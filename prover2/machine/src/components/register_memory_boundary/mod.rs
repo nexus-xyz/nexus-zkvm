@@ -1,15 +1,17 @@
 //! Helper component needed to eliminate boundary logup terms in the register memory component.
 
 use num_traits::{One, Zero};
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+use stwo::{
     core::{
-        backend::simd::{column::BaseColumn, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
+    prover::{
+        backend::simd::{column::BaseColumn, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
 };
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_common::constants::NUM_REGISTERS;
 use nexus_vm::WORD_SIZE;

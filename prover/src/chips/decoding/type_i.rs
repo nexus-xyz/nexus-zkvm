@@ -1,6 +1,7 @@
 #![allow(clippy::identity_op)]
 
-use stwo_prover::core::fields::m31::BaseField;
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use crate::{
     components::AllLookupElements,
@@ -67,7 +68,7 @@ impl MachineChip for TypeINoShiftChip {
         traces.fill_columns(row_idx, op_c11 as u8, OpC11);
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,
@@ -325,7 +326,7 @@ impl MachineChip for TypeIShiftChip {
         traces.fill_columns(row_idx, op_c4 as u8, OpC4);
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         _lookup_elements: &AllLookupElements,

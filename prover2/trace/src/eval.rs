@@ -1,11 +1,11 @@
 use std::{array, marker::PhantomData};
 
 use num_traits::Zero;
-use stwo_prover::constraint_framework::{preprocessed_columns::PreProcessedColumnId, EvalAtRow};
+use stwo_constraint_framework::{preprocessed_columns::PreProcessedColumnId, EvalAtRow};
 
 use nexus_vm_prover_air_column::{AirColumn, PreprocessedAirColumn};
 
-pub use stwo_prover::constraint_framework::{
+pub use stwo_constraint_framework::{
     INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX,
 };
 
@@ -134,7 +134,7 @@ macro_rules! preprocessed_trace_eval {
 #[cfg(test)]
 mod tests {
     use nexus_vm_prover_air_column::empty::EmptyPreprocessedColumn;
-    use stwo_prover::constraint_framework::{FrameworkEval, InfoEvaluator};
+    use stwo_constraint_framework::{FrameworkEval, InfoEvaluator};
 
     use super::*;
 

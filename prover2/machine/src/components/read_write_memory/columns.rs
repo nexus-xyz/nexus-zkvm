@@ -1,7 +1,5 @@
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
-    core::{backend::simd::m31::PackedBaseField, fields::m31::BaseField},
-};
+use stwo::{core::fields::m31::BaseField, prover::backend::simd::m31::PackedBaseField};
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm_prover_air_column::{
     empty::EmptyPreprocessedColumn, AirColumn, PreprocessedAirColumn,

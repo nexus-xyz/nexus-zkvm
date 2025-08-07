@@ -1,4 +1,5 @@
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};

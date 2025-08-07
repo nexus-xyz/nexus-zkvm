@@ -3,12 +3,12 @@
 use std::simd::u32x16;
 
 use num_traits::{One, Zero};
-use stwo_prover::core::{
-    backend::simd::{
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::{
         column::BaseColumn,
-        m31::{PackedM31, LOG_N_LANES},
+        m31::{PackedBaseField, LOG_N_LANES},
     },
-    fields::m31::BaseField,
 };
 
 use super::{
@@ -187,7 +187,7 @@ impl<'b: 'a, 'a> TraceBuilder<'a> {
                     .map(|col| {
                         let base_col = BaseColumn::from_simd(
                             col.into_iter()
-                                .map(|v| unsafe { PackedM31::from_simd_unchecked(v) })
+                                .map(|v| unsafe { PackedBaseField::from_simd_unchecked(v) })
                                 .collect(),
                         );
                         base_col

@@ -1,5 +1,6 @@
 use nexus_vm::WORD_SIZE;
-use stwo_prover::{constraint_framework::EvalAtRow, core::fields::m31::BaseField};
+use stwo::core::fields::m31::BaseField;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm_prover_air_column::{empty::EmptyPreprocessedColumn, AirColumn};
 use nexus_vm_prover_trace::{eval::TraceEval, trace_eval};

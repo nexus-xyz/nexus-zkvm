@@ -1,4 +1,4 @@
-use stwo_prover::constraint_framework::FrameworkEval;
+use stwo_constraint_framework::{EvalAtRow, FrameworkEval};
 
 use nexus_vm_prover_trace::eval::TraceEval;
 
@@ -25,7 +25,7 @@ impl<C: BuiltInComponent> FrameworkEval for BuiltInComponentEval<'_, C> {
         Self::max_constraint_log_degree_bound(self.log_size)
     }
 
-    fn evaluate<E: stwo_prover::constraint_framework::EvalAtRow>(&self, mut eval: E) -> E {
+    fn evaluate<E: EvalAtRow>(&self, mut eval: E) -> E {
         let trace_eval = TraceEval::new(&mut eval);
         C::add_constraints(self.component, &mut eval, trace_eval, &self.lookup_elements);
         eval
@@ -33,4 +33,4 @@ impl<C: BuiltInComponent> FrameworkEval for BuiltInComponentEval<'_, C> {
 }
 
 pub type FrameworkComponent<'a, C> =
-    stwo_prover::constraint_framework::FrameworkComponent<BuiltInComponentEval<'a, C>>;
+    stwo_constraint_framework::FrameworkComponent<BuiltInComponentEval<'a, C>>;

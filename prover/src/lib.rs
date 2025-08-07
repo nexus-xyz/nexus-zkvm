@@ -21,7 +21,7 @@ pub(crate) use nexus_vm::WORD_SIZE;
 
 pub use machine::Proof;
 
-pub use stwo_prover::core::prover::{ProvingError, VerificationError};
+pub use stwo::{core::verifier::VerificationError, prover::ProvingError};
 
 pub fn prove(
     trace: &impl nexus_vm::trace::Trace,

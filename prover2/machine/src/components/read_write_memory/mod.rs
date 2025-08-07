@@ -1,13 +1,15 @@
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+use stwo::{
     core::{
-        backend::simd::{m31::PackedBaseField, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
+    prover::{
+        backend::simd::{m31::PackedBaseField, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
 };
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::{
@@ -457,7 +459,8 @@ mod tests {
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
-    use stwo_prover::{constraint_framework::Relation, core::fields::FieldExpOps};
+    use stwo::core::fields::{m31::BaseField, FieldExpOps};
+    use stwo_constraint_framework::Relation;
 
     use crate::{
         components::{read_write_memory_boundary::ReadWriteMemoryBoundary, RANGE256},

@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use stwo_prover::core::backend::simd::m31::LOG_N_LANES;
+use stwo::prover::backend::simd::m31::LOG_N_LANES;
 
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},

@@ -1,4 +1,4 @@
-use stwo_prover::constraint_framework::{EvalAtRow, FrameworkEval};
+use stwo_constraint_framework::{EvalAtRow, FrameworkEval};
 
 use crate::{
     components::{

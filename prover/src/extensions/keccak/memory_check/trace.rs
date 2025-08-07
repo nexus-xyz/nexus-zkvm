@@ -1,19 +1,22 @@
-use nexus_common::constants::WORD_SIZE_HALVED;
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::{logup::LogupTraceGenerator, Relation},
+use stwo::{
     core::{
+        fields::{m31::BaseField, qm31::SecureField},
+        ColumnVec,
+    },
+    prover::{
         backend::simd::{
             column::BaseColumn,
-            m31::{PackedM31, LOG_N_LANES},
+            m31::{PackedBaseField, LOG_N_LANES},
             qm31::PackedSecureField,
             SimdBackend,
         },
-        fields::{m31::BaseField, qm31::SecureField},
         poly::{circle::CircleEvaluation, BitReversedOrder},
-        ColumnVec,
     },
 };
+
+use nexus_common::constants::WORD_SIZE_HALVED;
+use stwo_constraint_framework::{LogupTraceGenerator, Relation};
 
 use super::PermutationMemoryCheckEval;
 use crate::{
@@ -182,12 +185,12 @@ impl MemoryCheckLogUpGenerator<'_> {
         let mut logup_col_gen = logup_gen.new_col();
         for vec_idx in 0..(1 << (self.component_trace.log_size - LOG_N_LANES)) {
             let p0: PackedSecureField = {
-                let tuple: Vec<PackedM31> =
+                let tuple: Vec<PackedBaseField> =
                     input_state.iter().map(|col| col.data[vec_idx]).collect();
                 lookup_elements.combine(&tuple)
             };
             let p1: PackedSecureField = {
-                let tuple: Vec<PackedM31> =
+                let tuple: Vec<PackedBaseField> =
                     output_state.iter().map(|col| col.data[vec_idx]).collect();
                 lookup_elements.combine(&tuple)
             };
@@ -219,7 +222,7 @@ impl MemoryCheckLogUpGenerator<'_> {
 
                 let p0: PackedSecureField = {
                     let prev_ts = &prev_ts[j..j + WORD_SIZE_HALVED];
-                    let tuple: Vec<PackedM31> = addr
+                    let tuple: Vec<PackedBaseField> = addr
                         .iter()
                         .chain(std::iter::once(prev_val))
                         .chain(prev_ts)
@@ -230,7 +233,7 @@ impl MemoryCheckLogUpGenerator<'_> {
 
                 let p1: PackedSecureField = {
                     let next_ts = &next_ts[j..j + WORD_SIZE_HALVED];
-                    let tuple: Vec<PackedM31> = addr
+                    let tuple: Vec<PackedBaseField> = addr
                         .iter()
                         .chain(std::iter::once(next_val))
                         .chain(next_ts)

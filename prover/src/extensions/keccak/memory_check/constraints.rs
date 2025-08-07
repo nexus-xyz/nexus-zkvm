@@ -1,6 +1,6 @@
 use nexus_common::constants::WORD_SIZE_HALVED;
 use num_traits::One;
-use stwo_prover::constraint_framework::{
+use stwo_constraint_framework::{
     preprocessed_columns::PreProcessedColumnId, EvalAtRow, RelationEntry, ORIGINAL_TRACE_IDX,
 };
 

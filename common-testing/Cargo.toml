@@ -13,7 +13,6 @@ publish.workspace = true
 nexus-vm = { path = "../vm" }
 nexus-vm-prover = { path = "../prover" }
 nexus-common = { path = "../common" }
-stwo-prover = { workspace = true }
 nexus-rt = { path = "../runtime" }
 postcard = { version = "1.0.10", features = ["alloc"] }
 serde = { workspace = true }

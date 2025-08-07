@@ -1,12 +1,12 @@
 // This file contains range-checking values for 0..=255.
 
-use stwo_prover::constraint_framework::{logup::LogupTraceGenerator, Relation, RelationEntry};
+use stwo_constraint_framework::{LogupTraceGenerator, Relation, RelationEntry};
 
 use nexus_vm::WORD_SIZE;
 use num_traits::{One, Zero};
-use stwo_prover::core::{
-    backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
-    fields::{m31::BaseField, qm31::SecureField},
+use stwo::{
+    core::fields::{m31::BaseField, qm31::SecureField},
+    prover::backend::simd::{column::BaseColumn, m31::LOG_N_LANES},
 };
 
 use crate::{
@@ -35,7 +35,7 @@ use crate::{
 pub struct Range256Chip;
 
 const LOOKUP_TUPLE_SIZE: usize = 1;
-stwo_prover::relation!(Range256LookupElements, LOOKUP_TUPLE_SIZE);
+stwo_constraint_framework::relation!(Range256LookupElements, LOOKUP_TUPLE_SIZE);
 
 impl Range256Chip {
     const CHECKED_WORDS: [Column; 38] = [
@@ -98,7 +98,7 @@ impl Range256Chip {
 impl MachineChip for Range256Chip {
     fn draw_lookup_elements(
         all_elements: &mut AllLookupElements,
-        channel: &mut impl stwo_prover::core::channel::Channel,
+        channel: &mut impl stwo::core::channel::Channel,
         _config: &ExtensionsConfig,
     ) {
         all_elements.insert(Range256LookupElements::draw(channel));
@@ -204,7 +204,7 @@ impl MachineChip for Range256Chip {
         }
     }
 
-    fn add_constraints<E: stwo_prover::constraint_framework::EvalAtRow>(
+    fn add_constraints<E: stwo_constraint_framework::EvalAtRow>(
         eval: &mut E,
         trace_eval: &TraceEval<E>,
         lookup_elements: &AllLookupElements,
@@ -301,7 +301,7 @@ mod test {
 
     use nexus_vm::emulator::{Emulator, HarvardEmulator, ProgramInfo};
 
-    use stwo_prover::core::fields::m31::BaseField;
+    use stwo::core::fields::m31::BaseField;
 
     #[test]
     fn test_range256_chip_success() {

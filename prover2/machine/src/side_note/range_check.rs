@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, ops::Deref};
 
-use stwo_prover::core::fields::m31;
+use stwo::core::fields::m31;
 
 #[derive(Debug, Default, Clone)]
 pub struct RangeCheckMultiplicities<const N: u32> {

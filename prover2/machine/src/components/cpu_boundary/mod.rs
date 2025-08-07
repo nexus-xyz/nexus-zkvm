@@ -4,15 +4,17 @@
 //! consistent.
 
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, RelationEntry},
+use stwo::{
     core::{
-        backend::simd::{m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{circle::CircleEvaluation, BitReversedOrder},
         ColumnVec,
     },
+    prover::{
+        backend::simd::{m31::LOG_N_LANES, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
 };
+use stwo_constraint_framework::{EvalAtRow, RelationEntry};
 
 use nexus_vm_prover_trace::{
     builder::{FinalizedTrace, TraceBuilder},

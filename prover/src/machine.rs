@@ -1,19 +1,23 @@
 use std::marker::PhantomData;
 
 use num_traits::Zero;
-use stwo_prover::{
-    constraint_framework::TraceLocationAllocator,
+use stwo::{
     core::{
-        air::{Component, ComponentProver},
-        backend::simd::SimdBackend,
+        air::Component,
         channel::{Blake2sChannel, Channel},
         fields::qm31::SecureField,
-        pcs::{CommitmentSchemeProver, CommitmentSchemeVerifier, PcsConfig, TreeVec},
-        poly::circle::{CanonicCoset, PolyOps},
-        prover::{prove, verify, ProvingError, StarkProof, VerificationError},
+        pcs::{CommitmentSchemeVerifier, PcsConfig, TreeVec},
+        poly::circle::CanonicCoset,
+        proof::StarkProof,
         vcs::blake2_merkle::{Blake2sMerkleChannel, Blake2sMerkleHasher},
+        verifier::{verify, VerificationError},
+    },
+    prover::{
+        backend::simd::SimdBackend, poly::circle::PolyOps, prove, CommitmentSchemeProver,
+        ComponentProver, ProvingError,
     },
 };
+use stwo_constraint_framework::TraceLocationAllocator;
 
 use super::trace::eval::{INTERACTION_TRACE_IDX, ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
 use super::trace::{

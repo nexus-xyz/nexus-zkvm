@@ -1,5 +1,5 @@
 use num_traits::{Euclid, One};
-use stwo_prover::constraint_framework::EvalAtRow;
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 

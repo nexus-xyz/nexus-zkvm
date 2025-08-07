@@ -1,16 +1,14 @@
 use num_traits::Zero;
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
-    core::{
-        backend::simd::{column::BaseColumn, SimdBackend},
-        fields::m31::BaseField,
-    },
+use stwo::{
+    core::fields::m31::BaseField,
+    prover::backend::simd::{column::BaseColumn, SimdBackend},
 };
 
 use nexus_common::constants::WORD_SIZE;
 
-pub use stwo_prover::core::backend::ColumnOps;
+pub use stwo::prover::backend::ColumnOps;
+use stwo_constraint_framework::EvalAtRow;
 
 use super::{
     program::{Word, WordWithEffectiveBits},
@@ -136,7 +134,7 @@ pub fn zero_array<const N: usize, E: EvalAtRow>() -> [E::F; N] {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use stwo_prover::core::{
+    use stwo::core::{
         fields::m31::M31,
         utils::{bit_reverse_index, coset_index_to_circle_domain_index},
     };

@@ -1,8 +1,6 @@
 use num_traits::One;
-use stwo_prover::{
-    constraint_framework::EvalAtRow,
-    core::fields::{m31::BaseField, FieldExpOps},
-};
+use stwo::core::fields::{m31::BaseField, FieldExpOps};
+use stwo_constraint_framework::EvalAtRow;
 
 use nexus_vm::{riscv::BuiltinOpcode, WORD_SIZE};
 

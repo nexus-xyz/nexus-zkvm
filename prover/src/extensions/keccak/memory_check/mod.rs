@@ -1,15 +1,15 @@
-use stwo_prover::{
-    constraint_framework::{EvalAtRow, FrameworkEval},
+use stwo::{
     core::{
-        backend::simd::{m31::LOG_N_LANES, SimdBackend},
         fields::{m31::BaseField, qm31::SecureField},
-        poly::{
-            circle::{CanonicCoset, CircleEvaluation},
-            BitReversedOrder,
-        },
+        poly::circle::CanonicCoset,
         ColumnVec,
     },
+    prover::{
+        backend::simd::{m31::LOG_N_LANES, SimdBackend},
+        poly::{circle::CircleEvaluation, BitReversedOrder},
+    },
 };
+use stwo_constraint_framework::{EvalAtRow, FrameworkEval};
 
 use super::LANE_SIZE;
 use crate::{
