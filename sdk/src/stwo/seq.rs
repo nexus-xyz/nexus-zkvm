@@ -72,7 +72,7 @@ where
     fn compile(compiler: &mut impl Compile) -> Result<Self, <Self as Prover>::Error> {
         let elf_path = compiler.build()?;
 
-        Self::new_from_file(&elf_path.to_string_lossy().to_string())
+        Self::new_from_file(&elf_path.to_string_lossy().into_owned())
     }
 }
 
