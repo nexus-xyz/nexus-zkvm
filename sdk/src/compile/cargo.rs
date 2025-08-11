@@ -101,6 +101,7 @@ impl Compile for Compiler<CargoPackager> {
         let cargo_bin = std::env::var("CARGO").unwrap_or_else(|_err| "cargo".into());
         let mut cmd = Command::new(cargo_bin);
 
+        // Base args
         cmd.envs(envs).args([
             "build",
             "--package",
@@ -109,11 +110,15 @@ impl Compile for Compiler<CargoPackager> {
             prog,
             "--target-dir",
             &dest,
-            "--target",
-            target,
-            "--profile",
-            profile,
         ]);
+
+        // Only specify a --target for cross compilation; for native builds Cargo should infer host target.
+        if !self.native {
+            cmd.args(["--target", target]);
+        }
+
+        // Profile selection
+        cmd.args(["--profile", profile]);
 
         let res = cmd.output()?;
 
@@ -122,8 +127,12 @@ impl Compile for Compiler<CargoPackager> {
             return Err(BuildError::CompilerError);
         }
 
-        let elf_path =
-            PathBuf::from_str(&format!("{}/{}/{}/{}", dest, target, profile, prog)).unwrap();
+        // Compute output artifact path differently for native vs cross builds
+        let elf_path = if self.native {
+            PathBuf::from_str(&format!("{}/{}/{}", dest, profile, prog)).unwrap()
+        } else {
+            PathBuf::from_str(&format!("{}/{}/{}/{}", dest, target, profile, prog)).unwrap()
+        };
 
         Ok(elf_path)
     }
