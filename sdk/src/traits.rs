@@ -258,10 +258,7 @@ pub trait Prover: Sized {
     ) -> Result<Self::View, <Self as Prover>::Error>;
 
     /// Run the zkVM and return a verifiable proof, along with a view of the execution output.
-    fn prove(self) -> Result<(Self::View, Self::Proof), <Self as Prover>::Error>
-    where
-        Self: Sized,
-    {
+    fn prove(self) -> Result<(Self::View, Self::Proof), <Self as Prover>::Error> {
         Self::prove_with_input::<(), ()>(self, &(), &())
     }
 
