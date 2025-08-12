@@ -183,13 +183,13 @@ impl Index<usize> for MemorySegmentImage {
     type Output = u32;
 
     fn index(&self, index: usize) -> &Self::Output {
-        &self.image[index - self.base as usize]
+        &self.image[index]
     }
 }
 
 impl IndexMut<usize> for MemorySegmentImage {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.image[index - self.base as usize]
+        &mut self.image[index]
     }
 }
 
@@ -197,13 +197,17 @@ impl Index<u32> for MemorySegmentImage {
     type Output = u32;
 
     fn index(&self, index: u32) -> &Self::Output {
-        &self.image[index as usize - self.base as usize]
+        debug_assert!(index.is_word_aligned());
+        let idx = ((index - self.base) as usize) / WORD_SIZE;
+        &self.image[idx]
     }
 }
 
 impl IndexMut<u32> for MemorySegmentImage {
     fn index_mut(&mut self, index: u32) -> &mut Self::Output {
-        &mut self.image[index as usize - self.base as usize]
+        debug_assert!(index.is_word_aligned());
+        let idx = ((index - self.base) as usize) / WORD_SIZE;
+        &mut self.image[idx]
     }
 }
 
