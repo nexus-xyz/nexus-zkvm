@@ -54,7 +54,16 @@ impl CheckedView for nexus_core::nvm::View {
 
         let program_memory = elf_into_program_info(&converted_elf, memory_layout);
 
-        let initial_memory = slice_into_io_entries::<MemoryInitializationEntry>(
+        let input_memory = slice_into_io_entries::<MemoryInitializationEntry>(
+            memory_layout.public_input_start(),
+            &[
+                &(expected_public_input.len() as u32).to_le_bytes(),
+                expected_public_input,
+            ]
+            .concat(),
+        );
+
+        let ro_initial_memory = slice_into_io_entries::<MemoryInitializationEntry>(
             memory_layout.public_input_address_location(),
             &[
                 memory_layout.public_input_start().to_le_bytes(),
@@ -64,20 +73,11 @@ impl CheckedView for nexus_core::nvm::View {
         )
         .iter()
         .chain(map_into_io_entries::<MemoryInitializationEntry>(&expected_elf.rom_image).iter())
-        .chain(map_into_io_entries::<MemoryInitializationEntry>(&expected_elf.ram_image).iter())
-        .chain(
-            slice_into_io_entries::<MemoryInitializationEntry>(
-                memory_layout.public_input_start(),
-                &[
-                    &(expected_public_input.len() as u32).to_le_bytes(),
-                    expected_public_input,
-                ]
-                .concat(),
-            )
-            .iter(),
-        )
         .copied()
         .collect();
+
+        let rw_initial_memory =
+            map_into_io_entries::<MemoryInitializationEntry>(&expected_elf.ram_image);
 
         let exit_code = slice_into_io_entries::<PublicOutputEntry>(
             memory_layout.exit_code(),
@@ -96,7 +96,9 @@ impl CheckedView for nexus_core::nvm::View {
             &Some(*memory_layout),
             &Vec::new(),
             &program_memory,
-            &initial_memory,
+            &ro_initial_memory,
+            &rw_initial_memory,
+            &input_memory,
             memory_layout.tracked_ram_size(static_memory_size),
             &exit_code,
             &output_memory,

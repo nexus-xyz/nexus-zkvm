@@ -286,6 +286,7 @@ pub fn emulate(
             EmulatorType::Linear(heap_size, stack_size, program_size) => {
                 // Construct the memory layout.
                 let memory_layout = LinearMemoryLayout::try_new(
+                    None,
                     heap_size,
                     stack_size,
                     public_input_bytes.len() as u32,

@@ -675,7 +675,7 @@ impl Emulator for HarvardEmulator {
             );
         }
 
-        let public_input: Vec<MemoryInitializationEntry> = self
+        let input_memory: Vec<MemoryInitializationEntry> = self
             .input_memory
             .segment_bytes(0, None)
             .iter()
@@ -685,7 +685,7 @@ impl Emulator for HarvardEmulator {
                 value: *byte,
             })
             .collect();
-        let initial_rom_iter = self
+        let ro_initial_memory: Vec<MemoryInitializationEntry> = self
             .initial_rom_image
             .as_byte_slice()
             .iter()
@@ -693,8 +693,9 @@ impl Emulator for HarvardEmulator {
             .map(|(i, &byte)| MemoryInitializationEntry {
                 address: self.initial_rom_image.base() + i as u32,
                 value: byte,
-            });
-        let initial_ram_iter = self
+            })
+            .collect();
+        let rw_initial_memory: Vec<MemoryInitializationEntry> = self
             .initial_ram_image
             .as_byte_slice()
             .iter()
@@ -702,7 +703,8 @@ impl Emulator for HarvardEmulator {
             .map(|(i, &byte)| MemoryInitializationEntry {
                 address: self.initial_ram_image.base() + i as u32,
                 value: byte,
-            });
+            })
+            .collect();
 
         let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
             self.get_executor().logs.clone().unwrap()
@@ -710,18 +712,11 @@ impl Emulator for HarvardEmulator {
             Vec::new()
         };
 
-        let input_size =
-            initial_rom_iter.len() + self.initial_ram_image.len_bytes() + public_input.len();
+        let input_size = ro_initial_memory.len() + rw_initial_memory.len() + input_memory.len();
         let tracked_ram_size = self
             .memory_stats
             .get_tracked_ram_size(input_size as u32, output_memory.len() as u32)
             as usize;
-
-        let initial_memory: Vec<_> = initial_rom_iter
-            .into_iter()
-            .chain(initial_ram_iter)
-            .chain(public_input)
-            .collect();
 
         View {
             memory_layout: None,
@@ -739,7 +734,9 @@ impl Emulator for HarvardEmulator {
                     })
                     .collect(),
             },
-            initial_memory,
+            ro_initial_memory,
+            rw_initial_memory,
+            input_memory,
             tracked_ram_size,
             exit_code,
             output_memory,
@@ -813,6 +810,10 @@ impl LinearEmulator {
         let memory_layout = emulator_harvard
             .memory_stats
             .create_optimized_layout(
+                (
+                    emulator_harvard.initial_ram_image.base(),
+                    emulator_harvard.initial_ram_image.end(),
+                ),
                 (elf.instructions.len() * WORD_SIZE
                     + WORD_SIZE // padding for linker script spacing
                     + elf.rom_image.len_bytes()
@@ -1146,7 +1147,7 @@ impl Emulator for LinearEmulator {
 
         // Need to use dynamic dispatch due to Rust typing rules and not wanting to incur the cost
         // of doing a `collect()`.
-        let public_input_iter = self
+        let input_memory = self
             .memory
             .segment_words(
                 self.public_input_index,
@@ -1163,7 +1164,8 @@ impl Emulator for LinearEmulator {
                 word.into_iter().enumerate().map(move |(j, byte)| {
                     MemoryInitializationEntry::new(base_address + j as u32, byte)
                 })
-            });
+            })
+            .collect();
 
         let public_io_loc_iter = self
             .memory
@@ -1223,17 +1225,17 @@ impl Emulator for LinearEmulator {
             },
         };
         let ram_initialization = &self.initial_static_ram_image;
-        let ram_iter =
-            ram_initialization
-                .as_byte_slice()
-                .iter()
-                .enumerate()
-                .map(|(offset, byte)| {
-                    MemoryInitializationEntry::new(
-                        offset as u32 + self.initial_static_ram_image.base(),
-                        *byte,
-                    )
-                });
+        let rw_initial_memory = ram_initialization
+            .as_byte_slice()
+            .iter()
+            .enumerate()
+            .map(|(offset, byte)| {
+                MemoryInitializationEntry::new(
+                    offset as u32 + self.initial_static_ram_image.base(),
+                    *byte,
+                )
+            })
+            .collect();
 
         let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
             self.get_executor().logs.clone().unwrap()
@@ -1251,12 +1253,7 @@ impl Emulator for LinearEmulator {
             .unwrap_or_default()
             .to_vec();
 
-        let mut initial_memory: Vec<_> = public_io_loc_iter
-            .into_iter()
-            .chain(rom_iter)
-            .chain(ram_iter)
-            .collect();
-        initial_memory.extend(public_input_iter);
+        let ro_initial_memory: Vec<_> = public_io_loc_iter.into_iter().chain(rom_iter).collect();
 
         let tracked_ram_size = self
             .memory_layout
@@ -1285,7 +1282,9 @@ impl Emulator for LinearEmulator {
                     })
                     .collect(),
             },
-            initial_memory,
+            ro_initial_memory,
+            rw_initial_memory,
+            input_memory,
             tracked_ram_size,
             exit_code,
             output_memory,
