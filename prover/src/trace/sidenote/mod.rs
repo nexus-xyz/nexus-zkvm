@@ -122,7 +122,13 @@ impl SideNote {
             },
             register_mem_check: RegisterMemCheckSideNote::default(),
             rw_mem_check: ReadWriteMemCheckSideNote::new(
-                view.get_initial_memory(),
+                &[
+                    // preprocessed trace is sensitive to this ordering
+                    view.get_ro_initial_memory(),
+                    view.get_rw_initial_memory(),
+                    view.get_public_input(),
+                ]
+                .concat(),
                 view.get_public_output(),
                 view.get_exit_code(),
             ),

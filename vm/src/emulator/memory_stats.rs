@@ -78,12 +78,14 @@ impl MemoryStats {
     /// in these sizes.
     pub fn create_optimized_layout(
         &self,
+        static_ram: (u32, u32),
         program_size: u32,
         ad_size: u32,
         input_size: u32,
         output_size: u32,
     ) -> Result<LinearMemoryLayout> {
         LinearMemoryLayout::try_new(
+            Some(static_ram),
             self.max_heap_access - self.heap_bottom,
             self.stack_top - self.min_stack_access,
             input_size,
@@ -126,8 +128,12 @@ mod tests {
         let ad_size = 0x100;
 
         let layout = stats
-            .create_optimized_layout(program_size, ad_size, 0, 0)
+            .create_optimized_layout((0x200, 0x204), program_size, ad_size, 0, 0)
             .unwrap();
+
+        assert!(layout.static_ram_range().is_some());
+        assert_eq!(layout.static_ram_start().unwrap(), 0x200);
+        assert_eq!(layout.static_ram_end().unwrap(), 0x204);
 
         assert_eq!(layout.public_input_end(), 0x38C);
         assert_eq!(layout.public_output_end(), 0x390); // aka heap start
