@@ -79,7 +79,13 @@ mod tests {
         let (view, _) = k_trace_direct(&basic_block, 1).expect("error generating trace");
         let program_trace_ref = ProgramTraceRef {
             program_memory: view.get_program_memory(),
-            init_memory: view.get_initial_memory(),
+            init_memory: &[
+                // preprocessed trace is sensitive to this ordering
+                view.get_ro_initial_memory(),
+                view.get_rw_initial_memory(),
+                view.get_public_input(),
+            ]
+            .concat(),
             exit_code: view.get_exit_code(),
             public_output: view.get_public_output(),
         };
@@ -217,7 +223,12 @@ mod tests {
             proof,
             view.get_program_memory(),
             &[],
-            view.get_initial_memory(),
+            &[
+                view.get_public_input(),
+                view.get_ro_initial_memory(),
+                view.get_rw_initial_memory(),
+            ]
+            .concat(),
             view.get_exit_code(),
             view.get_public_output(),
         )

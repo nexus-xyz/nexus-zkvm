@@ -66,7 +66,13 @@ fn bench_trace_gen(c: &mut Criterion) {
         let preprocessed_trace = PreprocessedTraces::new(log_size);
         let program_trace_ref = ProgramTraceRef {
             program_memory: program_info,
-            init_memory: view.get_initial_memory(),
+            init_memory: &[
+                // preprocessed trace is sensitive to this ordering
+                view.get_ro_initial_memory(),
+                view.get_rw_initial_memory(),
+                view.get_public_input(),
+            ]
+            .concat(),
             exit_code: view.get_exit_code(),
             public_output: view.get_public_output(),
         };

@@ -182,10 +182,34 @@ pub trait InternalView {
     /// Return components of the program memory.
     fn get_program_memory(&self) -> &ProgramInfo;
 
-    /// Return information about the public input, static ROM, and static RAM.
-    fn get_initial_memory(&self) -> &[MemoryInitializationEntry];
+    /// Return ranges (exclusive of endpoint) of readable memory.
+    fn get_readable_ranges(&self) -> Option<Vec<(u32, u32)>>;
+
+    /// Return ranges (exclusive of endpoint) of writeable memory.
+    fn get_writeable_ranges(&self) -> Option<Vec<(u32, u32)>>;
+
+    /// Return ranges (exclusive of endpoint) of no access memory.
+    fn get_noaccess_ranges(&self) -> Option<Vec<(u32, u32)>>;
+
+    /// Return ranges (exclusive of endpoint) of read-only memory.
+    fn get_readonly_ranges(&self) -> Option<Vec<(u32, u32)>>;
+
+    /// Return ranges (exclusive of endpoint) of write-only memory.
+    fn get_writeonly_ranges(&self) -> Option<Vec<(u32, u32)>>;
+
+    /// Return ranges (exclusive of endpoint) of read-write memory.
+    fn get_readwrite_ranges(&self) -> Option<Vec<(u32, u32)>>;
+
+    /// Return information about the static ROM.
+    fn get_ro_initial_memory(&self) -> &[MemoryInitializationEntry];
+
+    /// Return information about the static RAM.
+    fn get_rw_initial_memory(&self) -> &[MemoryInitializationEntry];
 
     /// Return information about the public input.
+    fn get_public_input(&self) -> &[MemoryInitializationEntry];
+
+    /// Return information about the public output.
     fn get_public_output(&self) -> &[PublicOutputEntry];
 
     /// Return information about the exit code.
@@ -200,8 +224,10 @@ pub struct View {
     pub(crate) memory_layout: Option<LinearMemoryLayout>,
     pub(crate) debug_logs: Vec<Vec<u8>>,
     pub(crate) program_memory: ProgramInfo,
-    // When not available, initial_memory can be None
-    pub(crate) initial_memory: Vec<MemoryInitializationEntry>,
+    // When not available, initial memories can be empty
+    pub(crate) ro_initial_memory: Vec<MemoryInitializationEntry>,
+    pub(crate) rw_initial_memory: Vec<MemoryInitializationEntry>,
+    pub(crate) input_memory: Vec<MemoryInitializationEntry>,
     /// The number of all addresses under RAM memory checking
     pub(crate) tracked_ram_size: usize,
     pub(crate) exit_code: Vec<PublicOutputEntry>,
@@ -216,7 +242,9 @@ impl View {
         memory_layout: &Option<LinearMemoryLayout>,
         debug_logs: &Vec<Vec<u8>>,
         program_memory: &ProgramInfo,
-        initial_memory: &Vec<MemoryInitializationEntry>,
+        ro_initial_memory: &Vec<MemoryInitializationEntry>,
+        rw_initial_memory: &Vec<MemoryInitializationEntry>,
+        input_memory: &Vec<MemoryInitializationEntry>,
         tracked_ram_size: usize,
         exit_code: &Vec<PublicOutputEntry>,
         output_memory: &Vec<PublicOutputEntry>,
@@ -226,7 +254,9 @@ impl View {
             memory_layout: memory_layout.to_owned(),
             debug_logs: debug_logs.to_owned(),
             program_memory: program_memory.to_owned(),
-            initial_memory: initial_memory.to_owned(),
+            ro_initial_memory: ro_initial_memory.to_owned(),
+            rw_initial_memory: rw_initial_memory.to_owned(),
+            input_memory: input_memory.to_owned(),
             tracked_ram_size,
             exit_code: exit_code.to_owned(),
             output_memory: output_memory.to_owned(),
@@ -236,10 +266,11 @@ impl View {
 
     /// Return the raw bytes of the public input, if any.
     pub fn view_public_input(&self) -> Option<Vec<u8>> {
+        // we need to carefully skip the input length
         self.memory_layout.map(|layout| {
             io_entries_into_vec(
                 layout.public_input_start() + WORD_SIZE as u32,
-                self.initial_memory
+                self.input_memory
                     .iter()
                     .filter(|entry: &&MemoryInitializationEntry| {
                         layout.public_input_start() + WORD_SIZE as u32 <= entry.address
@@ -296,12 +327,103 @@ impl InternalView for View {
         &self.program_memory
     }
 
-    /// Return information about the public input, static ROM, and static RAM.
-    fn get_initial_memory(&self) -> &[MemoryInitializationEntry] {
-        &self.initial_memory
+    /// Return ranges (exclusive of endpoint) of readable memory.
+    fn get_readable_ranges(&self) -> Option<Vec<(u32, u32)>> {
+        if let Some(mut ranges) = self.get_readonly_ranges() {
+            // Safety: can unwrap because readonly ranges returned something
+            ranges.extend(self.get_readwrite_ranges().unwrap());
+            Some(ranges)
+        } else {
+            None
+        }
+    }
+
+    /// Return ranges (exclusive of endpoint) of writeable memory.
+    fn get_writeable_ranges(&self) -> Option<Vec<(u32, u32)>> {
+        if let Some(mut ranges) = self.get_writeonly_ranges() {
+            // Safety: can unwrap because readonly ranges returned something
+            ranges.extend(self.get_readwrite_ranges().unwrap());
+            Some(ranges)
+        } else {
+            None
+        }
+    }
+
+    /// Return ranges (exclusive of endpoint) of no access memory.
+    fn get_noaccess_ranges(&self) -> Option<Vec<(u32, u32)>> {
+        if let Some(layout) = self.view_memory_layout() {
+            Some(vec![
+                (layout.registers_start(), layout.registers_end()),
+                (layout.ad_start(), layout.ad_end()),
+            ])
+        } else {
+            None
+        }
+    }
+
+    /// Return ranges (exclusive of endpoint) of read only memory.
+    fn get_readonly_ranges(&self) -> Option<Vec<(u32, u32)>> {
+        if let Some(layout) = self.view_memory_layout() {
+            let mut ranges = vec![];
+
+            if let Some(static_ram) = layout.static_ram_range() {
+                ranges.insert(0, (static_ram.1, layout.public_input_end()));
+                ranges.insert(0, (layout.public_input_address_location(), static_ram.0));
+            } else {
+                ranges.insert(
+                    0,
+                    (
+                        layout.public_input_address_location(),
+                        layout.public_input_end(),
+                    ),
+                );
+            }
+
+            Some(ranges)
+        } else {
+            None
+        }
+    }
+
+    /// Return ranges (exclusive of endpoint) of write only memory.
+    fn get_writeonly_ranges(&self) -> Option<Vec<(u32, u32)>> {
+        if let Some(layout) = self.view_memory_layout() {
+            Some(vec![(layout.exit_code(), layout.public_output_end())])
+        } else {
+            None
+        }
+    }
+
+    /// Return ranges (exclusive of endpoint) of read write memory.
+    fn get_readwrite_ranges(&self) -> Option<Vec<(u32, u32)>> {
+        if let Some(layout) = self.view_memory_layout() {
+            let mut ranges = vec![(layout.heap_start(), layout.stack_top())];
+
+            if let Some(static_ram) = layout.static_ram_range() {
+                ranges.insert(0, (static_ram.0, static_ram.1));
+            }
+            Some(ranges)
+        } else {
+            None
+        }
+    }
+
+    /// Return information about the static ROM.
+    fn get_ro_initial_memory(&self) -> &[MemoryInitializationEntry] {
+        &self.ro_initial_memory
+    }
+
+    /// Return information about the static RAM.
+    fn get_rw_initial_memory(&self) -> &[MemoryInitializationEntry] {
+        &self.rw_initial_memory
     }
 
     /// Return information about the public input.
+    fn get_public_input(&self) -> &[MemoryInitializationEntry] {
+        &self.input_memory
+    }
+
+    /// Return information about the public output.
     fn get_public_output(&self) -> &[PublicOutputEntry] {
         &self.output_memory
     }

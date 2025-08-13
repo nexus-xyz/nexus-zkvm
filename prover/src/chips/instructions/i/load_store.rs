@@ -1071,7 +1071,13 @@ mod test {
             proof,
             view.get_program_memory(),
             view.view_associated_data().as_deref().unwrap_or_default(),
-            view.get_initial_memory(),
+            &[
+                // preprocessed trace is sensitive to this ordering
+                view.get_ro_initial_memory(),
+                view.get_rw_initial_memory(),
+                view.get_public_input(),
+            ]
+            .concat(),
             view.get_exit_code(),
             view.get_public_output(),
         )

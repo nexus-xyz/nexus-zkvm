@@ -35,6 +35,7 @@
 //!
 //! // Create a new memory layout
 //! let layout = LinearMemoryLayout::try_new(
+//!     None,     // (optional) static_ram
 //!     0x100000, // max_heap_size
 //!     0x100000, // max_stack_size
 //!     0x1000,   // public_input_size
@@ -114,6 +115,15 @@ use serde::{Deserialize, Serialize};
 // nb: all measurements are in terms of virtual memory
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct LinearMemoryLayout {
+    // range of static ram (exclusive of endpoint), if any
+    //
+    // Safety: this assumes that the ram is contiguous, even though it
+    //         may include multiple elf sections (.data, .bss, and etc)
+    //
+    //         this appears to be a safe assumption with rustc, and the
+    //         emulator frequently assumes it, but may not be true for
+    //         other compilers and so may need to be checked in the future
+    static_ram: Option<(u32, u32)>,
     // start of the public input
     public_input: u32,
     // location of the exit code
@@ -133,7 +143,7 @@ pub struct LinearMemoryLayout {
 impl Default for LinearMemoryLayout {
     fn default() -> LinearMemoryLayout {
         // a suitable default for testing
-        LinearMemoryLayout::try_new(0x800000, 0x100000, 0x0, 0x0, 0x80000, 0x0).unwrap()
+        LinearMemoryLayout::try_new(None, 0x800000, 0x100000, 0x0, 0x0, 0x80000, 0x0).unwrap()
     }
 }
 
@@ -153,7 +163,13 @@ impl LinearMemoryLayout {
         assert!(self.public_input_end() - self.public_input_start() >= WORD_SIZE as u32);
         assert!(self.program_end() == self.public_input_start());
 
-        // Enforce alignment. Note: end doesn't need to be word-aligned.
+        if let Some(static_ram) = self.static_ram_range() {
+            assert!(static_ram.0 < static_ram.1);
+            assert!(static_ram.0 >= self.program_start());
+            assert!(static_ram.1 <= self.program_end());
+        }
+
+        // Enforce alignment. Note: static ram end don't need to be word-aligned.
         self.public_input.assert_word_aligned();
         self.exit_code.assert_word_aligned();
         self.public_output.assert_word_aligned();
@@ -173,6 +189,7 @@ impl LinearMemoryLayout {
     /// `public_output_size` should represent only the size of the raw output data. It should *not*
     /// account for the memory occupied by the program's return code.
     pub fn try_new(
+        static_ram: Option<(u32, u32)>,
         max_heap_size: u32,
         max_stack_size: u32,
         public_input_size: u32,
@@ -192,6 +209,7 @@ impl LinearMemoryLayout {
         let end = ad + ad_size;
 
         let res = Self {
+            static_ram,
             public_input,
             exit_code,
             public_output,
@@ -233,6 +251,20 @@ impl LinearMemoryLayout {
     pub const fn program_start(&self) -> u32 {
         assert!(ELF_TEXT_START >= self.public_output_address_location() + WORD_SIZE as u32);
         ELF_TEXT_START
+    }
+
+    pub fn static_ram_range(&self) -> Option<(u32, u32)> {
+        self.static_ram
+    }
+
+    pub fn static_ram_start(&self) -> Option<u32> {
+        self.static_ram_range()
+            .map(|static_ram_range| static_ram_range.0)
+    }
+
+    pub fn static_ram_end(&self) -> Option<u32> {
+        self.static_ram_range()
+            .map(|static_ram_range| static_ram_range.1)
     }
 
     /// Guaranteed to be word-aligned.

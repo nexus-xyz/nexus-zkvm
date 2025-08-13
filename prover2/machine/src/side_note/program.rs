@@ -20,7 +20,7 @@ impl<'a> ProgramTraceRef<'a> {
     pub fn new(view: &'a View) -> Self {
         Self {
             program_memory: view.get_program_memory(),
-            init_memory: view.get_initial_memory(),
+            init_memory: view.get_ro_initial_memory(), // TODO: add public input and rw initial memory components
             exit_code: view.get_exit_code(),
             public_output: view.get_public_output(),
         }
