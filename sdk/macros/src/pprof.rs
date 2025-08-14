@@ -9,6 +9,7 @@ pub fn derive(attr: TokenStream, input: TokenStream) -> TokenStream {
     let vis = input_fn.vis;
     let sig = input_fn.sig;
     let block = input_fn.block;
+    let attrs = input_fn.attrs;
 
     let file_name = if attr.is_empty() {
         let function_name = format!("{}.pb", sig.ident);
@@ -28,6 +29,7 @@ pub fn derive(attr: TokenStream, input: TokenStream) -> TokenStream {
     };
 
     let output: proc_macro2::TokenStream = quote! {
+        #(#attrs)*
         #vis #sig {
             let guard = #profiler::pprof_start();
             let result = (|| #block)();
