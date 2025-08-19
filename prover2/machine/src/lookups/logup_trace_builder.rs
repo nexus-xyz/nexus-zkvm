@@ -59,7 +59,6 @@ impl LogupTraceBuilder {
         })
     }
 
-    #[allow(unused)]
     pub fn add_to_relation<'a, T, R>(
         &mut self,
         relation: &'a R,
