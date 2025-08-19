@@ -27,7 +27,6 @@ use crate::{
     side_note::{program::ProgramTraceRef, SideNote},
 };
 
-#[allow(unused)] // TODO: remove with introduction of the first lookup relation
 pub trait MachineComponent {
     /// Returns the log size of the evaluation domain.
     fn max_constraint_log_degree_bound(&self, log_size: u32) -> u32;
