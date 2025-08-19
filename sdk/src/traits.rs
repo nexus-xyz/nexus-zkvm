@@ -446,9 +446,8 @@ pub trait Verifiable: Serialize + DeserializeOwned {
         let mut input_encoded =
             postcard::to_stdvec(&expected_public_input).map_err(IOError::from)?;
         if !input_encoded.is_empty() {
-            let input = expected_public_input.to_owned();
-
-            input_encoded = postcard::to_stdvec_cobs(&input).map_err(IOError::from)?;
+            input_encoded =
+                postcard::to_stdvec_cobs(&expected_public_input).map_err(IOError::from)?;
             let input_padded_len = (input_encoded.len() + 3) & !3;
 
             assert!(input_padded_len >= input_encoded.len());
@@ -458,9 +457,8 @@ pub trait Verifiable: Serialize + DeserializeOwned {
         let mut output_encoded =
             postcard::to_stdvec(&expected_public_output).map_err(IOError::from)?;
         if !output_encoded.is_empty() {
-            let output = expected_public_output.to_owned();
-
-            output_encoded = postcard::to_stdvec_cobs(&output).map_err(IOError::from)?;
+            output_encoded =
+                postcard::to_stdvec_cobs(&expected_public_output).map_err(IOError::from)?;
             let output_padded_len = (output_encoded.len() + 3) & !3;
 
             assert!(output_padded_len >= output_encoded.len());
