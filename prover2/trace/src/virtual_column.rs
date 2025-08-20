@@ -28,7 +28,10 @@ pub trait VirtualColumn {
 
     fn combine_at_row(&self, component_trace: &ComponentTrace, vec_idx: usize) -> PackedBaseField;
 
-    fn combine_from_finalized_trace(&self, component_trace: &ComponentTrace) -> FinalizedColumn {
+    fn combine_from_finalized_trace<'a>(
+        &self,
+        component_trace: &'a ComponentTrace,
+    ) -> FinalizedColumn<'a> {
         let log_size = component_trace.log_size();
         let mut column = BaseColumn::zeros(1 << log_size);
 

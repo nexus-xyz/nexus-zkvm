@@ -1,13 +1,21 @@
 use nexus_common::constants::WORD_SIZE_HALVED;
 use nexus_vm::WORD_SIZE;
 
-pub use multiplicity::BitwiseInstrLookupElements;
+pub use multiplicity::{
+    BitwiseInstrLookupElements, RamReadAddressLookupElements, RamWriteAddressLookupElements,
+};
 
 /// Relations for multiplicity components, such as range checks and lookup tables.
 mod multiplicity {
     // (bit-op-idx, b-val, c-val, a-val)
     const REL_BITWISE_INSTR_LOOKUP_SIZE: usize = 4;
     stwo_constraint_framework::relation!(BitwiseInstrLookupElements, REL_BITWISE_INSTR_LOOKUP_SIZE);
+
+    // memory address is a word
+    const REL_RAM_READ_LOOKUP_SIZE: usize = nexus_vm::WORD_SIZE;
+    const REL_RAM_WRITE_LOOKUP_SIZE: usize = nexus_vm::WORD_SIZE;
+    stwo_constraint_framework::relation!(RamReadAddressLookupElements, REL_RAM_READ_LOOKUP_SIZE);
+    stwo_constraint_framework::relation!(RamWriteAddressLookupElements, REL_RAM_WRITE_LOOKUP_SIZE);
 }
 
 // (clk-next, pc-next)
@@ -64,6 +72,10 @@ stwo_constraint_framework::relation!(InstToRamLookupElements, REL_INST_TO_RAM_LO
 // Timestamp is a half word.
 const REL_RAM_READ_WRITE_LOOKUP_SIZE: usize = WORD_SIZE * 2 + WORD_SIZE_HALVED;
 stwo_constraint_framework::relation!(RamReadWriteLookupElements, REL_RAM_READ_WRITE_LOOKUP_SIZE);
+
+// memory address is a word
+const REL_RAM_UNIQUE_ADDR_LOOKUP_SIZE: usize = WORD_SIZE;
+stwo_constraint_framework::relation!(RamUniqueAddrLookupElements, REL_RAM_UNIQUE_ADDR_LOOKUP_SIZE);
 
 // (pc, instr-val, prog-ctr)
 const REL_PROG_MEMORY_READ_LOOKUP_SIZE: usize = WORD_SIZE * 3;

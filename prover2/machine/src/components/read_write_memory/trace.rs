@@ -10,7 +10,7 @@ use nexus_vm_prover_trace::{
 use super::columns::Column;
 use crate::{
     components::utils::{add_with_carries, decr_subtract_with_borrow, u32_to_16bit_parts_le},
-    side_note::{range_check::Range256Multiplicities, SideNote},
+    side_note::{memory::AddressAccessSideNote, range_check::Range256Multiplicities, SideNote},
 };
 
 // Read-write memory side note can only be updated by the read-write memory component, once it's stored
@@ -23,9 +23,15 @@ pub struct ReadWriteMemorySideNote {
 }
 
 impl ReadWriteMemorySideNote {
-    pub fn new(init_memory: &[MemoryInitializationEntry]) -> Self {
+    pub fn new(
+        public_input: &[MemoryInitializationEntry],
+        static_memory: &[MemoryInitializationEntry],
+        ro_memory: &[MemoryInitializationEntry],
+    ) -> Self {
         let mut last_access = BTreeMap::default();
-        for MemoryInitializationEntry { address, value } in init_memory {
+        for MemoryInitializationEntry { address, value } in
+            public_input.iter().chain(static_memory).chain(ro_memory)
+        {
             let old = last_access.insert(*address, (0, *value));
             assert!(old.is_none(), "Duplicate memory initialization entry");
         }
@@ -55,7 +61,14 @@ fn iter_program_steps<'a>(side_note: &SideNote<'a>) -> impl Iterator<Item = Prog
 }
 
 pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
-    let mut rw_memory_side_note = ReadWriteMemorySideNote::new(side_note.program.init_memory);
+    let program = side_note.program;
+    let mut rw_memory_side_note = ReadWriteMemorySideNote::new(
+        program.public_input,
+        program.static_memory,
+        program.ro_memory,
+    );
+    let mut read_access = AddressAccessSideNote::default();
+    let mut write_access = AddressAccessSideNote::default();
 
     let num_memory_steps = iter_program_steps(side_note).count();
     let log_size = num_memory_steps
@@ -71,12 +84,16 @@ pub fn generate_main_trace(side_note: &mut SideNote) -> FinalizedTrace {
             row_idx,
             program_step,
             &mut rw_memory_side_note,
+            &mut read_access,
+            &mut write_access,
             &mut range_check_mults,
         );
     }
     side_note.range_check.range256.append(range_check_mults);
     // store final ram state into side note
     side_note.memory.read_write_memory = rw_memory_side_note;
+    side_note.memory.read_access = read_access;
+    side_note.memory.write_access = write_access;
 
     // fill padding
     for row_idx in num_memory_steps..1 << log_size {
@@ -90,6 +107,8 @@ fn generate_trace_row(
     row_idx: usize,
     program_step: ProgramStep,
     rw_memory_side_note: &mut ReadWriteMemorySideNote,
+    read_access: &mut AddressAccessSideNote,
+    write_access: &mut AddressAccessSideNote,
     range_check_mults: &mut Range256Multiplicities,
 ) {
     let is_load = matches!(
@@ -100,6 +119,7 @@ fn generate_trace_row(
             | Some(BuiltinOpcode::LBU)
             | Some(BuiltinOpcode::LHU)
     );
+    let access_mults = if is_load { read_access } else { write_access };
 
     let value_a = program_step.get_value_a();
     let value_b = program_step.get_value_b();
@@ -195,6 +215,7 @@ fn generate_trace_row(
                     prev_timestamp,
                 );
             }
+            access_mults.add_access(byte_address + i as u32);
 
             trace.fill_columns(row_idx, true, *ram_accessed);
             trace.fill_columns(row_idx, cur_value[i], *val_cur);
@@ -210,7 +231,6 @@ fn generate_trace_row(
 
             range_check_mults.add_values(&prev_timestamp.to_le_bytes());
             range_check_mults.add_values(&ram_ts_prev_aux_word);
-            // range_check_mults.add_values(&[prev_val, 0]);
         }
 
         for (.., ram_ts_prev_aux, helper) in &ram_cols[access_size..] {
@@ -223,7 +243,6 @@ fn generate_trace_row(
 
             range_check_mults.add_values(&[0u8; WORD_SIZE]);
             range_check_mults.add_values(&ram_ts_prev_aux_word);
-            // range_check_mults.add_values(&[0, 0]); // prev value
         }
 
         let range_checked_prev_vals: Vec<u8> = prev_value[..access_size]

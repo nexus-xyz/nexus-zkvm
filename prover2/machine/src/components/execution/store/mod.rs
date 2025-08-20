@@ -26,11 +26,13 @@ use nexus_vm_prover_trace::{
     program::ProgramStep,
     trace_eval,
     utils::zero_array,
+    virtual_column::VirtualColumn,
 };
 
 use crate::{
     components::{
         execution::common::{ExecutionComponent, ExecutionLookupEval},
+        read_write_memory::ShiftedBaseAddr,
         utils::{
             add_16bit_with_carry, add_with_carries,
             constraints::{ClkIncrement, PcIncrement},
@@ -41,7 +43,7 @@ use crate::{
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToProgMemoryLookupElements,
         InstToRamLookupElements, InstToRegisterMemoryLookupElements, LogupTraceBuilder,
-        ProgramExecutionLookupElements, RangeCheckLookupElements,
+        ProgramExecutionLookupElements, RamWriteAddressLookupElements, RangeCheckLookupElements,
     },
     side_note::{program::ProgramTraceRef, range_check::RangeCheckAccumulator, SideNote},
 };
@@ -166,6 +168,7 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
         InstToProgMemoryLookupElements,
         ProgramExecutionLookupElements,
         InstToRegisterMemoryLookupElements,
+        RamWriteAddressLookupElements,
         RangeCheckLookupElements,
     );
 
@@ -223,6 +226,7 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             rel_inst_to_prog_memory,
             rel_cont_prog_exec,
             rel_inst_to_reg_memory,
+            rel_ram_write_addr,
             range_check,
         ) = Self::LookupElements::get(lookup_elements);
         let mut logup_trace_builder = LogupTraceBuilder::new(component_trace.log_size());
@@ -242,6 +246,11 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
         };
         ram_values.resize(WORD_SIZE, BaseField::zero().into());
 
+        Self::generate_address_logup(
+            &mut logup_trace_builder,
+            &component_trace,
+            &rel_ram_write_addr,
+        );
         T::generate_interaction_trace(&mut logup_trace_builder, &component_trace, &range_check);
 
         Decoding::generate_interaction_trace(
@@ -303,6 +312,7 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             rel_inst_to_prog_memory,
             rel_cont_prog_exec,
             rel_inst_to_reg_memory,
+            rel_ram_write_addr,
             range_check,
         ) = lookup_elements;
         let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
@@ -368,6 +378,7 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
             eval.add_constraint(h_carry.clone() * (E::F::one() - h_carry.clone()));
         }
 
+        Self::constrain_address_write(eval, &trace_eval, rel_ram_write_addr);
         T::constrain_alignment(eval, &trace_eval, range_check);
 
         Decoding::constrain_decoding(eval, &trace_eval, range_check);
@@ -436,6 +447,76 @@ impl<T: StoreOp> BuiltInComponent for Store<T> {
     }
 }
 
+impl<T: StoreOp> Store<T> {
+    fn constrain_address_write<E: EvalAtRow>(
+        eval: &mut E,
+        trace_eval: &TraceEval<PreprocessedColumn, Column, E>,
+        lookup_elements: &RamWriteAddressLookupElements,
+    ) {
+        let [is_local_pad] = trace_eval!(trace_eval, Column::IsLocalPad);
+        let mut h_ram_base_addr = trace_eval!(trace_eval, Column::HRamBaseAddr);
+        let byte_0 = h_ram_base_addr[0].clone();
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            (E::F::one() - is_local_pad.clone()).into(),
+            &h_ram_base_addr,
+        ));
+
+        for (shift, accessed) in [T::RAM2_ACCESSED, T::RAM3_4ACCESSED, T::RAM3_4ACCESSED]
+            .iter()
+            .enumerate()
+        {
+            if !*accessed {
+                return;
+            }
+            h_ram_base_addr[0] = byte_0.clone() + E::F::from(BaseField::from(shift as u32 + 1));
+            eval.add_to_relation(RelationEntry::new(
+                lookup_elements,
+                (E::F::one() - is_local_pad.clone()).into(),
+                &h_ram_base_addr,
+            ));
+        }
+    }
+
+    fn generate_address_logup(
+        logup_trace_builder: &mut LogupTraceBuilder,
+        component_trace: &ComponentTrace,
+        lookup_elements: &RamWriteAddressLookupElements,
+    ) {
+        let [is_local_pad] = original_base_column!(component_trace, Column::IsLocalPad);
+        let mut h_ram_base_addr = original_base_column!(component_trace, Column::HRamBaseAddr);
+
+        logup_trace_builder.add_to_relation_with(
+            lookup_elements,
+            [is_local_pad.clone()],
+            |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
+            &h_ram_base_addr,
+        );
+        for (shift, accessed) in [T::RAM2_ACCESSED, T::RAM3_4ACCESSED, T::RAM3_4ACCESSED]
+            .iter()
+            .enumerate()
+        {
+            if !*accessed {
+                return;
+            }
+            let shifted_addr = ShiftedBaseAddr {
+                column: Column::HRamBaseAddr,
+                offset: shift as u32 + 1,
+            };
+            let byte_0 = shifted_addr.combine_from_finalized_trace(component_trace);
+            h_ram_base_addr[0] = byte_0;
+
+            logup_trace_builder.add_to_relation_with(
+                lookup_elements,
+                [is_local_pad.clone()],
+                |[is_local_pad]| (PackedBaseField::one() - is_local_pad).into(),
+                &h_ram_base_addr,
+            );
+        }
+    }
+}
+
 pub const SB: Store<sb::Sb> = Store::new();
 pub const SH: Store<sh::Sh> = Store::new();
 pub const SW: Store<sw::Sw> = Store::new();
@@ -447,18 +528,18 @@ mod tests {
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
-    use num_traits::Zero;
 
     use crate::{
         components::{
-            execution::load::tests::setup_ir, Cpu, CpuBoundary, ProgramMemory,
-            ProgramMemoryBoundary, ReadWriteMemory, ReadWriteMemoryBoundary, RegisterMemory,
+            execution::load::tests::setup_ir, Cpu, CpuBoundary, PrivateMemoryBoundary,
+            ProgramMemory, ProgramMemoryBoundary, ReadWriteMemory, RegisterMemory,
             RegisterMemoryBoundary, ADD, ADDI, RANGE128, RANGE16, RANGE256, RANGE64, RANGE8,
         },
         framework::{
             test_utils::{assert_component, components_claimed_sum, AssertContext},
             MachineComponent,
         },
+        verify::verify_logup_sum,
     };
 
     const BASE_TEST_COMPONENTS: &[&dyn MachineComponent] = &[
@@ -469,7 +550,7 @@ mod tests {
         &ProgramMemory,
         &ProgramMemoryBoundary,
         &ReadWriteMemory,
-        &ReadWriteMemoryBoundary,
+        &PrivateMemoryBoundary,
         &ADD,
         &ADDI,
         &RANGE8,
@@ -492,7 +573,7 @@ mod tests {
         let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = assert_component(component, assert_ctx);
         claimed_sum += components_claimed_sum(BASE_TEST_COMPONENTS, assert_ctx);
-        assert!(claimed_sum.is_zero());
+        verify_logup_sum(&[claimed_sum], &view, &assert_ctx.lookup_elements).unwrap();
     }
 
     #[test]

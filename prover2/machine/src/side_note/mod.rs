@@ -27,8 +27,8 @@ impl<'a> SideNote<'a> {
     pub fn new<'b: 'a>(trace: &'b impl Trace, view: &'a View) -> Self {
         SideNote {
             execution_trace: trace.as_blocks_slice(),
-            program: program::ProgramTraceRef::new(view),
             num_steps: trace.get_num_steps(),
+            program: program::ProgramTraceRef::new(view),
             memory: Default::default(),
             bitwise: Default::default(),
             range_check: Default::default(),
