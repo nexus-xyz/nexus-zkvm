@@ -20,7 +20,10 @@ use nexus_vm_prover_trace::eval::{
 };
 
 use super::{Proof, BASE_COMPONENTS};
-use crate::{lookups::AllLookupElements, side_note::program::ProgramTraceRef};
+use crate::{
+    components::PrivateMemoryBoundary, lookups::AllLookupElements,
+    side_note::program::ProgramTraceRef,
+};
 
 pub fn verify(proof: Proof, view: &View) -> Result<(), VerificationError> {
     let components = BASE_COMPONENTS;
@@ -38,11 +41,6 @@ pub fn verify(proof: Proof, view: &View) -> Result<(), VerificationError> {
     if claimed_log_sizes.len() != components.len() {
         return Err(VerificationError::InvalidStructure(
             "log sizes len mismatch".to_string(),
-        ));
-    }
-    if claimed_sums.iter().sum::<SecureField>() != SecureField::zero() {
-        return Err(VerificationError::InvalidStructure(
-            "claimed logup sum is not zero".to_string(),
         ));
     }
 
@@ -78,6 +76,8 @@ pub fn verify(proof: Proof, view: &View) -> Result<(), VerificationError> {
     components
         .iter()
         .for_each(|c| c.draw_lookup_elements(&mut lookup_elements, verifier_channel));
+
+    verify_logup_sum(&claimed_sums, view, &lookup_elements)?;
 
     let tree_span_provider = &mut TraceLocationAllocator::default();
     let verifier_components: Vec<Box<dyn Component>> = components
@@ -139,4 +139,21 @@ pub fn verify_preprocessed_trace(
     } else {
         Ok(())
     }
+}
+
+pub fn verify_logup_sum(
+    claimed_sums: &[SecureField],
+    view: &View,
+    lookup_elements: &AllLookupElements,
+) -> Result<(), VerificationError> {
+    let program = ProgramTraceRef::new(view);
+
+    let memory_boundary =
+        PrivateMemoryBoundary::expected_logup_sum(&program, lookup_elements.as_ref());
+    if claimed_sums.iter().sum::<SecureField>() - memory_boundary != SecureField::zero() {
+        return Err(VerificationError::InvalidStructure(
+            "claimed logup sum is not zero".to_string(),
+        ));
+    }
+    Ok(())
 }

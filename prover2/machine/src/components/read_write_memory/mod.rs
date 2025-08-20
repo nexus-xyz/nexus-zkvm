@@ -33,7 +33,9 @@ mod timestamp_constraints;
 mod columns;
 mod trace;
 
-use columns::{Column, PreprocessedColumn, ShiftedBaseAddr};
+use columns::{Column, PreprocessedColumn};
+
+pub use columns::ShiftedBaseAddr;
 pub use trace::ReadWriteMemorySideNote;
 
 pub struct ReadWriteMemory;
@@ -388,6 +390,7 @@ impl ReadWriteMemory {
         let [ram_val_prev] = component_trace.original_base_column(ram_val_prev);
 
         let ram_base_addr_0 = ShiftedBaseAddr {
+            column: Column::RamBaseAddr,
             offset: address_offset,
         };
         let ram_base_addr_0 = ram_base_addr_0.combine_from_finalized_trace(component_trace);
@@ -432,6 +435,7 @@ impl ReadWriteMemory {
         let [ram_val_cur] = component_trace.original_base_column(ram_val_cur);
 
         let ram_base_addr_0 = ShiftedBaseAddr {
+            column: Column::RamBaseAddr,
             offset: address_offset,
         };
         let ram_base_addr_0 = ram_base_addr_0.combine_from_finalized_trace(component_trace);
@@ -453,7 +457,6 @@ impl ReadWriteMemory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use num_traits::Zero;
 
     use nexus_vm::{
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
@@ -463,8 +466,10 @@ mod tests {
     use stwo_constraint_framework::Relation;
 
     use crate::{
-        components::{read_write_memory_boundary::ReadWriteMemoryBoundary, RANGE256},
+        components::{read_write_memory_boundary::PrivateMemoryBoundary, RANGE256},
         framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
+        lookups::RamWriteAddressLookupElements,
+        verify::verify_logup_sum,
     };
 
     #[test]
@@ -489,8 +494,7 @@ mod tests {
         let assert_ctx = &mut AssertContext::new(&program_trace, &view);
         let mut claimed_sum = assert_component(ReadWriteMemory, assert_ctx);
 
-        claimed_sum += components_claimed_sum(&[&ReadWriteMemoryBoundary, &RANGE256], assert_ctx);
-
+        claimed_sum += components_claimed_sum(&[&PrivateMemoryBoundary, &RANGE256], assert_ctx);
         // manually add a fraction from the store component to skip registers and cpu
         //
         // (
@@ -518,6 +522,20 @@ mod tests {
             &m31_tuple,
         )
         .inverse();
-        assert!(claimed_sum.is_zero());
+
+        // add address to the write set
+        let rel_write_addrs: &RamWriteAddressLookupElements = assert_ctx.lookup_elements.as_ref();
+        let addr_tuple: Vec<BaseField> = (0x80008u32 - 0x80000u32)
+            .to_le_bytes()
+            .into_iter()
+            .map(|byte| BaseField::from(byte as u32))
+            .collect();
+        claimed_sum +=
+            <RamWriteAddressLookupElements as Relation<BaseField, SecureField>>::combine(
+                rel_write_addrs,
+                &addr_tuple,
+            )
+            .inverse();
+        verify_logup_sum(&[claimed_sum], &view, &assert_ctx.lookup_elements).unwrap();
     }
 }

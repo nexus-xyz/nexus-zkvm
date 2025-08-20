@@ -1,12 +1,12 @@
 use stwo::{core::fields::m31::BaseField, prover::backend::simd::m31::PackedBaseField};
 use stwo_constraint_framework::EvalAtRow;
 
+use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_air_column::{
     empty::EmptyPreprocessedColumn, AirColumn, PreprocessedAirColumn,
 };
 use nexus_vm_prover_trace::{
-    component::ComponentTrace, eval::TraceEval, original_base_column, trace_eval,
-    virtual_column::VirtualColumn,
+    component::ComponentTrace, eval::TraceEval, virtual_column::VirtualColumn,
 };
 
 pub type PreprocessedColumn = EmptyPreprocessedColumn;
@@ -111,24 +111,26 @@ impl Column {
 }
 
 /// Least significant base address byte with an offset.
-pub struct ShiftedBaseAddr {
+pub struct ShiftedBaseAddr<C> {
+    pub column: C,
     pub offset: u32,
 }
 
-impl VirtualColumn for ShiftedBaseAddr {
-    type Column = Column;
+impl<C: AirColumn> VirtualColumn for ShiftedBaseAddr<C> {
+    type Column = C;
 
     fn eval<E: EvalAtRow, P: PreprocessedAirColumn>(
         &self,
         trace_eval: &TraceEval<P, Self::Column, E>,
     ) -> E::F {
-        let mut addr_byte = trace_eval!(trace_eval, Column::RamBaseAddr)[0].clone();
+        let mut addr_byte = trace_eval.column_eval::<WORD_SIZE>(self.column)[0].clone();
         addr_byte += BaseField::from(self.offset);
         addr_byte
     }
 
     fn combine_at_row(&self, component_trace: &ComponentTrace, vec_idx: usize) -> PackedBaseField {
-        let addr_byte = original_base_column!(component_trace, Column::RamBaseAddr)[0].clone();
+        let addr_byte =
+            component_trace.original_base_column::<WORD_SIZE, C>(self.column)[0].clone();
         addr_byte.at(vec_idx) + BaseField::from(self.offset)
     }
 }

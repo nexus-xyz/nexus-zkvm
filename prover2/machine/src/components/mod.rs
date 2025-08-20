@@ -3,10 +3,11 @@ mod cpu_boundary;
 mod program_memory;
 mod program_memory_boundary;
 mod range_multiplicity;
-mod read_write_memory;
-mod read_write_memory_boundary;
 mod register_memory;
 mod register_memory_boundary;
+
+mod read_write_memory;
+mod read_write_memory_boundary;
 
 mod execution;
 
@@ -16,7 +17,9 @@ pub use cpu::Cpu;
 pub use cpu_boundary::CpuBoundary;
 
 pub use read_write_memory::{ReadWriteMemory, ReadWriteMemorySideNote};
-pub use read_write_memory_boundary::ReadWriteMemoryBoundary;
+pub use read_write_memory_boundary::{
+    PrivateMemoryBoundary, PubMemoryBoundary, StaticMemoryBoundary,
+};
 
 pub use register_memory::{RegisterMemory, RegisterMemorySideNote};
 pub use register_memory_boundary::RegisterMemoryBoundary;
