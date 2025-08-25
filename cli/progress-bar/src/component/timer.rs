@@ -26,7 +26,7 @@ impl Component for Timer<'_> {
         if action.is_finished() {
             return Ok(Lines::new());
         }
-        let elapsed: FmtDuration = self.last_tick.elapsed().into();
+        let elapsed: FmtDuration = self.start.elapsed().into();
         let action = self.action.borrow();
 
         let heading_span = Span::new_styled(action.step_header.to_owned().bold().with(self.color))?;
