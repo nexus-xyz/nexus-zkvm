@@ -20,7 +20,7 @@ use super::add::{self};
 
 pub struct ExecutionResult {
     pub diff_bytes: Word,
-    pub borrow_bits: [bool; 2], // At 16-bit boudaries.
+    pub borrow_bits: [bool; 2], // At 16-bit boundaries.
     pub pc_next: Word,
     pub carry_bits: [bool; 2], // At 16-bit boundaries
     pub lt_flag: bool,

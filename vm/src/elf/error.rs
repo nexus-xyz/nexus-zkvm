@@ -59,8 +59,8 @@ pub enum ParserError {
     #[error("address exceeds memory size")]
     AddressExceedsMemorySize,
 
-    /// No segment avaliable to load
-    #[error("no segment avaliable to load")]
+    /// No segment available to load
+    #[error("no segment available to load")]
     NoSegmentAvailable,
 
     /// No program header
