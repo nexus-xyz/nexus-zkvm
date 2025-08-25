@@ -214,11 +214,6 @@ impl Instruction {
                 (Register::X1, _, 0) => format!("{} {}", self.opcode, rs1),
                 _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
             },
-            BuiltinOpcode::JAL => match rd {
-                Register::X0 => format!("j {}", imm12),
-                Register::X1 => format!("{} {}", opcode, imm12),
-                _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
-            },
             BuiltinOpcode::ADDI => match (rd, rs1, imm12) {
                 (Register::X0, Register::X0, 0) => "nop".to_string(),
                 (_, Register::X0, _) => format!("li {}, {}", rd, imm12),
@@ -258,7 +253,7 @@ impl Instruction {
 
     fn j_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
-        let imm20 = self.op_b as i32;
+        let imm20 = self.op_c as i32;
         format!("{} {}, 0x{:x}", opcode, rd, imm20)
     }
 
