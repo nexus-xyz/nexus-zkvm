@@ -78,24 +78,38 @@ impl Opcode {
     }
 
     pub fn ins_type(&self) -> InstructionType {
-        if self.is_r_type() {
-            InstructionType::RType
-        } else if self.is_i_type() {
-            InstructionType::IType
-        } else if self.is_i_shamt_type() {
-            InstructionType::ITypeShamt
-        } else if self.is_s_type() {
-            InstructionType::SType
-        } else if self.is_b_type() {
-            InstructionType::BType
-        } else if self.is_u_type() {
-            InstructionType::UType
-        } else if self.is_j_type() {
-            InstructionType::JType
-        } else if self.is_unimpl_type() {
-            InstructionType::Unimpl
-        } else {
-            unreachable!("Opcodes should be one of the above types")
+        match &self.identifier {
+            // For custom opcodes, infer the instruction type from the 7-bit opcode per design.
+            // custom-0 => R-type (0b0001011)
+            // custom-1 => I-type (0b0101011)
+            // custom-2 => S-type (0b1011011)
+            OpcodeIdentifier::Custom(_) => match self.raw() {
+                0b0001011 => InstructionType::RType,
+                0b0101011 => InstructionType::IType,
+                0b1011011 => InstructionType::SType,
+                _ => InstructionType::Unimpl,
+            },
+            _ => {
+                if self.is_r_type() {
+                    InstructionType::RType
+                } else if self.is_i_type() {
+                    InstructionType::IType
+                } else if self.is_i_shamt_type() {
+                    InstructionType::ITypeShamt
+                } else if self.is_s_type() {
+                    InstructionType::SType
+                } else if self.is_b_type() {
+                    InstructionType::BType
+                } else if self.is_u_type() {
+                    InstructionType::UType
+                } else if self.is_j_type() {
+                    InstructionType::JType
+                } else if self.is_unimpl_type() {
+                    InstructionType::Unimpl
+                } else {
+                    unreachable!("Opcodes should be one of the above types")
+                }
+            }
         }
     }
 
@@ -120,7 +134,6 @@ impl Opcode {
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::DIVU)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::REM)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::REMU)
-                | OpcodeIdentifier::Custom(_)
         )
     }
 
@@ -142,7 +155,6 @@ impl Opcode {
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::ECALL)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::EBREAK)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::FENCE)
-                | OpcodeIdentifier::Custom(_)
         )
     }
 
@@ -161,7 +173,6 @@ impl Opcode {
             OpcodeIdentifier::Builtin(BuiltinOpcode::SB)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::SH)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::SW)
-                | OpcodeIdentifier::Custom(_)
         )
     }
 
@@ -174,7 +185,6 @@ impl Opcode {
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::BGE)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::BLTU)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::BGEU)
-                | OpcodeIdentifier::Custom(_)
         )
     }
 
@@ -183,14 +193,13 @@ impl Opcode {
             self.identifier,
             OpcodeIdentifier::Builtin(BuiltinOpcode::LUI)
                 | OpcodeIdentifier::Builtin(BuiltinOpcode::AUIPC)
-                | OpcodeIdentifier::Custom(_)
         )
     }
 
     fn is_j_type(&self) -> bool {
         matches!(
             self.identifier,
-            OpcodeIdentifier::Builtin(BuiltinOpcode::JAL) | OpcodeIdentifier::Custom(_)
+            OpcodeIdentifier::Builtin(BuiltinOpcode::JAL)
         )
     }
 
