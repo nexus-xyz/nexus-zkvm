@@ -169,7 +169,7 @@ fn program_trace(log_size: u32) -> Vec<BasicBlock> {
         k = (k + 1) % NUM_REGISTERS;
         Some(inst)
     }))
-    .take(2usize.pow(log_size))
+    .take(1 << log_size)
     .collect();
     vec![BasicBlock::new(insts)]
 }
