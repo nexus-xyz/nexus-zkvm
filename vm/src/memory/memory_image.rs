@@ -177,6 +177,8 @@ impl MemorySegmentImage {
             .enumerate()
             .map(|(i, &v)| (i as u32 * WORD_SIZE as u32 + self.base, v))
     }
+
+
 }
 
 impl Index<usize> for MemorySegmentImage {
@@ -266,3 +268,37 @@ impl Ord for MemorySegmentImage {
         self.base.cmp(&other.base)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_indexing_fix() {
+        // Create MemorySegmentImage with base = 0x1000
+        let mut map = BTreeMap::new();
+        map.insert(0x1000, 0x11111111);
+        map.insert(0x1004, 0x22222222);
+        map.insert(0x1008, 0x33333333);
+        
+        let mut image = MemorySegmentImage::try_from_contiguous_btree(&map).unwrap();
+        
+        // Test Index<u32> - address-based indexing
+        assert_eq!(image[0x1000u32], 0x11111111);
+        assert_eq!(image[0x1004u32], 0x22222222);
+        assert_eq!(image[0x1008u32], 0x33333333);
+        
+        // Test Index<usize> - direct indexing into underlying data structure
+        assert_eq!(image[0usize], 0x11111111);
+        assert_eq!(image[1usize], 0x22222222);
+        assert_eq!(image[2usize], 0x33333333);
+        
+        // Test mutable indexing
+        image[0x1000u32] = 0x44444444;
+        assert_eq!(image[0x1000u32], 0x44444444);
+        
+        image[1usize] = 0x55555555;
+        assert_eq!(image[0x1004u32], 0x55555555);
+    }
+}
+
