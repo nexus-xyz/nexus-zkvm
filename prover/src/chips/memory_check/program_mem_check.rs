@@ -27,7 +27,7 @@ use crate::{
 /// ProgMemCheckChip needs to be located after CpuChip
 pub struct ProgramMemCheckChip;
 
-const LOOKUP_TUPLE_SIZE: usize = 3 * WORD_SIZE;
+const LOOKUP_TUPLE_SIZE: usize = 2 * WORD_SIZE_HALVED + WORD_SIZE;
 stwo_constraint_framework::relation!(ProgramCheckLookupElements, LOOKUP_TUPLE_SIZE);
 
 impl MachineChip for ProgramMemCheckChip {
