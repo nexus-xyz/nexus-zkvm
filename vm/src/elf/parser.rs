@@ -442,12 +442,12 @@ fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64,
     println!(
         "  LOADABLE: 0x{:08x} -> 0x{:08x}",
         segment.p_offset,
-        segment.p_offset + segment.p_memsz
+        segment.p_offset + segment.p_filesz
     );
 
     for (key, (start, end)) in section_map {
         if !(*end < segment.p_offset
-            || *start > segment.p_offset + segment.p_offset + segment.p_filesz)
+            || *start > segment.p_offset + segment.p_filesz)
         {
             println!("Section {}: 0x{:08x} -> 0x{:08x}", key, start, end);
         }
