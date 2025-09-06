@@ -50,7 +50,7 @@ pub enum Error {
     #[error(transparent)]
     GuestIOError(#[from] IOError),
 
-    /// An error occured configuring the prover.
+    /// An error occurred configuring the prover.
     #[error(transparent)]
     ConfigurationError(#[from] ConfigurationError),
 }
