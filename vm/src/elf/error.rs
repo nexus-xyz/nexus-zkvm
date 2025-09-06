@@ -59,8 +59,8 @@ pub enum ParserError {
     #[error("address exceeds memory size")]
     AddressExceedsMemorySize,
 
-    /// No segment avaliable to load
-    #[error("no segment avaliable to load")]
+    /// No segment available to load
+    #[error("no segment available to load")]
     NoSegmentAvailable,
 
     /// No program header
@@ -115,7 +115,7 @@ pub enum ParserError {
     #[error(transparent)]
     Utf8Error(#[from] std::str::Utf8Error),
 
-    /// An issue occured interacting with the filesystem.
+    /// An issue occurred interacting with the filesystem.
     #[error(transparent)]
     IOError(#[from] std::io::Error),
 
