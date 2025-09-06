@@ -34,15 +34,15 @@ pub enum Error {
     #[error(transparent)]
     GuestIOError(#[from] IOError),
 
-    /// An error occured executing the zkVM.
+    /// An error occurred executing the zkVM.
     #[error(transparent)]
     VMError(#[from] nexus_core::nvm::VMError),
 
-    /// An error occured loading or parsing the ELF.
+    /// An error occurred loading or parsing the ELF.
     #[error(transparent)]
     ElfError(#[from] nexus_core::nvm::ElfError),
 
-    /// An error occured configuring the prover.
+    /// An error occurred configuring the prover.
     #[error(transparent)]
     ConfigurationError(#[from] ConfigurationError),
 }
