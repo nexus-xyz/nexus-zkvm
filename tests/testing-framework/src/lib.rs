@@ -90,7 +90,7 @@ mod test {
         }
     }
 
-    /// Helper function to run test accross multiple emulators, multiple opt levels, and multiple inputs.
+    /// Helper function to run test across multiple emulators, multiple opt levels, and multiple inputs.
     fn test_example_multi<T: Input, U: Input, V: Output>(
         emulators: Vec<EmulatorType>,
         compile_flags: Vec<&str>,
