@@ -9,7 +9,7 @@ use nexus_vm_prover::{prove, verify};
 use num_cpus;
 use postcard;
 use serde::{de::DeserializeOwned, Serialize};
-use std::{path::PathBuf, process::Command, time::Duration};
+use std::{path::PathBuf, process::Command};
 use sys_info;
 use sysinfo::System;
 
@@ -21,29 +21,10 @@ use crate::{
 const K: usize = 1;
 
 /// Executes and measures the native execution speed of a Rust program.
-fn measure_native_execution<T>(
-    path: &PathBuf,
-    public_input_bytes: &[u8],
-) -> (Duration, Duration, Duration)
+fn measure_native_execution<T>(path: &PathBuf, public_input_bytes: &[u8])
 where
     T: DeserializeOwned + Serialize + std::fmt::Display,
 {
-    // Build with release optimizations.
-    let output = Command::new("cargo")
-        .current_dir(path)
-        .arg("build")
-        .arg("--release")
-        .output()
-        .expect("Failed to build project");
-
-    assert!(
-        output.status.success(),
-        "Native build failed: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-
-    let timing_state = phase_start();
-
     // Simpler run process when no inputs are provided.
     let output = if public_input_bytes.is_empty() {
         Command::new("cargo")
@@ -77,10 +58,6 @@ where
     };
 
     assert!(output.status.success(), "Native execution failed");
-
-    let (total_time, user_time, sys_time, _) = phase_end(timing_state);
-
-    (total_time, user_time, sys_time)
 }
 
 /// Benchmarks a test program using specified emulator configuration.
@@ -118,12 +95,26 @@ pub fn run_benchmark<T>(
         compile_flags,
     );
 
+    // Build the native binary once (release) before measuring runs.
+    let build_output = Command::new("cargo")
+        .current_dir(&tmp_project_path)
+        .arg("build")
+        .arg("--release")
+        .output()
+        .expect("Failed to build project");
+    assert!(
+        build_output.status.success(),
+        "Native build failed: {}",
+        String::from_utf8_lossy(&build_output.stderr)
+    );
+
     // Measure native execution.
     let mut native_tracker = PhasesTracker::default();
     for _ in 0..iters {
         let timing_state = phase_start();
-        let native_duration = measure_native_execution::<T>(&tmp_project_path, &public_input).0;
-        let (_, native_user_time, native_sys_time, native_metrics) = phase_end(timing_state);
+        measure_native_execution::<T>(&tmp_project_path, &public_input);
+        let (native_duration, native_user_time, native_sys_time, native_metrics) =
+            phase_end(timing_state);
 
         native_tracker.update(
             &native_duration,
