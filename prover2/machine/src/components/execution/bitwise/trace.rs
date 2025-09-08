@@ -25,10 +25,7 @@ impl BitwiseMultiplicities {
 }
 
 impl<B: BitwiseOp> Bitwise<B> {
-    fn execute_step(program_step: ProgramStep) -> ExecutionResult {
-        let value_b = program_step.get_value_b();
-        let (value_c, _) = program_step.get_value_c();
-
+    fn execute_step(value_b: Word, value_c: Word) -> ExecutionResult {
         let value_a = std::array::from_fn(|i| {
             let b = value_b[i];
             let c = value_c[i];
@@ -73,6 +70,7 @@ impl<B: BitwiseOp> Bitwise<B> {
         let (_clk_next, clk_carry) = add_16bit_with_carry(clk_parts, 1u16);
 
         let value_b = program_step.get_value_b();
+        let (value_c, _) = program_step.get_value_c();
         let ExecutionResult {
             out_bytes,
             value_a_4_7,
@@ -80,7 +78,7 @@ impl<B: BitwiseOp> Bitwise<B> {
             value_b_4_7,
             value_c_0_3,
             value_c_4_7,
-        } = Self::execute_step(program_step);
+        } = Self::execute_step(value_b, value_c);
 
         trace.fill_columns(row_idx, pc_parts, Column::Pc);
         trace.fill_columns(row_idx, pc_carry, Column::PcCarry);
