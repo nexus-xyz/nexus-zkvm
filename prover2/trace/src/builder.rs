@@ -47,7 +47,7 @@ impl<C: AirColumn> TraceBuilder<C> {
     }
 
     /// Returns a copy of `N` raw columns in range `[offset..offset + N]` at `row`, where
-    /// `N` is assumed to be equal `Column::size` of a `col`.
+    /// `N` must equal `col.size()`.
     pub fn column<const N: usize>(&self, row: usize, col: C) -> [BaseField; N] {
         assert_eq!(col.size(), N, "column size mismatch");
 
@@ -57,7 +57,7 @@ impl<C: AirColumn> TraceBuilder<C> {
     }
 
     /// Returns mutable reference to `N` raw columns in range `[offset..offset + N]` at `row`,
-    /// where `N` is assumed to be equal `Column::size` of a `col`.
+    /// where `N` must equal `col.size()`.
     pub fn column_mut<const N: usize>(&mut self, row: usize, col: C) -> [&mut BaseField; N] {
         assert_eq!(col.size(), N, "column size mismatch");
 
@@ -68,7 +68,7 @@ impl<C: AirColumn> TraceBuilder<C> {
         })
     }
 
-    /// Fills four columns with u32 value.
+    /// Fills N columns with a value convertible into base fields.
     pub fn fill_columns<const N: usize, T: IntoBaseFields<N>>(
         &mut self,
         row: usize,
