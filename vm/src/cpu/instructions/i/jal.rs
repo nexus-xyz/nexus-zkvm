@@ -198,4 +198,24 @@ mod tests {
         assert_eq!(res, Some(0x1004));
         assert_eq!(cpu.registers.read(Register::X4), 0x1004);
     }
+
+    #[test]
+    fn test_jalr_alignment_masks_lsb() {
+        let mut cpu = Cpu::default();
+        cpu.pc.value = 0x1000;
+
+        // Set base address in rs1 to an odd value
+        cpu.registers.write(Register::X1, 0x2001);
+
+        // Use offset that keeps sum odd: 0x0 (so 0x2001 + 0x0)
+        let offset = 0x0;
+        let bare_instruction = Instruction::new_ir(Opcode::from(BuiltinOpcode::JALR), 5, 1, offset);
+        let instruction = JalrInstruction::decode(&bare_instruction, &cpu.registers);
+
+        // Execute the jalr instruction
+        let _ = instruction.write_back(&mut cpu);
+
+        // PC must have LSB cleared to enforce 2-byte alignment
+        assert_eq!(cpu.pc.value, 0x2000);
+    }
 }
