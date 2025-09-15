@@ -21,7 +21,8 @@ impl PC {
 
     // Jump and Link Register: Set PC to rs1 + imm
     pub fn jalr(&mut self, rs1: u32, imm: u32) {
-        self.value = rs1.wrapping_add(sign_extension_jalr(imm));
+        // RISC-V spec: JALR clears bit 0 of the target address (enforce 2-byte alignment)
+        self.value = rs1.wrapping_add(sign_extension_jalr(imm)) & !1u32;
     }
 }
 
