@@ -84,7 +84,7 @@ impl<E: EvalAtRow> KeccakRoundEval<'_, E> {
             // is_padding is the last column in the component trace.
             let [is_padding, _next_is_padding] =
                 self.eval.next_interaction_mask(ORIGINAL_TRACE_IDX, [0, 1]);
-            let _next_is_first = self.eval.get_preprocessed_column(PreProcessedColumnId {
+            let _is_last_row = self.eval.get_preprocessed_column(PreProcessedColumnId {
                 id: format!("keccak_{index}_is_last_row", index = self.index),
             });
             // constraint padding column to be either 0 or 1, and enforce that it only goes from 1 to 0 on last row.
@@ -93,7 +93,7 @@ impl<E: EvalAtRow> KeccakRoundEval<'_, E> {
             // TODO: enforcing this constraint requires bit reversing the trace
             //
             // self.eval.add_constraint(
-            //     (E::F::one() - next_is_first.clone())
+            //     (E::F::one() - _is_last_row.clone())
             //         * is_padding.clone()
             //         * (E::F::one() - next_is_padding.clone()),
             // );
