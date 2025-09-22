@@ -2,7 +2,7 @@ use std::num::NonZeroU8;
 
 use convert_case::{Case, Casing};
 use proc_macro2::{Span, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 
 use super::utils::air_column_crate_include;
 
@@ -169,9 +169,6 @@ fn mask_next_row_impl(parsed_variants: &[ParsedVariant]) -> TokenStream {
         .iter()
         .filter_map(|v| v.mask_next_row.then_some(&v.ident));
     if let Some(first) = ident_iter.next() {
-        let mut tokens = TokenStream::new();
-        tokens.extend(first.to_token_stream());
-
         quote! {
             matches!(
                 self,
