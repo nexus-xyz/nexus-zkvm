@@ -56,7 +56,6 @@ macro_rules! register_relation {
                     self
                 }
 
-                #[allow(unreachable_patterns)]
                 fn unwrap_ref(it: &$_enum) -> &Self {
                     match it {
                         $_enum::$name(inner) => inner,
