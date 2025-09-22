@@ -99,7 +99,29 @@ pub fn parse_output<T: DeserializeOwned>(
 }
 
 /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
-pub fn setup_guest_project(runtime_path: &PathBuf) -> TempDir {
+fn get_runtime_path() -> PathBuf {
+    // Try to find the runtime directory by looking for Cargo.toml
+    let current_dir = std::env::current_dir().unwrap();
+    let mut path = current_dir.clone();
+    
+    // Look for runtime directory in current and parent directories
+    for _ in 0..5 {
+        let runtime_path = path.join("runtime");
+        if runtime_path.join("Cargo.toml").exists() {
+            return runtime_path;
+        }
+        if let Some(parent) = path.parent() {
+            path = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+    
+    // Fallback to original logic
+    current_dir.join("runtime")
+}
+
+pub fn setup_guest_project(_runtime_path: &PathBuf) -> TempDir {
     // Create a temporary directory.
     let tmp_dir = tempdir().expect("Failed to create temporary directory");
     let tmp_dir_path = tmp_dir.path().join("integration");
@@ -112,16 +134,19 @@ pub fn setup_guest_project(runtime_path: &PathBuf) -> TempDir {
         .output()
         .expect("Failed to create new Cargo project");
 
-    assert!(output.status.success());
+    if !output.status.success() {
+        eprintln!("Error creating Cargo project: {}", String::from_utf8_lossy(&output.stderr));
+        panic!("Failed to create new Cargo project");
+    }
 
     // Add the nexus_rt dependency to the `Cargo.toml` file.
-    let runtime_dir = std::env::current_dir().unwrap().join(runtime_path);
+    let runtime_dir = get_runtime_path();
     output = Command::new("cargo")
         .current_dir(tmp_dir_str)
         .arg("add")
         .arg("nexus-rt")
         .arg("--path")
-        .arg(runtime_dir)
+        .arg(&runtime_dir)
         .output()
         .expect("Failed to add nexus_rt dependency");
 
@@ -144,18 +169,26 @@ pub fn write_guest_source_code(tmp_project_path: &Path, test_path: &str) {
         .output()
         .expect("Failed to copy test file");
 
-    assert!(output.status.success());
+    if !output.status.success() {
+        eprintln!("Error copying test file: {}", String::from_utf8_lossy(&output.stderr));
+        panic!("Failed to copy test file");
+    }
 }
 
 /// Compile the test file.
 pub fn compile_guest_project(
     project_path: &PathBuf,
-    linker_path: &PathBuf,
+    _linker_path: &PathBuf,
     compile_flags: &str,
 ) -> Vec<u8> {
     let target = "riscv32im-unknown-none-elf";
 
-    let linker_script = std::env::current_dir().unwrap().join(linker_path);
+    let original_linker_script = get_runtime_path().join("linker-scripts/default.x");
+    let linker_script = project_path.join("linker.x");
+    
+    // Copy linker script to avoid path issues with spaces
+    std::fs::copy(&original_linker_script, &linker_script)
+        .expect("Failed to copy linker script");
 
     // Compile the test file for riscv target.
     let output = Command::new("cargo")
@@ -200,8 +233,8 @@ pub fn compile_multi(
     for flag_set in compile_flags {
         // Check that the tests compile and execute correctly.
         // Compile the test file.
-        let test_path = format!("{home_path_relative}/{test_name}.rs");
-        write_guest_source_code(&tmp_project_path, &test_path);
+        let test_path = get_runtime_path().parent().unwrap().join(format!("{test_name}.rs"));
+        write_guest_source_code(&tmp_project_path, &test_path.to_string_lossy());
         let elf_contents = compile_guest_project(
             &tmp_project_path,
             &PathBuf::from(home_path_relative).join("runtime/linker-scripts/default.x"),
