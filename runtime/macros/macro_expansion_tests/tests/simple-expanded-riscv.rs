@@ -5,7 +5,6 @@
 use core::prelude::rust_2024::*;
 #[macro_use]
 extern crate core;
-extern crate compiler_builtins as _;
 const _: fn() = main;
 #[no_mangle]
 #[allow(unused)]
