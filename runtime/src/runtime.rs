@@ -29,9 +29,11 @@ fn panic(info: &PanicInfo) -> ! {
     let _ = write_output!(0, EXIT_PANIC);
     // Finish with exit syscall.
     let _ = ecall!(SYS_EXIT, EXIT_PANIC);
-    // Ecall will trigger exit syscall, so we will never return.
-    unsafe {
-        core::hint::unreachable_unchecked();
+    // Ecall is expected to terminate the program, but in case it doesn't
+    // (e.g., due to a VM/environment malfunction), avoid UB from
+    // unreachable_unchecked by spinning indefinitely instead.
+    loop {
+        core::hint::spin_loop();
     }
 }
 
