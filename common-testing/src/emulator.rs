@@ -304,8 +304,8 @@ pub fn emulate(
                     &public_input_bytes,
                     &private_input_bytes,
                 );
-                cycles.push(emulator.executor.global_clock);
                 let _ = emulator.execute(false);
+                cycles.push(emulator.executor.global_clock);
 
                 let view = emulator.finalize();
                 exit_code_bytes = view

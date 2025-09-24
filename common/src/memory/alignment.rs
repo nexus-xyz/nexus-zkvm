@@ -119,7 +119,7 @@ mod tests {
     fn test_alignable() {
         // Test `word_align`
         #[allow(clippy::reversed_empty_ranges)] // absurd false positive
-        for i in 0x1001..1005 {
+        for i in 0x1001..0x1005 {
             assert_eq!((i as u32).word_align(), 0x1004);
             assert_eq!((i as usize).word_align(), 0x1004);
         }
