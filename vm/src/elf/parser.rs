@@ -137,7 +137,7 @@ pub fn validate_elf_header(header: &FileHeader<LittleEndian>) -> Result<()> {
 ///
 /// This function extracts and validates key information from a program header segment,
 /// including the virtual address, file size, memory size, and offset.
-fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
+fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32, u32)> {
     // Convert virtual address to u32 and check for validity
     let virtual_address: u32 = segment
         .p_vaddr
@@ -169,7 +169,7 @@ fn parse_segment_info(segment: &ProgramHeader) -> Result<(u32, u32, u32)> {
 
     // Ensure file_size <= mem_size and the total size does not exceed the maximum memory size
     if (file_size <= mem_size) && (mem_size + offset < MAXIMUM_MEMORY_SIZE) {
-        Ok((virtual_address, offset, mem_size))
+        Ok((virtual_address, offset, file_size, mem_size))
     } else {
         Err(ParserError::SegmentSizeExceedsMemorySize.into())
     }
@@ -231,10 +231,16 @@ fn parse_segment_content(
     metadata: &mut Vec<u32>,
 ) -> Result<()> {
     let is_executable_segment = (segment.p_flags & abi::PF_X) != 0;
-    let (segment_virtual_address, segment_physical_address, segment_size) =
+    let (segment_virtual_address, segment_physical_address, file_size, mem_size) =
         parse_segment_info(segment)?;
 
-    for offset_in_segment in (0..segment_size).step_by(WORD_SIZE as _) {
+    // Read only the file-backed portion [0, file_size), then zero-initialize the rest up to mem_size.
+    // Handle possible partial trailing word by zero-padding.
+    let file_end = segment_physical_address
+        .checked_add(file_size)
+        .ok_or(ParserError::InvalidSegmentAddress)?;
+
+    for offset_in_segment in (0..mem_size).step_by(WORD_SIZE as _) {
         // Calculate the memory address for this word
         let memory_address = segment_virtual_address
             .checked_add(offset_in_segment)
@@ -244,14 +250,37 @@ fn parse_segment_content(
         }
 
         // Calculate the offset within the segment for this word
-        let absolute_address = offset_in_segment + segment_physical_address;
+        let absolute_address = segment_physical_address
+            .checked_add(offset_in_segment)
+            .ok_or(ParserError::InvalidSegmentAddress)?;
 
-        // Read the word from the file data
-        let word = u32::from_le_bytes(
-            data[absolute_address as usize..(absolute_address + WORD_SIZE as u32) as usize]
+        // Decide how to source this 4-byte word:
+        // - If fully inside file-backed range: read 4 bytes
+        // - If partially inside: read available bytes and zero-pad
+        // - If outside file-backed range: zero word (BSS)
+        let word: u32 = if absolute_address + WORD_SIZE as u32 <= file_end {
+            // Safe read of 4 bytes
+            let start = absolute_address as usize;
+            let end = (absolute_address + WORD_SIZE as u32) as usize;
+            let bytes: [u8; WORD_SIZE] = data
+                .get(start..end)
+                .ok_or(ParserError::InvalidOffsetInFile)?
                 .try_into()
-                .map_err(ParserError::WordDecodingFailed)?,
-        );
+                .map_err(ParserError::WordDecodingFailed)?;
+            u32::from_le_bytes(bytes)
+        } else if absolute_address < file_end {
+            // Partial tail: copy present bytes and pad with zeros
+            let start = absolute_address as usize;
+            let end = file_end as usize;
+            let slice = data.get(start..end).ok_or(ParserError::InvalidOffsetInFile)?;
+            let mut buf = [0u8; WORD_SIZE];
+            let copy_len = core::cmp::min(slice.len(), WORD_SIZE);
+            buf[..copy_len].copy_from_slice(&slice[..copy_len]);
+            u32::from_le_bytes(buf)
+        } else {
+            // BSS region: zero word
+            0
+        };
 
         // Determine the type of word based on the segment and section information
 
