@@ -566,7 +566,8 @@ mod tests {
         assert_eq!(
             parse_precompile_metadata(&elf, &elf_bytes).unwrap(),
             HashMap::<u16, String>::from([
-                (0, "\":: dummy_div :: DummyDiv\"".into())
+                (0, "\":: dummy_div :: DummyDiv\"".into()),
+                (1, "\":: dummy_hash :: DummyHash\"".into())
             ])
         );
     }
