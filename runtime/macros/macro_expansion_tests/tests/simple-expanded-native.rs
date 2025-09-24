@@ -3,11 +3,9 @@
 use std::prelude::rust_2024::*;
 #[macro_use]
 extern crate std;
-#[cfg(not(target_arch = "riscv32"))]
 fn input_handler() -> (u32, u32) {
     (1, 2)
 }
-#[cfg(not(target_arch = "riscv32"))]
 fn output_handler(result: u32) {
     {
         ::std::io::_print(format_args!("Output: {0}\n", result));
