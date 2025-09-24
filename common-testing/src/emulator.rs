@@ -103,7 +103,7 @@ fn get_runtime_path() -> PathBuf {
     // Try to find the runtime directory by looking for Cargo.toml
     let current_dir = std::env::current_dir().unwrap();
     let mut path = current_dir.clone();
-    
+
     // Look for runtime directory in current and parent directories
     for _ in 0..5 {
         let runtime_path = path.join("runtime");
@@ -116,7 +116,7 @@ fn get_runtime_path() -> PathBuf {
             break;
         }
     }
-    
+
     // Fallback to original logic
     current_dir.join("runtime")
 }
@@ -135,7 +135,10 @@ pub fn setup_guest_project(_runtime_path: &PathBuf) -> TempDir {
         .expect("Failed to create new Cargo project");
 
     if !output.status.success() {
-        eprintln!("Error creating Cargo project: {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!(
+            "Error creating Cargo project: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         panic!("Failed to create new Cargo project");
     }
 
@@ -170,7 +173,10 @@ pub fn write_guest_source_code(tmp_project_path: &Path, test_path: &str) {
         .expect("Failed to copy test file");
 
     if !output.status.success() {
-        eprintln!("Error copying test file: {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!(
+            "Error copying test file: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         panic!("Failed to copy test file");
     }
 }
@@ -185,10 +191,9 @@ pub fn compile_guest_project(
 
     let original_linker_script = get_runtime_path().join("linker-scripts/default.x");
     let linker_script = project_path.join("linker.x");
-    
+
     // Copy linker script to avoid path issues with spaces
-    std::fs::copy(&original_linker_script, &linker_script)
-        .expect("Failed to copy linker script");
+    std::fs::copy(&original_linker_script, &linker_script).expect("Failed to copy linker script");
 
     // Compile the test file for riscv target.
     let output = Command::new("cargo")
@@ -233,7 +238,10 @@ pub fn compile_multi(
     for flag_set in compile_flags {
         // Check that the tests compile and execute correctly.
         // Compile the test file.
-        let test_path = get_runtime_path().parent().unwrap().join(format!("{test_name}.rs"));
+        let test_path = get_runtime_path()
+            .parent()
+            .unwrap()
+            .join(format!("{test_name}.rs"));
         write_guest_source_code(&tmp_project_path, &test_path.to_string_lossy());
         let elf_contents = compile_guest_project(
             &tmp_project_path,
