@@ -272,7 +272,9 @@ fn parse_segment_content(
             // Partial tail: copy present bytes and pad with zeros
             let start = absolute_address as usize;
             let end = file_end as usize;
-            let slice = data.get(start..end).ok_or(ParserError::InvalidOffsetInFile)?;
+            let slice = data
+                .get(start..end)
+                .ok_or(ParserError::InvalidOffsetInFile)?;
             let mut buf = [0u8; WORD_SIZE];
             let copy_len = core::cmp::min(slice.len(), WORD_SIZE);
             buf[..copy_len].copy_from_slice(&slice[..copy_len]);
