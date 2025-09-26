@@ -17,7 +17,6 @@ use stwo::{
 };
 use stwo_constraint_framework::{FrameworkEval, InfoEvaluator, TraceLocationAllocator};
 
-use nexus_vm_prover_air_column::AirColumn;
 use nexus_vm_prover_trace::component::ComponentTrace;
 
 use super::builtin::BuiltInComponent;
