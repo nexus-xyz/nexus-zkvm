@@ -100,24 +100,42 @@ pub fn parse_output<T: DeserializeOwned>(
 
 /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
 fn get_runtime_path() -> PathBuf {
+    // First, check if NEXUS_RUNTIME_PATH environment variable is set
+    if let Ok(env_path) = std::env::var("NEXUS_RUNTIME_PATH") {
+        let path = PathBuf::from(env_path);
+        if path.join("Cargo.toml").exists() {
+            return path;
+        }
+    }
+
     // Try to find the runtime directory by looking for Cargo.toml
     let current_dir = std::env::current_dir().unwrap();
     let mut path = current_dir.clone();
 
-    // Look for runtime directory in current and parent directories
-    for _ in 0..5 {
+    // Look for runtime directory by traversing up the directory tree
+    // until we find a directory containing both Cargo.toml and runtime/Cargo.toml
+    loop {
         let runtime_path = path.join("runtime");
         if runtime_path.join("Cargo.toml").exists() {
             return runtime_path;
         }
+        
+        // Check if this directory contains a workspace Cargo.toml
+        // and has a runtime subdirectory
+        if path.join("Cargo.toml").exists() && runtime_path.is_dir() {
+            return runtime_path;
+        }
+        
+        // Move to parent directory
         if let Some(parent) = path.parent() {
             path = parent.to_path_buf();
         } else {
+            // Reached filesystem root, stop searching
             break;
         }
     }
 
-    // Fallback to original logic
+    // Fallback: assume runtime is in current directory
     current_dir.join("runtime")
 }
 
