@@ -271,15 +271,6 @@ pub fn emulate(
                         .iter()
                         .map(|public_output_entry| public_output_entry.value)
                         .collect();
-                    let _output_log = if let Some(lines) = view.view_debug_logs() {
-                        lines
-                            .iter()
-                            .map(|line| String::from_utf8_lossy(line).to_string())
-                            .collect::<Vec<String>>()
-                            .join("\n")
-                    } else {
-                        "".into()
-                    };
                 }
                 cycles.push(cur_cycles);
             }
