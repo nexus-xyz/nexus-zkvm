@@ -28,7 +28,7 @@ pub(crate) fn generate_instruction_impls(paths: &[PrecompilePath]) -> TokenStrea
             quote! {
                 impl InstructionEmitter for #path {
                     #[inline(always)]
-                    fn emit_instruction(rs1: u32, rs2: u32, imm: u32) -> u32 {
+                    fn emit_instruction(rs1: u32, rs2: u32, _imm: u32) -> u32 {
                         #[cfg(target_arch = "riscv32")] {
                             let mut rd: u32;
                             unsafe {
