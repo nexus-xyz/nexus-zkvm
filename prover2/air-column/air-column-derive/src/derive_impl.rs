@@ -225,7 +225,8 @@ fn collect_variants(input: &syn::ItemEnum) -> syn::Result<Vec<ParsedVariant>> {
                 if size.is_none() {
                     size = Some(value)
                 } else {
-                    return Err(syn::Error::new_spanned(attr, "repeating `size` attribute"));
+                    return Err(syn::Error::new_spanned(attr, "Multiple 'size' attributes found. Only one 'size' attribute is permitted per variant. Check the variant definition."));
+
                 }
             } else {
                 return Err(syn::Error::new_spanned(attr, "integer value expected"));
