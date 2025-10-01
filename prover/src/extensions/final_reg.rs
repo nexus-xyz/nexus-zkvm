@@ -82,8 +82,8 @@ impl FrameworkEval for FinalRegEval {
         // let _reg_idx = eval.next_trace_mask();
         let reg_idx = RegisterIdx::new(FinalRegEval::LOG_SIZE);
         let reg_idx = eval.get_preprocessed_column(reg_idx.id());
-        let final_timestamp: Vec<_> = (0..4).map(|_| eval.next_trace_mask()).collect();
-        let final_value: Vec<_> = (0..4).map(|_| eval.next_trace_mask()).collect();
+        let final_timestamp: Vec<_> = (0..WORD_SIZE).map(|_| eval.next_trace_mask()).collect();
+        let final_value: Vec<_> = (0..WORD_SIZE).map(|_| eval.next_trace_mask()).collect();
 
         // Add initial register memory state
         let mut tuple: [E::F; Self::TUPLE_SIZE] = std::array::from_fn(|_| E::F::zero());
