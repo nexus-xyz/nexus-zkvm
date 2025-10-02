@@ -15,7 +15,7 @@ const _: fn() = main;
 #[allow(unused)]
 fn main() {
     let (x, y): (u32, u32) = nexus_rt::read_private_input::<(u32, u32)>()
-        .expect("Failed to read public input");
+        .expect("Failed to read private input");
     {
         {
             foo(x, y);

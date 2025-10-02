@@ -13,11 +13,11 @@ fn main() {
     let out = (|| {
         {
             let (y): (u32) = nexus_rt::read_private_input::<(u32)>()
-                .expect("Failed to read public input");
+                .expect("Failed to read private input");
             {
                 {
                     let (x): (u32) = nexus_rt::read_private_input::<(u32)>()
-                        .expect("Failed to read public input");
+                        .expect("Failed to read private input");
                     { { x * y } }
                 }
             }
