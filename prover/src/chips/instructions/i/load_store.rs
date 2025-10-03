@@ -124,11 +124,6 @@ impl MachineChip for LoadStoreChip {
         traces.fill_columns(row_idx, carry_bits, Column::CarryFlag);
         let clk = row_idx as u32 + 1;
         for memory_record in vm_step.step.memory_records.iter() {
-            assert_eq!(
-                memory_record.get_timestamp(),
-                (row_idx as u32 + 1),
-                "timestamp mismatch"
-            );
             assert_eq!(memory_record.get_timestamp(), clk, "timestamp mismatch");
             let byte_address = memory_record.get_address();
             assert_eq!(
