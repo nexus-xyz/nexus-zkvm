@@ -464,14 +464,14 @@ fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64,
 ///
 /// # Returns
 ///
-/// A tuple containing:
-/// * A vector of u32 values representing the encoded instructions.
-/// * A BTreeMap representing the memory image, where keys are addresses and values are word contents.
-/// * The base address (u32) of the executable segment.
+/// A `Result<ParsedElfData>` containing:
+/// * Encoded instructions as `u32` words.
+/// * Read-only and writable memory images.
+/// * The base address (`u32`) of the executable segment.
 ///
 /// # Errors
 ///
-/// Returns a `ParserError` if any parsing or validation errors occur.
+/// Returns a `ParserError` variant if any parsing or validation errors occur.
 pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<ParsedElfData> {
     let mut instructions = Instructions::new();
     let mut writable_memory = RawMemoryImage::new();
