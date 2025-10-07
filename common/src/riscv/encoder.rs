@@ -1,19 +1,16 @@
-//! # Basic Block and Instruction Encoder for RISC-V
+//! # Instruction Encoder for RISC-V
 //!
 //! This module provides functionality for encoding RISC-V instructions into their little-endian binary representations.
 //! It supports encoding various instruction types, including R-type, I-type, S-type, B-type, U-type, and J-type.
 //!
 //! ## Encoding an Instruction
 //!
-//! The `Instruction` struct implement an `encode` method that returns the binary representation
+//! The `Instruction` struct implements an `encode` method that returns the binary representation
 //! of the instruction as a `u32`. It supports encoding of built-in RISC-V instructions
 //! based on their instruction type.
 //!
-//! ## Encoding a BasicBlock
-//!
-//! The `BasicBlock` struct implements an `encode` method that returns a `Vec<u32>` containing
-//! the binary representations of the instructions in the block. It supports encoding
-//! of built-in RISC-V instructions based on their instruction type.
+//! Note: Encoding of `BasicBlock` (a sequence of instructions) is defined in the VM crate at
+//! `vm/src/riscv/instructions/basic_block.rs` via `BasicBlock::encode`, which leverages `Instruction::encode`.
 
 use crate::{
     constants::KECCAKF_OPCODE,
