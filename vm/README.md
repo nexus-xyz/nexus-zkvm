@@ -137,9 +137,9 @@ The project is organized into several key modules:
      - Provides `decode_instruction`, `decode_instructions`, and `decode_until_end_of_a_block` functions
      - Supports decoding of custom dynamic instructions (R-type, S-type, and I-type)
      - Implements efficient instruction parsing using bit manipulation
-   - `instructions/`: Defines RISC-V instruction structures and utilities
-     - `basic_block.rs`: Represents a sequence of instructions (basic block)
-       - Provides methods for encoding, decoding, and displaying basic blocks
+  - `instructions/`: Defines RISC-V instruction structures and utilities
+  - `basic_block.rs`: Represents a sequence of instructions (basic block)
+    - Provides methods for encoding and displaying basic blocks
      - `instruction.rs`: Defines the unified `Instruction` struct for all instruction types
        - Implements `InstructionDecoder` for processing various RISC-V instruction formats
        - Supports RV32IM instruction set
