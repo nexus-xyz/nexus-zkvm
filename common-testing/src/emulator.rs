@@ -108,35 +108,67 @@ fn get_runtime_path() -> PathBuf {
         }
     }
 
-    // Try to find the runtime directory by looking for Cargo.toml
+    // Try to find the runtime directory using a principled approach
     let current_dir = std::env::current_dir().unwrap();
-    let mut path = current_dir.clone();
 
-    // Look for runtime directory by traversing up the directory tree
-    // until we find a directory containing both Cargo.toml and runtime/Cargo.toml
-    loop {
-        let runtime_path = path.join("runtime");
+    // Strategy 1: Look for workspace root by finding Cargo.toml with [workspace] section
+    if let Some(workspace_root) = find_workspace_root(&current_dir) {
+        let runtime_path = workspace_root.join("runtime");
         if runtime_path.join("Cargo.toml").exists() {
             return runtime_path;
         }
-        
-        // Check if this directory contains a workspace Cargo.toml
-        // and has a runtime subdirectory
-        if path.join("Cargo.toml").exists() && runtime_path.is_dir() {
+    }
+
+    // Strategy 2: Check if current directory is already the runtime directory
+    if current_dir.join("Cargo.toml").exists()
+        && current_dir.file_name().and_then(|n| n.to_str()) == Some("runtime")
+    {
+        return current_dir;
+    }
+
+    // Strategy 3: Check if runtime is a direct subdirectory of current directory
+    let runtime_path = current_dir.join("runtime");
+    if runtime_path.join("Cargo.toml").exists() {
+        return runtime_path;
+    }
+
+    // Strategy 4: Check parent directory for runtime subdirectory
+    if let Some(parent) = current_dir.parent() {
+        let runtime_path = parent.join("runtime");
+        if runtime_path.join("Cargo.toml").exists() {
             return runtime_path;
         }
-        
+    }
+
+    // Fallback: assume runtime is in current directory
+    current_dir.join("runtime")
+}
+
+/// Find the workspace root by looking for a Cargo.toml with [workspace] section
+fn find_workspace_root(start_path: &Path) -> Option<PathBuf> {
+    let mut current_path = start_path.to_path_buf();
+
+    loop {
+        let cargo_toml = current_path.join("Cargo.toml");
+        if cargo_toml.exists() {
+            // Check if this Cargo.toml contains a [workspace] section
+            if let Ok(content) = std::fs::read_to_string(&cargo_toml) {
+                if content.contains("[workspace]") {
+                    return Some(current_path);
+                }
+            }
+        }
+
         // Move to parent directory
-        if let Some(parent) = path.parent() {
-            path = parent.to_path_buf();
+        if let Some(parent) = current_path.parent() {
+            current_path = parent.to_path_buf();
         } else {
             // Reached filesystem root, stop searching
             break;
         }
     }
 
-    // Fallback: assume runtime is in current directory
-    current_dir.join("runtime")
+    None
 }
 
 pub fn setup_guest_project(_runtime_path: &PathBuf) -> TempDir {
