@@ -28,7 +28,7 @@ use crate::{
 mod columns;
 mod trace;
 
-pub use self::{columns::HalfWord, trace::preprocessed_clk_trace};
+pub use self::trace::preprocessed_clk_trace;
 use columns::{Column, PreprocessedColumn};
 
 pub struct Cpu;
