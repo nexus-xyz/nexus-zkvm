@@ -102,23 +102,8 @@ impl Prover for Stwo<Local> {
         private_input: &S,
         public_input: &T,
     ) -> Result<Self::View, <Self as Prover>::Error> {
-        let mut private_encoded = postcard::to_stdvec(&private_input).map_err(IOError::from)?;
-        if !private_encoded.is_empty() {
-            private_encoded = postcard::to_stdvec_cobs(&private_input).map_err(IOError::from)?;
-            let private_padded_len = (private_encoded.len() + 3) & !3;
-
-            assert!(private_padded_len >= private_encoded.len());
-            private_encoded.resize(private_padded_len, 0x00); // cobs ignores 0x00 padding
-        }
-
-        let mut public_encoded = postcard::to_stdvec(&public_input).map_err(IOError::from)?;
-        if !public_encoded.is_empty() {
-            public_encoded = postcard::to_stdvec_cobs(&public_input).map_err(IOError::from)?;
-            let public_padded_len = (public_encoded.len() + 3) & !3;
-
-            assert!(public_padded_len >= public_encoded.len());
-            public_encoded.resize(public_padded_len, 0x00); // cobs ignores 0x00 padding
-        }
+        let private_encoded = Self::encode_input(private_input)?;
+        let public_encoded = Self::encode_input(public_input)?;
 
         let (view, _) = nexus_core::nvm::k_trace(
             self.elf.clone(),
@@ -137,23 +122,8 @@ impl Prover for Stwo<Local> {
         private_input: &S,
         public_input: &T,
     ) -> Result<(Self::View, Self::Proof), <Self as Prover>::Error> {
-        let mut private_encoded = postcard::to_stdvec(&private_input).map_err(IOError::from)?;
-        if !private_encoded.is_empty() {
-            private_encoded = postcard::to_stdvec_cobs(&private_input).map_err(IOError::from)?;
-            let private_padded_len = (private_encoded.len() + 3) & !3;
-
-            assert!(private_padded_len >= private_encoded.len());
-            private_encoded.resize(private_padded_len, 0x00); // cobs ignores 0x00 padding
-        }
-
-        let mut public_encoded = postcard::to_stdvec(&public_input).map_err(IOError::from)?;
-        if !public_encoded.is_empty() {
-            public_encoded = postcard::to_stdvec_cobs(&public_input).map_err(IOError::from)?;
-            let public_padded_len = (public_encoded.len() + 3) & !3;
-
-            assert!(public_padded_len >= public_encoded.len());
-            public_encoded.resize(public_padded_len, 0x00); // cobs ignores 0x00 padding
-        }
+        let private_encoded = Self::encode_input(private_input)?;
+        let public_encoded = Self::encode_input(public_input)?;
 
         let (view, trace) = nexus_core::nvm::k_trace(
             self.elf.clone(),
@@ -171,6 +141,21 @@ impl Prover for Stwo<Local> {
                 memory_layout: trace.memory_layout,
             },
         ))
+    }
+}
+
+impl<C: Compute> Stwo<C> {
+    /// Helper function to encode input data with COBS encoding and padding.
+    fn encode_input<T: Serialize>(input: &T) -> Result<Vec<u8>, IOError> {
+        let mut encoded = postcard::to_stdvec(input).map_err(IOError::from)?;
+        if !encoded.is_empty() {
+            encoded = postcard::to_stdvec_cobs(input).map_err(IOError::from)?;
+            let padded_len = (encoded.len() + 3) & !3;
+
+            assert!(padded_len >= encoded.len());
+            encoded.resize(padded_len, 0x00); // cobs ignores 0x00 padding
+        }
+        Ok(encoded)
     }
 }
 
