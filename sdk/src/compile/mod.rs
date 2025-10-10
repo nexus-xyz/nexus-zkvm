@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crypto_common::generic_array::ArrayLength;
 use std::fs;
 use std::io::Write;
