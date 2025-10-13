@@ -18,7 +18,6 @@ use nexus_vm_prover_trace::{
 };
 
 use crate::{
-    components::cpu::HalfWord,
     framework::BuiltInComponent,
     lookups::{
         AllLookupElements, ComponentLookupElements, InstToRamLookupElements, LogupTraceBuilder,
