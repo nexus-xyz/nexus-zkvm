@@ -47,7 +47,6 @@ pub enum SyscallCode {
     CycleCount = 0x401, // Is converted to NOP for tracing
     OverwriteStackPointer = 0x402,
     OverwriteHeapPointer = 0x403,
-    ReadFromAuxiliaryInput = 0x404,
     MemoryAdvise = 0x405, // Is converted to NOP for tracing
 }
 
@@ -60,7 +59,6 @@ impl SyscallCode {
             0x401 => SyscallCode::CycleCount,
             0x402 => SyscallCode::OverwriteStackPointer,
             0x403 => SyscallCode::OverwriteHeapPointer,
-            //0x404 => SyscallCode::ReadFromAuxiliaryInput,
             0x405 => SyscallCode::MemoryAdvise,
             _ => return Err(VMErrorKind::UnimplementedSyscall(value, pc))?,
         };
@@ -77,7 +75,6 @@ impl From<u32> for SyscallCode {
             0x401 => SyscallCode::CycleCount,
             0x402 => SyscallCode::OverwriteStackPointer,
             0x403 => SyscallCode::OverwriteHeapPointer,
-            0x404 => SyscallCode::ReadFromAuxiliaryInput,
             0x405 => SyscallCode::MemoryAdvise,
             _ => panic!("Invalid syscall code"),
         }
@@ -93,7 +90,6 @@ impl From<SyscallCode> for u32 {
             SyscallCode::CycleCount => 0x401,
             SyscallCode::OverwriteStackPointer => 0x402,
             SyscallCode::OverwriteHeapPointer => 0x403,
-            SyscallCode::ReadFromAuxiliaryInput => 0x404,
             SyscallCode::MemoryAdvise => 0x405,
         }
     }
@@ -364,9 +360,6 @@ impl SyscallInstruction {
             }
 
             SyscallCode::OverwriteHeapPointer => self.execute_overwrite_heap_pointer(memory_layout),
-
-            SyscallCode::ReadFromAuxiliaryInput => unreachable!(), // unreachable since parsing of the code will fail
-
             SyscallCode::MemoryAdvise => {
                 // No-op on second pass.
                 if second_pass {
