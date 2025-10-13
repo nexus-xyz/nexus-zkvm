@@ -27,5 +27,3 @@ pub enum Column {
     #[size = 1]
     IsPad,
 }
-
-
