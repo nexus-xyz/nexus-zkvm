@@ -91,6 +91,6 @@ tag in the commits.
 
 [dev-tg]: https://t.me/nexus_zkvm
 
-[mcve]: https://stackoverflow.com/help/mcve
+[mcve]: https://stackoverflow.com/help/minimal-reproducible-example
 
 [reth-contributing]: https://github.com/paradigmxyz/reth/blob/main/CONTRIBUTING.md
