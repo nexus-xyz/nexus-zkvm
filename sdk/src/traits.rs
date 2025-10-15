@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use crypto::digest::{Digest, OutputSizeUser};
 use crypto_common::generic_array::{ArrayLength, GenericArray};
 use nexus_common::constants::WORD_SIZE;
@@ -47,20 +49,13 @@ impl CheckedView for nexus_core::nvm::View {
             .map(|instr| convert_instruction(&emulator.executor.instruction_executor, instr))
             .collect();
 
-        let converted_elf = nexus_core::nvm::ElfFile {
-            instructions,
-            ..expected_elf.clone()
-        };
+        let converted_elf = nexus_core::nvm::ElfFile { instructions, ..expected_elf.clone() };
 
         let program_memory = elf_into_program_info(&converted_elf, memory_layout);
 
         let input_memory = slice_into_io_entries::<MemoryInitializationEntry>(
             memory_layout.public_input_start(),
-            &[
-                &(expected_public_input.len() as u32).to_le_bytes(),
-                expected_public_input,
-            ]
-            .concat(),
+            &[&(expected_public_input.len() as u32).to_le_bytes(), expected_public_input].concat(),
         );
 
         let ro_initial_memory = slice_into_io_entries::<MemoryInitializationEntry>(
@@ -90,7 +85,7 @@ impl CheckedView for nexus_core::nvm::View {
         );
 
         let static_memory_size =
-            (&expected_elf.rom_image.len_bytes() + &expected_elf.ram_image.len_bytes()) * WORD_SIZE;
+            (expected_elf.rom_image.len_bytes() + expected_elf.ram_image.len_bytes()) * WORD_SIZE;
 
         Self::new(
             &Some(*memory_layout),
@@ -270,6 +265,20 @@ pub trait Prover: Sized {
         private_input: &S,
         public_input: &T,
     ) -> Result<(Self::View, Self::Proof), <Self as Prover>::Error>;
+
+    /// Helper function to encode input data with COBS encoding and padding.
+    /// This is a default implementation that can be used by all provers.
+    fn encode_input<T: Serialize>(input: &T) -> Result<Vec<u8>, IOError> {
+        let mut encoded = postcard::to_stdvec(input).map_err(IOError::from)?;
+        if !encoded.is_empty() {
+            encoded = postcard::to_stdvec_cobs(input).map_err(IOError::from)?;
+            let padded_len = (encoded.len() + 3) & !3;
+
+            assert!(padded_len >= encoded.len());
+            encoded.resize(padded_len, 0x00); // cobs ignores 0x00 padding
+        }
+        Ok(encoded)
+    }
 }
 
 /// An object that can be configured with necessary parameters for proving and verification.
@@ -338,9 +347,7 @@ pub trait Reference {
 impl Reference for () {
     type Error = ConfigurationError;
 
-    fn generate() -> Result<Self, Self::Error> {
-        Err(ConfigurationError::NotApplicableOperation)
-    }
+    fn generate() -> Result<Self, Self::Error> { Err(ConfigurationError::NotApplicableOperation) }
 
     fn load(_path: &Path) -> Result<Self, Self::Error> {
         Err(ConfigurationError::NotApplicableOperation)
