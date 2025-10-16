@@ -63,7 +63,7 @@ use crate::{
     memory::{LoadOps, StoreOps, UnifiedMemory},
     riscv::{BuiltinOpcode, Instruction, Opcode},
 };
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 
 pub type InstructionExecutorFn<M> =
     fn(&mut Cpu, &mut M, &Instruction) -> Result<(Option<u32>, (LoadOps, StoreOps)), MemoryError>;
@@ -238,10 +238,13 @@ impl Default for InstructionExecutorRegistry {
 
 impl InstructionExecutorRegistry {
     pub fn add_opcode<IE: InstructionExecutor>(&mut self, op: &Opcode) -> Result<(), VMError> {
-        self.precompiles
-            .insert(op.clone(), register_instruction_executor!(IE::evaluator))
-            .ok_or(VMErrorKind::DuplicateInstruction(op.clone()).into())
-            .map(|_| ())
+        match self.precompiles.entry(op.clone()) {
+            Entry::Occupied(_) => Err(VMErrorKind::DuplicateInstruction(op.clone()).into()),
+            Entry::Vacant(v) => {
+                v.insert(register_instruction_executor!(IE::evaluator));
+                Ok(())
+            }
+        }
     }
 
     pub fn get(&self, op: &Opcode) -> Result<InstructionExecutorFn<UnifiedMemory>> {
