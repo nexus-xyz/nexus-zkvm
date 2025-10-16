@@ -1,4 +1,4 @@
-use crypto_common::generic_array::ArrayLength;
+use generic_array::ArrayLength;
 use std::fs;
 use std::io::Write;
 use std::marker::PhantomData;
