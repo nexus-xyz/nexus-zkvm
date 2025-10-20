@@ -1,7 +1,7 @@
 #![allow(deprecated)]
 
 use crypto::digest::{Digest, OutputSizeUser};
-use generic_array::{ArrayLength, GenericArray};
+use crypto_common::generic_array::{ArrayLength, GenericArray};
 use nexus_common::constants::WORD_SIZE;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
