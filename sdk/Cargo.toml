@@ -24,7 +24,6 @@ uuid = { version = "1.9.1", features = ["v4", "fast-rng"] }
 thiserror = "1.0.61"
 crypto = { version = "0.5.1", features = ["digest"] }
 crypto-common = "0.1.6"
-generic-array = "0.14"
 
 [dev-dependencies]
 nexus-profiler = { path = "./macros/profiler" }
