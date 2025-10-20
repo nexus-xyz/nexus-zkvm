@@ -49,13 +49,20 @@ impl CheckedView for nexus_core::nvm::View {
             .map(|instr| convert_instruction(&emulator.executor.instruction_executor, instr))
             .collect();
 
-        let converted_elf = nexus_core::nvm::ElfFile { instructions, ..expected_elf.clone() };
+        let converted_elf = nexus_core::nvm::ElfFile {
+            instructions,
+            ..expected_elf.clone()
+        };
 
         let program_memory = elf_into_program_info(&converted_elf, memory_layout);
 
         let input_memory = slice_into_io_entries::<MemoryInitializationEntry>(
             memory_layout.public_input_start(),
-            &[&(expected_public_input.len() as u32).to_le_bytes(), expected_public_input].concat(),
+            &[
+                &(expected_public_input.len() as u32).to_le_bytes(),
+                expected_public_input,
+            ]
+            .concat(),
         );
 
         let ro_initial_memory = slice_into_io_entries::<MemoryInitializationEntry>(
@@ -347,7 +354,9 @@ pub trait Reference {
 impl Reference for () {
     type Error = ConfigurationError;
 
-    fn generate() -> Result<Self, Self::Error> { Err(ConfigurationError::NotApplicableOperation) }
+    fn generate() -> Result<Self, Self::Error> {
+        Err(ConfigurationError::NotApplicableOperation)
+    }
 
     fn load(_path: &Path) -> Result<Self, Self::Error> {
         Err(ConfigurationError::NotApplicableOperation)

@@ -83,7 +83,11 @@ impl Prover for Stwo<Local> {
 
     /// Construct a new proving instance.
     fn new(elf: &nexus_core::nvm::ElfFile) -> Result<Self, <Self as Prover>::Error> {
-        Ok(Self { elf: elf.clone(), ad: Vec::new(), _compute: PhantomData })
+        Ok(Self {
+            elf: elf.clone(),
+            ad: Vec::new(),
+            _compute: PhantomData,
+        })
     }
 
     /// Set the associated data bytes to be bound into the proof.
@@ -134,7 +138,13 @@ impl Prover for Stwo<Local> {
         )?;
         let proof = nexus_core::stwo::prove(&trace, &view)?;
 
-        Ok((view, Proof { proof, memory_layout: trace.memory_layout }))
+        Ok((
+            view,
+            Proof {
+                proof,
+                memory_layout: trace.memory_layout,
+            },
+        ))
     }
 }
 
@@ -151,5 +161,7 @@ impl Verifiable for Proof {
         Ok(())
     }
 
-    fn size_estimate(&self) -> usize { self.proof.size_estimate() }
+    fn size_estimate(&self) -> usize {
+        self.proof.size_estimate()
+    }
 }
