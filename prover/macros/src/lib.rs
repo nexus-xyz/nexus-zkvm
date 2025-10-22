@@ -28,7 +28,8 @@ mod column_enum;
 /// ```
 #[proc_macro_derive(ColumnsEnum, attributes(size, column_derive))]
 pub fn derive_columns_enum(input: TokenStream) -> TokenStream {
-    column_enum::generate_impls(input.into())
-        .map(Into::into)
-        .unwrap_or_else(|err| err.into_compile_error().into())
+    match column_enum::generate_impls(input.into()) {
+        Ok(impls) => impls.into(),
+        Err(err) => err.to_compile_error().into(),
+    }
 }
