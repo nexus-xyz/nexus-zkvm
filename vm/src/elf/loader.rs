@@ -92,8 +92,9 @@ impl ElfFile {
         }
     }
 
-    pub fn get_instructions(&self, address: usize, n: usize) -> &[u32] {
-        &self.instructions[address..address + n]
+    pub fn get_instructions(&self, address: usize, n: usize) -> Option<&[u32]> {
+        let end = address.checked_add(n)?;
+        self.instructions.get(address..end)
     }
 
     pub fn from_bytes(data: &[u8]) -> Result<Self, VMError> {
