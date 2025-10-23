@@ -69,7 +69,7 @@ impl CheckedView for nexus_core::nvm::View {
             memory_layout.public_input_address_location(),
             &[
                 memory_layout.public_input_start().to_le_bytes(),
-                memory_layout.exit_code().to_le_bytes(), // the exit code is the first word of the output
+                memory_layout.public_output_start().to_le_bytes(), // the exit code is the first word of the output
             ]
             .concat(),
         )
