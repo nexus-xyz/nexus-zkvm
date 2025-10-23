@@ -122,7 +122,6 @@ impl ElfFile {
     }
 
     pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, VMError> {
-
         let data = std::fs::read(path).map_err(Into::<ParserError>::into)?;
         Self::from_bytes(&data)
     }
