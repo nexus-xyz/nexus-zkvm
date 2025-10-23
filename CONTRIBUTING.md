@@ -4,8 +4,6 @@ The Nexus zkVM (zero-knowledge virtual machine) is a contributor-friendly zkVM. 
 
 This document will help you get started. But first, **thank you for your interest in contributing!** We immensely appreciate quality contributions. This guide is intended to help you navigate the process.
 
-The [dev Telegram][dev-tg] is always available for any concerns you may have that are not covered in this guide, or for any other questions or discussions you want to raise with the Nexus team or broader Nexus zkVM community.
-
 ### Code of Conduct
 
 The Nexus zkVM project adheres to the [Rust Code of Conduct][rust-coc]. This code of conduct describes the _minimum_ behavior
@@ -30,7 +28,7 @@ There are three main ways to contribute:
 If you have reviewed this document and existing documentation and still have questions or are still having problems, but don't quite know enough to create a bug report, then 
 you can get help by **starting a discussion**. 
 
-You can do so either on the [dev Telegram][dev-tg] or on discussion board of the [Github][gh] page for this repository. Look for the "Discussions" tab at the top.
+You can do so on discussion board of the [Github][gh] page for this repository. Look for the "Discussions" tab at the top.
 
 #### Submitting a bug report
 
@@ -58,11 +56,13 @@ If you have examples of other tools that have the feature you are requesting, pl
 Pull requests are the way concrete changes are made to the code, documentation, and dependencies of the Nexus zkVM.
 
 Before making a large change, it is usually a good idea to first open an issue describing the change to solicit feedback and guidance. 
-This will increase the likelihood of the PR getting merged. Striking up a discussion the [dev Telegram][dev-tg] to let the community know
+This will increase the likelihood of the PR getting merged. Striking up a discussion can also let the community know
 what you'll be working on can also be helpful for getting early feedback before diving in.
 
-If you are working on a larger feature, we encourage you to open up a draft pull request and also check in with the [dev Telegram][dev-tg], to make sure that other
+If you are working on a larger feature, we encourage you to open up a draft pull request to make sure that other
 contributors are not duplicating work.
+
+We do not accept minor typographical, grammatical, or documentary fixes in pull requests that are absent of substanative changes to the codebase.
 
 #### Discussion
 
@@ -88,9 +88,6 @@ tag in the commits.
 [rust-coc]: https://github.com/rust-lang/rust/blob/master/CODE_OF_CONDUCT.md
 
 [gh]: https://github.com/nexus-xyz/nexus-zkvm
-
-[dev-tg]: https://t.me/nexus_zkvm
-
 [mcve]: https://stackoverflow.com/help/mcve
 
 [reth-contributing]: https://github.com/paradigmxyz/reth/blob/main/CONTRIBUTING.md
