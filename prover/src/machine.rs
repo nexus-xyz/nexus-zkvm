@@ -249,16 +249,17 @@ impl<C: MachineChip + Sync> Machine<C> {
         let mut tree_builder = commitment_scheme.tree_builder();
         let _interaction_trace_location = tree_builder.extend_evals(interaction_trace);
         // Handle extensions for the interaction trace
-        let mut all_claimed_sum = vec![claimed_sum];
+        let mut all_claimed_sums = vec![claimed_sum];
         for (ext, extension_trace) in extensions_iter.clone().zip(extension_traces) {
             let (interaction_trace, claimed_sum) = ext.generate_interaction_trace(
                 extension_trace,
                 &prover_side_note,
                 &lookup_elements,
             );
-            all_claimed_sum.push(claimed_sum);
+            all_claimed_sums.push(claimed_sum);
             tree_builder.extend_evals(interaction_trace);
         }
+        prover_channel.mix_felts(&all_claimed_sums);
         tree_builder.commit(prover_channel);
 
         let tree_span_provider = &mut TraceLocationAllocator::default();
@@ -268,7 +269,7 @@ impl<C: MachineChip + Sync> Machine<C> {
             claimed_sum,
         );
         let ext_components: Vec<Box<dyn ComponentProver<SimdBackend>>> = extensions_iter
-            .zip(all_claimed_sum.get(1..).unwrap_or_default())
+            .zip(all_claimed_sums.get(1..).unwrap_or_default())
             .zip(all_log_sizes.get(1..).unwrap_or_default())
             .map(|((ext, claimed_sum), log_size)| {
                 ext.to_component_prover(
@@ -290,7 +291,7 @@ impl<C: MachineChip + Sync> Machine<C> {
 
         Ok(Proof {
             stark_proof: proof,
-            claimed_sum: all_claimed_sum,
+            claimed_sum: all_claimed_sums,
             log_size: all_log_sizes,
         })
     }
@@ -473,6 +474,7 @@ impl<C: MachineChip + Sync> Machine<C> {
         let mut components_ref: Vec<&dyn Component> = ext_components.iter().map(|c| &**c).collect();
         components_ref.insert(0, &main_component);
 
+        verifier_channel.mix_felts(&claimed_sum);
         commitment_scheme.commit(
             proof.commitments[INTERACTION_TRACE_IDX],
             &log_sizes[INTERACTION_TRACE_IDX],
