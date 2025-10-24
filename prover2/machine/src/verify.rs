@@ -82,14 +82,15 @@ pub fn verify(proof: Proof, view: &View) -> Result<(), VerificationError> {
     let tree_span_provider = &mut TraceLocationAllocator::default();
     let verifier_components: Vec<Box<dyn Component>> = components
         .iter()
-        .zip(claimed_sums)
+        .zip(&claimed_sums)
         .zip(claimed_log_sizes)
         .map(|((comp, claimed_sum), log_size)| {
-            comp.to_component(tree_span_provider, &lookup_elements, log_size, claimed_sum)
+            comp.to_component(tree_span_provider, &lookup_elements, log_size, *claimed_sum)
         })
         .collect();
     let components_ref: Vec<&dyn Component> = verifier_components.iter().map(|c| &**c).collect();
 
+    verifier_channel.mix_felts(&claimed_sums);
     commitment_scheme.commit(
         proof.commitments[INTERACTION_TRACE_IDX],
         &log_sizes[INTERACTION_TRACE_IDX],

@@ -101,6 +101,7 @@ pub fn prove(trace: &impl Trace, view: &View) -> Result<Proof, ProvingError> {
             claimed_sum
         })
         .collect();
+    prover_channel.mix_felts(&claimed_sums);
     tree_builder.commit(prover_channel);
 
     let tree_span_provider = &mut TraceLocationAllocator::default();
