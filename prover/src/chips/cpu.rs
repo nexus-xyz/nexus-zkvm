@@ -370,7 +370,6 @@ impl MachineChip for CpuChip {
         let [is_sll] = trace_eval!(trace_eval, IsSll);
         let [is_srl] = trace_eval!(trace_eval, IsSrl);
         let [is_sra] = trace_eval!(trace_eval, IsSra);
-        let [is_padding] = trace_eval!(trace_eval, IsPadding);
         let [is_sb] = trace_eval!(trace_eval, IsSb);
         let [is_sh] = trace_eval!(trace_eval, IsSh);
         let [is_sw] = trace_eval!(trace_eval, IsSw);
