@@ -56,7 +56,7 @@ impl PreprocessedBuilder {
         preprocessed_column: PreprocessedColumn,
         clk: [u8; WORD_SIZE],
     ) {
-        for (limb_idx, clk_byte) in clk.iter().enumerate().take(WORD_SIZE) {
+        for (limb_idx, clk_byte) in clk.iter().enumerate() {
             self.0.cols[preprocessed_column.offset() + limb_idx][row_idx] =
                 BaseField::from(*clk_byte as u32);
         }
