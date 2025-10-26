@@ -121,7 +121,7 @@ mod tests {
         let mut col = BaseColumn::from_iter(reordered.clone());
         <SimdBackend as ColumnOps<BaseField>>::bit_reverse_column(&mut col);
 
-        for (i, reordered) in col.as_slice().iter().enumerate().take(1 << log_size) {
+        for (i, reordered) in col.as_slice().iter().enumerate() {
             let idx = bit_reverse_index(coset_index_to_circle_domain_index(i, log_size), log_size);
             assert_eq!(reordered, &vals[idx]);
         }
