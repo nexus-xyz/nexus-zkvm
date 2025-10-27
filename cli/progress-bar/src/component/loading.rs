@@ -6,6 +6,11 @@ use crate::action::Action;
 
 const WIDTH: usize = "=======>                  ".len() - 1;
 
+/// A loading bar component that displays progress for long-running operations.
+///
+/// This component renders a visual progress bar with percentage completion,
+/// iteration counts, and optional headers. It automatically switches between
+/// loading and completion states based on the action's progress.
 pub struct LoadingBar<'a> {
     pub time_spent: Duration,
 
@@ -60,6 +65,10 @@ impl Component for LoadingBar<'_> {
 }
 
 impl<'a> LoadingBar<'a> {
+    /// Creates a new loading bar component for the given action.
+    ///
+    /// The loading bar will track the progress of the provided action and
+    /// render appropriate visual feedback based on the action's state.
     pub fn new(action: &'a RefCell<Action>) -> Self {
         Self {
             action,
