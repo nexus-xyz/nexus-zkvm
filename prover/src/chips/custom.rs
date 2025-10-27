@@ -92,15 +92,13 @@ impl KeccakChip {
             let idx = (address - addr) / WORD_SIZE as u32;
             input[idx as usize] = value;
         }
-        let input: Vec<u64> = input
-            .chunks(2)
-            .map(|c| {
-                let low = c[0] as u64;
-                let high = c[1] as u64;
-                low + (high << 32)
-            })
-            .collect();
-        input.try_into().expect("invalid input state size")
+        let mut state = [0u64; 25];
+        for (i, c) in input.chunks_exact(2).enumerate() {
+            let low = c[0] as u64;
+            let high = c[1] as u64;
+            state[i] = low + (high << 32);
+        }
+        state
     }
 
     /// Modifies side-note timestamps for accessed memory and returns previous values.
