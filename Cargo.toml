@@ -23,7 +23,7 @@ exclude = ["prover-benches"]
 
 [workspace.package]
 edition = "2021"
-version = "0.3.4"
+version = "0.3.5"
 authors = ["The Nexus Team <hello@nexus.xyz>"]
 homepage = "https://nexus.xyz/"
 repository = "https://github.com/nexus-xyz/nexus-zkvm/"
