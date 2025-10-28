@@ -15,6 +15,47 @@ use crate::column::Column;
 
 use crate::trace::eval::trace_eval;
 
+// Helper functions for BaseField values used in constraint evaluation
+fn two() -> BaseField {
+    BaseField::from(2)
+}
+
+fn shift_3() -> BaseField {
+    BaseField::from(1 << 3)
+}
+
+fn shift_4() -> BaseField {
+    BaseField::from(1 << 4)
+}
+
+fn shift_5() -> BaseField {
+    BaseField::from(1 << 5)
+}
+
+fn shift_7() -> BaseField {
+    BaseField::from(1 << 7)
+}
+
+fn shift_8() -> BaseField {
+    BaseField::from(1 << 8)
+}
+
+fn shift_11() -> BaseField {
+    BaseField::from(1 << 11)
+}
+
+fn shift_12() -> BaseField {
+    BaseField::from(1 << 12)
+}
+
+fn mask_4_minus_1() -> BaseField {
+    BaseField::from((1 << 4) - 1)
+}
+
+fn mask_8_minus_1() -> BaseField {
+    BaseField::from((1 << 8) - 1)
+}
+
 pub struct TypeBChip;
 
 impl MachineChip for TypeBChip {
@@ -83,11 +124,11 @@ impl MachineChip for TypeBChip {
         // is_type_b・(op_c1_4・2 + op_c5_7・2^5 + op_c8_10・2^8 + op_c11・2^11 + op_c12・2^12 – op_c) = 0
         eval.add_constraint(
             is_type_b.clone()
-                * (op_c1_4.clone() * BaseField::from(2)
-                    + op_c5_7.clone() * BaseField::from(1 << 5)
-                    + op_c8_10.clone() * BaseField::from(1 << 8)
-                    + op_c11.clone() * BaseField::from(1 << 11)
-                    + op_c12.clone() * BaseField::from(1 << 12)
+                * (op_c1_4.clone() * two()
+                    + op_c5_7.clone() * shift_5()
+                    + op_c8_10.clone() * shift_8()
+                    + op_c11.clone() * shift_11()
+                    + op_c12.clone() * shift_12()
                     - op_c.clone()),
         );
 
@@ -100,24 +141,20 @@ impl MachineChip for TypeBChip {
         // (is_type_b)・ (op_c12・(2^8-1) – c_val_4) = 0					            // limb 4
         eval.add_constraint(
             is_type_b.clone()
-                * (op_c1_4.clone() * BaseField::from(2)
-                    + op_c5_7.clone() * BaseField::from(1 << 5)
-                    - value_c[0].clone()),
+                * (op_c1_4.clone() * two() + op_c5_7.clone() * shift_5() - value_c[0].clone()),
         );
         eval.add_constraint(
             is_type_b.clone()
                 * (op_c8_10.clone()
-                    + op_c11.clone() * BaseField::from(1 << 3)
-                    + op_c12.clone() * BaseField::from((1 << 4) - 1) * BaseField::from(1 << 4)
+                    + op_c11.clone() * shift_3()
+                    + op_c12.clone() * mask_4_minus_1() * shift_4()
                     - value_c[1].clone()),
         );
         eval.add_constraint(
-            is_type_b.clone()
-                * (op_c12.clone() * BaseField::from((1 << 8) - 1) - value_c[2].clone()),
+            is_type_b.clone() * (op_c12.clone() * mask_8_minus_1() - value_c[2].clone()),
         );
         eval.add_constraint(
-            is_type_b.clone()
-                * (op_c12.clone() * BaseField::from((1 << 8) - 1) - value_c[3].clone()),
+            is_type_b.clone() * (op_c12.clone() * mask_8_minus_1() - value_c[3].clone()),
         );
 
         let [op_a] = trace_eval!(trace_eval, Column::OpA);
@@ -127,8 +164,7 @@ impl MachineChip for TypeBChip {
         // Making sure that op_a matches its parts
         // (is_type_b)・ (op_a0 + op_a1_4・2 – op_a) = 0
         eval.add_constraint(
-            is_type_b.clone()
-                * (op_a0.clone() + op_a1_4.clone() * BaseField::from(2) - op_a.clone()),
+            is_type_b.clone() * (op_a0.clone() + op_a1_4.clone() * two() - op_a.clone()),
         );
 
         let [op_b] = trace_eval!(trace_eval, Column::OpB);
@@ -138,8 +174,7 @@ impl MachineChip for TypeBChip {
 
         // (is_type_b)・ (op_b0_3 + op_b4・2^4 – op_b) = 0
         eval.add_constraint(
-            is_type_b.clone()
-                * (op_b0_3.clone() + op_b4.clone() * BaseField::from(1 << 4) - op_b.clone()),
+            is_type_b.clone() * (op_b0_3.clone() + op_b4.clone() * shift_4() - op_b.clone()),
         );
 
         let value_instr = trace_eval!(trace_eval, Column::InstrVal);
@@ -147,8 +182,7 @@ impl MachineChip for TypeBChip {
         // (is_type_b) ・ (b1100011 + op_c11・2^7 - instr_val_1) = 0			// limb 1
         eval.add_constraint(
             is_type_b.clone()
-                * (E::F::from(BaseField::from(0b1100011))
-                    + op_c11.clone() * BaseField::from(1 << 7)
+                * (E::F::from(BaseField::from(0b1100011)) + op_c11.clone() * shift_7()
                     - value_instr[0].clone()),
         );
 
@@ -170,44 +204,44 @@ impl MachineChip for TypeBChip {
         eval.add_constraint(
             is_beq
                 * (op_c1_4.clone()
-                    + E::F::from(BaseField::from(0b000) * BaseField::from(1 << 4))
-                    + op_a0.clone() * BaseField::from(1 << 7)
+                    + E::F::from(BaseField::from(0b000) * shift_4())
+                    + op_a0.clone() * shift_7()
                     - value_instr[1].clone()),
         );
 
         eval.add_constraint(
             is_bne
                 * (op_c1_4.clone()
-                    + E::F::from(BaseField::from(0b001) * BaseField::from(1 << 4))
-                    + op_a0.clone() * BaseField::from(1 << 7)
+                    + E::F::from(BaseField::from(0b001) * shift_4())
+                    + op_a0.clone() * shift_7()
                     - value_instr[1].clone()),
         );
         eval.add_constraint(
             is_blt
                 * (op_c1_4.clone()
-                    + E::F::from(BaseField::from(0b100) * BaseField::from(1 << 4))
-                    + op_a0.clone() * BaseField::from(1 << 7)
+                    + E::F::from(BaseField::from(0b100) * shift_4())
+                    + op_a0.clone() * shift_7()
                     - value_instr[1].clone()),
         );
         eval.add_constraint(
             is_bge
                 * (op_c1_4.clone()
-                    + E::F::from(BaseField::from(0b101) * BaseField::from(1 << 4))
-                    + op_a0.clone() * BaseField::from(1 << 7)
+                    + E::F::from(BaseField::from(0b101) * shift_4())
+                    + op_a0.clone() * shift_7()
                     - value_instr[1].clone()),
         );
         eval.add_constraint(
             is_bltu
                 * (op_c1_4.clone()
-                    + E::F::from(BaseField::from(0b110) * BaseField::from(1 << 4))
-                    + op_a0.clone() * BaseField::from(1 << 7)
+                    + E::F::from(BaseField::from(0b110) * shift_4())
+                    + op_a0.clone() * shift_7()
                     - value_instr[1].clone()),
         );
         eval.add_constraint(
             is_bgeu
                 * (op_c1_4.clone()
-                    + E::F::from(BaseField::from(0b111) * BaseField::from(1 << 4))
-                    + op_a0.clone() * BaseField::from(1 << 7)
+                    + E::F::from(BaseField::from(0b111) * shift_4())
+                    + op_a0.clone() * shift_7()
                     - value_instr[1].clone()),
         );
 
@@ -215,8 +249,7 @@ impl MachineChip for TypeBChip {
         // (is_type_b) ・ (op_a1_4 + op_b0_3・2^4 - instr_val_3) = 0	// limb 3
         eval.add_constraint(
             is_type_b.clone()
-                * (op_a1_4.clone() + op_b0_3.clone() * BaseField::from(1 << 4)
-                    - value_instr[2].clone()),
+                * (op_a1_4.clone() + op_b0_3.clone() * shift_4() - value_instr[2].clone()),
         );
 
         let [op_b4] = trace_eval!(trace_eval, Column::OpB4);
@@ -225,9 +258,9 @@ impl MachineChip for TypeBChip {
         eval.add_constraint(
             is_type_b.clone()
                 * (op_b4
-                    + op_c5_7.clone() * BaseField::from(2)
-                    + op_c8_10.clone() * BaseField::from(1 << 4)
-                    + op_c12.clone() * BaseField::from(1 << 7)
+                    + op_c5_7.clone() * two()
+                    + op_c8_10.clone() * shift_4()
+                    + op_c12.clone() * shift_7()
                     - value_instr[3].clone()),
         );
     }
