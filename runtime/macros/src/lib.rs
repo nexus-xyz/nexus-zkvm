@@ -27,11 +27,11 @@ fn stream_error<T: ToTokens, U: Display>(tokens: T, message: U) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn main(args: TokenStream, input1: TokenStream) -> TokenStream {
-    let input: proc_macro2::TokenStream = input1.clone().into();
+pub fn main(args: TokenStream, input: TokenStream) -> TokenStream {
+    let input_tokens: proc_macro2::TokenStream = input.into();
     let ItemFn {
         attrs, sig, block, ..
-    } = syn::parse2::<syn::ItemFn>(input.clone()).unwrap();
+    } = syn::parse2::<syn::ItemFn>(input_tokens.clone()).unwrap();
 
     // Get the full path to the nexus_rt crate.
     let nexus_rt = get_nexus_rt_ident();
@@ -52,7 +52,7 @@ pub fn main(args: TokenStream, input1: TokenStream) -> TokenStream {
     // If there are no inputs or outputs that need to be handled we can do the final checks in entry.
     if sig.inputs.is_empty() && matches!(sig.output, syn::ReturnType::Default) {
         // Check that the main function has desired properties.
-        return entry::main(args.into(), input)
+        return entry::main(args.into(), input_tokens)
             .map(Into::into)
             .unwrap_or_else(|err| err.into_compile_error().into());
     }
@@ -65,7 +65,7 @@ pub fn main(args: TokenStream, input1: TokenStream) -> TokenStream {
                 inputs.push(a.ident.clone());
             } else {
                 // Let the compiler error down the line instead for better visibility.
-                return input1;
+                return input;
             }
         } else {
             return stream_error(&sig, "Main function cannot take `self` as input.");
