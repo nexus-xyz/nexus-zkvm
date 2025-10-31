@@ -499,9 +499,12 @@ impl HarvardEmulator {
     /// This function initializes a Harvard with a single basic block of instructions.
     /// It's primarily used for testing and simple emulation scenarios.
     pub fn from_basic_blocks(basic_blocks: &Vec<BasicBlock>) -> Self {
-        let mut encoded_basic_blocks = Vec::new();
+        let total_instrs: usize = basic_blocks.iter().map(|b| b.len()).sum();
+        let mut encoded_basic_blocks = Vec::with_capacity(total_instrs);
         for block in basic_blocks {
-            encoded_basic_blocks.extend(block.encode());
+            for instruction in &block.0 {
+                encoded_basic_blocks.push(instruction.encode());
+            }
         }
 
         let mut emulator = Self {
