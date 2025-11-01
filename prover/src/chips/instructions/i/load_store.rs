@@ -525,14 +525,14 @@ impl MachineChip for LoadStoreChip {
 
         // In case of LW instruction, ValueA should be equal to the loaded values in Ram{1,2,3,4}ValPrev
         let [is_lw] = trace_eval!(trace_eval, IsLw);
-        // is_lw * (value_a_1 + value_a_2 * 256 - ram1_val_prev + ram2_val_prev * 256) = 0
+        // is_lw * (value_a_1 + value_a_2 * 256 - ram1_val_prev - ram2_val_prev * 256) = 0
         eval.add_constraint(
             is_lw.clone()
                 * (value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8)
                     - ram1_val_prev.clone()
                     - ram2_val_prev.clone() * BaseField::from(1 << 8)),
         );
-        // is_lw * (value_a_3 + value_a_4 * 256 - ram3_val_prev + ram4_val_prev * 256) = 0
+        // is_lw * (value_a_3 + value_a_4 * 256 - ram3_val_prev - ram4_val_prev * 256) = 0
         eval.add_constraint(
             is_lw.clone()
                 * (value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8)
