@@ -56,12 +56,10 @@ pub unsafe extern "C" fn sys_alloc_aligned(bytes: usize, align: usize) -> *mut u
 
     // Get the current stack pointer
     let stack_ptr: usize;
-    unsafe {
-        core::arch::asm!(
-            "mv {}, sp",
-            out(reg) stack_ptr
-        );
-    }
+    core::arch::asm!(
+        "mv {}, sp",
+        out(reg) stack_ptr
+    );
 
     // Check if the heap is about to clash with the stack
     if heap_pos > stack_ptr {
