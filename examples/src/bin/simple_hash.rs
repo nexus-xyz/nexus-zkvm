@@ -66,11 +66,6 @@ fn simple_murmur_hash(data: &[u8]) -> u64 {
     hash
 }
 
-/// Convert string to bytes for hashing
-fn str_to_bytes(s: &str) -> &[u8] {
-    s.as_bytes()
-}
-
 #[nexus_rt::main]
 fn main() {
     println!("Simple Hash Function Test Suite");
@@ -101,7 +96,7 @@ fn main() {
     println!("=================");
 
     let large_data = "The quick brown fox jumps over the lazy dog. This is a longer string for performance testing of hash functions.";
-    let bytes = str_to_bytes(large_data);
+    let bytes = large_data.as_bytes();
     let n = 1; // Number of iterations for performance test
 
     println!("Hashing {} bytes {}) times...", bytes.len(), n);
