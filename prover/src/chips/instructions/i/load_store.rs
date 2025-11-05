@@ -242,48 +242,26 @@ impl MachineChip for LoadStoreChip {
         // - `value` is the one-byte value written to or read from the memory.
         // - `counter{0,1,2,3}` is the timestamp of the memory access. In four-limbs each containing one byte.
 
-        // Subtract and add address1 access components from/to logup sum
-        // TODO: make it a loop or four calls
-        Self::subtract_add_access::<Ram1Accessed>(
-            original_traces,
-            preprocessed_trace,
-            lookup_element,
-            logup_trace_gen,
-            Ram1ValPrev,
-            Ram1TsPrev,
-            Ram1ValCur,
-            0,
-        );
-        Self::subtract_add_access::<Ram2Accessed>(
-            original_traces,
-            preprocessed_trace,
-            lookup_element,
-            logup_trace_gen,
-            Ram2ValPrev,
-            Ram2TsPrev,
-            Ram2ValCur,
-            1,
-        );
-        Self::subtract_add_access::<Ram3_4Accessed>(
-            original_traces,
-            preprocessed_trace,
-            lookup_element,
-            logup_trace_gen,
-            Ram3ValPrev,
-            Ram3TsPrev,
-            Ram3ValCur,
-            2,
-        );
-        Self::subtract_add_access::<Ram3_4Accessed>(
-            original_traces,
-            preprocessed_trace,
-            lookup_element,
-            logup_trace_gen,
-            Ram4ValPrev,
-            Ram4TsPrev,
-            Ram4ValCur,
-            3,
-        );
+        // Subtract and add address access components from/to logup sum
+        macro_rules! call_subtract_add_access {
+            ($accessed:ty, $val_prev:expr, $ts_prev:expr, $val_cur:expr, $offset:expr) => {
+                Self::subtract_add_access::<$accessed>(
+                    original_traces,
+                    preprocessed_trace,
+                    lookup_element,
+                    logup_trace_gen,
+                    $val_prev,
+                    $ts_prev,
+                    $val_cur,
+                    $offset,
+                );
+            };
+        }
+
+        call_subtract_add_access!(Ram1Accessed, Ram1ValPrev, Ram1TsPrev, Ram1ValCur, 0);
+        call_subtract_add_access!(Ram2Accessed, Ram2ValPrev, Ram2TsPrev, Ram2ValCur, 1);
+        call_subtract_add_access!(Ram3_4Accessed, Ram3ValPrev, Ram3TsPrev, Ram3ValCur, 2);
+        call_subtract_add_access!(Ram3_4Accessed, Ram4ValPrev, Ram4TsPrev, Ram4ValCur, 3);
     }
 
     fn add_constraints<E: EvalAtRow>(
