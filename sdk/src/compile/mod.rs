@@ -64,7 +64,7 @@ pub trait Compile {
             fs::create_dir_all(parent)?;
         }
 
-        let mut file = fs::File::create(linker_path.clone())?;
+        let mut file = fs::File::create(linker_path.as_path())?;
         file.write_all(linker_script.as_bytes())?;
 
         Ok(linker_path)
