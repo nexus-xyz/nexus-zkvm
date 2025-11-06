@@ -682,8 +682,8 @@ mod test {
     #[test]
     #[serial]
     fn test_fib() {
-        let inputs = vec![1u32, 10u32, 20u32];
-        let outputs = vec![1u32, 34u32, 4181u32];
+        let inputs = [1u32, 10u32, 20u32];
+        let outputs = [1u32, 34u32, 4181u32];
         let emulators = vec![
             EmulatorType::Harvard,
             EmulatorType::default_linear(),
