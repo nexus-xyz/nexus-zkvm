@@ -173,8 +173,10 @@ impl<T: BitwiseOp> BuiltInComponent for Bitwise<T> {
             idx if idx == XOR_LOOKUP_IDX => &mut side_note.bitwise.bitwise_mults_xor,
             _ => panic!("invalid lookup idx"),
         };
-        for (row, mult) in accum.accum.iter() {
-            *accum_mut.accum.entry(*row).or_default() += mult;
+        for (row, &mult) in accum.accum.iter().enumerate() {
+            if mult > 0 {
+                accum_mut.accum[row] += mult;
+            }
         }
 
         common_trace
