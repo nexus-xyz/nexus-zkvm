@@ -25,12 +25,14 @@ impl BasicBlock {
         self.0.is_empty()
     }
 
-    pub fn print_with_offset(&self, offset: usize) {
-        println!("┌─────────────────────────────────────────────────");
+    pub fn write_with_offset<W: std::io::Write>(&self, w: &mut W, offset: usize) -> std::io::Result<()> {
+        use std::io::Write as _;
+        writeln!(w, "┌─────────────────────────────────────────────────")?;
         for (j, instruction) in self.0.iter().enumerate() {
-            println!("│ {:3x}: {}", j * 4 + offset, instruction);
+            writeln!(w, "│ {:3x}: {}", j * 4 + offset, instruction)?;
         }
-        println!("└─────────────────────────────────────────────────");
+        writeln!(w, "└─────────────────────────────────────────────────")?;
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
