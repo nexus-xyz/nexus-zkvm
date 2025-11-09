@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use nexus_vm::WORD_SIZE;
 use nexus_vm_prover_trace::{
     builder::TraceBuilder,
@@ -13,13 +11,19 @@ use super::{
 use crate::components::utils::{add_16bit_with_carry, u32_to_16bit_parts_le};
 
 /// Multiplicities accumulator for bitwise instructions that require lookups.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct BitwiseMultiplicities {
-    pub(super) accum: BTreeMap<u8, u32>,
+    pub(super) accum: [u32; 256],
+}
+
+impl Default for BitwiseMultiplicities {
+    fn default() -> Self {
+        Self { accum: [0; 256] }
+    }
 }
 
 impl BitwiseMultiplicities {
-    pub fn multiplicities(&self) -> &BTreeMap<u8, u32> {
+    pub fn multiplicities(&self) -> &[u32; 256] {
         &self.accum
     }
 }
@@ -94,10 +98,10 @@ impl<B: BitwiseOp> Bitwise<B> {
 
         for i in 0..WORD_SIZE {
             let looked_up_row = value_b_0_3[i] * 16 + value_c_0_3[i];
-            *accum.accum.entry(looked_up_row).or_default() += 1;
+            accum.accum[looked_up_row as usize] += 1;
 
             let looked_up_row = value_b_4_7[i] * 16 + value_c_4_7[i];
-            *accum.accum.entry(looked_up_row).or_default() += 1;
+            accum.accum[looked_up_row as usize] += 1;
         }
     }
 }
