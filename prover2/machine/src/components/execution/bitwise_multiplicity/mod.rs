@@ -72,19 +72,12 @@ impl BuiltInComponent for BitwiseMultiplicity {
         let multiplicity_xor = side_note.bitwise.bitwise_mults_xor.multiplicities();
 
         let range = 0..=255;
-        let multiplicity_and = BaseColumn::from_iter(
-            range
-                .clone()
-                .map(|i| multiplicity_and.get(&i).copied().unwrap_or_default().into()),
-        );
-        let multiplicity_or = BaseColumn::from_iter(
-            range
-                .clone()
-                .map(|i| multiplicity_or.get(&i).copied().unwrap_or_default().into()),
-        );
-        let multiplicity_xor = BaseColumn::from_iter(
-            range.map(|i| multiplicity_xor.get(&i).copied().unwrap_or_default().into()),
-        );
+        let multiplicity_and =
+            BaseColumn::from_iter(range.clone().map(|i| multiplicity_and[i as usize].into()));
+        let multiplicity_or =
+            BaseColumn::from_iter(range.clone().map(|i| multiplicity_or[i as usize].into()));
+        let multiplicity_xor =
+            BaseColumn::from_iter(range.map(|i| multiplicity_xor[i as usize].into()));
         FinalizedTrace {
             cols: vec![multiplicity_and, multiplicity_or, multiplicity_xor],
             log_size: Self::LOG_SIZE,
