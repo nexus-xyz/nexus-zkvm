@@ -85,7 +85,7 @@ impl Compile for Compiler<CargoPackager> {
 
         let profile = if self.debug { "debug" } else { "release" };
 
-        let envs = vec![("CARGO_ENCODED_RUSTFLAGS", rust_flags.join("\x1f"))];
+        let cargo_encoded_rustflags = rust_flags.join("\x1f");
         let prog = self.binary.as_str();
 
         let mut dest = match std::env::var_os("OUT_DIR") {
@@ -102,15 +102,16 @@ impl Compile for Compiler<CargoPackager> {
         let mut cmd = Command::new(cargo_bin);
 
         // Base args
-        cmd.envs(envs).args([
-            "build",
-            "--package",
-            self.package.as_str(),
-            "--bin",
-            prog,
-            "--target-dir",
-            &dest,
-        ]);
+        cmd.env("CARGO_ENCODED_RUSTFLAGS", cargo_encoded_rustflags)
+            .args([
+                "build",
+                "--package",
+                self.package.as_str(),
+                "--bin",
+                prog,
+                "--target-dir",
+                &dest,
+            ]);
 
         // Only specify a --target for cross compilation; for native builds Cargo should infer host target.
         if !self.native {
