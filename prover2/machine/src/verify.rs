@@ -103,7 +103,7 @@ pub fn verify(proof: Proof, view: &View) -> Result<(), VerificationError> {
 pub fn verify_preprocessed_trace(
     proof: &StarkProof<Blake2sMerkleHasher>,
     view: &View,
-    verifier_channel: &Blake2sChannel,
+    verifier_channel: &mut Blake2sChannel,
     log_sizes: &[u32],
 ) -> Result<(), VerificationError> {
     let program = ProgramTraceRef::new(view);
@@ -117,7 +117,6 @@ pub fn verify_preprocessed_trace(
         .unwrap_or(0);
 
     let config = PcsConfig::default();
-    let verifier_channel = &mut verifier_channel.clone();
     let twiddles = SimdBackend::precompute_twiddles(
         CanonicCoset::new(max_constraint_log_degree_bound + config.fri_config.log_blowup_factor)
             .circle_domain()
