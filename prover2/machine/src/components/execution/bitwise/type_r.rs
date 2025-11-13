@@ -72,6 +72,6 @@ impl<T: TypeRBitwiseDecoding> BitwiseOp for TypeR<T> {
         let c_val_high =
             std::array::from_fn(|i| (&component_trace.original_trace[len - WORD_SIZE + i]).into());
 
-        [c_val_low.clone(), c_val_high]
+        [c_val_low, c_val_high]
     }
 }
