@@ -101,7 +101,7 @@ fn main() {
     println!("=================");
 
     let large_data = "The quick brown fox jumps over the lazy dog. This is a longer string for performance testing of hash functions.";
-    let bytes = str_to_bytes(large_data);
+    let bytes = large_data.as_bytes();
     let n = 1; // Number of iterations for performance test
 
     println!("Hashing {} bytes {}) times...", bytes.len(), n);
