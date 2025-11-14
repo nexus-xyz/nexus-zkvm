@@ -26,7 +26,7 @@
 //! instruction decoding, execution, memory operations, and CPU state updates. This design
 //! allows for easier testing, maintenance, and potential future extensions of the syscall
 //! system.
-use std::collections::{hash_map, HashSet, VecDeque};
+use std::collections::{hash_map::Entry, HashSet, VecDeque};
 
 use nexus_common::cpu::Registers;
 
@@ -214,12 +214,12 @@ impl SyscallInstruction {
         let entry = executor.cycle_tracker.entry(fn_name.to_string());
 
         match (marker, entry) {
-            ("^", hash_map::Entry::Occupied(mut entry)) => {
+            ("^", Entry::Occupied(mut entry)) => {
                 // Start marker for an existing entry: increment occurrence count
                 entry.get_mut().1 += 1;
                 self.result = None;
             }
-            ("$", hash_map::Entry::Occupied(mut entry)) => {
+            ("$", Entry::Occupied(mut entry)) => {
                 // End marker for an existing entry
                 let (total_cycles, occurrence) = entry.get_mut();
                 *occurrence -= 1;
@@ -229,12 +229,12 @@ impl SyscallInstruction {
                 }
                 self.result = None;
             }
-            ("^", hash_map::Entry::Vacant(entry)) => {
+            ("^", Entry::Vacant(entry)) => {
                 // Start marker for a new entry: initialize with current clock and occurrence of 1
                 entry.insert((executor.global_clock, 1));
                 self.result = None;
             }
-            ("$", hash_map::Entry::Vacant(_)) => {
+            ("$", Entry::Vacant(_)) => {
                 // End marker for a non-existent entry: this is an error
                 self.result = Some((Register::X10, u32::MAX));
             }
