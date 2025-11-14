@@ -198,9 +198,10 @@ pub(crate) fn handle_input(
                 return stream_error(id, "Expected an identifier.");
             }
             let name = id.path.segments.get(0).unwrap().ident.clone();
-            if !public_inputs.insert(name.clone()) {
+            if public_inputs.contains(&name) {
                 return stream_error(&attr_args, format!("Duplicate public input: {:?}.", name));
             }
+            public_inputs.insert(name);
         } else {
             return stream_error(x, "Expected an identifier.");
         }
