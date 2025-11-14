@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     cpu::{instructions::InstructionResult, RegisterFile},
     elf::ElfFile,
-    emulator::{Emulator, HarvardEmulator, InternalView, LinearEmulator, LinearMemoryLayout, View},
+    emulator::{Emulator, HarvardEmulator, LinearEmulator, LinearMemoryLayout, View},
     error::{Result, VMError, VMErrorKind},
     memory::MemoryRecords,
     riscv::{BasicBlock, Instruction},
