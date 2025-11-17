@@ -265,7 +265,7 @@ pub(crate) fn handle_input(
     let target_check = if !matches!(input_type, InputType::Custom) {
         quote! {
             #[cfg(not(target_arch = "riscv32"))]
-            compile_error!("NexusVM public and private input interfaces are not available for native builds, use a custom handler instead. Ex: #[nexus_rt::custom_input(bar)]");
+            compile_error!("NexusVM public and private input interfaces are not available for native builds, use a custom handler instead. Ex: #[nexus_rt::custom_input((x,y,z), fizz)]");
         }
     } else {
         quote! {}
