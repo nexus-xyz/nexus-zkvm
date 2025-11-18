@@ -246,7 +246,7 @@ pub trait MemoryProcessor: Default {
     /// Only used for (unproven) ecalls, so does not return an operation record.
     fn read_bytes(&self, address: u32, size: usize) -> Result<Vec<u8>, MemoryError> {
         let mut data = vec![0; size];
-        for (i, byte) in data.iter_mut().enumerate().take(size) {
+        for (i, byte) in data.iter_mut().enumerate() {
             let addr = address
                 .checked_add(i as u32)
                 .ok_or(MemoryError::AddressCalculationOverflow)?;
