@@ -63,8 +63,7 @@ pub fn convert_instruction(registry: &registry::InstructionExecutorRegistry, ins
 }
 
 pub fn io_entries_into_vec<T: IOEntry>(base: u32, entries: &[T]) -> Vec<u8> {
-    let mut vec: Vec<u8> = Vec::new();
-    vec.resize(entries.len(), u8::default());
+    let mut vec = vec![0u8; entries.len()];
 
     entries.iter().for_each(|entry: &T| {
         let loc = (entry.address() - base) as usize;
