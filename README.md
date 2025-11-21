@@ -35,4 +35,4 @@ That said, the Nexus zkVM is also designed to be extensible. Source-available co
 
 ### Learn More
 
-See our zkVM documentation, including guides and walkthroughs, at [docs.nexus.xyz](https://docs.nexus.xyz/zkvm/index).
+See our zkVM documentation, including guides and walkthroughs, at [docs.nexus.xyz](https://docs.nexus.xyz/zkvm).
