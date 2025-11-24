@@ -268,18 +268,16 @@ impl View {
     pub fn view_public_input(&self) -> Option<Vec<u8>> {
         // we need to carefully skip the input length
         self.memory_layout.map(|layout| {
-            io_entries_into_vec(
-                layout.public_input_start() + WORD_SIZE as u32,
-                self.input_memory
-                    .iter()
-                    .filter(|entry: &&MemoryInitializationEntry| {
-                        layout.public_input_start() + WORD_SIZE as u32 <= entry.address
-                            && entry.address < layout.public_input_end()
-                    })
-                    .copied()
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )
+            let start = layout.public_input_start() + WORD_SIZE as u32;
+            let end = layout.public_input_end();
+            let mut out = vec![0u8; (end - start) as usize];
+            self.input_memory.iter().for_each(|entry| {
+                if entry.address >= start && entry.address < end {
+                    let idx = (entry.address - start) as usize;
+                    out[idx] = entry.value;
+                }
+            });
+            out
         })
     }
 
