@@ -46,7 +46,9 @@
 use crate::{elf::parser, error::VMError, memory::MemorySegmentImage};
 
 use elf::{endian::LittleEndian, ElfBytes};
-use std::fs::{self, File};
+use std::fs;
+#[cfg(test)]
+use std::fs::File;
 use std::path::Path;
 
 use super::{error::ParserError, parser::ParsedElfData};
