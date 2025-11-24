@@ -47,8 +47,6 @@ use crate::{elf::parser, error::VMError, memory::MemorySegmentImage};
 
 use elf::{endian::LittleEndian, ElfBytes};
 use std::fs;
-#[cfg(test)]
-use std::fs::File;
 use std::path::Path;
 
 use super::{error::ParserError, parser::ParsedElfData};
@@ -136,6 +134,7 @@ mod tests {
     use crate::{memory::MemorySegmentImage, read_testing_elf_from_path};
 
     use super::*;
+    use std::fs::File;
     use std::io::Write;
 
     #[allow(dead_code)]
