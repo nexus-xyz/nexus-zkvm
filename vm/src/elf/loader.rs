@@ -46,7 +46,7 @@
 use crate::{elf::parser, error::VMError, memory::MemorySegmentImage};
 
 use elf::{endian::LittleEndian, ElfBytes};
-use std::fs::File;
+use std::fs;
 use std::path::Path;
 
 use super::{error::ParserError, parser::ParsedElfData};
@@ -122,11 +122,7 @@ impl ElfFile {
     }
 
     pub fn from_path<P: AsRef<Path> + ?Sized>(path: &P) -> Result<Self, VMError> {
-        let file = File::open(path).map_err(Into::<ParserError>::into)?;
-
-        let data: Vec<u8> = std::io::Read::bytes(file)
-            .map(|b| b.expect("Failed to read byte"))
-            .collect();
+        let data = fs::read(path.as_ref()).map_err(Into::<ParserError>::into)?;
         Self::from_bytes(data.as_slice())
     }
 }
@@ -138,6 +134,7 @@ mod tests {
     use crate::{memory::MemorySegmentImage, read_testing_elf_from_path};
 
     use super::*;
+    use std::fs::File;
     use std::io::Write;
 
     #[allow(dead_code)]
