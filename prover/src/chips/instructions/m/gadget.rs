@@ -2,6 +2,12 @@ use num_traits::{One, Zero};
 use stwo::core::fields::m31::BaseField;
 use stwo_constraint_framework::EvalAtRow;
 
+// Bit shift constants for byte combination in field element encoding
+const BYTE_SHIFT_8: u32 = 1 << 8;   // 256
+const BYTE_SHIFT_16: u32 = 1 << 16; // 65536
+const BYTE_SHIFT_24: u32 = 1 << 24; // 16777216
+const WORD_HALF_MASK: u32 = 0xFFFF;
+
 fn constrain_equal<E: EvalAtRow>(eval: &mut E, selector: E::F, lhs: E::F, rhs: E::F) {
     eval.add_constraint(selector * (lhs - rhs));
 }
@@ -18,27 +24,27 @@ pub(super) fn constrain_absolute_32_bit<E: EvalAtRow>(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
-            * (value[0].clone() + value[1].clone() * BaseField::from(1 << 8))
+            * (value[0].clone() + value[1].clone() * BaseField::from(BYTE_SHIFT_8))
             + sgn.clone()
-                * (E::F::from(BaseField::from(1 << 16))
+                * (E::F::from(BaseField::from(BYTE_SHIFT_16))
                     - value[0].clone()
-                    - value[1].clone() * BaseField::from(1 << 8)
-                    - abs_value_borrow[0].clone() * BaseField::from(1 << 16)),
-        abs_value[0].clone() + abs_value[1].clone() * BaseField::from(1 << 8),
+                    - value[1].clone() * BaseField::from(BYTE_SHIFT_8)
+                    - abs_value_borrow[0].clone() * BaseField::from(BYTE_SHIFT_16)),
+        abs_value[0].clone() + abs_value[1].clone() * BaseField::from(BYTE_SHIFT_8),
     );
 
     constrain_equal(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
-            * (value[2].clone() + value[3].clone() * BaseField::from(1 << 8))
+            * (value[2].clone() + value[3].clone() * BaseField::from(BYTE_SHIFT_8))
             + sgn.clone()
-                * (E::F::from(BaseField::from_u32_unchecked((1 << 16) - 1))
+                * (E::F::from(BaseField::from_u32_unchecked(WORD_HALF_MASK))
                     - value[2].clone()
-                    - value[3].clone() * BaseField::from(1 << 8)
-                    - abs_value_borrow[1].clone() * BaseField::from(1 << 16)
+                    - value[3].clone() * BaseField::from(BYTE_SHIFT_8)
+                    - abs_value_borrow[1].clone() * BaseField::from(BYTE_SHIFT_16)
                     + abs_value_borrow[0].clone()),
-        abs_value[2].clone() + abs_value[3].clone() * BaseField::from(1 << 8),
+        abs_value[2].clone() + abs_value[3].clone() * BaseField::from(BYTE_SHIFT_8),
     );
 }
 
@@ -66,28 +72,28 @@ pub(super) fn constrain_absolute_64_bit<E: EvalAtRow>(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
-            * (value_high[0].clone() + value_high[1].clone() * BaseField::from(1 << 8))
+            * (value_high[0].clone() + value_high[1].clone() * BaseField::from(BYTE_SHIFT_8))
             + sgn.clone()
-                * (E::F::from(BaseField::from_u32_unchecked((1 << 16) - 1))
+                * (E::F::from(BaseField::from_u32_unchecked(WORD_HALF_MASK))
                     - value_high[0].clone()
-                    - value_high[1].clone() * BaseField::from(1 << 8)
-                    - abs_value_high_borrow[0].clone() * BaseField::from(1 << 16)
+                    - value_high[1].clone() * BaseField::from(BYTE_SHIFT_8)
+                    - abs_value_high_borrow[0].clone() * BaseField::from(BYTE_SHIFT_16)
                     + abs_value_low_borrow[1].clone()),
-        abs_value_high[0].clone() + abs_value_high[1].clone() * BaseField::from(1 << 8),
+        abs_value_high[0].clone() + abs_value_high[1].clone() * BaseField::from(BYTE_SHIFT_8),
     );
 
     constrain_equal(
         eval,
         selector.clone(),
         (E::F::one() - sgn.clone())
-            * (value_high[2].clone() + value_high[3].clone() * BaseField::from(1 << 8))
+            * (value_high[2].clone() + value_high[3].clone() * BaseField::from(BYTE_SHIFT_8))
             + sgn.clone()
-                * (E::F::from(BaseField::from_u32_unchecked((1 << 16) - 1))
+                * (E::F::from(BaseField::from_u32_unchecked(WORD_HALF_MASK))
                     - value_high[2].clone()
-                    - value_high[3].clone() * BaseField::from(1 << 8)
-                    - abs_value_high_borrow[1].clone() * BaseField::from(1 << 16)
+                    - value_high[3].clone() * BaseField::from(BYTE_SHIFT_8)
+                    - abs_value_high_borrow[1].clone() * BaseField::from(BYTE_SHIFT_16)
                     + abs_value_high_borrow[0].clone()),
-        abs_value_high[2].clone() + abs_value_high[3].clone() * BaseField::from(1 << 8),
+        abs_value_high[2].clone() + abs_value_high[3].clone() * BaseField::from(BYTE_SHIFT_8),
     );
 }
 
@@ -153,7 +159,7 @@ pub(super) fn constrain_mul_partial_product<E: EvalAtRow>(
     constrain_equal(
         eval,
         selector,
-        p[0].clone() + p[1].clone() * BaseField::from(1 << 8) + carry * BaseField::from(1 << 16),
+        p[0].clone() + p[1].clone() * BaseField::from(1 << 8) + carry * BaseField::from(BYTE_SHIFT_16),
         (bx + by) * (cx + cy) - zx - zy,
     );
 }
@@ -171,9 +177,9 @@ pub(super) fn constrain_division_overflow<E: EvalAtRow>(
         eval,
         selector.clone() * is_overflow.clone(),
         dividend[0].clone()
-            + dividend[1].clone() * BaseField::from(1 << 8)
-            + dividend[2].clone() * BaseField::from(1 << 16)
-            + dividend[3].clone() * BaseField::from(1 << 24),
+            + dividend[1].clone() * BaseField::from(BYTE_SHIFT_8)
+            + dividend[2].clone() * BaseField::from(BYTE_SHIFT_16)
+            + dividend[3].clone() * BaseField::from(BYTE_SHIFT_24),
         E::F::one(),
     );
 
@@ -181,15 +187,15 @@ pub(super) fn constrain_division_overflow<E: EvalAtRow>(
     constrain_equal(
         eval,
         selector.clone() * is_overflow.clone(),
-        divisor[0].clone() + divisor[1].clone() * BaseField::from(1 << 8),
-        E::F::from(BaseField::from_u32_unchecked(0xFFFF)),
+        divisor[0].clone() + divisor[1].clone() * BaseField::from(BYTE_SHIFT_8),
+        E::F::from(BaseField::from_u32_unchecked(WORD_HALF_MASK)),
     );
 
     constrain_equal(
         eval,
         selector * is_overflow,
-        divisor[2].clone() + divisor[3].clone() * BaseField::from(1 << 8),
-        E::F::from(BaseField::from_u32_unchecked(0xFFFF)),
+        divisor[2].clone() + divisor[3].clone() * BaseField::from(BYTE_SHIFT_8),
+        E::F::from(BaseField::from_u32_unchecked(WORD_HALF_MASK)),
     );
 }
 
@@ -202,14 +208,14 @@ pub(super) fn constrain_values_equal<E: EvalAtRow>(
     constrain_equal(
         eval,
         selector.clone(),
-        value_a[0].clone() + value_a[1].clone() * BaseField::from(1 << 8),
-        value_b[0].clone() + value_b[1].clone() * BaseField::from(1 << 8),
+        value_a[0].clone() + value_a[1].clone() * BaseField::from(BYTE_SHIFT_8),
+        value_b[0].clone() + value_b[1].clone() * BaseField::from(BYTE_SHIFT_8),
     );
 
     constrain_equal(
         eval,
         selector,
-        value_a[2].clone() + value_a[3].clone() * BaseField::from(1 << 8),
-        value_b[2].clone() + value_b[3].clone() * BaseField::from(1 << 8),
+        value_a[2].clone() + value_a[3].clone() * BaseField::from(BYTE_SHIFT_8),
+        value_b[2].clone() + value_b[3].clone() * BaseField::from(BYTE_SHIFT_8),
     );
 }
