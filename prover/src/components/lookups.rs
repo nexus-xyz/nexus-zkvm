@@ -160,11 +160,11 @@ macro_rules! register_relation {
         }
     };
 }
-pub(self) use register_relation;
+use register_relation;
 
 macro_rules! replace_expr {
     ($_t:ident $sub:expr) => {
         $sub
     };
 }
-pub(self) use replace_expr;
+use replace_expr;
