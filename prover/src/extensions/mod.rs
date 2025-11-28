@@ -288,4 +288,4 @@ macro_rules! extension_dispatch {
         }
     };
 }
-pub(self) use extension_dispatch;
+use extension_dispatch;
