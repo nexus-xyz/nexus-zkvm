@@ -32,16 +32,6 @@ const LOG_SIZES: &[u32] = &[
     PreprocessedTraces::MIN_LOG_SIZE + 10,
 ];
 
-const _: () = {
-    const MAX_LOG_SIZE: u32 = 20;
-
-    let mut i = 0;
-    while i < LOG_SIZES.len() {
-        assert!(LOG_SIZES[i] >= PreprocessedTraces::MIN_LOG_SIZE && LOG_SIZES[i] <= MAX_LOG_SIZE);
-        i += 1;
-    }
-};
-
 criterion_group! {
     name = trace_gen;
     config = Criterion::default().warm_up_time(Duration::from_millis(3000));
@@ -51,6 +41,12 @@ criterion_group! {
 criterion_main!(trace_gen);
 
 fn bench_trace_gen(c: &mut Criterion) {
+    const MAX_LOG_SIZE: u32 = 20;
+
+    for &size in LOG_SIZES {
+        assert!(size >= PreprocessedTraces::MIN_LOG_SIZE && size <= MAX_LOG_SIZE);
+    }
+
     for &log_size in LOG_SIZES {
         let blocks = program_trace(log_size);
         let (view, execution_trace) = k_trace_direct(&blocks, K).expect("error generating trace");
