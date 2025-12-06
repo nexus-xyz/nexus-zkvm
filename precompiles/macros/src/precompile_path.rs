@@ -138,3 +138,9 @@ impl From<PrecompilePath> for SerializablePath {
         Self(path.as_syn_path())
     }
 }
+
+impl From<&PrecompilePath> for SerializablePath {
+    fn from(path: &PrecompilePath) -> Self {
+        Self(path.as_syn_path())
+    }
+}
