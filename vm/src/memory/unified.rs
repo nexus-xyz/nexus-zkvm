@@ -238,124 +238,100 @@ impl UnifiedMemory {
     add_fixed!(add_fixed_wo, fwo, fwo_store, WO);
     add_fixed!(add_fixed_na, fna, fna_store, NA);
 
-    pub fn addr_val_bytes(&self, uidx: (usize, usize)) -> Result<BTreeMap<u32, u8>, MemoryError> {
-        let (store, idx) = uidx;
+  /// Macro to generate methods that dispatch to the correct memory store based on mode and index.
+/// This eliminates code duplication across addr_val_bytes, segment_words, and segment_bytes.
+macro_rules! dispatch_method {
+    // For methods with no additional parameters (like addr_val_bytes)
+    ($fn_name:ident, $method:ident, $ret_type:ty) => {
+        impl UnifiedMemory {
+            pub fn $fn_name(&self, uidx: (usize, usize)) -> Result<$ret_type, MemoryError> {
+                let (store, idx) = uidx;
 
-        match FromPrimitive::from_usize(store) {
-            Some(Modes::RW) => {
-                if idx < self.frw_store.len() {
-                    Ok(self.frw_store[idx].addr_val_bytes())
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
+                match FromPrimitive::from_usize(store) {
+                    Some(Modes::RW) => {
+                        if idx < self.frw_store.len() {
+                            Ok(self.frw_store[idx].$method())
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    Some(Modes::RO) => {
+                        if idx < self.fro_store.len() {
+                            Ok(self.fro_store[idx].$method())
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    Some(Modes::WO) => {
+                        if idx < self.fwo_store.len() {
+                            Ok(self.fwo_store[idx].$method())
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    Some(Modes::NA) => {
+                        if idx < self.fna_store.len() {
+                            Ok(self.fna_store[idx].$method())
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    _ => Err(MemoryError::UndefinedMemoryRegion),
                 }
             }
-            Some(Modes::RO) => {
-                if idx < self.fro_store.len() {
-                    Ok(self.fro_store[idx].addr_val_bytes())
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::WO) => {
-                if idx < self.fwo_store.len() {
-                    Ok(self.fwo_store[idx].addr_val_bytes())
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::NA) => {
-                if idx < self.fna_store.len() {
-                    Ok(self.fna_store[idx].addr_val_bytes())
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            _ => Err(MemoryError::UndefinedMemoryRegion),
         }
-    }
+    };
+    // For methods with two additional parameters (like segment_words and segment_bytes)
+    ($fn_name:ident, $method:ident, $ret_type:ty, $param1:ty, $param2:ty) => {
+        impl UnifiedMemory {
+            pub fn $fn_name(
+                &self,
+                uidx: (usize, usize),
+                start: $param1,
+                end: $param2,
+            ) -> Result<$ret_type, MemoryError> {
+                let (store, idx) = uidx;
 
-    pub fn segment_words(
-        &self,
-        uidx: (usize, usize),
-        start: u32,
-        end: Option<u32>,
-    ) -> Result<&[u32], MemoryError> {
-        let (store, idx) = uidx;
-
-        match FromPrimitive::from_usize(store) {
-            Some(Modes::RW) => {
-                if idx < self.frw_store.len() {
-                    Ok(self.frw_store[idx].segment_words(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
+                match FromPrimitive::from_usize(store) {
+                    Some(Modes::RW) => {
+                        if idx < self.frw_store.len() {
+                            Ok(self.frw_store[idx].$method(start, end))
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    Some(Modes::RO) => {
+                        if idx < self.fro_store.len() {
+                            Ok(self.fro_store[idx].$method(start, end))
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    Some(Modes::WO) => {
+                        if idx < self.fwo_store.len() {
+                            Ok(self.fwo_store[idx].$method(start, end))
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    Some(Modes::NA) => {
+                        if idx < self.fna_store.len() {
+                            Ok(self.fna_store[idx].$method(start, end))
+                        } else {
+                            Err(MemoryError::UndefinedMemoryRegion)
+                        }
+                    }
+                    _ => Err(MemoryError::UndefinedMemoryRegion),
                 }
             }
-            Some(Modes::RO) => {
-                if idx < self.fro_store.len() {
-                    Ok(self.fro_store[idx].segment_words(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::WO) => {
-                if idx < self.fwo_store.len() {
-                    Ok(self.fwo_store[idx].segment_words(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::NA) => {
-                if idx < self.fna_store.len() {
-                    Ok(self.fna_store[idx].segment_words(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            _ => Err(MemoryError::UndefinedMemoryRegion),
         }
-    }
-
-    pub fn segment_bytes(
-        &self,
-        uidx: (usize, usize),
-        start: u32,
-        end: Option<u32>,
-    ) -> Result<&[u8], MemoryError> {
-        let (store, idx) = uidx;
-
-        match FromPrimitive::from_usize(store) {
-            Some(Modes::RW) => {
-                if idx < self.frw_store.len() {
-                    Ok(self.frw_store[idx].segment_bytes(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::RO) => {
-                if idx < self.fro_store.len() {
-                    Ok(self.fro_store[idx].segment_bytes(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::WO) => {
-                if idx < self.fwo_store.len() {
-                    Ok(self.fwo_store[idx].segment_bytes(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            Some(Modes::NA) => {
-                if idx < self.fna_store.len() {
-                    Ok(self.fna_store[idx].segment_bytes(start, end))
-                } else {
-                    Err(MemoryError::UndefinedMemoryRegion)
-                }
-            }
-            _ => Err(MemoryError::UndefinedMemoryRegion),
-        }
-    }
+    };
 }
+
+// Generate the three methods using the macro
+dispatch_method!(addr_val_bytes, addr_val_bytes, BTreeMap<u32, u8>);
+dispatch_method!(segment_words, segment_words, &[u32], u32, Option<u32>);
+dispatch_method!(segment_bytes, segment_bytes, &[u8], u32, Option<u32>);
 
 impl MemoryProcessor for UnifiedMemory {
     /// Writes data to memory.
