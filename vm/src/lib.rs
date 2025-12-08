@@ -13,14 +13,17 @@ pub use crate::system::SyscallCode;
 #[cfg(test)]
 macro_rules! read_testing_elf_from_path {
     ($path:expr) => {{
-        if cfg!(target_arch = "wasm32") {
+        #[cfg(target_arch = "wasm32")]
+        {
             crate::elf::ElfFile::from_bytes(include_bytes!(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 $path
             )))
             .ok()
             .unwrap()
-        } else {
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
             crate::elf::ElfFile::from_path(concat!(env!("CARGO_MANIFEST_DIR"), $path))
                 .ok()
                 .expect("Unable to load ELF file")
@@ -34,9 +37,12 @@ pub(crate) use read_testing_elf_from_path;
 #[cfg(test)]
 macro_rules! read_testing_binary_from_path {
     ($path:expr) => {{
-        if cfg!(target_arch = "wasm32") {
+        #[cfg(target_arch = "wasm32")]
+        {
             include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), $path)).to_vec()
-        } else {
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
             std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), $path)).unwrap()
         }
     }};
