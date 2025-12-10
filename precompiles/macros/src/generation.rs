@@ -62,7 +62,7 @@ pub(crate) fn generate_statics(paths: &Vec<PrecompilePath>) -> Result<TokenStrea
 
     for (i, path) in (0..num_precompiles).zip(paths) {
         let symbol_name = Ident::new(&format!("{PRECOMPILE_SYMBOL_PREFIX}{i}"), Span::call_site());
-        let serializable_path = SerializablePath::from((*path).clone());
+        let serializable_path = SerializablePath::from(path);
         let data = match serde_json::to_string(&serializable_path) {
             Err(e) => {
                 return Err(syn::Error::new(
