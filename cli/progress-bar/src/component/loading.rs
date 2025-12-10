@@ -33,7 +33,12 @@ impl Component for LoadingBar<'_> {
             )?;
 
             let percentage = iteration as f64 / total as f64;
-            let amount = (percentage * WIDTH as f64).ceil() as usize;
+            // Use floor to avoid prematurely showing a full bar before completion.
+            // Clamp to WIDTH - 1 while not finished to keep visual consistency.
+            let mut amount = (percentage * WIDTH as f64).floor() as usize;
+            if !action.is_finished() {
+                amount = amount.min(WIDTH.saturating_sub(1));
+            }
 
             let loading_bar = format!(
                 " [{test:=>bar_amt$}{empty:padding_amt$}] {}/{}: ...",
