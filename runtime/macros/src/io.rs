@@ -186,8 +186,16 @@ pub(crate) fn handle_input(
     };
 
     // Check that the set of input variables is non-empty.
+    let input_type_label = match input_type {
+        InputType::Public => "public input",
+        InputType::Private => "private input",
+        InputType::Custom => "input",
+    };
     if attr_inputs.is_empty() {
-        return stream_error(&attr_args, "Expected at least one public input.");
+        return stream_error(
+            &attr_args,
+            format!("Expected at least one {}.", input_type_label),
+        );
     }
 
     // Parse the input variables.
@@ -199,7 +207,10 @@ pub(crate) fn handle_input(
             }
             let name = id.path.segments.get(0).unwrap().ident.clone();
             if public_inputs.contains(&name) {
-                return stream_error(&attr_args, format!("Duplicate public input: {:?}.", name));
+                return stream_error(
+                    &attr_args,
+                    format!("Duplicate {}: {:?}.", input_type_label, name),
+                );
             }
             public_inputs.insert(name);
         } else {
@@ -236,13 +247,13 @@ pub(crate) fn handle_input(
         }
     }
 
-    // Check that all public inputs listed in the attribute are present in the function signature.
+    // Check that all inputs listed in the attribute are present in the function signature.
     if !public_inputs.is_empty() {
         return stream_error(
             &sig.inputs,
             format!(
-                "Provided public input does not appear in the function signature: {:?}",
-                public_inputs
+                "Provided {} does not appear in the function signature: {:?}",
+                input_type_label, public_inputs
             ),
         );
     }
@@ -261,7 +272,7 @@ pub(crate) fn handle_input(
         },
     };
 
-    // Check that the target architecture is riscv32 if doing public output.
+    // Check that the target architecture is riscv32 if doing public/private input.
     let target_check = if !matches!(input_type, InputType::Custom) {
         quote! {
             #[cfg(not(target_arch = "riscv32"))]
@@ -272,11 +283,16 @@ pub(crate) fn handle_input(
     };
 
     // Build the output token stream
+    let error_msg = match input_type {
+        InputType::Public => "Failed to read public input",
+        InputType::Private => "Failed to read private input",
+        InputType::Custom => "Failed to read input",
+    };
     let expanded = quote! {
         #target_check
         #(#attrs)*
         fn #fn_name(#input_sig) #output {
-            let (#(#inputs),*):(#(#types),*) = #input_handler().expect("Failed to read public input");
+            let (#(#inputs),*):(#(#types),*) = #input_handler().expect(#error_msg);
             #block
         }
     };
