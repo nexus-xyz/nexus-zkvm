@@ -337,9 +337,9 @@ impl LinearMemoryLayout {
                 .checked_sub(self.stack_bottom)
                 .expect("stack top should be above stack bottom") as usize;
         let heap_size = self
-            .heap
+            .heap_end()
             .checked_sub(self.heap_start())
-            .expect("heap should be above heap start") as usize;
+            .expect("heap end should be above heap start") as usize;
         let public_input_size =
             self.public_input_end()
                 .checked_sub(self.public_input_start())
@@ -403,5 +403,93 @@ impl Display for LinearMemoryLayout {
         writeln!(f, "}}")?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LinearMemoryLayout;
+
+    #[test]
+    fn tracked_ram_size_includes_heap_nonzero() {
+        // Construct a layout with a non-zero heap and stack sizes
+        let max_heap_size: u32 = 0x200; // 512 bytes
+        let max_stack_size: u32 = 0x300; // 768 bytes
+        let public_input_size: u32 = 0x20; // 32 bytes (raw)
+        let public_output_size: u32 = 0x40; // 64 bytes (raw)
+        let program_size: u32 = 0x1000; // 4096 bytes
+        let ad_size: u32 = 0x10; // 16 bytes
+
+        let layout = LinearMemoryLayout::try_new(
+            None,
+            max_heap_size,
+            max_stack_size,
+            public_input_size,
+            public_output_size,
+            program_size,
+            ad_size,
+        )
+        .unwrap();
+
+        // Compute expected sizes from the layout getters to include any alignment padding
+        let stack_size = layout.stack_top() - layout.stack_bottom();
+        let heap_size = layout.heap_end() - layout.heap_start();
+        let public_input_span = layout.public_input_end() - layout.public_input_start();
+        let public_output_span = layout.public_output_end() - layout.public_output_start();
+        let exit_code_size = nexus_common::constants::WORD_SIZE as u32;
+
+        let static_memory_size: usize = 0x60; // arbitrary static memory contribution in bytes
+
+        let expected_total = static_memory_size
+            + stack_size as usize
+            + heap_size as usize
+            + public_input_span as usize
+            + public_output_span as usize
+            + exit_code_size as usize;
+
+        let actual = layout.tracked_ram_size(static_memory_size);
+        assert_eq!(actual, expected_total);
+        assert!(heap_size > 0, "heap should be non-zero in this test");
+    }
+
+    #[test]
+    fn tracked_ram_size_handles_zero_heap() {
+        // Zero heap, non-zero stack
+        let max_heap_size: u32 = 0x0;
+        let max_stack_size: u32 = 0x300; // 768 bytes
+        let public_input_size: u32 = 0x20; // 32 bytes (raw)
+        let public_output_size: u32 = 0x40; // 64 bytes (raw)
+        let program_size: u32 = 0x800; // 2048 bytes
+        let ad_size: u32 = 0x0; // 0 bytes
+
+        let layout = LinearMemoryLayout::try_new(
+            None,
+            max_heap_size,
+            max_stack_size,
+            public_input_size,
+            public_output_size,
+            program_size,
+            ad_size,
+        )
+        .unwrap();
+
+        let stack_size = layout.stack_top() - layout.stack_bottom();
+        let heap_size = layout.heap_end() - layout.heap_start(); // should be 0
+        let public_input_span = layout.public_input_end() - layout.public_input_start();
+        let public_output_span = layout.public_output_end() - layout.public_output_start();
+        let exit_code_size = nexus_common::constants::WORD_SIZE as u32;
+
+        let static_memory_size: usize = 0x0;
+
+        let expected_total = static_memory_size
+            + stack_size as usize
+            + heap_size as usize
+            + public_input_span as usize
+            + public_output_span as usize
+            + exit_code_size as usize;
+
+        let actual = layout.tracked_ram_size(static_memory_size);
+        assert_eq!(actual, expected_total);
+        assert_eq!(heap_size, 0);
     }
 }
