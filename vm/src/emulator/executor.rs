@@ -1161,9 +1161,12 @@ impl Emulator for LinearEmulator {
                 let base_address =
                     self.memory_layout.public_input_start() + i as u32 * WORD_SIZE as u32;
                 let word = word_content.to_le_bytes();
-                word.into_iter().enumerate().map(move |(j, byte)| {
-                    MemoryInitializationEntry::new(base_address + j as u32, byte)
-                })
+                word.into_iter()
+                    .enumerate()
+                    .map(move |(j, byte)| MemoryInitializationEntry {
+                        address: base_address + j as u32,
+                        value: byte,
+                    })
             })
             .collect();
 
@@ -1176,9 +1179,12 @@ impl Emulator for LinearEmulator {
             .flat_map(|(i, word_content)| {
                 let base_address = 0x80 + i as u32 * WORD_SIZE as u32;
                 let word = word_content.to_le_bytes();
-                word.into_iter().enumerate().map(move |(j, byte)| {
-                    MemoryInitializationEntry::new(base_address + j as u32, byte)
-                })
+                word.into_iter()
+                    .enumerate()
+                    .map(move |(j, byte)| MemoryInitializationEntry {
+                        address: base_address + j as u32,
+                        value: byte,
+                    })
             });
 
         let mut rom_count = 0;
@@ -1190,7 +1196,7 @@ impl Emulator for LinearEmulator {
                     mem_ro
                         .addr_val_bytes_iter()
                         .inspect(|_| rom_count += 1)
-                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .map(|(address, value)| MemoryInitializationEntry { address, value })
                         .collect::<Vec<_>>()
                         .into_iter()
                 }
@@ -1199,7 +1205,7 @@ impl Emulator for LinearEmulator {
                     mem_ro
                         .addr_val_bytes_iter()
                         .inspect(|_| rom_count += 1)
-                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .map(|(address, value)| MemoryInitializationEntry { address, value })
                         .collect::<Vec<_>>()
                         .into_iter()
                 }
@@ -1208,7 +1214,7 @@ impl Emulator for LinearEmulator {
                     mem_na
                         .addr_val_bytes_iter()
                         .inspect(|_| rom_count += 1)
-                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .map(|(address, value)| MemoryInitializationEntry { address, value })
                         .collect::<Vec<_>>()
                         .into_iter()
                 }
@@ -1217,7 +1223,7 @@ impl Emulator for LinearEmulator {
                     mem_na
                         .addr_val_bytes_iter()
                         .inspect(|_| rom_count += 1)
-                        .map(|(address, value)| MemoryInitializationEntry::new(address, value))
+                        .map(|(address, value)| MemoryInitializationEntry { address, value })
                         .collect::<Vec<_>>()
                         .into_iter()
                 }
@@ -1229,11 +1235,9 @@ impl Emulator for LinearEmulator {
             .as_byte_slice()
             .iter()
             .enumerate()
-            .map(|(offset, byte)| {
-                MemoryInitializationEntry::new(
-                    offset as u32 + self.initial_static_ram_image.base(),
-                    *byte,
-                )
+            .map(|(offset, byte)| MemoryInitializationEntry {
+                address: offset as u32 + self.initial_static_ram_image.base(),
+                value: *byte,
             })
             .collect();
 
