@@ -188,15 +188,17 @@ pub(crate) fn handle_input(
     };
 
     // Check that the set of input variables is non-empty.
-    let input_type_label = match input_type {
-        InputType::Public => "public input",
-        InputType::Private => "private input",
-        InputType::Custom => "input",
-    };
     if attr_inputs.is_empty() {
         return stream_error(
             &attr_args,
-            format!("Expected at least one {}.", input_type_label),
+            format!(
+                "Expected at least one {}.",
+                match input_type {
+                    InputType::Public => "public input",
+                    InputType::Private => "private input",
+                    InputType::Custom => "input",
+                }
+            ),
         );
     }
 
@@ -211,7 +213,15 @@ pub(crate) fn handle_input(
             if public_inputs.contains(&name) {
                 return stream_error(
                     &attr_args,
-                    format!("Duplicate {}: {:?}.", input_type_label, name),
+                    format!(
+                        "Duplicate {}: {:?}.",
+                        match input_type {
+                            InputType::Public => "public input",
+                            InputType::Private => "private input",
+                            InputType::Custom => "input",
+                        },
+                        name
+                    ),
                 );
             }
             public_inputs.insert(name);
@@ -255,7 +265,12 @@ pub(crate) fn handle_input(
             &sig.inputs,
             format!(
                 "Provided {} does not appear in the function signature: {:?}",
-                input_type_label, public_inputs
+                match input_type {
+                    InputType::Public => "public input",
+                    InputType::Private => "private input",
+                    InputType::Custom => "input",
+                },
+                public_inputs
             ),
         );
     }
@@ -285,7 +300,7 @@ pub(crate) fn handle_input(
     };
 
     // Build the output token stream
-    let error_msg_prefix = match input_type {
+    let error_msg = match input_type {
         InputType::Public => "Failed to read public input",
         InputType::Private => "Failed to read private input",
         InputType::Custom => "Failed to read input",
@@ -295,7 +310,7 @@ pub(crate) fn handle_input(
         #(#attrs)*
         fn #fn_name(#input_sig) #output {
             let (#(#inputs),*):(#(#types),*) = #input_handler().unwrap_or_else(|e| {
-                panic!("{}: {:?}", #error_msg_prefix, e);
+                panic!(#error_msg ": {:?}", e);
             });
             #block
         }
