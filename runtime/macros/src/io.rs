@@ -109,7 +109,9 @@ pub(crate) fn handle_output(
             let out = (|| {
                 #block
             })();
-            #output_fn_full(&out).expect("Failed to write output");
+            #output_fn_full(&out).unwrap_or_else(|e| {
+                panic!("Failed to write output: {:?}", e);
+            });
         }
     };
 
@@ -283,7 +285,7 @@ pub(crate) fn handle_input(
     };
 
     // Build the output token stream
-    let error_msg = match input_type {
+    let error_msg_prefix = match input_type {
         InputType::Public => "Failed to read public input",
         InputType::Private => "Failed to read private input",
         InputType::Custom => "Failed to read input",
@@ -292,7 +294,9 @@ pub(crate) fn handle_input(
         #target_check
         #(#attrs)*
         fn #fn_name(#input_sig) #output {
-            let (#(#inputs),*):(#(#types),*) = #input_handler().expect(#error_msg);
+            let (#(#inputs),*):(#(#types),*) = #input_handler().unwrap_or_else(|e| {
+                panic!("{}: {:?}", #error_msg_prefix, e);
+            });
             #block
         }
     };
