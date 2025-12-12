@@ -92,26 +92,11 @@ impl Expr {
     }
 
     pub fn step(&self) -> Self {
-        fn subst(body: Expr, arg: Expr, depth: usize) -> Expr {
-            match body.0 {
-                Term::Var(i) => {
-                    if i.0 == depth {
-                        arg
-                    } else {
-                        Expr::var(i)
-                    }
-                }
-                Term::Lambda(e) => subst(*e, arg, depth + 1),
-                Term::Apply(e1, e2) => {
-                    Expr::apply(subst(*e1, arg.clone(), depth), subst(*e2, arg, depth))
-                }
-            }
-        }
-
-        // attempt beta reduction
         if let Term::Apply(e1, e2) = &self.0 {
             if let Term::Lambda(e) = &e1.0 {
-                return subst(*e.clone(), *e2.clone(), 0);
+                let arg_up = e2.shift(1, 0);
+                let replaced = e.subst(0, &arg_up);
+                return replaced.shift(-1, 0);
             }
         }
 
@@ -126,6 +111,38 @@ impl Expr {
                 e1.structural_eq(f1) && e2.structural_eq(f2)
             }
             _ => false,
+        }
+    }
+
+    fn shift(&self, d: isize, c: usize) -> Self {
+        match &self.0 {
+            Term::Var(i) => {
+                if i.0 >= c {
+                    let k = i.0 as isize + d;
+                    Expr::var(DeBruijnIndex(k as usize))
+                } else {
+                    Expr::var(*i)
+                }
+            }
+            Term::Lambda(e) => Expr::lambda(e.shift(d, c + 1)),
+            Term::Apply(e1, e2) => Expr::apply(e1.shift(d, c), e2.shift(d, c)),
+        }
+    }
+
+    fn subst(&self, j: usize, s: &Expr) -> Self {
+        match &self.0 {
+            Term::Var(i) => {
+                if i.0 == j {
+                    s.clone()
+                } else {
+                    Expr::var(*i)
+                }
+            }
+            Term::Lambda(e) => {
+                let s_up = s.shift(1, 0);
+                Expr::lambda(e.subst(j + 1, &s_up))
+            }
+            Term::Apply(e1, e2) => Expr::apply(e1.subst(j, s), e2.subst(j, s)),
         }
     }
 
