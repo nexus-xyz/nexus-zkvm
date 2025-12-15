@@ -307,26 +307,10 @@ fn parse_segment_content(
     Ok(())
 }
 
-/// Represents a precompile description as found in the ELF file.
-#[derive(PartialEq, Eq)]
-pub struct PrecompileDescription<'a>(u16, &'a str);
-
-impl PartialOrd for PrecompileDescription<'_> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.0.cmp(&other.0))
-    }
-}
-
-impl Ord for PrecompileDescription<'_> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.cmp(&other.0)
-    }
-}
-
 /// Parses the precompile metadata from the ELF file. This function finds all symbols that indicate
 /// pieces of precompile metadata and then ensures that there is a complete contiguous set of unique
 /// precompiles labeled 0 though N-1 via heapification.
-#[allow(dead_code)]
+#[cfg(test)]
 fn parse_precompile_metadata(
     elf: &ElfBytes<LittleEndian>,
     data: &[u8],
@@ -426,30 +410,6 @@ fn parse_precompile_metadata(
     debug!("Loaded precompile metadata: {precompiles:?}");
 
     Ok(precompiles)
-}
-
-#[allow(dead_code)]
-fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64, u64)>) {
-    println!("Program Header Information:");
-    println!("  Segment Type: 0x{:08x}", segment.p_type);
-    println!("  File Offset: 0x{:016x}", segment.p_offset);
-    println!("  Virtual Address: 0x{:016x}", segment.p_vaddr);
-    println!("  Physical Address: 0x{:016x}", segment.p_paddr);
-    println!("  File Size: {} bytes", segment.p_filesz);
-    println!("  Memory Size: {} bytes", segment.p_memsz);
-    println!("  Flags: 0x{:08x}", segment.p_flags);
-    println!("  Alignment: 0x{:016x}", segment.p_align);
-    println!(
-        "  LOADABLE: 0x{:08x} -> 0x{:08x}",
-        segment.p_offset,
-        segment.p_offset + segment.p_filesz
-    );
-
-    for (key, (start, end)) in section_map {
-        if !(*end < segment.p_offset || *start > segment.p_offset + segment.p_filesz) {
-            println!("Section {}: 0x{:08x} -> 0x{:08x}", key, start, end);
-        }
-    }
 }
 
 /// Parses the segments of an ELF file and extracts relevant information.
