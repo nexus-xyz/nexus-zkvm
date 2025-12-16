@@ -110,7 +110,7 @@ pub(crate) fn handle_output(
                 #block
             })();
             #output_fn_full(&out).unwrap_or_else(|e| {
-                panic!("Failed to write output: {}", e);
+                panic!("Failed to write output: {:?}", e);
             });
         }
     };
@@ -293,7 +293,7 @@ pub(crate) fn handle_input(
             #(#attrs)*
             fn #fn_name(#input_sig) #output {
                 let (#(#inputs),*):(#(#types),*) = #input_handler().unwrap_or_else(|e| {
-                    panic!(#error_msg ": {}", e);
+                    panic!(#error_msg ": {:?}", e);
                 });
                 #block
             }
