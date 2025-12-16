@@ -117,12 +117,6 @@ pub struct MemoryInitializationEntry {
 
 io!(MemoryInitializationEntry);
 
-impl MemoryInitializationEntry {
-    pub fn new(address: u32, value: u8) -> Self {
-        Self { address, value }
-    }
-}
-
 // One entry per byte because WO memory can be accessed bytewise
 #[derive(Debug, Copy, Clone)]
 pub struct PublicOutputEntry {
@@ -131,12 +125,6 @@ pub struct PublicOutputEntry {
 }
 
 io!(PublicOutputEntry);
-
-impl PublicOutputEntry {
-    pub fn new(address: u32, value: u8) -> Self {
-        Self { address, value }
-    }
-}
 
 // One entry per instruction because program memory is always accessed instruction-wise
 #[derive(Debug, Copy, Clone)]
