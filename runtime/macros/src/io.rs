@@ -110,7 +110,7 @@ pub(crate) fn handle_output(
                 #block
             })();
             #output_fn_full(&out).unwrap_or_else(|e| {
-                panic!("Failed to write output: {:?}", e);
+                panic!("Failed to write output: {}", e);
             });
         }
     };
@@ -189,16 +189,14 @@ pub(crate) fn handle_input(
 
     // Check that the set of input variables is non-empty.
     if attr_inputs.is_empty() {
+        let input_type_label = match input_type {
+            InputType::Public => "public input",
+            InputType::Private => "private input",
+            InputType::Custom => "input",
+        };
         return stream_error(
             &attr_args,
-            format!(
-                "Expected at least one {}.",
-                match input_type {
-                    InputType::Public => "public input",
-                    InputType::Private => "private input",
-                    InputType::Custom => "input",
-                }
-            ),
+            format!("Expected at least one {}.", input_type_label),
         );
     }
 
@@ -211,18 +209,7 @@ pub(crate) fn handle_input(
             }
             let name = id.path.segments.get(0).unwrap().ident.clone();
             if public_inputs.contains(&name) {
-                return stream_error(
-                    &attr_args,
-                    format!(
-                        "Duplicate {}: {:?}.",
-                        match input_type {
-                            InputType::Public => "public input",
-                            InputType::Private => "private input",
-                            InputType::Custom => "input",
-                        },
-                        name
-                    ),
-                );
+                return stream_error(&attr_args, format!("Duplicate public input: {:?}.", name));
             }
             public_inputs.insert(name);
         } else {
@@ -264,12 +251,7 @@ pub(crate) fn handle_input(
         return stream_error(
             &sig.inputs,
             format!(
-                "Provided {} does not appear in the function signature: {:?}",
-                match input_type {
-                    InputType::Public => "public input",
-                    InputType::Private => "private input",
-                    InputType::Custom => "input",
-                },
+                "Provided public input does not appear in the function signature: {:?}",
                 public_inputs
             ),
         );
@@ -300,19 +282,21 @@ pub(crate) fn handle_input(
     };
 
     // Build the output token stream
-    let error_msg = match input_type {
-        InputType::Public => "Failed to read public input",
-        InputType::Private => "Failed to read private input",
-        InputType::Custom => "Failed to read input",
-    };
-    let expanded = quote! {
-        #target_check
-        #(#attrs)*
-        fn #fn_name(#input_sig) #output {
-            let (#(#inputs),*):(#(#types),*) = #input_handler().unwrap_or_else(|e| {
-                panic!(#error_msg ": {:?}", e);
-            });
-            #block
+    let expanded = {
+        let error_msg = match input_type {
+            InputType::Public => "Failed to read public input",
+            InputType::Private => "Failed to read private input",
+            InputType::Custom => "Failed to read input",
+        };
+        quote! {
+            #target_check
+            #(#attrs)*
+            fn #fn_name(#input_sig) #output {
+                let (#(#inputs),*):(#(#types),*) = #input_handler().unwrap_or_else(|e| {
+                    panic!(#error_msg ": {}", e);
+                });
+                #block
+            }
         }
     };
 
