@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use nexus_vm::WORD_SIZE;
 use num_traits::Zero;
 use stwo::{
@@ -82,11 +81,12 @@ impl TracesBuilder {
 
     /// Fills columns with values from a byte slice.
     pub fn fill_columns_bytes(&mut self, row: usize, value: &[u8], col: Column) {
-        let base_field_values = value
-            .iter()
-            .map(|b| BaseField::from(*b as u32))
-            .collect_vec();
-        self.fill_columns_base_field(row, base_field_values.as_slice(), col);
+        let n = value.len();
+        assert_eq!(col.size(), n, "column size mismatch");
+        let offset = col.offset();
+        for (i, b) in value.iter().enumerate() {
+            self.cols[offset + i][row] = BaseField::from(*b as u32);
+        }
     }
 
     /// Fills columns with values from BaseField slice.
