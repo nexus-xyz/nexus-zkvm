@@ -109,7 +109,9 @@ pub(crate) fn handle_output(
             let out = (|| {
                 #block
             })();
-            #output_fn_full(&out).expect("Failed to write output");
+            #output_fn_full(&out).unwrap_or_else(|e| {
+                panic!("Failed to write output: {:?}", e);
+            });
         }
     };
 
@@ -160,25 +162,18 @@ pub(crate) fn handle_input(
                     p.insert(0, Path(id.clone()));
                     (Some(name), p)
                 } else {
-                    return stream_error(
-                        expr,
-                        format!(
-                            "Expected input variable, got {:?}.",
-                            attr_args.get(0).unwrap().to_token_stream()
-                        ),
-                    );
+                    let got = attr_args.get(0).unwrap().to_token_stream().to_string();
+                    return stream_error(expr, format!("Expected input variable, got {}.", got));
                 }
             } else if let Path(id) = attr_args.get(0).unwrap() {
                 let mut p: Punctuated<Expr, Comma> = Punctuated::new();
                 p.insert(0, Path(id.clone()));
                 (Some(name), p)
             } else {
+                let got = attr_args.get(0).unwrap().to_token_stream().to_string();
                 return stream_error(
                     &attr_args,
-                    format!(
-                        "Expected a tuple of input types, got type {:?}.",
-                        attr_args.get(0).unwrap().to_token_stream()
-                    ),
+                    format!("Expected a tuple of input types, got type {}.", got),
                 );
             }
         }
@@ -187,7 +182,15 @@ pub(crate) fn handle_input(
 
     // Check that the set of input variables is non-empty.
     if attr_inputs.is_empty() {
-        return stream_error(&attr_args, "Expected at least one public input.");
+        let input_type_label = match input_type {
+            InputType::Public => "public input",
+            InputType::Private => "private input",
+            InputType::Custom => "input",
+        };
+        return stream_error(
+            &attr_args,
+            format!("Expected at least one {}.", input_type_label),
+        );
     }
 
     // Parse the input variables.
@@ -199,7 +202,7 @@ pub(crate) fn handle_input(
             }
             let name = id.path.segments.get(0).unwrap().ident.clone();
             if public_inputs.contains(&name) {
-                return stream_error(&attr_args, format!("Duplicate public input: {:?}.", name));
+                return stream_error(&attr_args, format!("Duplicate public input: {}.", name));
             }
             public_inputs.insert(name);
         } else {
@@ -236,13 +239,16 @@ pub(crate) fn handle_input(
         }
     }
 
-    // Check that all public inputs listed in the attribute are present in the function signature.
+    // Check that all inputs listed in the attribute are present in the function signature.
     if !public_inputs.is_empty() {
+        let mut input_names: Vec<String> = public_inputs.iter().map(|id| id.to_string()).collect();
+        input_names.sort();
+        let input_list = input_names.join(", ");
         return stream_error(
             &sig.inputs,
             format!(
-                "Provided public input does not appear in the function signature: {:?}",
-                public_inputs
+                "Provided public input does not appear in the function signature: {}",
+                input_list
             ),
         );
     }
@@ -261,7 +267,7 @@ pub(crate) fn handle_input(
         },
     };
 
-    // Check that the target architecture is riscv32 if doing public output.
+    // Check that the target architecture is riscv32 if doing public/private input.
     let target_check = if !matches!(input_type, InputType::Custom) {
         quote! {
             #[cfg(not(target_arch = "riscv32"))]
@@ -272,12 +278,21 @@ pub(crate) fn handle_input(
     };
 
     // Build the output token stream
-    let expanded = quote! {
-        #target_check
-        #(#attrs)*
-        fn #fn_name(#input_sig) #output {
-            let (#(#inputs),*):(#(#types),*) = #input_handler().expect("Failed to read public input");
-            #block
+    let expanded = {
+        let error_msg = match input_type {
+            InputType::Public => "Failed to read public input",
+            InputType::Private => "Failed to read private input",
+            InputType::Custom => "Failed to read input",
+        };
+        quote! {
+            #target_check
+            #(#attrs)*
+            fn #fn_name(#input_sig) #output {
+                let (#(#inputs),*):(#(#types),*) = #input_handler().unwrap_or_else(|e| {
+                    panic!("{}: {:?}", #error_msg, e);
+                });
+                #block
+            }
         }
     };
 
