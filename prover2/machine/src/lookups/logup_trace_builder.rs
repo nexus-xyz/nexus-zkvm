@@ -86,7 +86,7 @@ impl LogupTraceBuilder {
             Self::iter_logup_fractions(self.log_size, relation, &mult_columns, mult_expr, tuple);
 
         if self.pending_logup.is_empty() {
-            self.pending_logup = frac_iter.collect();
+            self.pending_logup.extend(frac_iter);
         } else {
             let mut logup_col_gen = self.logup_trace_gen.new_col();
 
