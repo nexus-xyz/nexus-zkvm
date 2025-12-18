@@ -201,8 +201,16 @@ pub(crate) fn handle_input(
                 return stream_error(id, "Expected an identifier.");
             }
             let name = id.path.segments.get(0).unwrap().ident.clone();
+            let input_type_label = match input_type {
+                InputType::Public => "public input",
+                InputType::Private => "private input",
+                InputType::Custom => "input",
+            };
             if public_inputs.contains(&name) {
-                return stream_error(&attr_args, format!("Duplicate public input: {}.", name));
+                return stream_error(
+                    &attr_args,
+                    format!("Duplicate {}: {}.", input_type_label, name),
+                );
             }
             public_inputs.insert(name);
         } else {
@@ -232,7 +240,10 @@ pub(crate) fn handle_input(
                     input_sig.push(arg.clone());
                 }
             } else {
-                return stream_error(arg, "`self` is not allowed as a function argument.");
+                return stream_error(
+                    arg,
+                    "Pattern arguments are not supported, expected a simple identifier.",
+                );
             }
         } else {
             return stream_error(arg, "Expected typed function arguments.");
@@ -244,11 +255,16 @@ pub(crate) fn handle_input(
         let mut input_names: Vec<String> = public_inputs.iter().map(|id| id.to_string()).collect();
         input_names.sort();
         let input_list = input_names.join(", ");
+        let input_type_label = match input_type {
+            InputType::Public => "public input",
+            InputType::Private => "private input",
+            InputType::Custom => "input",
+        };
         return stream_error(
             &sig.inputs,
             format!(
-                "Provided public input does not appear in the function signature: {}",
-                input_list
+                "Provided {} does not appear in the function signature: {}",
+                input_type_label, input_list
             ),
         );
     }
