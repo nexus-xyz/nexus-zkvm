@@ -189,14 +189,14 @@ jobs:
           popd
 
       - name: Upload cargo-nexus binary
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: cargo-nexus
           path: target/release/cargo-nexus
           retention-days: 90
 
       - name: Upload pre-built host project
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: nexus-host-project
           path: /tmp/nexus-host
