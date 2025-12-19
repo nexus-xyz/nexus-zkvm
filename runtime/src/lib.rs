@@ -22,8 +22,7 @@ pub use postcard;
 
 pub mod keccak;
 
-// Ecall codes. Allow dead code here because these are only used in the RISC-V runtime, not when
-// compiling for the host.
+// Ecall codes used exclusively in the RISC-V runtime; host builds omit these.
 #[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_LOG: u32 = 0x200;
 #[cfg(target_arch = "riscv32")]
@@ -32,9 +31,6 @@ pub(crate) const SYS_EXIT: u32 = 0x201;
 pub(crate) const SYS_READ_PRIVATE_INPUT: u32 = 0x400;
 #[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_CYCLE_COUNT: u32 = 0x401;
-#[cfg(target_arch = "riscv32")]
-#[allow(dead_code)]
-pub(crate) const SYS_OVERWRITE_SP: u32 = 0x402;
 #[cfg(target_arch = "riscv32")]
 pub(crate) const SYS_ALLOC_ALIGNED: u32 = 0x403;
 #[cfg(target_arch = "riscv32")]
