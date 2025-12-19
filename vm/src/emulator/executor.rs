@@ -1183,7 +1183,7 @@ impl Emulator for LinearEmulator {
 
         let mut rom_count = 0;
         let rom_iter = match self.static_rom_image_index {
-            None => std::iter::empty().collect::<Vec<_>>().into_iter(),
+            None => Vec::new().into_iter(),
             Some((store, idx)) => match Modes::from_usize(store) {
                 Some(Modes::RW) => {
                     let mem_ro: FixedMemory<RO> = self.memory.frw_store[idx].clone().into();
@@ -1221,7 +1221,7 @@ impl Emulator for LinearEmulator {
                         .collect::<Vec<_>>()
                         .into_iter()
                 }
-                _ => std::iter::empty().collect::<Vec<_>>().into_iter(),
+                _ => Vec::new().into_iter(),
             },
         };
         let ram_initialization = &self.initial_static_ram_image;
