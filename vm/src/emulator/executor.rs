@@ -333,58 +333,6 @@ pub trait Emulator {
         self.get_executor_mut().set_private_input(private_input)
     }
 
-    /// Update and return previous timestamps, but it currently works word-wise, so not used.
-    #[allow(dead_code)]
-    fn manage_timestamps(&mut self, size: &MemAccessSize, address: &u32) -> usize {
-        let half_aligned_address = address & !(WORD_SIZE / 2 - 1) as u32;
-        let full_aligned_address = address & !(WORD_SIZE - 1) as u32;
-
-        let prev = match size {
-            MemAccessSize::Byte => max(
-                *self
-                    .get_executor()
-                    .access_timestamps
-                    .get(address)
-                    .unwrap_or(&0),
-                max(
-                    *self
-                        .get_executor()
-                        .access_timestamps
-                        .get(&half_aligned_address)
-                        .unwrap_or(&0),
-                    *self
-                        .get_executor()
-                        .access_timestamps
-                        .get(&full_aligned_address)
-                        .unwrap_or(&0),
-                ),
-            ),
-            MemAccessSize::HalfWord => max(
-                *self
-                    .get_executor()
-                    .access_timestamps
-                    .get(address)
-                    .unwrap_or(&0),
-                *self
-                    .get_executor()
-                    .access_timestamps
-                    .get(&full_aligned_address)
-                    .unwrap_or(&0),
-            ),
-            MemAccessSize::Word => *self
-                .get_executor()
-                .access_timestamps
-                .get(address)
-                .unwrap_or(&0),
-        };
-
-        let clk = self.get_executor().global_clock;
-        self.get_executor_mut()
-            .access_timestamps
-            .insert(*address, clk);
-        prev
-    }
-
     /// Return a `View` capturing the end-state of the emulator.
     fn finalize(&self) -> View;
 }
