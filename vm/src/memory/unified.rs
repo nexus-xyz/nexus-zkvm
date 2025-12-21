@@ -212,7 +212,7 @@ macro_rules! add_fixed {
                 return Err(MemoryError::MemoryOverlap);
             }
 
-            self.meta.insert(rng.clone(), Modes::$mode);
+            self.meta.insert(rng, Modes::$mode);
 
             let idx = self.$store.len();
             self.$map.insert(rng, idx);
