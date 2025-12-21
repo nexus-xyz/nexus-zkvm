@@ -182,6 +182,7 @@ enum Mode {
     Squeezing,
 }
 
+#[derive(Clone)]
 struct KeccakState<P> {
     buffer: Buffer,
     offset: usize,
@@ -189,19 +190,6 @@ struct KeccakState<P> {
     delim: u8,
     mode: Mode,
     permutation: core::marker::PhantomData<P>,
-}
-
-impl<P> Clone for KeccakState<P> {
-    fn clone(&self) -> Self {
-        KeccakState {
-            buffer: self.buffer.clone(),
-            offset: self.offset,
-            rate: self.rate,
-            delim: self.delim,
-            mode: self.mode,
-            permutation: core::marker::PhantomData,
-        }
-    }
 }
 
 impl<P: Permutation> KeccakState<P> {
