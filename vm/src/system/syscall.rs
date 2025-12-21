@@ -163,7 +163,7 @@ impl SyscallInstruction {
             let buffer = memory.read_bytes(buf_addr, count as _)?;
 
             if let Some(logger) = logs {
-                logger.push(buffer.clone());
+                logger.push(buffer);
             } else {
                 print!("{}", String::from_utf8_lossy(&buffer));
             }
