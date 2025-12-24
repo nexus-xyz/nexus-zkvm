@@ -11,7 +11,6 @@ use postcard;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{path::PathBuf, process::Command};
 use sys_info;
-use sysinfo::System;
 
 use crate::{
     models::{BenchmarkResult, StageStats},
@@ -77,10 +76,6 @@ pub fn run_benchmark<T>(
     let total_ram_gb = sys_info::mem_info()
         .map(|m| (m.total as f64) / (1024.0 * 1024.0))
         .unwrap_or(0.0);
-
-    // Initialize system monitoring.
-    let mut sys = System::new_all();
-    sys.refresh_all();
 
     // Set up temporary project directory.
     let runtime_path = PathBuf::from("../runtime");
