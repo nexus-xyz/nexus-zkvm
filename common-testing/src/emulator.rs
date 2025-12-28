@@ -215,6 +215,21 @@ pub fn compile_multi(
     elves
 }
 
+/// Extract exit code and output bytes from an emulator view.
+fn extract_output_bytes(view: &impl InternalView) -> (Vec<u8>, Vec<u8>) {
+    let exit_code_bytes = view
+        .get_exit_code()
+        .iter()
+        .map(|entry| entry.value)
+        .collect();
+    let output_bytes = view
+        .get_public_output()
+        .iter()
+        .map(|entry| entry.value)
+        .collect();
+    (exit_code_bytes, output_bytes)
+}
+
 /// Helper function to run emulator and return output bytes and cycles.
 /// Note that this function does not check the correctness of the exit code or I/O.
 pub fn emulate(
@@ -239,16 +254,7 @@ pub fn emulate(
                 let mut cur_cycles = emulator.executor.global_clock;
 
                 let view = emulator.finalize();
-                exit_code_bytes = view
-                    .get_exit_code()
-                    .iter()
-                    .map(|public_output_entry| public_output_entry.value)
-                    .collect();
-                output_bytes = view
-                    .get_public_output()
-                    .iter()
-                    .map(|public_output_entry| public_output_entry.value)
-                    .collect();
+                (exit_code_bytes, output_bytes) = extract_output_bytes(&view);
 
                 // Run a second pass with a linear emulator constructed from the harvard emulator.
                 if matches!(emulator_type, EmulatorType::TwoPass) {
@@ -261,16 +267,7 @@ pub fn emulate(
 
                     // Get output bytes.
                     let view = linear_emulator.finalize();
-                    exit_code_bytes = view
-                        .get_exit_code()
-                        .iter()
-                        .map(|public_output_entry| public_output_entry.value)
-                        .collect();
-                    output_bytes = view
-                        .get_public_output()
-                        .iter()
-                        .map(|public_output_entry| public_output_entry.value)
-                        .collect();
+                    (exit_code_bytes, output_bytes) = extract_output_bytes(&view);
                 }
                 cycles.push(cur_cycles);
             }
@@ -299,16 +296,7 @@ pub fn emulate(
                 cycles.push(emulator.executor.global_clock);
 
                 let view = emulator.finalize();
-                exit_code_bytes = view
-                    .get_exit_code()
-                    .iter()
-                    .map(|public_output_entry| public_output_entry.value)
-                    .collect();
-                output_bytes = view
-                    .get_public_output()
-                    .iter()
-                    .map(|public_output_entry| public_output_entry.value)
-                    .collect();
+                (exit_code_bytes, output_bytes) = extract_output_bytes(&view);
             }
         }
     }
