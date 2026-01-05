@@ -23,19 +23,19 @@ pub fn main(_args: TokenStream, input: TokenStream) -> Result<TokenStream, Error
             "`main` function is not allowed to have generic parameters",
         ));
     }
-    if func.sig.generics.where_clause.is_some() {
+    if fn_sig.generics.where_clause.is_some() {
         return Err(Error::new_spanned(
             &fn_sig.generics.where_clause,
             "`main` function is not allowed to have a `where` clause",
         ));
     }
-    if !func.sig.inputs.is_empty() {
+    if !fn_sig.inputs.is_empty() {
         return Err(Error::new_spanned(
             &fn_sig.inputs,
             "`main` function arguments must each have an associated input handler",
         ));
     }
-    if let syn::ReturnType::Type(_, _ty) = &func.sig.output {
+    if let syn::ReturnType::Type(_, _ty) = &fn_sig.output {
         return Err(Error::new_spanned(
             &fn_sig.output,
             "`main` function output must have an associated output handler",
