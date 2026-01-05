@@ -62,7 +62,7 @@ impl FrameworkEval for RamInitFinalEval {
         // Retrieve all preprocessed columns in the same order as generated
         let preprocessed_ram_addr: Vec<E::F> = (0..WORD_SIZE)
             .map(|i| {
-                let col_id = format!("preprocessed_ram_init_final_addr{}", i);
+                let col_id = format!("preprocessed_ram_init_final_addr{i}");
                 eval.get_preprocessed_column(PreProcessedColumnId { id: col_id })
             })
             .collect();
@@ -504,7 +504,7 @@ impl RamInitFinal {
             ret.push(base_column);
         });
         ret.iter().enumerate().for_each(|(i, col)| {
-            assert_eq!(col.length, num_rows, "{}th element has wrong length", i);
+            assert_eq!(col.length, num_rows, "{i}th element has wrong length");
         });
         assert!(ret.len() == 2 * WORD_SIZE + 2);
         ret
@@ -657,9 +657,7 @@ impl RamInitFinal {
             #[cfg(not(test))]
             assert!(
                 checked < 256,
-                "final value {} out of range at index {}",
-                checked,
-                _i
+                "final value {checked} out of range at index {_i}"
             );
             side_note.range256.multiplicity[checked as usize] += 1;
         }

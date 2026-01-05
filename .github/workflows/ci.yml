@@ -17,7 +17,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-          toolchain: nightly-2025-04-06
+          toolchain: nightly-2025-05-09
 
       - name: Run `cargo fmt`
         run: |
@@ -41,7 +41,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-          toolchain: nightly-2025-04-06
+          toolchain: nightly-2025-05-09
           targets: riscv32im-unknown-none-elf
 
       - name: Add clippy
@@ -79,7 +79,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly-2025-04-06
+          toolchain: nightly-2025-05-09
           targets: riscv32im-unknown-none-elf
 
       - name: Install cargo-expand
@@ -113,7 +113,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly-2025-04-06 # same version as normal tests
+          toolchain: nightly-2025-05-09 # same version as normal tests
           # need riscv32im-unknown-none-elf for building guest binaries
           targets: wasm32-wasip1, riscv32im-unknown-none-elf
 
@@ -153,7 +153,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly-2025-04-06
+          toolchain: nightly-2025-05-09
           targets: riscv32im-unknown-none-elf
 
       - uses: taiki-e/install-action@nextest
@@ -217,7 +217,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly-2025-04-06
+          toolchain: nightly-2025-05-09
           targets: riscv32im-unknown-none-elf
 
       - name: Download pre-built host project

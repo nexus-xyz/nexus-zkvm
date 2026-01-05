@@ -173,7 +173,7 @@ pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
     let (a23, carry_1) = (a23 as u16, (a23 >> 16));
 
     // Verify our calculations match the built-in multiplication
-    assert!(carry_1 < 5, "Carry_1 exceeds expected bounds {}", carry_1);
+    assert!(carry_1 < 5, "Carry_1 exceeds expected bounds {carry_1}");
     assert_eq!(
         a01.to_le_bytes(),
         [a_l_bytes[0], a_l_bytes[1]],
@@ -217,7 +217,7 @@ pub(super) fn mull_limb(b: u32, c: u32) -> MulResult {
         .wrapping_add((c3_prime_prime) << 8);
     let (a45, carry_2) = (a45 as u16, (a45 >> 16));
 
-    assert!(carry_2 < 4, "Carry_2 exceeds expected bounds {}", carry_2);
+    assert!(carry_2 < 4, "Carry_2 exceeds expected bounds {carry_2}");
 
     // Bytes 6-7 of the final result
     let a67 = (z3 as u32)

@@ -263,7 +263,7 @@ fn fill_main_cols<const N: usize>(value_col: [BaseField; N], side_note: &mut Sid
     for (_limb_index, limb) in value_col.iter().enumerate() {
         let checked = limb.0;
         #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-        assert!(checked < 256, "value[{}] is out of range", _limb_index);
+        assert!(checked < 256, "value[{_limb_index}] is out of range");
         side_note.range256.multiplicity[checked as usize] += 1;
     }
 }

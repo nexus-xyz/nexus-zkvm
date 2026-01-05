@@ -189,7 +189,7 @@ fn fill_main_col(value_col: BaseField, selector_col: BaseField, side_note: &mut 
     }
     let checked = value_col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-    assert!(checked < 128, "value is out of range {}", checked);
+    assert!(checked < 128, "value is out of range {checked}");
     side_note.range128.multiplicity[checked as usize] += 1;
 }
 

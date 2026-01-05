@@ -160,13 +160,13 @@ mod tests {
         dbg!(elf.rom_image.len_bytes());
 
         // Write elf.instructions to a file
-        write_instruction_to_file(&elf.instructions, &format!("{}.inst.bin", file_path));
+        write_instruction_to_file(&elf.instructions, &format!("{file_path}.inst.bin"));
 
         // Write elf.memory_image to a file
-        write_memory_to_file(&elf.ram_image, &format!("{}.mem.bin", file_path));
+        write_memory_to_file(&elf.ram_image, &format!("{file_path}.mem.bin"));
 
         // Write elf.readonly_memory_image to a file
-        write_memory_to_file(&elf.rom_image, &format!("{}.rom.bin", file_path));
+        write_memory_to_file(&elf.rom_image, &format!("{file_path}.rom.bin"));
     }
 
     #[test]
@@ -182,13 +182,11 @@ mod tests {
 
         assert_eq!(
             elf.entry, ENTRY_POINT,
-            "Incorrect entrypoint for {}",
-            FILE_PATH
+            "Incorrect entrypoint for {FILE_PATH}"
         );
         assert_eq!(
             elf.base, BASE_ADDRESS,
-            "Incorrect base address for {}",
-            FILE_PATH
+            "Incorrect base address for {FILE_PATH}"
         );
 
         assert_eq!(elf.instructions.len(), NUMBER_OF_INSTRUCTIONS);

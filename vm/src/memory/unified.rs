@@ -142,8 +142,8 @@ impl Debug for UnifiedMemory {
         if !self.frw_store.is_empty() {
             writeln!(f, "\nFixed Read-Write Memory:")?;
             for (i, mem) in self.frw_store.iter().enumerate() {
-                writeln!(f, "Segment {}", i)?;
-                writeln!(f, "{:?}", mem)?;
+                writeln!(f, "Segment {i}")?;
+                writeln!(f, "{mem:?}")?;
             }
         }
 
@@ -151,8 +151,8 @@ impl Debug for UnifiedMemory {
         if !self.fro_store.is_empty() {
             writeln!(f, "\nFixed Read-Only Memory:")?;
             for (i, mem) in self.fro_store.iter().enumerate() {
-                writeln!(f, "Segment {}", i)?;
-                writeln!(f, "{:?}", mem)?;
+                writeln!(f, "Segment {i}")?;
+                writeln!(f, "{mem:?}")?;
             }
         }
 
@@ -160,8 +160,8 @@ impl Debug for UnifiedMemory {
         if !self.fwo_store.is_empty() {
             writeln!(f, "\nFixed Write-Only Memory:")?;
             for (i, mem) in self.fwo_store.iter().enumerate() {
-                writeln!(f, "Segment {}", i)?;
-                writeln!(f, "{:?}", mem)?;
+                writeln!(f, "Segment {i}")?;
+                writeln!(f, "{mem:?}")?;
             }
         }
 
@@ -169,15 +169,15 @@ impl Debug for UnifiedMemory {
         if !self.fna_store.is_empty() {
             writeln!(f, "\nFixed No-Access Memory:")?;
             for (i, mem) in self.fna_store.iter().enumerate() {
-                writeln!(f, "Segment {}", i)?;
-                writeln!(f, "{:?}", mem)?;
+                writeln!(f, "Segment {i}")?;
+                writeln!(f, "{mem:?}")?;
             }
         }
 
         // Display Variable Read-Write Memory
         if let Some(vrw) = &self.vrw {
             writeln!(f, "\nVariable Read-Write Memory:")?;
-            write!(f, "{:?}", vrw)?;
+            write!(f, "{vrw:?}")?;
         }
 
         Ok(())
