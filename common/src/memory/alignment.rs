@@ -36,10 +36,7 @@ pub trait Alignable: Sized + Copy + Display + Debug {
     fn is_aligned_to<const N: usize>(self) -> bool;
 
     fn assert_aligned_to<const N: usize>(self) {
-        assert!(
-            self.is_aligned_to::<N>(),
-            "{self} is not aligned to {N}"
-        );
+        assert!(self.is_aligned_to::<N>(), "{self} is not aligned to {N}");
     }
 
     /// Assert that the value is aligned to a word boundary.
