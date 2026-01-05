@@ -94,7 +94,7 @@ pub trait InstructionExecutor {
     ///
     /// # Arguments
     /// * `cpu` - Mutable reference to the CPU state.
-    /// * `memory` - Immutable reference to the memory subsystem.
+    /// * `memory` - Mutable reference to the memory subsystem.
     /// * `ins` - The instruction to be decoded.
     ///
     /// # Returns
