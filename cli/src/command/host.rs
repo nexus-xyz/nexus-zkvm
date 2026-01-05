@@ -133,11 +133,11 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
         GUEST_TEMPLATE_CARGO_CONFIG,
     )?;
 
-    // guest/src/main.rs
-    fs::write(guest_path.join("src/main.rs"), GUEST_TEMPLATE_SRC_MAIN)?;
-    fs::write(guest_path.join("rust-toolchain.toml"), RUST_TOOLCHAIN)?;
+// guest/src/main.rs
+fs::write(guest_path.join("src/main.rs"), GUEST_TEMPLATE_SRC_MAIN)?;
+fs::write(guest_path.join("rust-toolchain.toml"), RUST_TOOLCHAIN)?;
 
-    Ok(())
+Ok(())
 }
 
 macro_rules! host_examples_dir {
@@ -164,5 +164,5 @@ const GUEST_TEMPLATE_SRC_MAIN: &str = include_str!(concat!(guest_examples_dir!()
 
 // freeze toolchain that works with all provers
 const RUST_TOOLCHAIN: &str = r#"[toolchain]
-channel = "nightly-2025-04-06"
+channel = "nightly-2025-05-09"
 "#;
