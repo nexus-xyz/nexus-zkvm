@@ -281,10 +281,7 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
             let [is_type] = VC::read_from_traces_builder(traces, row_idx);
             !is_type.is_zero()
         },
-        "ProgramStep and the TraceBuilder seem to disagree which type of instruction is being processed at row {}; step: {:?}, instruction_type: {:?}",
-        row_idx,
-        step,
-        instruction_type,
+        "ProgramStep and the TraceBuilder seem to disagree which type of instruction is being processed at row {row_idx}; step: {step:?}, instruction_type: {instruction_type:?}",
     );
     if step_is_of_type {
         for col in columns.iter() {
@@ -297,6 +294,6 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
 fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-    assert!(checked < 8, "value is out of range {}", checked);
+    assert!(checked < 8, "value is out of range {checked}");
     side_note.range8.multiplicity[checked as usize] += 1;
 }

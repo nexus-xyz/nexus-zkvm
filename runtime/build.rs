@@ -8,7 +8,7 @@ fn main() {
 
     let linker_script_path = "./linker-scripts/default.x";
     let linker_script_bytes = fs::read(linker_script_path).unwrap();
-    println!("cargo:rerun-if-changed={}", linker_script_path);
+    println!("cargo:rerun-if-changed={linker_script_path}");
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     fs::write(out_dir.join("link.x"), linker_script_bytes).unwrap();

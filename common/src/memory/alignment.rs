@@ -38,9 +38,7 @@ pub trait Alignable: Sized + Copy + Display + Debug {
     fn assert_aligned_to<const N: usize>(self) {
         assert!(
             self.is_aligned_to::<N>(),
-            "{} is not aligned to {}",
-            self,
-            N
+            "{self} is not aligned to {N}"
         );
     }
 

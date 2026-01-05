@@ -72,8 +72,7 @@ impl Instruction {
             // I-type instruction with shamt has 5 bits for shamt.
             debug_assert!(
                 op_c <= 0x1F,
-                "op_c must be in the range [0..32), got {}",
-                op_c
+                "op_c must be in the range [0..32), got {op_c}"
             );
         }
 
@@ -199,7 +198,7 @@ impl Instruction {
         let rd = self.op_a;
         let rs1 = self.op_b;
         let rs2 = Register::from(self.op_c as u8);
-        format!("{} {}, {}, {}", opcode, rd, rs1, rs2)
+        format!("{opcode} {rd}, {rs1}, {rs2}")
     }
 
     fn i_type_to_string(&self, opcode: BuiltinOpcode) -> String {
@@ -210,24 +209,24 @@ impl Instruction {
             BuiltinOpcode::EBREAK | BuiltinOpcode::ECALL => self.opcode.to_string(),
             BuiltinOpcode::JALR => match (rd, rs1, imm12) {
                 (Register::X0, Register::X1, 0) => "ret".to_string(),
-                (Register::X0, _, 0) => format!("jr {}", rs1),
+                (Register::X0, _, 0) => format!("jr {rs1}"),
                 (Register::X1, _, 0) => format!("{} {}", self.opcode, rs1),
-                _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
+                _ => format!("{opcode} {rd}, {rs1}, {imm12}"),
             },
             BuiltinOpcode::ADDI => match (rd, rs1, imm12) {
                 (Register::X0, Register::X0, 0) => "nop".to_string(),
-                (_, Register::X0, _) => format!("li {}, {}", rd, imm12),
-                (_, _, 0) => format!("mv {}, {}", rd, rs1),
-                _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
+                (_, Register::X0, _) => format!("li {rd}, {imm12}"),
+                (_, _, 0) => format!("mv {rd}, {rs1}"),
+                _ => format!("{opcode} {rd}, {rs1}, {imm12}"),
             },
             BuiltinOpcode::LB
             | BuiltinOpcode::LH
             | BuiltinOpcode::LW
             | BuiltinOpcode::LBU
             | BuiltinOpcode::LHU => {
-                format!("{} {}, {}({})", opcode, rd, imm12, rs1)
+                format!("{opcode} {rd}, {imm12}({rs1})")
             }
-            _ => format!("{} {}, {}, {}", opcode, rd, rs1, imm12),
+            _ => format!("{opcode} {rd}, {rs1}, {imm12}"),
         }
     }
 
@@ -235,26 +234,26 @@ impl Instruction {
         let rs1 = self.op_a;
         let rs2 = self.op_b;
         let imm12 = self.op_c as i32;
-        format!("{} {}, {}({})", opcode, rs2, imm12, rs1)
+        format!("{opcode} {rs2}, {imm12}({rs1})")
     }
 
     fn b_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rs1 = self.op_a;
         let rs2 = self.op_b;
         let imm12 = self.op_c as i32;
-        format!("{} {}, {}, 0x{:x}", opcode, rs1, rs2, imm12)
+        format!("{opcode} {rs1}, {rs2}, 0x{imm12:x}")
     }
 
     fn u_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
         let imm20 = self.op_c;
-        format!("{} {}, 0x{:x}", opcode, rd, imm20)
+        format!("{opcode} {rd}, 0x{imm20:x}")
     }
 
     fn j_type_to_string(&self, opcode: BuiltinOpcode) -> String {
         let rd = self.op_a;
         let imm20 = self.op_c as i32;
-        format!("{} {}, 0x{:x}", opcode, rd, imm20)
+        format!("{opcode} {rd}, 0x{imm20:x}")
     }
 
     // Encode the instruction struct to binary representation.
