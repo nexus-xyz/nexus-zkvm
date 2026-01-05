@@ -133,11 +133,11 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
         GUEST_TEMPLATE_CARGO_CONFIG,
     )?;
 
-// guest/src/main.rs
-fs::write(guest_path.join("src/main.rs"), GUEST_TEMPLATE_SRC_MAIN)?;
-fs::write(guest_path.join("rust-toolchain.toml"), RUST_TOOLCHAIN)?;
+    // guest/src/main.rs
+    fs::write(guest_path.join("src/main.rs"), GUEST_TEMPLATE_SRC_MAIN)?;
+    fs::write(guest_path.join("rust-toolchain.toml"), RUST_TOOLCHAIN)?;
 
-Ok(())
+    Ok(())
 }
 
 macro_rules! host_examples_dir {
