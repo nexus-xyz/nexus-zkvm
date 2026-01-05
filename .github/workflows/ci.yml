@@ -221,7 +221,7 @@ jobs:
           targets: riscv32im-unknown-none-elf
 
       - name: Download pre-built host project
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: nexus-host-project
           path: /tmp/nexus-host
