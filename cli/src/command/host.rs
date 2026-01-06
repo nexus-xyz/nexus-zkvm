@@ -22,7 +22,7 @@ pub fn handle_command(args: HostArgs) -> anyhow::Result<()> {
 
     if rev.is_none() && tag.is_none() {
         // default to current release
-        tag = Some(String::from("0.3.5"));
+        tag = Some(String::from("0.3.6"));
     }
 
     setup_crate(path, rev, tag)
