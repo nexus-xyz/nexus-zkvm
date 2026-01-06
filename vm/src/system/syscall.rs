@@ -204,7 +204,6 @@ impl SyscallInstruction {
             Some(parts) => parts,
             None => return Err(VMErrorKind::InvalidProfileLabel(label))?,
         };
-        let (marker, fn_name) = (marker.to_owned(), fn_name.to_owned());
 
         // Ensure the marker is either '^' (start) or '$' (end)
         if !matches!(marker, "^" | "$") {
