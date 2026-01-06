@@ -104,18 +104,18 @@ impl PagedMemory {
     }
 
     pub fn set_words(&mut self, address: u32, values: &[u32]) -> Result<(), MemoryError> {
-        if address
-            .checked_add(values.len() as u32 * WORD_SIZE as u32)
-            .is_none()
-        {
-            return Err(MemoryError::AddressCalculationOverflow);
-        }
-
         if values.is_empty() {
             return Ok(());
         }
 
-        let end_address = address + values.len() as u32 * WORD_SIZE as u32;
+        let words_len_u32 =
+            u32::try_from(values.len()).map_err(|_| MemoryError::AddressCalculationOverflow)?;
+        let bytes_len = words_len_u32
+            .checked_mul(WORD_SIZE as u32)
+            .ok_or(MemoryError::AddressCalculationOverflow)?;
+        let end_address = address
+            .checked_add(bytes_len)
+            .ok_or(MemoryError::AddressCalculationOverflow)?;
 
         let mut current_address = address;
         let mut current_index = 0;
