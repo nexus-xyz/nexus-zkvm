@@ -163,7 +163,7 @@ impl SyscallInstruction {
             let buffer = memory.read_bytes(buf_addr, count as _)?;
 
             if let Some(logger) = logs {
-                logger.push(buffer.clone());
+                logger.push(buffer);
             } else {
                 print!("{}", String::from_utf8_lossy(&buffer));
             }
@@ -200,10 +200,10 @@ impl SyscallInstruction {
 
         // Convert buffer to string and split it into marker and function name
         let label = String::from_utf8_lossy(&buf).to_string();
-        let (marker, fn_name) = label
-            .split_once('#')
-            .ok_or_else(|| VMErrorKind::InvalidProfileLabel(label.clone()))?
-            .to_owned();
+        let (marker, fn_name) = match label.split_once('#') {
+            Some(parts) => parts,
+            None => return Err(VMErrorKind::InvalidProfileLabel(label))?,
+        };
 
         // Ensure the marker is either '^' (start) or '$' (end)
         if !matches!(marker, "^" | "$") {
