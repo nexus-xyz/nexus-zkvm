@@ -537,7 +537,7 @@ mod tests {
         assert_eq!(block.steps.len(), 1);
         assert_eq!(trace.block(1).unwrap().regs[Register::X3], 0x2088); // check global pointer is updated
 
-        let step = block.steps[0].clone();
+        let step = &block.steps[0];
 
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, ELF_TEXT_START);
@@ -548,7 +548,7 @@ mod tests {
         assert!(step.memory_records.is_empty());
 
         let block = trace.block(2).unwrap();
-        let step = block.steps[0].clone();
+        let step = &block.steps[0];
 
         assert_eq!(step.timestamp, 3);
         assert_eq!(step.pc, 0x90);
@@ -562,7 +562,7 @@ mod tests {
 
         assert_eq!(block.steps.len(), 1);
 
-        let step = block.steps[0].clone();
+        let step = &block.steps[0];
 
         assert_eq!(step.timestamp, trace.blocks.len() as u32);
         assert_eq!(step.pc, 0xCC);
@@ -585,7 +585,7 @@ mod tests {
         assert_eq!(block.steps.len(), 8);
         assert_eq!(trace.block(1).unwrap().regs[Register::X3], 0x1F30); // check global pointer is updated (also after `addi gp, gp, -264` at timestamp 2)
 
-        let step = block.steps[0].clone();
+        let step = &block.steps[0];
 
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, 0x88);
@@ -600,7 +600,7 @@ mod tests {
 
         assert_eq!(block.steps.len(), 8);
 
-        let step = block.steps[4].clone();
+        let step = &block.steps[4];
 
         assert_eq!(step.timestamp, 13);
         assert_eq!(step.pc, 0x25C);
@@ -614,7 +614,7 @@ mod tests {
 
         assert!(block.steps.len() <= 8);
 
-        let step = block.steps.last().unwrap().clone();
+        let step = block.steps.last().unwrap();
 
         assert_eq!(
             step.timestamp,
@@ -639,7 +639,7 @@ mod tests {
 
         assert_eq!(trace.block(1).unwrap().regs[Register::X3], 0x1F30); // check global pointer is updated (also after `addi gp, gp, -264` at timestamp 2)
 
-        let step = block.steps[0].clone();
+        let step = &block.steps[0];
 
         assert_eq!(step.timestamp, 1);
         assert_eq!(step.pc, ELF_TEXT_START);
@@ -652,7 +652,7 @@ mod tests {
         // check a memory operation
         let block = trace.block(4).unwrap();
 
-        let step = block.steps[1].clone();
+        let step = &block.steps[1];
 
         assert_eq!(step.timestamp, 75);
         assert_eq!(step.pc, 4756);
@@ -668,7 +668,7 @@ mod tests {
 
         assert!(block.steps.len() <= 9);
 
-        let step = block.steps.last().unwrap().clone();
+        let step = block.steps.last().unwrap();
 
         assert_eq!(step.pc, 0xCC);
         assert_eq!(step.next_pc, 0xCC);
