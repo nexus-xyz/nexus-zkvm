@@ -134,40 +134,6 @@ mod tests {
     use crate::{memory::MemorySegmentImage, read_testing_elf_from_path};
 
     use super::*;
-    use std::fs::File;
-    use std::io::Write;
-
-    #[allow(dead_code)]
-    fn write_instruction_to_file(instructions: &[u32], file_path: &str) {
-        let mut file = File::create(file_path).unwrap();
-        for &instruction in instructions {
-            file.write_all(&instruction.to_le_bytes()).unwrap();
-        }
-    }
-
-    #[allow(dead_code)]
-    fn write_memory_to_file(memory: &MemorySegmentImage, file_path: &str) {
-        let mut file = File::create(file_path).unwrap();
-        file.write_all(memory.as_byte_slice()).unwrap();
-    }
-
-    #[allow(dead_code)]
-    fn debug_elf_file(elf: &ElfFile, file_path: &str) {
-        dbg!(elf.instructions.len());
-        dbg!(elf.entry);
-        dbg!(elf.base);
-        dbg!(elf.ram_image.len_bytes());
-        dbg!(elf.rom_image.len_bytes());
-
-        // Write elf.instructions to a file
-        write_instruction_to_file(&elf.instructions, &format!("{file_path}.inst.bin"));
-
-        // Write elf.memory_image to a file
-        write_memory_to_file(&elf.ram_image, &format!("{file_path}.mem.bin"));
-
-        // Write elf.readonly_memory_image to a file
-        write_memory_to_file(&elf.rom_image, &format!("{file_path}.rom.bin"));
-    }
 
     #[test]
     fn test_parse_elf_files() {
