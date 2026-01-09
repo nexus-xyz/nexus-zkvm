@@ -204,7 +204,8 @@ impl Executor {
 
     /// Set or overwrite private input into the private input tape
     fn set_private_input(&mut self, private_input: &[u8]) {
-        self.private_input_tape = VecDeque::<u8>::from(private_input.to_vec());
+        // Avoid intermediate Vec allocation; VecDeque collects directly from the slice.
+        self.private_input_tape = private_input.iter().copied().collect();
     }
 
     /// Set whether to capture logs or print out.
@@ -467,8 +468,10 @@ impl HarvardEmulator {
             .unwrap();
 
         // Add the public input length to the beginning of the public input.
-        let len_bytes = (public_input.len()) as u32;
-        let public_input_with_len = [&len_bytes.to_le_bytes()[..], public_input].concat();
+        let len_bytes = public_input.len() as u32;
+        let mut public_input_with_len = Vec::with_capacity(WORD_SIZE + public_input.len());
+        public_input_with_len.extend_from_slice(&len_bytes.to_le_bytes());
+        public_input_with_len.extend_from_slice(public_input);
 
         let mut emulator = Self {
             executor: Executor {
@@ -706,11 +709,7 @@ impl Emulator for HarvardEmulator {
             })
             .collect();
 
-        let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
-            self.get_executor().logs.clone().unwrap()
-        } else {
-            Vec::new()
-        };
+        let debug_logs = self.get_executor().logs.clone().unwrap_or_default();
 
         let input_size = ro_initial_memory.len() + rw_initial_memory.len() + input_memory.len();
         let tracked_ram_size = self
@@ -1237,11 +1236,7 @@ impl Emulator for LinearEmulator {
             })
             .collect();
 
-        let debug_logs: Vec<Vec<u8>> = if self.get_executor().logs.is_some() {
-            self.get_executor().logs.clone().unwrap()
-        } else {
-            Vec::new()
-        };
+        let debug_logs = self.get_executor().logs.clone().unwrap_or_default();
 
         let associated_data = self
             .memory
