@@ -2,6 +2,18 @@ use std::fmt::{Debug, Display};
 
 use crate::constants::WORD_SIZE;
 
+#[inline(always)]
+fn debug_assert_valid_alignment<const N: usize>() {
+    // Rust doesn't tolerate const computations on generics for some reason.
+    debug_assert!(N.count_ones() == 1);
+}
+
+#[inline(always)]
+fn debug_assert_valid_alignment_u32<const N: usize>() {
+    debug_assert_valid_alignment::<N>();
+    debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
+}
+
 pub trait Alignable: Sized + Copy + Display + Debug {
     /// Align the value to the lowest multiple of `WORD_SIZE` at least as large as `self`.
     fn word_align(self) -> Self {
@@ -51,25 +63,19 @@ pub trait Alignable: Sized + Copy + Display + Debug {
 
 impl Alignable for u32 {
     fn align_to<const N: usize>(self) -> Self {
-        // Rust doesn't tolerate const computations on generics for some reason.
-        debug_assert!(N.count_ones() == 1);
-        debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
+        debug_assert_valid_alignment_u32::<N>();
 
         self.next_multiple_of(N as u32)
     }
 
     fn next_aligned_boundary<const N: usize>(self) -> Self {
-        // Rust doesn't tolerate const computations on generics for some reason.
-        debug_assert!(N.count_ones() == 1);
-        debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
+        debug_assert_valid_alignment_u32::<N>();
 
         (self + N as u32) & !(N as u32 - 1)
     }
 
     fn is_aligned_to<const N: usize>(self) -> bool {
-        // Rust doesn't tolerate const computations on generics for some reason.
-        debug_assert!(N.count_ones() == 1);
-        debug_assert!(N.trailing_zeros() < 32); // ensure N fits in u32
+        debug_assert_valid_alignment_u32::<N>();
 
         self & (N as u32 - 1) == 0
     }
@@ -81,22 +87,19 @@ impl Alignable for u32 {
 
 impl Alignable for usize {
     fn align_to<const N: usize>(self) -> Self {
-        // Rust doesn't tolerate const computations on generics for some reason.
-        debug_assert!(N.count_ones() == 1);
+        debug_assert_valid_alignment::<N>();
 
         self.next_multiple_of(N)
     }
 
     fn next_aligned_boundary<const N: usize>(self) -> Self {
-        // Rust doesn't tolerate const computations on generics for some reason.
-        debug_assert!(N.count_ones() == 1);
+        debug_assert_valid_alignment::<N>();
 
         (self + N) & !(N - 1)
     }
 
     fn is_aligned_to<const N: usize>(self) -> bool {
-        // Rust doesn't tolerate const computations on generics for some reason.
-        debug_assert!(N.count_ones() == 1);
+        debug_assert_valid_alignment::<N>();
 
         self & (N - 1) == 0
     }
