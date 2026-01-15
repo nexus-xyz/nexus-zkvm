@@ -67,7 +67,7 @@ pub(crate) fn generate_statics(paths: &Vec<PrecompilePath>) -> Result<TokenStrea
             Err(e) => {
                 return Err(syn::Error::new(
                     path.as_syn_path().span(),
-                    format!("Failed to serialize metadata for {}", e),
+                    format!("Failed to serialize metadata for {e}"),
                 ));
             }
             Ok(data) => data,
