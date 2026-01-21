@@ -357,6 +357,12 @@ fn parse_precompile_metadata(
         }
 
         let suffix: &str = &name[PRECOMPILE_SYMBOL_PREFIX.len()..];
+
+        // Skip PRECOMPILE_COUNT symbol which is not a numeric index
+        if suffix == "COUNT" {
+            continue;
+        }
+
         let precompile_index: u16 = suffix.parse::<u16>().map_err(ParserError::ParseIntError)?;
 
         // str is represented as a [u8], which contains two words: a pointer and a length.
