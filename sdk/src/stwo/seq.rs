@@ -7,6 +7,9 @@ use thiserror::Error;
 
 use crate::error::{BuildError, ConfigurationError, IOError, PathError};
 
+/// Re-export ExtensionComponent.
+pub use nexus_core::stwo::ExtensionComponent;
+
 /// Errors that occur while proving using Stwo.
 #[derive(Debug, Error)]
 pub enum Error {
@@ -53,6 +56,8 @@ pub struct Stwo<C: Compute = Local> {
     pub elf: nexus_core::nvm::ElfFile,
     /// The associated data to prove with.
     pub ad: Vec<u8>,
+    /// Extensions to use during proving.
+    extensions: Vec<ExtensionComponent>,
     _compute: PhantomData<C>,
 }
 
@@ -76,6 +81,14 @@ where
     }
 }
 
+impl Stwo<Local> {
+    /// Add extensions to use during proving.
+    pub fn with_extensions(mut self, extensions: &[ExtensionComponent]) -> Self {
+        self.extensions = extensions.to_vec();
+        self
+    }
+}
+
 impl Prover for Stwo<Local> {
     type Proof = Proof;
     type View = nexus_core::nvm::View;
@@ -86,6 +99,7 @@ impl Prover for Stwo<Local> {
         Ok(Self {
             elf: elf.clone(),
             ad: Vec::new(),
+            extensions: Vec::new(),
             _compute: PhantomData,
         })
     }
@@ -136,7 +150,7 @@ impl Prover for Stwo<Local> {
             private_encoded.as_slice(),
             1,
         )?;
-        let proof = nexus_core::stwo::prove(&trace, &view)?;
+        let proof = nexus_core::stwo::prove_with_extensions(&self.extensions, &trace, &view)?;
 
         Ok((
             view,
@@ -145,6 +159,18 @@ impl Prover for Stwo<Local> {
                 memory_layout: trace.memory_layout,
             },
         ))
+    }
+}
+
+impl Proof {
+    /// Verify the proof with the given extensions.
+    pub fn verify_with_extensions(
+        &self,
+        extensions: &[ExtensionComponent],
+        view: &nexus_core::nvm::View,
+    ) -> Result<(), Error> {
+        nexus_core::stwo::verify_with_extensions(extensions, self.proof.clone(), view)?;
+        Ok(())
     }
 }
 
