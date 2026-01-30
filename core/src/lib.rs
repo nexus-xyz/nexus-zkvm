@@ -20,5 +20,8 @@ pub mod nvm {
 
 /// Stwo proving
 pub mod stwo {
-    pub use nexus_vm_prover::{prove, verify, Proof, ProvingError, VerificationError};
+    pub use nexus_vm_prover::{
+        prove, prove_with_extensions, verify, verify_with_extensions, ExtensionComponent, Proof,
+        ProvingError, VerificationError,
+    };
 }
