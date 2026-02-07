@@ -4,7 +4,7 @@ use nexus_common_testing::emulator::{
     compile_guest_project, setup_guest_project, write_guest_source_code, EmulatorType,
 };
 use nexus_vm::elf::ElfFile;
-use nexus_vm::trace::{k_trace, Trace};
+use nexus_vm::trace::k_trace;
 use nexus_vm_prover::{prove, verify};
 use num_cpus;
 use postcard;
