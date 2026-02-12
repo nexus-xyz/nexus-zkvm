@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-    use std::{path::PathBuf, process::Command};
+    use std::{path::Path, process::Command};
     use tempfile::{tempdir, TempDir};
     /// Create a temporary directory with a new Cargo project that has nexus_rt as a local dependency.
     fn create_tmp_dir() -> TempDir {
@@ -37,15 +37,15 @@ mod test {
     }
 
     /// Apply the procedural macros to the input file, and return the expansions for (riscv, native) targets.
-    fn apply_proc_macro(tmp_project_path: PathBuf, test: String) -> (String, String) {
+    fn apply_proc_macro(tmp_project_path: &Path, test: &str) -> (String, String) {
         // Overwrite the main.rs file with the test file.
         let test_file = format!("macro_expansion_tests/tests/{test}.rs");
-        let main_file = format!("{}/src/main.rs", tmp_project_path.clone().to_str().unwrap());
+        let main_file = format!("{}/src/main.rs", tmp_project_path.to_str().unwrap());
         std::fs::copy(&test_file, &main_file).expect("Failed to copy test file");
 
         // Expand the procedural macro using native target.
         let output = Command::new("cargo")
-            .current_dir(tmp_project_path.clone())
+            .current_dir(tmp_project_path)
             .arg("expand")
             .output()
             .expect("Failed to run test");
@@ -60,7 +60,7 @@ mod test {
 
         // Expand the procedural macro using riscv target.
         let output = Command::new("cargo")
-            .current_dir(tmp_project_path.clone())
+            .current_dir(tmp_project_path)
             .arg("expand")
             .arg("--target")
             .arg("riscv32im-unknown-none-elf")
@@ -93,7 +93,7 @@ mod test {
 
         for test in tests {
             let (expand_riscv, exp_str_native) =
-                apply_proc_macro(tmp_project_path.clone(), test.to_string());
+                apply_proc_macro(&tmp_project_path, test);
 
             // Write the stdout to a file.
             if GENERATE_EXPECTATIONS {
