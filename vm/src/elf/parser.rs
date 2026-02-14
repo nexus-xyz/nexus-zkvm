@@ -326,7 +326,7 @@ impl Ord for PrecompileDescription<'_> {
 /// Parses the precompile metadata from the ELF file. This function finds all symbols that indicate
 /// pieces of precompile metadata and then ensures that there is a complete contiguous set of unique
 /// precompiles labeled 0 though N-1 via heapification.
-#[allow(dead_code)]
+#[cfg(test)]
 fn parse_precompile_metadata(
     elf: &ElfBytes<LittleEndian>,
     data: &[u8],
@@ -428,30 +428,6 @@ fn parse_precompile_metadata(
     Ok(precompiles)
 }
 
-#[allow(dead_code)]
-fn debug_segment_info(segment: &ProgramHeader, section_map: &HashMap<&str, (u64, u64)>) {
-    println!("Program Header Information:");
-    println!("  Segment Type: 0x{:08x}", segment.p_type);
-    println!("  File Offset: 0x{:016x}", segment.p_offset);
-    println!("  Virtual Address: 0x{:016x}", segment.p_vaddr);
-    println!("  Physical Address: 0x{:016x}", segment.p_paddr);
-    println!("  File Size: {} bytes", segment.p_filesz);
-    println!("  Memory Size: {} bytes", segment.p_memsz);
-    println!("  Flags: 0x{:08x}", segment.p_flags);
-    println!("  Alignment: 0x{:016x}", segment.p_align);
-    println!(
-        "  LOADABLE: 0x{:08x} -> 0x{:08x}",
-        segment.p_offset,
-        segment.p_offset + segment.p_filesz
-    );
-
-    for (key, (start, end)) in section_map {
-        if !(*end < segment.p_offset || *start > segment.p_offset + segment.p_filesz) {
-            println!("Section {key}: 0x{start:08x} -> 0x{end:08x}");
-        }
-    }
-}
-
 /// Parses the segments of an ELF file and extracts relevant information.
 ///
 /// This function iterates through the LOAD segments of the ELF file, extracting
@@ -489,9 +465,6 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
         .iter()
         .filter(|x| x.p_type == abi::PT_LOAD || x.p_type == abi::PT_NOTE)
     {
-        // TODO: Uncomment this when we need to debug the segment info
-        // #[cfg(debug_assertions)]
-        // debug_segment_info(&segment, &section_map);
         // We assume the executable section (PF_X or .text section) is the first executable segment,
         // thus it has the lower address, we use this information to figure out the base address of the program
         if (segment.p_flags & abi::PF_X) != 0 && base_address > segment.p_vaddr {
