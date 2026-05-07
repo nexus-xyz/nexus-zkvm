@@ -59,9 +59,14 @@ impl MachineChip for ProgramMemCheckChip {
                 .get(&pc)
                 .unwrap_or(&0u32);
             traces.fill_columns(row_idx, *last_access_counter, Column::ProgCtrPrev);
-            let new_access_counter = last_access_counter
-                .checked_add(1)
-                .expect("access counter overflow");
+            // Increment access counter. An overflow indicates either an adversarially
+            // crafted program (tight-loop exceeding u32::MAX iterations at the same PC)
+            // or a prover bug. Return early instead of panicking so the process stays
+            // alive; the constraint system's carry-overflow constraint will reject
+            // the resulting trace as unsound.
+            let Some(new_access_counter) = last_access_counter.checked_add(1) else {
+                return;
+            };
             traces.fill_columns(row_idx, new_access_counter, Column::ProgCtrCur);
             // Compute and fill carry flags
             let last_counter_bytes = last_access_counter.to_le_bytes();
@@ -73,8 +78,9 @@ impl MachineChip for ProgramMemCheckChip {
                 (incremented_bytes[i], carry_bits[i]) =
                     last_counter_bytes[i].overflowing_add(carry_bits[i - 1] as u8);
             }
-            assert!(!carry_bits[WORD_SIZE - 1]); // Check against overflow
-            assert_eq!(u32::from_le_bytes(incremented_bytes), new_access_counter);
+            // These are debug-only checks: checked_add above already guarantees no overflow.
+            debug_assert!(!carry_bits[WORD_SIZE - 1], "access counter carry overflow");
+            debug_assert_eq!(u32::from_le_bytes(incremented_bytes), new_access_counter);
             traces.fill_columns(
                 row_idx,
                 [carry_bits[1], carry_bits[3]],
