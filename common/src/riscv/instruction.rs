@@ -76,6 +76,17 @@ impl Instruction {
             );
         }
 
+        if ins_type == InstructionType::IType || ins_type == InstructionType::SType {
+            // I-type and S-type immediates are 12-bit signed values in [-2048, 2047].
+            // Values outside this range are silently truncated during encoding, producing
+            // instructions that do not match the intent of the caller.
+            let imm = op_c as i32;
+            debug_assert!(
+                (-2048..=2047).contains(&imm),
+                "IType/SType immediate must be a 12-bit signed value in [-2048, 2047], got {imm}"
+            );
+        }
+
         Self::new(
             opcode,
             Register::from(op_a),
