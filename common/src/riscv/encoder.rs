@@ -245,26 +245,41 @@ mod tests {
 
     #[test]
     fn test_j_type_jump_boundaries() {
-        // Test with a large positive jump: JAL x1, +1MB (1048576)
-        let pos_ins = Instruction {
+        // +1MB (1048576 = 2^20) equals the J-type signed minimum (-2^20) in 21-bit
+        // two's-complement, so both produce the same encoding.  This test documents
+        // that property but does NOT exercise a positive/negative distinction.
+        let overflow_ins = Instruction {
             opcode: Opcode::from(BuiltinOpcode::JAL),
             ins_type: InstructionType::JType,
             op_a: 1.into(),
             op_b: 0.into(),
             op_c: 1048576,
         };
-        let encoded_pos = pos_ins.encode();
-        assert_eq!(encoded_pos, 0x800000EF);
+        assert_eq!(overflow_ins.encode(), 0x800000EF);
 
-        // Test with a large negative jump: JAL x1, -1MB (-1048576)
+        // Valid small positive jump: JAL x1, +16
+        // imm[10:1]=8, all other imm bits zero.
+        let pos_ins = Instruction {
+            opcode: Opcode::from(BuiltinOpcode::JAL),
+            ins_type: InstructionType::JType,
+            op_a: 1.into(),
+            op_b: 0.into(),
+            op_c: 16,
+        };
+        let encoded_pos = pos_ins.encode();
+        assert_eq!(encoded_pos, 0x10000EF);
+
+        // Valid small negative jump: JAL x1, -8
+        // imm=-8: imm[20]=1, imm[19:12]=0xFF, imm[11]=1, imm[10:1]=0x3FC
+        // Expected: 0x80000000|0x7F800000|0x100000|0xFF000|0x80|0x6F = 0xFF9FF0EF
         let neg_ins = Instruction {
             opcode: Opcode::from(BuiltinOpcode::JAL),
             ins_type: InstructionType::JType,
             op_a: 1.into(),
             op_b: 0.into(),
-            op_c: -1048576i32 as u32,
+            op_c: -8i32 as u32,
         };
         let encoded_neg = neg_ins.encode();
-        assert_eq!(encoded_neg, 0x800000EF);
+        assert_eq!(encoded_neg, 0xFF9FF0EF);
     }
 }
