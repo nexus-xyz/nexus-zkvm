@@ -120,6 +120,22 @@ impl MachineChip for LoadStoreChip {
             add_with_carries(value_a, offset)
         };
         traces.fill_columns(row_idx, ram_base_address, Column::RamBaseAddr);
+
+        let alignment_divisor: Option<u8> = match vm_step.step.instruction.opcode.builtin() {
+            Some(BuiltinOpcode::LH) | Some(BuiltinOpcode::LHU) | Some(BuiltinOpcode::SH) => Some(2),
+            Some(BuiltinOpcode::LW) | Some(BuiltinOpcode::SW) => Some(4),
+            _ => None,
+        };
+        if let Some(divisor) = alignment_divisor {
+            // Witness data only: malformed traces must be rejected by AIR
+            // constraints, not by panicking during trace construction.
+            traces.fill_columns(
+                row_idx,
+                ram_base_address[0] / divisor,
+                Column::RamBaseAddrAlignmentQuotient,
+            );
+        }
+
         let carry_bits = [carry_bits[1], carry_bits[3]];
         traces.fill_columns(row_idx, carry_bits, Column::CarryFlag);
         let clk = row_idx as u32 + 1;
@@ -447,6 +463,32 @@ impl MachineChip for LoadStoreChip {
         eval.add_constraint(helper4[WORD_SIZE - 1].clone() * ram3_4_accessed.clone());
 
         let ram_base_addr = trace_eval!(trace_eval, Column::RamBaseAddr);
+        {
+            let [is_lh] = trace_eval!(trace_eval, IsLh);
+            let [is_lhu] = trace_eval!(trace_eval, IsLhu);
+            let [is_lw] = trace_eval!(trace_eval, IsLw);
+            let [is_sh] = trace_eval!(trace_eval, IsSh);
+            let [is_sw] = trace_eval!(trace_eval, IsSw);
+            let [alignment_quotient] =
+                trace_eval!(trace_eval, Column::RamBaseAddrAlignmentQuotient);
+
+            let is_halfword_access = is_lh + is_lhu + is_sh;
+            let is_word_access = is_lw + is_sw;
+
+            // Close the VM/AIR semantic gap: the runtime memory layer rejects
+            // unaligned halfword and word accesses, and these constraints force
+            // the proved effective address to obey the same rule.
+            eval.add_constraint(
+                is_halfword_access
+                    * (ram_base_addr[0].clone()
+                        - alignment_quotient.clone() * BaseField::from(2u32)),
+            );
+
+            eval.add_constraint(
+                is_word_access
+                    * (ram_base_addr[0].clone() - alignment_quotient * BaseField::from(4u32)),
+            );
+        }
         let carry_flag = trace_eval!(trace_eval, Column::CarryFlag);
         let value_b = trace_eval!(trace_eval, Column::ValueB);
         let value_c = trace_eval!(trace_eval, Column::ValueC);
@@ -1077,6 +1119,73 @@ mod test {
             view.get_public_output(),
         )
         .unwrap();
+    }
+
+    fn alignment_trace(op: Column, address: u32, quotient: u8) -> TracesBuilder {
+        let mut traces = TracesBuilder::new(LOG_SIZE);
+
+        traces.fill_columns(0, true, op);
+        traces.fill_columns(0, address, Column::RamBaseAddr);
+        traces.fill_columns(0, quotient, Column::RamBaseAddrAlignmentQuotient);
+
+        match op {
+            Column::IsSh | Column::IsSw => {
+                traces.fill_columns(0, address, Column::ValueA);
+                traces.fill_columns(0, 0u32, Column::ValueB);
+            }
+            _ => {
+                traces.fill_columns(0, 0u32, Column::ValueA);
+                traces.fill_columns(0, address, Column::ValueB);
+            }
+        }
+
+        traces
+    }
+
+    fn assert_alignment_constraints_reject(op: Column, address: u32, quotient: u8) {
+        let traces = alignment_trace(op, address, quotient);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+            assert_chip::<LoadStoreChip>(traces, None);
+        }));
+
+        assert!(
+            result.is_err(),
+            "unaligned load/store trace unexpectedly satisfied LoadStoreChip constraints"
+        );
+    }
+
+    #[test]
+    fn test_unaligned_lh_rejected_in_air() {
+        assert_alignment_constraints_reject(Column::IsLh, 0x0000_1001, 0);
+    }
+
+    #[test]
+    fn test_unaligned_lhu_rejected_in_air() {
+        assert_alignment_constraints_reject(Column::IsLhu, 0x0000_1001, 0);
+    }
+
+    #[test]
+    fn test_unaligned_lw_rejected_in_air() {
+        assert_alignment_constraints_reject(Column::IsLw, 0x0000_1002, 0);
+    }
+
+    #[test]
+    fn test_issue_605_unaligned_halfword_store_rejected_in_air() {
+        assert_alignment_constraints_reject(Column::IsSh, 0x0000_1001, 0);
+    }
+
+    #[test]
+    fn test_issue_605_unaligned_word_store_rejected_in_air() {
+        assert_alignment_constraints_reject(Column::IsSw, 0x0000_1002, 0);
+    }
+
+    #[test]
+    fn test_aligned_halfword_and_word_accesses_accepted_in_air() {
+        assert_chip::<LoadStoreChip>(alignment_trace(Column::IsLh, 0x0000_1002, 1), None);
+        assert_chip::<LoadStoreChip>(alignment_trace(Column::IsLhu, 0x0000_1002, 1), None);
+        assert_chip::<LoadStoreChip>(alignment_trace(Column::IsLw, 0x0000_1004, 1), None);
+        assert_chip::<LoadStoreChip>(alignment_trace(Column::IsSh, 0x0000_1002, 1), None);
+        assert_chip::<LoadStoreChip>(alignment_trace(Column::IsSw, 0x0000_1004, 1), None);
     }
 
     #[test]

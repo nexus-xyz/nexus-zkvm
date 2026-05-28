@@ -71,6 +71,19 @@ impl MachineChip for Range128Chip {
         fill_main_col(qt_aux, is_lh, side_note);
         let [is_lb] = traces.column(row_idx, Column::IsLb);
         fill_main_col(qt_aux, is_lb, side_note);
+
+        let [alignment_quotient] = traces.column(row_idx, Column::RamBaseAddrAlignmentQuotient);
+        let [is_lh_alignment] = traces.column(row_idx, Column::IsLh);
+        let [is_lhu] = traces.column(row_idx, Column::IsLhu);
+        let [is_lw] = traces.column(row_idx, Column::IsLw);
+        let [is_sh] = traces.column(row_idx, Column::IsSh);
+        let [is_sw] = traces.column(row_idx, Column::IsSw);
+        let alignment_selector = is_lh_alignment + is_lhu + is_lw + is_sh + is_sw;
+
+        // q is used by LoadStoreChip to prove addr_low = 2*q or addr_low = 4*q.
+        // Keep q in [0, 127], so unaligned addresses cannot be represented by
+        // arbitrary field elements such as 1/2 or 3/4.
+        fill_main_col(alignment_quotient, alignment_selector, side_note);
     }
     /// Fills the whole interaction trace in one-go using SIMD in the stwo-usual way
     ///
@@ -121,6 +134,23 @@ impl MachineChip for Range128Chip {
         check_col(
             qt_aux,
             &[is_lh, is_lb],
+            original_traces.log_size(),
+            logup_trace_gen,
+            lookup_element,
+        );
+
+        let [alignment_quotient] =
+            original_traces.get_base_column(Column::RamBaseAddrAlignmentQuotient);
+        let [is_lh_alignment] = original_traces.get_base_column(Column::IsLh);
+        let [is_lhu] = original_traces.get_base_column(Column::IsLhu);
+        let [is_lw] = original_traces.get_base_column(Column::IsLw);
+        let [is_sh] = original_traces.get_base_column(Column::IsSh);
+        let [is_sw] = original_traces.get_base_column(Column::IsSw);
+        let alignment_selectors = &[is_lh_alignment, is_lhu, is_lw, is_sh, is_sw];
+
+        check_col(
+            alignment_quotient,
+            alignment_selectors,
             original_traces.log_size(),
             logup_trace_gen,
             lookup_element,
@@ -179,6 +209,20 @@ impl MachineChip for Range128Chip {
             lookup_elements,
             numerator.into(),
             &[qt_aux],
+        ));
+
+        let [alignment_quotient] = trace_eval.column_eval(Column::RamBaseAddrAlignmentQuotient);
+        let [is_lh_alignment] = trace_eval.column_eval(Column::IsLh);
+        let [is_lhu] = trace_eval.column_eval(Column::IsLhu);
+        let [is_lw] = trace_eval.column_eval(Column::IsLw);
+        let [is_sh] = trace_eval.column_eval(Column::IsSh);
+        let [is_sw] = trace_eval.column_eval(Column::IsSw);
+        let alignment_selector = is_lh_alignment + is_lhu + is_lw + is_sh + is_sw;
+
+        eval.add_to_relation(RelationEntry::new(
+            lookup_elements,
+            alignment_selector.into(),
+            &[alignment_quotient],
         ));
     }
 }
@@ -303,6 +347,56 @@ mod test {
         } = commit_traces::<Range128Chip>(config, &twiddles, &traces.finalize(), None);
 
         // verify that logup sums don't match
+        let ext = ExtensionComponent::multiplicity128();
+        let component_trace = ext.generate_component_trace(
+            128u32.trailing_zeros(),
+            program_trace_ref,
+            &mut side_note,
+        );
+        let (_, claimed_sum_2) =
+            ext.generate_interaction_trace(component_trace, &side_note, &lookup_elements);
+        assert_ne!(claimed_sum + claimed_sum_2, SecureField::zero());
+    }
+
+    #[test]
+    fn test_alignment_quotient_is_range_checked() {
+        const LOG_SIZE: u32 = PreprocessedBuilder::MIN_LOG_SIZE;
+        let (config, twiddles) = test_params(LOG_SIZE);
+        let mut traces = TracesBuilder::new(LOG_SIZE);
+        let program_info = ProgramInfo::dummy();
+        let program_trace_ref = ProgramTraceRef {
+            program_memory: &program_info,
+            init_memory: Default::default(),
+            exit_code: Default::default(),
+            public_output: Default::default(),
+        };
+        let program_traces = ProgramTracesBuilder::new(LOG_SIZE, program_trace_ref);
+        let mut side_note = SideNote::new(&program_traces, &HarvardEmulator::default().finalize());
+
+        for row_idx in 0..(1 << LOG_SIZE) {
+            traces.fill_columns(row_idx, true, Column::IsLw);
+            traces.fill_columns(row_idx, 0u8, Column::RamBaseAddrAlignmentQuotient);
+
+            Range128Chip::fill_main_trace(
+                &mut traces,
+                row_idx,
+                &Some(ProgramStep::default()),
+                &mut side_note,
+                &ExtensionsConfig::default(),
+            );
+        }
+
+        *traces.column_mut::<{ Column::RamBaseAddrAlignmentQuotient.size() }>(
+            0,
+            Column::RamBaseAddrAlignmentQuotient,
+        )[0] = BaseField::from(128u32);
+
+        let CommittedTraces {
+            claimed_sum,
+            lookup_elements,
+            ..
+        } = commit_traces::<Range128Chip>(config, &twiddles, &traces.finalize(), None);
+
         let ext = ExtensionComponent::multiplicity128();
         let component_trace = ext.generate_component_trace(
             128u32.trailing_zeros(),

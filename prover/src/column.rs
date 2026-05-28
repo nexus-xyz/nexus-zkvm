@@ -474,6 +474,11 @@ pub enum Column {
     /// The starting address of the read-write memory access
     #[size = 4]
     RamBaseAddr,
+    /// Quotient of the least-significant byte of `RamBaseAddr` by the required
+    /// alignment. Used only by load/store alignment AIR constraints: divided by
+    /// 2 on halfword accesses and by 4 on word accesses.
+    #[size = 1]
+    RamBaseAddrAlignmentQuotient,
     /// The new value of the read-write memory at RamBaseAddr, if accessed
     #[size = 1]
     Ram1ValCur,
