@@ -248,7 +248,7 @@ impl BuiltInComponent for ReadWriteMemory {
         // )
         eval.add_to_relation(RelationEntry::new(
             rel_inst_to_ram,
-            (is_local_pad - E::F::one()).into(),
+            (is_local_pad.clone() - E::F::one()).into(),
             &[
                 clk.as_slice(),
                 ram_base_addr.as_slice(),
@@ -257,9 +257,9 @@ impl BuiltInComponent for ReadWriteMemory {
                     ram2_val_cur,
                     ram3_val_cur,
                     ram4_val_cur,
-                    ram1_accessed,
-                    ram2_accessed,
-                    ram3_4_accessed,
+                    ram1_accessed.clone(),
+                    ram2_accessed.clone(),
+                    ram3_4_accessed.clone(),
                     ram_write,
                 ],
             ]
@@ -315,6 +315,13 @@ impl BuiltInComponent for ReadWriteMemory {
         }
 
         eval.finalize_logup_in_pairs();
+
+        // Local padding rows must be inert on every RAM lane. Besides matching the
+        // documented padding invariant, these constraints prevent free access flags
+        // from extending the memory history after the final executed instruction.
+        for ram_accessed in [ram1_accessed, ram2_accessed, ram3_4_accessed] {
+            eval.add_constraint(is_local_pad.clone() * ram_accessed);
+        }
     }
 }
 
@@ -462,15 +469,59 @@ mod tests {
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
+    use nexus_vm_prover_air_column::AirColumn;
     use stwo::core::fields::{m31::BaseField, FieldExpOps};
     use stwo_constraint_framework::Relation;
 
     use crate::{
         components::{read_write_memory_boundary::PrivateMemoryBoundary, RANGE256},
-        framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
+        framework::{
+            test_utils::{
+                assert_component, assert_component_trace, components_claimed_sum, AssertContext,
+            },
+            MachineComponent,
+        },
         lookups::RamWriteAddressLookupElements,
         verify::verify_logup_sum,
     };
+
+    #[test]
+    fn padding_rows_cannot_access_ram() {
+        let basic_block = vec![BasicBlock::new(vec![Instruction::new_ir(
+            Opcode::from(BuiltinOpcode::SB),
+            1,
+            0,
+            0,
+        )])];
+
+        for accessed_column in [
+            Column::Ram1Accessed,
+            Column::Ram2Accessed,
+            Column::Ram3_4Accessed,
+        ] {
+            let (view, program_trace) =
+                k_trace_direct(&basic_block, 1).expect("error generating trace");
+            let mut assert_ctx = AssertContext::new(&program_trace, &view);
+            let mut component_trace =
+                ReadWriteMemory.generate_component_trace(&mut assert_ctx.side_note);
+
+            let padding_row = component_trace.original_trace[Column::IsLocalPad.offset()]
+                .as_slice()
+                .iter()
+                .position(|value| *value == BaseField::one())
+                .expect("test trace must contain local padding");
+            component_trace.original_trace[accessed_column.offset()].as_mut_slice()[padding_row] =
+                BaseField::one();
+
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                assert_component_trace(ReadWriteMemory, component_trace, &assert_ctx);
+            }));
+            assert!(
+                result.is_err(),
+                "padding access through {accessed_column:?} unexpectedly satisfied the AIR"
+            );
+        }
+    }
 
     #[test]
     fn assert_rw_memory_constraints() {

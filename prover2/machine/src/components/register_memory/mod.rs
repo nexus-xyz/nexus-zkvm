@@ -336,6 +336,12 @@ impl BuiltInComponent for RegisterMemory {
         );
 
         eval.finalize_logup_in_pairs();
+
+        // A local padding row is not an executed instruction and must not extend
+        // any register-memory access chain.
+        for accessed in [reg1_accessed, reg2_accessed, reg3_accessed] {
+            eval.add_constraint(is_local_pad.clone() * accessed);
+        }
     }
 }
 
@@ -433,6 +439,7 @@ mod tests {
         riscv::{BasicBlock, BuiltinOpcode, Instruction, Opcode},
         trace::k_trace_direct,
     };
+    use nexus_vm_prover_air_column::AirColumn;
     use num_traits::Zero;
 
     use crate::{
@@ -440,8 +447,51 @@ mod tests {
             register_memory_boundary::RegisterMemoryBoundary, Cpu, CpuBoundary, ProgramMemory,
             ProgramMemoryBoundary, ADD, ADDI, RANGE16, RANGE256, RANGE64, RANGE8,
         },
-        framework::test_utils::{assert_component, components_claimed_sum, AssertContext},
+        framework::{
+            test_utils::{
+                assert_component, assert_component_trace, components_claimed_sum, AssertContext,
+            },
+            MachineComponent,
+        },
     };
+
+    #[test]
+    fn padding_rows_cannot_access_registers() {
+        let basic_block = vec![BasicBlock::new(vec![Instruction::new_ir(
+            Opcode::from(BuiltinOpcode::ADDI),
+            1,
+            0,
+            1,
+        )])];
+
+        for accessed_column in [
+            Column::Reg1Accessed,
+            Column::Reg2Accessed,
+            Column::Reg3Accessed,
+        ] {
+            let (view, program_trace) =
+                k_trace_direct(&basic_block, 1).expect("error generating trace");
+            let mut assert_ctx = AssertContext::new(&program_trace, &view);
+            let mut component_trace =
+                RegisterMemory.generate_component_trace(&mut assert_ctx.side_note);
+
+            let padding_row = component_trace.original_trace[Column::IsLocalPad.offset()]
+                .as_slice()
+                .iter()
+                .position(|value| *value == BaseField::one())
+                .expect("test trace must contain local padding");
+            component_trace.original_trace[accessed_column.offset()].as_mut_slice()[padding_row] =
+                BaseField::one();
+
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                assert_component_trace(RegisterMemory, component_trace, &assert_ctx);
+            }));
+            assert!(
+                result.is_err(),
+                "padding access through {accessed_column:?} unexpectedly satisfied the AIR"
+            );
+        }
+    }
 
     #[test]
     fn assert_register_memory_constraints() {

@@ -5,7 +5,10 @@ use stwo::core::{
 use stwo_constraint_framework::{assert_constraints_on_polys, FrameworkEval};
 
 use nexus_vm::{emulator::View, trace::Trace};
-use nexus_vm_prover_trace::eval::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX};
+use nexus_vm_prover_trace::{
+    component::ComponentTrace,
+    eval::{ORIGINAL_TRACE_IDX, PREPROCESSED_TRACE_IDX},
+};
 
 use super::{eval::BuiltInComponentEval, BuiltInComponent, MachineComponent};
 use crate::{
@@ -44,13 +47,28 @@ where
     C: BuiltInComponent + 'static + Sync,
     C::LookupElements: 'static + Sync,
 {
+    // Main trace.
+    let component_trace = component.generate_component_trace(&mut assert_ctx.side_note);
+    assert_component_trace(component, component_trace, assert_ctx)
+}
+
+/// Asserts constraints of a builtin component against a supplied component trace.
+///
+/// This is useful for negative tests that deliberately corrupt an otherwise valid trace.
+pub fn assert_component_trace<C>(
+    component: C,
+    component_trace: ComponentTrace,
+    assert_ctx: &AssertContext,
+) -> SecureField
+where
+    C: BuiltInComponent + 'static + Sync,
+    C::LookupElements: 'static + Sync,
+{
     let AssertContext {
         lookup_elements,
         side_note: prover_side_note,
     } = assert_ctx;
 
-    // Main trace.
-    let component_trace = component.generate_component_trace(prover_side_note);
     let log_size = component_trace.log_size();
 
     // Interaction trace.
