@@ -286,14 +286,19 @@ fn fill_main_for_type<VC: VirtualColumn<1>>(
     if step_is_of_type {
         for col in columns.iter() {
             let [val] = traces.column(row_idx, *col);
-            fill_main_elm(val, side_note);
+            let max_val = if *col == Column::MulCarry1 { 5 } else { 8 };
+            fill_main_elm_with_max(val, max_val, side_note);
         }
     }
 }
 
 fn fill_main_elm(col: BaseField, side_note: &mut SideNote) {
+    fill_main_elm_with_max(col, 8, side_note);
+}
+
+fn fill_main_elm_with_max(col: BaseField, max_val: u32, side_note: &mut SideNote) {
     let checked = col.0;
     #[cfg(not(test))] // Tests need to go past this assertion and break constraints.
-    assert!(checked < 8, "value is out of range {checked}");
+    assert!(checked < max_val, "value is out of range {checked}");
     side_note.range8.multiplicity[checked as usize] += 1;
 }
