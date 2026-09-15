@@ -19,7 +19,7 @@ name = "cargo-nexus"
 path = "src/bin/cargo-nexus.rs"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1.0.104"
 dotenvy = "0.15.7"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = [
@@ -29,7 +29,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
     "env-filter",
 ] }
 
-cargo_metadata = "0.18.1"
+cargo_metadata = "0.23.1"
 clap.workspace = true
 
 nexus-core = { path = "../core" }

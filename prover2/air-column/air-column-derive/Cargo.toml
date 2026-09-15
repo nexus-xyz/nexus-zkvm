@@ -13,9 +13,9 @@ publish.workspace = true
 proc-macro = true
 
 [dependencies]
-proc-macro2 = "1.0"
-syn = { version = "1.0", features = ["full", "extra-traits"] }
-quote = "1.0"
-proc-macro-crate = "3.3.0"
-convert_case = "0.7.1"
+proc-macro2 = "1.0.107"
+syn = { version = "3.0.5", features = ["full", "extra-traits"] }
+quote = "1.0.47"
+proc-macro-crate = "3.5.0"
+convert_case = "0.12.0"
 

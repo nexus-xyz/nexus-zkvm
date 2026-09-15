@@ -17,8 +17,8 @@ nexus-common-testing = { path = "../../common-testing" }
 postcard = { version = "1.0.10", features = ["alloc"] }
 serde.workspace = true
 tempfile = "3.13"
-chrono = "0.4"
-libc = "0.2"
+chrono = "0.4.45"
+libc = "1.0.0-alpha.4"
 
 [dev-dependencies]
 serial_test = "3.2.0"
