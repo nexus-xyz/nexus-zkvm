@@ -203,7 +203,7 @@ fn handle_profile_cycles(vm: &mut NexusVM<impl Memory>) -> Result<()> {
 
     let fn_name = label
         .split('#')
-        .last()
+        .next_back()
         .ok_or(NexusVMError::InvalidProfileLabel)?
         .to_owned();
 
@@ -240,7 +240,7 @@ fn end_profile(vm: &mut NexusVM<impl Memory>, fn_name: String) -> Result<()> {
 pub fn eval_inst(vm: &mut NexusVM<impl Memory>) -> Result<()> {
     if vm
         .max_trace_len
-        .map_or(false, |max_trace_len| max_trace_len <= vm.trace_len)
+        .is_some_and(|max_trace_len| max_trace_len <= vm.trace_len)
     {
         return Err(NexusVMError::MaxTraceLengthExceeded(vm.trace_len));
     }

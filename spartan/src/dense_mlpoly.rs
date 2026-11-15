@@ -477,7 +477,7 @@ mod tests {
     let mut R: Vec<F> = Vec::new();
 
     let ell = r.len();
-    assert!(ell % 2 == 0); // ensure ell is even
+    assert!(ell.is_multiple_of(2)); // ensure ell is even
     let n = ell.pow2();
     let m = n.square_root();
 

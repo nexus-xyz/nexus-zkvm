@@ -85,9 +85,7 @@ impl Prover for Nova<Local> {
             iopts.set_memlimit(4);
         }
 
-        let elf_path = iopts
-            .build(&compile::ForProver::Default)
-            .map_err(BuildError::from)?;
+        let elf_path = iopts.build(&compile::ForProver::Default)?;
 
         Self::new_from_file(&elf_path)
     }
@@ -134,7 +132,7 @@ impl Prover for Nova<Local> {
         let tr = trace(&mut self.vm, K, false).map_err(ProofError::from)?;
 
         Ok(Self::Proof {
-            proof: prove_seq(pp, tr).map_err(ProofError::from)?,
+            proof: prove_seq(pp, tr)?,
             view: Self::View {
                 output: self.vm.syscalls.get_output(),
                 logs: self
@@ -154,12 +152,12 @@ impl Parameters for PP {
     type Error = Error;
 
     fn generate_for_testing() -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
+        Ok(gen_vm_pp(K, &())?)
     }
 
     fn load(path: &Path) -> Result<Self, Self::Error> {
         if let Some(path_str) = path.to_str() {
-            return Ok(load_pp(path_str).map_err(ProofError::from)?);
+            return Ok(load_pp(path_str)?);
         }
 
         Err(Self::Error::PathError(
@@ -169,7 +167,7 @@ impl Parameters for PP {
 
     fn save(pp: &Self, path: &Path) -> Result<(), Self::Error> {
         if let Some(path_str) = path.to_str() {
-            return Ok(save_pp(pp, path_str).map_err(ProofError::from)?);
+            return Ok(save_pp(pp, path_str)?);
         }
 
         Err(Self::Error::PathError(
@@ -192,7 +190,7 @@ impl Generate for PP {
     type Error = Error;
 
     fn generate() -> Result<Self, Self::Error> {
-        Ok(gen_vm_pp(K, &()).map_err(ProofError::from)?)
+        Ok(gen_vm_pp(K, &())?)
     }
 }
 

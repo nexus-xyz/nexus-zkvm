@@ -69,17 +69,12 @@ pub fn prove_seq(pp: &PP, trace: Trace) -> Result<IVCProof, ProofError> {
 }
 
 pub fn prove_seq_step(proof: Option<IVCProof>, pp: &PP, tr: &SC) -> Result<IVCProof, ProofError> {
-    let mut pr;
+    let pr = match proof {
+        Some(pr) => pr,
+        None => IVCProof::new(&tr.input(0)?),
+    };
 
-    if proof.is_none() {
-        let z_0 = tr.input(0)?;
-        pr = IVCProof::new(&z_0);
-    } else {
-        pr = proof.unwrap();
-    }
-
-    pr = IVCProof::prove_step(pr, pp, tr)?;
-    Ok(pr)
+    Ok(IVCProof::prove_step(pr, pp, tr)?)
 }
 
 #[cfg(test)]
