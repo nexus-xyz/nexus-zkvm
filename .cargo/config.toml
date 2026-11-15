@@ -1,0 +1,4 @@
+# There's no Cargo.lock, so every build resolves dependencies afresh. Pick versions that
+# support the pinned toolchain (rust-toolchain.toml) rather than the newest, which may not.
+[resolver]
+incompatible-rust-versions = "fallback"

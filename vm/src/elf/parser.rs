@@ -233,6 +233,8 @@ fn parse_segment_content(
     let is_executable_segment = (segment.p_flags & abi::PF_X) != 0;
     let (segment_virtual_address, segment_physical_address, segment_size) =
         parse_segment_info(segment)?;
+    // parse_segment_info has checked p_filesz <= p_memsz and that both fit in u32.
+    let segment_file_size = segment.p_filesz as u32;
 
     for offset_in_segment in (0..segment_size).step_by(WORD_SIZE as _) {
         // Calculate the memory address for this word
@@ -246,12 +248,24 @@ fn parse_segment_content(
         // Calculate the offset within the segment for this word
         let absolute_address = offset_in_segment + segment_physical_address;
 
-        // Read the word from the file data
-        let word = u32::from_le_bytes(
-            data[absolute_address as usize..(absolute_address + WORD_SIZE as u32) as usize]
-                .try_into()
-                .map_err(ParserError::WordDecodingFailed)?,
-        );
+        // Read the word from the file data. Only the first `p_filesz` bytes of a segment are
+        // stored in the file; the rest of its `p_memsz` (e.g. `.bss`) is zero-initialized, and
+        // the file bytes at those offsets belong to whatever section follows.
+        let word = if offset_in_segment + WORD_SIZE as u32 <= segment_file_size {
+            u32::from_le_bytes(
+                data[absolute_address as usize..(absolute_address + WORD_SIZE as u32) as usize]
+                    .try_into()
+                    .map_err(ParserError::WordDecodingFailed)?,
+            )
+        } else {
+            let mut bytes = [0u8; WORD_SIZE];
+            for (i, byte) in bytes.iter_mut().enumerate() {
+                if offset_in_segment + (i as u32) < segment_file_size {
+                    *byte = data[absolute_address as usize + i];
+                }
+            }
+            u32::from_le_bytes(bytes)
+        };
 
         // Determine the type of word based on the segment and section information
 
@@ -531,7 +545,50 @@ pub fn parse_segments(elf: &ElfBytes<LittleEndian>, data: &[u8]) -> Result<Parse
 mod tests {
     use crate::read_testing_binary_from_path;
 
-    use super::{parse_precompile_metadata, validate_elf_header};
+    use super::{parse_precompile_metadata, parse_segment_content, validate_elf_header};
+    use elf::{abi, segment::ProgramHeader};
+    use std::collections::BTreeMap;
+
+    /// A segment whose memory size exceeds its file size (`.bss`) must read as zeros past
+    /// `p_filesz`, not as the file bytes that follow it (here 0xAA, standing in for the next
+    /// section, e.g. `.eh_frame`).
+    #[test]
+    fn test_bss_past_file_size_is_zero() {
+        let mut data = vec![0x01, 0x02, 0x03, 0x04, 0x05, 0x06];
+        data.extend([0xAA; 10]);
+        let segment = ProgramHeader {
+            p_type: abi::PT_LOAD,
+            p_flags: abi::PF_R | abi::PF_W,
+            p_offset: 0,
+            p_vaddr: 0x1000,
+            p_paddr: 0x1000,
+            p_filesz: 6,
+            p_memsz: 16,
+            p_align: 4,
+        };
+        let section_map = HashMap::from([(".data", (0, 6)), (".bss", (6, 16))]);
+        let (mut instructions, mut rom, mut ram, mut metadata) =
+            (vec![], BTreeMap::new(), BTreeMap::new(), vec![]);
+        parse_segment_content(
+            &segment,
+            &section_map,
+            &data,
+            &mut instructions,
+            &mut rom,
+            &mut ram,
+            &mut metadata,
+        )
+        .unwrap();
+        assert_eq!(
+            ram,
+            BTreeMap::from([
+                (0x1000, 0x0403_0201),
+                (0x1004, 0x0000_0605),
+                (0x1008, 0),
+                (0x100c, 0)
+            ])
+        );
+    }
 
     use elf::{endian::LittleEndian, ElfBytes};
     use std::collections::HashMap;
