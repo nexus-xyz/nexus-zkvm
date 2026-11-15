@@ -72,8 +72,8 @@ impl<F: PrimeField> UniPoly<F> {
   pub fn evaluate(&self, r: &F) -> F {
     let mut eval = self.coeffs[0];
     let mut power = *r;
-    for i in 1..self.coeffs.len() {
-      eval += power * self.coeffs[i];
+    for coeff in &self.coeffs[1..] {
+      eval += power * coeff;
       power *= r;
     }
     eval
@@ -98,8 +98,8 @@ impl<F: PrimeField> CompressedUniPoly<F> {
   pub fn decompress(&self, hint: &F) -> UniPoly<F> {
     let mut linear_term =
       *hint - self.coeffs_except_linear_term[0] - self.coeffs_except_linear_term[0];
-    for i in 1..self.coeffs_except_linear_term.len() {
-      linear_term -= self.coeffs_except_linear_term[i];
+    for coeff in &self.coeffs_except_linear_term[1..] {
+      linear_term -= coeff;
     }
 
     let mut coeffs = vec![self.coeffs_except_linear_term[0], linear_term];
@@ -112,8 +112,8 @@ impl<F: PrimeField> CompressedUniPoly<F> {
 impl<G: CurveGroup> AppendToTranscript<G> for UniPoly<G::ScalarField> {
   fn append_to_transcript(&self, label: &'static [u8], transcript: &mut Transcript) {
     transcript.append_message(label, b"UniPoly_begin");
-    for i in 0..self.coeffs.len() {
-      <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"coeff", &self.coeffs[i]);
+    for coeff in &self.coeffs {
+      <Transcript as ProofTranscript<G>>::append_scalar(transcript, b"coeff", coeff);
     }
     transcript.append_message(label, b"UniPoly_end");
   }

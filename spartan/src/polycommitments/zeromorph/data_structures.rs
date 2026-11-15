@@ -95,14 +95,14 @@ impl<E: Pairing> ZeromorphCommitterKey<E> {
     self.num_vars
   }
   /// Extracts the vector of powers {\tau^i * g}_{i=0}^{2^{num_vars} - 1}
-  pub fn powers(&self) -> Powers<E> {
+  pub fn powers(&self) -> Powers<'_, E> {
     Powers {
       powers_of_g: self.powers_of_tau_g.as_slice().into(),
       powers_of_gamma_g: Cow::Borrowed(&[]),
     }
   }
   /// Extracts the vector of shifted powers {\tau^(N_max - 2^num_vars + i) * g}_{i=0}^{2^{num_vars} - 1}
-  pub fn shifted_powers(&self) -> Powers<E> {
+  pub fn shifted_powers(&self) -> Powers<'_, E> {
     Powers {
       powers_of_g: self.shifted_powers_of_tau_g.as_slice().into(),
       powers_of_gamma_g: Cow::Borrowed(&[]),

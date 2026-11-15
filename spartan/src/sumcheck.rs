@@ -41,8 +41,8 @@ impl<F: PrimeField> SumcheckInstanceProof<F> {
 
     // verify that there is a univariate polynomial for each round
     assert_eq!(self.compressed_polys.len(), num_rounds);
-    for i in 0..self.compressed_polys.len() {
-      let poly = self.compressed_polys[i].decompress(&e);
+    for compressed in &self.compressed_polys {
+      let poly = compressed.decompress(&e);
 
       // verify degree bound
       assert_eq!(poly.degree(), degree_bound);

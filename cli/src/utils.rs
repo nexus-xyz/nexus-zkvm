@@ -24,6 +24,31 @@ where
     Ok(())
 }
 
+/// Runs `cargo new` for a package built with the pinned guest toolchain (Rust 1.77).
+///
+/// The edition and `rust-version` are set explicitly: a newer host cargo would otherwise
+/// default to edition 2024 and write a version 4 lockfile, neither of which Rust 1.77 can read.
+/// `.cargo/config.toml` also asks a newer cargo to pick dependency versions that support 1.77.
+pub fn cargo_new(path: &str) -> anyhow::Result<()> {
+    cargo(None, ["new", "--edition", "2021", path])?;
+    let manifest = Path::new(path).join("Cargo.toml");
+    let toml = std::fs::read_to_string(&manifest)?;
+    let toml = toml.replacen(
+        "edition = \"2021\"\n",
+        "edition = \"2021\"\nrust-version = \"1.77\"\n",
+        1,
+    );
+    std::fs::write(manifest, toml)?;
+    let config = Path::new(path).join(".cargo");
+    std::fs::create_dir_all(&config)?;
+    std::fs::write(config.join("config.toml"), RESOLVER_CONFIG)?;
+    Ok(())
+}
+
+/// Pick dependency versions compatible with each package's `rust-version`. Cargo before 1.84
+/// ignores this setting.
+pub const RESOLVER_CONFIG: &str = "[resolver]\nincompatible-rust-versions = \"fallback\"\n";
+
 /// Checks if the binary is part of cargo manifest and returns path to the build artifact.
 pub fn path_to_artifact(bin: Option<String>, mut profile: &str) -> anyhow::Result<PathBuf> {
     let md = MetadataCommand::new().exec()?;

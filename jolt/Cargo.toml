@@ -13,6 +13,7 @@ strum = "0.25.0"
 
 ark-bn254 = "0.5.0"
 
-# latest commit on legacy-compat
-jolt-core = { git = "https://github.com/nexus-xyz/jolt", rev = "8292b49" }
-jolt-common = { git = "https://github.com/nexus-xyz/jolt", rev = "8292b49", package = "common" }
+# latest commit on legacy-compat. nexus-xyz/jolt is no longer public; this commit is still
+# served by a16z/jolt, the repo it was forked from, but only by its full hash.
+jolt-core = { git = "https://github.com/a16z/jolt", rev = "8292b493ae4645696634b44e7c1208d7c5db8314" }
+jolt-common = { git = "https://github.com/a16z/jolt", rev = "8292b493ae4645696634b44e7c1208d7c5db8314", package = "common" }

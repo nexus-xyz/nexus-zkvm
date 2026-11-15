@@ -54,13 +54,10 @@ impl Jolt<Local> {
     pub fn compile(opts: &compile::CompileOpts) -> Result<Self, Error> {
         let mut iopts = opts.to_owned();
 
-        let elf_path = iopts
-            .build(&compile::ForProver::Jolt)
-            .map_err(BuildError::from)?;
+        let elf_path = iopts.build(&compile::ForProver::Jolt)?;
 
         Ok(Jolt::<Local> {
-            vm: parse_elf::<MerkleTrie>(fs::read(elf_path)?.as_slice())
-                .map_err(ProofError::from)?,
+            vm: parse_elf::<MerkleTrie>(fs::read(elf_path)?.as_slice())?,
             _compute: PhantomData,
         })
     }
@@ -68,9 +65,9 @@ impl Jolt<Local> {
     /// Prove the zkVM and return a verifiable proof.
     pub fn prove(self) -> Result<Proof, Error> {
         let pre = preprocess(&self.vm);
-        let tr = trace(self.vm).map_err(ProofError::from)?;
+        let tr = trace(self.vm)?;
 
-        let (proof, commits) = prove(tr, &pre).map_err(ProofError::from)?;
+        let (proof, commits) = prove(tr, &pre)?;
 
         Ok(Proof { proof, pre, commits })
     }
@@ -79,6 +76,6 @@ impl Jolt<Local> {
 impl Proof {
     /// Verify the proof of an execution.
     pub fn verify(self) -> Result<(), Error> {
-        Ok(verify(self.pre, self.proof, self.commits).map_err(ProofError::from)?)
+        Ok(verify(self.pre, self.proof, self.commits)?)
     }
 }

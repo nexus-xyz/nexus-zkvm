@@ -32,7 +32,7 @@ pub fn lookup_test_machine<M: Memory>(name: &str) -> Option<NexusVM<M>> {
     Some(vm)
 }
 
-fn lookup_test(name: &str) -> Option<&TestMachine> {
+fn lookup_test(name: &str) -> Option<&TestMachine<'_>> {
     for m @ (n, _, _, _) in MACHINES {
         if *n == name {
             return Some(m);

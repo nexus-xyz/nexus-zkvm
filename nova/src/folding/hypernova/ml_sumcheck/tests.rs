@@ -57,7 +57,7 @@ fn random_list_of_products<F: Field, R: RngCore>(
         let num_multiplicands = rng.gen_range(num_multiplicands_range.0..num_multiplicands_range.1);
         let (product, product_sum) = random_product(nv, num_multiplicands, rng);
         let coefficient = F::rand(rng);
-        poly.add_product(product.into_iter(), coefficient);
+        poly.add_product(product, coefficient);
         sum += product_sum * coefficient;
     }
 

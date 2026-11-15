@@ -3,7 +3,7 @@ use std::{fs, io::Write, path::PathBuf};
 use anyhow::Context;
 use clap::Args;
 
-use crate::utils::cargo;
+use crate::utils::{cargo, cargo_new, RESOLVER_CONFIG};
 
 #[derive(Debug, Args)]
 pub struct NewArgs {
@@ -21,13 +21,15 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
     let path_str = path.to_str().context("path is not a valid UTF-8 string")?;
 
     // run cargo to setup project
-    cargo(None, ["new", path_str])?;
+    cargo_new(path_str)?;
     cargo(
         Some(&path),
         [
             "add",
             "--git",
             "https://github.com/nexus-xyz/nexus-zkvm.git",
+            "--tag",
+            "0.2.4",
             "nexus-rt",
         ],
     )?;
@@ -51,7 +53,10 @@ fn setup_crate(path: PathBuf) -> anyhow::Result<()> {
     // .cargo/config.toml
     let config_path = path.join(".cargo");
     fs::create_dir_all(&config_path)?;
-    fs::write(config_path.join("config.toml"), TEMPLATE_CARGO_CONFIG)?;
+    fs::write(
+        config_path.join("config.toml"),
+        format!("{TEMPLATE_CARGO_CONFIG}\n{RESOLVER_CONFIG}"),
+    )?;
 
     // src/main.rs
     fs::write(path.join("src/main.rs"), TEMPLATE_SRC_MAIN)?;
