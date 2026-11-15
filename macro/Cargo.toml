@@ -18,3 +18,7 @@ quote = "1.0"
 proc-macro2 = "1.0"
 proc-macro-crate = "3.1.0"
 nexus-profiler = { path = "./profiler" }
+
+# Found by name with proc-macro-crate in src/pprof.rs, so it looks unused.
+[package.metadata.cargo-machete]
+ignored = ["nexus-profiler"]

@@ -3,7 +3,7 @@ use std::{fs, io::Write, path::PathBuf};
 use anyhow::Context;
 use clap::Args;
 
-use crate::utils::cargo;
+use crate::utils::{cargo, cargo_new, RESOLVER_CONFIG};
 
 #[derive(Debug, Args)]
 pub struct HostArgs {
@@ -42,7 +42,7 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     let ver = if let Some(v) = rev { v } else { tag.unwrap() };
 
     // run cargo to setup project
-    cargo(None, ["new", host_str])?;
+    cargo_new(host_str)?;
     cargo(
         Some(&host_path),
         [
@@ -103,7 +103,7 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
             ),
     )?;
 
-    cargo(None, ["new", guest_str])?;
+    cargo_new(guest_str)?;
     cargo(
         Some(&guest_path),
         [
@@ -116,12 +116,13 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
         ],
     )?;
 
-    // add postcard because it is used for (de)serializing from/to the input/output tapes
+    // add postcard because it is used for (de)serializing from/to the input/output tapes.
+    // Stay on 1.0.x: postcard 1.1 pulls in cobs 0.3, which needs std.
     cargo(
         Some(&guest_path),
         [
             "add",
-            "postcard@1.0.10",
+            "postcard@~1.0.10",
             "-F",
             "alloc",
             "--no-default-features",
@@ -148,7 +149,7 @@ fn setup_crate(host_path: PathBuf, rev: Option<String>, tag: Option<String>) -> 
     fs::create_dir_all(&guest_config_path)?;
     fs::write(
         guest_config_path.join("config.toml"),
-        GUEST_TEMPLATE_CARGO_CONFIG,
+        format!("{GUEST_TEMPLATE_CARGO_CONFIG}\n{RESOLVER_CONFIG}"),
     )?;
 
     // guest/src/main.rs
@@ -180,8 +181,9 @@ runner="nexus-run"
 "#;
 const GUEST_TEMPLATE_SRC_MAIN: &str = include_str!(concat!(guest_examples_dir!(), "/src/main.rs"));
 
-// freeze toolchain that works with all provers
+// freeze toolchain that works with all provers. The guest shares the host's lockfile, and
+// some of the host's dependencies now use edition 2024, which cargo can read from 1.85.
 const GUEST_RUST_TOOLCHAIN: &str = r#"[toolchain]
-channel = "1.77.0"
+channel = "1.85.0"
 targets = ["riscv32i-unknown-none-elf"]
 "#;

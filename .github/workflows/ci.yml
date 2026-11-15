@@ -69,6 +69,7 @@ jobs:
   detect-unused-crate:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: bnjbvr/cargo-machete@main
 
   bench-riscv:

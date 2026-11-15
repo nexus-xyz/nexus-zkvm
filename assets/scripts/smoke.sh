@@ -49,7 +49,7 @@ cp "$1" "$PROJECT_NAME/src/main.rs"
 cd "$PROJECT_NAME"
 
 # Link the test program to the latest runtime code
-sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGINAL_DIR/runtime\"#" Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
+sed -e "s#git = \"https://github.com/nexus-xyz/nexus-zkvm.git\"#path = \"$ORIGINAL_DIR/runtime\"#" -e 's#, tag = "[^"]*"##' Cargo.toml > Cargo.tmp && mv Cargo.tmp Cargo.toml
 
 "$ORIGINAL_DIR/target/release/cargo-nexus" nexus run -v
 "$ORIGINAL_DIR/target/release/cargo-nexus" nexus prove
